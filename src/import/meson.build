@@ -50,7 +50,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-importd',
                 'dbus' : true,
-                'sources' : systemd_importd_sources + systemd_importd_extract_sources,
+                'sources' : systemd_importd_sources,
                 'extract' : systemd_importd_extract_sources,
                 'dependencies' : [common_deps, threads],
         },
@@ -101,7 +101,6 @@ executables += [
                 'sources' : files('test-qcow2.c'),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
-                'conditions' : ['HAVE_ZLIB'],
                 'type' : 'manual',
         },
 

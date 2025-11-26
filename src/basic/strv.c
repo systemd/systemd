@@ -159,17 +159,17 @@ void strv_free_many(char ***strvs, size_t n) {
         free(strvs);
 }
 
-char** strv_copy_n(char * const *l, size_t m) {
+char** strv_copy_n(char * const *l, size_t n) {
         _cleanup_strv_free_ char **result = NULL;
         char **k;
 
-        result = new(char*, MIN(strv_length(l), m) + 1);
+        result = new(char*, MIN(strv_length(l), n) + 1);
         if (!result)
                 return NULL;
 
         k = result;
         STRV_FOREACH(i, l) {
-                if (m == 0)
+                if (n == 0)
                         break;
 
                 *k = strdup(*i);
@@ -177,8 +177,8 @@ char** strv_copy_n(char * const *l, size_t m) {
                         return NULL;
                 k++;
 
-                if (m != SIZE_MAX)
-                        m--;
+                if (n != SIZE_MAX)
+                        n--;
         }
 
         *k = NULL;
@@ -933,9 +933,9 @@ int strv_extend_joined_with_size_sentinel(char ***l, size_t *n, ...) {
         return strv_consume_with_size(l, n, x);
 }
 
-char* startswith_strv(const char *s, char * const *l) {
+char* startswith_strv_internal(const char *s, char * const *l) {
         STRV_FOREACH(i, l) {
-                char *found = startswith(s, *i);
+                char *found = (char*) startswith(s, *i);
                 if (found)
                         return found;
         }
@@ -943,9 +943,9 @@ char* startswith_strv(const char *s, char * const *l) {
         return NULL;
 }
 
-char* endswith_strv(const char *s, char * const *l) {
+char* endswith_strv_internal(const char *s, char * const *l) {
         STRV_FOREACH(i, l) {
-                char *found = endswith(s, *i);
+                char *found = (char*) endswith(s, *i);
                 if (found)
                         return found;
         }

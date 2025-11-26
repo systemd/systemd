@@ -16,7 +16,7 @@ ACTION!="remove", SUBSYSTEM=="block", \
 ACTION=="change", SUBSYSTEM=="block", KERNEL=="loop*", ENV{DISK_MEDIA_CHANGE}=="1", TEST!="loop/backing_file", GROUP="disk", MODE="660"
 
 # Provide a somewhat cleaned up field indicating the subsystem various
-# 'virtual' block devices belong too, in order to avoid replicating name based
+# 'virtual' block devices belong to, in order to avoid replicating name based
 # pattern matching in every consumer
 ACTION!="remove", SUBSYSTEM=="block", KERNEL=="dm-*", ENV{ID_BLOCK_SUBSYSTEM}="dm"
 ACTION!="remove", SUBSYSTEM=="block", KERNEL=="loop*", ENV{ID_BLOCK_SUBSYSTEM}="loop"

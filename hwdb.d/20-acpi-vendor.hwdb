@@ -18,6 +18,12 @@ acpi:AANT*:
 acpi:AAVA*:
  ID_VENDOR_FROM_DATABASE=Aava Mobile Oy
 
+acpi:ACPI*:
+ ID_VENDOR_FROM_DATABASE=Intel Corporation
+
+acpi:AHCL*:
+ ID_VENDOR_FROM_DATABASE=Advantech Co., Ltd.
+
 acpi:AMDI*:
  ID_VENDOR_FROM_DATABASE=AMD
 
@@ -306,6 +312,9 @@ acpi:PEGA*:
 acpi:PHYT*:
  ID_VENDOR_FROM_DATABASE=Phytium Technology Co. Ltd.
 
+acpi:PICO*:
+ ID_VENDOR_FROM_DATABASE=Picoheart (SG) Pte. Ltd.
+
 acpi:PIXA*:
  ID_VENDOR_FROM_DATABASE=PixArt imaging inc.
 
@@ -380,6 +389,9 @@ acpi:SWEM*:
 
 acpi:SYNA*:
  ID_VENDOR_FROM_DATABASE=Synaptics Inc
+
+acpi:SYNC*:
+ ID_VENDOR_FROM_DATABASE=SYNCS / Aviot Systems Pte Ltd
 
 acpi:TCAG*:
  ID_VENDOR_FROM_DATABASE=Teracue AG

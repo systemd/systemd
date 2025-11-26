@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fs-util.h"
 #include "rm-rf.h"
 #include "string-util.h"

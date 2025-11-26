@@ -22,7 +22,10 @@ External:
 
 * fedora: update policy to declare access mode and ownership of unit files to root:root 0644, and add an rpmlint check for it
 
-* zsh shell completion:
+* missing shell completions:
+  - systemd-hwdb
+
+* zsh shell completions:
   - <command> <verb> -<TAB> should complete options, but currently does not
   - systemctl add-wants,add-requires
   - systemctl reboot --boot-loader-entry=
@@ -62,6 +65,12 @@ Regularly:
 * link up selected blog stories from man pages and unit files Documentation= fields
 
 Janitorial Clean-ups:
+
+* machined: make remaining machine bus calls compatible with unpriv machined +
+  unpriv npsawn: GetAddresses(), GetSSHInfo(), GetOSRelease(), OpenPTY(),
+  OpenLogin(), OpenShell(), BindMount(), CopyFrom(), CopyTo(),
+  OpenRootDirectory(). Similar for images: GetHostname(), GetMachineID(),
+  GetMachineInfo(), GetOSRelease().
 
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
@@ -128,6 +137,14 @@ Deprecations and removals:
 
 Features:
 
+* networkd/machined: implement reverse name lookups in the resolved hook
+
+* networkd's resolved hook: optionally map all lease IP addresses handed out to
+  the same hostname which is configured on the .network file. Optionally, even
+  derive this single name from the network interface name (i.e. probably
+  altname or so). This way, when spawning a VM the host could pick the hostname
+  for it and the client gets no say.
+
 * systemd-repart: add --ghost, that creates file systems, updates the kernel's
   partition table but does *not* update partition table on disk. This way, we
   have disk backed file systems that go effectively disappear on reboot. This
@@ -148,6 +165,10 @@ Features:
   DDIs of some OS in your home dir, but combine its /usr/ with a locally
   maintained root fs in a regular dir to maintain local state. (idea: call it
   --mutable= and take dir or DDI and merge in)
+
+* measure all log-in attempts into a new nvpcr
+
+* measure all DDI activations into a new nvpcr
 
 * maybe rework systemd-modules-load to be a generator that just instantiates
   modprobe@.service a bunch of times
@@ -203,6 +224,24 @@ Features:
 
 * nspawn: map foreign UID range through 1:1
 
+* a small tool that can do basic btrfs raid policy mgmt. i.e. gets started as
+  part of the initial transaction for some btrfs raid fs, waits for some time,
+  then puts message on screen (plymouth, console) that some devices apparently
+  are not showing up, then counts down, eventually set a flag somewhere, and
+  retriggers the fs is was invoked for, which causes the udev rules to rerun
+  that assemble the btrfs raid, but this time force degraded assembly.
+
+* systemd-repart: make useful to duplicate current OS onto a second disk, so
+  that we can sanely copy ESP contents, /usr/ images, and then set up btrfs
+  raid for the root fs to extend/mirror the existing install. This would be
+  very similar to the concept of live-install-through-btrfs-migration.
+
+* introduce /etc/boottab or so which lists block devices that bootctl +
+  kernel-install shall update the ESPs on (and register in EFI BootXYZ
+  variables), in addition to whatever is currently the booted /usr/.
+  systemd-sysupdate should also take it into consideration and update the
+  /usr/ images on all listed devices.
+
 * replace all uses of fopen_temporary() by fopen_tmpfile_linkable() +
   flink_tmpfile() and then get rid of fopen_temporary(). Benefit: use O_TMPFILE
   pervasively, and avoid rename() wherever we can.
@@ -219,12 +258,6 @@ Features:
   dispatching by that. Enable this on the native + syslog sockets in journald,
   so that we add correct ordering between the two. Use MSG_PEEK + SCM_TIMESTAMP
   for this.
-
-* maybe replace nss-machines with logic in networkd that registers records with
-  systemd-resolved, based on DHCP leases, so that we gain compat with VMs.
-  Implementation idea: encode in an ifaltname the intended local name to expose this
-  under and then parse that out and map it to the combined A/AAAA of all handed
-  out leases.
 
 * bsod: add target "bsod.target" or so, which invokes systemd-bsod.target and
   waits and then reboots. Then use OnFailure=bsod.target from various jobs that
@@ -469,17 +502,9 @@ Features:
 * allow dynamic modifications of ConcurrencyHardMax= and ConcurrencySoftMax=
   via DBus (and with that also by daemon-reload)
 
-* importd: introduce a per-user instance, that downloads into per-user DDI dirs
-
-* sysupdated: similar
+* sysupdated: introduce per-user version that can update per-user installed dDIs
 
 * portabled: similar
-
-* machined: implement a per-user instance, that manages per-user DDI dirs for
-  images. systemd-nspawn/systemd-vmspawn should probably register with both the
-  system and the user scoped machined instance. The former to get the machine
-  name registered as hostname, and the latter so that the image stuff is nicely
-  per-user managed.
 
 * resolved: make resolved process DNR DHCP info
 
@@ -490,14 +515,8 @@ Features:
 * start using STATX_SUBVOL in btrfs_is_subvol(). Also, make use of it
   generically, so that image discovery recognizes bcachefs subvols too.
 
-* "systemd-export tar" should reuse the libarchive export code from systemd-dissect
-  --archive.
-
-* "systemd-import tar" should be moved to libarchive
-
 * foreign uid:
-  - add support to export-fs, import-fs, import-tar, export-tar
-  - add tool for deleting foreign UID held container images
+  - add support to export-fs, import-fs
   - systemd-dissect should learn mappings, too, when doing mtree and such
 
 * format-table: introduce new cell type for strings with ansi sequences in
@@ -720,7 +739,6 @@ Features:
   from, tracing through overlayfs, DM, loopback block device.
 
 * importd/importctl
-  - port tar handling to libarchive
   - complete varlink interface
   - download images into .v/ dirs
 
@@ -762,6 +780,11 @@ Features:
 
 * credentials: add a flag to the scoped credentials that if set require PK
   reauthentication when unlocking a secret.
+
+* credentials: rework docs. The list in
+  https://systemd.io/CREDENTIALS/#well-known-credentials is very stale.
+  Document credentials in individual man pages, generate list as in
+  systemd.directives.
 
 * extend the smbios11 logic for passing credentials so that instead of passing
   the credential data literally it can also just reference an AF_VSOCK CID/port
@@ -2143,7 +2166,6 @@ Features:
     names, so that for the container case we can establish the same name
     (maybe "host") for referencing the server, everywhere.
   - allow clients to request DNSSEC for a single lookup even if DNSSEC is off (?)
-  - hook up resolved with machined-based address resolution
 
 * refcounting in sd-resolve is borked
 

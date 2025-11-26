@@ -14,6 +14,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "memory-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "utf8.h"
@@ -32,6 +33,7 @@ int efi_get_variable(
                 void **ret_value,
                 size_t *ret_size) {
 
+        int r;
         usec_t begin = 0; /* Unnecessary initialization to appease gcc */
 
         assert(variable);
@@ -66,13 +68,17 @@ int efi_get_variable(
 
                 if (fstat(fd, &st) < 0)
                         return log_debug_errno(errno, "fstat(\"%s\") failed: %m", p);
-                if (st.st_size == 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
-                                               "EFI variable %s is uncommitted", p);
-                if (st.st_size < 4)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "EFI variable %s is shorter than 4 bytes, refusing.", p);
-                if (st.st_size > 4*1024*1024 + 4)
-                        return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "EFI variable %s is ridiculously large, refusing.", p);
+
+                r = stat_verify_regular(&st);
+                if (r < 0)
+                        return log_debug_errno(r, "EFI variable '%s' is not a regular file, refusing: %m", p);
+
+                if (st.st_size == 0) /* for uncommitted variables, see below */
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "EFI variable '%s' is uncommitted", p);
+                if ((uint64_t) st.st_size < sizeof(attr))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "EFI variable '%s' is shorter than %zu bytes, refusing.", p, sizeof(attr));
+                if ((uint64_t) st.st_size > sizeof(attr) + 4 * U64_MB)
+                        return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "EFI variable '%s' is ridiculously large, refusing.", p);
 
                 if (!ret_attribute && !ret_value) {
                         /* No need to read anything, return the reported size. */
@@ -81,31 +87,37 @@ int efi_get_variable(
                 }
 
                 /* We want +1 for the read call, and +3 for the additional terminating bytes added below. */
-                char *t = realloc(buf, (size_t) st.st_size + MAX(1, 3));
-                if (!t)
+                free(buf);
+                buf = malloc((size_t) st.st_size - sizeof(attr) + CONST_MAX(1, 3));
+                if (!buf)
                         return -ENOMEM;
-                buf = t;
 
-                const struct iovec iov[] = {
-                        { &attr, sizeof(attr) },
-                        { buf, (size_t) st.st_size + 1 },
+                struct iovec iov[] = {
+                        { &attr, sizeof(attr)                           },
+                        { buf,   (size_t) st.st_size - sizeof(attr) + 1 },
                 };
 
                 n = readv(fd, iov, 2);
-                assert(n <= st.st_size + 1);
-                if (n == st.st_size + 1)
-                        /* We need to try again with a bigger buffer. */
-                        continue;
-                if (n >= 0)
-                        break;
+                if (n < 0) {
+                        if (errno != EINTR)
+                                return log_debug_errno(errno, "Reading from '%s' failed: %m", p);
 
-                log_debug_errno(errno, "Reading from \"%s\" failed: %m", p);
-                if (errno != EINTR)
-                        return -errno;
+                        log_debug("Reading from '%s' failed with EINTR, retrying.", p);
+                } else if ((size_t) n == sizeof(attr) + st.st_size + 1)
+                        /* We need to try again with a bigger buffer, the variable was apparently changed concurrently? */
+                        log_debug("EFI variable '%s' larger than expected, retrying.", p);
+                else {
+                        assert((size_t) n < sizeof(attr) + st.st_size + 1);
+                        break;
+                }
+
                 if (try >= EFI_N_RETRIES_TOTAL)
-                        return -EBUSY;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "Reading EFI variable '%s' failed even after %u tries, giving up.", p, try);
                 if (try >= EFI_N_RETRIES_NO_DELAY)
                         (void) usleep_safe(EFI_RETRY_DELAY);
+
+                /* Start from the beginning */
+                (void) lseek(fd, 0, SEEK_SET);
         }
 
         /* Unfortunately kernel reports EOF if there's an inconsistency between efivarfs var list and
@@ -122,19 +134,21 @@ int efi_get_variable(
         if (n == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "EFI variable %s is uncommitted", p);
-        if (n < 4)
+        if ((size_t) n < sizeof(attr))
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Read %zi bytes from EFI variable %s, expected >= 4", n, p);
+                                       "Read %zi bytes from EFI variable %s, expected >= %zu", n, p, sizeof(attr));
+        size_t value_size = n - sizeof(attr);
 
         if (ret_attribute)
                 *ret_attribute = attr;
+
         if (ret_value) {
                 assert(buf);
                 /* Always NUL-terminate (3 bytes, to properly protect UTF-16, even if truncated in
                  * the middle of a character) */
-                buf[n - 4] = 0;
-                buf[n - 4 + 1] = 0;
-                buf[n - 4 + 2] = 0;
+                buf[value_size] = 0;
+                buf[value_size + 1] = 0;
+                buf[value_size + 2] = 0;
                 *ret_value = TAKE_PTR(buf);
         }
 
@@ -149,7 +163,7 @@ int efi_get_variable(
          * with a smaller value. */
 
         if (ret_size)
-                *ret_size = n - 4;
+                *ret_size = value_size;
 
         return 0;
 }
@@ -377,10 +391,11 @@ SecureBootMode efi_get_secure_boot_mode(void) {
         int audit    = read_flag(EFI_GLOBAL_VARIABLE_STR("AuditMode"));
         int deployed = read_flag(EFI_GLOBAL_VARIABLE_STR("DeployedMode"));
         int setup    = read_flag(EFI_GLOBAL_VARIABLE_STR("SetupMode"));
-        log_debug("Secure boot variables: SecureBoot=%d AuditMode=%d DeployedMode=%d SetupMode=%d",
-                  secure, audit, deployed, setup);
+        int moksb    = read_flag(EFI_SHIMLOCK_VARIABLE_STR("MokSBStateRT"));
+        log_debug("Secure boot variables: SecureBoot=%d AuditMode=%d DeployedMode=%d SetupMode=%d MokSBStateRT=%d",
+                  secure, audit, deployed, setup, moksb);
 
-        return (cache = decode_secure_boot_mode(secure, audit > 0, deployed > 0, setup > 0));
+        return (cache = decode_secure_boot_mode(secure, audit > 0, deployed > 0, setup > 0, moksb > 0));
 }
 #endif
 

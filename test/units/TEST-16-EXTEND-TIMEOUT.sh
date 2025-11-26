@@ -86,7 +86,7 @@ systemd-run \
     -u runtime-max-sec-test-3.service \
     sh -c "while true; do sleep 1; done"
 mkdir -p /etc/systemd/system/runtime-max-sec-test-3.service.d/
-cat > /etc/systemd/system/runtime-max-sec-test-3.service.d/override.conf << EOF
+cat >/etc/systemd/system/runtime-max-sec-test-3.service.d/override.conf <<EOF
 [Service]
 RuntimeMaxSec=${runtime_max_sec}s
 EOF
@@ -103,7 +103,7 @@ until systemctl is-active runtime-max-sec-test-4.scope; do
     sleep 1
 done
 mkdir -p /etc/systemd/system/runtime-max-sec-test-4.scope.d/
-cat > /etc/systemd/system/runtime-max-sec-test-4.scope.d/override.conf << EOF
+cat >/etc/systemd/system/runtime-max-sec-test-4.scope.d/override.conf <<EOF
 [Scope]
 RuntimeMaxSec=${runtime_max_sec}s
 EOF

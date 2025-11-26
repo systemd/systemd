@@ -861,7 +861,7 @@ static int manager_assess_image(
                 const char *dir_path,
                 const char *dentry_name) {
 
-        char *luks_suffix, *directory_suffix;
+        const char *luks_suffix, *directory_suffix;
         _cleanup_free_ char *path = NULL;
         struct stat st;
         int r;
@@ -1101,7 +1101,7 @@ static int manager_bind_varlink(Manager *m) {
 
         r = sd_varlink_server_listen_address(m->varlink_server, socket_path, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", socket_path);
 
         r = sd_varlink_server_attach_event(m->varlink_server, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
@@ -1889,7 +1889,7 @@ static int manager_rebalance_calculate(Manager *m) {
                 assert(h->rebalance_usage <= usage_sum);
                 assert(h->rebalance_weight <= weight_sum);
 
-                d = ((double) (free_sum / 4096) * (double) h->rebalance_weight) / (double) weight_sum; /* Calculate new space for this home in units of 4K */
+                d = ((double) (free_sum / 4096.0) * (double) h->rebalance_weight) / (double) weight_sum; /* Calculate new space for this home in units of 4K */
 
                 /* Convert from units of 4K back to bytes */
                 if (d >= (double) (UINT64_MAX/4096))

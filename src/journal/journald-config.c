@@ -5,6 +5,7 @@
 #include "conf-parser.h"
 #include "creds-util.h"
 #include "daemon-util.h"
+#include "initrd-util.h"
 #include "journald-audit.h"
 #include "journald-config.h"
 #include "journald-context.h"
@@ -116,7 +117,12 @@ void manager_merge_configs(Manager *m) {
 
         journal_config_done(&m->config);
 
-        MERGE_NON_NEGATIVE(storage, STORAGE_AUTO);
+        MERGE_NON_NEGATIVE(storage, JOURNAL_STORAGE_DEFAULT_VAL);
+
+        /* In the initrd, only 'none' and 'volatile' make sense. */
+        if (in_initrd() && IN_SET(m->config.storage, STORAGE_PERSISTENT, STORAGE_AUTO))
+                m->config.storage = STORAGE_VOLATILE;
+
         manager_merge_journal_compress_options(m);
         MERGE_NON_NEGATIVE(seal, true);
         /* By default, /dev/kmsg is read only by the main namespace instance. */

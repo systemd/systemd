@@ -192,13 +192,8 @@ static int spawn_getter(const char *getter) {
 
 #if HAVE_MICROHTTPD
 
-static int null_timer_event_handler(sd_event_source *s,
-                                uint64_t usec,
-                                void *userdata);
-static int dispatch_http_event(sd_event_source *event,
-                               int fd,
-                               uint32_t revents,
-                               void *userdata);
+static int null_timer_event_handler(sd_event_source *timer_event, uint64_t usec, void *userdata);
+static int dispatch_http_event(sd_event_source *event, int fd, uint32_t revents, void *userdata);
 
 static int build_accept_encoding(char **ret) {
         assert(ret);
@@ -713,7 +708,7 @@ static int create_remoteserver(
                 if (fd < 0)
                         return fd;
 
-                r = journal_remote_add_source(s, fd, (char*) arg_output, false);
+                r = journal_remote_add_source(s, fd, arg_output, false);
                 if (r < 0)
                         return r;
         }

@@ -173,7 +173,7 @@ typedef struct Manager {
         LIST_HEAD(Unit, load_queue); /* this is actually more a stack than a queue, but uh. */
 
         /* Jobs that need to be run */
-        struct Prioq *run_queue;
+        Prioq *run_queue;
 
         /* Units and jobs that have not yet been announced via
          * D-Bus. When something about a job changes it is added here
@@ -231,6 +231,12 @@ typedef struct Manager {
         Hashmap *unit_id_map;
         Hashmap *unit_name_map;
         Set *unit_path_cache;
+        uint64_t last_transaction_id;
+
+        /* IDs of transactions that once encountered ordering cycle */
+        Set *transactions_with_cycle;
+
+        sd_event_source *run_queue_event_source;
 
         sd_event_source *run_queue_event_source;
         char *notify_socket;
@@ -275,10 +281,14 @@ typedef struct Manager {
          * subscriptions we'd use to verify the bus is still the same instance as before. */
 
         /* This is used during reloading: before the reload we queue
-         * the reply message here, and afterwards we send it */
-        sd_bus_message *pending_reload_message;
+         * the reply message here, and afterwards we send it.
+         * It can be either a D-Bus message or a Varlink message, but not both. */
+        sd_bus_message *pending_reload_message_dbus;
+        sd_varlink *pending_reload_message_vl;
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
+
+        uint32_t current_job_id;
 
         /* Data specific to the Automount subsystem */
         int dev_autofs_fd;
@@ -287,6 +297,7 @@ typedef struct Manager {
         CGroupMask cgroup_supported;
         Hashmap *cgroup_unit;
         char *cgroup_root;
+        CGroupMask cgroup_supported;
 
         /* Notifications from cgroups, when the unified hierarchy is used is done via inotify. */
 
@@ -299,6 +310,48 @@ typedef struct Manager {
         sd_event_source *cgroup_empty_event_source;
         sd_event_source *cgroup_oom_event_source;
 
+        /* Make sure the user cannot accidentally unmount our cgroup
+         * file system */
+        int pin_cgroupfs_fd;
+
+        unsigned gc_marker;
+
+        /* The stat() data the last time we saw /etc/localtime */
+        usec_t etc_localtime_mtime;
+        bool etc_localtime_accessible;
+
+        ManagerObjective objective;
+        /* Objective as it was before serialization, mostly to detect soft-reboots */
+        ManagerObjective previous_objective;
+
+        /* Flags */
+        bool dispatching_load_queue;
+        int may_dispatch_stop_notify_queue; /* tristate */
+
+        bool send_reloading_done;
+
+        /* Have we already sent out the READY=1 notification? */
+        bool ready_sent;
+
+        /* Was the last status sent "STATUS=Ready."? */
+        bool status_ready;
+
+        /* Have we already printed the taint line if necessary? */
+        bool taint_logged;
+
+        /* Have we ever changed the "kernel.pid_max" sysctl? */
+        bool sysctl_pid_max_changed;
+
+        ManagerTestRunFlags test_run_flags;
+
+        /* If non-zero, exit with the following value when the systemd
+         * process terminate. Useful for containers: systemd-nspawn could get
+         * the return value. */
+        uint8_t return_value;
+
+        ShowStatus show_status;
+        ShowStatus show_status_overridden;
+        StatusUnitFormat status_unit_format;
         char *confirm_spawn;
         sd_event_source *ask_password_event_source;
 
@@ -452,7 +505,7 @@ static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
 
 usec_t manager_default_timeout(RuntimeScope scope);
 
-int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager **m);
+int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager **ret);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
@@ -476,14 +529,14 @@ int manager_add_job_full(
                 JobMode mode,
                 TransactionAddFlags extra_flags,
                 Set *affected_jobs,
-                sd_bus_error *error,
+                sd_bus_error *reterr_error,
                 Job **ret);
 int manager_add_job(
                 Manager *m,
                 JobType type,
                 Unit *unit,
                 JobMode mode,
-                sd_bus_error *error,
+                sd_bus_error *reterr_error,
                 Job **ret);
 
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret);
@@ -580,6 +633,8 @@ int manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor);
 int manager_override_watchdog_pretimeout_governor(Manager *m, const char *governor);
 
 LogTarget manager_get_executor_log_target(Manager *m);
+
+void manager_log_caller(Manager *manager, PidRef *caller, const char *method);
 
 int manager_allocate_idle_pipe(Manager *m);
 

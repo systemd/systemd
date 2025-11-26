@@ -23,7 +23,7 @@
 
 static struct restrict_fs_bpf *restrict_fs_bpf_free(struct restrict_fs_bpf *obj) {
         /* restrict_fs_bpf__destroy handles object == NULL case */
-        (void) restrict_fs_bpf__destroy(obj);
+        restrict_fs_bpf__destroy(obj);
 
         return NULL;
 }

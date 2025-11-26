@@ -1123,7 +1123,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 log_warning_errno(r, "rtnl: could not get NHA_ID attribute, ignoring: %m");
                 return 0;
         } else if (id == 0) {
-                log_warning("rtnl: received nexthop message with invalid nexthop ID, ignoring: %m");
+                log_warning("rtnl: received nexthop message with invalid nexthop ID, ignoring.");
                 return 0;
         }
 

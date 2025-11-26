@@ -14,7 +14,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=tpm2.target systemd-tpm2-setup-early.service systemd-remount-fs.service
 Before=sysinit.target shutdown.target
-RequiresMountsFor=/var/lib/systemd/tpm2-srk-public-key.pem
+RequiresMountsFor=/var/lib/systemd
 ConditionSecurity=measured-uki
 ConditionPathExists=!/etc/initrd-release
 

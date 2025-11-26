@@ -58,7 +58,9 @@ static LogContext* log_context_detach(LogContext *c) {
 LogContext* log_context_new(const char *key, const char *value) {
         assert(key);
         assert(endswith(key, "="));
-        assert(value);
+
+        if (!value)
+                return NULL;
 
         LIST_FOREACH(ll, i, _log_context)
                 if (i->key == key && i->value == value)

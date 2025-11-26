@@ -3,7 +3,6 @@
 #include "sd-login.h"
 #include "sd-messages.h"
 
-#include "coredump-config.h"
 #include "coredump-context.h"
 #include "coredump-util.h"
 #include "dirent-util.h"

@@ -6,11 +6,11 @@
 
 typedef struct TarImport TarImport;
 
-typedef void (*TarImportFinished)(TarImport *import, int error, void *userdata);
+typedef void (*TarImportFinished)(TarImport *i, int error, void *userdata);
 
-int tar_import_new(TarImport **import, sd_event *event, const char *image_root, TarImportFinished on_finished, void *userdata);
-TarImport* tar_import_unref(TarImport *import);
+int tar_import_new(TarImport **ret, sd_event *event, const char *image_root, TarImportFinished on_finished, void *userdata);
+TarImport* tar_import_unref(TarImport *i);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(TarImport*, tar_import_unref);
 
-int tar_import_start(TarImport *import, int fd, const char *local, ImportFlags flags);
+int tar_import_start(TarImport *i, int fd, const char *local, ImportFlags flags);

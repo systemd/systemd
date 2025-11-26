@@ -28,6 +28,7 @@ systemd_resolved_extract_sources = files(
         'resolved-dnssd-bus.c',
         'resolved-dnssd.c',
         'resolved-etc-hosts.c',
+        'resolved-hook.c',
         'resolved-link-bus.c',
         'resolved-link.c',
         'resolved-llmnr.c',
@@ -80,9 +81,9 @@ executables += [
         libexec_template + resolve_common_template + {
                 'name' : 'systemd-resolved',
                 'dbus' : true,
-                'sources' : systemd_resolved_sources + systemd_resolved_extract_sources,
-                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
+                'sources' : systemd_resolved_sources,
                 'extract' : systemd_resolved_extract_sources,
+                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
         },
         executable_template + resolve_common_template + {
                 'name' : 'resolvectl',

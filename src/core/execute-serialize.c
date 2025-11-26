@@ -938,6 +938,12 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                 if (r < 0)
                         return r;
 
+                if (rt->shared->userns_storage_socket[0] >= 0 && rt->shared->userns_storage_socket[1] >= 0) {
+                        r = serialize_fd_many(f, fds, "exec-runtime-userns-storage-socket", rt->shared->userns_storage_socket, 2);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (rt->shared->netns_storage_socket[0] >= 0 && rt->shared->netns_storage_socket[1] >= 0) {
                         r = serialize_fd_many(f, fds, "exec-runtime-netns-storage-socket", rt->shared->netns_storage_socket, 2);
                         if (r < 0)
@@ -1013,6 +1019,12 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                         r = free_and_strdup(&rt->shared->var_tmp_dir, val);
                         if (r < 0)
                                 return r;
+                } else if ((val = startswith(l, "exec-runtime-userns-storage-socket="))) {
+
+                        r = deserialize_fd_many(fds, val, 2, rt->shared->userns_storage_socket);
+                        if (r < 0)
+                                continue;
+
                 } else if ((val = startswith(l, "exec-runtime-netns-storage-socket="))) {
 
                         r = deserialize_fd_many(fds, val, 2, rt->shared->netns_storage_socket);
@@ -1650,11 +1662,11 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_item_hexmem(f, "exec-context-root-hash", c->root_hash, c->root_hash_size);
+        r = serialize_item_hexmem(f, "exec-context-root-hash", c->root_hash.iov_base, c->root_hash.iov_len);
         if (r < 0)
                 return r;
 
-        r = serialize_item_base64mem(f, "exec-context-root-hash-sig", c->root_hash_sig, c->root_hash_sig_size);
+        r = serialize_item_base64mem(f, "exec-context-root-hash-sig", c->root_hash_sig.iov_base, c->root_hash_sig.iov_len);
         if (r < 0)
                 return r;
 
@@ -2362,6 +2374,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_item(f, "exec-context-user-namespace-path", c->user_namespace_path);
+        if (r < 0)
+                return r;
+
         r = serialize_item(f, "exec-context-network-namespace-path", c->network_namespace_path);
         if (r < 0)
                 return r;
@@ -2600,13 +2616,13 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-hash="))) {
-                        c->root_hash = mfree(c->root_hash);
-                        r = unhexmem(val, &c->root_hash, &c->root_hash_size);
+                        iovec_done(&c->root_hash);
+                        r = unhexmem(val, &c->root_hash.iov_base, &c->root_hash.iov_len);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-hash-sig="))) {
-                        c->root_hash_sig = mfree(c->root_hash_sig);
-                        r= unbase64mem(val, &c->root_hash_sig, &c->root_hash_sig_size);
+                        iovec_done(&c->root_hash_sig);
+                        r = unbase64mem(val, &c->root_hash_sig.iov_base, &c->root_hash_sig.iov_len);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-ephemeral="))) {
@@ -3491,6 +3507,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         c->address_families_allow_list = r;
                 } else if ((val = startswith(l, "exec-context-network-namespace-path="))) {
                         r = free_and_strdup(&c->network_namespace_path, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-user-namespace-path="))) {
+                        r = free_and_strdup(&c->user_namespace_path, val);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-ipc-namespace-path="))) {

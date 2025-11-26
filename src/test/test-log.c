@@ -14,32 +14,45 @@
 #define X100(x) X10(X10(x))
 #define X1000(x) X100(X10(x))
 
+TEST(synthetic_errno) {
+        ASSERT_TRUE(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(EINVAL)));
+        ASSERT_TRUE(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(-EINVAL)));
+        assert_cc(!IS_SYNTHETIC_ERRNO(EINVAL));
+        assert_cc(!IS_SYNTHETIC_ERRNO(-EINVAL));
+        ASSERT_TRUE(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(0)));
+        assert_cc(!IS_SYNTHETIC_ERRNO(0));
+        ASSERT_EQ(ERRNO_VALUE(EINVAL), EINVAL);
+        ASSERT_EQ(ERRNO_VALUE(SYNTHETIC_ERRNO(-EINVAL)), EINVAL);
+
+        ASSERT_ERROR(log_info_errno(SYNTHETIC_ERRNO(EUCLEAN), "foo"), EUCLEAN);
+}
+
 static int fail_with_EINVAL(void) {
         assert_return(false, -EINVAL);
         return 0;
 }
 
-static void test_assert_return_is_critical(void) {
+TEST(assert_return_is_critical) {
         SAVE_ASSERT_RETURN_IS_CRITICAL;
 
         log_set_assert_return_is_critical(false);
-        assert_se(fail_with_EINVAL() == -EINVAL);
+        ASSERT_ERROR(fail_with_EINVAL(), EINVAL);
 
         log_set_assert_return_is_critical(true);
-        ASSERT_RETURN_IS_CRITICAL(false, assert_se(fail_with_EINVAL() == -EINVAL));
-        assert_se(log_get_assert_return_is_critical() == true);
-        ASSERT_RETURN_EXPECTED(assert_se(fail_with_EINVAL() == -EINVAL));
-        assert_se(log_get_assert_return_is_critical() == true);
+        ASSERT_RETURN_IS_CRITICAL(false, ASSERT_ERROR(fail_with_EINVAL(), EINVAL));
+        ASSERT_TRUE(log_get_assert_return_is_critical());
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(fail_with_EINVAL(), EINVAL));
+        ASSERT_TRUE(log_get_assert_return_is_critical());
         ASSERT_RETURN_EXPECTED_SE(fail_with_EINVAL() == -EINVAL);
-        assert_se(log_get_assert_return_is_critical() == true);
+        ASSERT_TRUE(log_get_assert_return_is_critical());
 }
 
-static void test_file(void) {
+TEST(file) {
         log_info("__FILE__: %s", __FILE__);
         log_info("RELATIVE_SOURCE_PATH: %s", RELATIVE_SOURCE_PATH);
         log_info("PROJECT_FILE: %s", PROJECT_FILE);
 
-        assert_se(startswith(__FILE__, RELATIVE_SOURCE_PATH "/"));
+        ASSERT_NOT_NULL(startswith(__FILE__, RELATIVE_SOURCE_PATH "/"));
 }
 
 static void test_log_once_impl(void) {
@@ -53,9 +66,83 @@ static void test_log_once_impl(void) {
                      EBADMSG);
 }
 
-static void test_log_once(void) {
+TEST(log_once) {
         for (unsigned i = 0; i < 4; i++)
                 test_log_once_impl();
+}
+
+_sentinel_
+static void test_log_format_iovec_sentinel(
+                char * const *expected,
+                const char *format,
+                ...) {
+
+        size_t iovec_len = 20, n = 0;
+        struct iovec *iovec = newa(struct iovec, iovec_len);
+        va_list ap;
+
+        log_debug("/* %s(%s) */", __func__, strnull(format));
+
+        char **v = STRV_MAKE("SYSLOG_FACILITY=3",
+                             "SYSLOG_IDENTIFIER=systemd-journald",
+                             "_TRANSPORT=driver",
+                             "PRIORITY=6");
+        size_t m = strv_length(v);
+
+        STRV_FOREACH(s, v)
+                iovec[n++] = IOVEC_MAKE_STRING(*s);
+
+        ASSERT_EQ(n, m);
+
+        va_start(ap, format);
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+        ASSERT_OK(log_format_iovec(iovec, iovec_len, &n, /* newline_separator = */ false, ENOANO, format, ap));
+        REENABLE_WARNING;
+        va_end(ap);
+
+        ASSERT_EQ(n, m + strv_length(expected));
+
+        for (size_t i = 0; i < n; i++)
+                if (i < m)
+                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING(v[i])), 0);
+                else {
+                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING(expected[i - m])), 0);
+                        free(iovec[i].iov_base);
+                }
+
+        n = m;
+
+        va_start(ap, format);
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+        ASSERT_OK(log_format_iovec(iovec, iovec_len, &n, /* newline_separator = */ true, ENOANO, format, ap));
+        REENABLE_WARNING;
+        va_end(ap);
+
+        ASSERT_EQ(n, m + strv_length(expected) * 2);
+
+        for (size_t i = 0; i < n; i++)
+                if (i < m)
+                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING(v[i])), 0);
+                else if ((i - m) % 2 == 0) {
+                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING(expected[(i - m) / 2])), 0);
+                        free(iovec[i].iov_base);
+                } else
+                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING("\n")), 0);
+}
+
+#define test_log_format_iovec_one(...)                 \
+        test_log_format_iovec_sentinel(__VA_ARGS__, NULL)
+
+TEST(log_format_iovec) {
+        test_log_format_iovec_one(NULL, NULL);
+        test_log_format_iovec_one(STRV_MAKE("MESSAGE=hoge"),
+                                  LOG_MESSAGE("hoge"));
+        test_log_format_iovec_one(STRV_MAKE("MESSAGE=hoge: 10"),
+                                  LOG_MESSAGE("hoge: %i", 10));
+        test_log_format_iovec_one(STRV_MAKE("MESSAGE=hoge: 10-a", "HOGEHOGE=100-string", "FOOFOO=4-3"),
+                                  LOG_MESSAGE("hoge: %i-%c", 10, 'a'),
+                                  LOG_ITEM("HOGEHOGE=%zu-%s", (size_t) 100, "string"),
+                                  LOG_ITEM("FOOFOO=%hu-%llu", (unsigned short) 4, (long long unsigned) 3));
 }
 
 static void test_log_struct(void) {
@@ -97,9 +184,9 @@ static void test_long_lines(void) {
 }
 
 static void test_log_syntax(void) {
-        assert_se(log_syntax("unit", LOG_ERR, "filename", 10, EINVAL, "EINVAL: %s: %m", "hogehoge") == -EINVAL);
-        assert_se(log_syntax("unit", LOG_ERR, "filename", 10, -ENOENT, "ENOENT: %s: %m", "hogehoge") == -ENOENT);
-        assert_se(log_syntax("unit", LOG_ERR, "filename", 10, SYNTHETIC_ERRNO(ENOTTY), "ENOTTY: %s: %m", "hogehoge") == -ENOTTY);
+        ASSERT_ERROR(log_syntax("unit", LOG_ERR, "filename", 10, EINVAL, "EINVAL: %s: %m", "hogehoge"), EINVAL);
+        ASSERT_ERROR(log_syntax("unit", LOG_ERR, "filename", 10, -ENOENT, "ENOENT: %s: %m", "hogehoge"), ENOENT);
+        ASSERT_ERROR(log_syntax("unit", LOG_ERR, "filename", 10, SYNTHETIC_ERRNO(ENOTTY), "ENOTTY: %s: %m", "hogehoge"), ENOTTY);
 }
 
 static void test_log_context(void) {
@@ -113,8 +200,8 @@ static void test_log_context(void) {
 
                 /* Test that the log context was set up correctly. The strv we pushed twice should only
                  * result in one log context which is reused. */
-                assert_se(log_context_num_contexts() == 3);
-                assert_se(log_context_num_fields() == 4);
+                ASSERT_EQ(log_context_num_contexts(), 3U);
+                ASSERT_EQ(log_context_num_fields(), 4U);
 
                 /* Test that everything still works with modifications to the log context. */
                 test_log_struct();
@@ -126,8 +213,8 @@ static void test_log_context(void) {
                         LOG_CONTEXT_PUSH_STRV(strv);
 
                         /* Check that our nested fields got added correctly. */
-                        assert_se(log_context_num_contexts() == 4);
-                        assert_se(log_context_num_fields() == 5);
+                        ASSERT_EQ(log_context_num_contexts(), 4U);
+                        ASSERT_EQ(log_context_num_fields(), 5U);
 
                         /* Test that everything still works in a nested block. */
                         test_log_struct();
@@ -136,21 +223,21 @@ static void test_log_context(void) {
                 }
 
                 /* Check that only the fields from the nested block got removed. */
-                assert_se(log_context_num_contexts() == 3);
-                assert_se(log_context_num_fields() == 4);
+                ASSERT_EQ(log_context_num_contexts(), 3U);
+                ASSERT_EQ(log_context_num_fields(), 4U);
         }
 
-        assert_se(log_context_num_contexts() == 0);
-        assert_se(log_context_num_fields() == 0);
+        ASSERT_EQ(log_context_num_contexts(), 0U);
+        ASSERT_EQ(log_context_num_fields(), 0U);
 
         {
                 _cleanup_(log_context_unrefp) LogContext *ctx = NULL;
 
                 char **strv = STRV_MAKE("SIXTH=ijn", "SEVENTH=PRP");
-                assert_se(ctx = log_context_new_strv(strv, /*owned=*/ false));
+                ASSERT_NOT_NULL(ctx = log_context_new_strv(strv, /*owned=*/ false));
 
-                assert_se(log_context_num_contexts() == 1);
-                assert_se(log_context_num_fields() == 2);
+                ASSERT_EQ(log_context_num_contexts(), 1U);
+                ASSERT_EQ(log_context_num_fields(), 2U);
 
                 /* Test that everything still works with a manually configured log context. */
                 test_log_struct();
@@ -161,11 +248,11 @@ static void test_log_context(void) {
         {
                 char **strv = NULL;
 
-                assert_se(strv = strv_new("ABC", "DEF"));
+                ASSERT_NOT_NULL(strv = strv_new("ABC", "DEF"));
                 LOG_CONTEXT_CONSUME_STRV(strv);
 
-                assert_se(log_context_num_contexts() == 1);
-                assert_se(log_context_num_fields() == 2);
+                ASSERT_EQ(log_context_num_contexts(), 1U);
+                ASSERT_EQ(log_context_num_fields(), 2U);
         }
 
         {
@@ -174,17 +261,17 @@ static void test_log_context(void) {
                         IOVEC_MAKE_STRING("ABC=def"),
                         IOVEC_MAKE_STRING("GHI=jkl"),
                 };
-                _cleanup_free_ struct iovec_wrapper *iovw = iovw_new();
-                assert_se(iovw);
-                assert_se(iovw_consume(iovw, strdup("MNO=pqr"), STRLEN("MNO=pqr") + 1) == 0);
+                _cleanup_free_ struct iovec_wrapper *iovw = NULL;
+                ASSERT_NOT_NULL(iovw = iovw_new());
+                ASSERT_OK(iovw_consume(iovw, strdup("MNO=pqr"), STRLEN("MNO=pqr") + 1));
 
                 LOG_CONTEXT_PUSH_IOV(iov, ELEMENTSOF(iov));
                 LOG_CONTEXT_PUSH_IOV(iov, ELEMENTSOF(iov));
                 LOG_CONTEXT_CONSUME_IOV(iovw->iovec, iovw->count);
                 LOG_CONTEXT_PUSH("STU=vwx");
 
-                assert_se(log_context_num_contexts() == 3);
-                assert_se(log_context_num_fields() == 4);
+                ASSERT_EQ(log_context_num_contexts(), 3U);
+                ASSERT_EQ(log_context_num_fields(), 4U);
 
                 test_log_struct();
                 test_long_lines();
@@ -194,16 +281,16 @@ static void test_log_context(void) {
         {
                 LOG_CONTEXT_PUSH_KEY_VALUE("ABC=", "QED");
                 LOG_CONTEXT_PUSH_KEY_VALUE("ABC=", "QED");
-                assert_se(log_context_num_contexts() == 1);
-                assert_se(log_context_num_fields() == 1);
+                ASSERT_EQ(log_context_num_contexts(), 1U);
+                ASSERT_EQ(log_context_num_fields(), 1U);
 
                 test_log_struct();
                 test_long_lines();
                 test_log_syntax();
         }
 
-        assert_se(log_context_num_contexts() == 0);
-        assert_se(log_context_num_fields() == 0);
+        ASSERT_EQ(log_context_num_contexts(), 0U);
+        ASSERT_EQ(log_context_num_fields(), 0U);
 }
 
 static void test_log_prefix(void) {
@@ -232,25 +319,7 @@ static void test_log_prefix(void) {
         test_log_syntax();
 }
 
-int main(int argc, char* argv[]) {
-        test_setup_logging(LOG_DEBUG);
-
-        ASSERT_TRUE(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(EINVAL)));
-        ASSERT_TRUE(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(-EINVAL)));
-        assert_cc(!IS_SYNTHETIC_ERRNO(EINVAL));
-        assert_cc(!IS_SYNTHETIC_ERRNO(-EINVAL));
-        ASSERT_TRUE(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(0)));
-        assert_cc(!IS_SYNTHETIC_ERRNO(0));
-        ASSERT_EQ(ERRNO_VALUE(EINVAL), EINVAL);
-        ASSERT_EQ(ERRNO_VALUE(SYNTHETIC_ERRNO(-EINVAL)), EINVAL);
-
-        test_assert_return_is_critical();
-        test_file();
-
-        assert_se(log_info_errno(SYNTHETIC_ERRNO(EUCLEAN), "foo") == -EUCLEAN);
-
-        test_log_once();
-
+TEST(log_target) {
         for (int target = 0; target < _LOG_TARGET_MAX; target++) {
                 log_set_target(target);
                 log_open();
@@ -261,6 +330,6 @@ int main(int argc, char* argv[]) {
                 test_log_context();
                 test_log_prefix();
         }
-
-        return 0;
 }
+
+DEFINE_TEST_MAIN(LOG_DEBUG);

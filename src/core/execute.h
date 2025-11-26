@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sys/uio.h>
+
 #include "sd-id128.h"
 
 #include "bus-unit-util.h"
-#include "cgroup-util.h"
 #include "core-forward.h"
 #include "cpu-set-util.h"
 #include "exec-util.h"
@@ -111,6 +112,9 @@ typedef struct ExecSharedRuntime {
 
         /* Like netns_storage_socket, but the file descriptor is referring to the IPC namespace. */
         int ipcns_storage_socket[2];
+
+        /* Like netns_storage_socket, but the file descriptor is referring to the user namespace. */
+        int userns_storage_socket[2];
 } ExecSharedRuntime;
 
 typedef struct ExecRuntime {
@@ -202,6 +206,47 @@ typedef struct ExecContext {
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
         void *root_hash, *root_hash_sig;
+        struct iovec root_hash, root_hash_sig;
+        LIST_HEAD(MountOptions, root_image_options);
+        bool root_ephemeral;
+        bool working_directory_missing_ok:1;
+        bool working_directory_home:1;
+
+        bool oom_score_adjust_set:1;
+        bool coredump_filter_set:1;
+        bool nice_set:1;
+        bool ioprio_is_set:1;
+        bool cpu_sched_set:1;
+
+        /* This is not exposed to the user but available internally. We need it to make sure that whenever we
+         * spawn /usr/bin/mount it is run in the same process group as us so that the autofs logic detects
+         * that it belongs to us and we don't enter a trigger loop. */
+        bool same_pgrp;
+
+        bool cpu_sched_reset_on_fork;
+        bool non_blocking;
+
+        mode_t umask;
+        int oom_score_adjust;
+        int nice;
+        int ioprio;
+        int cpu_sched_policy;
+        int cpu_sched_priority;
+        uint64_t coredump_filter;
+
+        CPUSet cpu_set;
+        NUMAPolicy numa_policy;
+        bool cpu_affinity_from_numa;
+
+        ExecInput std_input;
+        ExecOutput std_output;
+        ExecOutput std_error;
+
+        /* At least one of stdin/stdout/stderr was initialized from an fd passed in. This boolean survives
+         * the fds being closed. This only makes sense for transient units. */
+        bool stdio_as_fds;
+        bool root_directory_as_fd;
+
         char *stdio_fdname[3];
         char *stdio_file[3];
         void *stdin_data;
@@ -324,6 +369,21 @@ typedef struct ExecContext {
         bool syscall_allow_list:1;
         bool syscall_log_allow_list:1; /* Log listed system calls */
         bool address_families_allow_list:1;
+        Set *address_families;
+
+        char *user_namespace_path;
+        char *network_namespace_path;
+        char *ipc_namespace_path;
+
+        ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
+        ExecPreserveMode runtime_directory_preserve_mode;
+        usec_t timeout_clean_usec;
+
+        Hashmap *set_credentials; /* output id → ExecSetCredential */
+        Hashmap *load_credentials; /* output id → ExecLoadCredential */
+        OrderedSet *import_credentials; /* ExecImportCredential */
+
+        ImagePolicy *root_image_policy, *mount_image_policy, *extension_image_policy;
 } ExecContext;
 
 typedef enum ExecFlags {
@@ -426,19 +486,6 @@ static inline bool exec_input_is_terminal(ExecInput i) {
                       EXEC_INPUT_TTY_FAIL);
 }
 
-static inline bool exec_output_is_terminal(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_TTY,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
-}
-
-static inline bool exec_output_is_kmsg(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_KMSG,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE);
-}
-
 static inline bool exec_context_has_tty(const ExecContext *context) {
         assert(context);
 
@@ -477,7 +524,7 @@ void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 
-int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
+int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix);
 int exec_context_destroy_mount_ns_dir(Unit *u);
 
 const char* exec_context_fdname(const ExecContext *c, int fd_index) _pure_;
@@ -526,7 +573,7 @@ void exec_status_handoff(ExecStatus *s, const struct ucred *ucred, const dual_ti
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
 void exec_status_reset(ExecStatus *s);
 
-int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecSharedRuntime **ret);
+int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *id, bool create, ExecSharedRuntime **ret);
 ExecSharedRuntime *exec_shared_runtime_destroy(ExecSharedRuntime *r);
 ExecSharedRuntime *exec_shared_runtime_unref(ExecSharedRuntime *r);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSharedRuntime*, exec_shared_runtime_unref);

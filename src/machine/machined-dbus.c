@@ -722,7 +722,7 @@ static int method_register_machine(sd_bus_message *message, void *userdata, sd_b
                 /* If this is not a top-level cgroup, then we need the cgroup path to be able to watch when
                  * it empties */
 
-                r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &m->leader, &m->cgroup);
+                r = cg_pidref_get_path(&m->leader, &m->cgroup);
                 if (r < 0) {
                         r = sd_bus_error_set_errnof(error, r,
                                                     "Failed to determine cgroup of process "PID_FMT" : %m",

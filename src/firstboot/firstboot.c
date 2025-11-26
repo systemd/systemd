@@ -29,7 +29,6 @@
 #include "hostname-util.h"
 #include "image-policy.h"
 #include "kbd-util.h"
-#include "label.h"
 #include "label-util.h"
 #include "libcrypt-util.h"
 #include "locale-setup.h"
@@ -929,9 +928,6 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
                         .pw_shell = (char *) (shell ?: default_root_shell_at(rfd)),
                 };
 
-                if (errno != ENOENT)
-                        return -errno;
-
                 r = putpwent_sane(&root, passwd);
                 if (r < 0)
                         return r;
@@ -1004,9 +1000,6 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
                         .sp_expire = -1,
                         .sp_flag = ULONG_MAX, /* this appears to be what everybody does ... */
                 };
-
-                if (errno != ENOENT)
-                        return -errno;
 
                 r = putspent_sane(&root, shadow);
                 if (r < 0)
