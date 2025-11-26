@@ -13,10 +13,10 @@
 
 struct context {
         int fds[2];
-        bool quit;
         char *something;
         char *automatic_string_property;
         uint32_t automatic_integer_property;
+        bool quit;
 };
 
 static int something_handler(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {

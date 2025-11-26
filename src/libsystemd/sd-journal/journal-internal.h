@@ -93,8 +93,8 @@ typedef struct sd_journal {
 
         int inotify_fd;
         unsigned current_invalidate_counter, last_invalidate_counter;
-        usec_t last_process_usec;
         unsigned generation;
+        usec_t last_process_usec;
 
         /* Iterating through unique fields and their data values */
         char *unique_field;

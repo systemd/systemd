@@ -20,44 +20,40 @@ typedef struct LLDPNeighborID {
 
 struct sd_lldp_neighbor {
         /* Neighbor objects stay around as long as they are linked into an "sd_lldp_rx" object or n_ref > 0. */
+        /* Pointers and 8-byte aligned types */
         sd_lldp_rx *lldp_rx;
-        unsigned n_ref;
-
-        triple_timestamp timestamp;
-
-        usec_t until;
-        unsigned prioq_idx;
-
-        struct ether_addr source_address;
-        struct ether_addr destination_address;
-
-        LLDPNeighborID id;
-
-        /* The raw packet size. The data is appended to the object, accessible via LLDP_NEIGHBOR_RAW() */
-        size_t raw_size;
-
-        /* The current read index for the iterative TLV interface */
-        size_t rindex;
-
-        /* And a couple of fields parsed out. */
-        bool has_ttl:1;
-        bool has_capabilities:1;
-        bool has_port_vlan_id:1;
-
-        uint16_t ttl;
-
-        uint16_t system_capabilities;
-        uint16_t enabled_capabilities;
-
         char *port_description;
         char *system_name;
         char *system_description;
         char *mud_url;
-
-        uint16_t port_vlan_id;
-
         char *chassis_id_as_string;
         char *port_id_as_string;
+
+        triple_timestamp timestamp;
+        LLDPNeighborID id;
+
+        usec_t until;
+        size_t raw_size; /* The raw packet size. The data is appended to the object, accessible via LLDP_NEIGHBOR_RAW() */
+        size_t rindex;   /* The current read index for the iterative TLV interface */
+
+        /* Other structs */
+        struct ether_addr source_address;
+        struct ether_addr destination_address;
+
+        /* 4-byte types */
+        unsigned n_ref;
+        unsigned prioq_idx;
+
+        /* 2-byte types */
+        uint16_t ttl;
+        uint16_t system_capabilities;
+        uint16_t enabled_capabilities;
+        uint16_t port_vlan_id;
+
+        /* Bitfields */
+        bool has_ttl:1;
+        bool has_capabilities:1;
+        bool has_port_vlan_id:1;
 };
 
 static inline void *LLDP_NEIGHBOR_RAW(const sd_lldp_neighbor *n) {
