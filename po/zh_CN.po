@@ -4,7 +4,7 @@
 # Frank Hill <hxf.prc@gmail.com>, 2014.
 # Boyuan Yang <073plan@gmail.com>, 2015.
 # Jeff Bai <jeffbai@aosc.xyz>, 2016.
-# Charles Lee <lchopn@gmail.com>, 2020, 2021, 2022, 2023.
+# Charles Lee <lchopn@gmail.com>, 2020, 2021, 2022, 2023, 2025.
 # Whired Planck <fungdaat31@outlook.com>, 2020.
 # hanjinpeng <hanjinpeng127@gmail.com>, 2024.
 # lumingzh <lumingzh@qq.com>, 2024, 2025.
@@ -15,8 +15,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-11-26 09:52+0000\n"
-"Last-Translator: lumingzh <lumingzh@qq.com>\n"
+"PO-Revision-Date: 2025-11-26 18:34+0000\n"
+"Last-Translator: Charles Lee <lchopn@gmail.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
 "Language: zh_CN\n"
@@ -237,8 +237,7 @@ msgstr "请验证用户 %s 的安全令牌上的用户。"
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
-msgstr ""
-"安全令牌 PIN 已经锁定，请先将其解锁。（提示：移除并重新插入可能就行。）"
+msgstr "安全令牌 PIN 已经锁定，请先将其解锁。（提示：移除并重新插入可能就行。）"
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
