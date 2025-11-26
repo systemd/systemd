@@ -32,47 +32,43 @@ typedef struct LinkAddress {
 } LinkAddress;
 
 typedef struct Link {
+        /* Pointers and other 8-byte aligned types */
         Manager *manager;
-
-        int ifindex;
-        unsigned flags;
-
         LIST_HEAD(LinkAddress, addresses);
-        unsigned n_addresses;
-
         LIST_HEAD(DnsServer, dns_servers);
         DnsServer *current_dns_server;
-        unsigned n_dns_servers;
-
         LIST_HEAD(DnsSearchDomain, search_domains);
-        unsigned n_search_domains;
-
-        int default_route;
-
-        ResolveSupport llmnr_support;
-        ResolveSupport mdns_support;
-        DnsOverTlsMode dns_over_tls_mode;
-        DnssecMode dnssec_mode;
         Set *dnssec_negative_trust_anchors;
-
         DnsScope *unicast_scope;
         DnsScope *llmnr_ipv4_scope;
         DnsScope *llmnr_ipv6_scope;
         DnsScope *mdns_ipv4_scope;
         DnsScope *mdns_ipv6_scope;
-
-        struct stat networkd_state_file_stat;
-        LinkOperationalState networkd_operstate;
-        bool is_managed;
-
         char *ifname;
-        uint32_t mtu;
-        uint8_t operstate;
-
-        bool loaded;
         char *state_file;
 
-        bool unicast_relevant;
+        /* Large structs */
+        struct stat networkd_state_file_stat;
+
+        /* 4-byte types */
+        int ifindex;
+        unsigned flags;
+        unsigned n_addresses;
+        unsigned n_dns_servers;
+        unsigned n_search_domains;
+        int default_route;
+        ResolveSupport llmnr_support;
+        ResolveSupport mdns_support;
+        DnsOverTlsMode dns_over_tls_mode;
+        DnssecMode dnssec_mode;
+        LinkOperationalState networkd_operstate;
+        uint32_t mtu;
+
+        /* 1-byte types */
+        uint8_t operstate;
+        bool is_managed:1;
+        bool loaded:1;
+        bool unicast_relevant:1;
 } Link;
 
 int link_new(Manager *m, Link **ret, int ifindex);

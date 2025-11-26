@@ -8,9 +8,9 @@
 
 typedef struct UserNamespaceInfo {
         uid_t owner;
+        uint32_t size;
         char *name;
         uint64_t userns_inode;
-        uint32_t size;
         uid_t start_uid;
         uid_t target_uid;
         gid_t start_gid;

@@ -158,52 +158,20 @@ typedef struct OciHook {
 } OciHook;
 
 typedef struct Settings {
-        /* [Exec] */
-        StartMode start_mode;
-        int ephemeral;
+        /* Pointers and other 8-byte aligned types */
         char **parameters;
         char **environment;
         char *user;
-        uint64_t capability;
-        uint64_t drop_capability;
-        uint64_t ambient_capability;
-        int kill_signal;
-        unsigned long personality;
-        sd_id128_t machine_id;
         char *working_directory;
         char *pivot_root_new;
         char *pivot_root_old;
-        UserNamespaceMode userns_mode;
-        uid_t uid_shift, uid_range;
-        int notify_ready;
         char **syscall_allow_list;
         char **syscall_deny_list;
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *hostname;
-        int no_new_privileges;
-        int oom_score_adjust;
-        bool oom_score_adjust_set;
-        CPUSet cpu_set;
-        ResolvConfMode resolv_conf;
-        LinkJournal link_journal;
-        bool link_journal_try;
-        TimezoneMode timezone;
-        int suppress_sync;
-
-        /* [Files] */
-        int read_only;
-        VolatileMode volatile_mode;
         CustomMount *custom_mounts;
-        size_t n_custom_mounts;
-        UserNamespaceOwnership userns_ownership;
         char **bind_user;
         char *bind_user_shell;
-        bool bind_user_shell_copy;
-        bool bind_user_shell_set;
-
-        /* [Network] */
-        int private_network;
-        int network_veth;
         char *network_bridge;
         char *network_zone;
         char **network_interfaces;
@@ -211,30 +179,64 @@ typedef struct Settings {
         char **network_ipvlan;
         char **network_veth_extra;
         ExposePort *expose_ports;
-
-        /* Additional fields, that are specific to OCI runtime case */
         char *bundle;
         char *root;
         OciHook *oci_hooks_prestart, *oci_hooks_poststart, *oci_hooks_poststop;
-        size_t n_oci_hooks_prestart, n_oci_hooks_poststart, n_oci_hooks_poststop;
         char *slice;
         sd_bus_message *properties;
-        CapabilityQuintet full_capabilities;
-        uid_t uid;
-        gid_t gid;
         gid_t *supplementary_gids;
-        size_t n_supplementary_gids;
-        unsigned console_width, console_height;
-        ConsoleMode console_mode;
         DeviceNode *extra_nodes;
-        size_t n_extra_nodes;
-        unsigned long clone_ns_flags;
         char *network_namespace_path;
-        int use_cgns;
         char **sysctl;
 #if HAVE_SECCOMP
         scmp_filter_ctx seccomp;
 #endif
+
+        /* Large structs */
+        sd_id128_t machine_id;
+        CPUSet cpu_set;
+        CapabilityQuintet full_capabilities;
+
+        /* 64-bit integers */
+        uint64_t capability;
+        uint64_t drop_capability;
+        uint64_t ambient_capability;
+        unsigned long personality;
+        size_t n_custom_mounts;
+        size_t n_oci_hooks_prestart, n_oci_hooks_poststart, n_oci_hooks_poststop;
+        size_t n_supplementary_gids;
+        size_t n_extra_nodes;
+        unsigned long clone_ns_flags;
+
+        /* 4-byte integers and enums */
+        StartMode start_mode;
+        int ephemeral;
+        int kill_signal;
+        UserNamespaceMode userns_mode;
+        uid_t uid_shift, uid_range;
+        int notify_ready;
+        int no_new_privileges;
+        int oom_score_adjust;
+        ResolvConfMode resolv_conf;
+        LinkJournal link_journal;
+        TimezoneMode timezone;
+        int suppress_sync;
+        int read_only;
+        VolatileMode volatile_mode;
+        UserNamespaceOwnership userns_ownership;
+        int private_network;
+        int network_veth;
+        uid_t uid;
+        gid_t gid;
+        unsigned console_width, console_height;
+        ConsoleMode console_mode;
+        int use_cgns;
+
+        /* Booleans */
+        bool oom_score_adjust_set;
+        bool link_journal_try;
+        bool bind_user_shell_copy;
+        bool bind_user_shell_set;
 } Settings;
 
 Settings *settings_new(void);

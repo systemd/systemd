@@ -18,17 +18,6 @@
 #define MANAGER_DNS_SERVERS_MAX 256
 
 typedef struct Manager {
-        sd_event *event;
-
-        ResolveSupport llmnr_support;
-        ResolveSupport mdns_support;
-        DnssecMode dnssec_mode;
-        DnsOverTlsMode dns_over_tls_mode;
-        DnsCacheMode enable_cache;
-        bool cache_from_localhost;
-        DnsStubListenerMode dns_stub_listener_mode;
-        usec_t stale_retention_usec;
-
 #if ENABLE_DNS_OVER_TLS
         DnsTlsManagerData dnstls_data;
 #endif
@@ -36,67 +25,25 @@ typedef struct Manager {
         /* Network */
         Hashmap *links;
 
+        /* Pointers */
+        sd_event *event;
         sd_netlink *rtnl;
         sd_event_source *rtnl_event_source;
-
         sd_network_monitor *network_monitor;
         sd_event_source *network_event_source;
-
-        /* DNS query management */
         Hashmap *dns_transactions;
-        LIST_HEAD(DnsQuery, dns_queries);
-        unsigned n_dns_queries;
         Hashmap *stub_queries_by_packet;
-
-        LIST_HEAD(DnsStream, dns_streams);
-        unsigned n_dns_streams[_DNS_STREAM_TYPE_MAX];
-
-        /* Unicast dns */
-        LIST_HEAD(DnsServer, dns_servers);
-        LIST_HEAD(DnsServer, fallback_dns_servers);
-        unsigned n_dns_servers; /* counts both main and fallback */
         DnsServer *current_dns_server;
-
-        LIST_HEAD(DnsSearchDomain, search_domains);
-        unsigned n_search_domains;
-
-        bool need_builtin_fallbacks;
-        bool read_resolv_conf;
-        bool resolve_unicast_single_label;
-
-        struct stat resolv_conf_stat;
-
-        DnsTrustAnchor trust_anchor;
-
-        LIST_HEAD(DnsScope, dns_scopes);
         DnsScope *unicast_scope;
-
         Hashmap *delegates; /* id string → DnsDelegate objects */
-
-        /* LLMNR */
-        int llmnr_ipv4_udp_fd;
-        int llmnr_ipv6_udp_fd;
-        int llmnr_ipv4_tcp_fd;
-        int llmnr_ipv6_tcp_fd;
-
         sd_event_source *llmnr_ipv4_udp_event_source;
         sd_event_source *llmnr_ipv6_udp_event_source;
         sd_event_source *llmnr_ipv4_tcp_event_source;
         sd_event_source *llmnr_ipv6_tcp_event_source;
-
-        /* mDNS */
-        int mdns_ipv4_fd;
-        int mdns_ipv6_fd;
         sd_event_source *mdns_ipv4_event_source;
         sd_event_source *mdns_ipv6_event_source;
-
-        /* DNS-SD */
         Hashmap *dnssd_registered_services;
-
-        /* dbus */
         sd_bus *bus;
-
-        /* The hostname we publish on LLMNR and mDNS */
         char *full_hostname;
         char *llmnr_hostname;
         char *mdns_hostname;
@@ -104,59 +51,76 @@ typedef struct Manager {
         DnsResourceKey *llmnr_host_ipv6_key;
         DnsResourceKey *mdns_host_ipv4_key;
         DnsResourceKey *mdns_host_ipv6_key;
-
-        /* Watch the system hostname */
-        int hostname_fd;
         sd_event_source *hostname_event_source;
+        Set *refuse_record_types;
+        OrderedSet *dns_extra_stub_listeners;
+        sd_event_source *dns_stub_udp_event_source;
+        sd_event_source *dns_stub_tcp_event_source;
+        sd_event_source *dns_proxy_stub_udp_event_source;
+        sd_event_source *dns_proxy_stub_tcp_event_source;
+        Hashmap *polkit_registry;
+        sd_varlink_server *varlink_server;
+        sd_varlink_server *varlink_monitor_server;
+        Set *varlink_query_results_subscription;
+        Set *varlink_dns_configuration_subscription;
+        sd_json_variant *dns_configuration_json;
+        sd_netlink_slot *netlink_new_route_slot;
+        sd_netlink_slot *netlink_del_route_slot;
+        sd_event_source *clock_change_event_source;
+        SocketGraveyard *socket_graveyard_oldest;
+        Hashmap *dns_service_browsers;
 
+        /* Large structs and lists */
+        struct stat resolv_conf_stat;
+        DnsTrustAnchor trust_anchor;
+        EtcHosts etc_hosts;
+        struct stat etc_hosts_stat;
+        struct sigrtmin18_info sigrtmin18_info;
+        LIST_HEAD(DnsQuery, dns_queries);
+        LIST_HEAD(DnsStream, dns_streams);
+        LIST_HEAD(DnsServer, dns_servers);
+        LIST_HEAD(DnsServer, fallback_dns_servers);
+        LIST_HEAD(DnsSearchDomain, search_domains);
+        LIST_HEAD(DnsScope, dns_scopes);
+        LIST_HEAD(SocketGraveyard, socket_graveyard);
+
+        /* 64-bit types */
+        usec_t stale_retention_usec;
+        usec_t etc_hosts_last;
+        size_t n_socket_graveyard;
+
+        /* Enums and 32-bit integers */
+        ResolveSupport llmnr_support;
+        ResolveSupport mdns_support;
+        DnssecMode dnssec_mode;
+        DnsOverTlsMode dns_over_tls_mode;
+        DnsCacheMode enable_cache;
+        DnsStubListenerMode dns_stub_listener_mode;
+        unsigned n_dns_queries;
+        unsigned n_dns_streams[_DNS_STREAM_TYPE_MAX];
+        unsigned n_dns_servers; /* counts both main and fallback */
+        unsigned n_search_domains;
+        int llmnr_ipv4_udp_fd;
+        int llmnr_ipv6_udp_fd;
+        int llmnr_ipv4_tcp_fd;
+        int llmnr_ipv6_tcp_fd;
+        int mdns_ipv4_fd;
+        int mdns_ipv6_fd;
+        int hostname_fd;
         unsigned n_transactions_total;
         unsigned n_timeouts_total;
         unsigned n_timeouts_served_stale_total;
         unsigned n_failure_responses_total;
         unsigned n_failure_responses_served_stale_total;
-
         unsigned n_dnssec_verdict[_DNSSEC_VERDICT_MAX];
 
-        /* Data from /etc/hosts */
-        EtcHosts etc_hosts;
-        usec_t etc_hosts_last;
-        struct stat etc_hosts_stat;
+        /* Booleans */
+        bool cache_from_localhost;
+        bool need_builtin_fallbacks;
+        bool read_resolv_conf;
+        bool resolve_unicast_single_label;
         bool read_etc_hosts;
-
-        /* List of refused DNS Record Types*/
-        Set *refuse_record_types;
-
-        OrderedSet *dns_extra_stub_listeners;
-
-        /* Local DNS stub on 127.0.0.53:53 */
-        sd_event_source *dns_stub_udp_event_source;
-        sd_event_source *dns_stub_tcp_event_source;
-
-        /* Local DNS proxy stub on 127.0.0.54:53 */
-        sd_event_source *dns_proxy_stub_udp_event_source;
-        sd_event_source *dns_proxy_stub_tcp_event_source;
-
-        Hashmap *polkit_registry;
-
-        sd_varlink_server *varlink_server;
-        sd_varlink_server *varlink_monitor_server;
-
-        Set *varlink_query_results_subscription;
-        Set *varlink_dns_configuration_subscription;
-
-        sd_json_variant *dns_configuration_json;
-
-        sd_netlink_slot *netlink_new_route_slot;
-        sd_netlink_slot *netlink_del_route_slot;
-
-        sd_event_source *clock_change_event_source;
-
-        LIST_HEAD(SocketGraveyard, socket_graveyard);
-        SocketGraveyard *socket_graveyard_oldest;
-        size_t n_socket_graveyard;
-
-        struct sigrtmin18_info sigrtmin18_info;
-
+  
         /* Map varlink links to DnsServiceBrowser instances. */
         Hashmap *dns_service_browsers;
 

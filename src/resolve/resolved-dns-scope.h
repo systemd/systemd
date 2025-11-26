@@ -29,10 +29,33 @@ typedef enum DnsScopeOrigin {
 } DnsScopeOrigin;
 
 typedef struct DnsScope {
+        /* Pointers and other 8-byte aligned types */
         Manager *manager;
+        Link *link;
+        DnsDelegate *delegate;
 
+        OrderedHashmap *conflict_queue;
+        sd_event_source *conflict_event_source;
+        sd_event_source *announce_event_source;
+        sd_event_source *mdns_goodbye_event_source;
+        Hashmap *transactions_by_key;
+
+        /* Large structs */
+        DnsCache cache;
+        DnsZone zone;
+        RateLimit ratelimit;
+
+        /* 64-bit integers */
+        usec_t resend_timeout;
+        usec_t max_rtt;
+
+        /* List heads */
+        LIST_HEAD(DnsQueryCandidate, query_candidates);
+        LIST_HEAD(DnsTransaction, transactions);
+        LIST_FIELDS(DnsScope, scopes);
+
+        /* 32-bit integers and enums */
         DnsScopeOrigin origin;
-
         DnsProtocol protocol;
         int family;
 
@@ -40,37 +63,7 @@ typedef struct DnsScope {
         DnssecMode dnssec_mode;
         DnsOverTlsMode dns_over_tls_mode;
 
-        Link *link;
-        DnsDelegate *delegate;
-
-        DnsCache cache;
-        DnsZone zone;
-
-        OrderedHashmap *conflict_queue;
-        sd_event_source *conflict_event_source;
-
-        sd_event_source *announce_event_source;
-
-        sd_event_source *mdns_goodbye_event_source;
-
-        RateLimit ratelimit;
-
-        usec_t resend_timeout;
-        usec_t max_rtt;
-
-        LIST_HEAD(DnsQueryCandidate, query_candidates);
-
-        /* Note that we keep track of ongoing transactions in two ways: once in a hashmap, indexed by the rr
-         * key, and once in a linked list. We use the hashmap to quickly find transactions we can reuse for a
-         * key. But note that there might be multiple transactions for the same key (because the associated
-         * query flags might differ in incompatible ways: e.g. we may not reuse a non-validating transaction
-         * as validating. Hence we maintain a per-key list of transactions, which we iterate through to find
-         * one we can reuse with matching flags. */
-        Hashmap *transactions_by_key;
-        LIST_HEAD(DnsTransaction, transactions);
-
-        LIST_FIELDS(DnsScope, scopes);
-
+        /* Booleans */
         bool announced;
 } DnsScope;
 

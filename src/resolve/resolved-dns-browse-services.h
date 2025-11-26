@@ -26,10 +26,10 @@ enum DnsRecordTTLState {
 
 struct DnssdDiscoveredService {
         unsigned n_ref;
+        int family;
         DnsServiceBrowser *service_browser;
         sd_event_source *schedule_event;
         DnsResourceRecord *rr;
-        int family;
         usec_t until;
         DnsRecordTTLState rr_ttl_state;
         DnsQuery *query;
@@ -38,6 +38,7 @@ struct DnssdDiscoveredService {
 
 struct DnsServiceBrowser {
         unsigned n_ref;
+        int ifindex;
         Manager *manager;
         sd_varlink *link;
         DnsQuestion *question_idna;
@@ -46,7 +47,6 @@ struct DnsServiceBrowser {
         sd_event_source *schedule_event;
         usec_t delay;
         DnsResourceKey *key;
-        int ifindex;
         uint64_t token;
         LIST_HEAD(DnssdDiscoveredService, dns_services);
 };

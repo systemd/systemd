@@ -41,64 +41,54 @@ const char* dns_server_feature_level_to_string(DnsServerFeatureLevel i) _const_;
 DnsServerFeatureLevel dns_server_feature_level_from_string(const char *s) _pure_;
 
 typedef struct DnsServer {
+        /* Pointers and other 8-byte aligned types */
         Manager *manager;
-
-        unsigned n_ref;
-
-        DnsServerType type;
         Link *link;
         DnsDelegate *delegate;
-
-        int family;
-        union in_addr_union address;
-        int ifindex; /* for IPv6 link-local DNS servers */
-        uint16_t port;
         char *server_name;
-
         char *server_string;
         char *server_string_full;
-
-        /* The long-lived stream towards this server. */
         DnsStream *stream;
+        LIST_FIELDS(DnsServer, servers);
+
+        /* Large structs */
+        union in_addr_union address;
 
 #if ENABLE_DNS_OVER_TLS
         DnsTlsServerData dnstls_data;
 #endif
 
+        /* 64-bit integers */
+        size_t received_udp_fragment_max;   /* largest packet or fragment (without IP/UDP header) we saw so far */
+        usec_t verified_usec;
+        usec_t features_grace_period_usec;
+
+        /* 32-bit integers and enums */
+        unsigned n_ref;
+        DnsServerType type;
+        int family;
+        int ifindex; /* for IPv6 link-local DNS servers */
         DnsServerFeatureLevel verified_feature_level;
         DnsServerFeatureLevel possible_feature_level;
-
-        size_t received_udp_fragment_max;   /* largest packet or fragment (without IP/UDP header) we saw so far */
-
         unsigned n_failed_udp;
         unsigned n_failed_tcp;
         unsigned n_failed_tls;
+        ResolveConfigSource config_source;
+        int accessible;
 
+        /* 16-bit integers */
+        uint16_t port;
+
+        /* Booleans and bitfields */
         bool packet_truncated:1;        /* Set when TC bit was set on reply */
         bool packet_bad_opt:1;          /* Set when OPT was missing or otherwise bad on reply */
         bool packet_rrsig_missing:1;    /* Set when RRSIG was missing */
         bool packet_invalid:1;          /* Set when we failed to parse a reply */
         bool packet_do_off:1;           /* Set when the server didn't copy DNSSEC DO flag from request to response */
         bool packet_fragmented:1;       /* Set when we ever saw a fragmented packet */
-
-        usec_t verified_usec;
-        usec_t features_grace_period_usec;
-
-        /* Whether we already warned about downgrading to non-DNSSEC mode for this server */
         bool warned_downgrade:1;
-
-        /* Used when GC'ing old DNS servers when configuration changes. */
         bool marked:1;
-
-        /* If linked is set, then this server appears in the servers linked list */
         bool linked:1;
-        LIST_FIELDS(DnsServer, servers);
-
-        /* Servers registered via D-Bus are not removed on reload */
-        ResolveConfigSource config_source;
-
-        /* Tri-state to indicate if the DNS server is accessible. */
-        int accessible;
 } DnsServer;
 
 int dns_server_new(
