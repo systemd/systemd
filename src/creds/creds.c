@@ -1178,8 +1178,8 @@ typedef struct MethodEncryptParameters {
         uint64_t timestamp;
         uint64_t not_after;
         CredentialScope scope;
-        sd_id128_t with_key;
         uid_t uid;
+        sd_id128_t with_key;
 } MethodEncryptParameters;
 
 static void method_encrypt_parameters_done(MethodEncryptParameters *p) {
