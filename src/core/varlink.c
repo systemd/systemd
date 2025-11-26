@@ -169,7 +169,7 @@ static int managed_oom_vl_reply(sd_varlink *link, sd_json_variant *parameters, c
 
                 m->managed_oom_varlink = sd_varlink_unref(link);
 
-                log_debug("Reconnecting to %s", VARLINK_ADDR_PATH_MANAGED_OOM_USER);
+                log_debug("Reconnecting to %s", VARLINK_PATH_MANAGED_OOM_USER);
 
                 r = manager_varlink_managed_oom_connect(m);
                 if (r <= 0)
@@ -194,7 +194,7 @@ static int manager_varlink_managed_oom_connect(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m))
                 return 0;
 
-        r = sd_varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM_USER);
+        r = sd_varlink_connect_address(&link, VARLINK_PATH_MANAGED_OOM_USER);
         if (r == -ENOENT)
                 return 0;
         if (ERRNO_IS_NEG_DISCONNECT(r)) {
@@ -202,7 +202,7 @@ static int manager_varlink_managed_oom_connect(Manager *m) {
                 return 0;
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to '%s': %m", VARLINK_ADDR_PATH_MANAGED_OOM_USER);
+                return log_error_errno(r, "Failed to connect to '%s': %m", VARLINK_PATH_MANAGED_OOM_USER);
 
         sd_varlink_set_userdata(link, m);
 
@@ -435,7 +435,7 @@ static int manager_varlink_init_system(Manager *m) {
         if (!MANAGER_IS_TEST_RUN(m)) {
                 FOREACH_STRING(address,
                                "/run/systemd/userdb/io.systemd.DynamicUser",
-                               VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM,
+                               VARLINK_PATH_MANAGED_OOM_SYSTEM,
                                "/run/systemd/io.systemd.Manager") {
                         /* We might have got sockets through deserialization. Do not bind to them twice. */
                         if (!fresh && varlink_server_contains_socket(m->varlink_server, address))
