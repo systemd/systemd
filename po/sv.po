@@ -4,7 +4,7 @@
 # Sebastian Rasmussen <sebras@gmail.com>, 2015.
 # Andreas Henriksson <andreas@fatal.se>, 2016.
 # Josef Andersson <l10nl18nsweja@gmail.com>, 2015, 2017.
-# Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021, 2024.
+# Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021, 2024, 2025.
 # Luna Jernberg <bittin@reimu.nl>, 2020, 2023, 2024, 2025.
 # Anders Jonsson <anders.jonsson@norsjovallen.se>, 2022, 2024, 2025.
 # Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
@@ -13,7 +13,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:33+0000\n"
-"Last-Translator: Luna Jernberg <bittin@reimu.nl>\n"
+"Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -1182,8 +1182,8 @@ msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
 msgstr ""
-"Autentisering krävs för att uppdatera systemet till en specifik (eventuellt "
-"gammal) version."
+"Autentisering krävs för att uppdatera systemet till en specifik "
+"(eventuellt gammal) version."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
@@ -1264,8 +1264,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Autentisering krävs för att skicka en UNIX-signal till processerna i ”$"
-"(unit)”."
+"Autentisering krävs för att skicka en UNIX-signal till processerna i ”$(unit)"
+"”."
 
 #: src/core/dbus-unit.c:620
 msgid ""
