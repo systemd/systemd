@@ -52,7 +52,7 @@ static BusTrackItem* track_item_free(BusTrackItem *i) {
         return mfree(i);
 }
 
-DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(BusTrackItem, track_item, track_item_free);
+DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(BusTrackItem, track_item, b, track_item_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(BusTrackItem*, track_item_unref);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(track_item_hash_ops, char, string_hash_func, string_compare_func,
                                               BusTrackItem, track_item_free);
@@ -165,7 +165,7 @@ static sd_bus_track* track_free(sd_bus_track *track) {
         return mfree(track);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus_track, sd_bus_track, track_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus_track, sd_bus_track, track, track_free);
 
 static int on_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         BusTrackItem *item = ASSERT_PTR(userdata);

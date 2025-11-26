@@ -52,7 +52,7 @@ static Neighbor* neighbor_free(Neighbor *neighbor) {
         return mfree(neighbor);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(Neighbor, neighbor, neighbor_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Neighbor, neighbor, neighbor, neighbor_free);
 DEFINE_SECTION_CLEANUP_FUNCTIONS(Neighbor, neighbor_unref);
 
 static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state);

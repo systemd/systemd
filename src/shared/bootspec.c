@@ -39,7 +39,7 @@ static const char* const boot_entry_type_description_table[_BOOT_ENTRY_TYPE_MAX]
         [BOOT_ENTRY_AUTO]   = "Automatic",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type_description, BootEntryType);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type_description, BootEntryType, t);
 
 static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
         [BOOT_ENTRY_TYPE1]  = "type1",
@@ -48,21 +48,21 @@ static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
         [BOOT_ENTRY_AUTO]   = "auto",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(boot_entry_type, BootEntryType);
+DEFINE_STRING_TABLE_LOOKUP(boot_entry_type, BootEntryType, t);
 
 static const char* const boot_entry_source_description_table[_BOOT_ENTRY_SOURCE_MAX] = {
         [BOOT_ENTRY_ESP]      = "EFI System Partition",
         [BOOT_ENTRY_XBOOTLDR] = "Extended Boot Loader Partition",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source_description, BootEntrySource);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source_description, BootEntrySource, s);
 
 static const char* const boot_entry_source_table[_BOOT_ENTRY_SOURCE_MAX] = {
         [BOOT_ENTRY_ESP]      = "esp",
         [BOOT_ENTRY_XBOOTLDR] = "xbootldr",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source, BootEntrySource);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source, BootEntrySource, s);
 
 static void boot_entry_addons_done(BootEntryAddons *addons) {
         assert(addons);

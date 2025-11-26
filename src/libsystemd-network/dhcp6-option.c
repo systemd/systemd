@@ -909,7 +909,7 @@ int sd_dhcp6_option_new(uint16_t option, const void *data, size_t length, uint32
         return 0;
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_option, sd_dhcp6_option, dhcp6_option_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_option, sd_dhcp6_option, ra, dhcp6_option_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 dhcp6_option_hash_ops,
                 void,

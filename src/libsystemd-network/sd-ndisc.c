@@ -35,7 +35,7 @@ static const char * const ndisc_event_table[_SD_NDISC_EVENT_MAX] = {
         [SD_NDISC_EVENT_REDIRECT] = "redirect",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event_t);
+DEFINE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event_t, e);
 
 static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event_t event, void *message) {
         assert(ndisc);
@@ -183,7 +183,7 @@ static sd_ndisc *ndisc_free(sd_ndisc *nd) {
         return mfree(nd);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc, sd_ndisc, ndisc_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc, sd_ndisc, nd, ndisc_free);
 
 int sd_ndisc_new(sd_ndisc **ret) {
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;

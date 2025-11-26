@@ -277,7 +277,7 @@ static Address* address_free(Address *address) {
         return mfree(address);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(Address, address, address_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Address, address, address, address_free);
 
 static bool address_lifetime_is_valid(const Address *a) {
         assert(a);

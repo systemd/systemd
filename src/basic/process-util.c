@@ -2304,7 +2304,7 @@ static const char *const sigchld_code_table[] = {
         [CLD_CONTINUED] = "continued",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(sigchld_code, int);
+DEFINE_STRING_TABLE_LOOKUP(sigchld_code, int, i);
 
 static const char* const sched_policy_table[] = {
         [SCHED_OTHER] = "other",
@@ -2314,7 +2314,7 @@ static const char* const sched_policy_table[] = {
         [SCHED_RR] = "rr",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, i, INT_MAX);
 
 _noreturn_ void report_errno_and_exit(int errno_fd, int error) {
         int r;

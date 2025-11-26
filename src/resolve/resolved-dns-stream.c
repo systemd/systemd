@@ -506,7 +506,7 @@ static DnsStream *dns_stream_free(DnsStream *s) {
         return mfree(s);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsStream, dns_stream, dns_stream_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsStream, dns_stream, s, dns_stream_free);
 
 int dns_stream_new(
                 Manager *m,

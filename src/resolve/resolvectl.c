@@ -121,7 +121,7 @@ static const char* const status_mode_json_field_table[_STATUS_MAX] = {
         [STATUS_NTA]           = "negativeTrustAnchors",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(status_mode_json_field, StatusMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(status_mode_json_field, StatusMode, i);
 
 typedef struct InterfaceInfo {
         int index;

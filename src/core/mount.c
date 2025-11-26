@@ -2475,7 +2475,7 @@ static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
         [MOUNT_EXEC_REMOUNT] = "ExecRemount",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(mount_exec_command, MountExecCommand);
+DEFINE_STRING_TABLE_LOOKUP(mount_exec_command, MountExecCommand, i);
 
 static const char* const mount_result_table[_MOUNT_RESULT_MAX] = {
         [MOUNT_SUCCESS]                 = "success",
@@ -2488,7 +2488,7 @@ static const char* const mount_result_table[_MOUNT_RESULT_MAX] = {
         [MOUNT_FAILURE_PROTOCOL]        = "protocol",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(mount_result, MountResult);
+DEFINE_STRING_TABLE_LOOKUP(mount_result, MountResult, i);
 
 const UnitVTable mount_vtable = {
         .object_size = sizeof(Mount),

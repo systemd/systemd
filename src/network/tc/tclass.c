@@ -161,7 +161,7 @@ static TClass* tclass_free(TClass *tclass) {
         return mfree(tclass);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(TClass, tclass, tclass_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(TClass, tclass, tclass, tclass_free);
 
 static const char *tclass_get_tca_kind(const TClass *tclass) {
         assert(tclass);

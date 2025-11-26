@@ -23,7 +23,7 @@ static sd_ndisc_router* ndisc_router_free(sd_ndisc_router *rt) {
         return mfree(rt);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router, sd_ndisc_router, ndisc_router_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router, sd_ndisc_router, rt, ndisc_router_free);
 
 sd_ndisc_router* ndisc_router_new(ICMP6Packet *packet) {
         sd_ndisc_router *rt;
@@ -212,7 +212,7 @@ static const char* const ndisc_router_preference_table[] = {
         [SD_NDISC_PREFERENCE_RESERVED] = "reserved",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(ndisc_router_preference, int);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(ndisc_router_preference, int, s);
 
 int sd_ndisc_router_get_sender_mac(sd_ndisc_router *rt, struct ether_addr *ret) {
         assert_return(rt, -EINVAL);

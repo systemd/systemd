@@ -86,7 +86,7 @@ static const char* transcode_mode_table[_TRANSCODE_MAX] = {
         [TRANSCODE_UNHEX]    = "unhex",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(transcode_mode, TranscodeMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(transcode_mode, TranscodeMode, i);
 
 typedef enum CredKeyType {
         CRED_KEY_TYPE_AUTO,
@@ -118,7 +118,7 @@ static const char* cred_key_type_table[_CRED_KEY_TYPE_MAX] = {
         [CRED_KEY_TYPE_TPM2_ABSENT]      = "tpm2-absent",  /* legacy alias */
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(cred_key_type, CredKeyType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(cred_key_type, CredKeyType, i);
 
 static sd_id128_t cred_key_id[_CRED_KEY_TYPE_MAX] = {
         [CRED_KEY_TYPE_AUTO]             = _CRED_AUTO,
