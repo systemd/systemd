@@ -47,7 +47,7 @@ for phase in "${PHASES[@]}"; do
             # correctly detect the environment.
             env \
                 SYSTEMD_IN_CHROOT=yes \
-                meson test -C build --print-errorlogs
+                meson test -C build --print-errorlogs --no-stdsplit
             ;;
         CLEANUP)
             info "Cleanup phase"
