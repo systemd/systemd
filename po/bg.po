@@ -10,7 +10,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:24+0000\n"
-"Last-Translator: Alexander Shopov <ash@kambanaria.org>\n"
+"Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Bulgarian <https://translate.fedoraproject.org/projects/"
 "systemd/main/bg/>\n"
 "Language: bg\n"
@@ -89,8 +89,7 @@ msgstr "Създаване на домашно място за потребит�
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr ""
-"За създаване на домашно място за потребител е необходима идентификация."
+msgstr "За създаване на домашно място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
@@ -98,8 +97,7 @@ msgstr "Изтриване на домашно място за потребит�
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr ""
-"За изтриване на домашно място за потребител е необходима идентификация."
+msgstr "За изтриване на домашно място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
@@ -275,15 +273,15 @@ msgstr "Въведете отново ПИН за жетона за сигурн
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"ПИН-ът за жетона за сигурност на потребител „%s“ е неправилен (остават малко "
-"пъти!)"
+"ПИН-ът за жетона за сигурност на потребител „%s“ е неправилен "
+"(остават малко пъти!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
-"ПИН-ът за жетона за сигурност на потребител „%s“ е неправилен (остава един "
-"път!)"
+"ПИН-ът за жетона за сигурност на потребител „%s“ е неправилен "
+"(остава един път!)"
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
@@ -368,8 +366,7 @@ msgstr "Задаване на информация за машина"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr ""
-"За задаване на информация за локална машина е необходима идентификация."
+msgstr "За задаване на информация за локална машина е необходима идентификация."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
@@ -964,8 +961,7 @@ msgstr "Задаване на сървъри за точно време (NTP)"
 
 #: src/network/org.freedesktop.network1.policy:23
 msgid "Authentication is required to set NTP servers."
-msgstr ""
-"За задаване на сървъри за точно време (NTP) е необходима идентификация."
+msgstr "За задаване на сървъри за точно време (NTP) е необходима идентификация."
 
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
