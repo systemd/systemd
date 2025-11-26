@@ -66,7 +66,7 @@ boot. For that it's essential to:
 The
 [`kernel-install(8)`](https://www.freedesktop.org/software/systemd/man/kernel-install.html)
 logic used to generate
-[Boot Loader Specification Type #1](https://uapi-group.org/specifications/specs/boot_loader_specification/#type-1-boot-loader-specification-entries)
+[UAPI.1 Boot Loader Specification Type #1](https://uapi-group.org/specifications/specs/boot_loader_specification/#type-1-boot-loader-specification-entries)
 entries by default uses the machine ID as stored in `/etc/machine-id` for
 naming boot menu entries and the directories in the ESP to place kernel images in.
 This is done in order to allow multiple installations of the same OS on the
@@ -207,7 +207,7 @@ it, then format it.
    in. The `x-systemd.growfs` mount option in `/etc/fstab` is sufficient to
    enable this logic for specific mounts. Alternatively appropriately set up
    partitions can set GPT partition flag 59 to request this behaviour, see the
-   [Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification)
+   [UAPI.2 Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification)
    for details. If the file system is already grown it executes no operation.
 
 3. Similar, the `systemd-makefs@.service` and `systemd-makeswap@.service`
@@ -268,8 +268,8 @@ fields.
 [`machine-id(5)`](https://www.freedesktop.org/software/systemd/man/machine-id.html)<br>
 [`systemd-random-seed(8)`](https://www.freedesktop.org/software/systemd/man/systemd-random-seed.service.html)<br>
 [`os-release(5)`](https://www.freedesktop.org/software/systemd/man/os-release.html)<br>
-[Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification)<br>
-[Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification)<br>
+[UAPI.1 Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification)<br>
+[UAPI.2 Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification)<br>
 [`mkosi`](https://github.com/systemd/mkosi)<br>
 [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
 [`systemd-repart(8)`](https://www.freedesktop.org/software/systemd/man/systemd-repart.service.html)<br>

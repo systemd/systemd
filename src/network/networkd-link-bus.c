@@ -57,7 +57,7 @@ static int property_get_bit_rates(
                 return sd_bus_message_append(reply, "(tt)", UINT64_MAX, UINT64_MAX);
 
         assert(manager->speed_meter_usec_new > manager->speed_meter_usec_old);
-        interval_sec = (manager->speed_meter_usec_new - manager->speed_meter_usec_old) / USEC_PER_SEC;
+        interval_sec = (double) (manager->speed_meter_usec_new - manager->speed_meter_usec_old) / USEC_PER_SEC;
 
         if (link->stats_new.tx_bytes > link->stats_old.tx_bytes)
                 tx = (uint64_t) ((link->stats_new.tx_bytes - link->stats_old.tx_bytes) / interval_sec);

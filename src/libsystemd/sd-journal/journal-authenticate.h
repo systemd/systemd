@@ -17,6 +17,6 @@ int journal_file_fss_load(JournalFile *f);
 int journal_file_parse_verification_key(JournalFile *f, const char *key);
 
 int journal_file_fsprg_evolve(JournalFile *f, uint64_t realtime);
-int journal_file_fsprg_seek(JournalFile *f, uint64_t epoch);
+int journal_file_fsprg_seek(JournalFile *f, uint64_t goal);
 
 bool journal_file_next_evolve_usec(JournalFile *f, usec_t *u);

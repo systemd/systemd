@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-journal.h"
 #include "sd-messages.h"
 
@@ -8,8 +10,6 @@
 #include "format-util.h"
 #include "journal-importer.h"
 #include "log.h"
-#include "string-util.h"
-#include "user-util.h"
 
 int coredump_backtrace(int argc, char *argv[]) {
         _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);

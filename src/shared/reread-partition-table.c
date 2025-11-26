@@ -14,7 +14,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "parse-util.h"
 #include "reread-partition-table.h"
 #include "set.h"
 #include "string-util.h"
@@ -180,7 +179,7 @@ static int process_partition(
                  * just to make a point. */
                 partition = sd_device_unref(partition);
 
-                r = block_device_remove_partition(fd, subnode, (int) nr);
+                r = block_device_remove_partition(fd, subnode, nr);
                 if (r < 0)
                         return log_device_debug_errno(d, r, "Failed to remove kernel partition device '%s' in order to recreate it: %m", subnode);
 
@@ -257,10 +256,18 @@ static int reread_partition_table_full(sd_device *dev, int fd, RereadPartitionTa
         if (FLAGS_SET(flags, REREADPT_BSD_LOCK)) {
                 lock_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (lock_fd < 0)
-                        return log_device_debug_errno(dev, r, "Failed top open lock fd for block device '%s': %m", p);
+                        return log_device_debug_errno(dev, lock_fd, "Failed top open lock fd for block device '%s': %m", p);
 
-                if (flock(lock_fd, LOCK_EX|LOCK_NB) < 0)
-                        return log_device_debug_errno(dev, errno, "Failed to take BSD lock on block device '%s': %m", p);
+                if (flock(lock_fd, LOCK_EX|LOCK_NB) < 0) {
+                        r = log_device_debug_errno(dev, errno, "Failed to take BSD lock on block device '%s': %m", p);
+
+                        if (r == -EAGAIN && FLAGS_SET(flags, REREADPT_FORCE_UEVENT)) {
+                                log_device_debug(dev, "Giving up rereading partition table of '%s'. Triggering change events for the device and its partitions.", p);
+                                (void) trigger_partitions(dev, /* blkrrpart_success= */ false);
+                        }
+
+                        return r;
+                }
         }
 
         r = blockdev_partscan_enabled(dev);

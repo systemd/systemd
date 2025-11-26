@@ -26,8 +26,13 @@
 #include "tests.h"
 #include "tpm2-util.h"
 
-#define ASSERT_DLOPEN(func, cond) \
-        cond ? ASSERT_OK(func()) : ASSERT_ERROR(func(), EOPNOTSUPP)
+#define ASSERT_DLOPEN(func, cond)                               \
+        do {                                                    \
+                if (cond)                                       \
+                        ASSERT_OK(func());                      \
+                else                                            \
+                        ASSERT_ERROR(func(), EOPNOTSUPP);       \
+        } while (false)
 
 static int run(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
@@ -49,7 +54,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libblkid, HAVE_BLKID);
         ASSERT_DLOPEN(dlopen_libfido2, HAVE_LIBFIDO2);
         ASSERT_DLOPEN(dlopen_libkmod, HAVE_KMOD);
-        ASSERT_DLOPEN(dlopen_libmount, true);
+        ASSERT_DLOPEN(dlopen_libmount, HAVE_LIBMOUNT);
         ASSERT_DLOPEN(dlopen_libpam, HAVE_PAM);
         ASSERT_DLOPEN(dlopen_libseccomp, HAVE_SECCOMP);
         ASSERT_DLOPEN(dlopen_libselinux, HAVE_SELINUX);

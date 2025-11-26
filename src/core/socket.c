@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
 #include <fcntl.h>
 #include <linux/sctp.h>
 #include <mqueue.h>
@@ -1027,9 +1026,16 @@ static void socket_close_fds(Socket *s) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Socket*, socket_close_fds, NULL);
 
-#define SOCKET_OPTION_WARNING_FORMAT_STR "Failed to set %s socket option, ignoring: %m"
-#define log_socket_option_warning_errno(s, error, option) \
-        log_unit_warning_errno(UNIT(s), (error), SOCKET_OPTION_WARNING_FORMAT_STR, STRINGIFY(option))
+#define log_socket_option_errno(s, e, option)                                          \
+        ({                                                                             \
+                int _e_ = (e);                                                         \
+                log_unit_full_errno(                                                   \
+                                UNIT(s),                                               \
+                                ERRNO_IS_NOT_SUPPORTED(_e_) ? LOG_DEBUG : LOG_WARNING, \
+                                _e_,                                                   \
+                                "Failed to set %s socket option, ignoring: %m",        \
+                                option);                                               \
+        })
 
 static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         int r;
@@ -1041,82 +1047,79 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         if (s->keep_alive) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_KEEPALIVE, true);
                 if (r < 0)
-                        log_socket_option_warning_errno(s, r, SO_KEEPALIVE);
+                        log_socket_option_errno(s, r, "SO_KEEPALIVE");
         }
 
         if (timestamp_is_set(s->keep_alive_time)) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_KEEPIDLE, s->keep_alive_time / USEC_PER_SEC);
                 if (r < 0)
-                        log_socket_option_warning_errno(s, r, TCP_KEEPIDLE);
+                        log_socket_option_errno(s, r, "TCP_KEEPIDLE");
         }
 
         if (s->keep_alive_interval > 0) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_KEEPINTVL, s->keep_alive_interval / USEC_PER_SEC);
                 if (r < 0)
-                        log_socket_option_warning_errno(s, r, TCP_KEEPINTVL);
+                        log_socket_option_errno(s, r, "TCP_KEEPINTVL");
         }
 
         if (s->keep_alive_cnt > 0) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_KEEPCNT, s->keep_alive_cnt);
                 if (r < 0)
-                        log_socket_option_warning_errno(s, r, TCP_KEEPCNT);
+                        log_socket_option_errno(s, r, "TCP_KEEPCNT");
         }
 
         if (s->defer_accept > 0) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_DEFER_ACCEPT, s->defer_accept / USEC_PER_SEC);
                 if (r < 0)
-                        log_socket_option_warning_errno(s, r, TCP_DEFER_ACCEPT);
+                        log_socket_option_errno(s, r, "TCP_DEFER_ACCEPT");
         }
 
         if (s->no_delay) {
                 if (s->socket_protocol == IPPROTO_SCTP) {
                         r = setsockopt_int(fd, SOL_SCTP, SCTP_NODELAY, true);
                         if (r < 0)
-                                log_socket_option_warning_errno(s, r, SCTP_NODELAY);
+                                log_socket_option_errno(s, r, "SCTP_NODELAY");
                 } else {
                         r = setsockopt_int(fd, SOL_TCP, TCP_NODELAY, true);
                         if (r < 0)
-                                log_socket_option_warning_errno(s, r, TCP_NODELAY);
+                                log_socket_option_errno(s, r, "TCP_NODELAY");
                 }
         }
 
         if (s->broadcast) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_BROADCAST, true);
                 if (r < 0)
-                        log_socket_option_warning_errno(s, r, SO_BROADCAST);
+                        log_socket_option_errno(s, r, "SO_BROADCAST");
         }
 
         if (s->pass_cred) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
                 if (r < 0)
-                        log_socket_option_warning_errno(s, r, SO_PASSCRED);
+                        log_socket_option_errno(s, r, "SO_PASSCRED");
         }
 
         if (s->pass_pidfd) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
                 if (r < 0)
-                        log_unit_full_errno(UNIT(s), ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                            SOCKET_OPTION_WARNING_FORMAT_STR, "SO_PASSPIDFD");
+                        log_socket_option_errno(s, r, "SO_PASSPIDFD");
         }
 
         if (s->pass_sec) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
-                        log_unit_full_errno(UNIT(s), ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                            SOCKET_OPTION_WARNING_FORMAT_STR, "SO_PASSSEC");
+                        log_socket_option_errno(s, r, "SO_PASSSEC");
         }
 
         if (s->pass_pktinfo) {
                 r = socket_set_recvpktinfo(fd, socket_address_family(&p->address), true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, SOCKET_OPTION_WARNING_FORMAT_STR, "packet info");
+                        log_socket_option_errno(s, r, "packet info");
         }
 
         if (!s->pass_rights) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
                 if (r < 0)
-                        log_unit_full_errno(UNIT(s), ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                            SOCKET_OPTION_WARNING_FORMAT_STR, "SO_PASSRIGHTS");
+                        log_socket_option_errno(s, r, "SO_PASSRIGHTS");
         }
 
         if (s->timestamping != SOCKET_TIMESTAMPING_OFF) {
@@ -1124,61 +1127,59 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
                                    s->timestamping == SOCKET_TIMESTAMPING_NS ? SO_TIMESTAMPNS : SO_TIMESTAMP,
                                    true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, SOCKET_OPTION_WARNING_FORMAT_STR, "timestamping");
+                        log_socket_option_errno(s, r, "timestamping");
         }
 
         if (s->priority >= 0) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PRIORITY, s->priority);
                 if (r < 0)
-                        log_socket_option_warning_errno(s, r, SO_PRIORITY);
+                        log_socket_option_errno(s, r, "SO_PRIORITY");
         }
 
         if (s->receive_buffer > 0) {
                 r = fd_set_rcvbuf(fd, s->receive_buffer, false);
                 if (r < 0)
-                        log_unit_full_errno(UNIT(s), ERRNO_IS_NEG_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                            SOCKET_OPTION_WARNING_FORMAT_STR, "SO_RCVBUF/SO_RCVBUFFORCE");
+                        log_socket_option_errno(s, r, "SO_RCVBUF/SO_RCVBUFFORCE");
         }
 
         if (s->send_buffer > 0) {
                 r = fd_set_sndbuf(fd, s->send_buffer, false);
                 if (r < 0)
-                        log_unit_full_errno(UNIT(s), ERRNO_IS_NEG_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                            SOCKET_OPTION_WARNING_FORMAT_STR, "SO_SNDBUF/SO_SNDBUFFORCE");
+                        log_socket_option_errno(s, r, "SO_SNDBUF/SO_SNDBUFFORCE");
         }
 
         if (s->mark >= 0) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_MARK, s->mark);
                 if (r < 0)
-                        log_socket_option_warning_errno(s, r, SO_MARK);
+                        log_socket_option_errno(s, r, "SO_MARK");
         }
 
         if (s->ip_tos >= 0) {
                 r = setsockopt_int(fd, IPPROTO_IP, IP_TOS, s->ip_tos);
                 if (r < 0)
-                        log_socket_option_warning_errno(s, r, IP_TOS);
+                        log_socket_option_errno(s, r, "IP_TOS");
         }
 
         if (s->ip_ttl >= 0) {
                 r = socket_set_ttl(fd, socket_address_family(&p->address), s->ip_ttl);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, SOCKET_OPTION_WARNING_FORMAT_STR, "IP_TTL/IPV6_UNICAST_HOPS");
+                        log_socket_option_errno(s, r, "IP_TTL/IPV6_UNICAST_HOPS");
         }
 
         if (s->tcp_congestion)
                 if (setsockopt(fd, SOL_TCP, TCP_CONGESTION, s->tcp_congestion, strlen(s->tcp_congestion)+1) < 0)
-                        log_socket_option_warning_errno(s, errno, TCP_CONGESTION);
+                        log_socket_option_errno(s, errno, "TCP_CONGESTION");
 
         if (s->smack_ip_in) {
                 r = mac_smack_apply_fd(fd, SMACK_ATTR_IPIN, s->smack_ip_in);
                 if (r < 0)
-                        log_unit_error_errno(UNIT(s), r, "Failed to apply SMACK label for IP input, ignoring: %m");
+                        log_unit_warning_errno(UNIT(s), r, "Failed to apply SMACK label for IP input, ignoring: %m");
         }
 
         if (s->smack_ip_out) {
                 r = mac_smack_apply_fd(fd, SMACK_ATTR_IPOUT, s->smack_ip_out);
                 if (r < 0)
-                        log_unit_error_errno(UNIT(s), r, "Failed to apply SMACK label for IP output, ignoring: %m");
+                        log_unit_warning_errno(UNIT(s), r, "Failed to apply SMACK label for IP output, ignoring: %m");
         }
 }
 
@@ -1502,7 +1503,7 @@ static int socket_determine_selinux_label(Socket *s, char **ret) {
 static int socket_address_listen_do(
                 Socket *s,
                 const SocketAddress *address,
-                const char *label) {
+                const char *selinux_label) {
 
         assert(s);
         assert(address);
@@ -1518,7 +1519,8 @@ static int socket_address_listen_do(
                         s->transparent,
                         s->directory_mode,
                         s->socket_mode,
-                        label);
+                        selinux_label,
+                        s->smack);
 }
 
 #define log_address_error_errno(u, address, error, fmt)          \
@@ -1580,22 +1582,27 @@ static int socket_address_listen_in_cgroup(
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to acquire runtime: %m");
 
-        if (s->exec_context.network_namespace_path &&
-            s->exec_runtime &&
-            s->exec_runtime->shared &&
-            s->exec_runtime->shared->netns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(s->exec_runtime->shared->netns_storage_socket, s->exec_context.network_namespace_path, CLONE_NEWNET);
-                if (r < 0)
-                        return log_unit_error_errno(UNIT(s), r, "Failed to open network namespace path %s: %m", s->exec_context.network_namespace_path);
-        }
+        if (s->exec_runtime && s->exec_runtime->shared) {
+                if (s->exec_context.user_namespace_path &&
+                    s->exec_runtime->shared->userns_storage_socket[0] >= 0) {
+                        r = open_shareable_ns_path(s->exec_runtime->shared->userns_storage_socket, s->exec_context.user_namespace_path, CLONE_NEWUSER);
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open user namespace path %s: %m", s->exec_context.user_namespace_path);
+                }
 
-        if (s->exec_context.ipc_namespace_path &&
-            s->exec_runtime &&
-            s->exec_runtime->shared &&
-            s->exec_runtime->shared->ipcns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(s->exec_runtime->shared->ipcns_storage_socket, s->exec_context.ipc_namespace_path, CLONE_NEWIPC);
-                if (r < 0)
-                        return log_unit_error_errno(UNIT(s), r, "Failed to open IPC namespace path %s: %m", s->exec_context.ipc_namespace_path);
+                if (s->exec_context.network_namespace_path &&
+                    s->exec_runtime->shared->netns_storage_socket[0] >= 0) {
+                        r = open_shareable_ns_path(s->exec_runtime->shared->netns_storage_socket, s->exec_context.network_namespace_path, CLONE_NEWNET);
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open network namespace path %s: %m", s->exec_context.network_namespace_path);
+                }
+
+                if (s->exec_context.ipc_namespace_path &&
+                    s->exec_runtime->shared->ipcns_storage_socket[0] >= 0) {
+                        r = open_shareable_ns_path(s->exec_runtime->shared->ipcns_storage_socket, s->exec_context.ipc_namespace_path, CLONE_NEWIPC);
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open IPC namespace path %s: %m", s->exec_context.ipc_namespace_path);
+                }
         }
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
@@ -2051,7 +2058,9 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
 
                         r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
                         if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to resolve user %s: %m", user);
+                                log_unit_error_errno(UNIT(s), r,
+                                                     "Failed to resolve user '%s': %s",
+                                                     user, STRERROR_USER(r));
                                 _exit(EXIT_USER);
                         }
                 }
@@ -2061,7 +2070,9 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
 
                         r = get_group_creds(&group, &gid, 0);
                         if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to resolve group %s: %m", group);
+                                log_unit_error_errno(UNIT(s), r,
+                                                     "Failed to resolve group '%s': %s",
+                                                     group, STRERROR_GROUP(r));
                                 _exit(EXIT_GROUP);
                         }
                 }
@@ -2139,8 +2150,6 @@ static void socket_enter_stop_post(Socket *s, SocketResult f) {
         s->control_command = s->exec_command[SOCKET_EXEC_STOP_POST];
 
         if (s->control_command) {
-                pidref_done(&s->control_pid);
-
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'stop-post' task: %m");
@@ -2217,8 +2226,6 @@ static void socket_enter_stop_pre(Socket *s, SocketResult f) {
         s->control_command = s->exec_command[SOCKET_EXEC_STOP_PRE];
 
         if (s->control_command) {
-                pidref_done(&s->control_pid);
-
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'stop-pre' task: %m");
@@ -2280,8 +2287,6 @@ static void socket_enter_start_post(Socket *s) {
         s->control_command = s->exec_command[SOCKET_EXEC_START_POST];
 
         if (s->control_command) {
-                pidref_done(&s->control_pid);
-
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start-post' task: %m");
@@ -2354,8 +2359,6 @@ static void socket_enter_start_pre(Socket *s) {
         s->control_command = s->exec_command[SOCKET_EXEC_START_PRE];
 
         if (s->control_command) {
-                pidref_done(&s->control_pid);
-
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start-pre' task: %m");
@@ -2602,8 +2605,6 @@ static void socket_run_next(Socket *s) {
         socket_unwatch_control_pid(s);
 
         s->control_command = s->control_command->command_next;
-
-        pidref_done(&s->control_pid);
 
         r = socket_spawn(s, s->control_command, &s->control_pid);
         if (r < 0) {
@@ -2974,7 +2975,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         log_unit_debug(u, "No matching ffs socket found: %s", value);
 
         } else if (streq(key, "trigger-ratelimit"))
-                (void) deserialize_ratelimit(&s->trigger_limit, key, value);
+                deserialize_ratelimit(&s->trigger_limit, key, value);
         else
                 log_unit_debug(UNIT(s), "Unknown serialization key: %s", key);
 
@@ -3682,25 +3683,25 @@ static const char* const socket_timestamping_table[_SOCKET_TIMESTAMPING_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(socket_timestamping, SocketTimestamping);
 
-SocketTimestamping socket_timestamping_from_string_harder(const char *p) {
+SocketTimestamping socket_timestamping_from_string_harder(const char *s) {
         SocketTimestamping t;
         int r;
 
-        if (!p)
+        if (!s)
                 return _SOCKET_TIMESTAMPING_INVALID;
 
-        t = socket_timestamping_from_string(p);
+        t = socket_timestamping_from_string(s);
         if (t >= 0)
                 return t;
 
         /* Let's alternatively support the various other aliases parse_time() accepts for ns and µs here,
          * too. */
-        if (streq(p, "nsec"))
+        if (streq(s, "nsec"))
                 return SOCKET_TIMESTAMPING_NS;
-        if (STR_IN_SET(p, "usec", "µs", "μs")) /* Accept both small greek letter mu + micro sign unicode codepoints */
+        if (STR_IN_SET(s, "usec", "µs", "μs")) /* Accept both small greek letter mu + micro sign unicode codepoints */
                 return SOCKET_TIMESTAMPING_US;
 
-        r = parse_boolean(p);
+        r = parse_boolean(s);
         if (r < 0)
                 return _SOCKET_TIMESTAMPING_INVALID;
 

@@ -36,7 +36,7 @@
     (XBOOTLDR), and swap partitions and creates mount and swap units for them, based on the partition type
     GUIDs of GUID partition tables (GPT). See <ulink url="https://uefi.org/specifications">UEFI
     Specification</ulink>, chapter 5 for more details. It implements the <ulink
-    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
+    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable
     Partitions Specification</ulink>.</para>
 
     <para>Note that this generator has no effect on non-GPT systems. It will also not create mount point
@@ -138,7 +138,7 @@
             <entry>…</entry>
             <entry>Root partitions for other architectures</entry>
             <entry><filename>/</filename></entry>
-            <entry>The first partition with the type UUID matching the architecture, located on the same disk as the ESP used for booting, is used as the root file system <filename>/</filename>. For the full list and constant values, see <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>.</entry>
+            <entry>The first partition with the type UUID matching the architecture, located on the same disk as the ESP used for booting, is used as the root file system <filename>/</filename>. For the full list and constant values, see <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions Specification</ulink>.</entry>
           </row>
           <row>
             <entry><constant>SD_GPT_HOME</constant></entry>
@@ -252,7 +252,7 @@
 
     <para>Mount and automount units for the EFI System Partition (ESP) and Extended Boot Loader Partition
     (XBOOTLDR) are generated on EFI systems. If the disk contains an XBOOTLDR partition, as defined in the
-    <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
+    <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader
     Specification</ulink>, it is made available at <filename>/boot/</filename>. This generator creates an
     automount unit; the mount will only be activated on-demand when accessed. The mount point will be created
     if necessary.</para>
@@ -354,7 +354,7 @@
         automatic discovery of the root partition based on GPT partition information is enabled. This is a
         superset of <varname>root=gpt-auto</varname>, as it automatically configures Verity partitions
         (including signature-based setup) following the logic defined for that in the <ulink
-        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification/">Discoverable
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification/">UAPI.2 Discoverable
         Partitions Specification</ulink>. Moreover it takes the configured image policy and image filter into
         account for all partition types, including the root file system. <literal>root=dissect</literal> will
         wait for the factory reset phase to be completed if it is in effect before activating the root file

@@ -11,7 +11,7 @@
  */
 enum pcapng_block_types {
         PCAPNG_INTERFACE_BLOCK = 1,
-        PCAPNG_PACKET_BLOCK,		/* Obsolete */
+        PCAPNG_PACKET_BLOCK, /* Obsolete */
         PCAPNG_SIMPLE_PACKET_BLOCK,
         PCAPNG_NAME_RESOLUTION_BLOCK,
         PCAPNG_INTERFACE_STATS_BLOCK,
@@ -51,7 +51,7 @@ enum pcapng_section_opt {
 };
 
 struct pcapng_interface_block {
-        uint32_t block_type;	/* 1 */
+        uint32_t block_type;   /* 1 */
         uint32_t block_length;
         uint16_t link_type;
         uint16_t reserved;
@@ -59,7 +59,7 @@ struct pcapng_interface_block {
 };
 
 enum pcapng_interface_options {
-        PCAPNG_IFB_NAME	 = 2,
+        PCAPNG_IFB_NAME = 2,
         PCAPNG_IFB_DESCRIPTION,
         PCAPNG_IFB_IPV4ADDR,
         PCAPNG_IFB_IPV6ADDR,
@@ -76,7 +76,7 @@ enum pcapng_interface_options {
 };
 
 struct pcapng_enhance_packet_block {
-        uint32_t block_type;	/* 6 */
+        uint32_t block_type; /* 6 */
         uint32_t block_length;
         uint32_t interface_id;
         uint32_t timestamp_hi;
@@ -99,7 +99,7 @@ enum pcapng_epb_options {
 };
 
 struct pcapng_statistics_block {
-        uint32_t block_type;	/* 5 */
+        uint32_t block_type; /* 5 */
         uint32_t block_length;
         uint32_t interface_id;
         uint32_t timestamp_hi;

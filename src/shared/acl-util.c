@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
+#include <sys/syslog.h>
 
 #include "acl-util.h"
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
-#include "log.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -23,6 +23,7 @@ DLSYM_PROTOTYPE(acl_delete_entry);
 DLSYM_PROTOTYPE(acl_delete_perm);
 DLSYM_PROTOTYPE(acl_dup);
 DLSYM_PROTOTYPE(acl_entries);
+DLSYM_PROTOTYPE(acl_extended_file);
 DLSYM_PROTOTYPE(acl_free);
 DLSYM_PROTOTYPE(acl_from_mode);
 DLSYM_PROTOTYPE(acl_from_text);
@@ -36,6 +37,7 @@ DLSYM_PROTOTYPE(acl_get_tag_type);
 DLSYM_PROTOTYPE(acl_init);
 DLSYM_PROTOTYPE(acl_set_fd);
 DLSYM_PROTOTYPE(acl_set_file);
+DLSYM_PROTOTYPE(acl_set_permset);
 DLSYM_PROTOTYPE(acl_set_qualifier);
 DLSYM_PROTOTYPE(acl_set_tag_type);
 DLSYM_PROTOTYPE(acl_to_any_text);
@@ -58,6 +60,7 @@ int dlopen_libacl(void) {
                         DLSYM_ARG(acl_delete_perm),
                         DLSYM_ARG(acl_dup),
                         DLSYM_ARG(acl_entries),
+                        DLSYM_ARG(acl_extended_file),
                         DLSYM_ARG(acl_free),
                         DLSYM_ARG(acl_from_mode),
                         DLSYM_ARG(acl_from_text),
@@ -71,6 +74,7 @@ int dlopen_libacl(void) {
                         DLSYM_ARG(acl_init),
                         DLSYM_ARG(acl_set_fd),
                         DLSYM_ARG(acl_set_file),
+                        DLSYM_ARG(acl_set_permset),
                         DLSYM_ARG(acl_set_qualifier),
                         DLSYM_ARG(acl_set_tag_type),
                         DLSYM_ARG(acl_to_any_text));
@@ -678,16 +682,12 @@ int fd_acl_make_read_only(int fd) {
 
         r = dlopen_libacl();
         if (r < 0)
-                return r;
+                goto maybe_fallback;
 
         acl = sym_acl_get_fd(fd);
         if (!acl) {
-
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                        return -errno;
-
-                /* No ACLs? Then just update the regular mode_t */
-                return fd_acl_make_read_only_fallback(fd);
+                r = -errno;
+                goto maybe_fallback;
         }
 
         for (r = sym_acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
@@ -725,75 +725,18 @@ int fd_acl_make_read_only(int fd) {
                 return 0;
 
         if (sym_acl_set_fd(fd, acl) < 0) {
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                        return -errno;
-
-                return fd_acl_make_read_only_fallback(fd);
+                r = -errno;
+                goto maybe_fallback;
         }
 
         return 1;
-}
 
-int fd_acl_make_writable(int fd) {
-        _cleanup_(acl_freep) acl_t acl = NULL;
-        acl_entry_t i;
-        int r;
-
-        /* Safely adds the writable bit to the owner's ACL entry of this inode. (And only the owner's! – This
-         * not the obvious inverse of fd_acl_make_read_only() hence!) */
-
-        r = dlopen_libacl();
-        if (r < 0)
+maybe_fallback:
+        if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return r;
 
-        acl = sym_acl_get_fd(fd);
-        if (!acl) {
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                        return -errno;
-
-                /* No ACLs? Then just update the regular mode_t */
-                return fd_acl_make_writable_fallback(fd);
-        }
-
-        for (r = sym_acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
-             r > 0;
-             r = sym_acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
-                acl_permset_t permset;
-                acl_tag_t tag;
-                int b;
-
-                if (sym_acl_get_tag_type(i, &tag) < 0)
-                        return -errno;
-
-                if (tag != ACL_USER_OBJ)
-                        continue;
-
-                if (sym_acl_get_permset(i, &permset) < 0)
-                        return -errno;
-
-                b = sym_acl_get_perm(permset, ACL_WRITE);
-                if (b < 0)
-                        return -errno;
-
-                if (b)
-                        return 0; /* Already set? Then there's nothing to do. */
-
-                if (sym_acl_add_perm(permset, ACL_WRITE) < 0)
-                        return -errno;
-
-                break;
-        }
-        if (r < 0)
-                return -errno;
-
-        if (sym_acl_set_fd(fd, acl) < 0) {
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                        return -errno;
-
-                return fd_acl_make_writable_fallback(fd);
-        }
-
-        return 1;
+        /* No ACLs? Then just update the regular mode_t */
+        return fd_acl_make_read_only_fallback(fd);
 }
 #endif
 
@@ -809,23 +752,6 @@ int fd_acl_make_read_only_fallback(int fd) {
                 return 0;
 
         if (fchmod(fd, st.st_mode & 0555) < 0)
-                return -errno;
-
-        return 1;
-}
-
-int fd_acl_make_writable_fallback(int fd) {
-        struct stat st;
-
-        assert(fd >= 0);
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if ((st.st_mode & 0200) != 0) /* already set */
-                return 0;
-
-        if (fchmod(fd, (st.st_mode & 07777) | 0200) < 0)
                 return -errno;
 
         return 1;

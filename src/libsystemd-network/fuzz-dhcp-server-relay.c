@@ -5,11 +5,11 @@
 #include "fuzz.h"
 #include "sd-dhcp-server.c"
 
-ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen) {
-        return len;
+ssize_t sendto(int __fd, const void *__buf, size_t __n, int flags, const struct sockaddr *__addr, socklen_t __addr_len) {
+        return __n;
 }
 
-ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
+ssize_t sendmsg(int __fd, const struct msghdr *__message, int flags) {
         return 0;
 }
 

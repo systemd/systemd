@@ -654,11 +654,17 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_dry_run && argv[optind] && !STR_IN_SET(argv[optind], "unlink", "cleanup"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dry-run is only supported with --unlink or --cleanup");
 
-        if (arg_secure_boot_auto_enroll && !arg_certificate)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Secure boot auto-enrollment requested but no certificate provided");
+        if (arg_secure_boot_auto_enroll) {
+#if HAVE_OPENSSL
+                if (!arg_certificate)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Secure boot auto-enrollment requested but no certificate provided.");
 
-        if (arg_secure_boot_auto_enroll && !arg_private_key)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Secure boot auto-enrollment requested but no private key provided");
+                if (!arg_private_key)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Secure boot auto-enrollment requested but no private key provided.");
+#else
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Secure boot auto-enrollment requested but OpenSSL support is disabled.");
+#endif
+        }
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)

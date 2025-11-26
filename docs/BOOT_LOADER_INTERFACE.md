@@ -136,7 +136,7 @@ the identifiers as passed in `LoaderEntries`, `LoaderEntryDefault`,
 names for them in UIs.
 
 1. When boot loader entries are defined through the
-   [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification/)
+   [BOOT.1 Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification/)
    files, the identifier should be derived directly from the file name,
    but with the `.conf` (Type #1 snippets) or `.efi` (Type #2 images)
    suffix removed.
@@ -167,8 +167,8 @@ names for them in UIs.
 
 ## Links
 
-[Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification)<br>
-[Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification)<br>
+[UAPI.1 Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification)<br>
+[UAPI.2 Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification)<br>
 [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
 [`bootctl(1)`](https://www.freedesktop.org/software/systemd/man/bootctl.html)<br>
 [`systemd-gpt-auto-generator(8)`](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)

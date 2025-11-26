@@ -18,6 +18,7 @@ Conflicts=shutdown.target
 [Socket]
 ReceiveBuffer=128M
 ListenNetlink=route 1361
+FileDescriptorName=rtnl
 PassPacketInfo=yes
 
 [Install]

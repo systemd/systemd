@@ -44,7 +44,7 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
                         pam_syslog(handle, LOG_WARNING, "Unknown parameter '%s', ignoring.", argv[i]);
         }
 
-        pam_debug_syslog(handle, debug, "pam-systemd-loadkey initializing");
+        pam_debug_syslog(handle, debug, "pam-systemd-loadkey: initializing...");
 
         /* Retrieve the key. */
 
@@ -76,10 +76,10 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
 
         size_t passwords_len = strv_length(passwords);
         if (passwords_len == 0) {
-                pam_debug_syslog(handle, debug, "Key is empty");
+                pam_debug_syslog(handle, debug, "Key is empty.");
                 return PAM_AUTHINFO_UNAVAIL;
         } else if (passwords_len > 1)
-                pam_debug_syslog(handle, debug, "Multiple passwords found in the key. Using the last one");
+                pam_debug_syslog(handle, debug, "Multiple passwords found in the key. Using the last one.");
 
         r = pam_set_item(handle, PAM_AUTHTOK, passwords[passwords_len - 1]);
         if (r != PAM_SUCCESS)

@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "creds-util.h"
 #include "dissect-image.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -37,6 +38,7 @@
 #include "user-util.h"
 
 int umount_recursive_full(const char *prefix, int flags, char **keep) {
+#if HAVE_LIBMOUNT
         _cleanup_fclose_ FILE *f = NULL;
         int n = 0, r;
 
@@ -109,6 +111,9 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
         }
 
         return n;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 #define MS_CONVERTIBLE_FLAGS (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_NOSYMFOLLOW|MS_RELATIME|MS_NOATIME|MS_STRICTATIME|MS_NODIRATIME)
@@ -174,11 +179,6 @@ int bind_remount_recursive_with_mountinfo(
                 char **deny_list,
                 FILE *proc_self_mountinfo) {
 
-        _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
-        _cleanup_set_free_ Set *done = NULL;
-        unsigned n_tries = 0;
-        int r;
-
         assert(prefix);
 
         if ((flags_mask & ~MS_CONVERTIBLE_FLAGS) == 0 && strv_isempty(deny_list) && !skip_mount_set_attr) {
@@ -204,6 +204,12 @@ int bind_remount_recursive_with_mountinfo(
                 } else
                         return 0; /* Nice, this worked! */
         }
+
+#if HAVE_LIBMOUNT
+        _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
+        _cleanup_set_free_ Set *done = NULL;
+        unsigned n_tries = 0;
+        int r;
 
         if (!proc_self_mountinfo) {
                 r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo_opened);
@@ -403,6 +409,9 @@ int bind_remount_recursive_with_mountinfo(
                         log_trace("Remounted %s.", x);
                 }
         }
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int bind_remount_one_with_mountinfo(
@@ -410,12 +419,6 @@ int bind_remount_one_with_mountinfo(
                 unsigned long new_flags,
                 unsigned long flags_mask,
                 FILE *proc_self_mountinfo) {
-
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        unsigned long flags = 0;
-        struct libmnt_fs *fs;
-        const char *opts;
-        int r;
 
         assert(path);
         assert(proc_self_mountinfo);
@@ -436,6 +439,13 @@ int bind_remount_one_with_mountinfo(
                 } else
                         return 0; /* Nice, this worked! */
         }
+
+#if HAVE_LIBMOUNT
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        unsigned long flags = 0;
+        struct libmnt_fs *fs;
+        const char *opts;
+        int r;
 
         rewind(proc_self_mountinfo);
 
@@ -480,6 +490,9 @@ int bind_remount_one_with_mountinfo(
         }
 
         return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask) {
@@ -858,6 +871,16 @@ int mount_option_mangle(
                 unsigned long *ret_mount_flags,
                 char **ret_remaining_options) {
 
+        assert(ret_mount_flags);
+        assert(ret_remaining_options);
+
+        if (!options) {
+                *ret_mount_flags = mount_flags;
+                *ret_remaining_options = NULL;
+                return 0;
+        }
+
+#if HAVE_LIBMOUNT
         const struct libmnt_optmap *map;
         _cleanup_free_ char *ret = NULL;
         int r;
@@ -874,9 +897,6 @@ int mount_option_mangle(
          * then '*ret_remaining_options' is set to NULL instead of empty string.
          * The validity of options stored in '*ret_remaining_options' is not checked.
          * If 'options' is NULL, this just copies 'mount_flags' to *ret_mount_flags. */
-
-        assert(ret_mount_flags);
-        assert(ret_remaining_options);
 
         r = dlopen_libmount();
         if (r < 0)
@@ -921,6 +941,9 @@ int mount_option_mangle(
         *ret_remaining_options = TAKE_PTR(ret);
 
         return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 static int mount_in_namespace_legacy(
@@ -1639,6 +1662,7 @@ void sub_mount_array_free(SubMount *s, size_t n) {
         free(s);
 }
 
+#if HAVE_LIBMOUNT
 static int sub_mount_compare(const SubMount *a, const SubMount *b) {
         assert(a);
         assert(b);
@@ -1658,9 +1682,10 @@ static void sub_mount_drop(SubMount *s, size_t n) {
                         m = i;
         }
 }
+#endif
 
 int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts) {
-
+#if HAVE_LIBMOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         SubMount *mounts = NULL;
@@ -1737,6 +1762,9 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
         *ret_mounts = TAKE_PTR(mounts);
         *ret_n_mounts = n;
         return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int bind_mount_submounts(
@@ -1831,58 +1859,65 @@ unsigned long credentials_fs_mount_flags(bool ro) {
         return MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported()|(ro ? MS_RDONLY : 0);
 }
 
-int mount_credentials_fs(const char *path, size_t size, bool ro) {
-        _cleanup_free_ char *opts = NULL;
-        int r, noswap_supported;
+int fsmount_credentials_fs(int *ret_fsfd) {
+        _cleanup_close_ int fs_fd = -EBADF;
+        char size_str[DECIMAL_STR_MAX(uint64_t)];
 
         /* Mounts a file system we can place credentials in, i.e. with tight access modes right from the
          * beginning, and ideally swapping turned off. In order of preference:
          *
-         *      1. tmpfs if it supports "noswap"
+         *      1. tmpfs if it supports "noswap" (needs kernel >= 6.3)
          *      2. ramfs
-         *      3. tmpfs if it doesn't support "noswap"
+         *      3. tmpfs without "noswap"
          */
 
-        noswap_supported = mount_option_supported("tmpfs", "noswap", NULL); /* Check explicitly to avoid kmsg noise */
-        if (noswap_supported > 0) {
-                _cleanup_free_ char *noswap_opts = NULL;
+        fs_fd = fsopen("tmpfs", FSOPEN_CLOEXEC);
+        if (fs_fd < 0)
+                return -errno;
 
-                if (asprintf(&noswap_opts, "mode=0700,nr_inodes=1024,size=%zu,noswap", size) < 0)
-                        return -ENOMEM;
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "nr_inodes", "1024", 0) < 0)
+                return -errno;
 
-                /* Best case: tmpfs with noswap (needs kernel >= 6.3) */
+        xsprintf(size_str, "%" PRIu64, CREDENTIALS_TOTAL_SIZE_MAX);
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "size", size_str, 0) < 0)
+                return -errno;
 
-                r = mount_nofollow_verbose(
-                                LOG_DEBUG,
-                                "tmpfs",
-                                path,
-                                "tmpfs",
-                                credentials_fs_mount_flags(ro),
-                                noswap_opts);
-                if (r >= 0)
-                        return r;
+        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "noswap", NULL, 0) < 0) {
+                if (errno != EINVAL)
+                        return -errno;
+
+                int ramfs_fd = fsopen("ramfs", FSOPEN_CLOEXEC);
+                if (ramfs_fd >= 0)
+                        close_and_replace(fs_fd, ramfs_fd);
         }
 
-        r = mount_nofollow_verbose(
-                        LOG_DEBUG,
-                        "ramfs",
-                        path,
-                        "ramfs",
-                        credentials_fs_mount_flags(ro),
-                        "mode=0700");
-        if (r >= 0)
-                return r;
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "mode", "0700", 0) < 0)
+                return -errno;
 
-        if (asprintf(&opts, "mode=0700,nr_inodes=1024,size=%zu", size) < 0)
-                return -ENOMEM;
+        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
+                return -errno;
 
-        return mount_nofollow_verbose(
-                        LOG_DEBUG,
-                        "tmpfs",
-                        path,
-                        "tmpfs",
-                        credentials_fs_mount_flags(ro),
-                        opts);
+        int mfd = fsmount(fs_fd, FSMOUNT_CLOEXEC,
+                          ms_flags_to_mount_attr(credentials_fs_mount_flags(/* ro = */ false)));
+        if (mfd < 0)
+                return -errno;
+
+        if (ret_fsfd)
+                *ret_fsfd = TAKE_FD(fs_fd);
+
+        return mfd;
+}
+
+int mount_credentials_fs(const char *path) {
+        _cleanup_close_ int mfd = -EBADF;
+
+        assert(path);
+
+        mfd = fsmount_credentials_fs(/* ret_fsfd = */ NULL);
+        if (mfd < 0)
+                return mfd;
+
+        return RET_NERRNO(move_mount(mfd, "", AT_FDCWD, path, MOVE_MOUNT_F_EMPTY_PATH));
 }
 
 int make_fsmount(
@@ -2007,6 +2042,7 @@ int path_get_mount_info_at(
                 char **ret_options,
                 char **ret_source) {
 
+#if HAVE_LIBMOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r, mnt_id;
@@ -2069,6 +2105,9 @@ int path_get_mount_info_at(
         }
 
         return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Cannot find mount ID %i from /proc/self/mountinfo.", mnt_id);
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int path_is_network_fs_harder_at(int dir_fd, const char *path) {

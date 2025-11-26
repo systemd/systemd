@@ -109,7 +109,7 @@ static inline int device_add_property_internal(sd_device *device, const char *ke
 }
 
 int device_set_syspath(sd_device *device, const char *_syspath, bool verify);
-int device_set_ifindex(sd_device *device, const char *ifindex);
+int device_set_ifindex(sd_device *device, const char *name);
 int device_set_devuid(sd_device *device, const char *uid);
 int device_set_devgid(sd_device *device, const char *gid);
 int device_set_devmode(sd_device *device, const char *devmode);

@@ -22,6 +22,8 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_TEMPORARY]                                   = "temporary",
         [SD_PATH_TEMPORARY_LARGE]                             = "temporary-large",
 
+        [SD_PATH_SYSTEM_SEARCH_CONFIGURATION]                 = "system-search-configuration",
+
         [SD_PATH_SYSTEM_BINARIES]                             = "system-binaries",
         [SD_PATH_SYSTEM_INCLUDE]                              = "system-include",
         [SD_PATH_SYSTEM_LIBRARY_PRIVATE]                      = "system-library-private",

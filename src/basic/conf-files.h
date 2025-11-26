@@ -6,13 +6,14 @@
 #include "basic-forward.h"
 
 typedef enum ConfFilesFlags {
-        CONF_FILES_EXECUTABLE               = 1 << 0,
-        CONF_FILES_REGULAR                  = 1 << 1,
-        CONF_FILES_DIRECTORY                = 1 << 2,
-        CONF_FILES_BASENAME                 = 1 << 3,
-        CONF_FILES_FILTER_MASKED_BY_SYMLINK = 1 << 4,
-        CONF_FILES_FILTER_MASKED_BY_EMPTY   = 1 << 5,
+        CONF_FILES_EXECUTABLE               = 1 << 0, /* inode must be marked executable */
+        CONF_FILES_REGULAR                  = 1 << 1, /* inode must be regular file */
+        CONF_FILES_DIRECTORY                = 1 << 2, /* inode must be directory */
+        CONF_FILES_BASENAME                 = 1 << 3, /* only return basename of file, not full path */
+        CONF_FILES_FILTER_MASKED_BY_SYMLINK = 1 << 4, /* implement /dev/null symlink based masking */
+        CONF_FILES_FILTER_MASKED_BY_EMPTY   = 1 << 5, /* implement masking by empty file */
         CONF_FILES_FILTER_MASKED            = CONF_FILES_FILTER_MASKED_BY_SYMLINK | CONF_FILES_FILTER_MASKED_BY_EMPTY,
+        CONF_FILES_TRUNCATE_SUFFIX          = 1 << 6, /* truncate specified suffix from return filename or path */
 } ConfFilesFlags;
 
 typedef struct ConfFile {

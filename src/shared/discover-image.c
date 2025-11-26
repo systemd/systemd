@@ -7,7 +7,6 @@
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include "sd-json.h"
@@ -32,11 +31,9 @@
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
-#include "initrd-util.h"
 #include "lock-util.h"
 #include "log.h"
 #include "loop-util.h"
-#include "mkdir.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "nulstr-util.h"
@@ -174,13 +171,13 @@ static char** image_settings_path(Image *image, RuntimeScope scope) {
                 SD_PATH_SYSTEM_CONFIGURATION,
                 SD_PATH_SYSTEM_RUNTIME,
                 SD_PATH_SYSTEM_LIBRARY_PRIVATE,
-                UINT64_MAX
+                _SD_PATH_INVALID
         };
         static const uint64_t user_locations[] = {
                 SD_PATH_USER_CONFIGURATION,
                 SD_PATH_USER_RUNTIME,
                 SD_PATH_USER_LIBRARY_PRIVATE,
-                UINT64_MAX
+                _SD_PATH_INVALID
         };
         const uint64_t *locations;
 
@@ -197,7 +194,7 @@ static char** image_settings_path(Image *image, RuntimeScope scope) {
                 assert_not_reached();
         }
 
-        for (size_t k = 0; locations[k] != UINT64_MAX; k++) {
+        for (size_t k = 0; locations[k] != _SD_PATH_INVALID; k++) {
                 _cleanup_free_ char *s = NULL;
                 r = sd_path_lookup(locations[k], "systemd/nspawn", &s);
                 if (r == -ENXIO)
@@ -619,6 +616,7 @@ static int image_make(
 static int pick_image_search_path(
                 RuntimeScope scope,
                 ImageClass class,
+                const char *root,
                 char ***ret) {
 
         int r;
@@ -635,11 +633,11 @@ static int pick_image_search_path(
         if (scope < 0) {
                 _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
-                r = pick_image_search_path(RUNTIME_SCOPE_USER, class, &a);
+                r = pick_image_search_path(RUNTIME_SCOPE_USER, class, root, &a);
                 if (r < 0)
                         return r;
 
-                r = pick_image_search_path(RUNTIME_SCOPE_SYSTEM, class, &b);
+                r = pick_image_search_path(RUNTIME_SCOPE_SYSTEM, class, root, &b);
                 if (r < 0)
                         return r;
 
@@ -655,8 +653,15 @@ static int pick_image_search_path(
 
         case RUNTIME_SCOPE_SYSTEM: {
                 const char *ns;
+                bool is_initrd;
+
+                r = chase_and_access("/etc/initrd-release", root, CHASE_PREFIX_ROOT, F_OK, /* ret_path= */ NULL);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                is_initrd = r >= 0;
+
                 /* Use the initrd search path if there is one, otherwise use the common one */
-                ns = in_initrd() && image_search_path_initrd[class] ?
+                ns = is_initrd && image_search_path_initrd[class] ?
                         image_search_path_initrd[class] :
                         image_search_path[class];
                 if (!ns)
@@ -763,7 +768,7 @@ int image_find(RuntimeScope scope,
                 return -ENOMEM;
 
         _cleanup_strv_free_ char **search = NULL;
-        r = pick_image_search_path(scope, class, &search);
+        r = pick_image_search_path(scope, class, root, &search);
         if (r < 0)
                 return r;
 
@@ -836,7 +841,7 @@ int image_find(RuntimeScope scope,
                                         continue;
                                 }
                                 if (!result.path) {
-                                        log_debug("Found versioned directory '%s', without matching entry, skipping: %m", vp);
+                                        log_debug("Found versioned directory '%s', without matching entry, skipping.", vp);
                                         continue;
                                 }
 
@@ -954,7 +959,7 @@ int image_discover(
         assert(images);
 
         _cleanup_strv_free_ char **search = NULL;
-        r = pick_image_search_path(scope, class, &search);
+        r = pick_image_search_path(scope, class, root, &search);
         if (r < 0)
                 return r;
 
@@ -1044,7 +1049,7 @@ int image_discover(
                                                 continue;
                                         }
                                         if (!result.path) {
-                                                log_debug("Found versioned directory '%s', without matching entry, skipping: %m", vp);
+                                                log_debug("Found versioned directory '%s', without matching entry, skipping.", vp);
                                                 continue;
                                         }
 
@@ -1989,6 +1994,7 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy, RuntimeScope 
 
         case IMAGE_RAW:
         case IMAGE_BLOCK: {
+                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
                 DissectImageFlags flags =
@@ -2011,25 +2017,47 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy, RuntimeScope 
                                 LOCK_SH,
                                 &d);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to create loopback device of '%s': %m", i->path);
 
                 r = dissect_loop_device(
                                 d,
-                                /* verity= */ NULL,
+                                &verity,
                                 /* mount_options= */ NULL,
                                 image_policy,
                                 /* image_filter= */ NULL,
                                 flags,
                                 &m);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to dissect image '%s': %m", i->path);
+
+                r = dissected_image_load_verity_sig_partition(
+                                m,
+                                d->fd,
+                                &verity);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to load Verity signature partition of '%s': %m", i->path);
+
+                r = dissected_image_guess_verity_roothash(
+                                m,
+                                &verity);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to guess Verity root hash of '%s': %m", i->path);
+
+                r = dissected_image_decrypt(
+                                m,
+                                /* passphrase= */ NULL,
+                                &verity,
+                                image_policy,
+                                flags);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to decrypt image '%s': %m", i->path);
 
                 r = dissected_image_acquire_metadata(
                                 m,
                                 /* userns_fd= */ -EBADF,
                                 flags);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to acquire medata from image '%s': %m", i->path);
 
                 free_and_replace(i->hostname, m->hostname);
                 i->machine_id = m->machine_id;
@@ -2037,7 +2065,6 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy, RuntimeScope 
                 strv_free_and_replace(i->os_release, m->os_release);
                 strv_free_and_replace(i->sysext_release, m->sysext_release);
                 strv_free_and_replace(i->confext_release, m->confext_release);
-
                 break;
         }
 
@@ -2101,7 +2128,7 @@ bool image_in_search_path(
         assert(image);
 
         _cleanup_strv_free_ char **search = NULL;
-        r = pick_image_search_path(scope, class, &search);
+        r = pick_image_search_path(scope, class, root, &search);
         if (r < 0)
                 return r;
 

@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-awkscript = 'test-hashmap-ordered.awk'
 test_hashmap_ordered_c = custom_target(
-        input : [awkscript, 'test-hashmap-plain.c'],
+        input : ['test-hashmap-ordered.awk', 'test-hashmap-plain.c'],
         output : 'test-hashmap-ordered.c',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true,
@@ -17,6 +16,7 @@ test_env = {
         'SYSTEMD_DEFAULT_LOCALE' : get_option('default-locale'),
         'SYSTEMD_SLOW_TESTS' : want_slow_tests ? '1' : '0',
         'PYTHONDONTWRITEBYTECODE' : '1',
+        'SYSTEMD_LIBC' : get_option('libc'),
 }
 if conf.get('ENABLE_LOCALED') == 1
         test_env += {'SYSTEMD_LANGUAGE_FALLBACK_MAP' : language_fallback_map}
@@ -163,6 +163,7 @@ simple_tests += files(
         'test-percent-util.c',
         'test-pidref.c',
         'test-pretty-print.c',
+        'test-printf.c',
         'test-prioq.c',
         'test-proc-cmdline.c',
         'test-procfs-util.c',
@@ -190,6 +191,7 @@ simple_tests += files(
         'test-specifier.c',
         'test-stat-util.c',
         'test-static-destruct.c',
+        'test-stdio.c',
         'test-strbuf.c',
         'test-string-util.c',
         'test-strip-tab-ansi.c',
@@ -347,6 +349,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-libmount.c'),
+                'conditions' : ['HAVE_LIBMOUNT'],
                 'dependencies' : [
                         libmount_cflags,
                         threads,
@@ -366,6 +369,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-mount-util.c'),
+                'conditions' : ['HAVE_LIBMOUNT'],
                 'dependencies' : libmount_cflags,
         },
         test_template + {
@@ -379,10 +383,7 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
-                'sources' : files(
-                        'test-nss-hosts.c',
-                        'nss-test-util.c',
-                ),
+                'sources' : files('test-nss-hosts.c'),
                 'extract' : files('nss-test-util.c'),
                 'dependencies' : [
                         libdl,
@@ -487,13 +488,13 @@ executables += [
         # Symbol tests
         test_template + {
                 'name' : 'test-libsystemd-sym',
-                'sources' : test_libsystemd_sym_c,
+                'sources' : [test_libsystemd_sym_c],
                 'link_with' : libsystemd,
                 'suite' : 'libsystemd',
         },
         test_template + {
                 'name' : 'test-libudev-sym',
-                'sources' : test_libudev_sym_c,
+                'sources' : [test_libudev_sym_c],
                 'include_directories' : libudev_includes,
                 'c_args' : ['-Wno-deprecated-declarations'] + test_cflags,
                 'link_with' : libudev,
@@ -575,6 +576,7 @@ executables += [
                 'sources' : files('test-namespace.c'),
                 'dependencies' : [
                         threads,
+                        libmount_cflags,
                 ],
         },
         core_test_template + {
@@ -651,7 +653,7 @@ if static_libsystemd != 'false'
         executables += [
                 test_template + {
                         'name' : 'test-libsystemd-static-sym',
-                        'sources' : test_libsystemd_sym_c,
+                        'sources' : [test_libsystemd_sym_c],
                         'link_with' : install_libsystemd_static,
                         'build_by_default' : want_tests != 'false',
                         'install' : install_tests,
@@ -664,7 +666,7 @@ if static_libudev != 'false'
         executables += [
                 test_template + {
                         'name' : 'test-libudev-static-sym',
-                        'sources' : test_libudev_sym_c,
+                        'sources' : [test_libudev_sym_c],
                         'include_directories' : libudev_includes,
                         'c_args' : ['-Wno-deprecated-declarations'] + test_cflags,
                         'link_with' : install_libudev_static,

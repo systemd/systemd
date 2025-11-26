@@ -48,6 +48,7 @@ trap 'touch /terminate; kill 0' RTMIN+3
 trap 'touch /poweroff' RTMIN+4
 trap 'touch /reboot' INT
 trap 'touch /trap' TRAP
+trap 'exit 0' TERM
 trap 'kill $PID' EXIT
 
 # We need to wait for the sleep process asynchronously in order to allow
@@ -325,6 +326,7 @@ ip address add 192.0.2.1/24 dev hoge
 PID=0
 
 trap 'kill 0' RTMIN+3
+trap 'exit 0' TERM
 trap 'kill $PID' EXIT
 
 # We need to wait for the sleep process asynchronously in order to allow
@@ -395,7 +397,7 @@ rm -f /tmp/none-existent-file
 # server side, to not generate early SIGHUP. Hence, let's just invoke "sleep
 # infinity" client side, once we acquired the fd (passing it to it), and kill
 # it once we verified everything worked.
-PID=$(systemd-notify --fork -- varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/usr/bin/bash", "args": ["bash", "-c", "echo $FOO > /tmp/none-existent-file"], "environment": ["FOO=BAR"]}' -- sleep infinity)
+PID=$(systemd-notify --fork -- varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/usr/bin/bash", "args": ["bash", "-c", "echo $FOO >/tmp/none-existent-file"], "environment": ["FOO=BAR"]}' -- sleep infinity)
 timeout 30 bash -c "until test -e /tmp/none-existent-file; do sleep .5; done"
 grep -q "BAR" /tmp/none-existent-file
 kill "$PID"
@@ -422,7 +424,7 @@ diff /tmp/foo /var/lib/machines/long-running/root/foo
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo"}') # FileExists
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo", "replace": true}'
 
-echo "sample-test-output" > /tmp/foo
+echo "sample-test-output" >/tmp/foo
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo", "replace": true}'
 diff /tmp/foo /var/lib/machines/long-running/root/foo
 rm -f /tmp/foo /var/lib/machines/long-running/root/foo
@@ -439,9 +441,14 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.OpenR
 
 # Terminating machine, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
 machinectl terminate long-running
-# wait for the container being stopped, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
-timeout 30 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
-systemctl kill --signal=KILL systemd-nspawn@long-running.service || :
+# Wait for the container to stop, otherwise acquiring image metadata by io.systemd.MachineImage.List below
+# may fail.
+#
+# We need to wait until the systemd-nspawn process is completely stopped, as the lock is held for almost the
+# entire life of the process (see the run() function in nspawn.c). This means that the machine gets
+# unregistered _before_ this lock is lifted which makes `machinectl status` return non-zero EC earlier than
+# we need.
+timeout 30 bash -xec 'until [[ "$(systemctl show -P ActiveState systemd-nspawn@long-running.service)" == inactive ]]; do sleep .5; done'
 
 # test io.systemd.MachineImage.List
 varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{}' | grep 'long-running'

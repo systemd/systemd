@@ -474,23 +474,22 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_ROOT_HASH:
                 case ARG_USR_HASH: {
-                        _cleanup_free_ void *p = NULL;
-                        size_t l;
+                        _cleanup_(iovec_done) struct iovec roothash = {};
 
                         PartitionDesignator d = c == ARG_USR_HASH ? PARTITION_USR : PARTITION_ROOT;
                         if (arg_verity_settings.designator >= 0 &&
                             arg_verity_settings.designator != d)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
 
-                        r = unhexmem(optarg, &p, &l);
+                        r = unhexmem(optarg, &roothash.iov_base, &roothash.iov_len);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse root hash '%s': %m", optarg);
-                        if (l < sizeof(sd_id128_t))
+                        if (roothash.iov_len < sizeof(sd_id128_t))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Root hash must be at least 128-bit long: %s", optarg);
 
-                        free_and_replace(arg_verity_settings.root_hash, p);
-                        arg_verity_settings.root_hash_size = l;
+                        iovec_done(&arg_verity_settings.root_hash);
+                        arg_verity_settings.root_hash = TAKE_STRUCT(roothash);
                         arg_verity_settings.designator = d;
                         break;
                 }
@@ -498,8 +497,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ROOT_HASH_SIG:
                 case ARG_USR_HASH_SIG: {
                         char *value;
-                        size_t l;
-                        void *p;
+                        _cleanup_(iovec_done) struct iovec sig = {};
 
                         PartitionDesignator d = c == ARG_USR_HASH_SIG ? PARTITION_USR : PARTITION_ROOT;
                         if (arg_verity_settings.designator >= 0 &&
@@ -507,17 +505,17 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
 
                         if ((value = startswith(optarg, "base64:"))) {
-                                r = unbase64mem(value, &p, &l);
+                                r = unbase64mem(value, &sig.iov_base, &sig.iov_len);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
                         } else {
-                                r = read_full_file(optarg, (char**) &p, &l);
+                                r = read_full_file(optarg, (char**) &sig.iov_base, &sig.iov_len);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to read root hash signature file '%s': %m", optarg);
                         }
 
-                        free_and_replace(arg_verity_settings.root_hash_sig, p);
-                        arg_verity_settings.root_hash_sig_size = l;
+                        iovec_done(&arg_verity_settings.root_hash_sig);
+                        arg_verity_settings.root_hash_sig = TAKE_STRUCT(sig);
                         arg_verity_settings.designator = d;
                         break;
                 }
@@ -1107,9 +1105,9 @@ static int action_dissect(
 
                 r = sd_json_buildo(
                                 &v,
-                                SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(bn)),
+                                SD_JSON_BUILD_PAIR_STRING("name", bn),
                                 SD_JSON_BUILD_PAIR_CONDITION(size != UINT64_MAX, "size", SD_JSON_BUILD_INTEGER(size)),
-                                SD_JSON_BUILD_PAIR("sectorSize", SD_JSON_BUILD_INTEGER(m->sector_size)),
+                                SD_JSON_BUILD_PAIR_INTEGER("sectorSize", m->sector_size),
                                 SD_JSON_BUILD_PAIR_CONDITION(a >= 0, "architecture", SD_JSON_BUILD_STRING(architecture_to_string(a))),
                                 SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->image_uuid), "imageUuid", SD_JSON_BUILD_UUID(m->image_uuid)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!!m->hostname, "hostname", SD_JSON_BUILD_STRING(m->hostname)),
@@ -1119,16 +1117,16 @@ static int action_dissect(
                                 SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->initrd_release), "initrdRelease", JSON_BUILD_STRV_ENV_PAIR(m->initrd_release)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->sysext_release), "sysextRelease", JSON_BUILD_STRV_ENV_PAIR(m->sysext_release)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->confext_release), "confextRelease", JSON_BUILD_STRV_ENV_PAIR(m->confext_release)),
-                                SD_JSON_BUILD_PAIR("useBootableUefi", SD_JSON_BUILD_BOOLEAN(dissected_image_is_bootable_uefi(m))),
-                                SD_JSON_BUILD_PAIR("useBootableContainer", SD_JSON_BUILD_BOOLEAN(dissected_image_is_bootable_os(m))),
-                                SD_JSON_BUILD_PAIR("useInitrd", SD_JSON_BUILD_BOOLEAN(dissected_image_is_initrd(m))),
-                                SD_JSON_BUILD_PAIR("usePortableService", SD_JSON_BUILD_BOOLEAN(dissected_image_is_portable(m))),
-                                SD_JSON_BUILD_PAIR("useSystemExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "system"))),
-                                SD_JSON_BUILD_PAIR("useInitRDSystemExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "initrd"))),
-                                SD_JSON_BUILD_PAIR("usePortableSystemExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "portable"))),
-                                SD_JSON_BUILD_PAIR("useConfigurationExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "system"))),
-                                SD_JSON_BUILD_PAIR("useInitRDConfigurationExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "initrd"))),
-                                SD_JSON_BUILD_PAIR("usePortableConfigurationExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "portable"))));
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useBootableUefi", dissected_image_is_bootable_uefi(m)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useBootableContainer", dissected_image_is_bootable_os(m)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useInitrd", dissected_image_is_initrd(m)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("usePortableService", dissected_image_is_portable(m)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useSystemExtension", strv_contains(sysext_scopes, "system")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useInitRDSystemExtension", strv_contains(sysext_scopes, "initrd")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("usePortableSystemExtension", strv_contains(sysext_scopes, "portable")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useConfigurationExtension", strv_contains(confext_scopes, "system")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useInitRDConfigurationExtension", strv_contains(confext_scopes, "initrd")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("usePortableConfigurationExtension", strv_contains(confext_scopes, "portable")));
                 if (r < 0)
                         return log_oom();
         }
@@ -1206,7 +1204,7 @@ static int action_dissect(
         }
 
         if (!sd_json_format_enabled(arg_json_format_flags)) {
-                (void) table_set_header(t, arg_legend);
+                table_set_header(t, arg_legend);
 
                 r = table_print(t, NULL);
                 if (r < 0)
@@ -2154,8 +2152,15 @@ static int run(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to guess verity root hash: %m");
 
                                 if (arg_action != ACTION_DISSECT) {
+                                        _cleanup_(erase_and_freep) char *envpw = NULL;
+
+                                        r = getenv_steal_erase("PASSWORD", &envpw);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to acquire password from environment: %m");
+
                                         r = dissected_image_decrypt_interactively(
-                                                        m, NULL,
+                                                        m,
+                                                        envpw,
                                                         &arg_verity_settings,
                                                         arg_image_policy,
                                                         arg_flags);
