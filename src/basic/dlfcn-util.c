@@ -84,6 +84,7 @@ void block_dlopen(void) {
 }
 
 int dlopen_safe(const char *filename, void **ret, const char **reterr_dlerror) {
+        _cleanup_(dlclosep) void *dl = NULL;
         int r;
 
         assert(filename);
@@ -99,8 +100,8 @@ int dlopen_safe(const char *filename, void **ret, const char **reterr_dlerror) {
                 flags |= RTLD_NOLOAD;
 
         errno = 0;
-        void *p = dlopen(filename, flags);
-        if (!p) {
+        dl = dlopen(filename, flags);
+        if (!dl) {
                 if (dlopen_blocked) {
                         (void) dlerror(); /* consume error, so that no later call will return it */
 
@@ -121,7 +122,7 @@ int dlopen_safe(const char *filename, void **ret, const char **reterr_dlerror) {
         }
 
         if (ret)
-                *ret = TAKE_PTR(p);
+                *ret = TAKE_PTR(dl);
 
         return 0;
 }
