@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Moo, 2018. #zanata
-# mooo <hazap@hotmail.com>, 2023, 2024.
+# mooo <hazap@hotmail.com>, 2023, 2024, 2025.
 # Justinas Kairys <j.kairys@proton.me>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:30+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: mooo <hazap@hotmail.com>\n"
 "Language-Team: Lithuanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/lt/>\n"
 "Language: lt\n"
