@@ -35,17 +35,17 @@ typedef enum CustomMountType {
 
 typedef struct CustomMount {
         CustomMountType type;
-        bool read_only;
+        uid_t destination_uid;
         char *source; /* for overlayfs this is the upper directory */
         char *destination;
-        uid_t destination_uid;
         char *options;
         char *work_dir;
         char **lower;
         char *rm_rf_tmpdir;
         char *type_argument; /* only for CUSTOM_MOUNT_ARBITRARY */
-        bool graceful;
-        bool in_userns;
+        bool read_only:1;
+        bool graceful:1;
+        bool in_userns:1;
 } CustomMount;
 
 CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t);

@@ -42,100 +42,55 @@ typedef enum DnsTransactionSource {
 } DnsTransactionSource;
 
 typedef struct DnsTransaction {
+        /* Pointers and 8-byte types */
         DnsScope *scope;
-
         DnsResourceKey *key;         /* For regular lookups the RR key to look for */
         DnsPacket *bypass;           /* For bypass lookups the full original request packet */
-
         uint64_t query_flags;
-
         DnsPacket *sent, *received;
-
         DnsAnswer *answer;
+        char *answer_ede_msg;
+        uint64_t answer_query_flags;
+        DnsAnswer *validated_keys;
+        usec_t start_usec;
+        usec_t next_attempt_after;
+        sd_event_source *timeout_event_source;
+        sd_event_source *dns_udp_event_source;
+        DnsStream *stream;
+        DnsServer *server;
+        Set *notify_query_candidates, *notify_query_candidates_done;
+        Set *notify_zone_items, *notify_zone_items_done;
+        Set *notify_transactions, *notify_transactions_done;
+        Set *dnssec_transactions;
+        LIST_FIELDS(DnsTransaction, transactions_by_scope);
+        LIST_FIELDS(DnsTransaction, transactions_by_stream);
+        LIST_FIELDS(DnsTransaction, transactions_by_key);
+
+        /* Enums and 32-bit integers */
         int answer_rcode;
         int answer_ede_rcode;
-        char *answer_ede_msg;
         DnssecResult answer_dnssec_result;
         DnsTransactionSource answer_source;
         uint32_t answer_nsec_ttl;
         int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
-
         DnsTransactionState state;
-
-        /* SD_RESOLVED_AUTHENTICATED here indicates whether the primary answer is authenticated, i.e. whether
-         * the RRs from answer which directly match the question are authenticated, or, if there are none,
-         * whether the NODATA or NXDOMAIN case is. It says nothing about additional RRs listed in the answer,
-         * however they have their own DNS_ANSWER_AUTHORIZED FLAGS. Note that this bit is defined different
-         * than the AD bit in DNS packets, as that covers more than just the actual primary answer. */
-        uint64_t answer_query_flags;
-
-        /* Contains DNSKEY, DS, SOA RRs we already verified and need
-         * to authenticate this reply */
-        DnsAnswer *validated_keys;
-
-        usec_t start_usec;
-        usec_t next_attempt_after;
-        sd_event_source *timeout_event_source;
         unsigned n_attempts;
-
-        /* UDP connection logic, if we need it */
         int dns_udp_fd;
-        sd_event_source *dns_udp_event_source;
-
-        /* TCP connection logic, if we need it */
-        DnsStream *stream;
-
-        /* The active server */
-        DnsServer *server;
-
-        /* The features of the DNS server at time of transaction start */
         DnsServerFeatureLevel current_feature_level;
-
-        /* If we got SERVFAIL back, we retry the lookup, using a lower feature level than we used before. */
         DnsServerFeatureLevel clamp_feature_level_servfail;
-
-        uint16_t id;
-
-        bool tried_stream:1;
-
-        bool initial_jitter_scheduled:1;
-        bool initial_jitter_elapsed:1;
-
-        bool probing:1;
-
-        bool seen_timeout:1;
-
-        /* Query candidates this transaction is referenced by and that
-         * shall be notified about this specific transaction
-         * completing. */
-        Set *notify_query_candidates, *notify_query_candidates_done;
-
-        /* Zone items this transaction is referenced by and that shall
-         * be notified about completion. */
-        Set *notify_zone_items, *notify_zone_items_done;
-
-        /* Other transactions that this transactions is referenced by
-         * and that shall be notified about completion. This is used
-         * when transactions want to validate their RRsets, but need
-         * another DNSKEY or DS RR to do so. */
-        Set *notify_transactions, *notify_transactions_done;
-
-        /* The opposite direction: the transactions this transaction
-         * created in order to request DNSKEY or DS RRs. */
-        Set *dnssec_transactions;
-
         unsigned n_picked_servers;
-
         unsigned block_gc;
 
-        /* Set when we're willing to let this transaction live beyond it's usefulness for the original query,
-         * for caching purposes. This blocks gc while there is still a chance we might still receive an
-         * answer. */
-        bool wait_for_answer;
+        /* 16-bit integers */
+        uint16_t id;
 
-        LIST_FIELDS(DnsTransaction, transactions_by_scope);
-        LIST_FIELDS(DnsTransaction, transactions_by_stream);
-        LIST_FIELDS(DnsTransaction, transactions_by_key);
+        /* Booleans */
+        bool tried_stream:1;
+        bool initial_jitter_scheduled:1;
+        bool initial_jitter_elapsed:1;
+        bool probing:1;
+        bool seen_timeout:1;
+        bool wait_for_answer:1;
 
         /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
 } DnsTransaction;

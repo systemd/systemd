@@ -40,53 +40,55 @@ typedef enum DnsStreamType {
  */
 
 typedef struct DnsStream {
+        /* Pointers and other 8-byte aligned types */
         Manager *manager;
-        unsigned n_ref;
+        sd_event_source *io_event_source;
+        sd_event_source *timeout_event_source;
+        DnsPacket *write_packet, *read_packet;
+        OrderedSet *write_queue;
+        int (*on_packet)(DnsStream *s, DnsPacket *p);
+        int (*complete)(DnsStream *s, int error);
+        DnsServer *server;                       /* when used by the transaction logic */
+        Set *queries;                            /* when used by the DNS stub logic */
+        DnsStubListenerExtra *stub_listener_extra;
 
-        DnsStreamType type;
-        DnsProtocol protocol;
+        LIST_HEAD(DnsTransaction, transactions); /* when used by the transaction logic */
+        LIST_FIELDS(DnsStream, streams);
 
-        int fd;
+        /* Large structs */
         union sockaddr_union peer;
-        socklen_t peer_salen;
         union sockaddr_union local;
-        socklen_t local_salen;
-        int ifindex;
-        uint32_t ttl;
-        bool identified;
-        bool packet_received; /* At least one packet is received. Used by LLMNR. */
-        uint32_t requested_events;
-
-        /* only when using TCP fast open */
-        union sockaddr_union tfo_address;
-        socklen_t tfo_salen;
+        union sockaddr_union tfo_address;        /* only when using TCP fast open */
 
 #if ENABLE_DNS_OVER_TLS
         DnsTlsStreamData dnstls_data;
+#endif
+
+        /* 64-bit integers */
+        size_t n_written, n_read;
+
+        /* 32-bit integers and enums */
+        unsigned n_ref;
+        DnsStreamType type;
+        DnsProtocol protocol;
+        int fd;
+        socklen_t peer_salen;
+        socklen_t local_salen;
+        int ifindex;
+        uint32_t ttl;
+        uint32_t requested_events;
+        socklen_t tfo_salen;
+#if ENABLE_DNS_OVER_TLS
         uint32_t dnstls_events;
 #endif
 
-        sd_event_source *io_event_source;
-        sd_event_source *timeout_event_source;
-
+        /* 16-bit integers */
         be16_t write_size, read_size;
-        DnsPacket *write_packet, *read_packet;
-        size_t n_written, n_read;
-        OrderedSet *write_queue;
 
-        int (*on_packet)(DnsStream *s, DnsPacket *p);
-        int (*complete)(DnsStream *s, int error);
-
-        LIST_HEAD(DnsTransaction, transactions); /* when used by the transaction logic */
-        DnsServer *server;                       /* when used by the transaction logic */
-        Set *queries;                            /* when used by the DNS stub logic */
-
-        /* used when DNS-over-TLS is enabled */
+        /* Booleans and bitfields */
+        bool identified:1;
+        bool packet_received:1; /* At least one packet is received. Used by LLMNR. */
         bool encrypted:1;
-
-        DnsStubListenerExtra *stub_listener_extra;
-
-        LIST_FIELDS(DnsStream, streams);
 } DnsStream;
 
 int dns_stream_new(

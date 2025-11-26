@@ -34,8 +34,8 @@
 #include "varlink-util.h"
 
 typedef struct LookupParameters {
-        int ifindex;
         uint64_t flags;
+        int ifindex;
         int family;
         struct iovec address;
         const char *name;
