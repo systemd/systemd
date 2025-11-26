@@ -8,7 +8,7 @@
 # Ettore Atalan <atalanttore@googlemail.com>, 2021, 2024, 2025.
 # Christian Wehrli <christian@chw.onl>, 2021.
 # Christian Kirbach <christian.kirbach@gmail.com>, 2023, 2025.
-# Jarne Förster <fedora@mymailclient.de>, 2024.
+# Jarne Förster <fedora@mymailclient.de>, 2024, 2025.
 # Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024, 2025.
 # Anselm Schueler <mail@anselmschueler.com>, 2024.
 # Marcel Leismann <tiixrigjekfv@use.startmail.com>, 2025.
@@ -17,7 +17,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:25+0000\n"
-"Last-Translator: Christian Kirbach <christian.kirbach@gmail.com>\n"
+"Last-Translator: Jarne Förster <fedora@mymailclient.de>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -272,8 +272,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"Sicherheitstoken PIN ist gesperrt, bitte entsperren (Hinweis: Entfernen und "
-"neu einstecken könnte genügen.)"
+"Sicherheitstoken PIN ist gesperrt, bitte entsperren "
+"(Hinweis: Entfernen und neu einstecken könnte genügen.)"
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
