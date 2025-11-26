@@ -27,64 +27,58 @@ struct sd_dhcp_raw_option {
 };
 
 struct sd_dhcp_lease {
-        unsigned n_ref;
-
-        /* each 0 if unset */
+        /* Pointers and other 8-byte aligned types */
         usec_t t1;
         usec_t t2;
         usec_t lifetime;
         triple_timestamp timestamp;
         usec_t ipv6_only_preferred_usec;
 
-        /* each 0 if unset */
-        be32_t address;
-        be32_t server_address;
-        be32_t next_server;
-
-        bool have_subnet_mask;
-        be32_t subnet_mask;
-
-        bool have_broadcast;
-        be32_t broadcast;
-
         struct in_addr *router;
-        size_t router_size;
-
-        bool rapid_commit;
-
-        DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
-
         sd_dns_resolver *dnr;
-        size_t n_dnr;
-
         struct sd_dhcp_route *static_routes;
-        size_t n_static_routes;
         struct sd_dhcp_route *classless_routes;
-        size_t n_classless_routes;
-
-        uint16_t mtu; /* 0 if unset */
-
         char *domainname;
         char **search_domains;
         char *hostname; /* SD_DHCP_OPTION_HOST_NAME (12) */
         char *fqdn;     /* SD_DHCP_OPTION_FQDN (81) */
         char *root_path;
         char *captive_portal;
-
-        sd_dhcp_client_id client_id;
-
         void *vendor_specific;
-        size_t vendor_specific_len;
-
         char *timezone;
-
-        uint8_t sixrd_ipv4masklen;
-        uint8_t sixrd_prefixlen;
-        struct in6_addr sixrd_prefix;
         struct in_addr *sixrd_br_addresses;
+
+        /* Large structs and arrays */
+        DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
+        sd_dhcp_client_id client_id;
+        struct in6_addr sixrd_prefix;
+        LIST_HEAD(struct sd_dhcp_raw_option, private_options);
+
+        /* 64-bit integers */
+        size_t router_size;
+        size_t n_dnr;
+        size_t n_static_routes;
+        size_t n_classless_routes;
+        size_t vendor_specific_len;
         size_t sixrd_n_br_addresses;
 
-        LIST_HEAD(struct sd_dhcp_raw_option, private_options);
+        /* 4-byte integers */
+        unsigned n_ref;
+        be32_t address;
+        be32_t server_address;
+        be32_t next_server;
+        be32_t subnet_mask;
+        be32_t broadcast;
+
+        /* 2-byte integers */
+        uint16_t mtu; /* 0 if unset */
+
+        /* 1-byte integers and booleans */
+        bool have_subnet_mask;
+        bool have_broadcast;
+        bool rapid_commit;
+        uint8_t sixrd_ipv4masklen;
+        uint8_t sixrd_prefixlen;
 };
 
 int dhcp_lease_new(sd_dhcp_lease **ret);

@@ -10,12 +10,12 @@
 /* typedef struct sd_dns_resolver sd_dns_resolver; */
 typedef struct sd_dns_resolver {
         uint16_t priority;
-        char *auth_name;
+        uint16_t port;
         int family;
+        char *auth_name;
         union in_addr_union *addrs;
         size_t n_addrs;
         sd_dns_alpn_flags transports;
-        uint16_t port;
         char *dohpath;
 } sd_dns_resolver;
 

@@ -52,8 +52,8 @@ typedef enum OfflineState {
 } OfflineState;
 
 typedef struct JournalFile {
-        int fd;
         MMapFileDescriptor *cache_fd;
+        int fd;
 
         mode_t mode;
 
@@ -98,9 +98,6 @@ typedef struct JournalFile {
         void *compress_buffer;
 #endif
 
-        gcry_md_hd_t hmac;
-        bool hmac_running;
-
         FSSHeader *fss_file;
         size_t fss_file_size;
 
@@ -113,14 +110,17 @@ typedef struct JournalFile {
         void *fsprg_seed;
         size_t fsprg_seed_size;
 
+        gcry_md_hd_t hmac;
+        bool hmac_running;
+
         /* When we insert this file into the per-boot priority queue 'newest_by_boot_id' in sd_journal, then by these keys */
+        uint8_t newest_state;
+        unsigned newest_boot_id_prioq_idx;
         sd_id128_t newest_boot_id;
         sd_id128_t newest_machine_id;
         uint64_t newest_monotonic_usec;
         uint64_t newest_realtime_usec;
-        unsigned newest_boot_id_prioq_idx;
         uint64_t newest_entry_offset;
-        uint8_t newest_state;
 } JournalFile;
 
 typedef enum JournalFileFlags {

@@ -13,20 +13,6 @@
 #include "time-util.h"
 
 struct sd_dhcp6_lease {
-        unsigned n_ref;
-
-        uint8_t *clientid;
-        size_t clientid_len;
-        uint8_t *serverid;
-        size_t serverid_len;
-        uint8_t preference;
-        bool rapid_commit;
-        triple_timestamp timestamp;
-        usec_t lifetime_t1;
-        usec_t lifetime_t2;
-        usec_t lifetime_valid;
-        struct in6_addr server_address;
-
         DHCP6IA *ia_na; /* Identity association non-temporary addresses */
         DHCP6IA *ia_pd; /* Identity association prefix delegation */
 
@@ -34,14 +20,14 @@ struct sd_dhcp6_lease {
         DHCP6Address *prefix_iter;
 
         struct in6_addr *dns;
+        char **domains;
+        struct in6_addr *ntp;
+        char **ntp_fqdn;
+        struct in6_addr *sntp;
         size_t dns_count;
         sd_dns_resolver *dnr;
         size_t n_dnr;
-        char **domains;
-        struct in6_addr *ntp;
         size_t ntp_count;
-        char **ntp_fqdn;
-        struct in6_addr *sntp;
         size_t sntp_count;
         struct in6_addr *sip;
         size_t sip_count;
@@ -50,6 +36,22 @@ struct sd_dhcp6_lease {
         char *captive_portal;
         struct sd_dhcp6_option **sorted_vendor_options;
         Set *vendor_options;
+        uint8_t *clientid;
+        uint8_t *serverid;
+
+        triple_timestamp timestamp;
+        struct in6_addr server_address;
+
+        usec_t lifetime_t1;
+        usec_t lifetime_t2;
+        usec_t lifetime_valid;
+
+        size_t clientid_len;
+        size_t serverid_len;
+
+        unsigned n_ref;
+        uint8_t preference;
+        bool rapid_commit;
 };
 
 int dhcp6_lease_set_clientid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len);

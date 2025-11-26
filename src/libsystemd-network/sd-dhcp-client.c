@@ -45,47 +45,17 @@
                                       * transient failure. */
 
 struct sd_dhcp_client {
-        unsigned n_ref;
-
-        DHCPState state;
+        /* Pointers and other 8-byte aligned types */
         sd_event *event;
-        int event_priority;
         sd_event_source *timeout_resend;
-
-        int ifindex;
         char *ifname;
-
         sd_device *dev;
-
-        int fd;
-        uint16_t port;
-        uint16_t server_port;
-        union sockaddr_union link;
         sd_event_source *receive_message;
-        bool request_broadcast;
         Set *req_opts;
-        bool anonymize;
-        bool rapid_commit;
-        be32_t last_addr;
-        struct hw_addr_data hw_addr;
-        struct hw_addr_data bcast_addr;
-        uint16_t arp_type;
-        sd_dhcp_client_id client_id;
         char *hostname;
         char *vendor_class_identifier;
         char *mudurl;
         char **user_class;
-        uint32_t mtu;
-        usec_t fallback_lease_lifetime;
-        uint32_t xid;
-        usec_t start_time;
-        usec_t t1_time;
-        usec_t t2_time;
-        usec_t expire_time;
-        uint64_t discover_attempt;
-        uint64_t request_attempt;
-        uint64_t max_discover_attempts;
-        uint64_t max_request_attempts;
         OrderedHashmap *extra_options;
         OrderedHashmap *vendor_options;
         sd_event_source *timeout_t1;
@@ -97,9 +67,46 @@ struct sd_dhcp_client {
         sd_dhcp_client_callback_t state_callback;
         void *state_userdata;
         sd_dhcp_lease *lease;
+
+        /* Large structs */
+        union sockaddr_union link;
+        struct hw_addr_data hw_addr;
+        struct hw_addr_data bcast_addr;
+        sd_dhcp_client_id client_id;
+
+        /* 64-bit integers */
+        usec_t fallback_lease_lifetime;
+        usec_t start_time;
+        usec_t t1_time;
+        usec_t t2_time;
+        usec_t expire_time;
+        uint64_t discover_attempt;
+        uint64_t request_attempt;
+        uint64_t max_discover_attempts;
+        uint64_t max_request_attempts;
         usec_t start_delay;
+
+        /* 4-byte integers and enums */
+        unsigned n_ref;
+        DHCPState state;
+        int event_priority;
+        int ifindex;
+        int fd;
+        be32_t last_addr;
+        uint32_t mtu;
+        uint32_t xid;
         int ip_service_type;
         int socket_priority;
+
+        /* 2-byte integers */
+        uint16_t port;
+        uint16_t server_port;
+        uint16_t arp_type;
+
+        /* Booleans */
+        bool request_broadcast;
+        bool anonymize;
+        bool rapid_commit;
         bool socket_priority_set;
         bool ipv6_acquired;
         bool bootp;

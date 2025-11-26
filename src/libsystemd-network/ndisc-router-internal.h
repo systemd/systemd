@@ -12,9 +12,9 @@
 #include "ndisc-option.h"
 
 typedef struct sd_ndisc_router {
-        unsigned n_ref;
-
         ICMP6Packet *packet;
+
+        unsigned n_ref;
 
         /* From RA header */
         uint8_t hop_limit;

@@ -11,6 +11,9 @@
 struct sd_device {
         unsigned n_ref;
 
+        /* network interface properties */
+        int ifindex;
+
         /* syspath */
         char *syspath;
         const char *devpath;
@@ -34,11 +37,16 @@ struct sd_device {
         uid_t devuid;
         gid_t devgid;
 
+        /* The database version indicates the supported features by the udev database.
+         * This is saved and parsed in V field.
+         *
+         * 0: None of the following features are supported (systemd version <= 246).
+         * 1: The current tags (Q) and the database version (V) features are implemented (>= 247).
+         */
+        unsigned database_version;
+
         /* block device properties */
         uint64_t diskseq; /* Block device sequence number, monothonically incremented by the kernel on create/attach */
-
-        /* network interface properties */
-        int ifindex;
 
         /* determined by devnnum, ifindex, subsystem, and sysname */
         char *device_id;
@@ -47,14 +55,6 @@ struct sd_device {
         Hashmap *sysattr_values; /* cached sysattr values */
         Set *sysattrs; /* names of sysattrs */
         Iterator sysattrs_iterator;
-
-        /* The database version indicates the supported features by the udev database.
-         * This is saved and parsed in V field.
-         *
-         * 0: None of the following features are supported (systemd version <= 246).
-         * 1: The current tags (Q) and the database version (V) features are implemented (>= 247).
-         */
-        unsigned database_version;
 
         /* when device is initialized by udevd */
         usec_t usec_initialized;

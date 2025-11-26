@@ -56,45 +56,38 @@ typedef struct sd_netlink_slot {
 } sd_netlink_slot;
 
 typedef struct sd_netlink {
-        unsigned n_ref;
+        /* Pointers and other 8-byte aligned types */
+        Hashmap *broadcast_group_refs;
+        OrderedSet *rqueue;
+        Hashmap *rqueue_by_serial;
+        Hashmap *rqueue_partial_by_serial;
+        struct nlmsghdr *rbuffer;
+        struct Prioq *reply_callbacks_prioq;
+        Hashmap *reply_callbacks;
+        sd_event_source *io_event_source;
+        sd_event_source *time_event_source;
+        sd_event_source *exit_event_source;
+        sd_event *event;
+        Hashmap *genl_family_by_name;
+        Hashmap *genl_family_by_id;
 
-        int fd;
+        LIST_HEAD(struct match_callback, match_callbacks);
+        LIST_HEAD(sd_netlink_slot, slots);
 
         union {
                 struct sockaddr sa;
                 struct sockaddr_nl nl;
         } sockaddr;
 
+        /* 4-byte types */
+        unsigned n_ref;
+        int fd;
         int protocol;
-
-        Hashmap *broadcast_group_refs;
-
-        OrderedSet *rqueue;
-        Hashmap *rqueue_by_serial;
-        Hashmap *rqueue_partial_by_serial;
-
-        struct nlmsghdr *rbuffer;
-
-        bool processing:1;
-
         uint32_t serial;
-
-        struct Prioq *reply_callbacks_prioq;
-        Hashmap *reply_callbacks;
-
-        LIST_HEAD(struct match_callback, match_callbacks);
-
-        LIST_HEAD(sd_netlink_slot, slots);
-
         pid_t original_pid;
 
-        sd_event_source *io_event_source;
-        sd_event_source *time_event_source;
-        sd_event_source *exit_event_source;
-        sd_event *event;
-
-        Hashmap *genl_family_by_name;
-        Hashmap *genl_family_by_id;
+        /* Booleans */
+        bool processing:1;
 } sd_netlink;
 
 struct netlink_attribute {

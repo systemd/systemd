@@ -63,8 +63,8 @@ typedef struct sd_bus_message {
          * will be freed. */
 
         unsigned n_ref;     /* Counter of references that pin the connection */
-        unsigned n_queued;  /* Counter of references that do not pin the connection */
 
+        /* Pointers and other 8-byte aligned types */
         sd_bus *bus;
 
         uint64_t reply_cookie;
@@ -75,22 +75,10 @@ typedef struct sd_bus_message {
         const char *destination;
         const char *sender;
 
-        sd_bus_error error;
-
-        sd_bus_creds creds;
-
         usec_t monotonic;
         usec_t realtime;
         uint64_t seqnum;
         uint64_t verify_destination_id;
-
-        bool sealed:1;
-        bool dont_send:1;
-        bool allow_fds:1;
-        bool free_header:1;
-        bool free_fds:1;
-        bool poisoned:1;
-        bool sensitive:1;
 
         /* The first bytes of the message */
         BusMessageHeader *header;
@@ -99,23 +87,18 @@ typedef struct sd_bus_message {
         size_t body_size;
         size_t user_body_size;
 
-        BusMessageBodyPart body;
         BusMessageBodyPart *body_end;
-        unsigned n_body_parts;
 
         size_t rindex;
         BusMessageBodyPart *cached_rindex_part;
         size_t cached_rindex_part_begin;
 
-        uint32_t n_fds;
         int *fds;
 
-        BusMessageContainer root_container, *containers;
+        BusMessageContainer *containers;
         size_t n_containers;
 
         struct iovec *iovec;
-        struct iovec iovec_fixed[2];
-        unsigned n_iovec;
 
         char *peeked_signature;
 
@@ -127,9 +110,31 @@ typedef struct sd_bus_message {
         usec_t timeout;
 
         size_t header_offsets[_BUS_MESSAGE_HEADER_MAX];
-        unsigned n_header_offsets;
 
         uint64_t read_counter;
+
+        /* Large structs and arrays */
+        sd_bus_error error;
+        sd_bus_creds creds;
+        BusMessageBodyPart body;
+        BusMessageContainer root_container;
+        struct iovec iovec_fixed[2];
+
+        /* 4-byte integers */
+        unsigned n_queued;  /* Counter of references that do not pin the connection */
+        unsigned n_body_parts;
+        uint32_t n_fds;
+        unsigned n_iovec;
+        unsigned n_header_offsets;
+
+        /* Booleans */
+        bool sealed:1;
+        bool dont_send:1;
+        bool allow_fds:1;
+        bool free_header:1;
+        bool free_fds:1;
+        bool poisoned:1;
+        bool sensitive:1;
 } sd_bus_message;
 
 static inline bool BUS_MESSAGE_NEED_BSWAP(sd_bus_message *m) {
