@@ -172,138 +172,96 @@ typedef enum ExecCleanMask {
  * change after being loaded. */
 typedef struct ExecContext {
         char **environment;
+        char **read_write_paths, **read_only_paths, **inaccessible_paths, **exec_paths, **no_exec_paths;
+        char **exec_search_path;
+        BindMount *bind_mounts;
+        TemporaryFileSystem *temporary_filesystems;
+        MountImage *mount_images;
+        MountImage *extension_images;
+        char **extension_directories;
+        char *syslog_identifier;
+        struct iovec* log_extra_fields;
+        Set *log_filter_allowed_patterns;
+        Set *log_filter_denied_patterns;
+        char *log_namespace;
+        char *private_hostname;
+        Set *restrict_filesystems;
+        Hashmap *syscall_filter;
+        Set *syscall_archs;
+        Hashmap *syscall_log;
+        Set *address_families;
+        char *network_namespace_path;
+        char *ipc_namespace_path;
+        Hashmap *set_credentials; /* output id → ExecSetCredential */
+        Hashmap *load_credentials; /* output id → ExecLoadCredential */
+        OrderedSet *import_credentials; /* ExecImportCredential */
+        ImagePolicy *root_image_policy, *mount_image_policy, *extension_image_policy;
         char **environment_files;
         char **pass_environment;
         char **unset_environment;
-
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
         void *root_hash, *root_hash_sig;
-        size_t root_hash_size, root_hash_sig_size;
+        char *stdio_fdname[3];
+        char *stdio_file[3];
+        void *stdin_data;
+        char *tty_path;
+        char *user;
+        char *group;
+        char **supplementary_groups;
+        char *pam_name;
+        char *utmp_id;
+        char *selinux_context;
+        char *apparmor_profile;
+        char *smack_process_label;
+
+        /* Large structs and arrays */
         LIST_HEAD(MountOptions, root_image_options);
-        bool root_ephemeral;
-        bool working_directory_missing_ok:1;
-        bool working_directory_home:1;
+        CPUSet cpu_set;
+        NUMAPolicy numa_policy;
+        RateLimit log_ratelimit;
+        ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
 
-        bool oom_score_adjust_set:1;
-        bool coredump_filter_set:1;
-        bool nice_set:1;
-        bool ioprio_is_set:1;
-        bool cpu_sched_set:1;
+        /* 64-bit integers */
+        size_t root_hash_size, root_hash_sig_size;
+        uint64_t coredump_filter;
+        size_t stdin_data_size;
+        nsec_t timer_slack_nsec;
+        unsigned long mount_propagation_flag;
+        size_t n_bind_mounts;
+        size_t n_temporary_filesystems;
+        size_t n_mount_images;
+        size_t n_extension_images;
+        uint64_t capability_bounding_set;
+        uint64_t capability_ambient_set;
+        size_t n_log_extra_fields;
+        uint64_t bpf_delegate_commands, bpf_delegate_maps, bpf_delegate_programs, bpf_delegate_attachments;
+        unsigned long personality;
+        unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
+        unsigned long delegate_namespaces; /* The CLONE_NEWxyz flags delegated to the unit's processes */
+        usec_t timeout_clean_usec;
 
-        /* This is not exposed to the user but available internally. We need it to make sure that whenever we
-         * spawn /usr/bin/mount it is run in the same process group as us so that the autofs logic detects
-         * that it belongs to us and we don't enter a trigger loop. */
-        bool same_pgrp;
-
-        bool cpu_sched_reset_on_fork;
-        bool non_blocking;
-
+        /* 4-byte integers and enums */
         mode_t umask;
         int oom_score_adjust;
         int nice;
         int ioprio;
         int cpu_sched_policy;
         int cpu_sched_priority;
-        uint64_t coredump_filter;
-
-        CPUSet cpu_set;
-        NUMAPolicy numa_policy;
-        bool cpu_affinity_from_numa;
-
         ExecInput std_input;
         ExecOutput std_output;
         ExecOutput std_error;
-
-        /* At least one of stdin/stdout/stderr was initialized from an fd passed in. This boolean survives
-         * the fds being closed. This only makes sense for transient units. */
-        bool stdio_as_fds;
-        bool root_directory_as_fd;
-
-        char *stdio_fdname[3];
-        char *stdio_file[3];
-
-        void *stdin_data;
-        size_t stdin_data_size;
-
-        nsec_t timer_slack_nsec;
-
-        char *tty_path;
-
-        bool tty_reset;
-        bool tty_vhangup;
-        bool tty_vt_disallocate;
-
         unsigned tty_rows;
         unsigned tty_cols;
-
-        bool ignore_sigpipe;
-
         ExecKeyringMode keyring_mode;
-
-        /* Since resolving these names might involve socket
-         * connections and we don't want to deadlock ourselves these
-         * names are resolved on execution only and in the child
-         * process. */
-        char *user;
-        char *group;
-        char **supplementary_groups;
-
         int set_login_environment;
-
-        char *pam_name;
-
-        char *utmp_id;
         ExecUtmpMode utmp_mode;
-
-        bool no_new_privileges;
-
-        bool selinux_context_ignore;
-        bool apparmor_profile_ignore;
-        bool smack_process_label_ignore;
-
-        char *selinux_context;
-        char *apparmor_profile;
-        char *smack_process_label;
-
-        char **read_write_paths, **read_only_paths, **inaccessible_paths, **exec_paths, **no_exec_paths;
-        char **exec_search_path;
-        unsigned long mount_propagation_flag;
-        BindMount *bind_mounts;
-        size_t n_bind_mounts;
-        TemporaryFileSystem *temporary_filesystems;
-        size_t n_temporary_filesystems;
-        MountImage *mount_images;
-        size_t n_mount_images;
-        MountImage *extension_images;
-        size_t n_extension_images;
-        char **extension_directories;
-
-        uint64_t capability_bounding_set;
-        uint64_t capability_ambient_set;
         int secure_bits;
-
         int syslog_priority;
-        bool syslog_level_prefix;
-        char *syslog_identifier;
-
-        struct iovec* log_extra_fields;
-        size_t n_log_extra_fields;
-        Set *log_filter_allowed_patterns;
-        Set *log_filter_denied_patterns;
-
-        RateLimit log_ratelimit;
-
         int log_level_max;
-
-        char *log_namespace;
-
         ProtectProc protect_proc;  /* hidepid= */
         ProcSubset proc_subset;    /* subset= */
-
         PrivateBPF private_bpf;
-        uint64_t bpf_delegate_commands, bpf_delegate_maps, bpf_delegate_programs, bpf_delegate_attachments;
-
         int private_mounts;
         int mount_apivfs;
         int bind_log_sockets;
@@ -311,60 +269,61 @@ typedef struct ExecContext {
         PrivateTmp private_tmp;
         PrivateTmp private_var_tmp; /* This is not an independent parameter, but calculated from other
                                      * parameters in unit_patch_contexts(). */
-        bool private_network;
-        bool private_devices;
         PrivateUsers private_users;
-        bool private_ipc;
-        bool protect_kernel_tunables;
-        bool protect_kernel_modules;
-        bool protect_kernel_logs;
-        bool protect_clock;
         ProtectControlGroups protect_control_groups;
         ProtectSystem protect_system;
         ProtectHome protect_home;
         PrivatePIDs private_pids;
         ProtectHostname protect_hostname;
-        char *private_hostname;
+        int syscall_errno;
+        ExecPreserveMode runtime_directory_preserve_mode;
 
+        /* Booleans and bitfields */
+        bool root_ephemeral;
+        bool working_directory_missing_ok:1;
+        bool working_directory_home:1;
+        bool oom_score_adjust_set:1;
+        bool coredump_filter_set:1;
+        bool nice_set:1;
+        bool ioprio_is_set:1;
+        bool cpu_sched_set:1;
+        /* This is not exposed to the user but available internally. We need it to make sure that whenever we
+         * spawn /usr/bin/mount it is run in the same process group as us so that the autofs logic detects
+         * that it belongs to us and we don't enter a trigger loop. */
+        bool same_pgrp;
+        bool cpu_sched_reset_on_fork;
+        bool non_blocking;
+        bool cpu_affinity_from_numa;
+        /* At least one of stdin/stdout/stderr was initialized from an fd passed in. This boolean survives
+         * the fds being closed. This only makes sense for transient units. */
+        bool stdio_as_fds;
+        bool root_directory_as_fd;
+        bool tty_reset;
+        bool tty_vhangup;
+        bool tty_vt_disallocate;
+        bool ignore_sigpipe;
+        bool no_new_privileges;
+        bool selinux_context_ignore;
+        bool apparmor_profile_ignore;
+        bool smack_process_label_ignore;
+        bool syslog_level_prefix;
+        bool private_network;
+        bool private_devices;
+        bool private_ipc;
+        bool protect_kernel_tunables;
+        bool protect_kernel_modules;
+        bool protect_kernel_logs;
+        bool protect_clock;
         bool dynamic_user;
         bool remove_ipc;
-
         bool memory_deny_write_execute;
         bool restrict_realtime;
         bool restrict_suid_sgid;
-
         bool lock_personality;
-        unsigned long personality;
-
-        unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
-        unsigned long delegate_namespaces; /* The CLONE_NEWxyz flags delegated to the unit's processes */
-
-        Set *restrict_filesystems;
         bool restrict_filesystems_allow_list:1;
-
-        Hashmap *syscall_filter;
-        Set *syscall_archs;
-        int syscall_errno;
         bool syscall_allow_list:1;
-
-        Hashmap *syscall_log;
         bool syscall_log_allow_list:1; /* Log listed system calls */
-
         bool address_families_allow_list:1;
-        Set *address_families;
-
-        char *network_namespace_path;
-        char *ipc_namespace_path;
-
-        ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
-        ExecPreserveMode runtime_directory_preserve_mode;
-        usec_t timeout_clean_usec;
-
-        Hashmap *set_credentials; /* output id → ExecSetCredential */
-        Hashmap *load_credentials; /* output id → ExecLoadCredential */
-        OrderedSet *import_credentials; /* ExecImportCredential */
-
-        ImagePolicy *root_image_policy, *mount_image_policy, *extension_image_policy;
 } ExecContext;
 
 typedef enum ExecFlags {
@@ -409,9 +368,6 @@ typedef struct ExecParameters {
         char *received_credentials_directory;
         char *received_encrypted_credentials_directory;
 
-        char *confirm_spawn;
-        bool shall_confirm_spawn;
-
         usec_t watchdog_usec;
 
         int *idle_pipe;
@@ -421,14 +377,16 @@ typedef struct ExecParameters {
         int stderr_fd;
         int root_directory_fd;
 
-        /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done. */
-        int exec_fd;
-
         char *notify_socket;
 
         LIST_HEAD(OpenFile, open_files);
 
         char *fallback_smack_process_label;
+
+        char *confirm_spawn;
+
+        /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done. */
+        int exec_fd;
 
         int user_lookup_fd;
         int handoff_timestamp_fd;
@@ -436,13 +394,15 @@ typedef struct ExecParameters {
 
         int bpf_restrict_fs_map_fd;
 
+        bool shall_confirm_spawn;
+
         /* Used for logging in the executor functions */
+        bool debug_invocation;
+        bool selinux_context_net;
+
         char *unit_id;
         sd_id128_t invocation_id;
         char invocation_id_string[SD_ID128_STRING_MAX];
-
-        bool debug_invocation;
-        bool selinux_context_net;
 } ExecParameters;
 
 #define EXEC_PARAMETERS_INIT(_flags)              \

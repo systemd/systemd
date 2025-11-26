@@ -99,9 +99,9 @@ typedef struct ServiceFDStore {
         Service *service;
 
         int fd;
+        bool do_poll;
         char *fdname;
         sd_event_source *event_source;
-        bool do_poll;
 
         LIST_FIELDS(struct ServiceFDStore, fd_store);
 } ServiceFDStore;
@@ -114,135 +114,100 @@ typedef struct ServiceExtraFD {
 typedef struct Service {
         Unit meta;
 
-        ServiceType type;
-        ServiceExitType exit_type;
-        ServiceRestart restart;
-        ServiceRestartMode restart_mode;
+        /* Pointers and other 8-byte aligned types */
+        char *pid_file;
+        sd_event_source *watchdog_event_source;
+        ExecCommand *exec_command[_SERVICE_EXEC_COMMAND_MAX];
+        ExecCommand *main_command;
+        ExecCommand *control_command;
+        ExecRuntime *exec_runtime;
+        CGroupRuntime *cgroup_runtime;
+        SocketPeer *socket_peer;
+        UnitRef accept_socket;
+        char *bus_name;
+        char *status_text;
+        char *status_bus_error;
+        char *status_varlink_error;
+        sd_event_source *timer_event_source;
+        PathSpec *pid_file_pathspec;
+        sd_bus_slot *bus_name_pid_lookup_slot;
+        sd_event_source *exec_fd_event_source;
+        ServiceExtraFD *extra_fds;
+        char *usb_function_descriptors;
+        char *usb_function_strings;
+        sd_bus_message *mount_request;
+
+        /* Large structs and arrays */
         ExitStatusSet restart_prevent_status;
         ExitStatusSet restart_force_status;
         ExitStatusSet success_status;
+        dual_timestamp watchdog_timestamp;
+        ExecContext exec_context;
+        KillContext kill_context;
+        CGroupContext cgroup_context;
+        ExecStatus main_exec_status;
+        PidRef main_pid, control_pid;
+        LIST_HEAD(ServiceFDStore, fd_store);
+        LIST_HEAD(OpenFile, open_files);
 
-        /* If set we'll read the main daemon PID from this file */
-        char *pid_file;
-
-        unsigned n_restarts;
-        unsigned restart_steps;
+        /* 64-bit integers */
         usec_t restart_usec;
         usec_t restart_max_delay_usec;
         usec_t timeout_start_usec;
         usec_t timeout_stop_usec;
         usec_t timeout_abort_usec;
-        bool timeout_abort_set;
         usec_t runtime_max_usec;
         usec_t runtime_rand_extra_usec;
-        ServiceTimeoutFailureMode timeout_start_failure_mode;
-        ServiceTimeoutFailureMode timeout_stop_failure_mode;
-
-        dual_timestamp watchdog_timestamp;
         usec_t watchdog_usec;            /* the requested watchdog timeout in the unit file */
         usec_t watchdog_original_usec;   /* the watchdog timeout that was in effect when the unit was started, i.e. the timeout the forked off processes currently see */
         usec_t watchdog_override_usec;   /* the watchdog timeout requested by the service itself through sd_notify() */
-        bool watchdog_override_enable;
-        sd_event_source *watchdog_event_source;
+        size_t n_fd_store;
+        size_t n_extra_fds;
+        usec_t reload_begin_usec;
 
-        ExecContext exec_context;
-        KillContext kill_context;
-        CGroupContext cgroup_context;
-
+        /* 4-byte integers and enums */
+        ServiceType type;
+        ServiceExitType exit_type;
+        ServiceRestart restart;
+        ServiceRestartMode restart_mode;
+        unsigned n_restarts;
+        unsigned restart_steps;
+        ServiceTimeoutFailureMode timeout_start_failure_mode;
+        ServiceTimeoutFailureMode timeout_stop_failure_mode;
         ServiceState state, deserialized_state;
-
-        /* The exit status of the real main process */
-        ExecStatus main_exec_status;
-
-        ExecCommand *exec_command[_SERVICE_EXEC_COMMAND_MAX];
-
-        /* The currently executed main process, which may be NULL if the main process got started via
-         * forking mode and not by us */
-        ExecCommand *main_command;
-
-        /* The currently executed control process */
-        ExecCommand *control_command;
-
-        /* The ID of the control command currently being executed */
         ServiceExecCommand control_command_id;
-
-        /* Runtime data of the execution context */
-        ExecRuntime *exec_runtime;
-
-        CGroupRuntime *cgroup_runtime;
-
-        PidRef main_pid, control_pid;
-
-        /* if we are a socket activated service instance, store information of the connection/peer/socket */
         int socket_fd;
-        SocketPeer *socket_peer;
-        UnitRef accept_socket;
-        bool socket_fd_selinux_context_net;
-
-        bool permissions_start_only;
-        bool root_directory_start_only;
-        bool remain_after_exit;
-        bool guess_main_pid;
-
-        /* If we shut down, remember why */
         ServiceResult result;
         ServiceResult reload_result;
         ServiceResult live_mount_result;
         ServiceResult clean_result;
+        int status_errno;
+        NotifyAccess notify_access;
+        NotifyAccess notify_access_override;
+        NotifyState notify_state;
+        unsigned n_fd_store_max;
+        ExecPreserveMode fd_store_preserve_mode;
+        int stdin_fd;
+        int stdout_fd;
+        int stderr_fd;
+        int root_directory_fd;
+        int reload_signal;
+        OOMPolicy oom_policy;
 
+        /* Booleans and bitfields */
+        bool timeout_abort_set;
+        bool watchdog_override_enable;
+        bool socket_fd_selinux_context_net;
+        bool permissions_start_only;
+        bool root_directory_start_only;
+        bool remain_after_exit;
+        bool guess_main_pid;
         bool main_pid_known:1;
         bool main_pid_alien:1;
         bool bus_name_good:1;
         bool forbid_restart:1;
         bool start_timeout_defined:1;
         bool exec_fd_hot:1;
-
-        char *bus_name;
-
-        char *status_text;
-        char *status_bus_error;
-        char *status_varlink_error;
-        int status_errno;
-
-        sd_event_source *timer_event_source;
-        PathSpec *pid_file_pathspec;
-
-        NotifyAccess notify_access;
-        NotifyAccess notify_access_override;
-        NotifyState notify_state;
-
-        sd_bus_slot *bus_name_pid_lookup_slot;
-
-        sd_event_source *exec_fd_event_source;
-
-        LIST_HEAD(ServiceFDStore, fd_store);
-        size_t n_fd_store;
-        unsigned n_fd_store_max;
-        ExecPreserveMode fd_store_preserve_mode;
-
-        int stdin_fd;
-        int stdout_fd;
-        int stderr_fd;
-
-        /* File descriptor received from RootDirectoryFileDescriptor= */
-        int root_directory_fd;
-
-        /* If service spawned from transient unit, extra file descriptors can be passed via dbus API */
-        ServiceExtraFD *extra_fds;
-        size_t n_extra_fds;
-
-        LIST_HEAD(OpenFile, open_files);
-
-        int reload_signal;
-        usec_t reload_begin_usec;
-
-        OOMPolicy oom_policy;
-
-        char *usb_function_descriptors;
-        char *usb_function_strings;
-
-        /* The D-Bus request, we will reply once the operation is finished, so that callers can block */
-        sd_bus_message *mount_request;
 } Service;
 
 static inline usec_t service_timeout_abort_usec(Service *s) {

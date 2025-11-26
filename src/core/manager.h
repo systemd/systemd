@@ -126,39 +126,39 @@ assert_cc((MANAGER_TEST_FULL & UINT8_MAX) == MANAGER_TEST_FULL);
 
 /* Various defaults for unit file settings. */
 typedef struct UnitDefaults {
-        ExecOutput std_output, std_error;
+        /* Pointers and other 8-byte aligned types */
+        char *smack_process_label;
+        struct rlimit *rlimit[_RLIMIT_MAX];
 
-        usec_t restart_usec, timeout_start_usec, timeout_stop_usec, timeout_abort_usec, device_timeout_usec;
-        bool timeout_abort_set;
-
+        /* Large structs */
         RateLimit start_limit;
 
+        /* 64-bit integers */
+        usec_t restart_usec, timeout_start_usec, timeout_stop_usec, timeout_abort_usec, device_timeout_usec;
+        usec_t timer_accuracy_usec;
+        usec_t memory_pressure_threshold_usec;
+
+        /* 4-byte integers and enums */
+        ExecOutput std_output, std_error;
+        CGroupTasksMax tasks_max;
+        OOMPolicy oom_policy;
+        int oom_score_adjust;
+        CGroupPressureWatch memory_pressure_watch;
+
+        /* Booleans */
+        bool timeout_abort_set;
         bool memory_accounting;
         bool io_accounting;
         bool tasks_accounting;
         bool ip_accounting;
-
-        CGroupTasksMax tasks_max;
-        usec_t timer_accuracy_usec;
-
         bool restrict_suid_sgid;
-
-        OOMPolicy oom_policy;
-        int oom_score_adjust;
         bool oom_score_adjust_set;
-
-        CGroupPressureWatch memory_pressure_watch;
-        usec_t memory_pressure_threshold_usec;
-
-        char *smack_process_label;
-
-        struct rlimit *rlimit[_RLIMIT_MAX];
 } UnitDefaults;
 
 typedef struct Manager {
-        /* Note that the set of units we know of is allowed to be
-         * inconsistent. However the subset of it that is loaded may
-         * not, and the list of jobs may neither. */
+        /* Pointers and other 8-byte aligned types */
+        /* Note that the set of units we know of is allowed to be inconsistent. However the subset of it that
+         * is loaded may not, and the list of jobs may neither. */
 
         /* Active jobs and units */
         Hashmap *units;  /* name string => Unit object n:1 */
@@ -218,15 +218,7 @@ typedef struct Manager {
 
         sd_event *event;
 
-        /* This maps PIDs we care about to units that are interested in them. We allow multiple units to be
-         * interested in the same PID and multiple PIDs to be relevant to the same unit. Since in most cases
-         * only a single unit will be interested in the same PID though, we use a somewhat special structure
-         * here: the first unit interested in a PID is stored in the hashmap 'watch_pids', keyed by the
-         * PID. If there are other units interested too they'll be stored in a NULL-terminated array, stored
-         * in the hashmap 'watch_pids_more', keyed by the PID. Thus to go through the full list of units
-         * interested in a PID we must look into both hashmaps.
-         *
-         * NB: the ownership of PidRefs is held by Unit.pids! */
+        /* See comment in manager_watch_pidref() for how watch_pids/watch_pids_more work. */
         Hashmap *watch_pids;            /* PidRef* → Unit* */
         Hashmap *watch_pids_more;       /* PidRef* → NUL terminated array of Unit* */
 
@@ -236,55 +228,27 @@ typedef struct Manager {
         /* A set which contains all currently failed units */
         Set *failed_units;
 
-        sd_event_source *run_queue_event_source;
-
-        char *notify_socket;
-        int notify_fd;
-        sd_event_source *notify_event_source;
-
-        int signal_fd;
-        sd_event_source *signal_event_source;
-
-        sd_event_source *sigchld_event_source;
-
-        sd_event_source *time_change_event_source;
-
-        sd_event_source *timezone_change_event_source;
-
-        sd_event_source *jobs_in_progress_event_source;
-
-        int user_lookup_fds[2];
-        sd_event_source *user_lookup_event_source;
-
-        int handoff_timestamp_fds[2];
-        sd_event_source *handoff_timestamp_event_source;
-
-        int pidref_transport_fds[2];
-        sd_event_source *pidref_event_source;
-
-        RuntimeScope runtime_scope;
-
-        LookupPaths lookup_paths;
         Hashmap *unit_id_map;
         Hashmap *unit_name_map;
         Set *unit_path_cache;
-        uint64_t unit_cache_timestamp_hash;
 
-        /* We don't have support for atomically enabling/disabling units, and unit_file_state might become
-         * outdated if such operations failed half-way. Therefore, we set this flag if changes to unit files
-         * are made, and reset it after daemon-reload. If set, we report that daemon-reload is needed through
-         * unit's NeedDaemonReload property. */
-        bool unit_file_state_outdated;
+        sd_event_source *run_queue_event_source;
+        char *notify_socket;
+        sd_event_source *notify_event_source;
+        sd_event_source *signal_event_source;
+        sd_event_source *sigchld_event_source;
+        sd_event_source *time_change_event_source;
+        sd_event_source *timezone_change_event_source;
+        sd_event_source *jobs_in_progress_event_source;
+        sd_event_source *user_lookup_event_source;
+        sd_event_source *handoff_timestamp_event_source;
+        sd_event_source *pidref_event_source;
 
-        char **transient_environment;  /* The environment, as determined from config files, kernel cmdline and environment generators */
-        char **client_environment;     /* Environment variables created by clients through the bus API */
+        char **transient_environment;
+        char **client_environment;
 
-        usec_t watchdog[_WATCHDOG_TYPE_MAX];
-        usec_t watchdog_overridden[_WATCHDOG_TYPE_MAX];
         char *watchdog_pretimeout_governor;
         char *watchdog_pretimeout_governor_overridden;
-
-        dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
 
         /* Data specific to the device subsystem */
         sd_device_monitor *device_monitor;
@@ -301,10 +265,6 @@ typedef struct Manager {
 
         /* Data specific to the D-Bus subsystem */
         sd_bus *api_bus, *system_bus;
-        Set *private_buses;
-        int private_listen_fd;
-        sd_event_source *private_listen_event_source;
-
         /* Contains all the clients that are subscribed to signals via the API bus. Note that private bus
          * connections are always considered subscribes, since they last for very short only, and it is
          * much simpler that way. */
@@ -313,7 +273,6 @@ typedef struct Manager {
 
         /* The bus id of API bus acquired through org.freedesktop.DBus.GetId, which before deserializing
          * subscriptions we'd use to verify the bus is still the same instance as before. */
-        sd_id128_t bus_id, deserialized_bus_id;
 
         /* This is used during reloading: before the reload we queue
          * the reply message here, and afterwards we send it */
@@ -321,22 +280,15 @@ typedef struct Manager {
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
 
-        bool send_reloading_done;
-
-        uint32_t current_job_id;
-        uint32_t default_unit_job_id;
-
         /* Data specific to the Automount subsystem */
         int dev_autofs_fd;
 
         /* Data specific to the cgroup subsystem */
-        Hashmap *cgroup_unit;
         CGroupMask cgroup_supported;
+        Hashmap *cgroup_unit;
         char *cgroup_root;
 
         /* Notifications from cgroups, when the unified hierarchy is used is done via inotify. */
-        int cgroup_inotify_fd;
-        sd_event_source *cgroup_inotify_event_source;
 
         /* Maps for finding the unit for each inotify watch descriptor for the cgroup.events and
          * memory.events cgroupv2 attributes. */
@@ -347,81 +299,14 @@ typedef struct Manager {
         sd_event_source *cgroup_empty_event_source;
         sd_event_source *cgroup_oom_event_source;
 
-        /* Make sure the user cannot accidentally unmount our cgroup
-         * file system */
-        int pin_cgroupfs_fd;
-
-        unsigned gc_marker;
-
-        /* The stat() data the last time we saw /etc/localtime */
-        usec_t etc_localtime_mtime;
-        bool etc_localtime_accessible;
-
-        ManagerObjective objective;
-        /* Objective as it was before serialization, mostly to detect soft-reboots */
-        ManagerObjective previous_objective;
-
-        /* Flags */
-        bool dispatching_load_queue;
-        int may_dispatch_stop_notify_queue; /* tristate */
-
-        /* Have we already sent out the READY=1 notification? */
-        bool ready_sent;
-
-        /* Was the last status sent "STATUS=Ready."? */
-        bool status_ready;
-
-        /* Have we already printed the taint line if necessary? */
-        bool taint_logged;
-
-        /* Have we ever changed the "kernel.pid_max" sysctl? */
-        bool sysctl_pid_max_changed;
-
-        ManagerTestRunFlags test_run_flags;
-
-        /* If non-zero, exit with the following value when the systemd
-         * process terminate. Useful for containers: systemd-nspawn could get
-         * the return value. */
-        uint8_t return_value;
-
-        ShowStatus show_status;
-        ShowStatus show_status_overridden;
-        StatusUnitFormat status_unit_format;
         char *confirm_spawn;
-        bool no_console_output;
-        bool service_watchdogs;
-
-        UnitDefaults defaults;
-
-        int original_log_level;
-        LogTarget original_log_target;
-        bool log_level_overridden;
-        bool log_target_overridden;
-
-        /* non-zero if we are reloading or reexecuting, */
-        int n_reloading;
-
-        unsigned n_installed_jobs;
-        unsigned n_failed_jobs;
-
-        /* Jobs in progress watching */
-        unsigned n_running_jobs;
-        unsigned n_on_console;
-        unsigned jobs_in_progress_iteration;
-
-        /* Do we have any outstanding password prompts? */
-        int have_ask_password;
         sd_event_source *ask_password_event_source;
 
         /* Type=idle pipes */
-        int idle_pipe[4];
         sd_event_source *idle_pipe_event_source;
 
         char *switch_root;
         char *switch_root_init;
-
-        /* This is true before and after switching root. */
-        bool switching_root;
 
         /* These map all possible path prefixes to the units needing them. They are hashmaps with a path
          * string as key, and a Set as value where Unit objects are contained. */
@@ -437,14 +322,7 @@ typedef struct Manager {
         Hashmap *uid_refs;
         Hashmap *gid_refs;
 
-        /* ExecSharedRuntime, indexed by their owner unit id */
-        Hashmap *exec_shared_runtime_by_id;
-
         /* When the user hits C-A-D more than 7 times per 2s, do something immediately... */
-        RateLimit ctrl_alt_del_ratelimit;
-        EmergencyAction cad_burst_action;
-
-        int first_boot; /* tri-state */
 
         /* Prefixes of e.g. RuntimeDirectory= */
         char *prefix[_EXEC_DIRECTORY_TYPE_MAX];
@@ -453,10 +331,6 @@ typedef struct Manager {
 
         /* Used in the SIGCHLD and sd_notify() message invocation logic to avoid that we dispatch the same event
          * multiple times on the same unit. */
-        unsigned sigchldgen;
-        unsigned notifygen;
-
-        sd_varlink_server *varlink_server;
         /* When we're a system manager, this object manages the subscription from systemd-oomd to PID1 that's
          * used to report changes in ManagedOOM settings (systemd server - oomd client). When
          * we're a user manager, this object manages the client connection from the user manager to
@@ -466,25 +340,95 @@ typedef struct Manager {
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
 
-        /* Allow users to configure a rate limit for Reload()/Reexecute() operations */
-        RateLimit reload_reexec_ratelimit;
-        /* Dump*() are slow, so always rate limit them to 10 per 10 minutes */
-        RateLimit dump_ratelimit;
-
         sd_event_source *memory_pressure_event_source;
 
         /* For NFTSet= */
         sd_netlink *nfnl;
 
-        /* Pin the systemd-executor binary, so that it never changes until re-exec, ensuring we don't have
-         * serialization/deserialization compatibility issues during upgrades. */
         char *executor_path;
-        int executor_fd;
+        sd_varlink_server *varlink_server;
+        Hashmap *exec_shared_runtime_by_id;
+        Set *private_buses;
+        sd_event_source *private_listen_event_source;
+        sd_event_source *cgroup_inotify_event_source;
 
+        /* Large structs and arrays */
+        LookupPaths lookup_paths;
+        usec_t watchdog[_WATCHDOG_TYPE_MAX];
+        usec_t watchdog_overridden[_WATCHDOG_TYPE_MAX];
+        dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
+        sd_id128_t bus_id, deserialized_bus_id;
+        UnitDefaults defaults;
+        RateLimit ctrl_alt_del_ratelimit;
+        RateLimit reload_reexec_ratelimit;
+        RateLimit dump_ratelimit;
+
+        /* 64-bit integers */
+        uint64_t unit_cache_timestamp_hash;
+        usec_t etc_localtime_mtime;
+
+        /* 32-bit integers and enums */
+        int notify_fd;
+        int signal_fd;
+        int user_lookup_fds[2];
+        int handoff_timestamp_fds[2];
+        int pidref_transport_fds[2];
+        RuntimeScope runtime_scope;
+        int private_listen_fd;
+        uint32_t current_job_id;
+        uint32_t default_unit_job_id;
+        int cgroup_inotify_fd;
+        int pin_cgroupfs_fd;
+        unsigned gc_marker;
+        ManagerObjective objective;
+        ManagerObjective previous_objective;
+        int may_dispatch_stop_notify_queue; /* tristate */
+        ManagerTestRunFlags test_run_flags;
+        ShowStatus show_status;
+        ShowStatus show_status_overridden;
+        StatusUnitFormat status_unit_format;
+        int original_log_level;
+        LogTarget original_log_target;
+        int n_reloading;
+        unsigned n_installed_jobs;
+        unsigned n_failed_jobs;
+        unsigned n_running_jobs;
+        unsigned n_on_console;
+        unsigned jobs_in_progress_iteration;
+        int have_ask_password;
+        int idle_pipe[4];
+        EmergencyAction cad_burst_action;
+        int first_boot; /* tri-state */
+        unsigned sigchldgen;
+        unsigned notifygen;
+        int executor_fd;
         unsigned soft_reboots_count;
 
-        /* Original ambient capabilities when we were initialized */
         uint64_t saved_ambient_set;
+
+        /* Booleans */
+        /* We don't have support for atomically enabling/disabling units, and unit_file_state might become
+         * outdated if such operations failed half-way. Therefore, we set this flag if changes to unit files
+         * are made, and reset it after daemon-reload. If set, we report that daemon-reload is needed through
+         * unit's NeedDaemonReload property. */
+        bool unit_file_state_outdated;
+        bool send_reloading_done;
+        bool etc_localtime_accessible;
+        bool dispatching_load_queue;
+        bool ready_sent;
+        bool status_ready;
+        bool taint_logged;
+        bool sysctl_pid_max_changed;
+        bool no_console_output;
+        bool service_watchdogs;
+        bool log_level_overridden;
+        bool log_target_overridden;
+        bool switching_root;
+
+        /* If non-zero, exit with the following value when the systemd
+         * process terminate. Useful for containers: systemd-nspawn could get
+         * the return value. */
+        uint8_t return_value;
 } Manager;
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {

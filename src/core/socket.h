@@ -77,61 +77,74 @@ typedef enum SocketDeferTrigger {
 typedef struct Socket {
         Unit meta;
 
+        /* Pointers and other 8-byte aligned types */
         LIST_HEAD(SocketPort, ports);
-
         Set *peers_by_address;
+        usec_t timeout_usec;
+        usec_t keep_alive_time;
+        usec_t keep_alive_interval;
+        usec_t defer_accept;
+        ExecCommand *exec_command[_SOCKET_EXEC_COMMAND_MAX];
+        ExecRuntime *exec_runtime;
+        CGroupRuntime *cgroup_runtime;
+        /* For Accept=no sockets refers to the one service we'll
+         * activate. For Accept=yes sockets is either NULL, or filled
+         * to refer to the next service we spawn. */
+        UnitRef service;
+        sd_event_source *timer_event_source;
+        ExecCommand *control_command;
+        char **symlinks;
+        size_t receive_buffer;
+        size_t send_buffer;
+        size_t pipe_size;
+        char *bind_to_device;
+        char *tcp_congestion;
+        long mq_maxmsg;
+        long mq_msgsize;
+        char *smack;
+        char *smack_ip_in;
+        char *smack_ip_out;
+        char *user, *group;
+        char *fdname;
+        usec_t defer_trigger_max_usec;
 
+        /* Large structs */
+        ExecContext exec_context;
+        KillContext kill_context;
+        CGroupContext cgroup_context;
+        PidRef control_pid;
+        RateLimit trigger_limit;
+        RateLimit poll_limit;
+
+        /* 4-byte integers and enums */
         unsigned n_accepted;
         unsigned n_connections;
         unsigned n_refused;
         unsigned max_connections;
         unsigned max_connections_per_source;
-
         unsigned backlog;
         unsigned keep_alive_cnt;
-        usec_t timeout_usec;
-        usec_t keep_alive_time;
-        usec_t keep_alive_interval;
-        usec_t defer_accept;
-
-        ExecCommand *exec_command[_SOCKET_EXEC_COMMAND_MAX];
-        ExecContext exec_context;
-        KillContext kill_context;
-        CGroupContext cgroup_context;
-
-        ExecRuntime *exec_runtime;
-        CGroupRuntime *cgroup_runtime;
-
-        /* For Accept=no sockets refers to the one service we'll
-         * activate. For Accept=yes sockets is either NULL, or filled
-         * to refer to the next service we spawn. */
-        UnitRef service;
-
         SocketState state, deserialized_state;
-
-        sd_event_source *timer_event_source;
-
-        ExecCommand *control_command;
         SocketExecCommand control_command_id;
-        PidRef control_pid;
-
-        bool pass_fds_to_exec;
-
         mode_t directory_mode;
         mode_t socket_mode;
-
         SocketResult result;
         SocketResult clean_result;
+        int socket_protocol;
+        SocketTimestamping timestamping;
+        SocketAddressBindIPv6Only bind_ipv6_only;
+        int priority;
+        int mark;
+        int ip_tos;
+        int ip_ttl;
+        SocketDeferTrigger defer_trigger;
 
-        char **symlinks;
-
+        /* Booleans */
+        bool pass_fds_to_exec;
         bool accept;
         bool remove_on_stop;
         bool writable;
         bool flush_pending;
-
-        int socket_protocol;
-
         /* Socket options */
         bool keep_alive;
         bool no_delay;
@@ -143,39 +156,9 @@ typedef struct Socket {
         bool pass_sec;
         bool pass_pktinfo;
         bool pass_rights;
-        SocketTimestamping timestamping;
-
-        /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
-        SocketAddressBindIPv6Only bind_ipv6_only;
-
-        int priority;
-        int mark;
-        size_t receive_buffer;
-        size_t send_buffer;
-        int ip_tos;
-        int ip_ttl;
-        size_t pipe_size;
-        char *bind_to_device;
-        char *tcp_congestion;
         bool reuse_port;
-        long mq_maxmsg;
-        long mq_msgsize;
-
-        char *smack;
-        char *smack_ip_in;
-        char *smack_ip_out;
-
         bool selinux_context_from_net;
 
-        char *user, *group;
-
-        char *fdname;
-
-        RateLimit trigger_limit;
-        RateLimit poll_limit;
-
-        usec_t defer_trigger_max_usec;
-        SocketDeferTrigger defer_trigger;
 } Socket;
 
 SocketPeer *socket_peer_ref(SocketPeer *p);
