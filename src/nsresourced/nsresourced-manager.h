@@ -15,6 +15,8 @@ typedef struct Manager {
 
         int listen_fd;
 
+        int registry_fd;
+
         RateLimit worker_ratelimit;
 
         sd_event_source *deferred_start_worker_event_source;
@@ -24,8 +26,6 @@ typedef struct Manager {
         struct ring_buffer *userns_restrict_bpf_ring_buffer;
         sd_event_source *userns_restrict_bpf_ring_buffer_event_source;
 #endif
-
-        int registry_fd;
 } Manager;
 
 int manager_new(Manager **ret);
