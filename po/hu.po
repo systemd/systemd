@@ -6,21 +6,21 @@
 # Gabor Kelemen <kelemeng at gnome dot hu>, 2015, 2016.
 # Balázs Úr <urbalazs at gmail dot com>, 2016.
 # Balázs Meskó <meskobalazs@mailbox.org>, 2022.
-# Balázs Úr <balazs@urbalazs.hu>, 2023.
+# Balázs Úr <balazs@urbalazs.hu>, 2023, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2023-09-27 01:36+0000\n"
+"PO-Revision-Date: 2025-11-26 18:28+0000\n"
 "Last-Translator: Balázs Úr <balazs@urbalazs.hu>\n"
 "Language-Team: Hungarian <https://translate.fedoraproject.org/projects/"
-"systemd/master/hu/>\n"
+"systemd/main/hu/>\n"
 "Language: hu\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.0.2\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -256,8 +256,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"A biztonsági token PIN-kódja zárolva van, először oldja fel (tipp: az "
-"eltávolítás és az ismételt behelyezés elegendő lehet)."
+"A biztonsági token PIN-kódja zárolva van, először oldja fel "
+"(tipp: az eltávolítás és az ismételt behelyezés elegendő lehet)."
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
@@ -273,15 +273,15 @@ msgstr "Elnézést, próbálja újra a biztonsági token PIN-kódját: "
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"%s felhasználó biztonsági tokenjének PIN-kódja helytelen (már csak néhány "
-"próbálkozás maradt!)"
+"%s felhasználó biztonsági tokenjének PIN-kódja helytelen "
+"(már csak néhány próbálkozás maradt!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
-"%s felhasználó biztonsági tokenjének PIN-kódja helytelen (már egy "
-"próbálkozás maradt!)"
+"%s felhasználó biztonsági tokenjének PIN-kódja helytelen "
+"(már egy próbálkozás maradt!)"
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
@@ -750,8 +750,7 @@ msgstr "Hitelesítés szükséges a rendszer hibernálásához."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr ""
-"A rendszer hibernálása, miközben más felhasználók be vannak jelentkezve"
+msgstr "A rendszer hibernálása, miközben más felhasználók be vannak jelentkezve"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
