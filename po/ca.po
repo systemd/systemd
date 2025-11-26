@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-17 08:58+0000\n"
+"POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-07-28 17:25+0000\n"
 "Last-Translator: naly zzwd <xeanhort007@gmail.com>\n"
 "Language-Team: Catalan <https://translate.fedoraproject.org/projects/systemd/"
@@ -162,7 +162,7 @@ msgstr ""
 "Es requereix autenticació per gestionar les claus de signatura dels "
 "directoris d'inici."
 
-#: src/home/pam_systemd_home.c:334
+#: src/home/pam_systemd_home.c:333
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -171,32 +171,32 @@ msgstr ""
 "No hi ha l'àrea d'inici de l'usuari %s, connecteu el dispositiu "
 "d'emmagatzematge o el sistema de fitxers de còpia de seguretat necessaris."
 
-#: src/home/pam_systemd_home.c:339
+#: src/home/pam_systemd_home.c:338
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "Intents d'inici de sessió massa freqüents per a l'usuari %s, torneu-ho a "
 "provar més tard."
 
-#: src/home/pam_systemd_home.c:351
+#: src/home/pam_systemd_home.c:350
 msgid "Password: "
 msgstr "Contrasenya: "
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:352
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 "Contrasenya incorrecta o no suficient per a l'autenticació de l'usuari %s."
 
-#: src/home/pam_systemd_home.c:354
+#: src/home/pam_systemd_home.c:353
 msgid "Sorry, try again: "
 msgstr "Ho sentim, torneu-ho a provar: "
 
-#: src/home/pam_systemd_home.c:376
+#: src/home/pam_systemd_home.c:375
 msgid "Recovery key: "
 msgstr "Clau de recuperació: "
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:377
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -205,20 +205,20 @@ msgstr ""
 "La contrasenya/clau de recuperació és incorrecta o no suficient per a "
 "l'autenticació de l'usuari %s."
 
-#: src/home/pam_systemd_home.c:379
+#: src/home/pam_systemd_home.c:378
 msgid "Sorry, reenter recovery key: "
 msgstr "Torneu a introduir la clau de recuperació: "
 
-#: src/home/pam_systemd_home.c:399
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "No s'ha inserit el token de seguretat de l'usuari %s."
 
-#: src/home/pam_systemd_home.c:400 src/home/pam_systemd_home.c:403
+#: src/home/pam_systemd_home.c:399 src/home/pam_systemd_home.c:402
 msgid "Try again with password: "
 msgstr "Torneu-ho a provar amb la contrasenya: "
 
-#: src/home/pam_systemd_home.c:402
+#: src/home/pam_systemd_home.c:401
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -227,28 +227,28 @@ msgstr ""
 "La contrasenya és incorrecta o no suficient, i no s'ha inserit el token de "
 "seguretat configurat de l'usuari %s."
 
-#: src/home/pam_systemd_home.c:422
+#: src/home/pam_systemd_home.c:421
 msgid "Security token PIN: "
 msgstr "PIN del token de seguretat: "
 
-#: src/home/pam_systemd_home.c:439
+#: src/home/pam_systemd_home.c:438
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 "Si us plau, autenticeu-vos físicament al token de seguretat de l'usuari %s."
 
-#: src/home/pam_systemd_home.c:450
+#: src/home/pam_systemd_home.c:449
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Confirmeu la presència al token de seguretat de l'usuari %s."
 
-#: src/home/pam_systemd_home.c:461
+#: src/home/pam_systemd_home.c:460
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 "Si us plau, verifiqueu l'usuari en el token de seguretat de l'usuari %s."
 
-#: src/home/pam_systemd_home.c:470
+#: src/home/pam_systemd_home.c:469
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -256,86 +256,86 @@ msgstr ""
 "El PIN del token de seguretat està bloquejat, desbloquegeu-lo primer. "
 "(Pista: L'eliminació i la reinserció poden ser suficients.)"
 
-#: src/home/pam_systemd_home.c:478
+#: src/home/pam_systemd_home.c:477
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "El PIN del token de seguretat és incorrecte per a l'usuari %s."
 
-#: src/home/pam_systemd_home.c:479 src/home/pam_systemd_home.c:498
-#: src/home/pam_systemd_home.c:517
+#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:516
 msgid "Sorry, retry security token PIN: "
 msgstr "Torneu a provar el PIN del token de seguretat: "
 
-#: src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:496
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "El PIN del token de seguretat de l'usuari %s és incorrecte (només queden uns "
 "quants intents!)"
 
-#: src/home/pam_systemd_home.c:516
+#: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "El PIN del token de seguretat de l'usuari %s és incorrecte (només queda un "
 "intent!)"
 
-#: src/home/pam_systemd_home.c:683
+#: src/home/pam_systemd_home.c:682
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "L'àrea d'inici de l'usuari %s no està activa actualment, primer inicieu la "
 "sessió localment."
 
-#: src/home/pam_systemd_home.c:685
+#: src/home/pam_systemd_home.c:684
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "L'àrea d'inici de l'usuari %s està bloquejada actualment, desbloquegeu-la "
 "localment primer."
 
-#: src/home/pam_systemd_home.c:717
+#: src/home/pam_systemd_home.c:718
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "Hi ha massa intents d'inici de sessió fallits per a l'usuari %s, rebutjant."
 
-#: src/home/pam_systemd_home.c:1016
+#: src/home/pam_systemd_home.c:1017
 msgid "User record is blocked, prohibiting access."
 msgstr "El registre d'usuari està bloquejat, prohibint l'accés."
 
-#: src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:1021
 msgid "User record is not valid yet, prohibiting access."
 msgstr "El registre de l'usuari encara no és vàlid, prohibint-ne l'accés."
 
-#: src/home/pam_systemd_home.c:1024
+#: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "El registre d'usuari ja no és vàlid, prohibint-ne l'accés."
 
-#: src/home/pam_systemd_home.c:1029 src/home/pam_systemd_home.c:1078
+#: src/home/pam_systemd_home.c:1030 src/home/pam_systemd_home.c:1079
 msgid "User record not valid, prohibiting access."
 msgstr "Registre d'usuari no vàlid, es prohibeix l'accés."
 
-#: src/home/pam_systemd_home.c:1039
+#: src/home/pam_systemd_home.c:1040
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Massa inicis de sessió, torneu-ho a provar en %s."
 
-#: src/home/pam_systemd_home.c:1050
+#: src/home/pam_systemd_home.c:1051
 msgid "Password change required."
 msgstr "Es requereix un canvi de contrasenya."
 
-#: src/home/pam_systemd_home.c:1054
+#: src/home/pam_systemd_home.c:1055
 msgid "Password expired, change required."
 msgstr "La contrasenya ha caducat, cal canviar-la."
 
-#: src/home/pam_systemd_home.c:1060
+#: src/home/pam_systemd_home.c:1061
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "La contrasenya ha caducat, però no es pot canviar, rebutjant l'inici de "
 "sessió."
 
-#: src/home/pam_systemd_home.c:1064
+#: src/home/pam_systemd_home.c:1065
 msgid "Password will expire soon, please change."
 msgstr "La contrasenya caducarà aviat, si us plau, canvieu-la."
 
