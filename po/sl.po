@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-07-25 00:08+0000\n"
+"PO-Revision-Date: 2025-11-26 18:37+0000\n"
 "Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
 "Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
 "systemd/main/sl/>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=4; plural=n%100==1 ? 0 : n%100==2 ? 1 : n%100==3 || "
 "n%100==4 ? 2 : 3;\n"
-"X-Generator: Weblate 5.12.2\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -69,8 +69,7 @@ msgstr "Vnovič naloži stanje systemd"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr ""
-"Preverjanje pristnosti je potrebno za ponovno nalaganje stanja systemd."
+msgstr "Preverjanje pristnosti je potrebno za ponovno nalaganje stanja systemd."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
@@ -261,8 +260,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"PIN varnostnega žetona je zaklenjen, najprej ga odklenite. (Namig: "
-"Odstranitev in vnovična vstavitev lahko zadostujeta.)"
+"PIN varnostnega žetona je zaklenjen, najprej ga odklenite. "
+"(Namig: Odstranitev in vnovična vstavitev lahko zadostujeta.)"
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
@@ -278,8 +277,8 @@ msgstr "Žal znova poskusite poskusiti s kodo PIN varnostnega žetona: "
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"PIN varnostnega žetona uporabnika %s je napačen (ostalo je le še nekaj "
-"poskusov!)"
+"PIN varnostnega žetona uporabnika %s je napačen "
+"(ostalo je le še nekaj poskusov!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
@@ -332,8 +331,7 @@ msgstr "Geslo je poteklo, potrebna je sprememba."
 
 #: src/home/pam_systemd_home.c:1061
 msgid "Password is expired, but can't change, refusing login."
-msgstr ""
-"Geslo je poteklo, vendar ga ni mogoče spremeniti; prijava bo zavrnjena."
+msgstr "Geslo je poteklo, vendar ga ni mogoče spremeniti; prijava bo zavrnjena."
 
 #: src/home/pam_systemd_home.c:1065
 msgid "Password will expire soon, please change."
@@ -529,8 +527,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr ""
-"Dovoli programom, da preprečijo sistemsko ravnanje s tipko za mirovanje"
+msgstr "Dovoli programom, da preprečijo sistemsko ravnanje s tipko za mirovanje"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
@@ -592,8 +589,7 @@ msgstr "Dovoli pripenjanje naprav na delovišča"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr ""
-"Preverjanje pristnosti je potrebno za pripenjanje naprave na delovišče."
+msgstr "Preverjanje pristnosti je potrebno za pripenjanje naprave na delovišče."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
@@ -1175,8 +1171,7 @@ msgstr "Naroči se na rezultate poizvedbe"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
 msgid "Authentication is required to subscribe query results."
-msgstr ""
-"Za naročanje na rezultate poizvedbe je potrebno preverjanje pristnosti."
+msgstr "Za naročanje na rezultate poizvedbe je potrebno preverjanje pristnosti."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
@@ -1349,8 +1344,8 @@ msgstr ""
 #: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
-"Preverjanje pristnosti je potrebno, če želite lastnosti nastaviti na »$"
-"(unit)«."
+"Preverjanje pristnosti je potrebno, če želite lastnosti nastaviti na »$(unit)"
+"«."
 
 #: src/core/dbus-unit.c:775
 msgid ""
