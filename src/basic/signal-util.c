@@ -169,8 +169,7 @@ int signal_from_string(const char *s) {
         if (safe_atoi(s, &signo) >= 0) {
                 if (SIGNAL_VALID(signo))
                         return signo;
-                else
-                        return -ERANGE;
+                return -ERANGE;
         }
 
         /* Drop "SIG" prefix. */

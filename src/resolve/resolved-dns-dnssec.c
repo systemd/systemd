@@ -2122,8 +2122,8 @@ int dnssec_test_positive_wildcard(
                 return r;
         if (r > 0)
                 return dnssec_test_positive_wildcard_nsec3(answer, name, source, zone, authenticated);
-        else
-                return dnssec_test_positive_wildcard_nsec(answer, name, source, zone, authenticated);
+
+        return dnssec_test_positive_wildcard_nsec(answer, name, source, zone, authenticated);
 }
 
 #else

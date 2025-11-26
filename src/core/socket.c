@@ -586,9 +586,9 @@ static const char* listen_lookup(int family, int type) {
 
         if (type == SOCK_STREAM)
                 return "ListenStream";
-        else if (type == SOCK_DGRAM)
+        if (type == SOCK_DGRAM)
                 return "ListenDatagram";
-        else if (type == SOCK_SEQPACKET)
+        if (type == SOCK_SEQPACKET)
                 return "ListenSequentialPacket";
 
         assert_not_reached();
@@ -3099,16 +3099,15 @@ SocketType socket_port_type_from_string(const char *s) {
 
         if (STR_IN_SET(s, "Stream", "Datagram", "SequentialPacket", "Netlink"))
                 return SOCKET_SOCKET;
-        else if (streq(s, "Special"))
+        if (streq(s, "Special"))
                 return SOCKET_SPECIAL;
-        else if (streq(s, "MessageQueue"))
+        if (streq(s, "MessageQueue"))
                 return SOCKET_MQUEUE;
-        else if (streq(s, "FIFO"))
+        if (streq(s, "FIFO"))
                 return SOCKET_FIFO;
-        else if (streq(s, "USBFunction"))
+        if (streq(s, "USBFunction"))
                 return SOCKET_USB_FUNCTION;
-        else
-                return _SOCKET_TYPE_INVALID;
+        return _SOCKET_TYPE_INVALID;
 }
 
 static bool socket_may_gc(Unit *u) {

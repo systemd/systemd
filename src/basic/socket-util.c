@@ -1495,13 +1495,13 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
                 memcpy(ret->sun_path + 1, path + 1, l); /* copy *with* trailing NUL byte */
                 return (int) (offsetof(struct sockaddr_un, sun_path) + l); /* 🔥 *don't* 🔥 include trailing NUL in size */
 
-        } else {
-                assert(path[0] == '/');
-
-                /* File system socket */
-                memcpy(ret->sun_path, path, l + 1); /* copy *with* trailing NUL byte */
-                return (int) (offsetof(struct sockaddr_un, sun_path) + l + 1); /* include trailing NUL in size */
         }
+
+        assert(path[0] == '/');
+
+        /* File system socket */
+        memcpy(ret->sun_path, path, l + 1); /* copy *with* trailing NUL byte */
+        return (int) (offsetof(struct sockaddr_un, sun_path) + l + 1); /* include trailing NUL in size */
 }
 
 int getsockopt_int(int fd, int level, int optname, int *ret) {

@@ -127,8 +127,8 @@ const DUID *link_get_duid(Link *link, int family) {
                 if (duid->type != _DUID_TYPE_INVALID) {
                         if (duid_needs_product_uuid(duid))
                                 return &link->manager->duid_product_uuid;
-                        else
-                                return duid;
+
+                        return duid;
                 }
         }
 

@@ -2024,19 +2024,20 @@ int show_boot_entries(const BootConfig *config, sd_json_format_flags_t json_form
                 }
 
                 return sd_json_variant_dump(array, json_format | SD_JSON_FORMAT_EMPTY_ARRAY, NULL, NULL);
-        } else
-                for (size_t n = 0; n < config->n_entries; n++) {
-                        r = show_boot_entry(
-                                        config->entries + n,
-                                        /* show_as_default= */  n == (size_t) config->default_entry,
-                                        /* show_as_selected= */ n == (size_t) config->selected_entry,
-                                        /* show_reported= */  true);
-                        if (r < 0)
-                                return r;
+        }
 
-                        if (n+1 < config->n_entries)
-                                putchar('\n');
-                }
+        for (size_t n = 0; n < config->n_entries; n++) {
+                r = show_boot_entry(
+                                config->entries + n,
+                                /* show_as_default= */  n == (size_t) config->default_entry,
+                                /* show_as_selected= */ n == (size_t) config->selected_entry,
+                                /* show_reported= */  true);
+                if (r < 0)
+                        return r;
+
+                if (n+1 < config->n_entries)
+                        putchar('\n');
+        }
 
         return 0;
 }

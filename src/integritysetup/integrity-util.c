@@ -34,7 +34,8 @@ int parse_integrity_options(
                         return log_error_errno(r, "Failed to parse options: %m");
                 if (r == 0)
                         break;
-                else if (streq(word, "allow-discards")) {
+
+                if (streq(word, "allow-discards")) {
                         if (ret_activate_flags)
                                 *ret_activate_flags |= CRYPT_ACTIVATE_ALLOW_DISCARDS;
                 } else if ((val = startswith(word, "mode="))) {

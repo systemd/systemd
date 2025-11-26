@@ -126,10 +126,9 @@ static int open_journal(RequestMeta *m) {
 
         if (arg_directory)
                 return sd_journal_open_directory(&m->journal, arg_directory, arg_journal_type);
-        else if (arg_file)
+        if (arg_file)
                 return sd_journal_open_files(&m->journal, (const char**) arg_file, 0);
-        else
-                return sd_journal_open(&m->journal, (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_journal_type);
+        return sd_journal_open(&m->journal, (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_journal_type);
 }
 
 static int request_meta_ensure_tmp(RequestMeta *m) {
@@ -204,7 +203,8 @@ static ssize_t request_reader_entries(
                 if (r < 0) {
                         log_error_errno(r, "Failed to advance journal pointer: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
-                } else if (r == 0) {
+                }
+                if (r == 0) {
                         if (!m->follow)
                                 return MHD_CONTENT_READER_END_OF_STREAM;
                         wait_for_events = true;
@@ -674,7 +674,8 @@ static ssize_t request_reader_fields(
                 if (r < 0) {
                         log_error_errno(r, "Failed to advance field index: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
-                } else if (r == 0)
+                }
+                if (r == 0)
                         return MHD_CONTENT_READER_END_OF_STREAM;
 
                 pos -= m->size;

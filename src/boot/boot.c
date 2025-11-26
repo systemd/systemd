@@ -3016,8 +3016,8 @@ static void config_load_all_entries(
 static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE **ret_dir) {
         if (is_direct_boot(loaded_image->DeviceHandle))
                 return vmm_open(&loaded_image->DeviceHandle, ret_dir);
-        else
-                return open_volume(loaded_image->DeviceHandle, ret_dir);
+
+        return open_volume(loaded_image->DeviceHandle, ret_dir);
 }
 
 static EFI_STATUS run(EFI_HANDLE image) {

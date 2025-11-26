@@ -1117,8 +1117,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (m < 0)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Failed to parse --volatile= argument: %s", optarg);
-                                else
-                                        arg_volatile_mode = m;
+                                arg_volatile_mode = m;
                         }
 
                         arg_settings_mask |= SETTING_VOLATILE_MODE;
@@ -2635,8 +2634,9 @@ static int setup_journal(const char *directory, uid_t uid_shift, uid_t uid_range
                         if (errno == ENOTDIR) {
                                 log_error("%s already exists and is neither a symlink nor a directory", p);
                                 return r;
-                        } else
-                                return log_error_errno(errno, "Failed to remove %s: %m", p);
+                        }
+
+                        return log_error_errno(errno, "Failed to remove %s: %m", p);
                 }
         } else if (r != -ENOENT)
                 return log_error_errno(r, "readlink(%s) failed: %m", p);
@@ -2647,8 +2647,9 @@ static int setup_journal(const char *directory, uid_t uid_shift, uid_t uid_range
                         if (try) {
                                 log_debug_errno(errno, "Failed to symlink %s to %s, skipping journal setup: %m", q, p);
                                 return 0;
-                        } else
-                                return log_error_errno(errno, "Failed to symlink %s to %s: %m", q, p);
+                        }
+
+                        return log_error_errno(errno, "Failed to symlink %s to %s: %m", q, p);
                 }
 
                 r = userns_mkdir(directory, p, 0755, 0, 0);
@@ -2666,8 +2667,9 @@ static int setup_journal(const char *directory, uid_t uid_shift, uid_t uid_range
                         if (try) {
                                 log_debug_errno(r, "Failed to create %s, skipping journal setup: %m", p);
                                 return 0;
-                        } else
-                                return log_error_errno(r, "Failed to create %s: %m", p);
+                        }
+
+                        return log_error_errno(r, "Failed to create %s: %m", p);
                 }
 
         } else if (access(p, F_OK) < 0)
@@ -5341,7 +5343,7 @@ static int run_container(
                                                arg_network_bridge || arg_network_zone, &arg_network_provided_mac);
                                 if (r < 0)
                                         return r;
-                                else if (r > 0)
+                                if (r > 0)
                                         ifi = r;
                         } else {
                                 _cleanup_free_ char *host_ifname = NULL;

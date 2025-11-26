@@ -111,7 +111,9 @@ int parse_confirm_spawn(const char *value, char **console) {
         if (r == 0) {
                 *console = NULL;
                 return 0;
-        } else if (r > 0) /* on with default tty */
+        }
+
+        if (r > 0) /* on with default tty */
                 s = strdup("/dev/console");
         else if (is_path(value)) /* on with fully qualified path */
                 s = strdup(value);
@@ -3572,7 +3574,8 @@ int config_parse_namespace_flags(
                  * namespaces and vice-versa. */
                 *flags = streq(lvalue, "RestrictNamespaces") ? 0 : all;
                 return 0;
-        } else if (r == 0) {
+        }
+        if (r == 0) {
                 *flags = streq(lvalue, "RestrictNamespaces") ? all : 0;
                 return 0;
         }

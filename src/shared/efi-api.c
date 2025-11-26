@@ -96,7 +96,9 @@ static int get_os_indications(uint64_t *ret) {
                 *ret = 0;
                 return 0;
 
-        } else if (stat_inode_unmodified(&new_stat, &cache_stat)) {
+        }
+
+        if (stat_inode_unmodified(&new_stat, &cache_stat)) {
                 /* inode didn't change, we can return the cached value */
                 *ret = cache;
                 return 0;

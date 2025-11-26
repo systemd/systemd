@@ -62,9 +62,9 @@ void clock_apply_epoch(bool allow_backwards) {
         if (r < 0) {
                 if (advance)
                         return (void) log_error_errno(r, "Current system time is before epoch, but cannot correct: %m");
-                else
-                        return (void) log_error_errno(r, "Current system time is further ahead than %s after epoch, but cannot correct: %m",
-                                                      FORMAT_TIMESPAN(CLOCK_VALID_RANGE_USEC_MAX, USEC_PER_DAY));
+
+                return (void) log_error_errno(r, "Current system time is further ahead than %s after epoch, but cannot correct: %m",
+                                              FORMAT_TIMESPAN(CLOCK_VALID_RANGE_USEC_MAX, USEC_PER_DAY));
         }
 
         const char *from =

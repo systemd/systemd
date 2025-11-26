@@ -155,7 +155,8 @@ static int parse_options(const char *options) {
 
                 if (isempty(word))
                         continue;
-                else if (streq(word, "ignore-corruption"))
+
+                if (streq(word, "ignore-corruption"))
                         arg_activate_flags |= CRYPT_ACTIVATE_IGNORE_CORRUPTION;
                 else if (streq(word, "restart-on-corruption"))
                         arg_activate_flags |= CRYPT_ACTIVATE_RESTART_ON_CORRUPTION;

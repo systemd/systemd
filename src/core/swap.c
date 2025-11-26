@@ -709,8 +709,7 @@ static int state_to_kill_operation(Swap *s, SwapState state) {
         if (state == SWAP_DEACTIVATING_SIGTERM) {
                 if (unit_has_job_type(UNIT(s), JOB_RESTART))
                         return KILL_RESTART;
-                else
-                        return KILL_TERMINATE;
+                return KILL_TERMINATE;
         }
 
         return KILL_KILL;

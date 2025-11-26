@@ -389,9 +389,9 @@ static int cd_profiles_old_mmc(Context *c) {
                         c->media_track_count = 1;
                         c->media_track_count_data = 1;
                         return 1;
-                } else
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
-                                               "no current profile, assuming no media.");
+                }
+
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM), "no current profile, assuming no media.");
         };
 
         c->has_media = true;

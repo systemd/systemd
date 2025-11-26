@@ -1590,7 +1590,7 @@ int dns_packet_read_name(
                 if (c == 0)
                         /* End of name */
                         break;
-                else if (c <= 63) {
+                if (c <= 63) {
                         const char *label;
 
                         /* Literal label */
@@ -1619,7 +1619,9 @@ int dns_packet_read_name(
                                 return -EBADMSG;
 
                         continue;
-                } else if (allow_compression && FLAGS_SET(c, 0xc0)) {
+                }
+
+                if (allow_compression && FLAGS_SET(c, 0xc0)) {
                         uint16_t ptr;
 
                         /* Pointer */
@@ -2051,11 +2053,11 @@ int dns_packet_read_rr(
                                 return r;
 
                         break;
-                } else {
-                        dns_packet_rewind(p, pos);
-                        rr->unparsable = true;
-                        goto unparsable;
                 }
+
+                dns_packet_rewind(p, pos);
+                rr->unparsable = true;
+                goto unparsable;
         }
 
         case DNS_TYPE_DS:

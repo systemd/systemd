@@ -1109,7 +1109,9 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
                 return 0;
-        } else if (!IN_SET(type, RTM_NEWNEXTHOP, RTM_DELNEXTHOP)) {
+        }
+
+        if (!IN_SET(type, RTM_NEWNEXTHOP, RTM_DELNEXTHOP)) {
                 log_warning("rtnl: received unexpected message type %u when processing nexthop, ignoring.", type);
                 return 0;
         }
@@ -1119,10 +1121,13 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         if (r == -ENODATA) {
                 log_warning_errno(r, "rtnl: received nexthop message without NHA_ID attribute, ignoring: %m");
                 return 0;
-        } else if (r < 0) {
+        }
+        if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get NHA_ID attribute, ignoring: %m");
                 return 0;
-        } else if (id == 0) {
+        }
+
+        if (id == 0) {
                 log_warning("rtnl: received nexthop message with invalid nexthop ID, ignoring.");
                 return 0;
         }

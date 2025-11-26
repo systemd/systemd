@@ -52,23 +52,22 @@ DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const D
 
         if (cname->key->type == DNS_TYPE_CNAME)
                 return dns_resource_key_new(key->class, key->type, cname->cname.name);
-        else {
-                _cleanup_free_ char *destination = NULL;
-                DnsResourceKey *k;
 
-                r = dns_name_change_suffix(dns_resource_key_name(key), dns_resource_key_name(cname->key), cname->dname.name, &destination);
-                if (r < 0)
-                        return NULL;
-                if (r == 0)
-                        return dns_resource_key_ref((DnsResourceKey*) key);
+        _cleanup_free_ char *destination = NULL;
+        DnsResourceKey *k;
 
-                k = dns_resource_key_new_consume(key->class, key->type, destination);
-                if (!k)
-                        return NULL;
+        r = dns_name_change_suffix(dns_resource_key_name(key), dns_resource_key_name(cname->key), cname->dname.name, &destination);
+        if (r < 0)
+                return NULL;
+        if (r == 0)
+                return dns_resource_key_ref((DnsResourceKey*) key);
 
-                TAKE_PTR(destination);
-                return k;
-        }
+        k = dns_resource_key_new_consume(key->class, key->type, destination);
+        if (!k)
+                return NULL;
+
+        TAKE_PTR(destination);
+        return k;
 }
 
 int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key, char *name) {
@@ -162,8 +161,7 @@ const char* dns_resource_key_name(const DnsResourceKey *key) {
 
         if (dns_name_is_root(name))
                 return ".";
-        else
-                return name;
+        return name;
 }
 
 bool dns_resource_key_is_address(const DnsResourceKey *key) {
@@ -290,7 +288,7 @@ int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsRe
 
                 if (cname->type == DNS_TYPE_CNAME)
                         return dns_name_equal(joined, dns_resource_key_name(cname));
-                else if (cname->type == DNS_TYPE_DNAME)
+                if (cname->type == DNS_TYPE_DNAME)
                         return dns_name_endswith(joined, dns_resource_key_name(cname));
         }
 
