@@ -92,10 +92,10 @@ typedef struct MountImageParameters {
         int growfs;
         char *password;
         ImagePolicy *image_policy;
-        bool verity_sharing;
         struct iovec verity_root_hash;
         struct iovec verity_root_hash_sig;
         unsigned verity_data_fd_idx;
+        bool verity_sharing;
 } MountImageParameters;
 
 static void mount_image_parameters_done(MountImageParameters *p) {
