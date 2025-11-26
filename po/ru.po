@@ -14,7 +14,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-09-03 09:14+0000\n"
+"PO-Revision-Date: 2025-11-26 18:31+0000\n"
 "Last-Translator: \"Sergey A.\" <Ser82-png@yandex.ru>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
@@ -24,7 +24,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.13\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -288,15 +288,15 @@ msgstr "Извините, повторите попытку введения PIN
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"Неверный PIN-код токена безопасности пользователя %s (осталось всего "
-"несколько попыток!)"
+"Неверный PIN-код токена безопасности пользователя %s "
+"(осталось всего несколько попыток!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
-"Неверный PIN-код токена безопасности пользователя %s (осталась всего одна "
-"попытка!)"
+"Неверный PIN-код токена безопасности пользователя %s "
+"(осталась всего одна попытка!)"
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
@@ -1245,8 +1245,7 @@ msgstr "Дамп состояние сервера"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
 msgid "Authentication is required to dump server state."
-msgstr ""
-"Чтобы создать дамп состояние сервера, необходимо пройти аутентификацию."
+msgstr "Чтобы создать дамп состояние сервера, необходимо пройти аутентификацию."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Dump statistics"
