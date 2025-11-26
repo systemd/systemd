@@ -3,13 +3,13 @@
 # Romanian translation for systemd.
 # va511e <va511e@yahoo.com>, 2015.
 # Daniel Șerbănescu <daniel [at] serbanescu [dot] dk>, 2015, 2017.
-# Vlad <milovlad@outlook.com>, 2020, 2021.
+# Vlad <milovlad@outlook.com>, 2020, 2021, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:31+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Vlad <milovlad@outlook.com>\n"
 "Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/ro/>\n"
 "Language: ro\n"
@@ -865,8 +865,7 @@ msgstr "Conectare la un container local"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr ""
-"Autentificarea este necesară pentru a vă conecta la un container local."
+msgstr "Autentificarea este necesară pentru a vă conecta la un container local."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
@@ -1363,8 +1362,7 @@ msgstr ""
 
 #: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr ""
-"Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
+msgstr "Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
 
 #: src/core/dbus-unit.c:775
 msgid ""
