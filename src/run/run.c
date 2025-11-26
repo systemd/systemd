@@ -264,14 +264,15 @@ static int help_sudo_mode(void) {
 }
 
 static bool become_root(void) {
-        return !arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0");
-}
-
-static bool privileged_execution(void) {
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return false;
 
-        return become_root();
+        if (!arg_exec_user) {
+                assert(!arg_empower); /* assume default user has been set */
+                return true;
+        }
+
+        return STR_IN_SET(arg_exec_user, "root", "0");
 }
 
 static int add_timer_property(const char *name, const char *val) {
@@ -885,7 +886,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static double shell_prompt_hue(void) {
-        if (privileged_execution())
+        if (become_root())
                 return 0; /* red */
 
         if (arg_empower)
@@ -895,7 +896,7 @@ static double shell_prompt_hue(void) {
 }
 
 static Glyph shell_prompt_glyph(void) {
-        if (privileged_execution())
+        if (become_root())
                 return GLYPH_SUPERHERO;
 
         if (arg_empower)
@@ -905,7 +906,7 @@ static Glyph shell_prompt_glyph(void) {
 }
 
 static Glyph pty_window_glyph(void) {
-        if (privileged_execution())
+        if (become_root())
                 return GLYPH_RED_CIRCLE;
 
         if (arg_empower)
@@ -1129,6 +1130,24 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
+        if (!arg_working_directory) {
+                if (arg_exec_user || arg_area) {
+                        /* When switching to a specific user or an area, also switch to its home directory. */
+                        arg_working_directory = strdup("~");
+                        if (!arg_working_directory)
+                                return log_oom();
+                } else {
+                        /* When elevating privileges without this being specified, then stay in the current directory */
+                        r = safe_getcwd(&arg_working_directory);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get current working directory: %m");
+                }
+        } else {
+                /* Root was not suppressed earlier, to allow the above check to work properly. */
+                if (empty_or_root(arg_working_directory))
+                        arg_working_directory = mfree(arg_working_directory);
+        }
+
         if (!arg_exec_user && (arg_area || arg_empower)) {
                 /* If the user specifies --area= but not --user= then consider this an area switch request,
                  * and default to logging into our own account.
@@ -1139,30 +1158,6 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 arg_exec_user = getusername_malloc();
                 if (!arg_exec_user)
                         return log_oom();
-
-                if (arg_empower && !arg_working_directory) {
-                        r = safe_getcwd(&arg_working_directory);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get current working directory: %m");
-                }
-        }
-
-        if (!arg_working_directory) {
-                if (arg_exec_user) {
-                        /* When switching to a specific user, also switch to its home directory. */
-                        arg_working_directory = strdup("~");
-                        if (!arg_working_directory)
-                                return log_oom();
-                } else {
-                        /* When switching to root without this being specified, then stay in the current directory */
-                        r = safe_getcwd(&arg_working_directory);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get current working directory: %m");
-                }
-        } else {
-                /* Root was not suppressed earlier, to allow the above check to work properly. */
-                if (empty_or_root(arg_working_directory))
-                        arg_working_directory = mfree(arg_working_directory);
         }
 
         arg_service_type = "exec";
@@ -1301,10 +1296,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                  * default. Note that pam_logind/systemd-logind doesn't distinguish between run0-style privilege
                  * escalation on a TTY and first class (getty-style) TTY logins (and thus gives root a per-session
                  * manager for interactive TTY sessions), hence let's override the logic explicitly here. We only do
-                 * this for root though, under the assumption that if a regular user temporarily transitions into
-                 * another regular user it's a better default that the full user environment is uniformly
-                 * available. */
-                if (arg_lightweight < 0 && (privileged_execution() || arg_empower))
+                 * this for root or --empower though, under the assumption that if a regular user temporarily
+                 * transitions into another regular user it's a better default that the full user environment is
+                 * uniformly available. */
+                if (arg_lightweight < 0 && (become_root() || arg_empower))
                         arg_lightweight = true;
 
                 if (arg_lightweight >= 0) {
