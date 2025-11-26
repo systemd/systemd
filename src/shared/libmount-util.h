@@ -42,6 +42,8 @@ extern DLSYM_PROTOTYPE(mnt_table_parse_stream);
 extern DLSYM_PROTOTYPE(mnt_table_parse_swaps);
 extern DLSYM_PROTOTYPE(mnt_unref_monitor);
 
+int dlopen_libmount(void);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_table*, sym_mnt_free_table, mnt_free_tablep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_iter*, sym_mnt_free_iter, mnt_free_iterp, NULL);
 
@@ -56,12 +58,14 @@ static inline int libmount_parse_mountinfo(
                 FILE *source,
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter) {
+
         return libmount_parse_full("/proc/self/mountinfo", source, MNT_ITER_FORWARD, ret_table, ret_iter);
 }
 
 static inline int libmount_parse_with_utab(
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter) {
+
         return libmount_parse_full(NULL, NULL, MNT_ITER_FORWARD, ret_table, ret_iter);
 }
 
@@ -70,15 +74,18 @@ int libmount_parse_fstab(struct libmnt_table **ret_table, struct libmnt_iter **r
 int libmount_is_leaf(
                 struct libmnt_table *table,
                 struct libmnt_fs *fs);
+
 #else
 
 struct libmnt_monitor;
 
-static inline void *sym_mnt_unref_monitor(struct libmnt_monitor *p) {
+static inline int dlopen_libmount(void) {
+        return -EOPNOTSUPP;
+}
+
+static inline void* sym_mnt_unref_monitor(struct libmnt_monitor *p) {
         assert(p == NULL);
         return NULL;
 }
 
 #endif
-
-int dlopen_libmount(void);

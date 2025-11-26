@@ -1929,14 +1929,18 @@ static int mount_setup_unit(
 }
 #endif
 
+#if !HAVE_LIBMOUNT
+_noreturn_
+#endif
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
+        assert(m);
+        assert(unit_type_supported(UNIT_MOUNT));
+
 #if HAVE_LIBMOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         _cleanup_set_free_ Set *devices = NULL;
         int r;
-
-        assert(m);
 
         r = libmount_parse_with_utab(&table, &iter);
         if (r < 0)
@@ -1971,7 +1975,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
 
         return 0;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+        assert_not_reached();
 #endif
 }
 
@@ -2025,6 +2029,7 @@ static void mount_enumerate_perpetual(Manager *m) {
         int r;
 
         assert(m);
+        assert(unit_type_supported(UNIT_MOUNT));
 
         /* Whatever happens, we know for sure that the root directory is around, and cannot go away. Let's
          * unconditionally synthesize it here and mark it as perpetual. */
@@ -2071,17 +2076,15 @@ static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
 }
 #endif
 
+#if !HAVE_LIBMOUNT
+_noreturn_
+#endif
 static void mount_enumerate(Manager *m) {
+        assert(m);
+        assert(unit_type_supported(UNIT_MOUNT));
+
 #if HAVE_LIBMOUNT
         int r;
-
-        assert(m);
-
-        r = dlopen_libmount();
-        if (r < 0) {
-                log_error_errno(r, "Cannot enumerate mounts, as libmount is not available: %m");
-                goto fail;
-        }
 
         sym_mnt_init_debug(0);
 
@@ -2165,18 +2168,23 @@ static void mount_enumerate(Manager *m) {
 
 fail:
         mount_shutdown(m);
+
 #else
-        log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot enumerate mounts, as libmount support is not compiled in");
-        mount_shutdown(m);
+        assert_not_reached();
 #endif
 }
 
+#if !HAVE_LIBMOUNT
+_noreturn_
+#endif
 static int drain_libmount(Manager *m) {
+        assert(m);
+        assert(unit_type_supported(UNIT_MOUNT));
+
 #if HAVE_LIBMOUNT
         bool rescan = false;
         int r;
 
-        assert(m);
 
         if (!m->mount_monitor)
                 return false;
@@ -2196,8 +2204,9 @@ static int drain_libmount(Manager *m) {
         } while (r == 0);
 
         return rescan;
+
 #else
-        return 0;
+        assert_not_reached();
 #endif
 }
 
@@ -2410,6 +2419,10 @@ static int mount_test_startable(Unit *u) {
         return true;
 }
 
+static bool mount_supported(void) {
+        return dlopen_libmount() >= 0;
+}
+
 static int mount_subsystem_ratelimited(Manager *m) {
         assert(m);
 
@@ -2554,6 +2567,7 @@ const UnitVTable mount_vtable = {
         .enumerate_perpetual = mount_enumerate_perpetual,
         .enumerate = mount_enumerate,
         .shutdown = mount_shutdown,
+        .supported = mount_supported,
         .subsystem_ratelimited = mount_subsystem_ratelimited,
 
         .status_message_formats = {
