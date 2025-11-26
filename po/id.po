@@ -7,7 +7,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:29+0000\n"
-"Last-Translator: Andika Triwidada <andika@gmail.com>\n"
+"Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
 "systemd/main/id/>\n"
 "Language: id\n"
@@ -34,8 +34,7 @@ msgstr "Kelola layanan sistem atau unit lainnya"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr ""
-"Otentikasi diperlukan untuk mengelola layanan sistem atau unit lainnya."
+msgstr "Otentikasi diperlukan untuk mengelola layanan sistem atau unit lainnya."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -856,8 +855,7 @@ msgstr "Dapatkan sebuah TTY semu pada host lokal"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr ""
-"Otentikasi diperlukan untuk mendapatkan suatu TTY semu pada host lokal."
+msgstr "Otentikasi diperlukan untuk mendapatkan suatu TTY semu pada host lokal."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
@@ -1273,8 +1271,7 @@ msgstr ""
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr ""
-"Otentikasi diperlukan untuk me-reset keadaan \"failed\" dari '$(unit)'."
+msgstr "Otentikasi diperlukan untuk me-reset keadaan \"failed\" dari '$(unit)'."
 
 #: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."
