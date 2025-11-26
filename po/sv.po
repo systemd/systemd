@@ -13,7 +13,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:33+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Luna Jernberg <bittin@reimu.nl>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -154,8 +154,7 @@ msgstr "Hantera nycklar för signering av hemkatalog"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr ""
-"Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
+msgstr "Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
 
 #: src/home/pam_systemd_home.c:333
 #, c-format
@@ -245,8 +244,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"PIN-kod för säkerhetstoken är låst. Lås upp den först. (Tips: Det kan räcka "
-"med borttagning och återinsättning.)"
+"PIN-kod för säkerhetstoken är låst. Lås upp den först. "
+"(Tips: Det kan räcka med borttagning och återinsättning.)"
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
