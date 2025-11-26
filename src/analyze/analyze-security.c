@@ -38,75 +38,65 @@
 #include "unit-serialize.h"
 
 typedef struct SecurityInfo {
+        /* Pointers and other 8-byte aligned types */
         char *id;
         char *type;
         char *load_state;
         char *fragment_path;
-        bool default_dependencies;
-
-        uint64_t ambient_capabilities;
-        uint64_t capability_bounding_set;
-
         char *user;
         char **supplementary_groups;
-        bool dynamic_user;
-
-        bool ip_address_deny_all;
-        bool ip_address_allow_localhost;
-        bool ip_address_allow_other;
-
-        bool ip_filters_custom_ingress;
-        bool ip_filters_custom_egress;
-
         char *keyring_mode;
         char *protect_proc;
         char *proc_subset;
+        char *notify_access;
+        char *protect_home;
+        char *protect_system;
+        char *root_directory;
+        char *root_image;
+        char *device_policy;
+        char **device_allow;
+        Set *system_call_architectures;
+        Set *system_call_filter;
+
+        uint64_t ambient_capabilities;
+        uint64_t capability_bounding_set;
+        unsigned long long restrict_namespaces;
+
+        /* 4-byte integers */
+        mode_t _umask;
+
+        /* Booleans */
+        bool default_dependencies;
+        bool dynamic_user;
+        bool ip_address_deny_all;
+        bool ip_address_allow_localhost;
+        bool ip_address_allow_other;
+        bool ip_filters_custom_ingress;
+        bool ip_filters_custom_egress;
         bool lock_personality;
         bool memory_deny_write_execute;
         bool no_new_privileges;
-        char *notify_access;
         bool protect_hostname;
-
         bool private_devices;
         bool private_mounts;
         bool private_network;
         bool private_tmp;
         bool private_users;
-
         bool protect_control_groups;
         bool protect_kernel_modules;
         bool protect_kernel_tunables;
         bool protect_kernel_logs;
         bool protect_clock;
-
-        char *protect_home;
-        char *protect_system;
-
         bool remove_ipc;
-
         bool restrict_address_family_inet;
         bool restrict_address_family_unix;
         bool restrict_address_family_netlink;
         bool restrict_address_family_packet;
         bool restrict_address_family_other;
-
-        unsigned long long restrict_namespaces;
         bool restrict_realtime;
         bool restrict_suid_sgid;
-
-        char *root_directory;
-        char *root_image;
-
         bool delegate;
-        char *device_policy;
-        char **device_allow;
-
-        Set *system_call_architectures;
-
         bool system_call_filter_allow_list;
-        Set *system_call_filter;
-
-        mode_t _umask;
 } SecurityInfo;
 
 struct security_assessor {

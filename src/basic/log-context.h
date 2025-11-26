@@ -38,12 +38,12 @@ typedef struct LogContext {
         unsigned n_ref;
         /* Depending on which destructor is used (log_context_free() or log_context_detach()) the memory
          * referenced by this is freed or not */
+        bool owned;
         char **fields;
         struct iovec *input_iovec;
         size_t n_input_iovec;
         char *key;
         char *value;
-        bool owned;
         LIST_FIELDS(struct LogContext, ll);
 } LogContext;
 

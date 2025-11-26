@@ -30,50 +30,55 @@ typedef enum PullJobState {
 #define PULL_JOB_IS_COMPLETE(j) (IN_SET((j)->state, PULL_JOB_DONE, PULL_JOB_FAILED))
 
 typedef struct PullJob {
-        PullJobState state;
-        int error;
-
+        /* Pointers and other 8-byte aligned types */
         char *url;
-
         void *userdata;
         PullJobFinished on_finished;
         PullJobOpenDisk on_open_disk;
         PullJobHeader on_header;
         PullJobProgress on_progress;
         PullJobNotFound on_not_found;
-
         CurlGlue *glue;
         CURL *curl;
         struct curl_slist *request_header;
-
         char *etag;
         char **old_etags;
-        bool etag_exists;
+        uint8_t *payload;
+        EVP_MD_CTX *checksum_ctx;
+        char *checksum;
 
+        /* 64-bit integers */
         uint64_t content_length;
         uint64_t written_compressed;
         uint64_t written_uncompressed;
         uint64_t offset;
-
         uint64_t uncompressed_max;
         uint64_t compressed_max;
+        size_t payload_size;
+        usec_t mtime;
+        usec_t start_usec;
+        usec_t last_status_usec;
 
         uint64_t expected_content_length;
 
         struct iovec payload;
 
-        int disk_fd;
-        bool close_disk_fd;
+        /* Large structs */
         struct stat disk_stat;
 
-        usec_t mtime;
-
+        /* 4-byte integers and enums */
         ImportCompress compress;
-
+        PullJobState state;
+        int error;
+        int disk_fd;
         unsigned progress_percent;
-        usec_t start_usec;
-        usec_t last_status_usec;
 
+        /* Booleans */
+        bool etag_exists:1;
+        bool close_disk_fd:1;
+        bool calc_checksum:1;
+        bool sync:1;
+        bool force_memory:1;
         bool calc_checksum;
         EVP_MD_CTX *checksum_ctx;
 

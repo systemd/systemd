@@ -43,14 +43,14 @@ typedef struct RawExport {
         uint64_t written_compressed;
         uint64_t written_uncompressed;
 
-        unsigned last_percent;
-        RateLimit progress_ratelimit;
-
         struct stat st;
 
-        bool eof;
-        bool tried_reflink;
-        bool tried_sendfile;
+        RateLimit progress_ratelimit;
+        unsigned last_percent;
+
+        bool eof:1;
+        bool tried_reflink:1;
+        bool tried_sendfile:1;
 } RawExport;
 
 RawExport *raw_export_unref(RawExport *e) {

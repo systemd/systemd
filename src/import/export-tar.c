@@ -30,6 +30,9 @@ typedef struct TarExport {
 
         ImportFlags flags;
 
+        unsigned last_percent;
+        RateLimit progress_ratelimit;
+
         char *path;
         char *temp_path;
 
@@ -54,11 +57,8 @@ typedef struct TarExport {
         struct stat st;
         uint64_t quota_referenced;
 
-        unsigned last_percent;
-        RateLimit progress_ratelimit;
-
-        bool eof;
-        bool tried_splice;
+        bool eof:1;
+        bool tried_splice:1;
 } TarExport;
 
 TarExport *tar_export_unref(TarExport *e) {

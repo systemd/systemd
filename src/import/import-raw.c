@@ -37,6 +37,9 @@ typedef struct RawImport {
         char *local;
         ImportFlags flags;
 
+        unsigned last_percent;
+        RateLimit progress_ratelimit;
+
         char *temp_path;
         char *final_path;
 
@@ -55,9 +58,6 @@ typedef struct RawImport {
 
         struct stat input_stat;
         struct stat output_stat;
-
-        unsigned last_percent;
-        RateLimit progress_ratelimit;
 
         uint64_t offset;
         uint64_t size_max;
