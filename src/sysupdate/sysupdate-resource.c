@@ -762,7 +762,7 @@ static const char *resource_type_table[_RESOURCE_TYPE_MAX] = {
         [RESOURCE_SUBVOLUME]    = "subvolume",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(resource_type, ResourceType);
+DEFINE_STRING_TABLE_LOOKUP(resource_type, ResourceType, t);
 
 static const char *path_relative_to_table[_PATH_RELATIVE_TO_MAX] = {
         [PATH_RELATIVE_TO_ROOT]     = "root",
@@ -772,4 +772,4 @@ static const char *path_relative_to_table[_PATH_RELATIVE_TO_MAX] = {
         [PATH_RELATIVE_TO_EXPLICIT] = "explicit",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(path_relative_to, PathRelativeTo);
+DEFINE_STRING_TABLE_LOOKUP(path_relative_to, PathRelativeTo, r);

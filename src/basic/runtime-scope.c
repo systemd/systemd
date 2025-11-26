@@ -9,7 +9,7 @@ static const char* const runtime_scope_table[_RUNTIME_SCOPE_MAX] = {
         [RUNTIME_SCOPE_GLOBAL] = "global",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(runtime_scope, RuntimeScope);
+DEFINE_STRING_TABLE_LOOKUP(runtime_scope, RuntimeScope, scope);
 
 static const char* const runtime_scope_cmdline_option_table[_RUNTIME_SCOPE_MAX] = {
         [RUNTIME_SCOPE_SYSTEM] = "--system",
@@ -17,4 +17,4 @@ static const char* const runtime_scope_cmdline_option_table[_RUNTIME_SCOPE_MAX] 
         [RUNTIME_SCOPE_GLOBAL] = "--global",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(runtime_scope_cmdline_option, RuntimeScope);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(runtime_scope_cmdline_option, RuntimeScope, scope);

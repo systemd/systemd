@@ -959,7 +959,7 @@ static const char *mytestenum_table[_mymax] = {
         [with_some_dashes] = "with-some-dashes",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(mytestenum, mytestenum);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(mytestenum, mytestenum, i);
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_mytestenum, mytestenum, mytestenum_from_string);
 

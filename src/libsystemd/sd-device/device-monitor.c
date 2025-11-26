@@ -466,7 +466,7 @@ static sd_device_monitor* device_monitor_free(sd_device_monitor *m) {
         return mfree(m);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device_monitor, sd_device_monitor, device_monitor_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device_monitor, sd_device_monitor, m, device_monitor_free);
 
 static int check_subsystem_filter(sd_device_monitor *m, sd_device *device) {
         const char *s, *d;

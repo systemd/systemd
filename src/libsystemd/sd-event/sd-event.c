@@ -78,7 +78,7 @@ static const char* const event_source_type_table[_SOURCE_EVENT_SOURCE_TYPE_MAX] 
         [SOURCE_MEMORY_PRESSURE]     = "memory-pressure",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(event_source_type, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(event_source_type, int, i);
 
 #define EVENT_SOURCE_IS_TIME(t)                 \
         IN_SET((t),                             \
@@ -2559,7 +2559,7 @@ static sd_event_source* event_source_free(sd_event_source *s) {
         return NULL;
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_event_source, sd_event_source, event_source_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_event_source, sd_event_source, s, event_source_free);
 
 _public_ int sd_event_source_set_description(sd_event_source *s, const char *description) {
         assert_return(s, -EINVAL);

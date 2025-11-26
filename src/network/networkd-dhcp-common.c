@@ -1005,7 +1005,7 @@ static const char * const dhcp_option_data_type_table[_DHCP_OPTION_DATA_MAX] = {
         [DHCP_OPTION_DATA_IPV6ADDRESS] = "ipv6address",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(dhcp_option_data_type, DHCPOptionDataType);
+DEFINE_STRING_TABLE_LOOKUP(dhcp_option_data_type, DHCPOptionDataType, d);
 
 static const char* const duid_type_table[_DUID_TYPE_MAX] = {
         [DUID_TYPE_LLT]  = "link-layer-time",

@@ -23,7 +23,7 @@ static const char* const sleep_operation_table[_SLEEP_OPERATION_MAX] = {
         [SLEEP_SUSPEND_THEN_HIBERNATE] = "suspend-then-hibernate",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(sleep_operation, SleepOperation);
+DEFINE_STRING_TABLE_LOOKUP(sleep_operation, SleepOperation, s);
 
 static char* const* const sleep_default_state_table[_SLEEP_OPERATION_CONFIG_MAX] = {
         [SLEEP_SUSPEND]      = STRV_MAKE("mem", "standby", "freeze"),

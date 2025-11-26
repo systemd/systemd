@@ -28,7 +28,7 @@ static const char* const image_class_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_CONFEXT]  = "confext",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(image_class, ImageClass);
+DEFINE_STRING_TABLE_LOOKUP(image_class, ImageClass, cl);
 
 /* Helper struct for naming simplicity and reusability */
 static const struct {

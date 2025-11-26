@@ -32,7 +32,7 @@ static const char *const log_level_table[_LOG_MAX] = {
         [LOG_DEBUG]   = "debug",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(log_level, LogLevel);
+DEFINE_STRING_TABLE_LOOKUP(log_level, LogLevel, l);
 
 LogLevel log_get_max_level(void) {
         return log_max_level;

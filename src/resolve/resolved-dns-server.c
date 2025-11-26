@@ -149,7 +149,7 @@ static DnsServer* dns_server_free(DnsServer *s)  {
         return mfree(s);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsServer, dns_server, dns_server_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsServer, dns_server, s, dns_server_free);
 
 void dns_server_unlink(DnsServer *s) {
         assert(s);
@@ -1273,7 +1273,7 @@ static const char* const dns_server_type_table[_DNS_SERVER_TYPE_MAX] = {
         [DNS_SERVER_FALLBACK] = "fallback",
         [DNS_SERVER_LINK]     = "link",
 };
-DEFINE_STRING_TABLE_LOOKUP(dns_server_type, DnsServerType);
+DEFINE_STRING_TABLE_LOOKUP(dns_server_type, DnsServerType, i);
 
 static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVEL_MAX] = {
         [DNS_SERVER_FEATURE_LEVEL_TCP]       = "TCP",
@@ -1283,7 +1283,7 @@ static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVE
         [DNS_SERVER_FEATURE_LEVEL_DO]        = "UDP+EDNS0+DO",
         [DNS_SERVER_FEATURE_LEVEL_TLS_DO]    = "TLS+EDNS0+DO",
 };
-DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);
+DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel, i);
 
 int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret) {
 
