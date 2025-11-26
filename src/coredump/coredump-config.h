@@ -35,12 +35,12 @@ typedef enum CoredumpStorage {
 struct CoredumpConfig {
         CoredumpStorage storage;
         bool compress;
+        bool enter_namespace;
         uint64_t process_size_max;
         uint64_t external_size_max;
         uint64_t journal_size_max;
         uint64_t keep_free;
         uint64_t max_use;
-        bool enter_namespace;
 };
 
 #define COREDUMP_CONFIG_NULL                            \
