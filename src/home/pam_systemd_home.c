@@ -682,7 +682,7 @@ static int acquire_home(
 
                                                 if (FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE))
                                                         pam_syslog(pamh, LOG_ERR, "Failed to prompt for password/prompt.");
-                                                else if (debug)
+                                                else
                                                         pam_debug_syslog(pamh, debug, "Failed to prompt for password/prompt.");
 
                                                 return home_not_active || home_locked ? PAM_PERM_DENIED : PAM_CONV_ERR;

@@ -101,8 +101,8 @@ bool oom_score_adjust_is_valid(int oa);
  * personality we're interested in. */
 #define OPINIONATED_PERSONALITY_MASK 0xFFUL
 
-unsigned long personality_from_string(const char *p);
-const char* personality_to_string(unsigned long);
+unsigned long personality_from_string(const char *s);
+const char* personality_to_string(unsigned long p);
 
 int safe_personality(unsigned long p);
 int opinionated_personality(unsigned long *ret);
@@ -124,10 +124,10 @@ int pid_compare_func(const pid_t *a, const pid_t *b);
 
 bool nice_is_valid(int n) _const_;
 
-bool sched_policy_is_valid(int i) _const_;
-bool sched_policy_supported(int i);
-int sched_get_priority_min_safe(int i);
-int sched_get_priority_max_safe(int i);
+bool sched_policy_is_valid(int policy) _const_;
+bool sched_policy_supported(int policy);
+int sched_get_priority_min_safe(int policy);
+int sched_get_priority_max_safe(int policy);
 
 #define PID_AUTOMATIC ((pid_t) INT_MIN) /* special value indicating "acquire pid from connection peer" */
 
