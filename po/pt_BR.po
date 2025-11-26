@@ -14,7 +14,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:30+0000\n"
-"Last-Translator: Tiago Rocha Cunha <tiagocunha.me@gmail.com>\n"
+"Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Portuguese (Brazil) <https://translate.fedoraproject.org/"
 "projects/systemd/main/pt_BR/>\n"
 "Language: pt_BR\n"
@@ -138,8 +138,7 @@ msgstr "Redimensionar uma área home"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
-msgstr ""
-"É necessária autenticação para redimensionar a área home de um usuário."
+msgstr "É necessária autenticação para redimensionar a área home de um usuário."
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
@@ -819,8 +818,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr ""
-"Indicar para o carregador de inicializar iniciar uma entrada específica"
+msgstr "Indicar para o carregador de inicializar iniciar uma entrada específica"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid ""
@@ -877,8 +875,7 @@ msgstr "Adquirir uma shell na máquina local"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr ""
-"É necessária autenticação para adquirir uma shell em uma máquina local."
+msgstr "É necessária autenticação para adquirir uma shell em uma máquina local."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
