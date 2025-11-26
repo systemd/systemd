@@ -140,9 +140,9 @@ typedef struct CreateSessionParameters {
         const char *desktop;
         const char *seat;
         unsigned vtnr;
+        int remote;
         const char *tty;
         const char *display;
-        int remote;
         const char *remote_user;
         const char *remote_host;
 } CreateSessionParameters;

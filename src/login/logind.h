@@ -9,6 +9,7 @@
 #include "logind-forward.h"
 
 typedef struct Manager {
+        /* Pointers and other 8-byte aligned types */
         sd_event *event;
         sd_bus *bus;
 
@@ -20,6 +21,9 @@ typedef struct Manager {
         Hashmap *inhibitors;
         Hashmap *buttons;
         Hashmap *brightness_writers;
+        Hashmap *session_units;
+        Hashmap *user_units;
+        Hashmap *polkit_registry;
 
         LIST_HEAD(Seat, seat_gc_queue);
         LIST_HEAD(Session, session_gc_queue);
@@ -32,64 +36,63 @@ typedef struct Manager {
         sd_device_monitor *device_uaccess_monitor;
 
         sd_event_source *console_active_event_source;
-
 #if ENABLE_UTMP
         sd_event_source *utmp_event_source;
 #endif
-
-        int console_active_fd;
-
-        unsigned n_autovts;
-
-        unsigned reserve_vt;
-        int reserve_vt_fd;
+        sd_event_source *inhibit_timeout_source;
+        sd_event_source *scheduled_shutdown_timeout_source;
+        sd_event_source *nologin_timeout_source;
+        sd_event_source *wall_message_timeout_source;
+        sd_event_source *idle_action_event_source;
+        sd_event_source *lid_switch_ignore_event_source;
+        sd_event_source *power_key_long_press_event_source;
+        sd_event_source *reboot_key_long_press_event_source;
+        sd_event_source *suspend_key_long_press_event_source;
+        sd_event_source *hibernate_key_long_press_event_source;
 
         Seat *seat0;
 
         char **kill_only_users, **kill_exclude_users;
-        bool kill_user_processes;
+        char *action_job;
+        char *scheduled_shutdown_tty;
+        char *wall_message;
+        char **efi_boot_loader_entries;
+        char *efi_loader_entry_one_shot;
+        CalendarSpec *maintenance_time;
+        sd_varlink_server *varlink_server;
 
+        /* Large structs */
+        struct stat efi_loader_entry_one_shot_stat;
+        dual_timestamp init_ts;
+
+        /* 64-bit integers */
         uint64_t session_counter;
         uint64_t inhibit_counter;
-
-        Hashmap *session_units;
-        Hashmap *user_units;
-
         usec_t inhibit_delay_max;
         usec_t user_stop_delay;
+        usec_t scheduled_shutdown_timeout;
+        usec_t idle_action_usec;
+        usec_t idle_action_not_before_usec;
+        usec_t stop_idle_session_usec;
+        usec_t holdoff_timeout_usec;
+        uint64_t runtime_dir_size;
+        uint64_t runtime_dir_inodes;
+        uint64_t sessions_max;
+        uint64_t inhibitors_max;
 
         /* If a shutdown/suspend was delayed due to an inhibitor this contains the action we are supposed to
          * start after the delay is over */
         const HandleActionData *delayed_action;
 
-        /* If a shutdown/suspend is currently executed, then this is the job of it */
-        char *action_job;
-        sd_event_source *inhibit_timeout_source;
-
+        /* 32-bit integers and enums */
+        int console_active_fd;
+        unsigned n_autovts;
+        unsigned reserve_vt;
+        int reserve_vt_fd;
         HandleAction scheduled_shutdown_action;
-        usec_t scheduled_shutdown_timeout;
-        sd_event_source *scheduled_shutdown_timeout_source;
         uid_t scheduled_shutdown_uid;
-        char *scheduled_shutdown_tty;
-        sd_event_source *nologin_timeout_source;
-        bool unlink_nologin;
-
-        char *wall_message;
-        bool wall_messages;
-        sd_event_source *wall_message_timeout_source;
-
-        bool shutdown_dry_run;
-
-        sd_event_source *idle_action_event_source;
-        usec_t idle_action_usec;
-        usec_t idle_action_not_before_usec;
         HandleAction idle_action;
-        bool was_idle;
-
-        usec_t stop_idle_session_usec;
-
         HandleActionSleepMask handle_action_sleep_mask;
-
         HandleAction handle_power_key;
         HandleAction handle_power_key_long_press;
         HandleAction handle_reboot_key;
@@ -99,45 +102,23 @@ typedef struct Manager {
         HandleAction handle_hibernate_key;
         HandleAction handle_hibernate_key_long_press;
         HandleAction handle_secure_attention_key;
-
         HandleAction handle_lid_switch;
         HandleAction handle_lid_switch_ep;
         HandleAction handle_lid_switch_docked;
 
+        /* Booleans */
+        bool kill_user_processes;
+        bool wall_messages;
         bool power_key_ignore_inhibited;
         bool suspend_key_ignore_inhibited;
         bool hibernate_key_ignore_inhibited;
         bool lid_switch_ignore_inhibited;
         bool reboot_key_ignore_inhibited;
-
         bool remove_ipc;
-
-        Hashmap *polkit_registry;
-
-        usec_t holdoff_timeout_usec;
-        sd_event_source *lid_switch_ignore_event_source;
-
-        sd_event_source *power_key_long_press_event_source;
-        sd_event_source *reboot_key_long_press_event_source;
-        sd_event_source *suspend_key_long_press_event_source;
-        sd_event_source *hibernate_key_long_press_event_source;
-
-        uint64_t runtime_dir_size;
-        uint64_t runtime_dir_inodes;
-        uint64_t sessions_max;
-        uint64_t inhibitors_max;
-
-        char **efi_boot_loader_entries;
-        bool efi_boot_loader_entries_set;
-
-        char *efi_loader_entry_one_shot;
-        struct stat efi_loader_entry_one_shot_stat;
-
-        CalendarSpec *maintenance_time;
-
-        dual_timestamp init_ts;
-
-        sd_varlink_server *varlink_server;
+        bool unlink_nologin:1;
+        bool shutdown_dry_run:1;
+        bool was_idle:1;
+        bool efi_boot_loader_entries_set:1;
 } Manager;
 
 void manager_reset_config(Manager *m);
