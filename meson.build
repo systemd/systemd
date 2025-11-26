@@ -2994,6 +2994,10 @@ if meson.version().version_compare('>=1.4.0')
                         inputs += header
                 endif
 
+                if source.full_path().endswith('fuzz-main.c')
+                        continue
+                endif
+
                 foreach input : inputs
                         if clang_tidy.found()
                                 test(
