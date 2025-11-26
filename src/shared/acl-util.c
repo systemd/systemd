@@ -80,9 +80,19 @@ int dlopen_libacl(void) {
                         DLSYM_ARG(acl_to_any_text));
 }
 
-int devnode_acl(int fd, uid_t uid) {
-        bool changed = false, found = false;
+static bool has_uid(uid_t target, uid_t *users, size_t n) {
+        FOREACH_ARRAY(user, users, n)
+                if (*user == target)
+                        return true;
+
+        return false;
+}
+
+int devnode_acl(int fd, uid_t *users, size_t n_users) {
+        bool changed = false;
         int r;
+        uid_t found[n_users];
+        size_t n_found = 0;
 
         assert(fd >= 0);
 
@@ -107,12 +117,12 @@ int devnode_acl(int fd, uid_t uid) {
                 if (tag != ACL_USER)
                         continue;
 
-                if (uid > 0) {
+                if (n_users > 0) {
                         uid_t *u = sym_acl_get_qualifier(entry);
                         if (!u)
                                 return -errno;
 
-                        if (*u == uid) {
+                        if (has_uid(*u, users, n_users)) {
                                 acl_permset_t permset;
                                 if (sym_acl_get_permset(entry, &permset) < 0)
                                         return -errno;
@@ -132,7 +142,7 @@ int devnode_acl(int fd, uid_t uid) {
                                         changed = true;
                                 }
 
-                                found = true;
+                                found[n_found++] = *u;
                                 continue;
                         }
                 }
@@ -145,24 +155,30 @@ int devnode_acl(int fd, uid_t uid) {
         if (r < 0)
                 return -errno;
 
-        if (!found && uid > 0) {
-                if (sym_acl_create_entry(&acl, &entry) < 0)
-                        return -errno;
+        if (n_found != n_users && n_users > 0) {
+                for (size_t i = 0; i < n_users; i++) {
+                        uid_t uid = users[i];
+                        if (has_uid(uid, found, n_found))
+                                continue;
 
-                if (sym_acl_set_tag_type(entry, ACL_USER) < 0)
-                        return -errno;
+                        if (sym_acl_create_entry(&acl, &entry) < 0)
+                                return -errno;
 
-                if (sym_acl_set_qualifier(entry, &uid) < 0)
-                        return -errno;
+                        if (sym_acl_set_tag_type(entry, ACL_USER) < 0)
+                                return -errno;
 
-                acl_permset_t permset;
-                if (sym_acl_get_permset(entry, &permset) < 0)
-                        return -errno;
+                        if (sym_acl_set_qualifier(entry, &uid) < 0)
+                                return -errno;
 
-                if (sym_acl_add_perm(permset, ACL_READ|ACL_WRITE) < 0)
-                        return -errno;
+                        acl_permset_t permset;
+                        if (sym_acl_get_permset(entry, &permset) < 0)
+                                return -errno;
 
-                changed = true;
+                        if (sym_acl_add_perm(permset, ACL_READ|ACL_WRITE) < 0)
+                                return -errno;
+
+                        changed = true;
+                }
         }
 
         if (!changed)
