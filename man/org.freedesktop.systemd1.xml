@@ -413,6 +413,8 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u NFailedJobs = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly at TransactionsWithOrderingCycle = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly d Progress = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as Environment = ['...', ...];
@@ -1102,6 +1104,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="NInstalledJobs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NFailedJobs"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TransactionsWithOrderingCycle"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Progress"/>
 
@@ -1808,6 +1812,9 @@ node /org/freedesktop/systemd1 {
       <para><varname>NInstalledJobs</varname> encodes how many jobs have ever been queued in total.</para>
 
       <para><varname>NFailedJobs</varname> encodes how many jobs have ever failed in total.</para>
+
+      <para><varname>TransactionsWithOrderingCycle</varname> encodes IDs of transactions that encountered
+      ordering cycle.</para>
 
       <para><varname>Progress</varname> encodes boot progress as a floating point value between 0.0 and
       1.0. This value begins at 0.0 at early-boot and ends at 1.0 when boot is finished and is based on the
@@ -2856,6 +2863,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
       readonly a(sasasttttuii) ExecReloadEx = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
+      readonly a(sasbttttuii) ExecReloadPost = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
+      readonly a(sasasttttuii) ExecReloadPostEx = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
       readonly a(sasbttttuii) ExecStop = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
       readonly a(sasasttttuii) ExecStopEx = [...];
@@ -3408,6 +3419,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -3535,9 +3548,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property ExecReloadEx is not documented!-->
 
-    <!--property ExecStopEx is not documented!-->
+    <!--property ExecReloadPostEx is not documented!-->
 
-    <!--property ExecStopPost is not documented!-->
+    <!--property ExecStopEx is not documented!-->
 
     <!--property ExecStopPostEx is not documented!-->
 
@@ -4019,6 +4032,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property MemoryKSM is not documented!-->
 
+    <!--property UserNamespacePath is not documented!-->
+
     <!--property NetworkNamespacePath is not documented!-->
 
     <!--property IPCNamespacePath is not documented!-->
@@ -4206,6 +4221,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ExecReload"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecReloadEx"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecReloadPost"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecReloadPostEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecStop"/>
 
@@ -4759,6 +4778,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="UserNamespacePath"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
@@ -4835,10 +4856,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       last watchdog ping received from the service, or 0 if none was ever received.</para>
 
       <para><varname>ExecStartPre</varname>, <varname>ExecStart</varname>, <varname>ExecStartPost</varname>,
-      <varname>ExecReload</varname>, <varname>ExecStop</varname>, and <varname>ExecStop</varname> are arrays
-      of structures where each struct contains: the binary path to execute; an array with all arguments to
-      pass to the executed command, starting with argument 0; a boolean whether it should be considered a
-      failure if the process exits uncleanly; two pairs of
+      <varname>ExecReload</varname>, <varname>ExecReloadPost</varname>, <varname>ExecStop</varname>, and
+      <varname>ExecStopPost</varname> are arrays of structures where each struct contains: the binary path
+      to execute; an array with all arguments to pass to the executed command, starting with argument 0;
+      a boolean whether it should be considered a failure if the process exits uncleanly; two pairs of
       <constant>CLOCK_REALTIME</constant>/<constant>CLOCK_MONOTONIC</constant> microsecond timestamps when
       the process began and finished running the last time, or 0 if it never ran or never finished running;
       the PID of the process, or 0 if it has not run yet; the exit code and status of the last run. This
@@ -5655,6 +5676,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -5805,8 +5828,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property PassFileDescriptorsToExec is not documented!-->
 
     <!--property ExecStopPre is not documented!-->
-
-    <!--property ExecStopPost is not documented!-->
 
     <!--property Slice is not documented!-->
 
@@ -6285,6 +6306,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property BPFDelegateAttachments is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
+
+    <!--property UserNamespacePath is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
 
@@ -7006,6 +7029,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="UserNamespacePath"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
@@ -7726,6 +7751,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -8278,6 +8305,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property BPFDelegateAttachments is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
+
+    <!--property UserNamespacePath is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
 
@@ -8906,6 +8935,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateAttachments"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UserNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
@@ -9760,6 +9791,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -10294,6 +10327,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property BPFDelegateAttachments is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
+
+    <!--property UserNamespacePath is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
 
@@ -10904,6 +10939,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateAttachments"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UserNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
@@ -12435,6 +12472,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>DefaultRestrictSUIDSGID</varname>,
       <function>RemoveSubgroupFromUnit()</function>, and
       <function>KillUnitSubgroup()</function> were added in version 258.</para>
+      <para><varname>TransactionsWithOrderingCycle</varname> was added in version 259.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
@@ -12519,8 +12557,11 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
-      <para><varname>OOMKills</varname>, and
-      <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>UserNamespacePath</varname>,
+      <varname>OOMKills</varname>,
+      <varname>ManagedOOMKills</varname>,
+      <varname>ExecReloadPost</varname>, and
+      <varname>ExecReloadPostEx</varname> were added in version 259.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12587,6 +12628,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
       <para><varname>OOMKills</varname>, and
+      <varname>UserNamespacePath</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
@@ -12648,7 +12690,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
-      <para><varname>OOMKills</varname>, and
+      <para><varname>UserNamespacePath</varname>,
+      <varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
@@ -12708,7 +12751,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
-      <para><varname>OOMKills</varname>, and
+      <para><varname>UserNamespacePath</varname>,
+      <varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
     </refsect2>
     <refsect2>

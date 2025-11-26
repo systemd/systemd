@@ -645,7 +645,7 @@ int safe_atod(const char *s, double *ret_d) {
                 return -EINVAL;
 
         if (ret_d)
-                *ret_d = (double) d;
+                *ret_d = d;
 
         return 0;
 }
@@ -685,10 +685,10 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
         return 0;
 }
 
-int parse_nice(const char *p, int *ret) {
+int parse_nice(const char *s, int *ret) {
         int n, r;
 
-        r = safe_atoi(p, &n);
+        r = safe_atoi(s, &n);
         if (r < 0)
                 return r;
 
@@ -710,7 +710,7 @@ int parse_ip_port(const char *s, uint16_t *ret) {
         if (l == 0)
                 return -EINVAL;
 
-        *ret = (uint16_t) l;
+        *ret = l;
 
         return 0;
 }

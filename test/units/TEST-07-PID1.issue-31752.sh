@@ -21,7 +21,7 @@ cleanup() {
 
 trap cleanup EXIT
 
-cat > /run/systemd/system/"$UNIT" <<EOF
+cat >/run/systemd/system/"$UNIT" <<EOF
 [Service]
 ExecStart=true
 RemainAfterExit=yes
@@ -32,7 +32,7 @@ systemctl start "$UNIT"
 assert_eq "$(systemctl show -P NeedDaemonReload "$UNIT")" no
 
 mkdir /run/systemd/system/"$UNIT".d
-cat > /run/systemd/system/"$UNIT".d/desc.conf <<EOF
+cat >/run/systemd/system/"$UNIT".d/desc.conf <<EOF
 [Unit]
 Description=Test NeedDaemonReload status after creating drop-in
 EOF

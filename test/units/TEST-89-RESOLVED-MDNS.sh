@@ -146,7 +146,7 @@ run_and_check_services() {
             # jq --slurp --raw-output \
             #     ".[].browser_service_data[] | select(.updateFlag == true and .type == \"$service_type\" and .family == 10).name" "$out_file" | sort | tee "$tmp_file"
             grep -o '"name":"[^"]*"' "$out_file" | sed 's/"name":"//;s/"//g' | sort | tee "$tmp_file"
-	    # ...and compare them with what we expect
+            # ...and compare them with what we expect
             if "$check_func" "$service_id" "$tmp_file"; then
                 return 0
             fi

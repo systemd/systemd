@@ -44,6 +44,9 @@ __extension__ enum {
         SD_PATH_SYSTEM_STATE_CACHE,
         SD_PATH_SYSTEM_STATE_SPOOL,
 
+        /* generic system configuration */
+        SD_PATH_SYSTEM_SEARCH_CONFIGURATION,
+
         /* Vendor supplied data */
         SD_PATH_USER_BINARIES,
         SD_PATH_USER_LIBRARY_PRIVATE,

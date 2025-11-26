@@ -158,7 +158,7 @@ static int fetch_machine(const char *machine, RuntimeScope scope, sd_json_varian
                         "io.systemd.Machine.List",
                         &result,
                         &error_id,
-                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(machine)));
+                        SD_JSON_BUILD_PAIR_STRING("name", machine));
         if (r < 0)
                 return log_error_errno(r, "Failed to issue io.systemd.Machine.List() varlink call: %m");
         if (error_id) {

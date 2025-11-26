@@ -23,7 +23,7 @@
 #include "virt.h"
 
 static int parse_chid_type(const char *s, size_t *ret) {
-        char *e;
+        const char *e;
         unsigned u;
         int r;
 

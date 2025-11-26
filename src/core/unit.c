@@ -11,7 +11,6 @@
 #include "all-units.h"
 #include "alloc-util.h"
 #include "ansi-color.h"
-#include "bpf-firewall.h"
 #include "bpf-restrict-fs.h"
 #include "bus-common-errors.h"
 #include "bus-internal.h"
@@ -2291,16 +2290,16 @@ static void retroactively_start_dependencies(Unit *u) {
         UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_START_REPLACE) /* Requires= + BindsTo= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
+                        (void) manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, /* reterr_error = */ NULL, /* ret = */ NULL);
 
         UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_START_FAIL) /* Wants= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_START, other, JOB_FAIL, /* error = */ NULL, /* ret = */ NULL);
+                        (void) manager_add_job(u->manager, JOB_START, other, JOB_FAIL, /* reterr_error = */ NULL, /* ret = */ NULL);
 
         UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_START) /* Conflicts= (and inverse) */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
+                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* reterr_error = */ NULL, /* ret = */ NULL);
 }
 
 static void retroactively_stop_dependencies(Unit *u) {
@@ -2312,7 +2311,7 @@ static void retroactively_stop_dependencies(Unit *u) {
         /* Pull down units which are bound to us recursively if enabled */
         UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_STOP) /* BoundBy= */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
+                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* reterr_error = */ NULL, /* ret = */ NULL);
 }
 
 void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
@@ -2607,9 +2606,9 @@ static void unit_emit_audit_stop(Unit *u, UnitActiveState state) {
 
 static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
         bool unexpected = false;
-        JobResult result;
 
         assert(j);
+        assert(j->installed);
 
         if (j->state == JOB_WAITING)
                 /* So we reached a different state for this job. Let's see if we can run it now if it failed previously
@@ -2625,34 +2624,24 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
         case JOB_VERIFY_ACTIVE:
 
                 if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                        job_finish_and_invalidate(j, JOB_DONE, true, false);
+                        job_finish_and_invalidate(j, JOB_DONE, /* recursive = */ true, /* already = */ false);
                 else if (j->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
                         unexpected = true;
 
-                        if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
-                                if (ns == UNIT_FAILED)
-                                        result = JOB_FAILED;
-                                else
-                                        result = JOB_DONE;
-
-                                job_finish_and_invalidate(j, result, true, false);
-                        }
+                        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
+                                job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, /* recursive = */ true, /* already = */ false);
                 }
 
                 break;
 
         case JOB_RELOAD:
-        case JOB_RELOAD_OR_START:
-        case JOB_TRY_RELOAD:
 
                 if (j->state == JOB_RUNNING) {
                         if (ns == UNIT_ACTIVE)
-                                job_finish_and_invalidate(j, reload_success ? JOB_DONE : JOB_FAILED, true, false);
+                                job_finish_and_invalidate(j, reload_success ? JOB_DONE : JOB_FAILED, /* recursive = */ true, /* already = */ false);
                         else if (!IN_SET(ns, UNIT_ACTIVATING, UNIT_RELOADING, UNIT_REFRESHING)) {
                                 unexpected = true;
-
-                                if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                        job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true, false);
+                                job_finish_and_invalidate(j, reload_success ? JOB_CANCELED : JOB_FAILED, /* recursive = */ true, /* already = */ false);
                         }
                 }
 
@@ -2660,13 +2649,12 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
 
         case JOB_STOP:
         case JOB_RESTART:
-        case JOB_TRY_RESTART:
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                        job_finish_and_invalidate(j, JOB_DONE, true, false);
+                        job_finish_and_invalidate(j, JOB_DONE, /* recursive = */ true, /* already = */ false);
                 else if (j->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                         unexpected = true;
-                        job_finish_and_invalidate(j, JOB_FAILED, true, false);
+                        job_finish_and_invalidate(j, JOB_FAILED, /* recursive = */ true, /* already = */ false);
                 }
 
                 break;
@@ -3545,7 +3533,7 @@ int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
         return r;
 }
 
-static int signal_name_owner_changed_install_handler(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int signal_name_owner_changed_install_handler(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Unit *u = ASSERT_PTR(userdata);
         const sd_bus_error *e;
         int r;
@@ -3571,7 +3559,7 @@ static int signal_name_owner_changed_install_handler(sd_bus_message *message, vo
         return 0;
 }
 
-static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         const char *new_owner;
         Unit *u = ASSERT_PTR(userdata);
         int r;
@@ -3590,7 +3578,7 @@ static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd
         return 0;
 }
 
-static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         const sd_bus_error *e;
         const char *new_owner;
         Unit *u = ASSERT_PTR(userdata);
@@ -5035,6 +5023,11 @@ int unit_add_mounts_for(Unit *u, const char *path, UnitDependencyMask mask, Unit
         if (hashmap_contains(*unit_map, path)) /* Exit quickly if the path is already covered. */
                 return 0;
 
+        if (!unit_type_supported(UNIT_MOUNT)) {
+                log_once(LOG_NOTICE, "Mount unit not supported, skipping *MountsFor= dependencies.");
+                return 0;
+        }
+
         /* Use the canonical form of the path as the stored key. We call path_is_normalized()
          * only after simplification, since path_is_normalized() rejects paths with '.'.
          * path_is_normalized() also verifies that the path fits in PATH_MAX. */
@@ -6108,7 +6101,7 @@ bool unit_needs_console(Unit *u) {
         return exec_context_may_touch_console(ec);
 }
 
-int unit_pid_attachable(Unit *u, PidRef *pid, sd_bus_error *error) {
+int unit_pid_attachable(Unit *u, PidRef *pid, sd_bus_error *reterr_error) {
         int r;
 
         assert(u);
@@ -6118,20 +6111,20 @@ int unit_pid_attachable(Unit *u, PidRef *pid, sd_bus_error *error) {
 
         /* First, a simple range check */
         if (!pidref_is_set(pid))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Process identifier is not valid.");
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Process identifier is not valid.");
 
         /* Some extra safety check */
         if (pid->pid == 1 || pidref_is_self(pid))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a manager process, refusing.", pid->pid);
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a manager process, refusing.", pid->pid);
 
         /* Don't even begin to bother with kernel threads */
         r = pidref_is_kernel_thread(pid);
         if (r == -ESRCH)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN, "Process with ID " PID_FMT " does not exist.", pid->pid);
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN, "Process with ID " PID_FMT " does not exist.", pid->pid);
         if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to determine whether process " PID_FMT " is a kernel thread: %m", pid->pid);
+                return sd_bus_error_set_errnof(reterr_error, r, "Failed to determine whether process " PID_FMT " is a kernel thread: %m", pid->pid);
         if (r > 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a kernel thread, refusing.", pid->pid);
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a kernel thread, refusing.", pid->pid);
 
         return 0;
 }
@@ -6543,19 +6536,19 @@ Condition *unit_find_failed_condition(Unit *u) {
         return failed_trigger && !has_succeeded_trigger ? failed_trigger : NULL;
 }
 
-int unit_can_live_mount(Unit *u, sd_bus_error *error) {
+int unit_can_live_mount(Unit *u, sd_bus_error *reterr_error) {
         assert(u);
 
         if (!UNIT_VTABLE(u)->live_mount)
                 return sd_bus_error_setf(
-                                error,
+                                reterr_error,
                                 SD_BUS_ERROR_NOT_SUPPORTED,
                                 "Live mounting not supported by unit type '%s'",
                                 unit_type_to_string(u->type));
 
         if (u->load_state != UNIT_LOADED)
                 return sd_bus_error_setf(
-                                error,
+                                reterr_error,
                                 BUS_ERROR_NO_SUCH_UNIT,
                                 "Unit '%s' not loaded, cannot live mount",
                                 u->id);
@@ -6563,7 +6556,7 @@ int unit_can_live_mount(Unit *u, sd_bus_error *error) {
         if (!UNIT_VTABLE(u)->can_live_mount)
                 return 0;
 
-        return UNIT_VTABLE(u)->can_live_mount(u, error);
+        return UNIT_VTABLE(u)->can_live_mount(u, reterr_error);
 }
 
 int unit_live_mount(
@@ -6573,7 +6566,7 @@ int unit_live_mount(
                 sd_bus_message *message,
                 MountInNamespaceFlags flags,
                 const MountOptions *options,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         assert(u);
         assert(UNIT_VTABLE(u)->live_mount);
@@ -6581,7 +6574,7 @@ int unit_live_mount(
         if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) {
                 log_unit_debug(u, "Unit not active, cannot perform live mount.");
                 return sd_bus_error_setf(
-                                error,
+                                reterr_error,
                                 BUS_ERROR_UNIT_INACTIVE,
                                 "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: unit not active",
                                 src,
@@ -6592,7 +6585,7 @@ int unit_live_mount(
         if (unit_active_state(u) == UNIT_REFRESHING) {
                 log_unit_debug(u, "Unit already live mounting, refusing further requests.");
                 return sd_bus_error_setf(
-                                error,
+                                reterr_error,
                                 BUS_ERROR_UNIT_BUSY,
                                 "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: another live mount in progress",
                                 src,
@@ -6603,7 +6596,7 @@ int unit_live_mount(
         if (u->job) {
                 log_unit_debug(u, "Unit already has a job in progress, cannot live mount");
                 return sd_bus_error_setf(
-                                error,
+                                reterr_error,
                                 BUS_ERROR_UNIT_BUSY,
                                 "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: another operation in progress",
                                 src,
@@ -6611,7 +6604,7 @@ int unit_live_mount(
                                 u->id);
         }
 
-        return UNIT_VTABLE(u)->live_mount(u, src, dst, message, flags, options, error);
+        return UNIT_VTABLE(u)->live_mount(u, src, dst, message, flags, options, reterr_error);
 }
 
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {

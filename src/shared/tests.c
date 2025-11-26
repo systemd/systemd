@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sched.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -213,7 +212,7 @@ static int allocate_scope(void) {
 
         /* Let's try to run this test in a scope of its own, with delegation turned on, so that PID 1 doesn't
          * interfere with our cgroup management. */
-        if (cg_pid_get_path(NULL, 0, &cgroup_root) >= 0 && cg_is_delegated(cgroup_root) && stderr_is_journal()) {
+        if (cg_pid_get_path(0, &cgroup_root) >= 0 && cg_is_delegated(cgroup_root) && stderr_is_journal()) {
                 log_debug("Already running as a unit with delegated cgroup, not allocating a cgroup subroot.");
                 return 0;
         }
@@ -287,13 +286,19 @@ static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
         CGroupMask supported;
         int r;
 
+        r = cg_is_available();
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOMEDIUM), "cgroupfs v2 is not mounted.");
+
         r = allocate_scope();
         if (r < 0)
                 log_warning_errno(r, "Couldn't allocate a scope unit for this test, proceeding without.");
 
-        r = cg_pid_get_path(NULL, 0, &cgroup_root);
+        r = cg_pid_get_path(0, &cgroup_root);
         if (IN_SET(r, -ENOMEDIUM, -ENOENT))
-                return log_warning_errno(r, "cg_pid_get_path(NULL, 0, ...) failed: %m");
+                return log_warning_errno(r, "cg_pid_get_path(0, ...) failed: %m");
         ASSERT_OK(r);
 
         if (enter_subroot)
@@ -419,9 +424,16 @@ void test_prepare(int argc, char *argv[], int log_level) {
         test_setup_logging(log_level);
 }
 
-int assert_signal_internal(void) {
+/* Returns:
+ * ASSERT_SIGNAL_FORK_CHILD  = We are in the child process
+ * ASSERT_SIGNAL_FORK_PARENT = We are in the parent process (signal/status stored in *ret_signal)
+ * <0                        = Error (negative errno)
+ */
+int assert_signal_internal(int *ret_signal) {
         siginfo_t siginfo = {};
         int r;
+
+        assert(ret_signal);
 
         r = fork();
         if (r < 0)
@@ -433,14 +445,23 @@ int assert_signal_internal(void) {
 
                 /* But still set an rlimit just in case */
                 (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(0));
-                return 0;
+                return ASSERT_SIGNAL_FORK_CHILD;
         }
 
         r = wait_for_terminate(r, &siginfo);
         if (r < 0)
                 return r;
 
-        return siginfo.si_status;
+        /* si_status means different things depending on si_code:
+         * - CLD_EXITED: si_status is the exit code
+         * - CLD_KILLED/CLD_DUMPED: si_status is the signal number that killed the process
+         * We need to return the signal number only if the child was killed by a signal. */
+        if (IN_SET(siginfo.si_code, CLD_KILLED, CLD_DUMPED))
+                *ret_signal = siginfo.si_status;
+        else
+                *ret_signal = 0;
+
+        return ASSERT_SIGNAL_FORK_PARENT;
 }
 
 

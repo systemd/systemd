@@ -520,7 +520,7 @@ static int action_fork(char *const *_command) {
                         /* stdio_fds= */ (const int[]) { -EBADF, -EBADF, STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
-                        /* flags= */ FORK_REARRANGE_STDIO,
+                        /* flags= */ FORK_REARRANGE_STDIO|FORK_LOG,
                         &child);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork child in order to execute '%s': %m", c);

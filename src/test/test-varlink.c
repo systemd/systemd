@@ -34,20 +34,14 @@ static int method_something(sd_varlink *link, sd_json_variant *parameters, sd_va
         int r;
 
         a = sd_json_variant_by_key(parameters, "a");
-        if (!a) {
-                r = sd_varlink_error(link, "io.test.BadParameters", NULL);
-                assert_se(r == -EBADR);
-                return r;
-        }
+        if (!a)
+                return ASSERT_ERROR(sd_varlink_error(link, "io.test.BadParameters", NULL), EBADR);
 
         x = sd_json_variant_integer(a);
 
         b = sd_json_variant_by_key(parameters, "b");
-        if (!b) {
-                r = sd_varlink_error(link, "io.test.BadParameters", NULL);
-                assert_se(r == -EBADR);
-                return r;
-        }
+        if (!b)
+                return ASSERT_ERROR(sd_varlink_error(link, "io.test.BadParameters", NULL), EBADR);
 
         y = sd_json_variant_integer(b);
 
@@ -101,9 +95,8 @@ static void test_fd(int fd, const void *buf, size_t n) {
         char rbuf[n + 1];
         ssize_t m;
 
-        m = read(fd, rbuf, n + 1);
-        assert_se(m >= 0);
-        assert_se(memcmp_nn(buf, n, rbuf, m) == 0);
+        ASSERT_OK_ERRNO(m = read(fd, rbuf, n + 1));
+        ASSERT_OK_ZERO(memcmp_nn(buf, n, rbuf, m));
 }
 
 static int method_passfd(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -112,40 +105,32 @@ static int method_passfd(sd_varlink *link, sd_json_variant *parameters, sd_varli
         int r;
 
         a = sd_json_variant_by_key(parameters, "fd");
-        if (!a) {
-                r = sd_varlink_error_invalid_parameter_name(link, "fd");
-                assert_se(r == -EINVAL);
-                return r;
-        }
+        if (!a)
+                return ASSERT_ERROR(sd_varlink_error_invalid_parameter_name(link, "fd"), EINVAL);
 
         ASSERT_STREQ(sd_json_variant_string(a), "whoop");
 
-        int xx = sd_varlink_peek_fd(link, 0),
-                yy = sd_varlink_peek_fd(link, 1),
-                zz = sd_varlink_peek_fd(link, 2);
+        int xx, yy, zz;
+        ASSERT_OK(xx = sd_varlink_peek_fd(link, 0));
+        ASSERT_OK(yy = sd_varlink_peek_fd(link, 1));
+        ASSERT_OK(zz = sd_varlink_peek_fd(link, 2));
 
         log_info("%i %i %i", xx, yy, zz);
-
-        assert_se(xx >= 0);
-        assert_se(yy >= 0);
-        assert_se(zz >= 0);
 
         test_fd(xx, "foo", 3);
         test_fd(yy, "bar", 3);
         test_fd(zz, "quux", 4);
 
-        _cleanup_close_ int vv = memfd_new_and_seal_string("data", "miau");
-        _cleanup_close_ int ww = memfd_new_and_seal_string("data", "wuff");
-
-        assert_se(vv >= 0);
-        assert_se(ww >= 0);
+        _cleanup_close_ int vv = -EBADF, ww = -EBADF;
+        ASSERT_OK(vv = memfd_new_and_seal_string("data", "miau"));
+        ASSERT_OK(ww = memfd_new_and_seal_string("data", "wuff"));
 
         r = sd_json_build(&ret, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("yo", SD_JSON_BUILD_INTEGER(88))));
         if (r < 0)
                 return r;
 
-        assert_se(sd_varlink_push_fd(link, vv) == 0);
-        assert_se(sd_varlink_push_fd(link, ww) == 1);
+        ASSERT_OK_EQ(sd_varlink_push_fd(link, vv), 0);
+        ASSERT_OK_EQ(sd_varlink_push_fd(link, ww), 1);
 
         TAKE_FD(vv);
         TAKE_FD(ww);
@@ -176,7 +161,7 @@ static int reply(sd_varlink *link, sd_json_variant *parameters, const char *erro
 
         sum = sd_json_variant_by_key(parameters, "sum");
 
-        assert_se(sd_json_variant_integer(sum) == 7+22);
+        ASSERT_EQ(sd_json_variant_integer(sum), 7+22);
 
         if (++n_done == 2)
                 sd_event_exit(sd_varlink_get_event(link), EXIT_FAILURE);
@@ -187,13 +172,13 @@ static int reply(sd_varlink *link, sd_json_variant *parameters, const char *erro
 static int on_connect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
         uid_t uid = UID_INVALID;
 
-        assert_se(s);
-        assert_se(link);
+        ASSERT_NOT_NULL(s);
+        ASSERT_NOT_NULL(link);
 
-        assert_se(sd_varlink_get_peer_uid(link, &uid) >= 0);
-        assert_se(getuid() == uid);
-        assert_se(sd_varlink_set_allow_fd_passing_input(link, true) >= 0);
-        assert_se(sd_varlink_set_allow_fd_passing_output(link, true) >= 0);
+        ASSERT_OK(sd_varlink_get_peer_uid(link, &uid));
+        ASSERT_EQ(getuid(), uid);
+        ASSERT_OK(sd_varlink_set_allow_fd_passing_input(link, true));
+        ASSERT_OK(sd_varlink_set_allow_fd_passing_output(link, true));
 
         return 0;
 }
@@ -223,37 +208,37 @@ static void flood_test(const char *address) {
         log_debug("Flooding server...");
 
         /* Block the main event loop while we flood */
-        assert_se(write(block_write_fd, &x, sizeof(x)) == sizeof(x));
+        ASSERT_OK_EQ_ERRNO(write(block_write_fd, &x, sizeof(x)), (ssize_t) sizeof(x));
 
-        assert_se(sd_event_default(&e) >= 0);
+        ASSERT_OK(sd_event_default(&e));
 
         /* Flood the server with connections */
-        assert_se(connections = new0(sd_varlink*, OVERLOAD_CONNECTIONS));
+        ASSERT_NOT_NULL(connections = new0(sd_varlink*, OVERLOAD_CONNECTIONS));
         for (k = 0; k < OVERLOAD_CONNECTIONS; k++) {
                 _cleanup_free_ char *t = NULL;
                 log_debug("connection %zu", k);
-                assert_se(sd_varlink_connect_address(connections + k, address) >= 0);
+                ASSERT_OK(sd_varlink_connect_address(connections + k, address));
 
-                assert_se(asprintf(&t, "flood-%zu", k) >= 0);
-                assert_se(sd_varlink_set_description(connections[k], t) >= 0);
-                assert_se(sd_varlink_attach_event(connections[k], e, k) >= 0);
-                assert_se(sd_varlink_sendb(connections[k], "io.test.Rubbish", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_INTEGER(k)))) >= 0);
+                ASSERT_OK(asprintf(&t, "flood-%zu", k));
+                ASSERT_OK(sd_varlink_set_description(connections[k], t));
+                ASSERT_OK(sd_varlink_attach_event(connections[k], e, k));
+                ASSERT_OK(sd_varlink_sendb(connections[k], "io.test.Rubbish", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_INTEGER(k)))));
         }
 
         /* Then, create one more, which should fail */
         log_debug("Creating overload connection...");
-        assert_se(sd_varlink_connect_address(&c, address) >= 0);
-        assert_se(sd_varlink_set_description(c, "overload-client") >= 0);
-        assert_se(sd_varlink_attach_event(c, e, k) >= 0);
-        assert_se(sd_varlink_bind_reply(c, overload_reply) >= 0);
-        assert_se(sd_varlink_invokeb(c, "io.test.Overload", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("foo", JSON_BUILD_CONST_STRING("bar")))) >= 0);
+        ASSERT_OK(sd_varlink_connect_address(&c, address));
+        ASSERT_OK(sd_varlink_set_description(c, "overload-client"));
+        ASSERT_OK(sd_varlink_attach_event(c, e, k));
+        ASSERT_OK(sd_varlink_bind_reply(c, overload_reply));
+        ASSERT_OK(sd_varlink_invokeb(c, "io.test.Overload", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("foo", JSON_BUILD_CONST_STRING("bar")))));
 
         /* Unblock it */
         log_debug("Unblocking server...");
         block_write_fd = safe_close(block_write_fd);
 
         /* This loop will terminate as soon as the overload reply callback is called */
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 
         /* And close all connections again */
         for (k = 0; k < OVERLOAD_CONNECTIONS; k++)
@@ -268,63 +253,59 @@ static void *thread(void *arg) {
         const char *error_id, *e;
         int x = 0;
 
-        assert_se(sd_json_build(&i, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_INTEGER(88)),
-                                                   SD_JSON_BUILD_PAIR("b", SD_JSON_BUILD_INTEGER(99)))) >= 0);
+        ASSERT_OK(sd_json_build(&i, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_INTEGER(88)),
+                                                   SD_JSON_BUILD_PAIR("b", SD_JSON_BUILD_INTEGER(99)))));
 
-        assert_se(sd_varlink_connect_address(&c, arg) >= 0);
-        assert_se(sd_varlink_set_description(c, "thread-client") >= 0);
-        assert_se(sd_varlink_set_allow_fd_passing_input(c, true) >= 0);
-        assert_se(sd_varlink_set_allow_fd_passing_output(c, true) >= 0);
+        ASSERT_OK(sd_varlink_connect_address(&c, arg));
+        ASSERT_OK(sd_varlink_set_description(c, "thread-client"));
+        ASSERT_OK(sd_varlink_set_allow_fd_passing_input(c, true));
+        ASSERT_OK(sd_varlink_set_allow_fd_passing_output(c, true));
 
         /* Test that client is able to perform two sequential sd_varlink_collect calls if first resulted in an error */
-        assert_se(sd_json_build(&wrong, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_INTEGER(88)),
-                                                       SD_JSON_BUILD_PAIR("c", SD_JSON_BUILD_INTEGER(99)))) >= 0);
-        assert_se(sd_varlink_collect(c, "io.test.DoSomethingMore", wrong, &j, &error_id) >= 0);
-        assert_se(strcmp_ptr(error_id, "org.varlink.service.InvalidParameter") == 0);
+        ASSERT_OK(sd_json_build(&wrong, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_INTEGER(88)),
+                                                       SD_JSON_BUILD_PAIR("c", SD_JSON_BUILD_INTEGER(99)))));
+        ASSERT_OK(sd_varlink_collect(c, "io.test.DoSomethingMore", wrong, &j, &error_id));
+        ASSERT_STREQ(error_id, "org.varlink.service.InvalidParameter");
 
-        assert_se(sd_varlink_collect(c, "io.test.DoSomethingMore", i, &j, &error_id) >= 0);
+        ASSERT_OK(sd_varlink_collect(c, "io.test.DoSomethingMore", i, &j, &error_id));
 
-        assert_se(!error_id);
-        assert_se(sd_json_variant_is_array(j) && !sd_json_variant_is_blank_array(j));
+        ASSERT_NULL(error_id);
+        ASSERT_TRUE(sd_json_variant_is_array(j));
+        ASSERT_FALSE(sd_json_variant_is_blank_array(j));
 
         JSON_VARIANT_ARRAY_FOREACH(k, j) {
-                assert_se(sd_json_variant_integer(sd_json_variant_by_key(k, "sum")) == 88 + (99 * x));
+                ASSERT_EQ(sd_json_variant_integer(sd_json_variant_by_key(k, "sum")), 88 + (99 * x));
                 x++;
         }
-        assert_se(x == 6);
+        ASSERT_EQ(x, 6);
 
-        assert_se(sd_varlink_call(c, "io.test.DoSomething", i, &o, &e) >= 0);
-        assert_se(sd_json_variant_integer(sd_json_variant_by_key(o, "sum")) == 88 + 99);
-        assert_se(!e);
+        ASSERT_OK(sd_varlink_call(c, "io.test.DoSomething", i, &o, &e));
+        ASSERT_EQ(sd_json_variant_integer(sd_json_variant_by_key(o, "sum")), 88 + 99);
+        ASSERT_NULL(e);
 
-        int fd1 = memfd_new_and_seal_string("data", "foo");
-        int fd2 = memfd_new_and_seal_string("data", "bar");
-        int fd3 = memfd_new_and_seal_string("data", "quux");
+        int fd1, fd2, fd3;
+        ASSERT_OK(fd1 = memfd_new_and_seal_string("data", "foo"));
+        ASSERT_OK(fd2 = memfd_new_and_seal_string("data", "bar"));
+        ASSERT_OK(fd3 = memfd_new_and_seal_string("data", "quux"));
 
-        assert_se(fd1 >= 0);
-        assert_se(fd2 >= 0);
-        assert_se(fd3 >= 0);
+        ASSERT_OK_EQ(sd_varlink_push_fd(c, fd1), 0);
+        ASSERT_OK_EQ(sd_varlink_push_fd(c, fd2), 1);
+        ASSERT_OK_EQ(sd_varlink_push_fd(c, fd3), 2);
 
-        assert_se(sd_varlink_push_fd(c, fd1) == 0);
-        assert_se(sd_varlink_push_fd(c, fd2) == 1);
-        assert_se(sd_varlink_push_fd(c, fd3) == 2);
+        ASSERT_OK(sd_varlink_callb(c, "io.test.PassFD", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("fd", SD_JSON_BUILD_STRING("whoop")))));
+        ASSERT_NULL(e);
 
-        assert_se(sd_varlink_callb(c, "io.test.PassFD", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("fd", SD_JSON_BUILD_STRING("whoop")))) >= 0);
-        assert_se(!e);
-
-        int fd4 = sd_varlink_peek_fd(c, 0);
-        int fd5 = sd_varlink_peek_fd(c, 1);
-
-        assert_se(fd4 >= 0);
-        assert_se(fd5 >= 0);
+        int fd4, fd5;
+        ASSERT_OK(fd4 = sd_varlink_peek_fd(c, 0));
+        ASSERT_OK(fd5 = sd_varlink_peek_fd(c, 1));
 
         test_fd(fd4, "miau", 4);
         test_fd(fd5, "wuff", 4);
 
-        assert_se(sd_varlink_callb(c, "io.test.PassFD", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("fdx", SD_JSON_BUILD_STRING("whoopx")))) >= 0);
+        ASSERT_OK(sd_varlink_callb(c, "io.test.PassFD", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("fdx", SD_JSON_BUILD_STRING("whoopx")))));
         ASSERT_TRUE(sd_varlink_error_is_invalid_parameter(e, o, "fd"));
 
-        assert_se(sd_varlink_callb(c, "io.test.IDontExist", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("x", SD_JSON_BUILD_REAL(5.5)))) >= 0);
+        ASSERT_OK(sd_varlink_callb(c, "io.test.IDontExist", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("x", SD_JSON_BUILD_REAL(5.5)))));
         ASSERT_STREQ(sd_json_variant_string(sd_json_variant_by_key(o, "method")), "io.test.IDontExist");
         ASSERT_STREQ(e, SD_VARLINK_ERROR_METHOD_NOT_FOUND);
 
@@ -332,7 +313,7 @@ static void *thread(void *arg) {
         ASSERT_ERROR(sd_varlink_error_to_errno(e, o), EHWPOISON);
         flood_test(arg);
 
-        assert_se(sd_varlink_send(c, "io.test.Done", NULL) >= 0);
+        ASSERT_OK(sd_varlink_send(c, "io.test.Done", NULL));
 
         return NULL;
 }
@@ -340,16 +321,16 @@ static void *thread(void *arg) {
 static int block_fd_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         char c;
 
-        assert_se(fd_nonblock(fd, false) >= 0);
+        ASSERT_OK(fd_nonblock(fd, false));
 
-        assert_se(read(fd, &c, sizeof(c)) == sizeof(c));
+        ASSERT_OK_EQ_ERRNO(read(fd, &c, sizeof(c)), (ssize_t) sizeof(c));
         /* When a character is written to this pipe we'll block until the pipe is closed. */
 
-        assert_se(read(fd, &c, sizeof(c)) == 0);
+        ASSERT_OK_ZERO_ERRNO(read(fd, &c, sizeof(c)));
 
-        assert_se(fd_nonblock(fd, true) >= 0);
+        ASSERT_OK(fd_nonblock(fd, true));
 
-        assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
+        ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_OFF));
 
         return 0;
 }
@@ -365,47 +346,47 @@ TEST(chat) {
         pthread_t t;
         const char *sp;
 
-        assert_se(mkdtemp_malloc("/tmp/varlink-test-XXXXXX", &tmpdir) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/varlink-test-XXXXXX", &tmpdir));
         sp = strjoina(tmpdir, "/socket");
 
-        assert_se(sd_event_default(&e) >= 0);
+        ASSERT_OK(sd_event_default(&e));
 
-        assert_se(pipe2(block_fds, O_NONBLOCK|O_CLOEXEC) >= 0);
-        assert_se(sd_event_add_io(e, &block_event, block_fds[0], EPOLLIN, block_fd_handler, NULL) >= 0);
-        assert_se(sd_event_source_set_priority(block_event, SD_EVENT_PRIORITY_IMPORTANT) >= 0);
+        ASSERT_OK_ERRNO(pipe2(block_fds, O_NONBLOCK|O_CLOEXEC));
+        ASSERT_OK(sd_event_add_io(e, &block_event, block_fds[0], EPOLLIN, block_fd_handler, NULL));
+        ASSERT_OK(sd_event_source_set_priority(block_event, SD_EVENT_PRIORITY_IMPORTANT));
         block_write_fd = TAKE_FD(block_fds[1]);
 
-        assert_se(varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID, NULL) >= 0);
-        assert_se(sd_varlink_server_set_info(s, "Vendor", "Product", "Version", "URL") >= 0);
-        assert_se(varlink_set_info_systemd(s) >= 0);
-        assert_se(sd_varlink_server_set_description(s, "our-server") >= 0);
+        ASSERT_OK(varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID, NULL));
+        ASSERT_OK(sd_varlink_server_set_info(s, "Vendor", "Product", "Version", "URL"));
+        ASSERT_OK(varlink_set_info_systemd(s));
+        ASSERT_OK(sd_varlink_server_set_description(s, "our-server"));
 
-        assert_se(sd_varlink_server_bind_method(s, "io.test.PassFD", method_passfd) >= 0);
-        assert_se(sd_varlink_server_bind_method(s, "io.test.DoSomething", method_something) >= 0);
-        assert_se(sd_varlink_server_bind_method(s, "io.test.DoSomethingMore", method_something_more) >= 0);
-        assert_se(sd_varlink_server_bind_method(s, "io.test.FailWithErrno", method_fail_with_errno) >= 0);
-        assert_se(sd_varlink_server_bind_method(s, "io.test.Done", method_done) >= 0);
-        assert_se(sd_varlink_server_bind_connect(s, on_connect) >= 0);
-        assert_se(sd_varlink_server_listen_address(s, sp, 0600) >= 0);
-        assert_se(sd_varlink_server_attach_event(s, e, 0) >= 0);
-        assert_se(sd_varlink_server_set_connections_max(s, OVERLOAD_CONNECTIONS) >= 0);
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.PassFD", method_passfd));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.DoSomething", method_something));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.DoSomethingMore", method_something_more));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.FailWithErrno", method_fail_with_errno));
+        ASSERT_OK(sd_varlink_server_bind_method(s, "io.test.Done", method_done));
+        ASSERT_OK(sd_varlink_server_bind_connect(s, on_connect));
+        ASSERT_OK(sd_varlink_server_listen_address(s, sp, 0600));
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(sd_varlink_server_set_connections_max(s, OVERLOAD_CONNECTIONS));
 
-        assert_se(sd_json_build(&v, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_INTEGER(7)),
-                                                   SD_JSON_BUILD_PAIR("b", SD_JSON_BUILD_INTEGER(22)))) >= 0);
+        ASSERT_OK(sd_json_build(&v, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_INTEGER(7)),
+                                                   SD_JSON_BUILD_PAIR("b", SD_JSON_BUILD_INTEGER(22)))));
 
-        assert_se(sd_varlink_connect_address(&c, sp) >= 0);
-        assert_se(sd_varlink_set_description(c, "main-client") >= 0);
-        assert_se(sd_varlink_bind_reply(c, reply) >= 0);
+        ASSERT_OK(sd_varlink_connect_address(&c, sp));
+        ASSERT_OK(sd_varlink_set_description(c, "main-client"));
+        ASSERT_OK(sd_varlink_bind_reply(c, reply));
 
-        assert_se(sd_varlink_invoke(c, "io.test.DoSomething", v) >= 0);
+        ASSERT_OK(sd_varlink_invoke(c, "io.test.DoSomething", v));
 
-        assert_se(sd_varlink_attach_event(c, e, 0) >= 0);
+        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
 
-        assert_se(pthread_create(&t, NULL, thread, (void*) sp) == 0);
+        ASSERT_OK(-pthread_create(&t, NULL, thread, (void*) sp));
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 
-        assert_se(pthread_join(t, NULL) == 0);
+        ASSERT_OK(-pthread_join(t, NULL));
 }
 
 static int method_invalid(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -426,38 +407,38 @@ static int method_invalid(sd_varlink *link, sd_json_variant *parameters, sd_varl
 }
 
 static int reply_invalid(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
-        assert(sd_varlink_error_is_invalid_parameter(error_id, parameters, "idontexist"));
-        assert(sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS) >= 0);
+        ASSERT_TRUE(sd_varlink_error_is_invalid_parameter(error_id, parameters, "idontexist"));
+        ASSERT_OK(sd_event_exit(sd_varlink_get_event(link), EXIT_SUCCESS));
         return 0;
 }
 
 TEST(invalid_parameter) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        assert_se(sd_event_default(&e) >= 0);
+        ASSERT_OK(sd_event_default(&e));
 
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        assert_se(sd_varlink_server_new(&s, 0) >= 0);
+        ASSERT_OK(sd_varlink_server_new(&s, 0));
 
-        assert_se(sd_varlink_server_attach_event(s, e, 0) >= 0);
+        ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
 
-        assert_se(sd_varlink_server_bind_method(s, "foo.mytest.Invalid", method_invalid) >= 0);
+        ASSERT_OK(sd_varlink_server_bind_method(s, "foo.mytest.Invalid", method_invalid));
 
         int connfd[2];
-        assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd) >= 0);
-        assert_se(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL) >= 0);
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, connfd));
+        ASSERT_OK(sd_varlink_server_add_connection(s, connfd[0], /* ret= */ NULL));
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *c = NULL;
-        assert_se(sd_varlink_connect_fd(&c, connfd[1]) >= 0);
+        ASSERT_OK(sd_varlink_connect_fd(&c, connfd[1]));
 
-        assert_se(sd_varlink_attach_event(c, e, 0) >= 0);
+        ASSERT_OK(sd_varlink_attach_event(c, e, 0));
 
-        assert_se(sd_varlink_bind_reply(c, reply_invalid) >= 0);
+        ASSERT_OK(sd_varlink_bind_reply(c, reply_invalid));
 
-        assert_se(sd_varlink_invokebo(c, "foo.mytest.Invalid",
+        ASSERT_OK(sd_varlink_invokebo(c, "foo.mytest.Invalid",
                                       SD_JSON_BUILD_PAIR_STRING("iexist", "foo"),
-                                      SD_JSON_BUILD_PAIR_STRING("idontexist", "bar")) >= 0);
+                                      SD_JSON_BUILD_PAIR_STRING("idontexist", "bar")));
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -81,10 +81,10 @@ valgrind_cmd = ''
 enable_debug = True
 env = {}
 wait_online_env = {}
-asan_options = None
-lsan_options = None
-ubsan_options = None
-with_coverage = False
+asan_options = os.getenv('ASAN_OPTIONS')
+lsan_options = os.getenv('LSAN_OPTIONS')
+ubsan_options = os.getenv('UBSAN_OPTIONS')
+with_coverage = os.getenv('COVERAGE_BUILD_DIR') != None
 show_journal = True # When true, show journal on stopping networkd.
 
 active_units = []
@@ -426,6 +426,7 @@ def save_active_units():
     for u in [
             'systemd-networkd.socket',
             'systemd-networkd-varlink.socket',
+            'systemd-networkd-resolve-hook.socket',
             'systemd-networkd.service',
             'systemd-resolved-monitor.socket',
             'systemd-resolved-varlink.socket',
@@ -447,6 +448,10 @@ def restore_active_units():
 
     if 'systemd-networkd-varlink.socket' in active_units:
         call('systemctl stop systemd-networkd-varlink.socket')
+        has_network_socket = True
+
+    if 'systemd-networkd-resolve-hook.socket' in active_units:
+        call('systemctl stop systemd-networkd-resolve-hook.socket')
         has_network_socket = True
 
     if 'systemd-resolved-monitor.socket' in active_units:
@@ -487,7 +492,10 @@ def create_service_dropin(service, command, additional_settings=None):
     if ubsan_options:
         drop_in += [f'Environment=UBSAN_OPTIONS="{ubsan_options}"']
     if asan_options or lsan_options or ubsan_options:
-        drop_in += ['SystemCallFilter=']
+        drop_in += [
+            'SystemCallFilter=',
+            'TimeoutStopFailureMode=abort',
+        ]
     if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
     if use_valgrind:
@@ -513,6 +521,7 @@ def setup_system_units():
                 'systemd-networkd.service',
                 'systemd-networkd.socket',
                 'systemd-networkd-varlink.socket',
+                'systemd-networkd-resolve-hook.socket',
                 'systemd-networkd-persistent-storage.service',
                 'systemd-resolved.service',
                 'systemd-timesyncd.service',
@@ -561,6 +570,13 @@ def setup_system_units():
         ]
     )
     create_unit_dropin(
+        'systemd-networkd-resolve-hook.socket',
+        [
+            '[Unit]',
+            'StartLimitIntervalSec=0',
+        ]
+    )
+    create_unit_dropin(
         'systemd-networkd-persistent-storage.service',
         [
             '[Unit]',
@@ -592,6 +608,7 @@ def clear_system_units():
     rm_unit('systemd-networkd.service')
     rm_unit('systemd-networkd.socket')
     rm_unit('systemd-networkd-varlink.socket')
+    rm_unit('systemd-networkd-resolve-hook.socket')
     rm_unit('systemd-networkd-persistent-storage.service')
     rm_unit('systemd-resolved.service')
     rm_unit('systemd-timesyncd.service')
@@ -978,10 +995,12 @@ def stop_networkd(show_logs=True, check_failed=True):
     if check_failed:
         check_output('systemctl stop systemd-networkd.socket')
         check_output('systemctl stop systemd-networkd-varlink.socket')
+        check_output('systemctl stop systemd-networkd-resolve-hook.socket')
         check_output('systemctl stop systemd-networkd.service')
     else:
         call('systemctl stop systemd-networkd.socket')
         call('systemctl stop systemd-networkd-varlink.socket')
+        call('systemctl stop systemd-networkd-resolve-hook.socket')
         call('systemctl stop systemd-networkd.service')
 
     if show_logs:
@@ -4614,6 +4633,21 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertNotIn('149.10.124.59', output)
         self.assertIn('default via 149.10.124.60 proto static', output)
 
+    def test_gateway_clear_routes(self):
+        copy_network_unit('25-gateway-clear-routes.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        print('### ip -4 route show dev dummy98')
+        output = check_output('ip -4 route show dev dummy98')
+        print(output)
+        # All routes should be cleared - no default gateway, no [Route] section routes
+        self.assertNotIn('default via 10.0.0.2', output)
+        self.assertNotIn('192.168.1.0/24', output)
+        self.assertNotIn('192.168.2.0/24', output)
+        # Only the directly connected network should remain
+        self.assertIn('10.0.0.0/24 proto kernel scope link src 10.0.0.1', output)
+
     def test_ip_route_ipv6_src_route(self):
         # a dummy device does not make the addresses go through tentative state, so we
         # reuse a bond from an earlier test, which does make the addresses go through
@@ -7327,6 +7361,40 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
         self.assertRegex(output, 'DHCPv4 Client ID: IAID:[0-9a-z]*/DUID')
+
+    def test_dhcp_server_static_lease_hostname_simple(self):
+        copy_network_unit('25-veth.netdev',
+                          '25-dhcp-client-simple-hostname.network',
+                          '25-dhcp-server-static-hostname.network')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = networkctl_json('veth99')
+        check_json(output)
+        data = json.loads(output)
+        self.assertEqual(data['DHCPv4Client']['Lease']['Hostname'], 'simple-host')
+
+    def test_dhcp_server_static_lease_hostname_fqdn(self):
+        copy_network_unit('25-veth.netdev',
+                          '25-dhcp-client-fqdn-hostname.network',
+                          '25-dhcp-server-static-hostname.network')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = networkctl_json('veth99')
+        check_json(output)
+        data = json.loads(output)
+        self.assertEqual(data['DHCPv4Client']['Lease']['Hostname'], 'fqdn.example.com')
+
+    def test_dhcp_server_resolve_hook(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-client-resolve-hook.network', '25-dhcp-server-resolve-hook.network')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = check_output('resolvectl query flummy._networkdtest')
+        print(output)
+        self.assertIn('192.168.5.2', output)
+
 
 class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
 

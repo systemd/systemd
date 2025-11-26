@@ -1055,6 +1055,7 @@ _used_ void *memcpy(void * restrict dest, const void * restrict src, size_t n);
 _used_ void *memset(void *p, int c, size_t n);
 #else
 /* And for userspace unit testing we need to give them an efi_ prefix. */
+#  undef memchr
 #  define memchr efi_memchr
 #  define memcmp efi_memcmp
 #  define memcpy efi_memcpy

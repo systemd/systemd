@@ -136,10 +136,10 @@ int link_get_config(LinkConfigContext *ctx, Link *link);
 int link_apply_config(LinkConfigContext *ctx, Link *link);
 
 const char* mac_address_policy_to_string(MACAddressPolicy p) _const_;
-MACAddressPolicy mac_address_policy_from_string(const char *p) _pure_;
+MACAddressPolicy mac_address_policy_from_string(const char *s) _pure_;
 
 /* gperf lookup function */
-const struct ConfigPerfItem* link_config_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* link_config_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_udev_property);
 CONFIG_PARSER_PROTOTYPE(config_parse_udev_property_name);

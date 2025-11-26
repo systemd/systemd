@@ -61,9 +61,9 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
                 return -EINVAL;
 
         return sd_json_buildo(ret_v,
-                              SD_JSON_BUILD_PAIR("mode", SD_JSON_BUILD_STRING(mode)),
-                              SD_JSON_BUILD_PAIR("path", SD_JSON_BUILD_STRING(crt->cgroup_path)),
-                              SD_JSON_BUILD_PAIR("property", SD_JSON_BUILD_STRING(property)),
+                              SD_JSON_BUILD_PAIR_STRING("mode", mode),
+                              SD_JSON_BUILD_PAIR_STRING("path", crt->cgroup_path),
+                              SD_JSON_BUILD_PAIR_STRING("property", property),
                               SD_JSON_BUILD_PAIR_CONDITION(use_limit, "limit", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit)),
                               SD_JSON_BUILD_PAIR_CONDITION(use_duration, "duration", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_duration_usec)));
 }
@@ -126,7 +126,7 @@ static int build_managed_oom_cgroups_json(Manager *m, bool allow_empty, sd_json_
                 return 0;
         }
 
-        r = sd_json_buildo(ret, SD_JSON_BUILD_PAIR("cgroups", SD_JSON_BUILD_VARIANT(arr)));
+        r = sd_json_buildo(ret, SD_JSON_BUILD_PAIR_VARIANT("cgroups", arr));
         if (r < 0)
                 return r;
 
@@ -281,7 +281,7 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
                 return 0;
         }
 
-        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR("cgroups", SD_JSON_BUILD_VARIANT(arr)));
+        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR_VARIANT("cgroups", arr));
         if (r < 0)
                 return r;
 
@@ -384,6 +384,8 @@ int manager_setup_varlink_server(Manager *m) {
         r = sd_varlink_server_bind_method_many(
                         s,
                         "io.systemd.Manager.Describe", vl_method_describe_manager,
+                        "io.systemd.Manager.Reexecute", vl_method_reexecute_manager,
+                        "io.systemd.Manager.Reload", vl_method_reload_manager,
                         "io.systemd.Unit.List", vl_method_list_units,
                         "io.systemd.service.Ping", varlink_method_ping,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
@@ -494,4 +496,19 @@ void manager_varlink_done(Manager *m) {
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);
+}
+
+void manager_varlink_send_pending_reload_message(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (!m->pending_reload_message_vl)
+                return;
+
+        r = sd_varlink_reply(m->pending_reload_message_vl, /* parameters= */ NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send queued reload message, ignoring: %m");
+
+        m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
 }

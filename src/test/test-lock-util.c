@@ -3,6 +3,7 @@
 #include <sys/file.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "lock-util.h"
 #include "rm-rf.h"

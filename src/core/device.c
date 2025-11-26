@@ -1276,7 +1276,7 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
         }
 
         /* Update the device unit's state, should it exist */
-        (void) device_update_found_by_name(m, node, found, mask);
+        device_update_found_by_name(m, node, found, mask);
 }
 
 bool device_shall_be_bound_by(Unit *device, Unit *u) {

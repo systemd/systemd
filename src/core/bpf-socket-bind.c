@@ -16,7 +16,7 @@
 
 static struct socket_bind_bpf *socket_bind_bpf_free(struct socket_bind_bpf *obj) {
         /* socket_bind_bpf__destroy handles object == NULL case */
-        (void) socket_bind_bpf__destroy(obj);
+        socket_bind_bpf__destroy(obj);
 
         return NULL;
 }
@@ -179,7 +179,7 @@ static int socket_bind_install_impl(Unit *u) {
         if (!crt)
                 return 0;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, NULL, &cgroup_path);
+        r = cg_get_path(crt->cgroup_path, /* suffix = */ NULL, &cgroup_path);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to get cgroup path: %m");
 

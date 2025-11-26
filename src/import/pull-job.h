@@ -59,6 +59,10 @@ typedef struct PullJob {
         usec_t start_usec;
         usec_t last_status_usec;
 
+        uint64_t expected_content_length;
+
+        struct iovec payload;
+
         /* Large structs */
         struct stat disk_stat;
 
@@ -75,9 +79,17 @@ typedef struct PullJob {
         bool calc_checksum:1;
         bool sync:1;
         bool force_memory:1;
+        bool calc_checksum;
+        EVP_MD_CTX *checksum_ctx;
+
+        struct iovec checksum;
+        struct iovec expected_checksum;
+
+        bool sync;
+        bool force_memory;
 } PullJob;
 
-int pull_job_new(PullJob **job, const char *url, CurlGlue *glue, void *userdata);
+int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata);
 PullJob* pull_job_unref(PullJob *job);
 
 int pull_job_begin(PullJob *j);

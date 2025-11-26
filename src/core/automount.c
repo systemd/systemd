@@ -2,7 +2,7 @@
 
 #include <fcntl.h>
 #include <linux/auto_dev-ioctl.h>
-#include <sys/mount.h>
+#include <sys/mount.h>                  /* IWYU pragma: keep */
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -1032,6 +1032,9 @@ static void automount_reset_failed(Unit *u) {
 
 static bool automount_supported(void) {
         static int supported = -1;
+
+        if (!unit_type_supported(UNIT_MOUNT))
+                return false;
 
         if (supported < 0)
                 supported = access("/dev/autofs", F_OK) >= 0;

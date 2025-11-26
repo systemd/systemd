@@ -423,6 +423,8 @@ static int session_load_leader(Session *s, uint64_t pidfdid) {
                 return 0;
 
         r = pidref_set_pid(&pidref, s->deserialized_pid);
+        if (r == -ESRCH)
+                return log_warning_errno(r, "Leader of session '%s' is gone while deserializing.", s->id);
         if (r < 0)
                 return log_error_errno(r, "Failed to deserialize leader PID for session '%s': %m", s->id);
         if (pidref.fd < 0)
@@ -437,9 +439,9 @@ static int session_load_leader(Session *s, uint64_t pidfdid) {
                                                pidref.pid);
 
                 if (pidref.fd_id != pidfdid)
-                        return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
-                                               "Deserialized pidfd id for process " PID_FMT " (%" PRIu64 ") doesn't match with the current one (%" PRIu64 "), refusing.",
-                                               pidref.pid, pidfdid, pidref.fd_id);
+                        return log_warning_errno(SYNTHETIC_ERRNO(ESRCH),
+                                                 "Deserialized pidfd id for process " PID_FMT " (%" PRIu64 ") doesn't match the current one (%" PRIu64 "). PID recycled while deserializing?",
+                                                 pidref.pid, pidfdid, pidref.fd_id);
         }
 
         r = session_set_leader_consume(s, TAKE_PIDREF(pidref));

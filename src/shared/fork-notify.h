@@ -3,7 +3,7 @@
 
 #include "shared-forward.h"
 
-int fork_notify(char * const *cmdline, PidRef *ret_pidref);
+int fork_notify(char * const *argv, PidRef *ret_pidref);
 
 void fork_notify_terminate(PidRef *pidref);
 

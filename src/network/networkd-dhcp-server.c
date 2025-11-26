@@ -25,6 +25,7 @@
 #include "networkd-network.h"
 #include "networkd-ntp.h"
 #include "networkd-queue.h"
+#include "networkd-resolve-hook.h"
 #include "networkd-route-util.h"
 #include "path-util.h"
 #include "set.h"
@@ -733,7 +734,12 @@ static int dhcp4_server_configure(Link *link) {
         }
 
         HASHMAP_FOREACH(static_lease, link->network->dhcp_static_leases_by_section) {
-                r = sd_dhcp_server_set_static_lease(link->dhcp_server, &static_lease->address, static_lease->client_id, static_lease->client_id_size);
+                r = sd_dhcp_server_set_static_lease(
+                                link->dhcp_server,
+                                &static_lease->address,
+                                static_lease->client_id,
+                                static_lease->client_id_size,
+                                static_lease->hostname);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 static lease for DHCP server: %m");
         }
@@ -741,6 +747,8 @@ static int dhcp4_server_configure(Link *link) {
         r = link_start_dhcp4_server(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");
+
+        manager_notify_hook_filters(link->manager);
 
         return 0;
 }
@@ -824,7 +832,6 @@ int config_parse_dhcp_server_relay_agent_suboption(
                 void *userdata) {
 
         char **suboption_value = data;
-        char* p;
 
         assert(filename);
         assert(lvalue);
@@ -835,7 +842,7 @@ int config_parse_dhcp_server_relay_agent_suboption(
                 return 0;
         }
 
-        p = startswith(rvalue, "string:");
+        const char *p = startswith(rvalue, "string:");
         if (!p) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse %s=%s'. Invalid format, ignoring.", lvalue, rvalue);

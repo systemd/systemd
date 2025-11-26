@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "coredump-config.h"
 #include "coredump-context.h"
 #include "coredump-kernel-helper.h"
@@ -8,7 +10,6 @@
 #include "coredump-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "iovec-wrapper.h"
 #include "log.h"
 #include "signal-util.h"
 

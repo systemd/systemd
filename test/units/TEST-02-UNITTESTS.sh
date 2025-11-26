@@ -40,7 +40,6 @@ systemctl disable --now ip6tables.service || :
 # Check & report test results
 # Arguments:
 #   $1: test path
-#   $2: test exit code
 run_test() {
     if [[ $# -ne 1 ]]; then
         echo >&2 "run_test: missing arguments"

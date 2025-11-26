@@ -11,6 +11,11 @@
         _files -W '(/run/systemd/ /etc/systemd/ /usr/lib/systemd/)' -P 'systemd/'
     }
 
+(( $+functions[_systemd-analyze_inspect-elf] )) ||
+    _systemd-analyze_inspect-elf() {
+        _files
+    }
+
 (( $+functions[_systemd-analyze_critical-chain] )) ||
     _systemd-analyze_critical-chain() {
         local -a _units
@@ -38,6 +43,13 @@
         local -a _groups
         _groups=( $(systemd-analyze --quiet --no-pager filesystems 2>/dev/null | grep '^@') )
         _describe -t groups 'file system groups' _groups || compadd "$@"
+    }
+
+(( $+functions[_systemd-analyze_architectures] )) ||
+    _systemd-analyze_architectures() {
+        local -a _architectures
+        _architectures=( $(systemd-analyze --quiet --no-pager --no-legend architectures | { while read -r a b; do echo " $a"; done; } 2>/dev/null) )
+        _describe -t architectures 'architectures' _architectures || compadd "$@"
     }
 
 (( $+functions[_systemd-analyze_plot] )) ||
@@ -82,6 +94,13 @@
             'dlopen-metadata:Parse and print ELF dlopen metadata'
             'has-tpm2:Report whether TPM2 support is available'
             'transient-settings:List transient settings for unit types'
+            'architectures:List known architectures'
+            'smbios11:List strings passed via SMBIOS Type #11'
+            'chid:List local CHIDs'
+            'compare-versions:Compare two version strings'
+            'image-policy:Analyze image policy string'
+            'pcrs:Show TPM2 PCRs and their names'
+            'srk:Write TPM2 SRK (to FILE)'
             # log-level, log-target, service-watchdogs have been deprecated
         )
 

@@ -1,0 +1,4 @@
+[Service]
+Type=notify-reload
+TimeoutStartSec=40
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-80-NOTIFYACCESS.units/reload-timeout.sh

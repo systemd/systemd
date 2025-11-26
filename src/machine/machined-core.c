@@ -217,7 +217,7 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
                 _cleanup_free_ struct local_address *addresses = NULL;
                 int n;
 
-                n = local_addresses(/* rtnl = */ NULL, /* ifindex = */ 0, AF_UNSPEC, &addresses);
+                n = local_addresses(/* context = */ NULL, /* ifindex = */ 0, AF_UNSPEC, &addresses);
                 if (n < 0)
                         return log_debug_errno(n, "Failed to get local addresses: %m");
 
@@ -267,7 +267,7 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
 
                         pair[0] = safe_close(pair[0]);
 
-                        int n = local_addresses(/* rtnl = */ NULL, /* ifindex = */ 0, AF_UNSPEC, &addresses);
+                        int n = local_addresses(/* context = */ NULL, /* ifindex = */ 0, AF_UNSPEC, &addresses);
                         if (n < 0) {
                                 log_debug_errno(n, "Failed to get local addresses: %m");
                                 _exit(EXIT_FAILURE);

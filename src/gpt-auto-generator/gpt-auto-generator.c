@@ -127,7 +127,7 @@ static int add_cryptsetup(
                  * assignment, under the assumption that people who are fine to use sd-stub with its PCR
                  * assignments are also OK with our PCR 15 use here. */
                 if (r > 0)
-                        if (!strextend_with_separator(&options, ",", "tpm2-measure-pcr=yes"))
+                        if (!strextend_with_separator(&options, ",", "tpm2-measure-pcr=yes,tpm2-measure-keyslot-nvpcr=cryptsetup"))
                                 return log_oom();
                 if (r == 0)
                         log_debug("Will not measure volume key of volume '%s', not booted via systemd-stub with measurements enabled.", id);
@@ -1191,8 +1191,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 arg_verity_settings.designator = PARTITION_ROOT;
 
-                free(arg_verity_settings.root_hash);
-                r = unhexmem(value, &arg_verity_settings.root_hash, &arg_verity_settings.root_hash_size);
+                iovec_done(&arg_verity_settings.root_hash);
+                r = unhexmem(value, &arg_verity_settings.root_hash.iov_base, &arg_verity_settings.root_hash.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse roothash= from kernel command line: %m");
 
@@ -1203,8 +1203,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 arg_verity_settings.designator = PARTITION_USR;
 
-                free(arg_verity_settings.root_hash);
-                r = unhexmem(value, &arg_verity_settings.root_hash, &arg_verity_settings.root_hash_size);
+                iovec_done(&arg_verity_settings.root_hash);
+                r = unhexmem(value, &arg_verity_settings.root_hash.iov_base, &arg_verity_settings.root_hash.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse usrhash= from kernel command line: %m");
 

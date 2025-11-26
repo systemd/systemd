@@ -119,8 +119,8 @@ static int build_user_json(sd_varlink *link, UserRecord *ur, sd_json_variant **r
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v)),
-                        SD_JSON_BUILD_PAIR("incomplete", SD_JSON_BUILD_BOOLEAN(stripped->incomplete)));
+                        SD_JSON_BUILD_PAIR_VARIANT("record", v),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", stripped->incomplete));
 }
 
 static int userdb_flags_from_service(sd_varlink *link, const char *service, UserDBFlags *ret) {
@@ -280,8 +280,8 @@ static int build_group_json(sd_varlink *link, GroupRecord *gr, sd_json_variant *
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v)),
-                        SD_JSON_BUILD_PAIR("incomplete", SD_JSON_BUILD_BOOLEAN(stripped->incomplete)));
+                        SD_JSON_BUILD_PAIR_VARIANT("record", v),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", stripped->incomplete));
 }
 
 static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -437,8 +437,8 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
 
                         r = sd_varlink_notifybo(
                                         link,
-                                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
-                                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name)));
+                                        SD_JSON_BUILD_PAIR_STRING("userName", last_user_name),
+                                        SD_JSON_BUILD_PAIR_STRING("groupName", last_group_name));
                         if (r < 0)
                                 return r;
                 }
@@ -456,8 +456,8 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
 
         return sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
-                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name)));
+                        SD_JSON_BUILD_PAIR_STRING("userName", last_user_name),
+                        SD_JSON_BUILD_PAIR_STRING("groupName", last_group_name));
 }
 
 static int process_connection(sd_varlink_server *server, int _fd) {

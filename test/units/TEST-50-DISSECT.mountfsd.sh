@@ -122,7 +122,7 @@ cmp /tmp/unpriv.raw.mtree /tmp/unpriv2.raw.mtree
 
 # Make sure nspawn works unpriv, too (for now do not nest)
 if ! systemd-detect-virt -c; then
-    systemd-nspawn --pipe -i /var/tmp/unpriv.raw --read-only echo thisisatest > /tmp/unpriv.out
+    systemd-nspawn --pipe -i /var/tmp/unpriv.raw --read-only echo thisisatest >/tmp/unpriv.out
     echo thisisatest | cmp /tmp/unpriv.out -
 
     # The unpriv user has no rights to lock the image or write to it. Let's

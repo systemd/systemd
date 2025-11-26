@@ -210,7 +210,7 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
         assert(new_h);
         assert(path);
 
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
+        r = cg_enumerate_subgroups(path, &d);
         if (r < 0)
                 return r;
 
@@ -235,7 +235,7 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
 
                 subpath = mfree(subpath);
 
-                r = cg_get_attribute_as_bool("memory", cg_path, "memory.oom.group");
+                r = cg_get_attribute_as_bool(cg_path, "memory.oom.group");
                 /* The cgroup might be gone. Skip it as a candidate since we can't get information on it. */
                 if (r == -ENOMEM)
                         return r;
@@ -772,7 +772,7 @@ static int manager_varlink_init(Manager *m, int fd) {
         else
                 r = sd_varlink_server_listen_fd(s, fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to varlink socket '" VARLINK_ADDR_PATH_MANAGED_OOM_USER "': %m");
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
