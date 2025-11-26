@@ -2,14 +2,14 @@
 #
 # Japanese translation for systemd.
 #
-# Takuro Onoue <kusanaginoturugi@gmail.com>, 2021.
+# Takuro Onoue <kusanaginoturugi@gmail.com>, 2021, 2025.
 # Y T <yi818670@gmail.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:29+0000\n"
-"Last-Translator: Y T <yi818670@gmail.com>\n"
+"Last-Translator: Takuro Onoue <kusanaginoturugi@gmail.com>\n"
 "Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
 "systemd/main/ja/>\n"
 "Language: ja\n"
