@@ -6,7 +6,9 @@ Checks: '
     readability-duplicate-include,
     bugprone-argument-comment
 '
+  misc-header-include-cycle.IgnoredFilesList: 'glib-2.0'
 WarningsAsErrors: '*'
+ExcludeHeaderFilterRegex: 'blkid\.h|gmessages\.h|gstring\.h'
 HeaderFileExtensions:
   - h
 ImplementationFileExtensions:
