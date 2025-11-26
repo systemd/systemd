@@ -268,6 +268,7 @@ cleanup_session() (
     loginctl terminate-user logind-test-user
 
     if ! timeout 30 bash -c "while loginctl --no-legend | grep -q logind-test-user; do sleep 1; done"; then
+        loginctl
         echo "WARNING: session for logind-test-user still active, ignoring."
     fi
 
