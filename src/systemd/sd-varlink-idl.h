@@ -67,6 +67,7 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_field_type_t) {
         SD_VARLINK_FLOAT,
         SD_VARLINK_STRING,
         SD_VARLINK_OBJECT,
+        SD_VARLINK_ANY,
         SD_VARLINK_ENUM_VALUE,
         _SD_VARLINK_FIELD_COMMENT,        /* Not really a field, just a comment about a field */
         _SD_VARLINK_FIELD_TYPE_MAX,
