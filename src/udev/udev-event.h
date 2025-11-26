@@ -9,39 +9,40 @@
 #include "udev-forward.h"
 
 typedef struct UdevEvent {
-        unsigned n_ref;
-
         UdevWorker *worker;
         sd_netlink *rtnl;
         sd_device *dev;
         sd_device *dev_parent;
         sd_device *dev_db_clone;
-        char *name;
-        char **altnames;
-        char *program_result;
-        mode_t mode;
-        uid_t uid;
-        gid_t gid;
         OrderedHashmap *seclabel_list;
         OrderedHashmap *run_list;
         Hashmap *written_sysattrs;
         Hashmap *written_sysctls;
+        char *name;
+        char **altnames;
+        char *program_result;
         usec_t birth_usec;
+
+        unsigned n_ref;
+        mode_t mode;
+        uid_t uid;
+        gid_t gid;
         unsigned builtin_run;
         unsigned builtin_ret;
+        int default_log_level;
+        EventMode event_mode;
+
         UdevRuleEscapeType esc:8;
         bool inotify_watch;
         bool inotify_watch_final;
+        bool name_final;
+        bool devlink_final;
         bool group_final;
         bool owner_final;
         bool mode_final;
-        bool name_final;
-        bool devlink_final;
         bool run_final;
         bool trace;
         bool log_level_was_debug;
-        int default_log_level;
-        EventMode event_mode;
 } UdevEvent;
 
 UdevEvent* udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode);

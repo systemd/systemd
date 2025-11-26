@@ -4,11 +4,11 @@
 #include "shared-forward.h"
 
 typedef struct RuntimeMount {
-        bool read_only;
         char *source;
-        uid_t source_uid;
         char *target;
+        uid_t source_uid;
         uid_t target_uid;
+        bool read_only;
 } RuntimeMount;
 
 typedef struct RuntimeMountContext {
