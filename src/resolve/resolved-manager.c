@@ -1618,20 +1618,20 @@ int manager_is_own_hostname(Manager *m, const char *name) {
         return 0;
 }
 
-int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
+int manager_compile_dns_servers(Manager *m, OrderedSet **servers) {
         Link *l;
         int r;
 
         assert(m);
-        assert(dns);
+        assert(servers);
 
-        r = ordered_set_ensure_allocated(dns, &dns_server_hash_ops);
+        r = ordered_set_ensure_allocated(servers, &dns_server_hash_ops);
         if (r < 0)
                 return r;
 
         /* First add the system-wide servers and domains */
         LIST_FOREACH(servers, s, m->dns_servers) {
-                r = ordered_set_put(*dns, s);
+                r = ordered_set_put(*servers, s);
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
@@ -1641,7 +1641,7 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
         /* Then, add the per-link servers */
         HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(servers, s, l->dns_servers) {
-                        r = ordered_set_put(*dns, s);
+                        r = ordered_set_put(*servers, s);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)
@@ -1652,7 +1652,7 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
         DnsDelegate *d;
         HASHMAP_FOREACH(d, m->delegates)
                 LIST_FOREACH(servers, s, d->dns_servers) {
-                        r = ordered_set_put(*dns, s);
+                        r = ordered_set_put(*servers, s);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)
@@ -1660,9 +1660,9 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
                 }
 
         /* If we found nothing, add the fallback servers */
-        if (ordered_set_isempty(*dns)) {
+        if (ordered_set_isempty(*servers)) {
                 LIST_FOREACH(servers, s, m->fallback_dns_servers) {
-                        r = ordered_set_put(*dns, s);
+                        r = ordered_set_put(*servers, s);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)

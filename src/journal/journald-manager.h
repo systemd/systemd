@@ -167,7 +167,7 @@ typedef struct Manager {
 /* audit: Maximum number of extra fields we'll import from audit messages */
 #define N_IOVEC_AUDIT_FIELDS 64
 
-void manager_dispatch_message(Manager *m, struct iovec *iovec, size_t n, size_t k, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
+void manager_dispatch_message(Manager *m, struct iovec *iovec, size_t n, size_t mm, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
 void manager_driver_message_internal(Manager *m, pid_t object_pid, const char *format, ...) _sentinel_;
 #define manager_driver_message(...) manager_driver_message_internal(__VA_ARGS__, NULL)
 

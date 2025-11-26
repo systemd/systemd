@@ -540,16 +540,16 @@ int sd_netlink_call_async(
 int sd_netlink_read(
                 sd_netlink *nl,
                 uint32_t serial,
-                uint64_t usec,
+                uint64_t timeout,
                 sd_netlink_message **ret) {
 
-        usec_t timeout;
+        usec_t usec;
         int r;
 
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
-        timeout = timespan_to_timestamp(usec);
+        usec = timespan_to_timestamp(timeout);
 
         for (;;) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
@@ -588,14 +588,14 @@ int sd_netlink_read(
                         /* received message, so try to process straight away */
                         continue;
 
-                if (timeout != USEC_INFINITY) {
+                if (usec != USEC_INFINITY) {
                         usec_t n;
 
                         n = now(CLOCK_MONOTONIC);
-                        if (n >= timeout)
+                        if (n >= usec)
                                 return -ETIMEDOUT;
 
-                        left = usec_sub_unsigned(timeout, n);
+                        left = usec_sub_unsigned(usec, n);
                 } else
                         left = USEC_INFINITY;
 
@@ -610,7 +610,7 @@ int sd_netlink_read(
 int sd_netlink_call(
                 sd_netlink *nl,
                 sd_netlink_message *message,
-                uint64_t usec,
+                uint64_t timeout,
                 sd_netlink_message **ret) {
 
         uint32_t serial;
@@ -624,7 +624,7 @@ int sd_netlink_call(
         if (r < 0)
                 return r;
 
-        return sd_netlink_read(nl, serial, usec, ret);
+        return sd_netlink_read(nl, serial, timeout, ret);
 }
 
 int sd_netlink_get_events(sd_netlink *nl) {

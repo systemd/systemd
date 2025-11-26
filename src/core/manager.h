@@ -514,7 +514,7 @@ static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
 
 usec_t manager_default_timeout(RuntimeScope scope);
 
-int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager **m);
+int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager **ret);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 

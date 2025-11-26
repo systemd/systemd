@@ -10,12 +10,12 @@
 #include "bus-type.h"
 #include "string-util.h"
 
-_public_ int sd_bus_message_send(sd_bus_message *reply) {
-        assert_return(reply, -EINVAL);
-        assert_return(reply->bus, -EINVAL);
-        assert_return(!bus_origin_changed(reply->bus), -ECHILD);
+_public_ int sd_bus_message_send(sd_bus_message *m) {
+        assert_return(m, -EINVAL);
+        assert_return(m->bus, -EINVAL);
+        assert_return(!bus_origin_changed(m->bus), -ECHILD);
 
-        return sd_bus_send(reply->bus, reply, NULL);
+        return sd_bus_send(m->bus, m, NULL);
 }
 
 _public_ int sd_bus_emit_signal_tov(
@@ -325,7 +325,7 @@ _public_ int sd_bus_reply_method_errorf(
 _public_ int sd_bus_reply_method_errno(
                 sd_bus_message *call,
                 int error,
-                const sd_bus_error *p) {
+                const sd_bus_error *e) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
 
@@ -341,8 +341,8 @@ _public_ int sd_bus_reply_method_errno(
         if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
-        if (sd_bus_error_is_set(p))
-                return sd_bus_reply_method_error(call, p);
+        if (sd_bus_error_is_set(e))
+                return sd_bus_reply_method_error(call, e);
 
         sd_bus_error_set_errno(&berror, error);
 
@@ -640,20 +640,20 @@ _public_ int sd_bus_set_property(
         return r;
 }
 
-_public_ int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_bus_creds **ret) {
+_public_ int sd_bus_query_sender_creds(sd_bus_message *m, uint64_t mask, sd_bus_creds **ret) {
         uint64_t missing;
         sd_bus_creds *c;
 
-        assert_return(call, -EINVAL);
-        assert_return(call->sealed, -EPERM);
-        assert_return(call->bus, -EINVAL);
-        assert_return(!bus_origin_changed(call->bus), -ECHILD);
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+        assert_return(m->bus, -EINVAL);
+        assert_return(!bus_origin_changed(m->bus), -ECHILD);
         assert_return(ret, -EINVAL);
 
-        if (!BUS_IS_OPEN(call->bus->state))
+        if (!BUS_IS_OPEN(m->bus->state))
                 return -ENOTCONN;
 
-        c = sd_bus_message_get_creds(call);
+        c = sd_bus_message_get_creds(m);
         if (c)
                 missing = mask & ~SD_BUS_CREDS_AUGMENT & ~c->mask;
         else
@@ -664,31 +664,31 @@ _public_ int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_b
         }
 
         /* There's a sender, use that */
-        if (call->sender && call->bus->bus_client)
-                return sd_bus_get_name_creds(call->bus, call->sender, mask, ret);
+        if (m->sender && m->bus->bus_client)
+                return sd_bus_get_name_creds(m->bus, m->sender, mask, ret);
 
         /* There's no sender. For direct connections the credentials of the AF_UNIX peer matter, which may be
          * queried via sd_bus_get_owner_creds(). */
-        return sd_bus_get_owner_creds(call->bus, mask, ret);
+        return sd_bus_get_owner_creds(m->bus, mask, ret);
 }
 
-_public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability) {
+_public_ int sd_bus_query_sender_privilege(sd_bus_message *m, int capability) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         uid_t our_uid;
         bool know_caps = false;
         int r;
 
-        assert_return(call, -EINVAL);
-        assert_return(call->sealed, -EPERM);
-        assert_return(call->bus, -EINVAL);
-        assert_return(!bus_origin_changed(call->bus), -ECHILD);
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+        assert_return(m->bus, -EINVAL);
+        assert_return(!bus_origin_changed(m->bus), -ECHILD);
 
-        if (!BUS_IS_OPEN(call->bus->state))
+        if (!BUS_IS_OPEN(m->bus->state))
                 return -ENOTCONN;
 
         if (capability >= 0) {
 
-                r = sd_bus_query_sender_creds(call, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS, &creds);
+                r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS, &creds);
                 if (r < 0)
                         return r;
 
@@ -705,7 +705,7 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
                 if (r == 0)
                         know_caps = true;
         } else {
-                r = sd_bus_query_sender_creds(call, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID, &creds);
+                r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID, &creds);
                 if (r < 0)
                         return r;
         }

@@ -36,7 +36,7 @@ static int symlink_unless_exists(const char *target, const char *linkpath) {
 int generator_open_unit_file_full(
                 const char *dir,
                 const char *source,
-                const char *fn,
+                const char *filename,
                 FILE **ret_file,
                 char **ret_final_path,
                 char **ret_temp_path) {
@@ -60,9 +60,9 @@ int generator_open_unit_file_full(
 
                 *ret_temp_path = TAKE_PTR(p);
         } else {
-                assert(fn);
+                assert(filename);
 
-                p = path_join(dir, fn);
+                p = path_join(dir, filename);
                 if (!p)
                         return log_oom();
 
