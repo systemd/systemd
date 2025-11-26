@@ -10,7 +10,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:35+0000\n"
-"Last-Translator: Tim Vangehugten <timvangehugten@gmail.com>\n"
+"Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Dutch <https://translate.fedoraproject.org/projects/systemd/"
 "main/nl/>\n"
 "Language: nl\n"
@@ -1267,8 +1267,7 @@ msgstr "Abonneer op queryresultaten"
 #: src/resolve/org.freedesktop.resolve1.policy:144
 #, fuzzy
 msgid "Authentication is required to subscribe query results."
-msgstr ""
-"Authenticatie is vereist voor het in pauzestand zetten van het systeem."
+msgstr "Authenticatie is vereist voor het in pauzestand zetten van het systeem."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
@@ -1277,8 +1276,7 @@ msgstr ""
 #: src/resolve/org.freedesktop.resolve1.policy:155
 #, fuzzy
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr ""
-"Authenticatie is vereist voor het in pauzestand zetten van het systeem."
+msgstr "Authenticatie is vereist voor het in pauzestand zetten van het systeem."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
