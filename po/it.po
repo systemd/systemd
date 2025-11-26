@@ -3,7 +3,7 @@
 # Italian translation for systemd package
 # Traduzione in italiano per il pacchetto systemd
 # Daniele Medri <dmedri@gmail.com>, 2013-2024.
-# Salvatore Cocuzza <info@salvatorecocuzza.it>, 2024.
+# Salvatore Cocuzza <info@salvatorecocuzza.it>, 2024, 2025.
 # Nathan <nathan95@live.it>, 2025.
 # Milo Casagrande <milo@milo.name>, 2025.
 msgid ""
@@ -12,7 +12,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:29+0000\n"
-"Last-Translator: Milo Casagrande <milo@milo.name>\n"
+"Last-Translator: Salvatore Cocuzza <info@salvatorecocuzza.it>\n"
 "Language-Team: Italian <https://translate.fedoraproject.org/projects/systemd/"
 "main/it/>\n"
 "Language: it\n"
