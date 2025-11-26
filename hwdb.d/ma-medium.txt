@@ -7457,6 +7457,18 @@ A00000-AFFFFF     (base 16)		Shenzhen Jooan Technology  Co., Ltd
 				SUZHOU  JiangSu  215124
 				CN
 
+58-76-07   (hex)		Suprock Technologies
+900000-9FFFFF     (base 16)		Suprock Technologies
+				45 Scott Hill Rd
+				Warren  NH  03279
+				US
+
+5C-5C-75   (hex)		Spectrum FiftyNine BV
+900000-9FFFFF     (base 16)		Spectrum FiftyNine BV
+				Middelweg 8a
+				Molenhoek  Limb  6584ah
+				NL
+
 B8-4C-87   (hex)		Shenzhen Link-all Technology Co., Ltd
 300000-3FFFFF     (base 16)		Shenzhen Link-all Technology Co., Ltd
 				Floor 5th, Block 9th, Sunny Industrial Zone, Xili Town, Nanshan District, Shenzhen, China 
@@ -14425,6 +14437,18 @@ A00000-AFFFFF     (base 16)		IRTEYA LLC
 				9715 B Burnet Rd. Suite 400
 				Austin  TX  78758
 				US
+
+58-76-07   (hex)		Hubcom Techno System LLP
+D00000-DFFFFF     (base 16)		Hubcom Techno System LLP
+				Level 4 Ceejay House, Dr. Annie Besant Road, Worli, Mumbai City
+				mumbai  Maharashtra  400018
+				IN
+
+5C-5C-75   (hex)		hassoun Gulf Industrial Company
+800000-8FFFFF     (base 16)		hassoun Gulf Industrial Company
+				Building NO:9273Al Shihabi Street3rd Industrial CityJeddah- KSA
+				jeddah    000
+				SA
 
 B8-4C-87   (hex)		Altronix , Corp
 A00000-AFFFFF     (base 16)		Altronix , Corp
@@ -21926,6 +21950,42 @@ E00000-EFFFFF     (base 16)		ZhuoYu Technology
 				Nanshan District,  Shenzhen  518054
 				CN
 
+58-76-07   (hex)		RealSense Inc.
+500000-5FFFFF     (base 16)		RealSense Inc.
+				20400 Stevens Creek Boulevard Suite 290
+				Cupertino  CA  95014
+				US
+
+58-76-07   (hex)		Shenzhen HANSWELL Technology Co., Ltd.
+300000-3FFFFF     (base 16)		Shenzhen HANSWELL Technology Co., Ltd.
+				17th Floor, Block A, Building 6, International Innovation Valley, Dashi 1st Road, Nanshan District
+				Shenzhen  Guangdong   518051
+				CN
+
+58-76-07   (hex)		Beijing FHZX Science and Technology Co., Ltd.
+400000-4FFFFF     (base 16)		Beijing FHZX Science and Technology Co., Ltd.
+				‌Room 120-6 & 120-8, 1st Floor, Building A, Fengyu Office Building, No. 115 Fucheng Road, Haidian District
+				Beijing  Beijing  100048
+				CN
+
+58-76-07   (hex)		Oceansbio
+700000-7FFFFF     (base 16)		Oceansbio
+				345, Cheongpa-ro, Yongsan-gu, Seoul
+				Yongsan-gu  Seoul  04303
+				KR
+
+58-76-07   (hex)		Rwaytech
+B00000-BFFFFF     (base 16)		Rwaytech
+				231 Rue Douglas Engelbart
+				Archamps  Haute-Savoie  74160
+				FR
+
+58-76-07   (hex)		HARDWARIO a.s.
+000000-0FFFFF     (base 16)		HARDWARIO a.s.
+				U Jezu 525/4
+				Liberec    460 01
+				CZ
+
 D0-14-11   (hex)		P.B. Elettronica srl
 100000-1FFFFF     (base 16)		P.B. Elettronica srl
 				Via Santorelli, 8
@@ -29123,12 +29183,6 @@ B00000-BFFFFF     (base 16)		Arvind Limited
 				Pune  Maharastra  411060
 				IN
 
-20-2B-DA   (hex)		Industrial Connections & Solutions LLC
-A00000-AFFFFF     (base 16)		Industrial Connections & Solutions LLC
-				6801 Industrial Dr
-				Mebane  NC  27302
-				US
-
 20-2B-DA   (hex)		Shenzhen FeiCheng Technology Co.,Ltd
 600000-6FFFFF     (base 16)		Shenzhen FeiCheng Technology Co.,Ltd
 				Room 402, Building B, Huafeng Internet Creative Park, No. 107 Gongye Road, Gonge Community, Xixiang Street, Bao'an District, Shenzhen
@@ -29140,6 +29194,24 @@ A00000-AFFFFF     (base 16)		Industrial Connections & Solutions LLC
 				ul. Rzeczna 8/5NIP: 6772533194
 				Krakow  malopolska  30-021
 				PL
+
+20-2B-DA   (hex)		Industrial Connections & Solutions LLC
+A00000-AFFFFF     (base 16)		Industrial Connections & Solutions LLC
+				6801 Industrial Dr
+				Mebane  NC  27302
+				US
+
+58-76-07   (hex)		Shing Chong International Co., Ltd.
+100000-1FFFFF     (base 16)		Shing Chong International Co., Ltd.
+				8 F., No. 268, Sec. 2, Zhonghua Rd., Xinzhuang Dist.
+				New Taipei City    242
+				TW
+
+5C-5C-75   (hex)		O-cubes Shanghai Microelectronics Technology Co., Ltd
+300000-3FFFFF     (base 16)		O-cubes Shanghai Microelectronics Technology Co., Ltd
+				NO. 294 , Taiyuan Rd
+				shanghai    200031
+				CN
 
 C8-5C-E2   (hex)		Fela Management AG 
 000000-0FFFFF     (base 16)		Fela Management AG 
@@ -36505,3 +36577,27 @@ D00000-DFFFFF     (base 16)		Transit Solutions, LLC.
 				Amerikalaan 59
 				Maastricht-Airport    6199 AE
 				NL
+
+58-76-07   (hex)		BOE Technology Group Co., Ltd.
+C00000-CFFFFF     (base 16)		BOE Technology Group Co., Ltd.
+				No.12 Xihuanzhong RD, BDA
+				Beijing  Beijing  100176
+				CN
+
+58-76-07   (hex)		INP Technologies Ltd
+A00000-AFFFFF     (base 16)		INP Technologies Ltd
+				202 Grand Edifice, Akurli Road
+				Mumbai  Maharashtra (MH)  400101
+				IN
+
+58-76-07   (hex)		SHENZHEN GAGO ELECTRONICS CO.,LTD
+E00000-EFFFFF     (base 16)		SHENZHEN GAGO ELECTRONICS CO.,LTD
+				ROOM 301,1ST BUILDING,GEYA TECHNOLOGY PARK,GONGMING TOWN,GUANGMING DISTRICT
+				SHENZHEN  GUANGDONG  518107
+				CN
+
+5C-5C-75   (hex)		youyeetoo
+200000-2FFFFF     (base 16)		youyeetoo
+				Room 601, Building 17, No. A3, Fourth Industrial Zone, HeWan Community, Matian Street, Guangming District
+				Shenzhen  Guangdong  518100
+				CN

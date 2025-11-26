@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-17 08:58+0000\n"
+"POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-02-28 08:38+0000\n"
 "Last-Translator: Justinas Kairys <j.kairys@proton.me>\n"
 "Language-Team: Lithuanian <https://translate.fedoraproject.org/projects/"
@@ -165,7 +165,7 @@ msgstr ""
 "Norint tvarkyti sistemos tarnybas ar kitus įtaisus, reikia nustatyti "
 "tapatybę."
 
-#: src/home/pam_systemd_home.c:334
+#: src/home/pam_systemd_home.c:333
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -174,32 +174,32 @@ msgstr ""
 "Naudotojo %s namų aplanko šiuo metu nėra, prašome prijungti reikiamą "
 "atminties įrenginį arba palaikomą failų sistemą."
 
-#: src/home/pam_systemd_home.c:339
+#: src/home/pam_systemd_home.c:338
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "Per daug prisijungimo bandymų naudotojui %s, pabandykite dar kartą vėliau."
 
-#: src/home/pam_systemd_home.c:351
+#: src/home/pam_systemd_home.c:350
 msgid "Password: "
 msgstr "Slaptažodis: "
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:352
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 "Slaptažodis yra neteisingas arba nepakankamas naudotojo %s tapatybės "
 "patvirtinimui."
 
-#: src/home/pam_systemd_home.c:354
+#: src/home/pam_systemd_home.c:353
 msgid "Sorry, try again: "
 msgstr "Atleiskite, bandykite dar kartą: "
 
-#: src/home/pam_systemd_home.c:376
+#: src/home/pam_systemd_home.c:375
 msgid "Recovery key: "
 msgstr "Atkūrimo raktas: "
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:377
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -208,20 +208,20 @@ msgstr ""
 "Slaptažodis/atkūrimo raktas yra neteisingas arba nepakankamas naudotojo %s "
 "tapatybės patvirtinimui."
 
-#: src/home/pam_systemd_home.c:379
+#: src/home/pam_systemd_home.c:378
 msgid "Sorry, reenter recovery key: "
 msgstr "Atleiskite, įveskite atkūrimo raktą iš naujo: "
 
-#: src/home/pam_systemd_home.c:399
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Naudotojo %s saugos atpažinimo ženklas yra neįdėtas."
 
-#: src/home/pam_systemd_home.c:400 src/home/pam_systemd_home.c:403
+#: src/home/pam_systemd_home.c:399 src/home/pam_systemd_home.c:402
 msgid "Try again with password: "
 msgstr "Pabandykite dar kartą su slaptažodžiu: "
 
-#: src/home/pam_systemd_home.c:402
+#: src/home/pam_systemd_home.c:401
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -230,101 +230,101 @@ msgstr ""
 "Slaptažodis yra neteisingas arba jis yra nepakankamas, o naudotojo %s "
 "sukonfigūruotas saugos atpažinimo ženklas yra neįdėtas."
 
-#: src/home/pam_systemd_home.c:422
+#: src/home/pam_systemd_home.c:421
 msgid "Security token PIN: "
 msgstr "Saugos atpažinimo ženklo PIN kodas: "
 
-#: src/home/pam_systemd_home.c:439
+#: src/home/pam_systemd_home.c:438
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "Prašome fiziškai patvirtinti tapatybę su naudotojo %s saugos žėtonu."
 
-#: src/home/pam_systemd_home.c:450
+#: src/home/pam_systemd_home.c:449
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:461
+#: src/home/pam_systemd_home.c:460
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:470
+#: src/home/pam_systemd_home.c:469
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:478
+#: src/home/pam_systemd_home.c:477
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:479 src/home/pam_systemd_home.c:498
-#: src/home/pam_systemd_home.c:517
+#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:516
 msgid "Sorry, retry security token PIN: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:496
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:516
+#: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:683
+#: src/home/pam_systemd_home.c:682
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:685
+#: src/home/pam_systemd_home.c:684
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:717
+#: src/home/pam_systemd_home.c:718
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1016
+#: src/home/pam_systemd_home.c:1017
 msgid "User record is blocked, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:1021
 msgid "User record is not valid yet, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1024
+#: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid anymore, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1029 src/home/pam_systemd_home.c:1078
+#: src/home/pam_systemd_home.c:1030 src/home/pam_systemd_home.c:1079
 msgid "User record not valid, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1039
+#: src/home/pam_systemd_home.c:1040
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Per daug prisijungimų, bandoma dar kartą po %s."
 
-#: src/home/pam_systemd_home.c:1050
+#: src/home/pam_systemd_home.c:1051
 msgid "Password change required."
 msgstr "Reikia pakeisti slaptažodį."
 
-#: src/home/pam_systemd_home.c:1054
+#: src/home/pam_systemd_home.c:1055
 msgid "Password expired, change required."
 msgstr "Slaptažodis nebegalioja, reikia pakeisti."
 
-#: src/home/pam_systemd_home.c:1060
+#: src/home/pam_systemd_home.c:1061
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Slaptažodis nebegalioja, bet jo pakeisti negalima. Atsisakoma prisijungti."
 
-#: src/home/pam_systemd_home.c:1064
+#: src/home/pam_systemd_home.c:1065
 msgid "Password will expire soon, please change."
 msgstr "Greitu metu slaptažodis nustos galioti, prašome jį pakeisti."
 
