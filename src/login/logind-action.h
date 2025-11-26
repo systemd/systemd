@@ -55,15 +55,15 @@ static inline bool HANDLE_ACTION_IS_SLEEP(HandleAction a) {
 
 typedef struct HandleActionData {
         HandleAction handle;
-        const char *target;
         InhibitWhat inhibit_what;
+        const char *target;
         const char *polkit_action;
         const char *polkit_action_multiple_sessions;
         const char *polkit_action_ignore_inhibit;
-        SleepOperation sleep_operation;
         const char* message_id;
         const char* message;
         const char* log_verb;
+        SleepOperation sleep_operation;
 } HandleActionData;
 
 int handle_action_get_enabled_sleep_actions(HandleActionSleepMask mask, char ***ret);

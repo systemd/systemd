@@ -55,26 +55,32 @@ static OutputMode arg_output = OUTPUT_SHORT;
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 
 typedef struct SessionStatusInfo {
-        const char *id;
-        uid_t uid;
-        const char *name;
+        /* Pointers and other 8-byte aligned types */
         dual_timestamp timestamp;
-        unsigned vtnr;
+        dual_timestamp idle_hint_timestamp;
+
+        const char *id;
+        const char *name;
         const char *seat;
         const char *tty;
         const char *display;
-        bool remote;
         const char *remote_host;
         const char *remote_user;
         const char *service;
-        pid_t leader;
         const char *type;
         const char *class;
         const char *state;
         const char *scope;
         const char *desktop;
+
+        /* 4-byte integers */
+        uid_t uid;
+        unsigned vtnr;
+        pid_t leader;
+
+        /* Booleans */
+        bool remote;
         bool idle_hint;
-        dual_timestamp idle_hint_timestamp;
 } SessionStatusInfo;
 
 typedef struct UserStatusInfo {

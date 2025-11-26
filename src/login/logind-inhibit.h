@@ -34,20 +34,21 @@ typedef struct Inhibitor {
         char *id;
         char *state_file;
 
-        bool started;
-
         InhibitWhat what;
         char *who;
         char *why;
         InhibitMode mode;
 
-        PidRef pid;
-        uid_t uid;
+        bool started:1;
 
-        dual_timestamp since;
+        int fifo_fd;
+
+        uid_t uid;
+        PidRef pid;
 
         char *fifo_path;
-        int fifo_fd;
+
+        dual_timestamp since;
 } Inhibitor;
 
 int inhibitor_new(Manager *m, const char* id, Inhibitor **ret);
