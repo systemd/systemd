@@ -4,7 +4,7 @@
 # Enrico Nicoletto <liverig@gmail.com>, 2014.
 # Filipe Brandenburger <filbranden@gmail.com>, 2018.
 # Rafael Fontenelle <rafaelff@gnome.org>, 2015-2020, 2025.
-# Gustavo Costa <xfgusta@gmail.com>, 2021.
+# Gustavo Costa <xfgusta@gmail.com>, 2021, 2025.
 # Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024, 2025.
 # Gabriel Elyas <gabrielelyas@protonmail.com>, 2024, 2025.
 # Fábio Rodrigues Ribeiro <farribeiro@gmail.com>, 2024.
@@ -14,7 +14,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:30+0000\n"
-"Last-Translator: Gabriel Elyas <gabrielelyas@protonmail.com>\n"
+"Last-Translator: Gustavo Costa <xfgusta@gmail.com>\n"
 "Language-Team: Portuguese (Brazil) <https://translate.fedoraproject.org/"
 "projects/systemd/main/pt_BR/>\n"
 "Language: pt_BR\n"
