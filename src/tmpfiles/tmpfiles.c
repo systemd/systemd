@@ -3992,7 +3992,8 @@ static int parse_line(
                         missing_user_or_group = true;
                 } else if (r < 0) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve user '%s': %m", u);
+                        return log_syntax(NULL, LOG_ERR, fname, line, r,
+                                          "Failed to resolve user '%s': %s", u, STRERROR_USER(r));
                 } else
                         i.uid_set = true;
         }
@@ -4013,7 +4014,8 @@ static int parse_line(
                         missing_user_or_group = true;
                 } else if (r < 0) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve group '%s': %m", g);
+                        return log_syntax(NULL, LOG_ERR, fname, line, r,
+                                          "Failed to resolve group '%s': %s", g, STRERROR_GROUP(r));
                 } else
                         i.gid_set = true;
         }

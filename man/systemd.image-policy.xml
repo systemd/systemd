@@ -24,13 +24,13 @@
     <title>Description</title>
 
     <para>In systemd, whenever a disk image (DDI) implementing the <ulink
-    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
-    Partitions Specification</ulink> is activated, a policy may be specified controlling which partitions to
-    mount and what kind of cryptographic protection to require. Such a disk image dissection policy is a
-    string that contains per-partition-type rules, separated by colons (<literal>:</literal>). The individual
-    rules consist of a partition identifier, an equal sign (<literal>=</literal>), and one or more flags
-    which may be set per partition. If multiple flags are specified per partition they are separated by a
-    plus sign (<literal>+</literal>).</para>
+    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2
+    Discoverable Partitions Specification</ulink> is activated, a policy may be specified controlling which
+    partitions to mount and what kind of cryptographic protection to require. Such a disk image dissection
+    policy is a string that contains per-partition-type rules, separated by colons
+    (<literal>:</literal>). The individual rules consist of a partition identifier, an equal sign
+    (<literal>=</literal>), and one or more flags which may be set per partition. If multiple flags are
+    specified per partition they are separated by a plus sign (<literal>+</literal>).</para>
 
     <para>The partition identifiers currently defined are: <option>root</option>, <option>usr</option>,
     <option>home</option>, <option>srv</option>, <option>esp</option>, <option>xbootldr</option>,

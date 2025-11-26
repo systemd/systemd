@@ -407,12 +407,12 @@ bool dns_resource_record_is_link_local_address(DnsResourceRecord *rr);
 
 int dns_resource_record_get_cname_target(DnsResourceKey *key, DnsResourceRecord *cname, char **ret);
 
-DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
+DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *first);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
-DnsTxtItem *dns_txt_item_copy(DnsTxtItem *i);
+DnsTxtItem *dns_txt_item_copy(DnsTxtItem *first);
 int dns_txt_item_new_empty(DnsTxtItem **ret);
 
-DnsSvcParam *dns_svc_param_free_all(DnsSvcParam *i);
+DnsSvcParam *dns_svc_param_free_all(DnsSvcParam *first);
 bool dns_svc_params_equal(DnsSvcParam *a, DnsSvcParam *b);
 DnsSvcParam *dns_svc_params_copy(DnsSvcParam *first);
 
@@ -424,7 +424,7 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret);
 
 void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *state);
 int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y);
-void dns_resource_record_hash_func(const DnsResourceRecord *i, struct siphash *state);
+void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *state);
 int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResourceRecord *y);
 
 uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke);
@@ -444,3 +444,5 @@ int sshfp_algorithm_from_string(const char *s) _pure_;
 
 int sshfp_key_type_to_string_alloc(int i, char **ret);
 int sshfp_key_type_from_string(const char *s) _pure_;
+
+int dns_json_dispatch_resource_key(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);

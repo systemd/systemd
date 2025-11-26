@@ -4,9 +4,9 @@
   Copyright © 2016 Michael Karcher
 ***/
 
-#include <errno.h>
+#include <errno.h>                      /* IWYU pragma: keep */
 #include <sched.h>
-#include <sys/syscall.h>
+#include <sys/syscall.h>                /* IWYU pragma: keep */
 #include <unistd.h>
 
 #include "process-util.h"

@@ -20,7 +20,7 @@ static int add_privileged(sd_json_variant **v, const char *hashed) {
         assert(hashed);
 
         r = sd_json_buildo(&e, SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("modhex64")),
-                           SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRING(hashed)));
+                           SD_JSON_BUILD_PAIR_STRING("hashedPassword", hashed));
         if (r < 0)
                 return log_error_errno(r, "Failed to build recover key JSON object: %m");
 

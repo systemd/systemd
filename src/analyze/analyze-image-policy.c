@@ -132,7 +132,7 @@ int verb_image_policy(int argc, char *argv[], void *userdata) {
                 if (!table)
                         return log_oom();
 
-                (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+                table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
                 for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
                         PartitionPolicyFlags f = image_policy_get_exhaustively(p, d);

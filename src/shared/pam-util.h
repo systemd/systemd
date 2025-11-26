@@ -31,15 +31,26 @@ int dlopen_libpam(void);
 
 void pam_log_setup(void);
 
+int errno_to_pam_error(int error) _const_;
+
 int pam_syslog_errno(pam_handle_t *handle, int level, int error, const char *format, ...) _printf_(4,5);
 
 int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char *format, ...) _printf_(4,5);
 
-/* Call pam_vsyslog if debug is enabled */
+/* Call sym_pam_syslog if debug is enabled */
 #define pam_debug_syslog(handle, debug, fmt, ...)                       \
         ({                                                              \
                 if (debug)                                              \
                         sym_pam_syslog(handle, LOG_DEBUG, fmt, ## __VA_ARGS__); \
+        })
+
+/* Call pam_syslog_errno if debug is enabled */
+#define pam_debug_syslog_errno(handle, debug, error, fmt, ...)          \
+        ({                                                              \
+                int _error = (error);                                   \
+                debug ?                                                 \
+                        pam_syslog_errno(handle, LOG_DEBUG, _error, fmt, ## __VA_ARGS__) : \
+                        errno_to_pam_error(_error);                     \
         })
 
 static inline int pam_log_oom(pam_handle_t *handle) {
@@ -62,7 +73,12 @@ void pam_bus_data_disconnectp(PamBusData **d);
 
 /* Use a different module name per different PAM module. They are all loaded in the same namespace, and this
  * helps avoid a clash in the internal data structures of sd-bus. It will be used as key for cache items. */
-int pam_acquire_bus_connection(pam_handle_t *handle, const char *module_name, bool debug, sd_bus **ret_bus, PamBusData **ret_bus_data);
+int pam_acquire_bus_connection(
+                pam_handle_t *handle,
+                const char *module_name,
+                bool debug,
+                sd_bus **ret_bus,
+                PamBusData **ret_pam_bus_data);
 int pam_get_bus_data(pam_handle_t *handle, const char *module_name, PamBusData **ret);
 
 void pam_cleanup_free(pam_handle_t *handle, void *data, int error_status);

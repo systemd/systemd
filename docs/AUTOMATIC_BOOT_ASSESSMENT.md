@@ -9,7 +9,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 systemd provides support for automatically reverting back to the previous
 version of the OS or kernel in case the system consistently fails to boot. The
-[Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification/#boot-counting)
+[UAPI.1 Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification/#boot-counting)
 describes how to annotate boot loader entries with a counter that specifies how
 many attempts should be made to boot it. This document describes how systemd
 implements this scheme.
@@ -28,7 +28,7 @@ Here's a brief overview of the complete set of components:
 * The
   [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)
   boot loader optionally maintains a per-boot-loader-entry counter described by
-  the [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification/#boot-counting)
+  the [UAPI.1 Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification/#boot-counting)
   that is decreased by one on each attempt to boot the entry, prioritizing
   entries that have non-zero counters over those which already reached a
   counter of zero when choosing the entry to boot.
@@ -61,7 +61,7 @@ Here's a brief overview of the complete set of components:
 ## Details
 
 As described in the
-[Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification/#boot-counting),
+[UAPI.1 Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification/#boot-counting),
 the boot counting data is stored in the file name of the boot loader entries as
 a plus (`+`), followed by a number, optionally followed by `-` and another
 number, right before the file name suffix (`.conf` or `.efi`).

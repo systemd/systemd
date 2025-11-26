@@ -89,12 +89,12 @@ static int add_fido2_salt(
                 return log_error_errno(errno_or_else(EINVAL), "Failed to UNIX hash secret key: %m");
 
         r = sd_json_buildo(&e,
-                           SD_JSON_BUILD_PAIR("credential", SD_JSON_BUILD_BASE64(cid, cid_size)),
+                           SD_JSON_BUILD_PAIR_BASE64("credential", cid, cid_size),
                            SD_JSON_BUILD_PAIR("salt", JSON_BUILD_IOVEC_BASE64(salt)),
-                           SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRING(hashed)),
-                           SD_JSON_BUILD_PAIR("up", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UP))),
-                           SD_JSON_BUILD_PAIR("uv", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UV))),
-                           SD_JSON_BUILD_PAIR("clientPin", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_PIN))));
+                           SD_JSON_BUILD_PAIR_STRING("hashedPassword", hashed),
+                           SD_JSON_BUILD_PAIR_BOOLEAN("up", FLAGS_SET(lock_with, FIDO2ENROLL_UP)),
+                           SD_JSON_BUILD_PAIR_BOOLEAN("uv", FLAGS_SET(lock_with, FIDO2ENROLL_UV)),
+                           SD_JSON_BUILD_PAIR_BOOLEAN("clientPin", FLAGS_SET(lock_with, FIDO2ENROLL_PIN)));
 
         if (r < 0)
                 return log_error_errno(r, "Failed to build FIDO2 salt JSON key object: %m");

@@ -5,6 +5,7 @@
 #include <netinet/ip6.h>
 
 #include "sd-dns-resolver.h"
+#include "sd-forward.h"
 
 #include "time-util.h"
 

@@ -8,9 +8,11 @@ typedef struct Transaction {
         Hashmap *jobs;        /* Unit object => Job object list 1:1 */
         Job *anchor_job;      /* The job the user asked for */
         bool irreversible;
+
+        uint64_t id;
 } Transaction;
 
-Transaction* transaction_new(bool irreversible);
+Transaction* transaction_new(bool irreversible, uint64_t id);
 Transaction* transaction_free(Transaction *tr);
 Transaction* transaction_abort_and_free(Transaction *tr);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Transaction*, transaction_abort_and_free);

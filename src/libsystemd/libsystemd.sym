@@ -1081,5 +1081,7 @@ global:
 
 LIBSYSTEMD_259 {
 global:
+        sd_event_set_exit_on_idle;
+        sd_event_get_exit_on_idle;
         sd_varlink_is_connected;
 } LIBSYSTEMD_258;

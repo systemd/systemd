@@ -109,7 +109,7 @@
 
           <para>The third argument directly refers to the path where to place kernel images, initrd
           images and other resources for
-          <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot
+          <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot
           Loader Specification</ulink> Type #1 entries (the "entry directory"). If other boot loader schemes
           are used the parameter may be ignored.</para>
 
@@ -141,7 +141,7 @@
                 <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL_VERSION</replaceable>/<replaceable>INITRD-FILE</replaceable></filename>.
                 This can also be used to prepend microcode before the actual initrd. It also creates a boot
                 loader entry according to the
-                <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>
+                <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>
                 (Type #1) in
                 <filename>$BOOT/loader/entries/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.
                 The title of the entry is the <replaceable>PRETTY_NAME</replaceable> parameter specified in
@@ -290,7 +290,7 @@
   <refsect1>
     <title>The <varname>$BOOT</varname> partition</title>
 
-    <para>The partition where the kernels and <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot
+    <para>The partition where the kernels and <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot
     Loader Specification</ulink> snippets are located is called <varname>$BOOT</varname>.
     <command>kernel-install</command> determines the location of this partition by checking
     <filename>/efi/</filename>, <filename>/boot/</filename>, and <filename>/boot/efi/</filename> in turn. The
@@ -310,7 +310,7 @@
         <term><option>--make-entry-directory=yes|no|auto</option></term>
         <listitem>
           <para>Controls creation and deletion of the
-          <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>
+          <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>
           Type #1 entry directory on the file system containing resources such as kernel and initrd images
           during <option>add</option> and <option>remove</option>, respectively. The directory is named after
           the entry token, and is placed immediately below the boot root directory. When
@@ -410,7 +410,7 @@
         are applied to the file system in the indicated disk image. This option is similar to
         <option>--root=</option>, but operates on file systems stored in disk images or block devices. The
         disk image should either contain just a file system or a set of file systems within a GPT partition
-        table, following the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
+        table, following the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         switch of the same name.</para>
@@ -504,7 +504,7 @@
         <varlistentry>
           <term>bls</term>
           <listitem>
-            <para>Standard <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
+            <para>Standard <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader
             Specification</ulink> Type #1 layout, compatible with
             <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>:
             entries in
@@ -520,7 +520,7 @@
           <term>uki</term>
           <listitem>
             <para>Standard <ulink
-            url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
+            url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader
             Specification</ulink> Type #2 layout, compatible with
             <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>:
             unified kernel images under <filename>$BOOT/EFI/Linux</filename> as
@@ -787,7 +787,7 @@
       <member><citerefentry project='man-pages'><refentrytitle>depmod</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
-      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink></member>
+      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink></member>
     </simplelist></para>
   </refsect1>
 

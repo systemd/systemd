@@ -40,12 +40,12 @@ REQUIREMENTS:
                      ≥ 4.13 for TIOCGPTPEER and SYNTH_UUID= property support in uevent
                      ≥ 4.15 for cgroup-bpf device hook and cpu controller in cgroup v2
                      ≥ 4.17 for cgroup-bpf socket address hooks, /sys/power/resume_offset,
-                            and FRA_PROTOCOL attribute for fib rules
+                                and FRA_PROTOCOL attribute for fib rules
                      ≥ 4.20 for PSI (used by systemd-oomd)
                      ≥ 5.1 for SO_BINDTOIFINDEX
                      ≥ 5.2 for cgroup freezer and new mount API
                      ≥ 5.3 for bounded loops in BPF program, keyring namespacing,
-                           and nexthop support
+                               and nexthop support
                      ≥ 5.4 for pidfd and signed Verity images
 
         ⛔ Kernel versions below 5.4 ("minimum baseline") are not supported at all,
@@ -68,11 +68,11 @@ REQUIREMENTS:
                      ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
                                and MOVE_MOUNT_BENEATH
-                     ≥ 6.6 for quota support on tmpfs and cgroup2fs memory_hugetlb_accounting
-                           option
+                     ≥ 6.6 for quota support on tmpfs
+                     ≥ 6.7 for cgroup2fs memory_hugetlb_accounting option
                      ≥ 6.9 for pidfs
                      ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
-                            and block device 'partscan' sysfs attribute
+                                and block device 'partscan' sysfs attribute
                      ≥ 6.13 for PIDFD_GET_INFO and {set,remove}xattrat()
                      ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS
 

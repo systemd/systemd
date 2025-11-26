@@ -15,6 +15,7 @@
 #include "import-common.h"
 #include "import-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
@@ -32,11 +33,11 @@ static char *arg_image_root = NULL;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static ImportFlags arg_import_flags = IMPORT_PULL_SETTINGS | IMPORT_PULL_ROOTHASH | IMPORT_PULL_ROOTHASH_SIGNATURE | IMPORT_PULL_VERITY | IMPORT_BTRFS_SUBVOL | IMPORT_BTRFS_QUOTA | IMPORT_CONVERT_QCOW2 | IMPORT_SYNC;
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
-static char *arg_checksum = NULL;
+static struct iovec arg_checksum = {};
 static ImageClass arg_class = IMAGE_MACHINE;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
-STATIC_DESTRUCTOR_REGISTER(arg_checksum, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_checksum, iovec_done);
 STATIC_DESTRUCTOR_REGISTER(arg_image_root, freep);
 
 static int normalize_local(const char *local, const char *url, char **ret) {
@@ -162,7 +163,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                         normalized,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_TAR,
                         arg_verify,
-                        arg_checksum);
+                        &arg_checksum);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -231,7 +232,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                         arg_size_max,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_RAW,
                         arg_verify,
-                        arg_checksum);
+                        &arg_checksum);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -371,7 +372,6 @@ static int parse_argv(int argc, char *argv[]) {
                         v = import_verify_from_string(optarg);
                         if (v < 0) {
                                 _cleanup_free_ void *h = NULL;
-                                char *hh;
                                 size_t n;
 
                                 /* If this is not a valid verification mode, maybe it's a literally specified
@@ -385,11 +385,10 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "64 hex character SHA256 hash required when specifying explicit checksum, %zu specified", n * 2);
 
-                                hh = hexmem(h, n); /* bring into canonical (lowercase) form */
-                                if (!hh)
-                                        return log_oom();
+                                iovec_done(&arg_checksum);
+                                arg_checksum.iov_base = TAKE_PTR(h);
+                                arg_checksum.iov_len = n;
 
-                                free_and_replace(arg_checksum, hh);
                                 arg_import_flags &= ~(IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY);
                                 arg_verify = _IMPORT_VERIFY_INVALID;
                         } else
@@ -542,7 +541,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_offset != UINT64_MAX && !FLAGS_SET(arg_import_flags, IMPORT_DIRECT))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File offset only supported in --direct mode.");
 
-        if (arg_checksum && (arg_import_flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) != 0)
+        if (iovec_is_set(&arg_checksum) && (arg_import_flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Literal checksum verification only supported if no associated files are downloaded.");
 
         if (!arg_image_root) {

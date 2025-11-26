@@ -155,7 +155,7 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
                 case SD_IPV4LL_EVENT_BIND:
                         r = ipv4ll_address_claimed(ll, link);
                         if (r < 0) {
-                                log_link_error(link, "Failed to configure ipv4ll address: %m");
+                                log_link_error_errno(link, r, "Failed to configure ipv4ll address: %m");
                                 link_enter_failed(link);
                                 return;
                         }

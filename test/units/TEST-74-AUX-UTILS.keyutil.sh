@@ -49,20 +49,20 @@ testcase_public() {
 
 verify_pkcs7() {
     # Verify using internal certificate
-    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify > /dev/null
+    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify >/dev/null
     # Verify using external (original) certificate
-    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify -certfile /tmp/test.crt -nointern > /dev/null
+    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify -certfile /tmp/test.crt -nointern >/dev/null
 }
 
 verify_pkcs7_fail() {
     # Verify using internal certificate
-    (! openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify > /dev/null)
+    (! openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify >/dev/null)
     # Verify using external (original) certificate
-    (! openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify -certfile /tmp/test.crt -nointern > /dev/null)
+    (! openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify -certfile /tmp/test.crt -nointern >/dev/null)
 }
 
 testcase_pkcs7() {
-    echo -n "test" > /tmp/payload
+    echo -n "test" >/tmp/payload
 
     for hashalg in sha256 sha384 sha512; do
         # shellcheck disable=SC2086

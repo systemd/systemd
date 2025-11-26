@@ -10,7 +10,6 @@
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "memstream-util.h"
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
@@ -303,21 +302,9 @@ static int verb_public(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
 
-                _cleanup_(memstream_done) MemStream m = {};
-                FILE *tf = memstream_init(&m);
-                if (!tf)
-                        return log_oom();
-
-                if (i2d_PUBKEY_fp(tf, private_key) != 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to extract public key from private key file '%s'.", arg_private_key);
-
-                fflush(tf);
-                rewind(tf);
-
-                if (!d2i_PUBKEY_fp(tf, &public_key))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to parse extracted public key of private key file '%s'.", arg_private_key);
+                r = openssl_extract_public_key(private_key, &public_key);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract public key from private key file '%s': %m", arg_private_key);
         } else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "One of --certificate=, or --private-key= must be specified");
 

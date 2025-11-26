@@ -24,7 +24,7 @@ int verb_cat(int argc, char *argv[], void *userdata) {
         _cleanup_hashmap_free_ Hashmap *cached_id_map = NULL, *cached_name_map = NULL;
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
-        sd_bus *bus;
+        sd_bus *bus = NULL;
         bool first = true;
         int r, rc = 0;
 
@@ -39,17 +39,24 @@ int verb_cat(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = acquire_bus(BUS_MANAGER, &bus);
-        if (r < 0)
-                return r;
+        if (install_client_side() == INSTALL_CLIENT_SIDE_NO) {
+                r = acquire_bus(BUS_MANAGER, &bus);
+                if (r < 0)
+                        return r;
 
-        r = expand_unit_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to expand names: %m");
+                r = expand_unit_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to expand names: %m");
 
-        r = maybe_extend_with_unit_dependencies(bus, &names);
-        if (r < 0)
-                return r;
+                r = maybe_extend_with_unit_dependencies(bus, &names);
+                if (r < 0)
+                        return r;
+        } else {
+                /* In client-side mode (--global, --root, etc.), just mangle names without bus interaction */
+                r = mangle_names("to cat", strv_skip(argv, 1), &names);
+                if (r < 0)
+                        return r;
+        }
 
         pager_open(arg_pager_flags);
 
@@ -57,7 +64,7 @@ int verb_cat(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *fragment_path = NULL;
                 _cleanup_strv_free_ char **dropin_paths = NULL;
 
-                r = unit_find_paths(bus, *name, &lp, false, &cached_id_map, &cached_name_map, &fragment_path, &dropin_paths);
+                r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ !bus, &cached_id_map, &cached_name_map, &fragment_path, &dropin_paths);
                 if (r == -ERFKILL) {
                         printf("%s# Unit %s is masked%s.\n",
                                ansi_highlight_magenta(),
@@ -87,7 +94,7 @@ int verb_cat(int argc, char *argv[], void *userdata) {
                 else
                         puts("");
 
-                if (need_daemon_reload(bus, *name) > 0) /* ignore errors (<0), this is informational output */
+                if (bus && need_daemon_reload(bus, *name) > 0) /* ignore errors (<0), this is informational output */
                         fprintf(stderr,
                                 "%s# Warning: %s changed on disk, the version systemd has loaded is outdated.\n"
                                 "%s# This output shows the current version of the unit's original fragment and drop-in files.\n"
@@ -211,7 +218,6 @@ static int find_paths_to_edit(
         const char *drop_in;
         int r;
 
-        assert(bus);
         assert(context);
         assert(names);
 
@@ -241,8 +247,8 @@ static int find_paths_to_edit(
                 _cleanup_free_ char *path = NULL;
                 _cleanup_strv_free_ char **unit_paths = NULL;
 
-                r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ false, &cached_id_map, &cached_name_map, &path, &unit_paths);
-                if (r == -EKEYREJECTED) {
+                r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ !bus, &cached_id_map, &cached_name_map, &path, &unit_paths);
+                if (r == -EKEYREJECTED && bus) {
                         /* If loading of the unit failed server side complete, then the server won't tell us
                          * the unit file path. In that case, find the file client side. */
 
@@ -327,7 +333,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 .read_from_stdin = arg_stdin,
         };
         _cleanup_strv_free_ char **names = NULL;
-        sd_bus *bus;
+        sd_bus *bus = NULL;
         int r;
 
         if (!on_tty() && !arg_stdin)
@@ -340,27 +346,26 @@ int verb_edit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = acquire_bus(BUS_MANAGER, &bus);
-        if (r < 0)
-                return r;
+        if (install_client_side() == INSTALL_CLIENT_SIDE_NO) {
+                r = acquire_bus(BUS_MANAGER, &bus);
+                if (r < 0)
+                        return r;
 
-        r = expand_unit_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to expand names: %m");
+                r = expand_unit_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to expand names: %m");
+        } else {
+                /* In client-side mode (--global, --root, etc.), just mangle names without bus interaction */
+                r = mangle_names("to edit", strv_skip(argv, 1), &names);
+                if (r < 0)
+                        return r;
+        }
         if (strv_isempty(names))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No units matched the specified patterns.");
 
         if (arg_stdin && arg_full && strv_length(names) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "With 'edit --stdin --full', exactly one unit for editing must be specified.");
-
-        STRV_FOREACH(tmp, names) {
-                r = unit_is_masked(bus, *tmp);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to check if unit %s is masked: %m", *tmp);
-                if (r > 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit %s: unit is masked.", *tmp);
-        }
 
         r = find_paths_to_edit(bus, &context, names);
         if (r < 0)

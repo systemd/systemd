@@ -124,6 +124,13 @@ for i in {0..19}; do
     systemctl start "transaction-cycle$i.service"
 done
 
+IDS_FILE="/tmp/TEST-03-JOBS-CYCLE-IDS-$RANDOM"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}' | jq '.runtime.TransactionsWithOrderingCycle' >"$IDS_FILE"
+[[ "$(jq length "$IDS_FILE")" -ge 20 ]]
+for i in {0..19}; do
+    journalctl -b TRANSACTION_ID="$(jq -r ".[$i]" "$IDS_FILE")" --grep "cycle starting with"
+done
+
 # Test PropagatesStopTo= when restart (issue #26839)
 systemctl start propagatestopto-and-pullin.target
 systemctl --quiet is-active propagatestopto-and-pullin.target

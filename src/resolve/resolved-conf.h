@@ -13,7 +13,7 @@ typedef enum ResolveConfigSource {
 
 int manager_parse_config_file(Manager *m);
 
-const struct ConfigPerfItem* resolved_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* resolved_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_servers);
 CONFIG_PARSER_PROTOTYPE(config_parse_search_domains);

@@ -98,4 +98,8 @@ static inline const char* device_get_fwid(const void *base, const Device *device
         return off == 0 ? NULL : (const char *) ((const uint8_t *) base + off);
 }
 
-EFI_STATUS chid_match(const void *chids_buffer, size_t chids_length, uint32_t match_type, const Device **ret_device);
+EFI_STATUS chid_match(
+                const void *hwid_buffer,
+                size_t hwid_length,
+                uint32_t match_type,
+                const Device **ret_device);

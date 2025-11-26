@@ -30,9 +30,6 @@ struct ShimLock {
         EFI_STATUS __sysv_abi__ (*read_header) (void *data, uint32_t datasize, void *context);
 };
 
-#define SHIM_LOCK_GUID \
-        { 0x605dab50, 0xe046, 0x4300, { 0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23 } }
-
 #define SHIM_IMAGE_LOADER_GUID \
         { 0x1f492041, 0xfadb, 0x4e59, { 0x9e, 0x57, 0x7c, 0xaf, 0xe7, 0x3a, 0x55, 0xab } }
 
@@ -46,7 +43,7 @@ bool shim_loaded(void) {
 bool shim_loader_available(void) {
         void *shim_image_loader;
 
-        return BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, (void **) &shim_image_loader) == EFI_SUCCESS;
+        return BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, &shim_image_loader) == EFI_SUCCESS;
 }
 
 static bool shim_validate(

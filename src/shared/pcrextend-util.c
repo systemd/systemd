@@ -10,6 +10,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "id128-util.h"
 #include "log.h"
 #include "mountpoint-util.h"
 #include "pcrextend-util.h"
@@ -152,6 +153,27 @@ int pcrextend_machine_id_word(char **ret) {
                 return log_error_errno(r, "Failed to acquire machine ID: %m");
 
         word = strjoin("machine-id:", SD_ID128_TO_STRING(mid));
+        if (!word)
+                return log_oom();
+
+        *ret = TAKE_PTR(word);
+        return 0;
+}
+
+int pcrextend_product_id_word(char **ret) {
+        _cleanup_free_ char *word = NULL;
+        sd_id128_t pid;
+        int r;
+
+        assert(ret);
+
+        r = id128_get_product(&pid);
+        if (IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* No product UUID field, or an all-zero or all-0xFF UUID */
+                word = strdup("product-id:missing");
+        else if (r < 0)
+                return log_error_errno(r, "Failed to acquire product ID: %m");
+        else
+                word = strjoin("product-id:", SD_ID128_TO_STRING(pid));
         if (!word)
                 return log_oom();
 

@@ -365,7 +365,7 @@ static int exec_dir_build_json(sd_json_variant **ret, const char *name, void *us
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("paths", SD_JSON_BUILD_VARIANT(v)),
+                        SD_JSON_BUILD_PAIR_VARIANT("paths", v),
                         SD_JSON_BUILD_PAIR_UNSIGNED("mode", exec_dir->mode),
                         SD_JSON_BUILD_PAIR("quota",
                                 SD_JSON_BUILD_OBJECT(
@@ -790,9 +790,9 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RootImage", c->root_image),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("RootImageOptions", root_image_options_build_json, c->root_image_options),
                         SD_JSON_BUILD_PAIR_BOOLEAN("RootEphemeral", c->root_ephemeral),
-                        JSON_BUILD_PAIR_BASE64_NON_EMPTY("RootHash", c->root_hash, c->root_hash_size),
+                        JSON_BUILD_PAIR_BASE64_NON_EMPTY("RootHash", c->root_hash.iov_base, c->root_hash.iov_len),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RootHashPath", c->root_hash_path),
-                        JSON_BUILD_PAIR_BASE64_NON_EMPTY("RootHashSignature", c->root_hash_sig, c->root_hash_sig_size),
+                        JSON_BUILD_PAIR_BASE64_NON_EMPTY("RootHashSignature", c->root_hash_sig.iov_base, c->root_hash_sig.iov_len),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RootHashSignaturePath", c->root_hash_sig_path),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RootVerity", c->root_verity),
                         SD_JSON_BUILD_PAIR_CALLBACK("RootImagePolicy", image_policy_build_json, c->root_image_policy),
@@ -885,6 +885,7 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         JSON_BUILD_PAIR_TRISTATE_NON_NULL("MemoryKSM", c->memory_ksm),
                         SD_JSON_BUILD_PAIR_STRING("PrivatePIDs", private_pids_to_string(c->private_pids)),
                         SD_JSON_BUILD_PAIR_STRING("PrivateUsers", private_users_to_string(c->private_users)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("UserNamespacePath", c->user_namespace_path),
                         SD_JSON_BUILD_PAIR_STRING("ProtectHostname", protect_hostname_to_string(c->protect_hostname)),
                         JSON_BUILD_PAIR_YES_NO("ProtectClock", c->protect_clock),
                         JSON_BUILD_PAIR_YES_NO("ProtectKernelTunables", c->protect_kernel_tunables),

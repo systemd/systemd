@@ -19,8 +19,10 @@ int mac_selinux_setup(bool *loaded_policy) {
         int r;
 
         r = dlopen_libselinux();
-        if (r < 0)
-                return log_debug_errno(r, "No SELinux library available, skipping setup: %m");
+        if (r < 0) {
+                log_debug_errno(r, "No SELinux library available, skipping setup.");
+                return 0;
+        }
 
         mac_selinux_disable_logging();
 
