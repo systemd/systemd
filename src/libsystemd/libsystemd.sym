@@ -1085,3 +1085,8 @@ global:
         sd_event_get_exit_on_idle;
         sd_varlink_is_connected;
 } LIBSYSTEMD_258;
+
+LIBSYSTEMD_260 {
+global:
+        sd_session_has_extra_device_access;
+} LIBSYSTEMD_259;
