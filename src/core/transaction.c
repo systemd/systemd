@@ -1189,6 +1189,28 @@ static bool shall_stop_on_isolate(Transaction *tr, Unit *u) {
         if (hashmap_contains(tr->jobs, u))
                 return false;
 
+        /* Keep units that are triggered by units we want to keep around. */
+        Unit *other;
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_TRIGGERED_BY) {
+                if (UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                        continue;
+
+                /* Is the trigger about to go down? */
+                Job *other_job = hashmap_get(tr->jobs, other);
+
+                bool has_stop = false;
+                LIST_FOREACH(transaction, j, other_job)
+                        if (j->type == JOB_STOP) {
+                                has_stop = true;
+                                break;
+                        }
+                if (has_stop)
+                        continue;
+
+                if (other->ignore_on_isolate || other_job)
+                        return false;
+        }
+
         return true;
 }
 
@@ -1202,7 +1224,6 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
 
         HASHMAP_FOREACH_KEY(u, k, m->units) {
                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
-                Unit *o;
 
                 /* Ignore aliases */
                 if (u->id != k)
@@ -1213,16 +1234,6 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
                         continue;
 
                 if (!shall_stop_on_isolate(tr, u))
-                        continue;
-
-                /* Keep units that are triggered by units we want to keep around. */
-                bool keep = false;
-                UNIT_FOREACH_DEPENDENCY(o, u, UNIT_ATOM_TRIGGERED_BY)
-                        if (!shall_stop_on_isolate(tr, o)) {
-                                keep = true;
-                                break;
-                        }
-                if (keep)
                         continue;
 
                 r = transaction_add_job_and_dependencies(tr, JOB_STOP, u, tr->anchor_job, TRANSACTION_MATTERS, &e);
