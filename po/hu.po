@@ -5,14 +5,14 @@
 #
 # Gabor Kelemen <kelemeng at gnome dot hu>, 2015, 2016.
 # Balázs Úr <urbalazs at gmail dot com>, 2016.
-# Balázs Meskó <meskobalazs@mailbox.org>, 2022.
+# Balázs Meskó <meskobalazs@mailbox.org>, 2022, 2025.
 # Balázs Úr <balazs@urbalazs.hu>, 2023, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-11-26 18:28+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"PO-Revision-Date: 2025-11-26 18:29+0000\n"
+"Last-Translator: Balázs Meskó <meskobalazs@mailbox.org>\n"
 "Language-Team: Hungarian <https://translate.fedoraproject.org/projects/"
 "systemd/main/hu/>\n"
 "Language: hu\n"
