@@ -2450,7 +2450,12 @@ static int setup_private_users(
                 if (setns(userns_fd, CLONE_NEWUSER) < 0)
                         return log_debug_errno(errno, "Failed to join freshly allocated user namespace: %m");
 
-                return 0;
+                /* In "dnynamic64k" mode the originating UID is not mapped hence we need to explicitly become root in the new userns now. */
+                r = reset_uid_gid();
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to reset UID/GID to root: %m");
+
+                return 1;
         }
 
         if (private_users == PRIVATE_USERS_IDENTITY) {
