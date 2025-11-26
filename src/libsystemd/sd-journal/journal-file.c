@@ -4727,4 +4727,4 @@ static const char * const journal_object_type_table[] = {
         [OBJECT_TAG]              = "tag",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(journal_object_type, ObjectType);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(journal_object_type, ObjectType, type);

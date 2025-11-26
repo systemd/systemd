@@ -1611,7 +1611,7 @@ static const char* const session_state_table[_SESSION_STATE_MAX] = {
         [SESSION_CLOSING] = "closing",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(session_state, SessionState);
+DEFINE_STRING_TABLE_LOOKUP(session_state, SessionState, t);
 
 static const char* const session_type_table[_SESSION_TYPE_MAX] = {
         [SESSION_UNSPECIFIED] = "unspecified",
@@ -1622,7 +1622,7 @@ static const char* const session_type_table[_SESSION_TYPE_MAX] = {
         [SESSION_WEB]         = "web",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);
+DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType, t);
 
 static const char* const session_class_table[_SESSION_CLASS_MAX] = {
         [SESSION_USER]              = "user",
@@ -1639,14 +1639,14 @@ static const char* const session_class_table[_SESSION_CLASS_MAX] = {
         [SESSION_NONE]              = "none",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(session_class, SessionClass);
+DEFINE_STRING_TABLE_LOOKUP(session_class, SessionClass, t);
 
 static const char* const kill_whom_table[_KILL_WHOM_MAX] = {
         [KILL_LEADER] = "leader",
         [KILL_ALL]    = "all",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);
+DEFINE_STRING_TABLE_LOOKUP(kill_whom, KillWhom, k);
 
 static const char* const tty_validity_table[_TTY_VALIDITY_MAX] = {
         [TTY_FROM_PAM]          = "from-pam",
@@ -1654,4 +1654,4 @@ static const char* const tty_validity_table[_TTY_VALIDITY_MAX] = {
         [TTY_UTMP_INCONSISTENT] = "utmp-inconsistent",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(tty_validity, TTYValidity);
+DEFINE_STRING_TABLE_LOOKUP(tty_validity, TTYValidity, t);

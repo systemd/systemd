@@ -72,7 +72,7 @@ static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
         [VARLINK_DISCONNECTED]             = "disconnected",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState, i);
 
 static int varlink_format_queue(sd_varlink *v);
 static void varlink_server_test_exit_on_idle(sd_varlink_server *s);
@@ -670,7 +670,7 @@ static sd_varlink* varlink_destroy(sd_varlink *v) {
         return mfree(v);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_varlink, sd_varlink, varlink_destroy);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_varlink, sd_varlink, v, varlink_destroy);
 
 static int varlink_test_disconnect(sd_varlink *v) {
         assert(v);
@@ -3366,7 +3366,7 @@ static sd_varlink_server* varlink_server_destroy(sd_varlink_server *s) {
         return mfree(s);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_varlink_server, sd_varlink_server, varlink_server_destroy);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_varlink_server, sd_varlink_server, s, varlink_server_destroy);
 
 _public_ int sd_varlink_server_set_info(
                 sd_varlink_server *s,

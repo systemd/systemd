@@ -231,7 +231,7 @@ void emergency_action(
         }
 }
 
-DEFINE_STRING_TABLE_LOOKUP(emergency_action, EmergencyAction);
+DEFINE_STRING_TABLE_LOOKUP(emergency_action, EmergencyAction, i);
 
 int parse_emergency_action(
                 const char *value,

@@ -82,7 +82,7 @@ static const char * const layout_table[_LAYOUT_MAX] = {
         [LAYOUT_OTHER] = "other",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(layout, Layout);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(layout, Layout, i);
 
 typedef struct Context {
         int rfd;

@@ -479,7 +479,7 @@ int sd_dhcp_option_new(uint8_t option, const void *data, size_t length, sd_dhcp_
         return 0;
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_option, sd_dhcp_option, dhcp_option_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_option, sd_dhcp_option, ra, dhcp_option_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 dhcp_option_hash_ops,
                 void,

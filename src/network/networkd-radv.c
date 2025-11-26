@@ -1408,6 +1408,7 @@ static const char * const radv_prefix_delegation_table[_RADV_PREFIX_DELEGATION_M
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(
                 radv_prefix_delegation,
                 RADVPrefixDelegation,
+                i,
                 RADV_PREFIX_DELEGATION_BOTH);
 
 int config_parse_router_prefix_delegation(

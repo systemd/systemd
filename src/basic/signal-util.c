@@ -143,7 +143,7 @@ static const char *const static_signal_table[] = {
         [SIGSYS]    = "SYS"
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(static_signal, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(static_signal, int, i);
 
 const char* signal_to_string(int signo) {
         static thread_local char buf[STRLEN("RTMIN+") + DECIMAL_STR_MAX(int)];

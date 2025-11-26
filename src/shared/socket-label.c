@@ -22,7 +22,7 @@ static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIN
         [SOCKET_ADDRESS_IPV6_ONLY] = "ipv6-only"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
+DEFINE_STRING_TABLE_LOOKUP(socket_address_bind_ipv6_only, SocketAddressBindIPv6Only, b);
 
 SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *s) {
         int r;

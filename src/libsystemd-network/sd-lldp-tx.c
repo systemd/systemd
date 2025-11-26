@@ -94,7 +94,7 @@ static sd_lldp_tx *lldp_tx_free(sd_lldp_tx *lldp_tx) {
         return mfree(lldp_tx);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_lldp_tx, sd_lldp_tx, lldp_tx_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_lldp_tx, sd_lldp_tx, lldp_tx, lldp_tx_free);
 
 int sd_lldp_tx_new(sd_lldp_tx **ret) {
         _cleanup_(sd_lldp_tx_unrefp) sd_lldp_tx *lldp_tx = NULL;

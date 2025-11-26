@@ -151,7 +151,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         return mfree(server);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server, sd_dhcp_server, dhcp_server_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server, sd_dhcp_server, server, dhcp_server_free);
 
 int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;

@@ -133,7 +133,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_XFRM]      = "xfrm",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
+DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind, d);
 
 bool netdev_is_managed(NetDev *netdev) {
         if (!netdev || !netdev->manager || !netdev->ifname)
@@ -246,7 +246,7 @@ static NetDev* netdev_free(NetDev *netdev) {
         return mfree(netdev);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(NetDev, netdev, netdev_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(NetDev, netdev, netdev, netdev_free);
 
 void netdev_drop(NetDev *netdev) {
         if (!netdev)

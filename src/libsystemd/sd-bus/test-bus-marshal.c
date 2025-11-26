@@ -8,7 +8,7 @@
 
 #if HAVE_GLIB
 DISABLE_WARNING_FORMAT_NONLITERAL
-#include <gio/gio.h> /* NOLINT */
+#include <gio/gio.h>
 REENABLE_WARNING
 #endif
 

@@ -305,7 +305,7 @@ static Link* link_free(Link *link) {
         return mfree(link);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(Link, link, link_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Link, link, link, link_free);
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 link_hash_ops,
@@ -3026,7 +3026,7 @@ static const char* const link_state_table[_LINK_STATE_MAX] = {
         [LINK_STATE_LINGER]      = "linger",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState);
+DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState, s);
 
 int link_flags_to_string_alloc(uint32_t flags, char **ret) {
         _cleanup_free_ char *str = NULL;
@@ -3073,7 +3073,7 @@ static const char * const kernel_operstate_table[] = {
         [IF_OPER_UP]             = "up",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(kernel_operstate, int);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(kernel_operstate, int, t);
 
 bool link_has_local_lease_domain(Link *link) {
         assert(link);

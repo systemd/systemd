@@ -5795,7 +5795,7 @@ static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_ALWAYS]      = "always",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
+DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart, i);
 
 static const char* const service_restart_mode_table[_SERVICE_RESTART_MODE_MAX] = {
         [SERVICE_RESTART_MODE_NORMAL] = "normal",
@@ -5803,7 +5803,7 @@ static const char* const service_restart_mode_table[_SERVICE_RESTART_MODE_MAX] =
         [SERVICE_RESTART_MODE_DEBUG]  = "debug",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(service_restart_mode, ServiceRestartMode);
+DEFINE_STRING_TABLE_LOOKUP(service_restart_mode, ServiceRestartMode, i);
 
 static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
         [SERVICE_SIMPLE]        = "simple",
@@ -5816,14 +5816,14 @@ static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
         [SERVICE_EXEC]          = "exec",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
+DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType, i);
 
 static const char* const service_exit_type_table[_SERVICE_EXIT_TYPE_MAX] = {
         [SERVICE_EXIT_MAIN]   = "main",
         [SERVICE_EXIT_CGROUP] = "cgroup",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(service_exit_type, ServiceExitType);
+DEFINE_STRING_TABLE_LOOKUP(service_exit_type, ServiceExitType, i);
 
 static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] = {
         [SERVICE_EXEC_CONDITION]   = "ExecCondition",
@@ -5836,7 +5836,7 @@ static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] =
         [SERVICE_EXEC_STOP_POST]   = "ExecStopPost",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(service_exec_command, ServiceExecCommand);
+DEFINE_STRING_TABLE_LOOKUP(service_exec_command, ServiceExecCommand, i);
 
 static const char* const service_exec_ex_command_table[_SERVICE_EXEC_COMMAND_MAX] = {
         [SERVICE_EXEC_CONDITION]   = "ExecConditionEx",
@@ -5849,7 +5849,7 @@ static const char* const service_exec_ex_command_table[_SERVICE_EXEC_COMMAND_MAX
         [SERVICE_EXEC_STOP_POST]   = "ExecStopPostEx",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(service_exec_ex_command, ServiceExecCommand);
+DEFINE_STRING_TABLE_LOOKUP(service_exec_ex_command, ServiceExecCommand, i);
 
 static const char* const notify_state_table[_NOTIFY_STATE_MAX] = {
         [NOTIFY_READY]        = "ready",
@@ -5858,7 +5858,7 @@ static const char* const notify_state_table[_NOTIFY_STATE_MAX] = {
         [NOTIFY_STOPPING]     = "stopping",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(notify_state, NotifyState);
+DEFINE_STRING_TABLE_LOOKUP(notify_state, NotifyState, i);
 
 static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
         [SERVICE_SUCCESS]                 = "success",
@@ -5874,7 +5874,7 @@ static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
         [SERVICE_SKIP_CONDITION]          = "exec-condition",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult);
+DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult, i);
 
 static const char* const service_timeout_failure_mode_table[_SERVICE_TIMEOUT_FAILURE_MODE_MAX] = {
         [SERVICE_TIMEOUT_TERMINATE] = "terminate",
@@ -5882,7 +5882,7 @@ static const char* const service_timeout_failure_mode_table[_SERVICE_TIMEOUT_FAI
         [SERVICE_TIMEOUT_KILL]      = "kill",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(service_timeout_failure_mode, ServiceTimeoutFailureMode);
+DEFINE_STRING_TABLE_LOOKUP(service_timeout_failure_mode, ServiceTimeoutFailureMode, i);
 
 const UnitVTable service_vtable = {
         .object_size = sizeof(Service),

@@ -639,7 +639,7 @@ static const char *const mount_map_mode_table[_MOUNT_MAP_MODE_MAX] = {
         [MOUNT_MAP_IDENTITY] = "identity",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(mount_map_mode, MountMapMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(mount_map_mode, MountMapMode, i);
 
 typedef struct MountDirectoryParameters {
         MountMapMode mode;

@@ -85,7 +85,7 @@ static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX
         [JOURNAL_WRITE_SPLIT_HOST] = "host",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(journal_write_split_mode, JournalWriteSplitMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(journal_write_split_mode, JournalWriteSplitMode, i);
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode, journal_write_split_mode, JournalWriteSplitMode);
 
 #if HAVE_MICROHTTPD

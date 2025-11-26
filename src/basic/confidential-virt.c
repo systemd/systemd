@@ -265,4 +265,4 @@ static const char *const confidential_virtualization_table[_CONFIDENTIAL_VIRTUAL
         [CONFIDENTIAL_VIRTUALIZATION_CCA]      = "cca",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(confidential_virtualization, ConfidentialVirtualization);
+DEFINE_STRING_TABLE_LOOKUP(confidential_virtualization, ConfidentialVirtualization, v);

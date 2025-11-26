@@ -142,7 +142,7 @@ static const char *export_format_table[_EXPORT_FORMAT_MAX] = {
         [EXPORT_FORMAT_MINIMAL]  = "minimal",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(export_format, ExportFormat);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(export_format, ExportFormat, i);
 
 static bool identity_properties_specified(void) {
         return
