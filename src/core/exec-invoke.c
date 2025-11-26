@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
-#include <linux/prctl.h>
-#include <linux/sched.h>
 #include <linux/securebits.h>
 #include <poll.h>
+#include <sched.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/ioprio.h>
@@ -16,7 +15,7 @@
 
 #include "sd-messages.h"
 
-#include "apparmor-util.h"
+#include "apparmor-util.h"      /* IWYU pragma: keep */
 #include "argv-util.h"
 #include "ask-password-api.h"
 #include "barrier.h"
@@ -33,6 +32,7 @@
 #include "constants.h"
 #include "copy.h"
 #include "coredump-util.h"
+#include "cryptsetup-util.h"
 #include "dissect-image.h"
 #include "dynamic-user.h"
 #include "env-util.h"
@@ -49,6 +49,7 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
+#include "libmount-util.h"
 #include "manager.h"
 #include "memfd-util.h"
 #include "mkdir-label.h"
@@ -187,6 +188,18 @@ static int connect_journal_socket(
         return r;
 }
 
+static bool exec_output_forward_to_console(ExecOutput o) {
+        return IN_SET(o,
+                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
+                      EXEC_OUTPUT_KMSG_AND_CONSOLE);
+}
+
+static bool exec_output_forward_to_kmsg(ExecOutput o) {
+        return IN_SET(o,
+                      EXEC_OUTPUT_KMSG,
+                      EXEC_OUTPUT_KMSG_AND_CONSOLE);
+}
+
 static int connect_logger_as(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -219,20 +232,20 @@ static int connect_logger_as(
         (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         if (dprintf(fd,
-                "%s\n"
-                "%s\n"
-                "%i\n"
-                "%i\n"
-                "%i\n"
-                "%i\n"
-                "%i\n",
-                context->syslog_identifier ?: ident,
-                params->flags & EXEC_PASS_LOG_UNIT ? params->unit_id : "",
-                context->syslog_priority,
-                !!context->syslog_level_prefix,
-                false,
-                exec_output_is_kmsg(output),
-                exec_output_is_terminal(output)) < 0)
+                    "%s\n"
+                    "%s\n"
+                    "%i\n"
+                    "%i\n"
+                    "%i\n"
+                    "%i\n"
+                    "%i\n",
+                    context->syslog_identifier ?: ident,
+                    params->flags & EXEC_PASS_LOG_UNIT ? params->unit_id : "",
+                    context->syslog_priority,
+                    !!context->syslog_level_prefix,
+                    false,
+                    exec_output_forward_to_kmsg(output),
+                    exec_output_forward_to_console(output)) < 0)
                 return -errno;
 
         return move_fd(TAKE_FD(fd), nfd, false);
@@ -496,9 +509,6 @@ static int setup_output(
         i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
         o = fixup_output(context->std_output, socket_fd);
 
-        // FIXME: we probably should spend some time here to verify that if we inherit an fd from stdin
-        // (possibly indirect via inheritance from stdout) it is actually opened for write!
-
         if (fileno == STDERR_FILENO) {
                 ExecOutput e;
                 e = fixup_output(context->std_error, socket_fd);
@@ -515,8 +525,17 @@ static int setup_output(
                         return fileno;
 
                 /* Duplicate from stdout if possible */
-                if (can_inherit_stderr_from_stdout(context, o, e))
+                if (can_inherit_stderr_from_stdout(context, o, e)) {
+                        r = fd_is_writable(STDOUT_FILENO);
+                        if (r <= 0) {
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to check if inherited stdout is writable for stderr, falling back to /dev/null.");
+                                else
+                                        log_warning("Inherited stdout is not writable for stderr, falling back to /dev/null.");
+                                return open_null_as(O_WRONLY, fileno);
+                        }
                         return RET_NERRNO(dup2(STDOUT_FILENO, fileno));
+                }
 
                 o = e;
 
@@ -526,8 +545,19 @@ static int setup_output(
                         return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
                 /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
-                if (!IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA))
+                if (!IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA)) {
+                        r = fd_is_writable(STDIN_FILENO);
+                        if (r <= 0) {
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to check if inherited stdin is writable for %s, falling back to /dev/null.",
+                                                          fileno == STDOUT_FILENO ? "stdout" : "stderr");
+                                else
+                                        log_warning("Inherited stdin is not writable for %s, falling back to /dev/null.",
+                                                    fileno == STDOUT_FILENO ? "stdout" : "stderr");
+                                return open_null_as(O_WRONLY, fileno);
+                        }
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
+                }
 
                 /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
                 if (getppid() != 1)
@@ -543,8 +573,19 @@ static int setup_output(
                 return open_null_as(O_WRONLY, fileno);
 
         case EXEC_OUTPUT_TTY:
-                if (exec_input_is_terminal(i))
+                if (exec_input_is_terminal(i)) {
+                        r = fd_is_writable(STDIN_FILENO);
+                        if (r <= 0) {
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to check if inherited stdin is writable for TTY's %s, falling back to opening terminal.",
+                                                          fileno == STDOUT_FILENO ? "stdout" : "stderr");
+                                else
+                                        log_warning("Inherited stdin is not writable for TTY's %s, falling back to opening terminal.",
+                                                    fileno == STDOUT_FILENO ? "stdout" : "stderr");
+                                return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
+                        }
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
+                }
 
                 return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
@@ -904,8 +945,16 @@ static int get_supplementary_groups(
         bool keep_groups = false;
         if (user && gid_is_valid(gid) && gid != 0) {
                 /* First step, initialize groups from /etc/groups */
-                if (initgroups(user, gid) < 0)
-                        return -errno;
+                if (initgroups(user, gid) < 0) {
+                        /* If our primary gid is already the one specified in Group= (i.e. we're running in
+                         * user mode), gracefully handle the case where we have no privilege to re-initgroups().
+                         *
+                         * Note that group memberships of the current user might have been modified, but
+                         * the change will only take effect after re-login. It's better to continue on with
+                         * existing credentials rather than erroring out. */
+                        if (!ERRNO_IS_PRIVILEGE(errno) || gid != getgid())
+                                return -errno;
+                }
 
                 keep_groups = true;
         }
@@ -1229,7 +1278,10 @@ static int exec_context_get_tty_for_pam(const ExecContext *context, char **ret) 
                 return 1;
         }
 
-        if (!IN_SET(context->std_input, EXEC_INPUT_TTY, EXEC_INPUT_TTY_FAIL, EXEC_INPUT_TTY_FORCE)) {
+        /* Do not implicitly configure TTY unless TTYPath= or StandardInput=tty is specified. See issue
+         * #39334. Note, exec_context_tty_path() returns "/dev/console" when TTYPath= is unspecified, hence
+         * explicitly check context->tty_path here. */
+        if (!context->tty_path && !exec_input_is_terminal(context->std_input)) {
                 *ret = NULL;
                 return 0;
         }
@@ -1391,7 +1443,7 @@ static int setup_pam(
 
                 /* Make sure we don't keep open the passed fds in this child. We assume that otherwise only
                  * those fds are open here that have been opened by PAM. */
-                (void) close_many(params->fds, params->n_socket_fds + params->n_stashed_fds);
+                close_many(params->fds, params->n_socket_fds + params->n_stashed_fds);
 
                 /* Also close the 'exec_fd' in the child, since the service manager waits for the EOF induced
                  * by the execve() to wait for completion, and if we'd keep the fd open here in the child
@@ -1972,8 +2024,6 @@ static void do_idle_pipe_dance(int idle_pipe[static 4]) {
         idle_pipe[3] = safe_close(idle_pipe[3]);
 }
 
-static const char *exec_directory_env_name_to_string(ExecDirectoryType t);
-
 /* And this table also maps ExecDirectoryType, to the environment variable we pass the selected directory to
  * the service payload in. */
 static const char* const exec_directory_env_name_table[_EXEC_DIRECTORY_TYPE_MAX] = {
@@ -2001,6 +2051,7 @@ static int build_environment(
 
         _cleanup_strv_free_ char **e = NULL;
         size_t n = 0;
+        pid_t exec_pid;
         int r;
 
         assert(c);
@@ -2008,10 +2059,12 @@ static int build_environment(
         assert(cgroup_context);
         assert(ret);
 
+        exec_pid = needs_sandboxing && exec_needs_pid_namespace(c, p) ? 1 : getpid_cached();
+
         if (p->n_socket_fds + p->n_stashed_fds > 0) {
                 _cleanup_free_ char *joined = NULL;
 
-                r = strv_extendf_with_size(&e, &n, "LISTEN_PID="PID_FMT, getpid_cached());
+                r = strv_extendf_with_size(&e, &n, "LISTEN_PID="PID_FMT, exec_pid);
                 if (r < 0)
                         return r;
 
@@ -2036,7 +2089,7 @@ static int build_environment(
         }
 
         if ((p->flags & EXEC_SET_WATCHDOG) && p->watchdog_usec > 0) {
-                r = strv_extendf_with_size(&e, &n, "WATCHDOG_PID="PID_FMT, getpid_cached());
+                r = strv_extendf_with_size(&e, &n, "WATCHDOG_PID="PID_FMT, exec_pid);
                 if (r < 0)
                         return r;
 
@@ -2062,8 +2115,11 @@ static int build_environment(
                 assert(!c->user);
 
                 r = get_fixed_user("root", /* prefer_nss = */ false, &username, NULL, NULL, &home, &shell);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to determine user credentials for root: %m");
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to determine credentials for user root: %s",
+                                        STRERROR_USER(r));
+                        return ERRNO_IS_NEG_BAD_ACCOUNT(r) ? -EINVAL : r;  /* Suppress confusing errno */
+                }
         }
 
         bool set_user_login_env = exec_context_get_set_login_environment(c);
@@ -2108,7 +2164,7 @@ static int build_environment(
         }
 
         if (!sd_id128_is_null(p->invocation_id)) {
-                assert(p->invocation_id_string);
+                assert(!isempty(p->invocation_id_string));
 
                 r = strv_extend_joined_with_size(&e, &n, "INVOCATION_ID=", p->invocation_id_string);
                 if (r < 0)
@@ -2166,7 +2222,7 @@ static int build_environment(
                         return r;
         }
 
-        r = strv_extendf_with_size(&e, &n, "SYSTEMD_EXEC_PID=" PID_FMT, getpid_cached());
+        r = strv_extendf_with_size(&e, &n, "SYSTEMD_EXEC_PID=" PID_FMT, exec_pid);
         if (r < 0)
                 return r;
 
@@ -3558,11 +3614,9 @@ static int setup_ephemeral(
 static int verity_settings_prepare(
                 VeritySettings *verity,
                 const char *root_image,
-                const void *root_hash,
-                size_t root_hash_size,
+                const struct iovec *root_hash,
                 const char *root_hash_path,
-                const void *root_hash_sig,
-                size_t root_hash_sig_size,
+                const struct iovec *root_hash_sig,
                 const char *root_hash_sig_path,
                 const char *verity_data_path) {
 
@@ -3571,26 +3625,20 @@ static int verity_settings_prepare(
         assert(verity);
 
         if (root_hash) {
-                void *d;
+                iovec_done(&verity->root_hash);
 
-                d = memdup(root_hash, root_hash_size);
-                if (!d)
+                if (!iovec_memdup(root_hash, &verity->root_hash))
                         return -ENOMEM;
 
-                free_and_replace(verity->root_hash, d);
-                verity->root_hash_size = root_hash_size;
                 verity->designator = PARTITION_ROOT;
         }
 
         if (root_hash_sig) {
-                void *d;
+                iovec_done(&verity->root_hash_sig);
 
-                d = memdup(root_hash_sig, root_hash_sig_size);
-                if (!d)
+                if (!iovec_memdup(root_hash_sig, &verity->root_hash_sig))
                         return -ENOMEM;
 
-                free_and_replace(verity->root_hash_sig, d);
-                verity->root_hash_sig_size = root_hash_sig_size;
                 verity->designator = PARTITION_ROOT;
         }
 
@@ -3820,8 +3868,8 @@ static int apply_mount_namespace(
                 r = verity_settings_prepare(
                         &verity,
                         root_image,
-                        context->root_hash, context->root_hash_size, context->root_hash_path,
-                        context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
+                        &context->root_hash, context->root_hash_path,
+                        &context->root_hash_sig, context->root_hash_sig_path,
                         context->root_verity);
                 if (r < 0)
                         return r;
@@ -4159,6 +4207,7 @@ static int close_remaining_fds(
         append_socket_pair(dont_close, &n_dont_close, runtime->ephemeral_storage_socket);
 
         if (runtime->shared) {
+                append_socket_pair(dont_close, &n_dont_close, runtime->shared->userns_storage_socket);
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->netns_storage_socket);
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->ipcns_storage_socket);
         }
@@ -4459,11 +4508,18 @@ static void log_command_line(
 
 static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParameters *params) {
         assert(context);
+        assert(params);
+
+        /* We only want to ever imply PrivateUsers= for user managers, as they're not expected to setuid() to
+         * other users, unlike the system manager which needs all users to be around. */
+        if (params->runtime_scope != RUNTIME_SCOPE_USER)
+                return false;
 
         return context->private_users != PRIVATE_USERS_NO ||
                context->private_tmp != PRIVATE_TMP_NO ||
                context->private_devices ||
                context->private_network ||
+               context->user_namespace_path ||
                context->network_namespace_path ||
                context->private_ipc ||
                context->ipc_namespace_path ||
@@ -4768,6 +4824,7 @@ static void exec_shared_runtime_close(ExecSharedRuntime *shared) {
         if (!shared)
                 return;
 
+        safe_close_pair(shared->userns_storage_socket);
         safe_close_pair(shared->netns_storage_socket);
         safe_close_pair(shared->ipcns_storage_socket);
 }
@@ -5239,7 +5296,9 @@ int exec_invoke(
                                            &username, &uid, &gid, &pwent_home, &shell);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
-                                return log_error_errno(r, "Failed to determine user credentials: %m");
+                                log_error_errno(r, "Failed to determine credentials for user '%s': %s",
+                                                u, STRERROR_USER(r));
+                                return ERRNO_IS_NEG_BAD_ACCOUNT(r) ? -EINVAL : r;  /* Suppress confusing errno */
                         }
                 }
 
@@ -5247,7 +5306,9 @@ int exec_invoke(
                         r = get_fixed_group(context->group, &groupname, &gid);
                         if (r < 0) {
                                 *exit_status = EXIT_GROUP;
-                                return log_error_errno(r, "Failed to determine group credentials: %m");
+                                log_error_errno(r, "Failed to determine credentials for group '%s': %s",
+                                                u, STRERROR_GROUP(r));
+                                return ERRNO_IS_NEG_BAD_ACCOUNT(r) ? -EINVAL : r;  /* Suppress confusing errno */
                         }
                 }
         }
@@ -5319,6 +5380,14 @@ int exec_invoke(
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
                         return log_error_errno(r, "Failed to attach to cgroup %s: %m", cgtarget);
+                }
+        }
+
+        if (context->user_namespace_path && runtime->shared && runtime->shared->userns_storage_socket[0] >= 0) {
+                r = open_shareable_ns_path(runtime->shared->userns_storage_socket, context->user_namespace_path, CLONE_NEWUSER);
+                if (r < 0) {
+                        *exit_status = EXIT_NAMESPACE;
+                        return log_error_errno(r, "Failed to open user namespace path %s: %m", context->user_namespace_path);
                 }
         }
 
@@ -5545,7 +5614,7 @@ int exec_invoke(
 
                 if (is_pressure_supported() > 0) {
                         if (cgroup_context_want_memory_pressure(cgroup_context)) {
-                                r = cg_get_path("memory", params->cgroup_path, "memory.pressure", &memory_pressure_path);
+                                r = cg_get_path(params->cgroup_path, "memory.pressure", &memory_pressure_path);
                                 if (r < 0) {
                                         *exit_status = EXIT_MEMORY;
                                         return log_oom();
@@ -5563,7 +5632,7 @@ int exec_invoke(
                                  * memory_pressure_path != NULL in the conditional below. */
                                 if (memory_pressure_path && needs_sandboxing && exec_needs_cgroup_namespace(context)) {
                                         memory_pressure_path = mfree(memory_pressure_path);
-                                        r = cg_get_path("memory", "/", "memory.pressure", &memory_pressure_path);
+                                        r = cg_get_path("/", "memory.pressure", &memory_pressure_path);
                                         if (r < 0) {
                                                 *exit_status = EXIT_MEMORY;
                                                 return log_oom();
@@ -5663,7 +5732,7 @@ int exec_invoke(
 
         /* We need setresuid() if the caller asked us to apply sandboxing and the command isn't explicitly
          * excepted from either whole sandboxing or just setresuid() itself. */
-        needs_setuid = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID));
+        needs_setuid = needs_sandboxing && !FLAGS_SET(command->flags, EXEC_COMMAND_NO_SETUID);
 
         uint64_t capability_ambient_set = context->capability_ambient_set;
 
@@ -5682,12 +5751,7 @@ int exec_invoke(
                 use_smack = mac_smack_use();
 #endif
 #if HAVE_APPARMOR
-                if (mac_apparmor_use()) {
-                        r = dlopen_libapparmor();
-                        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                                log_warning_errno(r, "Failed to load libapparmor, ignoring: %m");
-                        use_apparmor = r >= 0;
-                }
+                use_apparmor = mac_apparmor_use();
 #endif
         }
 
@@ -5754,10 +5818,24 @@ int exec_invoke(
                 }
         }
 
+        /* Load a bunch of libraries we'll possibly need later, before we turn off dlopen() */
+        (void) dlopen_bpf();
+        (void) dlopen_cryptsetup();
+        (void) dlopen_libmount();
+        (void) dlopen_libseccomp();
+
+        /* Let's now disable further dlopen()ing of libraries, since we are about to do namespace
+         * shenanigans, and do not want to mix resources from host and namespace */
+        block_dlopen();
+
         if (needs_sandboxing && !have_cap_sys_admin && exec_needs_cap_sys_admin(context, params)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
+
+                if (context->user_namespace_path && runtime->shared->userns_storage_socket[0] >= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "UserNamespacePath= is configured, but user namespace setup not permitted");
+
                 PrivateUsers pu = exec_context_get_effective_private_users(context, params);
                 if (pu == PRIVATE_USERS_NO)
                         pu = PRIVATE_USERS_SELF;
@@ -5828,8 +5906,20 @@ int exec_invoke(
          * restricted by rules pertaining to combining user namespaces with other namespaces (e.g. in the
          * case of mount namespaces being less privileged when the mount point list is copied from a
          * different user namespace). */
+        if (needs_sandboxing && context->user_namespace_path && runtime->shared && runtime->shared->userns_storage_socket[0] >= 0) {
+                if (!namespace_type_supported(NAMESPACE_USER))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "UserNamespacePath= is not supported, refusing.");
 
-        if (needs_sandboxing && !userns_set_up) {
+                r = setup_shareable_ns(runtime->shared->userns_storage_socket, CLONE_NEWUSER);
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        return log_notice_errno(r, "PrivateUsers= is configured, but user namespace setup not permitted, refusing.");
+                if (r < 0) {
+                        *exit_status = EXIT_USER;
+                        return log_error_errno(r, "Failed to set up user namespacing: %m");
+                }
+
+                log_debug("Set up existing user namespace");
+        } else if (needs_sandboxing && !userns_set_up) {
                 PrivateUsers pu = exec_context_get_effective_private_users(context, params);
 
                 r = setup_private_users(pu, saved_uid, saved_gid, uid, gid,

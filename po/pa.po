@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-23 15:38+0100\n"
+"POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2024-01-16 14:35+0000\n"
 "Last-Translator: A S Alam <aalam@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Punjabi <https://translate.fedoraproject.org/projects/systemd/"
@@ -146,161 +146,160 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:94
 #, fuzzy
-#| msgid "Authentication is required to manage system services or other units."
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr "ਸਿਸਟਮ ਸੇਵਾਵਾਂ ਜਾਂ ਹੋਰ ਇਕਾਈਆਂ ਦੇ ਇੰਤਜਾਮ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
-#: src/home/pam_systemd_home.c:336
+#: src/home/pam_systemd_home.c:333
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:341
+#: src/home/pam_systemd_home.c:338
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "ਵਰਤੋਂਕਾਰ %s ਲਈ ਬਹੁਤ ਛੇਤੀ ਛੇਤੀ ਲਾਗਇਨ ਕੋਸ਼ਿਸ਼ਾਂ ਕੀਤੀਆਂ, ਬਾਅਦ ਵਿੱਚ ਕੋਸ਼ਿਸ਼ ਕਰਿਓ।"
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:350
 msgid "Password: "
 msgstr "ਪਾਸਵਰਡ: "
 
-#: src/home/pam_systemd_home.c:355
+#: src/home/pam_systemd_home.c:352
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "ਵਰਤੋਂਕਾਰ %s ਦੀ ਪਰਮਾਣਿਕਤਾ ਲਈ ਪਾਸਵਰਡ ਗਲਤ ਹੈ ਜਾਂ ਕਾਫ਼ੀ ਨਹੀਂ ਹੈ।"
 
-#: src/home/pam_systemd_home.c:356
+#: src/home/pam_systemd_home.c:353
 msgid "Sorry, try again: "
 msgstr "ਅਫ਼ਸੋਸ, ਫੇਰ ਕੋਸ਼ਿਸ਼ ਕਰਿਓ: "
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:375
 msgid "Recovery key: "
 msgstr "ਰਿਕਵਰੀ ਕੁੰਜੀ: "
 
-#: src/home/pam_systemd_home.c:380
+#: src/home/pam_systemd_home.c:377
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr "ਵਰਤੋਂਕਾਰ %s ਦੀ ਪਰਮਾਣਿਕਤਾ ਲਈ ਪਾਸਵਰਡ/ਰਿਕਵਰੀ ਕੁੰਜੀ ਗਲਤ ਹੈ ਜਾਂ ਕਾਫ਼ੀ ਨਹੀਂ ਹੈ।"
 
-#: src/home/pam_systemd_home.c:381
+#: src/home/pam_systemd_home.c:378
 msgid "Sorry, reenter recovery key: "
 msgstr "ਅਫ਼ਸੋਸ, ਰਿਕਵਰੀ ਕੁੰਜੀ ਫੇਰ ਭਰਿਓ: "
 
-#: src/home/pam_systemd_home.c:401
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "%s ਵਰਤੋਂਕਾਰ ਲਈ ਸੁਰੱਖਿਆ ਟੋਕਨ ਨਹੀਂ ਦਿੱਤਾ ਗਿਆ।"
 
-#: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
+#: src/home/pam_systemd_home.c:399 src/home/pam_systemd_home.c:402
 msgid "Try again with password: "
 msgstr "ਪਾਸਵਰਡ ਨਾਲ ਫੇਰ ਕੋਸ਼ਿਸ਼ ਕਰਿਓ: "
 
-#: src/home/pam_systemd_home.c:404
+#: src/home/pam_systemd_home.c:401
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:424
+#: src/home/pam_systemd_home.c:421
 msgid "Security token PIN: "
 msgstr "ਸੁਰੱਖਿਆ ਟੋਕਨ ਪਿੰਨ: "
 
-#: src/home/pam_systemd_home.c:441
+#: src/home/pam_systemd_home.c:438
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:452
+#: src/home/pam_systemd_home.c:449
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:463
+#: src/home/pam_systemd_home.c:460
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:472
+#: src/home/pam_systemd_home.c:469
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:480
+#: src/home/pam_systemd_home.c:477
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:481 src/home/pam_systemd_home.c:500
-#: src/home/pam_systemd_home.c:519
+#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:516
 msgid "Sorry, retry security token PIN: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:499
+#: src/home/pam_systemd_home.c:496
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:518
+#: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:685
+#: src/home/pam_systemd_home.c:682
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:687
+#: src/home/pam_systemd_home.c:684
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "%s ਵਰਤੋਂਕਾਰ ਦਾ ਹੋਮ ਇਸ ਵੇਲੇ ਲਾਕ ਹੈ, ਪਹਿਲਾਂ ਇਸ ਨੂੰ ਲੋਕਲ ਰੂਪ ਵਿੱਚ ਅਣ-ਲਾਕ ਕਰੋ।"
 
-#: src/home/pam_systemd_home.c:719
+#: src/home/pam_systemd_home.c:718
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1005
+#: src/home/pam_systemd_home.c:1017
 msgid "User record is blocked, prohibiting access."
 msgstr "ਵਰਤੋਂਕਾਰ ਰਿਕਾਰਡ ਉੱਤੇ ਪਾਬੰਦੀ ਲਾਈ ਹੈ, ਪਹੁੰਚ ਤੋਂ ਰੋਕਿਆ ਜਾ ਰਿਹਾ ਹੈ।"
 
-#: src/home/pam_systemd_home.c:1009
+#: src/home/pam_systemd_home.c:1021
 msgid "User record is not valid yet, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1013
+#: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid anymore, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1018 src/home/pam_systemd_home.c:1067
+#: src/home/pam_systemd_home.c:1030 src/home/pam_systemd_home.c:1079
 msgid "User record not valid, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1028
+#: src/home/pam_systemd_home.c:1040
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "ਬਹੁਤ ਸਾਰੀਆਂ ਕੋਸ਼ਿਸ ਕੀਤੀਆਂ, %s ਵਿੱਚ ਫੇਰ ਕੋਸ਼ਿਸ਼ ਕਰੋ।"
 
-#: src/home/pam_systemd_home.c:1039
+#: src/home/pam_systemd_home.c:1051
 msgid "Password change required."
 msgstr "ਪਾਸਵਰਡ ਬਦਲਣ ਦੀ ਲੋੜ ਹੈ।"
 
-#: src/home/pam_systemd_home.c:1043
+#: src/home/pam_systemd_home.c:1055
 msgid "Password expired, change required."
 msgstr "ਪਾਸਵਰਡ ਦੀ ਮਿਆਦ ਪੁੱਗੀ ਹੈ, ਇਹ ਬਦਲਣ ਦੀ ਲੋੜ ਹੈ।"
 
-#: src/home/pam_systemd_home.c:1049
+#: src/home/pam_systemd_home.c:1061
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "ਪਾਸਵਰਡ ਦੀ ਮਿਆਦ ਪੁੱਗੀ, ਪਰ ਬਦਲਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ, ਲਾਗਇਨ ਤੋਂ ਇਨਕਾਰ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ।"
 
-#: src/home/pam_systemd_home.c:1053
+#: src/home/pam_systemd_home.c:1065
 msgid "Password will expire soon, please change."
 msgstr "ਪਾਸਵਰਡ ਦੀ ਮਿਆਦ ਛੇਤੀ ਹੀ ਪੁੱਗ ਜਾਵੇਗੀ, ਇਸ ਨੂੰ ਬਦਲ ਲਵੋ।"
 
@@ -1186,13 +1185,12 @@ msgstr "'$(unit)' ਨੂੰ ਮੁੜ-ਸ਼ੁਰੂ (restart) ਕਰਨ ਲਈ �
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
 
 #: src/core/dbus-unit.c:620
 #, fuzzy
-#| msgid "Authentication is required to stop '$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
@@ -1208,8 +1206,8 @@ msgstr ""
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 
 #: src/core/dbus-unit.c:812

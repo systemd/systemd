@@ -416,7 +416,13 @@ static int dump_files(Hashmap *fh, const char *root, ConfFile ***ret_files, size
         return 0;
 }
 
-static int copy_and_sort_files_from_hashmap(Hashmap *fh, const char *root, ConfFilesFlags flags, char ***ret) {
+static int copy_and_sort_files_from_hashmap(
+                Hashmap *fh,
+                const char *suffix,
+                const char *root,
+                ConfFilesFlags flags,
+                char ***ret) {
+
         _cleanup_strv_free_ char **results = NULL;
         _cleanup_free_ ConfFile **files = NULL;
         size_t n_files = 0, n_results = 0;
@@ -432,19 +438,44 @@ static int copy_and_sort_files_from_hashmap(Hashmap *fh, const char *root, ConfF
 
         FOREACH_ARRAY(i, files, n_files) {
                 ConfFile *c = *i;
+                const char *add = NULL;
 
                 if (FLAGS_SET(flags, CONF_FILES_BASENAME))
-                        r = strv_extend_with_size(&results, &n_results, c->name);
+                        add = c->name;
                 else if (root) {
-                        char *p;
+                        _cleanup_free_ char *p = NULL;
 
                         r = chaseat_prefix_root(c->result, root, &p);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to prefix '%s' with root '%s': %m", c->result, root);
 
-                        r = strv_consume_with_size(&results, &n_results, TAKE_PTR(p));
+                        if (FLAGS_SET(flags, CONF_FILES_TRUNCATE_SUFFIX) && suffix) {
+                                char *e = endswith(p, suffix);
+                                if (!e)
+                                        continue;
+
+                                *e = 0;
+                        }
+
+                        if (strv_consume_with_size(&results, &n_results, TAKE_PTR(p)) < 0)
+                                return log_oom_debug();
+
+                        continue;
                 } else
-                        r = strv_extend_with_size(&results, &n_results, c->result);
+                        add = c->result;
+
+                if (FLAGS_SET(flags, CONF_FILES_TRUNCATE_SUFFIX)) {
+                        const char *e = endswith(add, suffix);
+                        if (!e)
+                                continue;
+
+                        _cleanup_free_ char *n = strndup(add, e - add);
+                        if (!n)
+                                return log_oom_debug();
+
+                        r = strv_consume_with_size(&results, &n_results, TAKE_PTR(n));
+                } else
+                        r = strv_extend_with_size(&results, &n_results, add);
                 if (r < 0)
                         return log_oom_debug();
         }
@@ -566,7 +597,7 @@ int conf_files_list_strv(
         if (r < 0)
                 return r;
 
-        return copy_and_sort_files_from_hashmap(fh, empty_to_root(root_abs), flags, ret);
+        return copy_and_sort_files_from_hashmap(fh, suffix, empty_to_root(root_abs), flags, ret);
 }
 
 int conf_files_list_strv_full(
@@ -619,7 +650,7 @@ int conf_files_list_strv_at(
         if (r < 0)
                 return r;
 
-        return copy_and_sort_files_from_hashmap(fh, /* root = */ NULL, flags, ret);
+        return copy_and_sort_files_from_hashmap(fh, suffix, /* root = */ NULL, flags, ret);
 }
 
 int conf_files_list_strv_at_full(
@@ -747,7 +778,7 @@ int conf_files_list_with_replacement(
                         return log_debug_errno(r, "Failed to prefix '%s' with root '%s': %m", c->result, empty_to_root(root_abs));
         }
 
-        r = copy_and_sort_files_from_hashmap(fh, empty_to_root(root_abs), flags, ret_files);
+        r = copy_and_sort_files_from_hashmap(fh, ".conf", empty_to_root(root_abs), flags, ret_files);
         if (r < 0)
                 return r;
 

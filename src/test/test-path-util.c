@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "argv-util.h"
+#include "errno-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "path-util.h"
@@ -1202,6 +1203,7 @@ TEST(hidden_or_backup_file) {
         assert_se(hidden_or_backup_file("aquota.user"));
         assert_se(hidden_or_backup_file("aquota.group"));
 
+        assert_se(hidden_or_backup_file("test.ignore"));
         assert_se(hidden_or_backup_file("test.rpmnew"));
         assert_se(hidden_or_backup_file("test.dpkg-old"));
         assert_se(hidden_or_backup_file("test.dpkg-remove"));

@@ -782,7 +782,7 @@ TEST(tpm2b_public_to_openssl_pkey) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_rsa = NULL;
         assert_se(tpm2_tpm2b_public_to_openssl_pkey(&public, &pkey_rsa) >= 0);
 
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx_rsa = EVP_PKEY_CTX_new((EVP_PKEY*) pkey_rsa, NULL);
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx_rsa = EVP_PKEY_CTX_new(pkey_rsa, NULL);
         assert_se(ctx_rsa);
         assert_se(EVP_PKEY_verify_init(ctx_rsa) == 1);
         assert_se(EVP_PKEY_CTX_set_signature_md(ctx_rsa, EVP_sha256()) > 0);
@@ -795,7 +795,7 @@ TEST(tpm2b_public_to_openssl_pkey) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_ecc = NULL;
         assert_se(tpm2_tpm2b_public_to_openssl_pkey(&public, &pkey_ecc) >= 0);
 
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx_ecc = EVP_PKEY_CTX_new((EVP_PKEY*) pkey_ecc, NULL);
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx_ecc = EVP_PKEY_CTX_new(pkey_ecc, NULL);
         assert_se(ctx_ecc);
         assert_se(EVP_PKEY_verify_init(ctx_ecc) == 1);
 

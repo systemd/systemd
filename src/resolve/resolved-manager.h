@@ -120,6 +120,12 @@ typedef struct Manager {
         bool read_resolv_conf;
         bool resolve_unicast_single_label;
         bool read_etc_hosts;
+  
+        /* Map varlink links to DnsServiceBrowser instances. */
+        Hashmap *dns_service_browsers;
+
+        Hashmap *hooks;
+        struct stat hook_stat;
 } Manager;
 
 /* Manager */

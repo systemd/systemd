@@ -36,7 +36,7 @@ common_dependencies = [
 executables += [
         libexec_template + {
                 'name' : 'systemd-coredump',
-                'sources' : systemd_coredump_sources + systemd_coredump_extract_sources,
+                'sources' : systemd_coredump_sources,
                 'include_directories' : [libexec_template['include_directories'], include_directories('.')],
                 'extract' : systemd_coredump_extract_sources,
                 'link_with' : [libshared],

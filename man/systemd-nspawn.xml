@@ -327,14 +327,12 @@
           partition of type
           0fc63daf-8483-4772-8e79-3d69d8477de4.</para></listitem>
 
-          <listitem><para>A GUID partition table (GPT) with a marked
-          root partition which is mounted as the root directory of the
-          container. Optionally, GPT images may contain a home and/or
-          a server data partition which are mounted to the appropriate
-          places in the container. All these partitions must be
-          identified by the partition types defined by the <ulink
-          url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
-          Partitions Specification</ulink>.</para></listitem>
+          <listitem><para>A GUID partition table (GPT) with a marked root partition which is mounted as the
+          root directory of the container. Optionally, GPT images may contain a home and/or a server data
+          partition which are mounted to the appropriate places in the container. All these partitions must
+          be identified by the partition types defined by the <ulink
+          url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2
+          Discoverable Partitions Specification</ulink>.</para></listitem>
 
           <listitem><para>No partition table, and a single file system spanning the whole image.</para></listitem>
         </itemizedlist>

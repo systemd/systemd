@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
-#include <linux/prctl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mount.h>
@@ -21,6 +20,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "libmount-util.h"
 #include "manager.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -1605,6 +1605,8 @@ TEST(run_tests_unprivileged) {
 }
 
 static int intro(void) {
+        int r;
+
 #if HAS_FEATURE_ADDRESS_SANITIZER
         if (strstr_ptr(ci_environment(), "travis") || strstr_ptr(ci_environment(), "github-actions"))
                 return log_tests_skipped("Running on Travis CI/GH Actions under ASan, see https://github.com/systemd/systemd/issues/10696");
@@ -1613,7 +1615,7 @@ static int intro(void) {
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
                 return log_tests_skipped("not privileged");
 
-        if (running_in_chroot() > 0)
+        if (running_in_chroot() != 0)
                 return log_tests_skipped("running in chroot");
 
         if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
@@ -1621,6 +1623,10 @@ static int intro(void) {
 
         if (path_is_read_only_fs("/sys") > 0)
                 return log_tests_skipped("/sys is mounted read-only");
+
+        r = dlopen_libmount();
+        if (r < 0)
+                return log_tests_skipped("libmount not available.");
 
         /* Create dummy network interface for testing PrivateNetwork=yes */
         have_net_dummy = system("ip link add dummy-test-exec type dummy") == 0;

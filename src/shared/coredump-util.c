@@ -13,7 +13,7 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "unaligned.h"
+#include "unaligned.h"          /* IWYU pragma: keep */
 #include "virt.h"
 
 int set_dumpable(SuidDumpMode mode) {

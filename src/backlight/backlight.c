@@ -203,7 +203,7 @@ static int validate_device(sd_device *device) {
 
         r = device_in_subsystem(device, "leds");
         if (r < 0)
-                return log_device_debug_errno(device, r, "Failed to check if device is in backlight subsystem: %m");
+                return log_device_debug_errno(device, r, "Failed to check if device is in leds subsystem: %m");
         if (r > 0)
                 return true; /* We assume LED device is always valid. */
 

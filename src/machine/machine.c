@@ -24,6 +24,7 @@
 #include "log.h"
 #include "machine.h"
 #include "machine-dbus.h"
+#include "machined-resolve-hook.h"
 #include "machined.h"
 #include "mkdir-label.h"
 #include "namespace-util.h"
@@ -595,7 +596,7 @@ static int machine_dispatch_cgroup_empty(sd_event_source *s, const struct inotif
 
         assert(m->cgroup);
 
-        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, m->cgroup);
+        r = cg_is_empty(m->cgroup);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if cgroup '%s' is empty: %m", m->cgroup);
 
@@ -615,7 +616,7 @@ static int machine_watch_cgroup(Machine *m) {
                 return 0;
 
         _cleanup_free_ char *p = NULL;
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup, "cgroup.events", &p);
+        r = cg_get_path(m->cgroup, "cgroup.events", &p);
         if (r < 0)
                 return log_error_errno(r, "Failed to get cgroup path for cgroup '%s': %m", m->cgroup);
 
@@ -672,7 +673,9 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         /* Save new machine data */
         machine_save(m);
 
-        machine_send_signal(m, true);
+        machine_send_signal(m, "MachineNew");
+
+        (void) manager_notify_hook_filters(m->manager);
 
         return 0;
 }
@@ -730,8 +733,10 @@ int machine_finalize(Machine *m) {
         machine_add_to_gc_queue(m);
 
         if (m->started) {
-                machine_send_signal(m, false);
+                machine_send_signal(m, "MachineRemoved");
                 m->started = false;
+
+                (void) manager_notify_hook_filters(m->manager);
         }
 
         return 0;
@@ -777,7 +782,7 @@ bool machine_may_gc(Machine *m, bool drop_not_started) {
         }
 
         if (m->cgroup) {
-                r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, m->cgroup);
+                r = cg_is_empty(m->cgroup);
                 if (IN_SET(r, 0, -ENOENT))
                         return true;
                 if (r < 0)
@@ -799,16 +804,16 @@ void machine_add_to_gc_queue(Machine *m) {
         manager_enqueue_gc(m->manager);
 }
 
-MachineState machine_get_state(Machine *s) {
-        assert(s);
+MachineState machine_get_state(Machine *m) {
+        assert(m);
 
-        if (s->class == MACHINE_HOST)
+        if (m->class == MACHINE_HOST)
                 return MACHINE_RUNNING;
 
-        if (s->stopping)
+        if (m->stopping)
                 return MACHINE_CLOSING;
 
-        if (s->scope_job)
+        if (m->scope_job)
                 return MACHINE_OPENING;
 
         return MACHINE_RUNNING;

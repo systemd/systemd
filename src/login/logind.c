@@ -441,13 +441,13 @@ static int deliver_session_device_fd(Session *s, const char *fdname, int fd, dev
         return 0;
 }
 
-static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int fd) {
+static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int fd_consume) {
+        _cleanup_close_ int fd = ASSERT_FD(fd_consume);
         _cleanup_(pidref_done) PidRef leader_fdstore = PIDREF_NULL;
         int r;
 
         assert(s);
         assert(fdname);
-        assert(fd >= 0);
 
         /* Already deserialized via pidfd id? */
         if (pidref_is_set(&s->leader)) {
@@ -473,12 +473,13 @@ static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int
 
         r = pidref_set_pidfd_take(&leader_fdstore, fd);
         if (r < 0) {
-                if (r == -ESRCH)
-                        log_debug_errno(r, "Leader of session '%s' is gone while deserializing.", s->id);
-                else
-                        log_warning_errno(r, "Failed to create reference to leader of session '%s': %m", s->id);
+                log_warning_errno(r,
+                                  r == -ESRCH ? "Leader of session '%s' is gone while deserializing."
+                                              : "Failed to create reference to leader of session '%s': %m",
+                                  s->id);
                 goto fail_close;
         }
+        TAKE_FD(fd);
 
         if (leader_fdstore.pid != s->deserialized_pid)
                 log_warning("Leader from pidfd (" PID_FMT ") doesn't match with LEADER=" PID_FMT " for session '%s', proceeding anyway.",
@@ -491,7 +492,7 @@ static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int
         return 0;
 
 fail_close:
-        close_and_notify_warn(fd, fdname);
+        close_and_notify_warn(TAKE_FD(fd), fdname);
         return r;
 }
 
@@ -565,7 +566,7 @@ static int manager_enumerate_sessions(Manager *m) {
                 session_add_to_gc_queue(s);
 
                 k = session_load(s);
-                if (k < 0)
+                if (k < 0 && k != -ESRCH)
                         RET_GATHER(r, log_warning_errno(k, "Failed to deserialize session '%s', ignoring: %m", s->id));
         }
 

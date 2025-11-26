@@ -570,7 +570,7 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
                 return 0;
         }
 
-        if (lseek(fd, SEEK_SET, 0) < 0)
+        if (lseek(fd, 0, SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to seek to beginning of memfd: %m");
 
         f = take_fdopen(&fd, "r");
@@ -740,7 +740,7 @@ static void home_fixate_finish(Home *h, int ret, UserRecord *hr) {
         secret = TAKE_PTR(h->secret); /* Take possession */
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ false);
+                home_count_bad_authentication(h, ret, /* save= */ false);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_error_errno(ret, "Fixation failed: %m");
@@ -831,7 +831,7 @@ static void home_activate_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_ACTIVATING, HOME_ACTIVATING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -994,7 +994,7 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         flags = h->current_operation ? h->current_operation->call_flags : 0;
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -1069,7 +1069,7 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_UNLOCKING, HOME_UNLOCKING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -1105,7 +1105,7 @@ static void home_authenticating_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_AUTHENTICATING, HOME_AUTHENTICATING_WHILE_ACTIVE, HOME_AUTHENTICATING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -2189,7 +2189,7 @@ void home_process_notify(Home *h, char **l, int fd) {
                         return (void) log_debug_errno(r, "Failed to parse SYSTEMD_LUKS_LOCK_FD value: %m");
                 if (r > 0) {
                         if (taken_fd < 0)
-                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring: %m");
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring.");
 
                         close_and_replace(h->luks_lock_fd, taken_fd);
 
@@ -2199,7 +2199,7 @@ void home_process_notify(Home *h, char **l, int fd) {
                         home_maybe_close_luks_lock_fd(h, _HOME_STATE_INVALID);
                 } else {
                         if (taken_fd >= 0)
-                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=0 but fd passed, ignoring: %m");
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=0 but fd passed, ignoring.");
 
                         h->luks_lock_fd = safe_close(h->luks_lock_fd);
                 }
@@ -2687,7 +2687,7 @@ int home_augment_status(
                 disk_ceiling = USER_DISK_SIZE_MAX;
 
         r = sd_json_buildo(&status,
-                           SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(home_state_to_string(state))),
+                           SD_JSON_BUILD_PAIR_STRING("state", home_state_to_string(state)),
                            SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
                            SD_JSON_BUILD_PAIR("useFallback", SD_JSON_BUILD_BOOLEAN(!HOME_STATE_IS_ACTIVE(state))),
                            SD_JSON_BUILD_PAIR("fallbackShell", JSON_BUILD_CONST_STRING(BINDIR "/systemd-home-fallback-shell")),

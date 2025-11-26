@@ -15,3 +15,9 @@ custom_target(
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : true,
         install_dir : factory_etc_dir)
+
+if conf.get('ENABLE_NSS') == 1
+        install_data(
+                'nsswitch.conf',
+                install_dir : factory_etc_dir)
+endif

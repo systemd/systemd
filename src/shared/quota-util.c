@@ -42,7 +42,7 @@ int quota_query_proj_id(int fd, uint32_t proj_id, struct dqblk *ret_req) {
 
         r = quotactl_fd_with_fallback(fd, QCMD_FIXED(Q_GETQUOTA, PRJQUOTA), proj_id, ret_req);
         if (r == -ESRCH || ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r)) {
-                zero(ret_req);
+                *ret_req = (struct dqblk) {};
                 return false;
         }
         if (r < 0)

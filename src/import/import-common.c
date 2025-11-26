@@ -35,7 +35,9 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         if (r < 0)
                 return r;
 
-        TarFlags flags = mac_selinux_use() ? TAR_SELINUX : 0;
+        TarFlags flags =
+                (userns_fd >= 0 ? TAR_SQUASH_UIDS_ABOVE_64K : 0) |
+                (mac_selinux_use() ? TAR_SELINUX : 0);
 
         _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         if (pipe2(pipefd, O_CLOEXEC) < 0)
@@ -100,7 +102,9 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
         if (r < 0)
                 return r;
 
-        TarFlags flags = mac_selinux_use() ? TAR_SELINUX : 0;
+        TarFlags flags =
+                (userns_fd >= 0 ? TAR_SQUASH_UIDS_ABOVE_64K : 0) |
+                (mac_selinux_use() ? TAR_SELINUX : 0);
 
         _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         if (pipe2(pipefd, O_CLOEXEC) < 0)

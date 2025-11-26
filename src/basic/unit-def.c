@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
-
 #include "alloc-util.h"
 #include "bus-label.h"
 #include "glyph-util.h"
@@ -224,10 +222,11 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_START_POST]                 = "start-post",
         [SERVICE_RUNNING]                    = "running",
         [SERVICE_EXITED]                     = "exited",
+        [SERVICE_REFRESH_EXTENSIONS]         = "refresh-extensions",
         [SERVICE_RELOAD]                     = "reload",
         [SERVICE_RELOAD_SIGNAL]              = "reload-signal",
         [SERVICE_RELOAD_NOTIFY]              = "reload-notify",
-        [SERVICE_REFRESH_EXTENSIONS]         = "refresh-extensions",
+        [SERVICE_RELOAD_POST]                = "reload-post",
         [SERVICE_STOP]                       = "stop",
         [SERVICE_STOP_WATCHDOG]              = "stop-watchdog",
         [SERVICE_STOP_SIGTERM]               = "stop-sigterm",

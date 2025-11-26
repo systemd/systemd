@@ -30,7 +30,7 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
         return NULL;
 }
 
-void* bsearch_safe(const void *key, const void *base, size_t nmemb, size_t size, comparison_fn_t compar) {
+void* bsearch_safe_internal(const void *key, const void *base, size_t nmemb, size_t size, comparison_fn_t compar) {
         /**
         * Normal bsearch requires base to be nonnull. Here were require
         * that only if nmemb > 0.
@@ -40,7 +40,7 @@ void* bsearch_safe(const void *key, const void *base, size_t nmemb, size_t size,
                 return NULL;
 
         assert(base);
-        return bsearch(key, base, nmemb, size, compar);
+        return (void*) bsearch(key, base, nmemb, size, compar);
 }
 
 void qsort_safe(void *base, size_t nmemb, size_t size, comparison_fn_t compar) {

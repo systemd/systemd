@@ -37,7 +37,7 @@ if ret=$("bootctl" --print-boot-path); then
     test "$ret" = "/efi" -o "$ret" = "/boot" -o "$ret" = "/boot/efi"
 fi
 
-if "$bootctl" -R > /dev/null ; then
+if "$bootctl" -R >/dev/null ; then
     P=$("$bootctl" -R)
     PP=$("$bootctl" -RR)
 

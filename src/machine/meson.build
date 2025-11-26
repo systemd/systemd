@@ -16,6 +16,7 @@ systemd_machined_extract_sources = files(
         'machine.c',
         'machined-core.c',
         'machined-dbus.c',
+        'machined-resolve-hook.c',
         'machined-varlink.c',
         'operation.c',
 )
@@ -24,7 +25,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-machined',
                 'dbus' : true,
-                'sources' : systemd_machined_sources + systemd_machined_extract_sources,
+                'sources' : systemd_machined_sources,
                 'extract' : systemd_machined_extract_sources,
         },
         executable_template + {

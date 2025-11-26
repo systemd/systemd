@@ -74,7 +74,7 @@ static int acquire_verity_settings(VeritySettings *ret) {
         }
 
         if (h) {
-                r = unhexmem(h, &verity.root_hash, &verity.root_hash_size);
+                r = unhexmem(h, &verity.root_hash.iov_base, &verity.root_hash.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse root hash from kernel command line switch: %m");
         }
@@ -301,25 +301,25 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                 }
 
                 if (d == verity.designator) {
-                        if (verity.root_hash_size > 0) {
+                        if (iovec_is_set(&verity.root_hash)) {
                                 _cleanup_free_ char *f = NULL;
                                 if (asprintf(&f, "ID_DISSECT_PART%i_ROOTHASH", p->partno) < 0)
                                         return log_oom_debug();
 
-                                _cleanup_free_ char *h = hexmem(verity.root_hash, verity.root_hash_size);
+                                _cleanup_free_ char *h = hexmem(verity.root_hash.iov_base, verity.root_hash.iov_len);
                                 if (!h)
                                         return log_oom_debug();
 
                                 (void) udev_builtin_add_property(event, f, h);
                         }
 
-                        if (verity.root_hash_sig_size > 0) {
+                        if (iovec_is_set(&verity.root_hash_sig)) {
                                 _cleanup_free_ char *f = NULL;
                                 if (asprintf(&f, "ID_DISSECT_PART%i_ROOTHASH_SIG", p->partno) < 0)
                                         return log_oom_debug();
 
                                 _cleanup_free_ char *h = NULL;
-                                if (base64mem(verity.root_hash_sig, verity.root_hash_sig_size, &h) < 0)
+                                if (base64mem(verity.root_hash_sig.iov_base, verity.root_hash_sig.iov_len, &h) < 0)
                                         return log_oom_debug();
 
                                 (void) udev_builtin_add_property(event, f, h);

@@ -77,7 +77,7 @@ static int on_child_notify(sd_event_source *s, int fd, uint32_t revents, void *u
                         return 0;
                 }
                 if (error <= 0) {
-                        log_debug("Received non-positive ERRNO= notification message, ignoring: %m");
+                        log_debug("Received non-positive ERRNO= notification message, ignoring: %d", error);
                         return 0;
                 }
 

@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sys/uio.h>
+
 #include "sd-id128.h"
 
 #include "bus-unit-util.h"
-#include "cgroup-util.h"
 #include "core-forward.h"
 #include "cpu-set-util.h"
 #include "exec-util.h"
@@ -111,6 +112,9 @@ typedef struct ExecSharedRuntime {
 
         /* Like netns_storage_socket, but the file descriptor is referring to the IPC namespace. */
         int ipcns_storage_socket[2];
+
+        /* Like netns_storage_socket, but the file descriptor is referring to the user namespace. */
+        int userns_storage_socket[2];
 } ExecSharedRuntime;
 
 typedef struct ExecRuntime {
@@ -178,8 +182,7 @@ typedef struct ExecContext {
 
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
-        void *root_hash, *root_hash_sig;
-        size_t root_hash_size, root_hash_sig_size;
+        struct iovec root_hash, root_hash_sig;
         LIST_HEAD(MountOptions, root_image_options);
         bool root_ephemeral;
         bool working_directory_missing_ok:1;
@@ -353,6 +356,7 @@ typedef struct ExecContext {
         bool address_families_allow_list:1;
         Set *address_families;
 
+        char *user_namespace_path;
         char *network_namespace_path;
         char *ipc_namespace_path;
 
@@ -466,19 +470,6 @@ static inline bool exec_input_is_terminal(ExecInput i) {
                       EXEC_INPUT_TTY_FAIL);
 }
 
-static inline bool exec_output_is_terminal(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_TTY,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
-}
-
-static inline bool exec_output_is_kmsg(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_KMSG,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE);
-}
-
 static inline bool exec_context_has_tty(const ExecContext *context) {
         assert(context);
 
@@ -517,7 +508,7 @@ void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 
-int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
+int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix);
 int exec_context_destroy_mount_ns_dir(Unit *u);
 
 const char* exec_context_fdname(const ExecContext *c, int fd_index) _pure_;
@@ -566,7 +557,7 @@ void exec_status_handoff(ExecStatus *s, const struct ucred *ucred, const dual_ti
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
 void exec_status_reset(ExecStatus *s);
 
-int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecSharedRuntime **ret);
+int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *id, bool create, ExecSharedRuntime **ret);
 ExecSharedRuntime *exec_shared_runtime_destroy(ExecSharedRuntime *r);
 ExecSharedRuntime *exec_shared_runtime_unref(ExecSharedRuntime *r);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSharedRuntime*, exec_shared_runtime_unref);

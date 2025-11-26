@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "path-util.h"
 #include "process-util.h"

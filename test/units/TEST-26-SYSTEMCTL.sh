@@ -287,6 +287,59 @@ for value in pretty us µs utc us+utc µs+utc; do
     systemctl show -P KernelTimestamp --timestamp="$value"
 done
 
+# --timestamp with timer properties (issue #39282)
+TIMER1="timestamp-test1-$RANDOM.timer"
+SERVICE1="${TIMER1%.timer}.service"
+cat >"/run/systemd/system/$SERVICE1" <<EOF
+[Service]
+Type=oneshot
+ExecStart=true
+EOF
+
+cat >"/run/systemd/system/$TIMER1" <<EOF
+[Timer]
+OnCalendar=*-*-* 00:00:00
+EOF
+
+systemctl daemon-reload
+systemctl start "$TIMER1"
+
+output=$(systemctl show -P NextElapseUSecRealtime --timestamp=unix "$TIMER1")
+if [[ ! "$output" =~ ^@[0-9]+$ ]]; then
+    echo "NextElapseUSecRealtime: expected @<number> with --timestamp=unix, got: $output" >&2
+    exit 1
+fi
+
+systemctl stop "$TIMER1"
+rm -f "/run/systemd/system/$TIMER1" "/run/systemd/system/$SERVICE1"
+
+TIMER2="timestamp-test2-$RANDOM.timer"
+SERVICE2="${TIMER2%.timer}.service"
+cat >"/run/systemd/system/$SERVICE2" <<EOF
+[Service]
+Type=oneshot
+ExecStart=true
+EOF
+
+cat >"/run/systemd/system/$TIMER2" <<EOF
+[Timer]
+OnActiveSec=100ms
+EOF
+
+systemctl daemon-reload
+systemctl start "$TIMER2"
+sleep 0.5
+
+output=$(systemctl show -P LastTriggerUSec --timestamp=unix "$TIMER2")
+if [[ ! "$output" =~ ^@[0-9]+$ ]]; then
+    echo "LastTriggerUSec: expected @<number> with --timestamp=unix, got: $output" >&2
+    exit 1
+fi
+
+systemctl stop "$TIMER2"
+rm -f "/run/systemd/system/$TIMER2" "/run/systemd/system/$SERVICE2"
+systemctl daemon-reload
+
 # set-default/get-default
 test_get_set_default() {
     target="$(systemctl get-default "$@")"
@@ -306,7 +359,10 @@ systemctl show systemd-logind.service
 systemctl status
 # Ignore the exit code in this case, as it might try to load non-existing units
 systemctl status -a >/dev/null || :
-systemctl status -a --state active,running,plugged >/dev/null
+# Ditto - there is a window between the first ListUnitsByByPatterns and the querying of individual units in
+# which some units might change their state (e.g. running -> stop-sigterm), which then causes systemctl to
+# return EC > 0
+systemctl status -a --state active,running,plugged >/dev/null || :
 systemctl status "systemd-*.timer"
 systemctl status "systemd-journald*.socket"
 systemctl status "sys-devices-*-ttyS0.device"
@@ -516,5 +572,49 @@ EOF
 systemctl daemon-reload
 systemctl enable --now test-WantedBy.service || :
 systemctl daemon-reload
+
+# Test systemctl edit --global and systemctl cat --global (issue #31272)
+GLOBAL_UNIT_NAME="systemctl-test-$RANDOM.service"
+GLOBAL_MASKED_UNIT="systemctl-test-masked-$RANDOM.service"
+
+# Test 1: Create a new global user unit with --force and --runtime
+systemctl edit --global --runtime --stdin --full --force "$GLOBAL_UNIT_NAME" <<EOF
+[Unit]
+Description=Test global unit
+
+[Service]
+ExecStart=/bin/true
+EOF
+
+# Verify the unit file was created in /run/systemd/user/
+test -f "/run/systemd/user/$GLOBAL_UNIT_NAME"
+
+# Test 2: Read the global unit with systemctl cat --global
+systemctl cat --global "$GLOBAL_UNIT_NAME" | grep -q "ExecStart=/bin/true"
+
+# Test 3: Edit existing global unit (add a drop-in)
+systemctl edit --global --runtime --stdin "$GLOBAL_UNIT_NAME" <<EOF
+[Service]
+Environment=TEST=value
+EOF
+
+# Verify drop-in was created
+test -f "/run/systemd/user/$GLOBAL_UNIT_NAME.d/override.conf"
+systemctl cat --global "$GLOBAL_UNIT_NAME" | grep -q "Environment=TEST=value"
+
+# Test 4: Create a masked global unit in /run/
+mkdir -p /run/systemd/user
+ln -sf /dev/null "/run/systemd/user/$GLOBAL_MASKED_UNIT"
+
+# Test 5: Verify cat shows it's masked
+systemctl cat --global "$GLOBAL_MASKED_UNIT" 2>&1 | grep -q "masked"
+
+# Test 6: Verify edit refuses to edit masked unit
+(! systemctl edit --global --runtime --stdin --full "$GLOBAL_MASKED_UNIT" </dev/null 2>&1) | grep -q "masked"
+
+# Cleanup global test units
+rm -f "/run/systemd/user/$GLOBAL_UNIT_NAME"
+rm -rf "/run/systemd/user/$GLOBAL_UNIT_NAME.d"
+rm -f "/run/systemd/user/$GLOBAL_MASKED_UNIT"
 
 touch /testok

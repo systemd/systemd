@@ -185,7 +185,7 @@ EOF
     fi
     systemctl start knot
     # Wait for signed.test's zone DS records to get pushed to the parent zone
-    timeout 30s bash -xec 'until knotc zone-read test. signed.test. ds | grep -E "signed\.test\. [0-9]+ DS"; do sleep 2; done'
+    timeout 60s bash -xec 'until knotc zone-read test. signed.test. ds | grep -E "signed\.test\. [0-9]+ DS"; do sleep 2; done'
 
     systemctl status resolved-dummy-server
     networkctl status
@@ -817,7 +817,7 @@ testcase_09_resolvectl_showcache() {
         echo "[NetDev]"
         echo "Name=dns2"
         echo "Kind=dummy"
-    } > /run/systemd/network/10-dns2.netdev
+    } >/run/systemd/network/10-dns2.netdev
     {
         echo "[Match]"
         echo "Name=dns2"
@@ -825,16 +825,17 @@ testcase_09_resolvectl_showcache() {
         echo "IPv6AcceptRA=no"
         echo "Address=10.123.0.1/24"
         echo "DNS=10.0.0.1"
-    } > /run/systemd/network/10-dns2.network
+    } >/run/systemd/network/10-dns2.network
     networkctl reload
     networkctl reconfigure dns2
+    /usr/lib/systemd/systemd-networkd-wait-online --timeout=60 --dns --interface=dns2
 
     mkdir -p /run/systemd/resolved.conf.d/
     {
         echo "[Resolve]"
         echo "DNSSEC=no"
         echo "DNSOverTLS=no"
-    } > /run/systemd/resolved.conf.d/90-resolved.conf
+    } >/run/systemd/resolved.conf.d/90-resolved.conf
     systemctl reload systemd-resolved.service
 
     test "$(resolvectl show-cache --json=short | jq -rc '.[] | select(.ifname == "dns2" and .protocol == "dns") | .dnssec')" == 'no'
@@ -844,7 +845,7 @@ testcase_09_resolvectl_showcache() {
         echo "[Resolve]"
         echo "DNSSEC=allow-downgrade"
         echo "DNSOverTLS=opportunistic"
-    } > /run/systemd/resolved.conf.d/90-resolved.conf
+    } >/run/systemd/resolved.conf.d/90-resolved.conf
     systemctl reload systemd-resolved.service
 
     test "$(resolvectl show-cache --json=short | jq -rc '.[] | select(.ifname == "dns2" and .protocol == "dns") | .dnssec')" == 'allow-downgrade'
@@ -852,6 +853,18 @@ testcase_09_resolvectl_showcache() {
 }
 
 testcase_10_resolvectl_json() {
+    local status_json
+
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/90-fallback.conf
+        systemctl reload systemd-resolved.service
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN ERR
+
     # Issue: https://github.com/systemd/systemd/issues/29580 (part #1)
     dig @127.0.0.54 signed.test
 
@@ -871,6 +884,68 @@ testcase_10_resolvectl_json() {
         # so we need to select it only if it's present, otherwise the type == "array" check would fail
         echo "$line" | jq -e '[. | .question, (select(has("answer")) | .answer) | type == "array"] | all'
     done
+
+
+    # Test some global-only settings.
+    mkdir -p /run/systemd/resolved.conf.d
+    {
+        echo "[Resolve]"
+        echo "FallbackDNS=10.0.0.1 10.0.0.2"
+    } >/run/systemd/resolved.conf.d/90-fallback.conf
+    systemctl reload systemd-resolved
+
+    status_json="$(mktemp)"
+    resolvectl --json=short >"$status_json"
+
+    # Delegates field should be empty when no delegates are configured.
+    (! jq -rce '.[] | select(.delegate != null)' "$status_json")
+
+    # Test that some links are present.
+    jq -rce '.[] | select(.ifname == "dns0")' "$status_json"
+
+    # Test some global-specific configuration.
+    assert_eq \
+        "$(jq -rc '.[] | select(.ifindex == null and .delegate == null) | [ .fallbackServers[] | .addressString ]' "$status_json")" \
+        '["10.0.0.1","10.0.0.2"]'
+    assert_eq \
+        "$(jq -rc '.[] | select(.ifindex == null and .delegate == null) | .resolvConfMode' "$status_json")" \
+        'stub'
+
+    # Test link status.
+    resolvectl dns dns0 '1.2.3.4'
+    resolvectl domain dns0 'foo'
+    resolvectl default-route dns0 'false'
+    resolvectl llmnr dns0 'no'
+    resolvectl mdns dns0 'no'
+    resolvectl dnsovertls dns0 'opportunistic'
+    resolvectl dnssec dns0 'yes'
+    resolvectl nta dns0 'bar'
+
+    resolvectl --json=short status dns0  >"$status_json"
+
+    assert_eq "$(resolvectl --json=short dns dns0 | jq -rc '.[0].servers | .[0].addressString')" '1.2.3.4'
+    assert_eq "$(jq -rc '.[0].servers | .[0].addressString' "$status_json")" '1.2.3.4'
+
+    assert_eq "$(resolvectl --json=short domain dns0 | jq -rc '.[0].searchDomains| .[0].name')" 'foo'
+    assert_eq "$(jq -rc '.[0].searchDomains | .[0].name' "$status_json")" 'foo'
+
+    assert_eq "$(resolvectl --json=short default-route dns0 | jq -rc '.[0].defaultRoute')" 'false'
+    assert_eq "$(jq -rc '.[0].defaultRoute' "$status_json")" 'false'
+
+    assert_eq "$(resolvectl --json=short llmnr dns0 | jq -rc '.[0].llmnr')" 'no'
+    assert_eq "$(jq -rc '.[0].llmnr' "$status_json")" 'no'
+
+    assert_eq "$(resolvectl --json=short mdns dns0 | jq -rc '.[0].mDNS')" 'no'
+    assert_eq "$(jq -rc '.[0].mDNS' "$status_json")" 'no'
+
+    assert_eq "$(resolvectl --json=short dnsovertls dns0 | jq -rc '.[0].dnsOverTLS')" 'opportunistic'
+    assert_eq "$(jq -rc '.[0].dnsOverTLS' "$status_json")" 'opportunistic'
+
+    assert_eq "$(resolvectl --json=short dnssec dns0 | jq -rc '.[0].dnssec')" 'yes'
+    assert_eq "$(jq -rc '.[0].dnssec' "$status_json")" 'yes'
+
+    assert_eq "$(resolvectl --json=short nta dns0 | jq -rc '.[0].negativeTrustAnchors | .[0]')" 'bar'
+    assert_eq "$(jq -rc '.[0].negativeTrustAnchors | .[0]' "$status_json")" 'bar'
 }
 
 # Test serve stale feature and NFTSet= if nftables is installed
@@ -1376,10 +1451,10 @@ testcase_15_wait_online_dns() {
 
     # Begin systemd-networkd-wait-online --dns
     systemd-run -u "$unit" -p "Environment=SYSTEMD_LOG_LEVEL=debug" -p "Environment=SYSTEMD_LOG_TARGET=journal" --service-type=exec \
-        /usr/lib/systemd/systemd-networkd-wait-online --timeout=20 --dns --interface=dns0
+        /usr/lib/systemd/systemd-networkd-wait-online --timeout=0 --dns --interface=dns0
 
     # Wait until it blocks waiting for updated DNS config
-    timeout 10 bash -c "journalctl -b -u $unit -f | grep -q -m1 'dns0: No.*DNS server is accessible'"
+    timeout 30 bash -c "journalctl -b -u $unit -f | grep -q -m1 'dns0: No.*DNS server is accessible'"
 
     # Update the global configuration. Restart rather than reload systemd-resolved so that
     # systemd-networkd-wait-online has to re-connect to the varlink service.
@@ -1390,7 +1465,7 @@ testcase_15_wait_online_dns() {
     systemctl restart systemd-resolved.service
 
     # Wait for the monitor to exit gracefully.
-    timeout 10 bash -c "while systemctl --quiet is-active $unit; do sleep 0.5; done"
+    timeout 30 bash -c "while systemctl --quiet is-active $unit; do sleep 0.5; done"
     journalctl --sync
 
     # Check that a disconnect happened, and was handled.
@@ -1413,6 +1488,9 @@ Domains=exercise.test
 EOF
     systemctl reload systemd-resolved
     resolvectl status
+
+    assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "testcase") | .servers | .[0].addressString')" '192.168.77.78'
+    assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "testcase") | .searchDomains | .[0].name')" 'exercise.test'
 
     # Now that we installed the delegation the resolution should fail, because nothing is listening on that IP address
     (! resolvectl query delegation.exercise.test)

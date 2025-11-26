@@ -50,6 +50,7 @@
 #include "initrd-util.h"
 #include "io-util.h"
 #include "json-util.h"
+#include "libmount-util.h"
 #include "list.h"
 #include "loop-util.h"
 #include "main-func.h"
@@ -332,33 +333,29 @@ static void copy_files_free_many(CopyFiles *f, size_t n) {
         free(f);
 }
 
-typedef enum SubvolumeFlags {
-        SUBVOLUME_RO               = 1 << 0,
-        _SUBVOLUME_FLAGS_MASK      = SUBVOLUME_RO,
-        _SUBVOLUME_FLAGS_INVALID   = -EINVAL,
-        _SUBVOLUME_FLAGS_ERRNO_MAX = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
-} SubvolumeFlags;
-
-static SubvolumeFlags subvolume_flags_from_string_one(const char *s) {
+static BtrfsSubvolFlags subvolume_flags_from_string_one(const char *s) {
         /* This is a bitmask (i.e. not dense), hence we don't use the "string-table.h" stuff here. */
 
         assert(s);
 
         if (streq(s, "ro"))
-                return SUBVOLUME_RO;
+                return BTRFS_SUBVOL_RO;
 
-        return _SUBVOLUME_FLAGS_INVALID;
+        if (streq(s, "nodatacow"))
+                return BTRFS_SUBVOL_NODATACOW;
+
+        return _BTRFS_SUBVOL_FLAGS_INVALID;
 }
 
-static SubvolumeFlags subvolume_flags_from_string(const char *s) {
-        SubvolumeFlags flags = 0;
+static BtrfsSubvolFlags subvolume_flags_from_string(const char *s) {
+        BtrfsSubvolFlags flags = 0;
         int r;
 
         assert(s);
 
         for (;;) {
                 _cleanup_free_ char *f = NULL;
-                SubvolumeFlags ff;
+                BtrfsSubvolFlags ff;
 
                 r = extract_first_word(&s, &f, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (r < 0)
@@ -378,7 +375,7 @@ static SubvolumeFlags subvolume_flags_from_string(const char *s) {
 
 typedef struct Subvolume {
         char *path;
-        SubvolumeFlags flags;
+        BtrfsSubvolFlags flags;
 } Subvolume;
 
 static Subvolume* subvolume_free(Subvolume *s) {
@@ -402,7 +399,8 @@ typedef struct Partition {
         GptPartitionType type;
         sd_id128_t current_uuid, new_uuid;
         bool new_uuid_is_set;
-        char *current_label, *new_label;
+        char *current_label, *new_label;      /* Used for the GPT partition label + fs superblock label */
+        char *new_volume_label;               /* used for LUKS superblock */
         sd_id128_t fs_uuid, luks_uuid, verity_uuid;
         uint8_t verity_salt[SHA256_DIGEST_SIZE];
 
@@ -521,8 +519,10 @@ struct Context {
 
         bool from_scratch;
 
+#if HAVE_OPENSSL
         X509 *certificate;
         EVP_PKEY *private_key;
+#endif
 
         bool defer_partitions_empty;
         bool defer_partitions_factory_reset;
@@ -716,6 +716,7 @@ static Partition* partition_free(Partition *p) {
 
         free(p->current_label);
         free(p->new_label);
+        free(p->new_volume_label);
         free(p->definition_path);
         strv_free(p->drop_in_files);
 
@@ -852,11 +853,7 @@ static Context* context_new(
                 char **definitions,
                 EmptyMode empty,
                 bool dry_run,
-                sd_id128_t seed,
-                X509 *certificate,
-                EVP_PKEY *private_key) {
-
-        /* Note: This function takes ownership of the certificate and private_key arguments. */
+                sd_id128_t seed) {
 
         _cleanup_strv_free_ char **d = NULL;
         if (!strv_isempty(definitions)) {
@@ -875,8 +872,6 @@ static Context* context_new(
                 .end = UINT64_MAX,
                 .total = UINT64_MAX,
                 .seed = seed,
-                .certificate = certificate,
-                .private_key = private_key,
                 .empty = empty,
                 .dry_run = dry_run,
                 .backing_fd = -EBADF,
@@ -916,8 +911,10 @@ static Context* context_free(Context *context) {
         else
                 free(context->node);
 
+#if HAVE_OPENSSL
         X509_free(context->certificate);
         EVP_PKEY_free(context->private_key);
+#endif
 
         context->link = sd_varlink_unref(context->link);
 
@@ -2327,7 +2324,7 @@ static int config_parse_subvolumes(
                 }
 
                 if (f) {
-                        SubvolumeFlags flags = subvolume_flags_from_string(f);
+                        BtrfsSubvolFlags flags = subvolume_flags_from_string(f);
                         if (flags == -EBADRQC) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r, "Unknown subvolume flag in subvolume, ignoring: %s", f);
                                 continue;
@@ -2756,6 +2753,7 @@ static int partition_read_definition(
         ConfigTableItem table[] = {
                 { "Partition", "Type",                     config_parse_type,              0,                                  &p->type                    },
                 { "Partition", "Label",                    config_parse_label,             0,                                  &p->new_label               },
+                { "Partition", "VolumeLabel",              config_parse_label,             0,                                  &p->new_volume_label        },
                 { "Partition", "UUID",                     config_parse_uuid,              0,                                  p                           },
                 { "Partition", "Priority",                 config_parse_int32,             0,                                  &p->priority                },
                 { "Partition", "Weight",                   config_parse_weight,            0,                                  &p->weight                  },
@@ -3982,6 +3980,27 @@ static const char *partition_label(const Partition *p) {
         return gpt_partition_type_uuid_to_string(p->type.uuid);
 }
 
+static int volume_label(const Partition *p, char **ret) {
+        assert(p);
+        assert(ret);
+
+        if (p->new_volume_label)
+                return strdup_to(ret, p->new_volume_label);
+
+        const char *e = partition_label(p);
+        if (!e)
+                return -ENODATA;
+
+        /* Let's prefix "luks-" for the label string used for LUKS superblocks. We do this so that the
+         * /dev/disk/by-label/ symlink to the LUKS volume and the file system inside it do not clash */
+        char *j = strjoin("luks-", e);
+        if (!j)
+                return -ENOMEM;
+
+        *ret = j;
+        return 0;
+}
+
 static int context_dump_partitions(Context *context) {
         _cleanup_(table_unrefp) Table *t = NULL;
         uint64_t sum_padding = 0, sum_size = 0;
@@ -3994,17 +4013,17 @@ static int context_dump_partitions(Context *context) {
                 return 0;
         }
 
-        t = table_new("type",
+        t = table_new("type",         /* 0 */
                       "label",
                       "uuid",
-                      "partno",
+                      "part",
                       "file",
                       "node",
                       "offset",
                       "old size",
                       "raw size",
                       "size",
-                      "old padding",
+                      "old padding",  /* 10 */
                       "raw padding",
                       "padding",
                       "activity",
@@ -4013,6 +4032,9 @@ static int context_dump_partitions(Context *context) {
                       "split path");
         if (!t)
                 return log_oom();
+
+        /* For compatibility, use the original longer name for JSON output. */
+        table_set_json_field_name(t, 3, "partno");
 
         /* Starting in v257, these fields would be automatically formatted with underscores. This would have
          * been a breaking change, so to avoid that let's hard-code their original names. */
@@ -4030,13 +4052,13 @@ static int context_dump_partitions(Context *context) {
                                                     split_path_col);
         }
 
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 5), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 3), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 6), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 7), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 8), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 9), 100);
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 10), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 11), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 12), 100);
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_free_ char *size_change = NULL, *padding_change = NULL, *partname = NULL, *rh = NULL;
@@ -4969,21 +4991,6 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
 
 static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline) {
 #if HAVE_LIBCRYPTSETUP
-        const char *node = partition_target_path(target);
-        struct crypt_params_luks2 luks_params = {
-                .label = strempty(ASSERT_PTR(p)->new_label),
-                .sector_size = partition_fs_sector_size(context, p),
-                .data_device = offline ? node : NULL,
-        };
-        struct crypt_params_reencrypt reencrypt_params = {
-                .mode = CRYPT_REENCRYPT_ENCRYPT,
-                .direction = CRYPT_REENCRYPT_BACKWARD,
-                .resilience = "datashift",
-                .data_shift = LUKS2_METADATA_SIZE / 512,
-                .luks2 = &luks_params,
-                .flags = CRYPT_REENCRYPT_INITIALIZE_ONLY|CRYPT_REENCRYPT_MOVE_FIRST_SEGMENT,
-        };
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
 #if HAVE_TPM2
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
 #endif
@@ -5003,6 +5010,26 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 return log_error_errno(r, "libcryptsetup not found, cannot encrypt: %m");
 
         log_info("Encrypting future partition %" PRIu64 "...", p->partno);
+
+        _cleanup_free_ char *vl = NULL;
+        r = volume_label(p, &vl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate volume label: %m");
+
+        const char *node = partition_target_path(target);
+        struct crypt_params_luks2 luks_params = {
+                .label = vl,
+                .sector_size = partition_fs_sector_size(context, p),
+                .data_device = offline ? node : NULL,
+        };
+        struct crypt_params_reencrypt reencrypt_params = {
+                .mode = CRYPT_REENCRYPT_ENCRYPT,
+                .direction = CRYPT_REENCRYPT_BACKWARD,
+                .resilience = "datashift",
+                .data_shift = LUKS2_METADATA_SIZE / 512,
+                .luks2 = &luks_params,
+                .flags = CRYPT_REENCRYPT_INITIALIZE_ONLY|CRYPT_REENCRYPT_MOVE_FIRST_SEGMENT,
+        };
 
         if (offline) {
                 r = var_tmp_dir(&vt);
@@ -5026,6 +5053,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         return log_oom();
         }
 
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         r = sym_crypt_init(&cd, offline ? hp : node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", hp);
@@ -5496,9 +5524,8 @@ static int partition_format_verity_hash(
 }
 
 static int sign_verity_roothash(
+                Context *context,
                 const struct iovec *roothash,
-                X509 *certificate,
-                EVP_PKEY *private_key,
                 struct iovec *ret_signature) {
 
 #if HAVE_OPENSSL
@@ -5508,8 +5535,10 @@ static int sign_verity_roothash(
         _cleanup_free_ uint8_t *sig = NULL;
         int sigsz;
 
+        assert(context);
+        assert(context->certificate);
+        assert(context->private_key);
         assert(roothash);
-        assert(private_key);
         assert(iovec_is_set(roothash));
         assert(ret_signature);
 
@@ -5521,7 +5550,7 @@ static int sign_verity_roothash(
         if (!rb)
                 return log_oom();
 
-        p7 = PKCS7_sign(certificate, private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
+        p7 = PKCS7_sign(context->certificate, context->private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
         if (!p7)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
@@ -5553,8 +5582,7 @@ static const VeritySettings *lookup_verity_settings_by_uuid_pair(sd_id128_t data
         memcpy(root_hash_key + sizeof(sd_id128_t), hash_uuid.bytes, sizeof(sd_id128_t));
 
         VeritySettings key = {
-                .root_hash = &root_hash_key,
-                .root_hash_size = sizeof(root_hash_key),
+                .root_hash = IOVEC_MAKE(root_hash_key, sizeof(root_hash_key)),
         };
 
         return set_get(arg_verity_settings, &key);
@@ -5562,13 +5590,12 @@ static const VeritySettings *lookup_verity_settings_by_uuid_pair(sd_id128_t data
 
 static int partition_format_verity_sig(Context *context, Partition *p) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(iovec_done) struct iovec sig_free = {};
         _cleanup_free_ char *text = NULL, *hint = NULL;
         const VeritySettings *verity_settings;
-        struct iovec roothash, sig;
         Partition *hp, *rp;
         uint8_t fp[X509_FINGERPRINT_SIZE];
         int whole_fd, r;
+        bool has_fp = false;
 
         assert(p->verity == VERITY_SIG);
 
@@ -5585,45 +5612,51 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
         verity_settings = lookup_verity_settings_by_uuid_pair(rp->current_uuid, hp->current_uuid);
 
-        if (!context->private_key && !verity_settings)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Verity signature partition signing requested but no private key provided (--private-key=).");
+        if (!verity_settings) {
+#if HAVE_OPENSSL
+                if (!context->private_key)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Verity signature partition signing requested but no private key provided (--private-key=).");
 
-        if (!context->certificate && !verity_settings)
+                if (!context->certificate)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Verity signature partition signing requested but no PEM certificate provided (--certificate=).");
+#else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Verity signature partition signing requested but no PEM certificate provided (--certificate=).");
+                                       "Verity signature partition signing requested but OpenSSL support is disabled.");
+#endif
+        }
 
         (void) partition_hint(p, context->node, &hint);
 
         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
+        _cleanup_(iovec_done) struct iovec sig_free = {};
+        const struct iovec *roothash, *sig;
         if (verity_settings) {
-                sig = (struct iovec) {
-                        .iov_base = verity_settings->root_hash_sig,
-                        .iov_len = verity_settings->root_hash_sig_size,
-                };
-                roothash = (struct iovec) {
-                        .iov_base = verity_settings->root_hash,
-                        .iov_len = verity_settings->root_hash_size,
-                };
+                sig = &verity_settings->root_hash_sig;
+                roothash = &verity_settings->root_hash;
         } else {
-                r = sign_verity_roothash(&hp->roothash, context->certificate, context->private_key, &sig_free);
+                r = sign_verity_roothash(context, &hp->roothash, &sig_free);
                 if (r < 0)
                         return r;
 
-                sig = sig_free;
-                roothash = hp->roothash;
+                sig = &sig_free;
+                roothash = &hp->roothash;
         }
 
+#if HAVE_OPENSSL
         r = x509_fingerprint(context->certificate, fp);
         if (r < 0)
                 return log_error_errno(r, "Unable to calculate X509 certificate fingerprint: %m");
+        has_fp = true;
+#endif
 
         r = sd_json_buildo(
                         &v,
-                        SD_JSON_BUILD_PAIR("rootHash", SD_JSON_BUILD_HEX(roothash.iov_base, roothash.iov_len)),
-                        SD_JSON_BUILD_PAIR("certificateFingerprint", SD_JSON_BUILD_HEX(fp, sizeof(fp))),
-                        SD_JSON_BUILD_PAIR("signature", JSON_BUILD_IOVEC_BASE64(&sig)));
+                        SD_JSON_BUILD_PAIR("rootHash", SD_JSON_BUILD_HEX(roothash->iov_base, roothash->iov_len)),
+                        SD_JSON_BUILD_PAIR_CONDITION(has_fp, "certificateFingerprint", SD_JSON_BUILD_HEX(fp, sizeof(fp))),
+                        SD_JSON_BUILD_PAIR("signature", JSON_BUILD_IOVEC_BASE64(sig)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build verity signature JSON object: %m");
 
@@ -5973,7 +6006,7 @@ static int make_copy_files_denylist(
         return 0;
 }
 
-static int add_subvolume_path(const char *path, Set **subvolumes) {
+static int add_subvolume_path(const char *path, BtrfsSubvolFlags flags, Hashmap **subvolumes) {
         _cleanup_free_ struct stat *st = NULL;
         int r;
 
@@ -5990,63 +6023,71 @@ static int add_subvolume_path(const char *path, Set **subvolumes) {
         if (r < 0)
                 return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_copy_source), path);
 
-        r = set_ensure_consume(subvolumes, &inode_hash_ops, TAKE_PTR(st));
+        r = hashmap_ensure_put(subvolumes, &inode_hash_ops, st, INT_TO_PTR(flags));
         if (r < 0)
                 return log_oom();
+
+        TAKE_PTR(st);
 
         return 0;
 }
 
-static int make_subvolumes_strv(const Partition *p, char ***ret) {
-        _cleanup_strv_free_ char **subvolumes = NULL;
+static int make_subvolumes_hashmap(const Partition *p, Hashmap **ret) {
+        _cleanup_hashmap_free_ Hashmap *hashmap = NULL;
         Subvolume *subvolume;
         int r;
 
         assert(p);
         assert(ret);
 
-        ORDERED_HASHMAP_FOREACH(subvolume, p->subvolumes)
-                if (strv_extend(&subvolumes, subvolume->path) < 0)
+        ORDERED_HASHMAP_FOREACH(subvolume, p->subvolumes) {
+                _cleanup_free_ char *path = NULL;
+
+                path = strdup(subvolume->path);
+                if (!path)
                         return log_oom();
 
-        if (p->suppressing) {
-                char **suppressing;
+                r = hashmap_ensure_put(&hashmap, &path_hash_ops_free, path, INT_TO_PTR(subvolume->flags));
+                if (r < 0)
+                        return log_oom();
 
-                r = make_subvolumes_strv(p->suppressing, &suppressing);
+                TAKE_PTR(path);
+        }
+
+        if (p->suppressing) {
+                Hashmap *suppressing;
+
+                r = make_subvolumes_hashmap(p->suppressing, &suppressing);
                 if (r < 0)
                         return r;
 
-                r = strv_extend_strv_consume(&subvolumes, suppressing, /* filter_duplicates= */ true);
+                r = hashmap_merge(hashmap, suppressing);
                 if (r < 0)
                         return log_oom();
         }
 
-        *ret = TAKE_PTR(subvolumes);
+        *ret = TAKE_PTR(hashmap);
         return 0;
 }
 
-static int make_subvolumes_set(
+static int make_subvolumes_by_source_inode_hashmap(
                 const Partition *p,
                 const char *source,
                 const char *target,
-                Set **ret) {
+                Hashmap **ret) {
 
-        _cleanup_strv_free_ char **paths = NULL;
-        _cleanup_set_free_ Set *subvolumes = NULL;
+        _cleanup_hashmap_free_ Hashmap *hashmap = NULL;
+        Subvolume *subvolume;
         int r;
 
         assert(p);
         assert(target);
         assert(ret);
 
-        r = make_subvolumes_strv(p, &paths);
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(subvolume, paths) {
+        ORDERED_HASHMAP_FOREACH(subvolume, p->subvolumes) {
                 _cleanup_free_ char *path = NULL;
 
-                const char *s = path_startswith(*subvolume, target);
+                const char *s = path_startswith(subvolume->path, target);
                 if (!s)
                         continue;
 
@@ -6054,12 +6095,24 @@ static int make_subvolumes_set(
                 if (!path)
                         return log_oom();
 
-                r = add_subvolume_path(path, &subvolumes);
+                r = add_subvolume_path(path, subvolume->flags, &hashmap);
                 if (r < 0)
                         return r;
         }
 
-        *ret = TAKE_PTR(subvolumes);
+        if (p->suppressing) {
+                Hashmap *suppressing;
+
+                r = make_subvolumes_by_source_inode_hashmap(p->suppressing, source, target, &suppressing);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_merge(hashmap, suppressing);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        *ret = TAKE_PTR(hashmap);
         return 0;
 }
 
@@ -6127,13 +6180,13 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
 }
 
 static int do_copy_files(Context *context, Partition *p, const char *root) {
-        _cleanup_strv_free_ char **subvolumes = NULL;
+        _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
         int r;
 
         assert(p);
         assert(root);
 
-        r = make_subvolumes_strv(p, &subvolumes);
+        r = make_subvolumes_hashmap(p, &subvolumes);
         if (r < 0)
                 return r;
 
@@ -6177,7 +6230,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 
         FOREACH_ARRAY(line, copy_files, n_copy_files) {
                 _cleanup_hashmap_free_ Hashmap *denylist = NULL;
-                _cleanup_set_free_ Set *subvolumes_by_source_inode = NULL;
+                _cleanup_hashmap_free_ Hashmap *subvolumes_by_source_inode = NULL;
                 _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
                 usec_t ts = epoch_or_infinity();
 
@@ -6187,7 +6240,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 if (r > 0)
                         continue;
 
-                r = make_subvolumes_set(p, line->source, line->target, &subvolumes_by_source_inode);
+                r = make_subvolumes_by_source_inode_hashmap(p, line->source, line->target, &subvolumes_by_source_inode);
                 if (r < 0)
                         return r;
 
@@ -6302,14 +6355,14 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 }
 
 static int do_make_directories(Partition *p, const char *root) {
-        _cleanup_strv_free_ char **subvolumes = NULL;
+        _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
         _cleanup_free_ char **override_dirs = NULL;
         int r;
 
         assert(p);
         assert(root);
 
-        r = make_subvolumes_strv(p, &subvolumes);
+        r = make_subvolumes_hashmap(p, &subvolumes);
         if (r < 0)
                 return r;
 
@@ -6355,7 +6408,7 @@ static int make_subvolumes_read_only(Partition *p, const char *root) {
         int r;
 
         ORDERED_HASHMAP_FOREACH(subvolume, p->subvolumes) {
-                if (!FLAGS_SET(subvolume->flags, SUBVOLUME_RO))
+                if (!FLAGS_SET(subvolume->flags, BTRFS_SUBVOL_RO))
                         continue;
 
                 path = path_join(root, subvolume->path);
@@ -6564,6 +6617,8 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
          * appear in the host namespace. Hence we fork a child that has its own file system namespace and
          * detached mount propagation. */
 
+        (void) dlopen_libmount();
+
         r = safe_fork("(sd-copy)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
         if (r < 0)
                 return r;
@@ -6623,13 +6678,35 @@ static int append_btrfs_subvols(char ***l, OrderedHashmap *subvolumes, const cha
                 if (streq_ptr(subvolume->path, default_subvolume) && !strextend(&s, "default"))
                         return log_oom();
 
-                if (FLAGS_SET(subvolume->flags, SUBVOLUME_RO) && !strextend_with_separator(&s, "-", "ro"))
+                if (FLAGS_SET(subvolume->flags, BTRFS_SUBVOL_RO) && !strextend_with_separator(&s, "-", "ro"))
                         return log_oom();
 
                 if (!strextend_with_separator(&s, ":", subvolume->path))
                         return log_oom();
 
                 r = strv_extend_many(l, "--subvol", s);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
+static int append_btrfs_inode_flags(char ***l, OrderedHashmap *subvolumes) {
+        Subvolume *subvolume;
+        int r;
+
+        assert(l);
+
+        ORDERED_HASHMAP_FOREACH(subvolume, subvolumes) {
+                if (!FLAGS_SET(subvolume->flags, BTRFS_SUBVOL_NODATACOW))
+                        continue;
+
+                _cleanup_free_ char *s = strjoin("nodatacow:", subvolume->path);
+                if (!s)
+                        return log_oom();
+
+                r = strv_extend_many(l, "--inode-flags", s);
                 if (r < 0)
                         return log_oom();
         }
@@ -6655,8 +6732,16 @@ static int finalize_extra_mkfs_options(const Partition *p, const char *root, cha
                 if (r < 0)
                         return r;
 
+                r = append_btrfs_inode_flags(&sv, p->subvolumes);
+                if (r < 0)
+                        return r;
+
                 if (p->suppressing) {
                         r = append_btrfs_subvols(&sv, p->suppressing->subvolumes, NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = append_btrfs_inode_flags(&sv, p->suppressing->subvolumes);
                         if (r < 0)
                                 return r;
                 }
@@ -6729,7 +6814,8 @@ static int context_mkfs(Context *context) {
                  * have to populate using the filesystem's mkfs's --root= (or equivalent) option. To do that,
                  * we need to set up the final directory tree beforehand. */
 
-                if (partition_needs_populate(p) && (!t->loop || fstype_is_ro(p->format))) {
+                if (partition_needs_populate(p) &&
+                    (!t->loop || fstype_is_ro(p->format) || (streq_ptr(p->format, "btrfs") && p->compression))) {
                         if (!mkfs_supports_root_option(p->format))
                                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
                                                         "Loop device access is required to populate %s filesystems.",
@@ -8477,7 +8563,7 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
-                if (!d || fstype_is_ro(p->format)) {
+                if (!d || fstype_is_ro(p->format) || (streq_ptr(p->format, "btrfs") && p->compression)) {
                         if (!mkfs_supports_root_option(p->format))
                                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
                                                        "Loop device access is required to populate %s filesystems.",
@@ -8684,6 +8770,57 @@ static int context_minimize(Context *context) {
         return 0;
 }
 
+static int context_load_keys(Context *context) {
+#if HAVE_OPENSSL
+        int r;
+
+        assert(context);
+
+        if (arg_certificate) {
+                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = openssl_load_x509_certificate(
+                                arg_certificate_source_type,
+                                arg_certificate_source,
+                                arg_certificate,
+                                &context->certificate);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
+        }
+
+        if (arg_private_key) {
+                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                        r = parse_path_argument(arg_private_key, /*suppress_root=*/ false, &arg_private_key);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = openssl_load_private_key(
+                                arg_private_key_source_type,
+                                arg_private_key_source,
+                                arg_private_key,
+                                &(AskPasswordRequest) {
+                                        .tty_fd = -EBADF,
+                                        .id = "repart-private-key-pin",
+                                        .keyring = arg_private_key,
+                                        .credential = "repart.private-key-pin",
+                                        .until = USEC_INFINITY,
+                                        .hup_fd = -EBADF,
+                                },
+                                &context->private_key,
+                                /* ret_user_interface= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+        }
+
+#endif
+        return 0;
+}
+
 static int parse_partition_types(const char *p, GptPartitionType **partitions, size_t *n_partitions) {
         int r;
 
@@ -8716,9 +8853,8 @@ static int parse_partition_types(const char *p, GptPartitionType **partitions, s
 static int parse_join_signature(const char *p, Set **verity_settings_map) {
         _cleanup_(verity_settings_freep) VeritySettings *verity_settings = NULL;
         _cleanup_free_ char *root_hash = NULL;
-        _cleanup_free_ void *content = NULL;
         const char *signature;
-        size_t len;
+        _cleanup_(iovec_done) struct iovec content = {};
         int r;
 
         assert(p);
@@ -8730,17 +8866,17 @@ static int parse_join_signature(const char *p, Set **verity_settings_map) {
         if (!p)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected hash:sig");
         if ((signature = startswith(p, "base64:"))) {
-                r = unbase64mem(signature, &content, &len);
+                r = unbase64mem(signature, &content.iov_base, &content.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", signature);
         } else {
-                r = read_full_file(p, (char**) &content, &len);
+                r = read_full_file(p, (char**) &content.iov_base, &content.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read root hash signature file '%s': %m", p);
         }
-        if (len == 0)
+        if (!iovec_is_set(&content))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty verity signature specified.");
-        if (len > VERITY_SIG_SIZE)
+        if (content.iov_len > VERITY_SIG_SIZE)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Verity signatures larger than %llu are not allowed.",
                                        VERITY_SIG_SIZE);
@@ -8750,20 +8886,16 @@ static int parse_join_signature(const char *p, Set **verity_settings_map) {
                 return log_oom();
 
         *verity_settings = (VeritySettings) {
-                .root_hash_sig = TAKE_PTR(content),
-                .root_hash_sig_size = len,
+                .root_hash_sig = TAKE_STRUCT(content),
         };
 
-        r = unhexmem(root_hash, &content, &len);
+        r = unhexmem(root_hash, &verity_settings->root_hash.iov_base, &verity_settings->root_hash.iov_len);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse root hash '%s': %m", root_hash);
-        if (len < sizeof(sd_id128_t))
+        if (verity_settings->root_hash.iov_len < sizeof(sd_id128_t))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Root hash must be at least 128-bit long: %s",
                                        root_hash);
-
-        verity_settings->root_hash = TAKE_PTR(content);
-        verity_settings->root_hash_size = len;
 
         r = set_ensure_put(verity_settings_map, &verity_settings_hash_ops, verity_settings);
         if (r < 0)
@@ -8888,13 +9020,7 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(
-                int argc,
-                char *argv[],
-                X509 **ret_certificate,
-                EVP_PKEY **ret_private_key,
-                OpenSSLAskPasswordUI **ret_ui) {
-
+static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
@@ -8993,17 +9119,11 @@ static int parse_argv(
                 {}
         };
 
-        _cleanup_(X509_freep) X509 *certificate = NULL;
-        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
         bool auto_public_key_pcr_mask = true, auto_pcrlock = true;
         int c, r;
 
         assert(argc >= 0);
         assert(argv);
-        assert(ret_certificate);
-        assert(ret_private_key);
-        assert(ret_ui);
 
         while ((c = getopt_long(argc, argv, "hs:SCP", options, NULL)) >= 0)
 
@@ -9544,47 +9664,6 @@ static int parse_argv(
                         *p = gpt_partition_type_override_architecture(*p, arg_architecture);
         }
 
-        if (arg_certificate) {
-                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = openssl_load_x509_certificate(
-                                arg_certificate_source_type,
-                                arg_certificate_source,
-                                arg_certificate,
-                                &certificate);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
-        }
-
-        if (arg_private_key) {
-                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                        r = parse_path_argument(arg_private_key, /*suppress_root=*/ false, &arg_private_key);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = openssl_load_private_key(
-                                arg_private_key_source_type,
-                                arg_private_key_source,
-                                arg_private_key,
-                                &(AskPasswordRequest) {
-                                        .tty_fd = -EBADF,
-                                        .id = "repart-private-key-pin",
-                                        .keyring = arg_private_key,
-                                        .credential = "repart.private-key-pin",
-                                        .until = USEC_INFINITY,
-                                        .hup_fd = -EBADF,
-                                },
-                                &private_key,
-                                &ui);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
-        }
-
         if (arg_append_fstab && !arg_generate_fstab)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No --generate-fstab= specified for --append-fstab=%s.", append_mode_to_string(arg_append_fstab));
 
@@ -9595,10 +9674,6 @@ static int parse_argv(
                 arg_varlink = true;
                 arg_pager_flags |= PAGER_DISABLE;
         }
-
-        *ret_certificate = TAKE_PTR(certificate);
-        *ret_private_key = TAKE_PTR(private_key);
-        *ret_ui = TAKE_PTR(ui);
 
         return 1;
 }
@@ -10220,9 +10295,7 @@ static int vl_method_run(
                         p.definitions,
                         p.empty,
                         p.dry_run,
-                        p.seed,
-                        /* certificate= */ NULL,
-                        /* private_key= */ NULL);
+                        p.seed);
         if (!context)
                 return log_oom();
 
@@ -10361,9 +10434,6 @@ static int vl_server(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(X509_freep) X509 *certificate = NULL;
-        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
@@ -10372,7 +10442,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv, &certificate, &private_key, &ui);
+        r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
@@ -10438,14 +10508,13 @@ static int run(int argc, char *argv[]) {
                         arg_definitions,
                         arg_empty,
                         arg_dry_run,
-                        arg_seed,
-                        certificate,
-                        private_key);
+                        arg_seed);
         if (!context)
                 return log_oom();
 
-        TAKE_PTR(certificate);
-        TAKE_PTR(private_key);
+        r = context_load_keys(context);
+        if (r < 0)
+                return r;
 
         context->defer_partitions_empty = arg_defer_partitions_empty;
         context->defer_partitions_factory_reset = arg_defer_partitions_factory_reset;

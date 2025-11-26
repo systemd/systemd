@@ -114,7 +114,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_ConflictingDiskLabelPresent,
                 SD_VARLINK_SYMBOL_COMMENT("The target disk has insufficient free space to fit all requested partitions. (But the disk would fit, if emptied.)"),
                 &vl_error_InsufficientFreeSpace,
-                SD_VARLINK_SYMBOL_COMMENT("The target disk is too small to fit the installation. (Regardless if emtied or not.)"),
+                SD_VARLINK_SYMBOL_COMMENT("The target disk is too small to fit the installation. (Regardless if emptied or not.)"),
                 &vl_error_DiskTooSmall,
 
                 SD_VARLINK_SYMBOL_COMMENT("Return a list of candidate block devices, i.e. that support partition scanning and other requirements for successful operation."),

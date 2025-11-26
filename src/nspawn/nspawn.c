@@ -41,6 +41,7 @@
 #include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
+#include "dlfcn-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
@@ -58,6 +59,7 @@
 #include "image-policy.h"
 #include "in-addr-util.h"
 #include "io-util.h"
+#include "libmount-util.h"
 #include "log.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
@@ -1305,38 +1307,36 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT_HASH: {
-                        _cleanup_free_ void *k = NULL;
-                        size_t l;
+                        _cleanup_(iovec_done) struct iovec k = {};
 
-                        r = unhexmem(optarg, &k, &l);
+                        r = unhexmem(optarg, &k.iov_base, &k.iov_len);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse root hash: %s", optarg);
-                        if (l < sizeof(sd_id128_t))
+                        if (k.iov_len < sizeof(sd_id128_t))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash must be at least 128-bit long: %s", optarg);
 
-                        free_and_replace(arg_verity_settings.root_hash, k);
-                        arg_verity_settings.root_hash_size = l;
+                        iovec_done(&arg_verity_settings.root_hash);
+                        arg_verity_settings.root_hash = TAKE_STRUCT(k);
                         break;
                 }
 
                 case ARG_ROOT_HASH_SIG: {
+                        _cleanup_(iovec_done) struct iovec p = {};
                         char *value;
-                        size_t l;
-                        void *p;
 
                         if ((value = startswith(optarg, "base64:"))) {
-                                r = unbase64mem(value, &p, &l);
+                                r = unbase64mem(value, &p.iov_base, &p.iov_len);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
 
                         } else {
-                                r = read_full_file(optarg, (char**) &p, &l);
+                                r = read_full_file(optarg, (char**) &p.iov_base, &p.iov_len);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature file '%s': %m", optarg);
                         }
 
-                        free_and_replace(arg_verity_settings.root_hash_sig, p);
-                        arg_verity_settings.root_hash_sig_size = l;
+                        iovec_done(&arg_verity_settings.root_hash_sig);
+                        arg_verity_settings.root_hash_sig = TAKE_STRUCT(p);
                         break;
                 }
 
@@ -3156,7 +3156,7 @@ static int determine_names(void) {
         return 0;
 }
 
-static int chase_and_update(char **p, unsigned flags) {
+static int chase_and_update(char **p, ChaseFlags flags) {
         char *chased;
         int r;
 
@@ -3165,7 +3165,7 @@ static int chase_and_update(char **p, unsigned flags) {
         if (!*p)
                 return 0;
 
-        r = chase(*p, NULL, flags, &chased, NULL);
+        r = chase(*p, /* root= */ NULL, flags, &chased, /* ret_fd= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve path %s: %m", *p);
 
@@ -4140,7 +4140,7 @@ static int outer_child(
                                 dirs,
                                 chown_uid,
                                 chown_range,
-                                /* host_owner= */ UID_INVALID,
+                                /* source_owner= */ UID_INVALID,
                                 /* dest_owner= */ UID_INVALID,
                                 mapping);
                 if (r == -EINVAL || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
@@ -4353,6 +4353,9 @@ static int outer_child(
                 return log_error_errno(errno, "Failed to fork inner child: %m");
         if (pid == 0) {
                 fd_outer_socket = safe_close(fd_outer_socket);
+
+                /* In the child refuse dlopen(), so that we never mix shared libraries from payload and parent */
+                block_dlopen();
 
                 /* The inner child has all namespaces that are requested, so that we all are owned by the
                  * user if user namespaces are turned on. */
@@ -5941,6 +5944,10 @@ static int run(int argc, char *argv[]) {
         if (arg_cleanup)
                 return do_cleanup();
 
+        (void) dlopen_libmount();
+        (void) dlopen_libseccomp();
+        (void) dlopen_libselinux();
+
         r = cg_has_legacy();
         if (r < 0)
                 goto finish;
@@ -6358,7 +6365,7 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        if (dissected_image->has_verity && !arg_verity_settings.root_hash)
+                        if (dissected_image->has_verity && !iovec_is_set(&arg_verity_settings.root_hash))
                                 log_notice("Note: image %s contains verity information, but no root hash specified and no embedded "
                                            "root hash signature found! Proceeding without integrity checking.", arg_image);
 

@@ -123,6 +123,7 @@ last-lba: 2097118"
     tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root
+Format=vfat
 EOF
 
     ln -s root.conf "$defs/root2.conf"
@@ -132,6 +133,7 @@ EOF
 Type=home
 Label=home-first
 Label=home-always-too-long-xxxxxxxxxxxxxx-%v
+Format=vfat
 EOF
 
     tee "$defs/swap.conf" <<EOF
@@ -341,13 +343,14 @@ $imgs/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79
 
     tee "$defs/extra3.conf" <<EOF
 [Partition]
-Type=linux-generic
+Type=srv
 Label=luks-format-copy
 UUID=7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0
 Format=ext4
 Encrypt=yes
 CopyFiles=$defs:/def
 SizeMinBytes=48M
+VolumeLabel=schrupfel
 EOF
 
     systemd-repart --offline="$OFFLINE" \
@@ -371,7 +374,7 @@ $imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=${ro
 $imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\"
 $imgs/zzz5 : start=     1908696, size=     2285568, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=A0A1A2A3-A4A5-A6A7-A8A9-AAABACADAEAF, name=\"custom_label\"
 $imgs/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=2A1D97E1-D0A3-46CC-A26E-ADC643926617, name=\"block-copy\"
-$imgs/zzz7 : start=     6291416, size=      131072, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=7B93D1F2-595D-4CE3-B0B9-837FBD9E63B0, name=\"luks-format-copy\""
+$imgs/zzz7 : start=     6291416, size=      131072, type=3B8F8425-20E0-4F3B-907F-1A25A76F98E8, uuid=7B93D1F2-595D-4CE3-B0B9-837FBD9E63B0, name=\"luks-format-copy\", attrs=\"GUID:59\""
 
     if systemd-detect-virt --quiet --container; then
         echo "Skipping encrypt mount tests in container."
@@ -392,6 +395,11 @@ $imgs/zzz7 : start=     6291416, size=      131072, type=0FC63DAF-8483-4772-8E79
     losetup -d "$loop"
     diff -r "$imgs/mount/def" "$defs" >/dev/null
     umount "$imgs/mount"
+
+    # Validate that the VolumeLabel= had the desired effect
+    PASSWORD="" systemd-dissect "$imgs/zzz" -M "$imgs/mount"
+    udevadm info /dev/disk/by-label/schrupfel | grep -q ID_FS_TYPE=crypto_LUKS
+    systemd-dissect -U "$imgs/mount"
 }
 
 testcase_dropin() {
@@ -1683,6 +1691,76 @@ EOF
     cat "$root"/etc/fstab
     grep -q 'UUID=[0-9a-f-]* / btrfs discard,rw,nodev,suid,exec,subvol=@,zstd:1,noatime,lazytime 0 1' "$root"/etc/fstab
     grep -q 'UUID=[0-9a-f-]* /home btrfs discard,rw,nodev,suid,exec,subvol=@home,zstd:1,noatime,lazytime 0 1' "$root"/etc/fstab
+}
+
+testcase_btrfs_compression() {
+    local defs imgs loop output
+
+    if ! systemd-analyze compare-versions "$(btrfs --version | head -n 1 | awk '{ print $2 }')" ge v6.13; then
+        echo "btrfs-progs is not installed or older than v6.13, skipping test."
+        return 0
+    fi
+
+    defs="$(mktemp -d)"
+    imgs="$(mktemp -d)"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for btrfs compression with CopyFiles (OFFLINE=$OFFLINE) ***"
+
+    # Must not be in tmpfs due to exclusions. It also must be large and
+    # compressible so that the compression check succeeds later.
+    src=/etc/test-source-file
+    dd if=/dev/zero of="$src" bs=1M count=1 2>/dev/null
+
+    tee "$defs/btrfs-compressed.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=btrfs
+Compression=zstd
+CopyFiles=$src:/test-file
+SizeMinBytes=100M
+SizeMaxBytes=100M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=auto \
+                   --dry-run=no \
+                   --seed="$seed" \
+                   "$imgs/btrfs-compressed.img" 2>&1 | tee "$imgs/repart-output.txt"
+    rm "$src"
+
+    output=$(cat "$imgs/repart-output.txt")
+
+    assert_in "Rootdir from:" "$output"
+    assert_in "Compress:" "$output"
+
+    if [[ "$OFFLINE" == "yes" ]] || systemd-detect-virt --quiet --container; then
+        echo "Skipping mount verification (requires loop devices)"
+        return 0
+    fi
+    loop="$(losetup -P --show --find "$imgs/btrfs-compressed.img")"
+    # shellcheck disable=SC2064
+    trap "umount '$imgs/mount' 2>/dev/null || true; losetup -d '$loop' 2>/dev/null || true; rm -rf '$defs' '$imgs'" RETURN
+    echo "Loop device: $loop"
+    udevadm wait --timeout=60 --settle "${loop:?}p1"
+
+    mkdir -p "$imgs/mount"
+    mount -t btrfs "${loop:?}p1" "$imgs/mount"
+
+    [[ -f "$imgs/mount/test-file" ]]
+    [[ "$(stat -c%s "$imgs/mount/test-file")" == "1048576" ]]
+
+    if command -v compsize &>/dev/null; then
+        output=$(compsize "$imgs/mount/test-file" 2>&1)
+        assert_in "zstd" "$output"
+    fi
+
+    umount "$imgs/mount"
+    losetup -d "$loop"
 }
 
 testcase_varlink_list_devices() {

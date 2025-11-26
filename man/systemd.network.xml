@@ -747,6 +747,9 @@ DuplicateAddressDetection=none</programlisting></para>
           This is a short-hand for a [Route] section only containing a <varname>Gateway=</varname> key.
           This option may be specified more than once.</para>
 
+          <para>If an empty string is specified, then the all previous assignments in both [Network] and
+          [Route] sections are cleared.</para>
+
           <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
@@ -1344,7 +1347,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <para>Takes a boolean or one of <literal>static</literal>, <literal>dynamic-on-stop</literal>, and
           <literal>dynamic</literal>. When <literal>static</literal>, <command>systemd-networkd</command>
           will not drop statically configured addresses and routes on starting up process. When
-          <literal>dynamic-on-stop</literal>, the dynamically configurad addresses and routes, such as
+          <literal>dynamic-on-stop</literal>, the dynamically configured addresses and routes, such as
           DHCPv4, DHCPv6, SLAAC, and IPv4 link-local address, will not be dropped when
           <command>systemd-networkd</command> is being stopped. When <literal>dynamic</literal>, the
           dynamically configured addresses and routes will never be dropped, and the lifetime of DHCPv4
@@ -4201,6 +4204,23 @@ ServerAddress=192.168.0.1/24</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>LocalLeaseDomain=</varname></term>
+        <listitem>
+          <para>Takes a DNS domain name as argument. If specified,
+          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          will integrate with
+          <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          and ensure that the hostnames associated with each handed out DHCP lease may be resolved to the IP
+          addresses of the lease. The hostnames are suffixed with the specified domain name.</para>
+
+          <para>Note that this purely about hostname resolution on the local system, i.e. from programs with
+          access to the same <filename>systemd-resolved</filename> instances via D-Bus IPC, Varlink IPC, or
+          the local DNS stub.</para>
+          <xi:include href="version-info.xml" xpointer="v259"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
@@ -4226,6 +4246,25 @@ ServerAddress=192.168.0.1/24</programlisting>
         <varname>MACAddress=</varname>. This key is mandatory.</para>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Hostname=</varname></term>
+
+        <listitem><para>The hostname to send to the client in DHCP replies. This can be either a simple
+        hostname (e.g., <literal>mydevice</literal>) or a fully qualified domain name (e.g.,
+        <literal>mydevice.example.com</literal>), following RFC 1123 naming conventions. Each label can be
+        up to 63 characters, with a total maximum length of 253 characters for FQDNs. When this option is
+        set, the DHCP server will include the hostname in DHCP replies (both OFFER and ACK) to the client
+        with the matched MAC address.</para>
+
+        <para>The server automatically selects the appropriate DHCP option based on the hostname format:
+        simple hostnames (single DNS label) are sent via option 12 (Host Name) per RFC 2132, while FQDNs
+        with multiple labels are sent via option 81 (Client FQDN) per RFC 4702 using DNS wire format
+        encoding. The configured hostname is sent unconditionally, any hostname requested by the client in
+        its DHCP message is ignored.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -6418,7 +6457,7 @@ Gateway=192.168.0.1</programlisting>
     <example>
       <title>DHCP on ethernet links</title>
 
-      <programlisting># /etc/systemd/network/80-dhcp.network
+      <programlisting># /etc/systemd/network/60-dhcp.network
 [Match]
 Name=en*
 
