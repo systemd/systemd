@@ -6,12 +6,13 @@
 # Viktar Vaŭčkievič <victorenator@gmail.com>, 2015, 2016.
 # Zmicer Turok <nashtlumach@gmail.com>, 2020, 2021, 2025.
 # Maksim Kliazovich <maxklezovich@gmail.com>, 2023.
+# kopatych <maxklezovich@gmail.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:22+0000\n"
-"Last-Translator: Zmicer Turok <nashtlumach@gmail.com>\n"
+"Last-Translator: kopatych <maxklezovich@gmail.com>\n"
 "Language-Team: Belarusian <https://translate.fedoraproject.org/projects/"
 "systemd/main/be/>\n"
 "Language: be\n"
