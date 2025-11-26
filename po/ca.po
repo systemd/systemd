@@ -9,7 +9,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:24+0000\n"
-"Last-Translator: naly zzwd <xeanhort007@gmail.com>\n"
+"Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Catalan <https://translate.fedoraproject.org/projects/systemd/"
 "main/ca/>\n"
 "Language: ca\n"
@@ -693,8 +693,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr ""
-"Atura el sistema mentre hi ha una aplicació que ha demanat d'inhibir-ho"
+msgstr "Atura el sistema mentre hi ha una aplicació que ha demanat d'inhibir-ho"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
@@ -873,8 +872,7 @@ msgstr "Adquireix un shell en un contenidor local"
 
 #: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr ""
-"Es requereix autenticació per adquirir un shell en un contenidor local."
+msgstr "Es requereix autenticació per adquirir un shell en un contenidor local."
 
 #: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
