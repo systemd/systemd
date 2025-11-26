@@ -7,7 +7,7 @@
 # Fabian Affolter <mail@fabian-affolter.ch>, 2020.
 # Ettore Atalan <atalanttore@googlemail.com>, 2021, 2024, 2025.
 # Christian Wehrli <christian@chw.onl>, 2021.
-# Christian Kirbach <christian.kirbach@gmail.com>, 2023.
+# Christian Kirbach <christian.kirbach@gmail.com>, 2023, 2025.
 # Jarne Förster <fedora@mymailclient.de>, 2024.
 # Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024, 2025.
 # Anselm Schueler <mail@anselmschueler.com>, 2024.
@@ -17,7 +17,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:25+0000\n"
-"Last-Translator: Ettore Atalan <atalanttore@googlemail.com>\n"
+"Last-Translator: Christian Kirbach <christian.kirbach@gmail.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -1027,8 +1027,7 @@ msgstr "LLMNR aktivieren/deaktivieren"
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr ""
-"Legitimierung ist zum Aktivieren oder Deaktivieren von LLMNR notwendig."
+msgstr "Legitimierung ist zum Aktivieren oder Deaktivieren von LLMNR notwendig."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
