@@ -10,17 +10,17 @@
 #define HWDB_SIG { 'K', 'S', 'L', 'P', 'H', 'H', 'R', 'H' }
 
 struct sd_hwdb {
-        unsigned n_ref;
-
         FILE *f;
-        struct stat st;
         union {
                 struct trie_header_f *head;
                 const char *map;
         };
-
         OrderedHashmap *properties;
         Iterator properties_iterator;
+        struct stat st;
+
+        unsigned n_ref;
+
         bool properties_modified;
 };
 
