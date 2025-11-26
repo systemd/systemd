@@ -1248,17 +1248,17 @@ bool oom_score_adjust_is_valid(int oa) {
         return oa >= OOM_SCORE_ADJ_MIN && oa <= OOM_SCORE_ADJ_MAX;
 }
 
-unsigned long personality_from_string(const char *p) {
+unsigned long personality_from_string(const char *s) {
         Architecture architecture;
 
-        if (!p)
+        if (!s)
                 return PERSONALITY_INVALID;
 
         /* Parse a personality specifier. We use our own identifiers that indicate specific ABIs, rather than just
          * hints regarding the register size, since we want to keep things open for multiple locally supported ABIs for
          * the same register size. */
 
-        architecture = architecture_from_string(p);
+        architecture = architecture_from_string(s);
         if (architecture < 0)
                 return PERSONALITY_INVALID;
 
