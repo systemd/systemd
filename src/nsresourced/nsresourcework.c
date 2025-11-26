@@ -1903,7 +1903,9 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
                                 SD_JSON_BUILD_PAIR_STRING("hostInterfaceName", ifname_host),
                                 SD_JSON_BUILD_PAIR_STRING("namespaceInterfaceName", ifname_namespace));
 
-        } else if (streq(p.mode, "tap")) {
+        }
+
+        if (streq(p.mode, "tap")) {
                 /* NB: when we do the "tap" stuff we do not actually do any namespace operation here, neither
                  * netns nor userns. We use the userns only as conduit for user identity information and
                  * indication that the calling user has some control over the UID they want to assign the tap
@@ -1926,8 +1928,9 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
                                 link,
                                 SD_JSON_BUILD_PAIR_STRING("hostInterfaceName", ifname_host),
                                 SD_JSON_BUILD_PAIR_INTEGER("interfaceFileDescriptor", fd_index));
-        } else
-                assert_not_reached();
+        }
+
+        assert_not_reached();
 }
 
 static int process_connection(sd_varlink_server *server, int _fd) {

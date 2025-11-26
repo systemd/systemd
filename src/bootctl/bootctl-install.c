@@ -1373,9 +1373,10 @@ int verb_is_installed(int argc, char *argv[], void *userdata) {
                 if (!arg_quiet)
                         puts("yes");
                 return EXIT_SUCCESS;
-        } else {
-                if (!arg_quiet)
-                        puts("no");
-                return EXIT_FAILURE;
         }
+
+        if (!arg_quiet)
+                puts("no");
+
+        return EXIT_FAILURE;
 }

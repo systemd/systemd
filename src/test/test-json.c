@@ -48,7 +48,7 @@ static void test_tokenizer_one(const char *data, ...) {
                 if (t == JSON_TOKEN_END || t < 0)
                         break;
 
-                else if (t == JSON_TOKEN_STRING) {
+                if (t == JSON_TOKEN_STRING) {
                         const char *nn;
 
                         nn = va_arg(ap, const char *);

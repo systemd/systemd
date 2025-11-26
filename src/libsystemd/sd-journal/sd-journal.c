@@ -695,9 +695,9 @@ static int next_for_match(
                         return r;
 
                 return journal_file_move_to_entry_by_offset_for_data(f, d, after_offset, direction, ret, ret_offset);
+        }
 
-        } else if (m->type == MATCH_OR_TERM) {
-
+        if (m->type == MATCH_OR_TERM) {
                 /* Find the earliest match beyond after_offset */
 
                 LIST_FOREACH(matches, i, m->matches) {
@@ -706,7 +706,7 @@ static int next_for_match(
                         r = next_for_match(j, i, f, after_offset, direction, NULL, &cp);
                         if (r < 0)
                                 return r;
-                        else if (r > 0) {
+                        if (r > 0) {
                                 if (np == 0 || (direction == DIRECTION_DOWN ? cp < np : cp > np))
                                         np = cp;
                         }
@@ -863,8 +863,9 @@ static int find_location_for_match(
                         return move_by_boot_for_data(j, f, direction, j->current_location.boot_id, dp, ret, ret_offset);
 
                 return journal_file_move_to_entry_for_data(f, d, direction, ret, ret_offset);
+        }
 
-        } else if (m->type == MATCH_OR_TERM) {
+        if (m->type == MATCH_OR_TERM) {
                 uint64_t np = 0;
 
                 /* Find the earliest match */
@@ -875,7 +876,7 @@ static int find_location_for_match(
                         r = find_location_for_match(j, i, f, direction, NULL, &cp);
                         if (r < 0)
                                 return r;
-                        else if (r > 0) {
+                        if (r > 0) {
                                 if (np == 0 || (direction == DIRECTION_DOWN ? np > cp : np < cp))
                                         np = cp;
                         }
@@ -894,31 +895,30 @@ static int find_location_for_match(
                         *ret_offset = np;
 
                 return 1;
-
-        } else {
-                uint64_t np = 0;
-
-                assert(m->type == MATCH_AND_TERM);
-
-                /* First jump to the last match, and then find the
-                 * next one where all matches match */
-
-                if (!m->matches)
-                        return 0;
-
-                LIST_FOREACH(matches, i, m->matches) {
-                        uint64_t cp;
-
-                        r = find_location_for_match(j, i, f, direction, NULL, &cp);
-                        if (r <= 0)
-                                return r;
-
-                        if (np == 0 || (direction == DIRECTION_DOWN ? cp > np : cp < np))
-                                np = cp;
-                }
-
-                return next_for_match(j, m, f, np, direction, ret, ret_offset);
         }
+
+        uint64_t np = 0;
+
+        assert(m->type == MATCH_AND_TERM);
+
+        /* First jump to the last match, and then find the
+        * next one where all matches match */
+
+        if (!m->matches)
+                return 0;
+
+        LIST_FOREACH(matches, i, m->matches) {
+                uint64_t cp;
+
+                r = find_location_for_match(j, i, f, direction, NULL, &cp);
+                if (r <= 0)
+                        return r;
+
+                if (np == 0 || (direction == DIRECTION_DOWN ? cp > np : cp < np))
+                        np = cp;
+        }
+
+        return next_for_match(j, m, f, np, direction, ret, ret_offset);
 }
 
 static int find_location_with_matches(
@@ -1144,7 +1144,8 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                         log_debug_errno(r, "Can't iterate through %s, ignoring: %m", f->path);
                         remove_file_real(j, f);
                         continue;
-                } else if (r == 0) {
+                }
+                if (r == 0) {
                         f->location_type = direction == DIRECTION_DOWN ? LOCATION_TAIL : LOCATION_HEAD;
                         continue;
                 }

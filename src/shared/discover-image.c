@@ -510,8 +510,9 @@ static int image_make(
 
                 (*ret)->foreign_uid_owned = uid_is_foreign(st->st_uid);
                 return 0;
+        }
 
-        } else if (S_ISREG(st->st_mode) && endswith(filename, ".raw")) {
+        if (S_ISREG(st->st_mode) && endswith(filename, ".raw")) {
                 usec_t crtime = 0;
 
                 /* It's a RAW disk image */
@@ -550,8 +551,9 @@ static int image_make(
                 (*ret)->limit = (*ret)->limit_exclusive = st->st_size;
 
                 return 0;
+        }
 
-        } else if (S_ISBLK(st->st_mode)) {
+        if (S_ISBLK(st->st_mode)) {
                 uint64_t size = UINT64_MAX;
 
                 /* A block device */

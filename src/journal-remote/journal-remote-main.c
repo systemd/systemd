@@ -445,7 +445,7 @@ static mhd_result request_handler(
         r = request_meta(connection_cls, fd, hostname);
         if (r == -ENOMEM)
                 return respond_oom(connection);
-        else if (r < 0)
+        if (r < 0)
                 return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "%m");
 
         hostname = NULL;
@@ -667,8 +667,8 @@ static int create_remoteserver(
         n = sd_listen_fds(true);
         if (n < 0)
                 return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
-        else
-                log_debug("Received %d descriptors", n);
+
+        log_debug("Received %d descriptors", n);
 
         if (MAX(http_socket, https_socket) >= SD_LISTEN_FDS_START + n)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADFD),
@@ -808,8 +808,8 @@ static int negative_fd(const char *spec) {
 
         if (fd > 0)
                 return -EINVAL;
-        else
-                return -fd;
+
+        return -fd;
 }
 
 static int parse_config(void) {

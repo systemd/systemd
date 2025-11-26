@@ -1164,7 +1164,9 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
                         if (c == 0) {
                                 /* End of name */
                                 break;
-                        } else if (c <= 63) {
+                        }
+
+                        if (c <= 63) {
                                 const char *label;
 
                                 /* Literal label */

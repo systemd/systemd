@@ -201,7 +201,7 @@ static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "FooOverUDP peer port is set but peer address not configured in %s. Rejecting configuration.",
                                               filename);
-        else if (t->peer_family != AF_UNSPEC && t->peer_port == 0)
+        if (t->peer_family != AF_UNSPEC && t->peer_port == 0)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "FooOverUDP peer port not set but peer address is configured in %s. Rejecting configuration.",
                                               filename);

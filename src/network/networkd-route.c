@@ -1241,7 +1241,9 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
                 return 0;
-        } else if (!IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE)) {
+        }
+
+        if (!IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE)) {
                 log_warning("rtnl: received unexpected message type %u when processing route, ignoring.", type);
                 return 0;
         }
@@ -1255,7 +1257,9 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         if (r < 0) {
                 log_warning_errno(r, "rtnl: received route message without family, ignoring: %m");
                 return 0;
-        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
+        }
+
+        if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
                 log_debug("rtnl: received route message with invalid family '%i', ignoring.", tmp->family);
                 return 0;
         }

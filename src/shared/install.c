@@ -279,8 +279,7 @@ static const char* config_path_from_flags(const LookupPaths *lp, UnitFileFlags f
 
         if (FLAGS_SET(flags, UNIT_FILE_PORTABLE))
                 return FLAGS_SET(flags, UNIT_FILE_RUNTIME) ? lp->runtime_attached : lp->persistent_attached;
-        else
-                return FLAGS_SET(flags, UNIT_FILE_RUNTIME) ? lp->runtime_config : lp->persistent_config;
+        return FLAGS_SET(flags, UNIT_FILE_RUNTIME) ? lp->runtime_config : lp->persistent_config;
 }
 
 InstallChangeType install_changes_add(
@@ -1558,7 +1557,8 @@ static int unit_file_search(
                         result = r;
                         found_unit = true;
                         break;
-                } else if (!IN_SET(r, -ENOENT, -ENOTDIR, -EACCES))
+                }
+                if (!IN_SET(r, -ENOENT, -ENOTDIR, -EACCES))
                         return r;
         }
 
@@ -1581,7 +1581,8 @@ static int unit_file_search(
                                 result = r;
                                 found_unit = true;
                                 break;
-                        } else if (!IN_SET(r, -ENOENT, -ENOTDIR, -EACCES))
+                        }
+                        if (!IN_SET(r, -ENOENT, -ENOTDIR, -EACCES))
                                 return r;
                 }
         }
@@ -1783,8 +1784,9 @@ static int install_info_add_auto(
                         return -ENOMEM;
 
                 return install_info_add(ctx, NULL, pp, lp->root_dir, /* auxiliary= */ false, ret);
-        } else
-                return install_info_add(ctx, name_or_path, NULL, lp->root_dir, /* auxiliary= */ false, ret);
+        }
+
+        return install_info_add(ctx, name_or_path, NULL, lp->root_dir, /* auxiliary= */ false, ret);
 }
 
 static int install_info_discover(
@@ -3462,17 +3464,17 @@ static int pattern_match_multiple_instances(
 
                 *ret = TAKE_PTR(out_strv);
                 return 1;
-        } else {
-                /* We now know the input unit name is an instance name */
-                _cleanup_free_ char *instance_name = NULL;
-
-                r = unit_name_to_instance(unit_name, &instance_name);
-                if (r < 0)
-                        return r;
-
-                if (strv_find(rule.instances, instance_name))
-                        return 1;
         }
+
+        /* We now know the input unit name is an instance name */
+        _cleanup_free_ char *instance_name = NULL;
+        r = unit_name_to_instance(unit_name, &instance_name);
+        if (r < 0)
+                return r;
+
+        if (strv_find(rule.instances, instance_name))
+                return 1;
+
         return 0;
 }
 

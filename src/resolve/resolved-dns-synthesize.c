@@ -589,7 +589,9 @@ int dns_synthesize_answer(
                         *ret = TAKE_PTR(answer);
 
                 return 1;
-        } else if (nxdomain)
+        }
+
+        if (nxdomain)
                 return -ENXIO;
 
         return 0;

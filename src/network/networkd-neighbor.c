@@ -563,7 +563,9 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
                 return 0;
-        } else if (!IN_SET(type, RTM_NEWNEIGH, RTM_DELNEIGH)) {
+        }
+
+        if (!IN_SET(type, RTM_NEWNEIGH, RTM_DELNEIGH)) {
                 log_warning("rtnl: received unexpected message type %u when processing neighbor, ignoring.", type);
                 return 0;
         }
@@ -573,7 +575,9 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         if (r < 0) {
                 log_warning_errno(r, "rtnl: received neighbor message with invalid state, ignoring: %m");
                 return 0;
-        } else if (!FLAGS_SET(state, NUD_PERMANENT))
+        }
+
+        if (!FLAGS_SET(state, NUD_PERMANENT))
                 /* Currently, we are interested in only static neighbors. */
                 return 0;
 
@@ -582,7 +586,9 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get ifindex from message, ignoring: %m");
                 return 0;
-        } else if (ifindex <= 0) {
+        }
+
+        if (ifindex <= 0) {
                 log_warning("rtnl: received neighbor message with invalid ifindex %d, ignoring.", ifindex);
                 return 0;
         }

@@ -431,7 +431,9 @@ int ask_password_plymouth(
                         /* No password, because UI not shown */
                         return -ENOENT;
 
-                } else if (IN_SET(buffer[0], 2, 9)) {
+                }
+
+                if (IN_SET(buffer[0], 2, 9)) {
                         _cleanup_strv_free_erase_ char **l = NULL;
                         uint32_t size;
 
@@ -457,9 +459,10 @@ int ask_password_plymouth(
                         *ret = TAKE_PTR(l);
                         return 0;
 
-                } else
-                        /* Unknown packet */
-                        return -EIO;
+                }
+
+                /* Unknown packet */
+                return -EIO;
         }
 }
 

@@ -715,17 +715,9 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                 pager_open(arg_pager_flags);
                 sd_json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
                 return r;
+        }
 
-        } else if (arg_method_flags & SD_VARLINK_METHOD_ONEWAY) {
-                r = sd_varlink_send(vl, method, jp);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to issue %s() call: %m", method);
-
-                r = sd_varlink_flush(vl);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to flush Varlink connection: %m");
-
-        } else if (arg_method_flags & SD_VARLINK_METHOD_MORE) {
+        if (arg_method_flags & SD_VARLINK_METHOD_MORE) {
 
                 int ret = 0;
                 sd_varlink_set_userdata(vl, &ret);
@@ -757,6 +749,16 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                 }
 
                 return ret;
+        }
+
+        if (arg_method_flags & SD_VARLINK_METHOD_ONEWAY) {
+                r = sd_varlink_send(vl, method, jp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to issue %s() call: %m", method);
+
+                r = sd_varlink_flush(vl);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to flush Varlink connection: %m");
         } else {
                 sd_json_variant *reply = NULL;
                 const char *error = NULL;

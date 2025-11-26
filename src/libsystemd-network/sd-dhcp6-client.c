@@ -1134,9 +1134,8 @@ static int log_invalid_message_type(sd_dhcp6_client *client, const DHCP6Message 
         if (type_str)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                               "Received unexpected %s message, ignoring.", type_str);
-        else
-                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
-                                              "Received unsupported message type %u, ignoring.", message->type);
+        return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                      "Received unsupported message type %u, ignoring.", message->type);
 }
 
 static int client_process_information(

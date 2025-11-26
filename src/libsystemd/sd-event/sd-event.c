@@ -3623,7 +3623,7 @@ static int process_timer(
                         r = event_source_leave_ratelimit(s, /* run_callback = */ true);
                         if (r < 0)
                                 return r;
-                        else if (r == 1)
+                        if (r == 1)
                                 callback_invoked = true;
 
                         continue;

@@ -1148,8 +1148,7 @@ static bool timestamp_is_fresh(usec_t x) {
 
         if (x > n)
                 return x - n <= TIMESTAMP_FRESH_MAX;
-        else
-                return n - x <= TIMESTAMP_FRESH_MAX;
+        return n - x <= TIMESTAMP_FRESH_MAX;
 }
 
 typedef enum CredentialScope {

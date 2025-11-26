@@ -1054,26 +1054,24 @@ uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state) {
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_cpu_weight != CGROUP_WEIGHT_INVALID)
                 return c->startup_cpu_weight;
-        else if (c->cpu_weight != CGROUP_WEIGHT_INVALID)
+        if (c->cpu_weight != CGROUP_WEIGHT_INVALID)
                 return c->cpu_weight;
-        else
-                return CGROUP_WEIGHT_DEFAULT;
+
+        return CGROUP_WEIGHT_DEFAULT;
 }
 
 static CPUSet *cgroup_context_allowed_cpus(CGroupContext *c, ManagerState state) {
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_cpuset_cpus.set)
                 return &c->startup_cpuset_cpus;
-        else
-                return &c->cpuset_cpus;
+                        return &c->cpuset_cpus;
 }
 
 static CPUSet *cgroup_context_allowed_mems(CGroupContext *c, ManagerState state) {
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_cpuset_mems.set)
                 return &c->startup_cpuset_mems;
-        else
-                return &c->cpuset_mems;
+                        return &c->cpuset_mems;
 }
 
 usec_t cgroup_cpu_adjust_period(usec_t period, usec_t quota, usec_t resolution, usec_t max_period) {

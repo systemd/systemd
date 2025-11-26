@@ -348,28 +348,24 @@ _public_ int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr* addr
                         return false;
 
                 return sockaddr.in.sin_addr.s_addr == in->sin_addr.s_addr;
-
-        } else {
-                const struct sockaddr_in6 *in = (const struct sockaddr_in6 *) addr;
-
-                if (l < sizeof(struct sockaddr_in6) || addr_len < sizeof(struct sockaddr_in6))
-                        return -EINVAL;
-
-                if (in->sin6_port != 0 &&
-                    sockaddr.in6.sin6_port != in->sin6_port)
-                        return false;
-
-                if (in->sin6_flowinfo != 0 &&
-                    sockaddr.in6.sin6_flowinfo != in->sin6_flowinfo)
-                        return false;
-
-                if (in->sin6_scope_id != 0 &&
-                    sockaddr.in6.sin6_scope_id != in->sin6_scope_id)
-                        return false;
-
-                return memcmp(sockaddr.in6.sin6_addr.s6_addr, in->sin6_addr.s6_addr,
-                              sizeof(in->sin6_addr.s6_addr)) == 0;
         }
+
+        const struct sockaddr_in6 *in = (const struct sockaddr_in6 *) addr;
+
+        if (l < sizeof(struct sockaddr_in6) || addr_len < sizeof(struct sockaddr_in6))
+                return -EINVAL;
+
+        if (in->sin6_port != 0 && sockaddr.in6.sin6_port != in->sin6_port)
+                return false;
+
+        if (in->sin6_flowinfo != 0 && sockaddr.in6.sin6_flowinfo != in->sin6_flowinfo)
+                return false;
+
+        if (in->sin6_scope_id != 0 && sockaddr.in6.sin6_scope_id != in->sin6_scope_id)
+                return false;
+
+        return memcmp(sockaddr.in6.sin6_addr.s6_addr, in->sin6_addr.s6_addr,
+                      sizeof(in->sin6_addr.s6_addr)) == 0;
 }
 
 _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length) {
@@ -402,14 +398,12 @@ _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path
 
                 if (path[0])
                         /* Normal path socket */
-                        return
-                                (l >= offsetof(struct sockaddr_un, sun_path) + length + 1) &&
+                        return (l >= offsetof(struct sockaddr_un, sun_path) + length + 1) &&
                                 memcmp(path, sockaddr.un.sun_path, length+1) == 0;
-                else
-                        /* Abstract namespace socket */
-                        return
-                                (l == offsetof(struct sockaddr_un, sun_path) + length) &&
-                                memcmp(path, sockaddr.un.sun_path, length) == 0;
+
+                /* Abstract namespace socket */
+                return (l == offsetof(struct sockaddr_un, sun_path) + length) &&
+                        memcmp(path, sockaddr.un.sun_path, length) == 0;
         }
 
         return 1;

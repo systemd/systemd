@@ -1824,8 +1824,7 @@ int make_mount_point_inode_from_mode(int dir_fd, const char *dest, mode_t source
 
         if (S_ISDIR(source_mode))
                 return mkdirat_label(dir_fd, dest, target_mode & 07777);
-        else
-                return RET_NERRNO(mknodat(dir_fd, dest, S_IFREG|(target_mode & 07666), 0)); /* Mask off X bit */
+        return RET_NERRNO(mknodat(dir_fd, dest, S_IFREG|(target_mode & 07666), 0)); /* Mask off X bit */
 }
 
 int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t access_mode) {
