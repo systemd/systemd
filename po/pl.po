@@ -8,7 +8,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:30+0000\n"
-"Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
+"Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Polish <https://translate.fedoraproject.org/projects/systemd/"
 "main/pl/>\n"
 "Language: pl\n"
@@ -583,8 +583,7 @@ msgstr "Zezwolenie na podłączanie urządzeń do stanowisk"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby podłączyć urządzenie do stanowiska."
+msgstr "Wymagane jest uwierzytelnienie, aby podłączyć urządzenie do stanowiska."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
@@ -1005,8 +1004,7 @@ msgstr "Włączenie/wyłączenie DNS przez TLS"
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć DNS przez TLS."
+msgstr "Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć DNS przez TLS."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
@@ -1334,8 +1332,8 @@ msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby usunąć pliki i katalogi powiązane "
-"z jednostką „$(unit)”."
+"Wymagane jest uwierzytelnienie, aby usunąć pliki i katalogi powiązane z "
+"jednostką „$(unit)”."
 
 #: src/core/dbus-unit.c:812
 msgid ""
