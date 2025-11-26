@@ -102,6 +102,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ooom, SD_VARLINK_OBJECT, SD_VARLINK_MAP),
                 SD_VARLINK_DEFINE_FIELD(ooonm, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE|SD_VARLINK_MAP),
 
+                SD_VARLINK_DEFINE_FIELD(aaa, SD_VARLINK_ANY, 0),
+                SD_VARLINK_DEFINE_FIELD(aaan, SD_VARLINK_ANY, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(aaaa, SD_VARLINK_ANY, SD_VARLINK_ARRAY),
+                SD_VARLINK_DEFINE_FIELD(aaana, SD_VARLINK_ANY, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_DEFINE_FIELD(aaam, SD_VARLINK_ANY, SD_VARLINK_MAP),
+                SD_VARLINK_DEFINE_FIELD(aaanm, SD_VARLINK_ANY, SD_VARLINK_NULLABLE|SD_VARLINK_MAP),
+
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(eee, EnumTest, 0),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(eeen, EnumTest, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(eeea, EnumTest, SD_VARLINK_ARRAY),
@@ -268,6 +275,7 @@ TEST(symbol_name_is_valid) {
         assert_se(!varlink_idl_symbol_name_is_valid("float"));
         assert_se(!varlink_idl_symbol_name_is_valid("string"));
         assert_se(!varlink_idl_symbol_name_is_valid("object"));
+        assert_se(!varlink_idl_symbol_name_is_valid("any"));
 }
 
 TEST(field_name_is_valid) {
