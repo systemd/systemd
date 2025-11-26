@@ -28,7 +28,9 @@ CheckOptions:
     varlink-idl-common\.h;
     unistd\.h
 '
+  misc-header-include-cycle.IgnoredFilesList: 'glib-2.0'
 WarningsAsErrors: '*'
+ExcludeHeaderFilterRegex: 'blkid\.h|gmessages\.h|gstring\.h'
 HeaderFileExtensions:
   - h
 ImplementationFileExtensions:
