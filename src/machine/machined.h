@@ -30,11 +30,11 @@ typedef struct Manager {
         LIST_HEAD(Operation, operations);
         unsigned n_operations;
 
-        sd_varlink_server *varlink_userdb_server;
-        sd_varlink_server *varlink_machine_server;
-
         RuntimeScope runtime_scope;
         char *state_dir;
+
+        sd_varlink_server *varlink_userdb_server;
+        sd_varlink_server *varlink_machine_server;
 } Manager;
 
 int manager_add_machine(Manager *m, const char *name, Machine **ret);
