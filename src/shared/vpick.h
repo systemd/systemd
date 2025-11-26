@@ -14,18 +14,18 @@ typedef enum PickFlags {
 
 typedef struct PickFilter {
         uint32_t type_mask;           /* A mask of 1U << DT_REG, 1U << DT_DIR, … */
+        Architecture architecture;
         const char *basename;         /* Can be overridden by search pattern */
         const char *version;
-        Architecture architecture;
         char * const *suffix;         /* Can be overridden by search pattern */
 } PickFilter;
 
 typedef struct PickResult {
         char *path;
         int fd; /* O_PATH */
+        Architecture architecture;
         struct stat st;
         char *version;
-        Architecture architecture;
         unsigned tries_left;
         unsigned tries_done;
 } PickResult;

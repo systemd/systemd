@@ -25,15 +25,15 @@ static inline bool SLEEP_OPERATION_IS_HIBERNATION(SleepOperation operation) {
 }
 
 typedef struct SleepConfig {
-        bool allow[_SLEEP_OPERATION_MAX];
-
         char **states[_SLEEP_OPERATION_CONFIG_MAX];
         char **modes[_SLEEP_OPERATION_CONFIG_MAX];  /* Power mode after writing hibernation image (/sys/power/disk) */
         char **mem_modes;                           /* /sys/power/mem_sleep */
 
         usec_t hibernate_delay_usec;
-        bool hibernate_on_ac_power;
         usec_t suspend_estimation_usec;
+        bool hibernate_on_ac_power;
+
+        bool allow[_SLEEP_OPERATION_MAX];
 } SleepConfig;
 
 SleepConfig* sleep_config_free(SleepConfig *sc);

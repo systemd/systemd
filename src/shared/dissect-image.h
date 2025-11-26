@@ -26,10 +26,10 @@ typedef struct DissectedPartition {
         char *decrypted_fstype;
         char *mount_options;
         int mount_node_fd;
+        int fsmount_fd;
         uint64_t size;
         uint64_t offset;
         uint64_t gpt_flags;
-        int fsmount_fd;
 } DissectedPartition;
 
 #define DISSECTED_PARTITION_NULL                                        \
@@ -96,13 +96,14 @@ typedef struct DissectedImage {
         DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
         DecryptedImage *decrypted_image;
 
-        uint32_t sector_size;
-        uint64_t image_size;
-
         char *image_name;
         sd_id128_t image_uuid;
 
+        uint64_t image_size;
+        uint32_t sector_size;
+
         /* Meta information extracted from /etc/os-release and similar */
+        int has_init_system;
         char *hostname;
         sd_id128_t machine_id;
         char **machine_info;
@@ -110,7 +111,6 @@ typedef struct DissectedImage {
         char **initrd_release;
         char **confext_release;
         char **sysext_release;
-        int has_init_system;
 } DissectedImage;
 
 typedef struct MountOptions {

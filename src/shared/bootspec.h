@@ -34,6 +34,7 @@ typedef struct BootEntry {
         BootEntryType type;
         BootEntrySource source;
         bool reported_by_loader;
+        unsigned tries_left;
         char *id;       /* This is the file basename (including extension!) */
         char *id_old;   /* Old-style ID, for deduplication purposes. */
         char *id_without_profile; /* id without profile suffixed */
@@ -55,7 +56,6 @@ typedef struct BootEntry {
         char **initrd;
         char *device_tree;
         char **device_tree_overlay;
-        unsigned tries_left;
         unsigned tries_done;
         unsigned profile;
 } BootEntry;

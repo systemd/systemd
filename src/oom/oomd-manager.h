@@ -30,7 +30,7 @@ typedef struct Manager {
 
         Hashmap *polkit_registry;
 
-        bool dry_run;
+        bool dry_run:1;
         int swap_used_limit_permyriad;
         loadavg_t default_mem_pressure_limit;
         usec_t default_mem_pressure_duration_usec;
