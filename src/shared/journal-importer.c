@@ -100,7 +100,8 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
                                                 imp->fd,
                                                 MALLOC_SIZEOF_SAFE(imp->buf) - imp->filled);
                         return -errno;
-                } else if (n == 0)
+                }
+                if (n == 0)
                         return 0;
 
                 imp->filled += n;
@@ -145,7 +146,8 @@ static int fill_fixed_size(JournalImporter *imp, void **data, size_t size) {
                                 log_error_errno(errno, "read(%d, ..., %zu): %m", imp->fd,
                                                 MALLOC_SIZEOF_SAFE(imp->buf) - imp->filled);
                         return -errno;
-                } else if (n == 0)
+                }
+                if (n == 0)
                         return 0;
 
                 imp->filled += n;
@@ -237,7 +239,7 @@ static int process_special_field(JournalImporter *imp, char *line) {
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse __REALTIME_TIMESTAMP '%s': %m",
                                                  cellescape(buf, sizeof buf, value));
-                else if (!VALID_REALTIME(x)) {
+                if (!VALID_REALTIME(x)) {
                         log_warning("__REALTIME_TIMESTAMP out of range, ignoring: %"PRIu64, x);
                         return -ERANGE;
                 }
@@ -254,7 +256,7 @@ static int process_special_field(JournalImporter *imp, char *line) {
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse __MONOTONIC_TIMESTAMP '%s': %m",
                                                  cellescape(buf, sizeof buf, value));
-                else if (!VALID_MONOTONIC(x)) {
+                if (!VALID_MONOTONIC(x)) {
                         log_warning("__MONOTONIC_TIMESTAMP out of range, ignoring: %"PRIu64, x);
                         return -ERANGE;
                 }

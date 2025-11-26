@@ -341,7 +341,8 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                 if (filled == 0) {
                         log_error("Buffer space is too small to write entry.");
                         return CURL_READFUNC_ABORT;
-                } else if (u->entry_state != ENTRY_DONE)
+                }
+                if (u->entry_state != ENTRY_DONE)
                         /* This means that all available space was used up */
                         break;
 
@@ -386,7 +387,7 @@ static int process_journal_input(Uploader *u, int skip) {
         r = sd_journal_next_skip(u->journal, skip);
         if (r < 0)
                 return log_error_errno(r, "Failed to skip to next entry: %m");
-        else if (r < skip)
+        if (r < skip)
                 return 0;
 
         /* have data */

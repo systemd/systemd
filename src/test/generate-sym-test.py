@@ -95,7 +95,7 @@ def process_source_file(file: IO[str]) -> None:
             print(f'        {{ "{m[1]}_unref", {m[1]}_unref }},')
             continue
 
-        m = re.search(r'^_DEFINE_STRING_TABLE_LOOKUP\((\w+),\s*\w+,\s*_public_\s*\)', line)
+        m = re.search(r'^_DEFINE_STRING_TABLE_LOOKUP\((\w+),\s*\w+,\s*\w+,\s*_public_\s*\)', line)
         if m:
             print(f'        {{ "{m[1]}_from_string", {m[1]}_from_string }},')
             print(f'        {{ "{m[1]}_to_string", {m[1]}_to_string }},')

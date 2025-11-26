@@ -1461,4 +1461,4 @@ static const char* const dns_stub_listener_mode_table[_DNS_STUB_LISTENER_MODE_MA
         [DNS_STUB_LISTENER_TCP] = "tcp",
         [DNS_STUB_LISTENER_YES] = "yes",
 };
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_stub_listener_mode, DnsStubListenerMode, DNS_STUB_LISTENER_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_stub_listener_mode, DnsStubListenerMode, p, DNS_STUB_LISTENER_YES);

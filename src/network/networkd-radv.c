@@ -1384,7 +1384,8 @@ int config_parse_radv_search_domains(
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to apply IDNA to domain name '%s', ignoring: %m", w);
                         continue;
-                } else if (r == 0)
+                }
+                if (r == 0)
                         /* transfer ownership to simplify subsequent operations */
                         idna = TAKE_PTR(w);
 
@@ -1408,6 +1409,7 @@ static const char * const radv_prefix_delegation_table[_RADV_PREFIX_DELEGATION_M
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(
                 radv_prefix_delegation,
                 RADVPrefixDelegation,
+                i,
                 RADV_PREFIX_DELEGATION_BOTH);
 
 int config_parse_router_prefix_delegation(

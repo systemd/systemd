@@ -65,7 +65,8 @@ static uint64_t msr(uint64_t index) {
                                 MSR_DEVICE,
                                 index);
                 return 0;
-        } else if (rv != sizeof(ret)) {
+        }
+        if (rv != sizeof(ret)) {
                 log_debug("Short read %zd bytes from MSR device %s (index %" PRIu64 "), ignoring",
                           rv,
                           MSR_DEVICE,
@@ -204,7 +205,7 @@ static ConfidentialVirtualization detect_confidential_virtualization_impl(void) 
 
                 if (memcmp(sig, CPUID_SIG_AMD, sizeof(sig)) == 0)
                         return detect_sev();
-                else if (memcmp(sig, CPUID_SIG_INTEL, sizeof(sig)) == 0)
+                if (memcmp(sig, CPUID_SIG_INTEL, sizeof(sig)) == 0)
                         return detect_tdx();
         }
 
@@ -265,4 +266,4 @@ static const char *const confidential_virtualization_table[_CONFIDENTIAL_VIRTUAL
         [CONFIDENTIAL_VIRTUALIZATION_CCA]      = "cca",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(confidential_virtualization, ConfidentialVirtualization);
+DEFINE_STRING_TABLE_LOOKUP(confidential_virtualization, ConfidentialVirtualization, v);

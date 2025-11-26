@@ -27,7 +27,7 @@ static const char * const network_config_source_table[_NETWORK_CONFIG_SOURCE_MAX
         [NETWORK_CONFIG_SOURCE_RUNTIME] = "runtime",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(network_config_source, NetworkConfigSource);
+DEFINE_STRING_TABLE_LOOKUP(network_config_source, NetworkConfigSource, s);
 
 int network_config_state_to_string_alloc(NetworkConfigState s, char **ret) {
         static const char* states[] = {
@@ -98,7 +98,7 @@ static const char * const dhcp_lease_server_type_table[_SD_DHCP_LEASE_SERVER_TYP
         [SD_DHCP_LEASE_LPR]  = "LPR servers",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(address_family, AddressFamily, ADDRESS_FAMILY_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(address_family, AddressFamily, b, ADDRESS_FAMILY_YES);
 
 AddressFamily link_local_address_family_from_string(const char *s) {
         if (streq_ptr(s, "fallback"))         /* compat name */
@@ -108,13 +108,13 @@ AddressFamily link_local_address_family_from_string(const char *s) {
         return address_family_from_string(s);
 }
 
-DEFINE_STRING_TABLE_LOOKUP(routing_policy_rule_address_family, AddressFamily);
-DEFINE_STRING_TABLE_LOOKUP(nexthop_address_family, AddressFamily);
-DEFINE_STRING_TABLE_LOOKUP(duplicate_address_detection_address_family, AddressFamily);
+DEFINE_STRING_TABLE_LOOKUP(routing_policy_rule_address_family, AddressFamily, b);
+DEFINE_STRING_TABLE_LOOKUP(nexthop_address_family, AddressFamily, b);
+DEFINE_STRING_TABLE_LOOKUP(duplicate_address_detection_address_family, AddressFamily, b);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_deprecated_address_family, AddressFamily);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(ip_masquerade_address_family, AddressFamily);
-DEFINE_STRING_TABLE_LOOKUP(dhcp_lease_server_type, sd_dhcp_lease_server_type_t);
+DEFINE_STRING_TABLE_LOOKUP(dhcp_lease_server_type, sd_dhcp_lease_server_type_t, t);
 
 bool link_should_mark_config(Link *link, bool only_static, NetworkConfigSource source, uint8_t protocol) {
         /* Always mark static configs. */

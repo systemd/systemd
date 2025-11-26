@@ -154,7 +154,7 @@ static JsonSource* json_source_new(const char *name) {
         return s;
 }
 
-DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(JsonSource, json_source, mfree);
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(JsonSource, json_source, j, mfree);
 
 static bool json_source_equal(JsonSource *a, JsonSource *b) {
         if (a == b)
@@ -1335,7 +1335,8 @@ _public_ sd_json_variant *sd_json_variant_by_key_full(sd_json_variant *v, const 
                                         *ret_key = json_variant_conservative_formalize(v + 1 + i*2);
 
                                 return json_variant_conservative_formalize(v + 1 + i*2 + 1);
-                        } else if (c < 0)
+                        }
+                        if (c < 0)
                                 b = i;
                         else
                                 a = i + 1;
@@ -2802,13 +2803,15 @@ static int json_parse_number(const char **p, JsonValue *ret) {
         if (is_real) {
                 ret->real = ((negative ? -1.0 : 1.0) * (x + (y / shift))) * exp10((exponent_negative ? -1.0 : 1.0) * exponent);
                 return JSON_TOKEN_REAL;
-        } else if (negative) {
+        }
+
+        if (negative) {
                 ret->integer = i;
                 return JSON_TOKEN_INTEGER;
-        } else  {
-                ret->unsig = u;
-                return JSON_TOKEN_UNSIGNED;
         }
+
+        ret->unsig = u;
+        return JSON_TOKEN_UNSIGNED;
 }
 
 int json_tokenize(
@@ -5089,7 +5092,7 @@ int json_log_internal(
                                 LOG_ITEM("CONFIG_COLUMN=%u", source_column),
                                 LOG_MESSAGE("%s:%u:%u: %s", source, source_line, source_column, buffer),
                                 NULL);
-        else if (source_line > 0 && source_column > 0)
+        if (source_line > 0 && source_column > 0)
                 return log_struct_internal(
                                 level,
                                 error,
@@ -5099,14 +5102,13 @@ int json_log_internal(
                                 LOG_ITEM("CONFIG_COLUMN=%u", source_column),
                                 LOG_MESSAGE("(string):%u:%u: %s", source_line, source_column, buffer),
                                 NULL);
-        else
-                return log_struct_internal(
-                                level,
-                                error,
-                                file, line, func,
-                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
-                                LOG_MESSAGE("%s", buffer),
-                                NULL);
+        return log_struct_internal(
+                        level,
+                        error,
+                        file, line, func,
+                        LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
+                        LOG_MESSAGE("%s", buffer),
+                        NULL);
 }
 
 static void* dispatch_userdata(const sd_json_dispatch_field *p, void *userdata) {
@@ -5248,9 +5250,9 @@ _public_ int sd_json_dispatch_full(
                                                 *reterr_bad_field = sd_json_variant_string(key);
 
                                         return r;
-                                } else
-                                        done++;
+                                }
 
+                                done++;
                         } else  {
                                 if (flags & SD_JSON_ALLOW_EXTENSIONS) {
                                         json_log(value, flags|SD_JSON_DEBUG, 0, "Unrecognized object field '%s', assuming extension.", sd_json_variant_string(key));
@@ -5938,4 +5940,4 @@ static const char* const sd_json_variant_type_table[_SD_JSON_VARIANT_TYPE_MAX] =
         [SD_JSON_VARIANT_NULL]     = "null",
 };
 
-_DEFINE_STRING_TABLE_LOOKUP(sd_json_variant_type, sd_json_variant_type_t, _public_);
+_DEFINE_STRING_TABLE_LOOKUP(sd_json_variant_type, sd_json_variant_type_t, t, _public_);

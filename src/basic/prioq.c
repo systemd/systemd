@@ -229,12 +229,13 @@ static struct prioq_item* find_item(Prioq *q, void *data, unsigned *idx) {
                         return NULL;
 
                 return i;
-        } else {
-                for (i = q->items; i < q->items + q->n_items; i++)
-                        if (i->data == data)
-                                return i;
-                return NULL;
         }
+
+        for (i = q->items; i < q->items + q->n_items; i++)
+                if (i->data == data)
+                        return i;
+
+        return NULL;
 }
 
 int prioq_remove(Prioq *q, void *data, unsigned *idx) {

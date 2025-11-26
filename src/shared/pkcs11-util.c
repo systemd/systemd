@@ -1373,7 +1373,8 @@ static int slot_process(
         if (rv == CKR_TOKEN_NOT_PRESENT) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                        "Token not present in slot, ignoring.");
-        } else if (rv != CKR_OK) {
+        }
+        if (rv != CKR_OK) {
                 log_warning("Failed to acquire token info for slot %lu, ignoring slot: %s", slotid, sym_p11_kit_strerror(rv));
                 return -EAGAIN;
         }

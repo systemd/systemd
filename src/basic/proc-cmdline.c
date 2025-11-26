@@ -147,15 +147,14 @@ static int proc_cmdline_strv_internal(char ***ret, bool filter_pid1_args) {
                 *ret = TAKE_PTR(args);
                 return 0;
 
-        } else {
-                _cleanup_free_ char *s = NULL;
-
-                r = read_full_file("/proc/cmdline", &s, NULL);
-                if (r < 0)
-                        return r;
-
-                return strv_split_full(ret, s, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
         }
+
+        _cleanup_free_ char *s = NULL;
+        r = read_full_file("/proc/cmdline", &s, NULL);
+        if (r < 0)
+                return r;
+
+        return strv_split_full(ret, s, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
 }
 
 int proc_cmdline_strv(char ***ret) {

@@ -3832,11 +3832,9 @@ static bool fragment_mtime_newer(const char *path, usec_t mtime, bool path_maske
         if (path_masked)
                 /* For masked files check if they are still so */
                 return !null_or_empty(&st);
-        else
-                /* For non-empty files check the mtime */
-                return timespec_load(&st.st_mtim) > mtime;
 
-        return false;
+        /* For non-empty files check the mtime */
+        return timespec_load(&st.st_mtim) > mtime;
 }
 
 bool unit_need_daemon_reload(Unit *u) {
@@ -6612,7 +6610,7 @@ static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
         [COLLECT_INACTIVE_OR_FAILED] = "inactive-or-failed",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(collect_mode, CollectMode);
+DEFINE_STRING_TABLE_LOOKUP(collect_mode, CollectMode, m);
 
 Unit* unit_has_dependency(const Unit *u, UnitDependencyAtom atom, Unit *other) {
         Unit *i;
@@ -6978,14 +6976,14 @@ int activation_details_append_pair(const ActivationDetails *details, char ***str
         return r + !isempty(details->trigger_unit_name); /* Return the number of pairs added to the strv */
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(ActivationDetails, activation_details, activation_details_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(ActivationDetails, activation_details, p, activation_details_free);
 
 static const char* const unit_mount_dependency_type_table[_UNIT_MOUNT_DEPENDENCY_TYPE_MAX] = {
         [UNIT_MOUNT_WANTS]    = "WantsMountsFor",
         [UNIT_MOUNT_REQUIRES] = "RequiresMountsFor",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(unit_mount_dependency_type, UnitMountDependencyType);
+DEFINE_STRING_TABLE_LOOKUP(unit_mount_dependency_type, UnitMountDependencyType, t);
 
 static const char* const oom_policy_table[_OOM_POLICY_MAX] = {
         [OOM_CONTINUE] = "continue",
@@ -6993,7 +6991,7 @@ static const char* const oom_policy_table[_OOM_POLICY_MAX] = {
         [OOM_KILL]     = "kill",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);
+DEFINE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy, i);
 
 UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependencyType t) {
         switch (t) {

@@ -477,7 +477,9 @@ static void check(const char *test, char** expected, bool trailing) {
                 if (r == 0) {
                         assert_se(!trailing);
                         break;
-                } else if (r < 0) {
+                }
+
+                if (r < 0) {
                         assert_se(trailing);
                         break;
                 }

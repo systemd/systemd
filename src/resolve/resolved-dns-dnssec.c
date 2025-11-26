@@ -2122,8 +2122,8 @@ int dnssec_test_positive_wildcard(
                 return r;
         if (r > 0)
                 return dnssec_test_positive_wildcard_nsec3(answer, name, source, zone, authenticated);
-        else
-                return dnssec_test_positive_wildcard_nsec(answer, name, source, zone, authenticated);
+
+        return dnssec_test_positive_wildcard_nsec(answer, name, source, zone, authenticated);
 }
 
 #else
@@ -2212,7 +2212,7 @@ static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_UPSTREAM_FAILURE]      = "upstream-failure",
         [DNSSEC_TOO_MANY_VALIDATIONS]  = "too-many-validations",
 };
-DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);
+DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult, m);
 
 static const char* const dnssec_verdict_table[_DNSSEC_VERDICT_MAX] = {
         [DNSSEC_SECURE]        = "secure",
@@ -2220,4 +2220,4 @@ static const char* const dnssec_verdict_table[_DNSSEC_VERDICT_MAX] = {
         [DNSSEC_BOGUS]         = "bogus",
         [DNSSEC_INDETERMINATE] = "indeterminate",
 };
-DEFINE_STRING_TABLE_LOOKUP(dnssec_verdict, DnssecVerdict);
+DEFINE_STRING_TABLE_LOOKUP(dnssec_verdict, DnssecVerdict, m);

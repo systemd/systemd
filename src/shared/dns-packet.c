@@ -1590,7 +1590,7 @@ int dns_packet_read_name(
                 if (c == 0)
                         /* End of name */
                         break;
-                else if (c <= 63) {
+                if (c <= 63) {
                         const char *label;
 
                         /* Literal label */
@@ -1619,7 +1619,9 @@ int dns_packet_read_name(
                                 return -EBADMSG;
 
                         continue;
-                } else if (allow_compression && FLAGS_SET(c, 0xc0)) {
+                }
+
+                if (allow_compression && FLAGS_SET(c, 0xc0)) {
                         uint16_t ptr;
 
                         /* Pointer */
@@ -2051,11 +2053,11 @@ int dns_packet_read_rr(
                                 return r;
 
                         break;
-                } else {
-                        dns_packet_rewind(p, pos);
-                        rr->unparsable = true;
-                        goto unparsable;
                 }
+
+                dns_packet_rewind(p, pos);
+                rr->unparsable = true;
+                goto unparsable;
         }
 
         case DNS_TYPE_DS:
@@ -2965,7 +2967,7 @@ static const char* const dns_svc_param_key_table[_DNS_SVC_PARAM_KEY_MAX_DEFINED]
         [DNS_SVC_PARAM_KEY_DOHPATH]         = "dohpath",
         [DNS_SVC_PARAM_KEY_OHTTP]           = "ohttp",
 };
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_svc_param_key, int);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_svc_param_key, int, i);
 
 const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]) {
         const char *p = dns_svc_param_key_to_string(i);
@@ -2997,7 +2999,7 @@ static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_BADTRUNC]  = "BADTRUNC",
         [DNS_RCODE_BADCOOKIE] = "BADCOOKIE",
 };
-DEFINE_STRING_TABLE_LOOKUP(dns_rcode, int);
+DEFINE_STRING_TABLE_LOOKUP(dns_rcode, int, i);
 
 const char* format_dns_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
         const char *p = dns_rcode_to_string(i);
@@ -3039,7 +3041,7 @@ static const char* const dns_ede_rcode_table[_DNS_EDE_RCODE_MAX_DEFINED] = {
         [DNS_EDE_RCODE_TRANSPORT_POLICY]       = "Impossible Transport Policy",
         [DNS_EDE_RCODE_SYNTHESIZED]            = "Synthesized",
 };
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_ede_rcode, int);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_ede_rcode, int, i);
 
 const char* format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
         const char *p = dns_ede_rcode_to_string(i);
@@ -3054,4 +3056,4 @@ static const char* const dns_protocol_table[_DNS_PROTOCOL_MAX] = {
         [DNS_PROTOCOL_MDNS]  = "mdns",
         [DNS_PROTOCOL_LLMNR] = "llmnr",
 };
-DEFINE_STRING_TABLE_LOOKUP(dns_protocol, DnsProtocol);
+DEFINE_STRING_TABLE_LOOKUP(dns_protocol, DnsProtocol, p);

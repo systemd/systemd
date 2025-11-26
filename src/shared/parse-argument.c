@@ -28,12 +28,12 @@ int parse_boolean_argument(const char *optname, const char *s, bool *ret) {
                 if (ret)
                         *ret = r;
                 return r;
-        } else {
-                /* s may be NULL. This is controlled by getopt_long() parameters. */
-                if (ret)
-                        *ret = true;
-                return true;
         }
+
+        /* s may be NULL. This is controlled by getopt_long() parameters. */
+        if (ret)
+                *ret = true;
+        return true;
 }
 
 int parse_tristate_argument(const char *optname, const char *s, int *ret) {
@@ -48,12 +48,11 @@ int parse_tristate_argument(const char *optname, const char *s, int *ret) {
                         *ret = r;
 
                 return r;
-        } else {
-                if (ret)
-                        *ret = -1;
-
-                return 0;
         }
+
+        if (ret)
+                *ret = -1;
+        return 0;
 }
 
 int parse_json_argument(const char *s, sd_json_format_flags_t *ret) {

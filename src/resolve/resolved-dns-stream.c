@@ -245,8 +245,9 @@ ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, 
                                 return -EAGAIN;
 
                         return -errno;
-                } else
-                        s->tfo_salen = 0; /* connection is made */
+                }
+
+                s->tfo_salen = 0; /* connection is made */
         } else {
                 m = writev(s->fd, iov, iovcnt);
                 if (m < 0)
@@ -379,12 +380,12 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                 if (!ERRNO_IS_TRANSIENT(ss))
                                         return dns_stream_complete(s, -ss);
                                 break;
-                        } else if (ss == 0)
-                                return dns_stream_complete(s, ECONNRESET);
-                        else {
-                                progressed = true;
-                                s->n_read += ss;
                         }
+                        if (ss == 0)
+                                return dns_stream_complete(s, ECONNRESET);
+
+                        progressed = true;
+                        s->n_read += ss;
                 }
 
                 if (s->n_read >= sizeof(s->read_size)) {
@@ -433,10 +434,11 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                         if (!ERRNO_IS_TRANSIENT(ss))
                                                 return dns_stream_complete(s, -ss);
                                         break;
-                                } else if (ss == 0)
+                                }
+                                if (ss == 0)
                                         return dns_stream_complete(s, ECONNRESET);
-                                else
-                                        s->n_read += ss;
+
+                                s->n_read += ss;
                         }
 
                         /* Are we done? If so, call the packet handler and re-enable EPOLLIN for the
@@ -506,7 +508,7 @@ static DnsStream *dns_stream_free(DnsStream *s) {
         return mfree(s);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsStream, dns_stream, dns_stream_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsStream, dns_stream, s, dns_stream_free);
 
 int dns_stream_new(
                 Manager *m,

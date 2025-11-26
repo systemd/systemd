@@ -17,5 +17,5 @@ typedef enum FactoryResetMode {
 
 FactoryResetMode factory_reset_mode(void);
 
-const char* factory_reset_mode_to_string(FactoryResetMode) _const_;
+const char* factory_reset_mode_to_string(FactoryResetMode m) _const_;
 FactoryResetMode factory_reset_mode_from_string(const char *s) _pure_;

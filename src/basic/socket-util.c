@@ -49,7 +49,7 @@ static const char* const socket_address_type_table[] = {
         [SOCK_DCCP] =      "DatagramCongestionControl",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(socket_address_type, int);
+DEFINE_STRING_TABLE_LOOKUP(socket_address_type, int, i);
 
 int socket_address_verify(const SocketAddress *a, bool strict) {
         assert(a);
@@ -667,7 +667,7 @@ static const char* const netlink_family_table[] = {
         [NETLINK_RDMA]           = "rdma",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(netlink_family, int, INT_MAX);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(netlink_family, int, i, INT_MAX);
 
 bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b) {
         assert(a);
@@ -757,7 +757,7 @@ static const char* const ip_tos_table[] = {
         [IPTOS_LOWCOST]     = "low-cost",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int, 0xff);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int, i, 0xff);
 
 bool ifname_valid_char(char a) {
         if ((unsigned char) a >= 127U)
@@ -1495,13 +1495,13 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
                 memcpy(ret->sun_path + 1, path + 1, l); /* copy *with* trailing NUL byte */
                 return (int) (offsetof(struct sockaddr_un, sun_path) + l); /* 🔥 *don't* 🔥 include trailing NUL in size */
 
-        } else {
-                assert(path[0] == '/');
-
-                /* File system socket */
-                memcpy(ret->sun_path, path, l + 1); /* copy *with* trailing NUL byte */
-                return (int) (offsetof(struct sockaddr_un, sun_path) + l + 1); /* include trailing NUL in size */
         }
+
+        assert(path[0] == '/');
+
+        /* File system socket */
+        memcpy(ret->sun_path, path, l + 1); /* copy *with* trailing NUL byte */
+        return (int) (offsetof(struct sockaddr_un, sun_path) + l + 1); /* include trailing NUL in size */
 }
 
 int getsockopt_int(int fd, int level, int optname, int *ret) {

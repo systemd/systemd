@@ -921,16 +921,16 @@ int verb_list(int argc, char *argv[], void *userdata) {
         if (streq(argv[0], "list")) {
                 pager_open(arg_pager_flags);
                 return show_boot_entries(&config, arg_json_format_flags);
-        } else if (streq(argv[0], "cleanup")) {
+        } if (streq(argv[0], "cleanup")) {
                 if (arg_xbootldr_path && xbootldr_devid != esp_devid)
                         cleanup_orphaned_files(&config, arg_xbootldr_path);
                 return cleanup_orphaned_files(&config, arg_esp_path);
-        } else {
-                assert(streq(argv[0], "unlink"));
-                if (arg_xbootldr_path && xbootldr_devid != esp_devid)
-                        r = unlink_entry(&config, arg_xbootldr_path, argv[1]);
-                return RET_GATHER(r, unlink_entry(&config, arg_esp_path, argv[1]));
         }
+
+        assert(streq(argv[0], "unlink"));
+        if (arg_xbootldr_path && xbootldr_devid != esp_devid)
+                r = unlink_entry(&config, arg_xbootldr_path, argv[1]);
+        return RET_GATHER(r, unlink_entry(&config, arg_esp_path, argv[1]));
 }
 
 int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

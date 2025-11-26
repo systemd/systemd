@@ -331,7 +331,7 @@ static const char* const rlimit_table[_RLIMIT_MAX] = {
         [RLIMIT_STACK]      = "STACK",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(rlimit, int);
+DEFINE_STRING_TABLE_LOOKUP(rlimit, int, i);
 
 void rlimits_list(const char *prefix) {
         FOREACH_ELEMENT(field, rlimit_table)

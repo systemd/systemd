@@ -397,4 +397,4 @@ static const char * const locale_variable_table[_VARIABLE_LC_MAX] = {
         [VARIABLE_LC_IDENTIFICATION] = "LC_IDENTIFICATION"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(locale_variable, LocaleVariable);
+DEFINE_STRING_TABLE_LOOKUP(locale_variable, LocaleVariable, i);

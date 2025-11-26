@@ -150,7 +150,7 @@ static sd_netlink *netlink_free(sd_netlink *nl) {
         return mfree(nl);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_netlink, sd_netlink, netlink_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_netlink, sd_netlink, nl, netlink_free);
 
 int sd_netlink_send(
                 sd_netlink *nl,

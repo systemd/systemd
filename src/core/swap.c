@@ -709,8 +709,7 @@ static int state_to_kill_operation(Swap *s, SwapState state) {
         if (state == SWAP_DEACTIVATING_SIGTERM) {
                 if (unit_has_job_type(UNIT(s), JOB_RESTART))
                         return KILL_RESTART;
-                else
-                        return KILL_TERMINATE;
+                return KILL_TERMINATE;
         }
 
         return KILL_KILL;
@@ -1551,7 +1550,7 @@ static const char* const swap_exec_command_table[_SWAP_EXEC_COMMAND_MAX] = {
         [SWAP_EXEC_DEACTIVATE] = "ExecDeactivate",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(swap_exec_command, SwapExecCommand);
+DEFINE_STRING_TABLE_LOOKUP(swap_exec_command, SwapExecCommand, i);
 
 static const char* const swap_result_table[_SWAP_RESULT_MAX] = {
         [SWAP_SUCCESS]                 = "success",
@@ -1563,7 +1562,7 @@ static const char* const swap_result_table[_SWAP_RESULT_MAX] = {
         [SWAP_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(swap_result, SwapResult);
+DEFINE_STRING_TABLE_LOOKUP(swap_result, SwapResult, i);
 
 const UnitVTable swap_vtable = {
         .object_size = sizeof(Swap),

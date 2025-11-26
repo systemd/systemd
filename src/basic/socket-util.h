@@ -55,7 +55,7 @@ typedef struct SocketAddress {
 
 #define socket_address_family(a) ((a)->sockaddr.sa.sa_family)
 
-const char* socket_address_type_to_string(int t) _const_;
+const char* socket_address_type_to_string(int i) _const_;
 int socket_address_type_from_string(const char *s) _pure_;
 
 int sockaddr_un_unlink(const struct sockaddr_un *sa);

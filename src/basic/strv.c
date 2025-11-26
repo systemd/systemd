@@ -865,8 +865,7 @@ int strv_compare(char * const *a, char * const *b) {
         if (strv_isempty(a)) {
                 if (strv_isempty(b))
                         return 0;
-                else
-                        return -1;
+                return -1;
         }
 
         if (strv_isempty(b))

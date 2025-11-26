@@ -28,7 +28,7 @@ static const char * const browse_service_update_event_table[_BROWSE_SERVICE_UPDA
         [BROWSE_SERVICE_UPDATE_REMOVED] = "removed",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(browse_service_update_event, BrowseServiceUpdateEvent);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(browse_service_update_event, BrowseServiceUpdateEvent, i);
 
 /* RFC6762 5.2
  * The intervals between successive queries MUST increase by at least a
@@ -244,7 +244,7 @@ DnssdDiscoveredService *dns_service_free(DnssdDiscoveredService *service) {
         return mfree(service);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DnssdDiscoveredService, dnssd_discovered_service, dns_service_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnssdDiscoveredService, dnssd_discovered_service, service, dns_service_free);
 
 int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, usec_t t, usec_t until) {
         assert(service);
@@ -755,4 +755,4 @@ DnsServiceBrowser *dns_service_browser_free(DnsServiceBrowser *sb) {
         return mfree(sb);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsServiceBrowser, dns_service_browser, dns_service_browser_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsServiceBrowser, dns_service_browser, sb, dns_service_browser_free);

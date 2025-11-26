@@ -31,8 +31,8 @@ static size_t _permute(size_t x) {
         residue = x*x % PRIME;
         if (x <= PRIME / 2)
                 return residue;
-        else
-                return PRIME - residue;
+
+        return PRIME - residue;
 }
 
 static size_t permute(size_t x) {

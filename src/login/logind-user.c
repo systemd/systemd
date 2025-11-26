@@ -968,14 +968,14 @@ static const char* const user_state_table[_USER_STATE_MAX] = {
         [USER_CLOSING]   = "closing"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(user_state, UserState);
+DEFINE_STRING_TABLE_LOOKUP(user_state, UserState, s);
 
 static const char* const user_gc_mode_table[_USER_GC_MODE_MAX] = {
         [USER_GC_BY_PIN] = "pin",
         [USER_GC_BY_ANY] = "any",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(user_gc_mode, UserGCMode);
+DEFINE_STRING_TABLE_LOOKUP(user_gc_mode, UserGCMode, m);
 
 int config_parse_tmpfs_size(
                 const char *unit,

@@ -25,7 +25,7 @@ static const char* const multicast_router_table[_MULTICAST_ROUTER_MAX] = {
         [MULTICAST_ROUTER_TEMPORARY]       = "temporary",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(multicast_router, MulticastRouter, _MULTICAST_ROUTER_INVALID);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(multicast_router, MulticastRouter, i, _MULTICAST_ROUTER_INVALID);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_multicast_router, multicast_router, MulticastRouter);
 
 /* callback for bridge netdev's parameter set */
