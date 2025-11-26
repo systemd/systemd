@@ -8,9 +8,9 @@
 typedef struct DNSServer {
         struct iovec addr;
         int family;
-        uint16_t port;
         int ifindex;
         char *server_name;
+        uint16_t port;
         bool accessible;
 } DNSServer;
 

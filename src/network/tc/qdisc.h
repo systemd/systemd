@@ -45,8 +45,8 @@ typedef struct QDisc {
         uint32_t handle;
         uint32_t parent;
 
-        char *tca_kind;
         QDiscKind kind;
+        char *tca_kind;
 } QDisc;
 
 typedef struct QDiscVTable {

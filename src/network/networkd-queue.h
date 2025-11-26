@@ -54,10 +54,10 @@ typedef enum RequestType {
 typedef struct Request {
         unsigned n_ref;
 
+        RequestType type;
+
         Manager *manager; /* must be non-NULL */
         Link *link; /* can be NULL */
-
-        RequestType type;
 
         /* Target object, e.g. Address, Route, NetDev, and so on. */
         void *userdata;

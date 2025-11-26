@@ -9,12 +9,14 @@
 typedef struct EnhancedTransmissionSelection {
         QDisc meta;
 
+        uint32_t quanta[TCQ_ETS_MAX_BANDS];
+        uint8_t prio[TC_PRIO_MAX + 1];
+
+        unsigned n_quanta;
+        unsigned n_prio;
+
         uint8_t n_bands;
         uint8_t n_strict;
-        unsigned n_quanta;
-        uint32_t quanta[TCQ_ETS_MAX_BANDS];
-        unsigned n_prio;
-        uint8_t prio[TC_PRIO_MAX + 1];
 } EnhancedTransmissionSelection;
 
 DEFINE_QDISC_CAST(ETS, EnhancedTransmissionSelection);

@@ -13,9 +13,9 @@ typedef enum IPoIBMode {
 typedef struct IPoIB {
         NetDev meta;
 
-        uint16_t pkey;
         IPoIBMode mode;
         int umcast;
+        uint16_t pkey;
 } IPoIB;
 
 DEFINE_NETDEV_CAST(IPOIB, IPoIB);

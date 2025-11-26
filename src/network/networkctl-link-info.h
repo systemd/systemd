@@ -32,52 +32,75 @@ typedef struct VxLanInfo {
 } VxLanInfo;
 
 typedef struct LinkInfo {
-        char name[IFNAMSIZ+1];
+        /* Pointers and other 8-byte aligned types */
         char *netdev_kind;
         sd_device *sd_device;
+        char *qdisc;
+        char **alternative_names;
+        char *ssid;
+
+        /* Large structs and arrays */
+        char name[IFNAMSIZ+1];
+        union {
+                struct rtnl_link_stats64 stats64;
+                struct rtnl_link_stats stats;
+        };
+        VxLanInfo vxlan_info;
+        union in_addr_union local;
+        union in_addr_union remote;
+
+        /* 4-byte integers and enums */
         int ifindex;
-        unsigned short iftype;
+
         struct hw_addr_data hw_address;
         struct hw_addr_data permanent_hw_address;
+        struct ether_addr bssid;
+
+        /* 2-byte integers */
+        unsigned short iftype;
+
+        /* 64-bit integers */
+        uint64_t tx_bitrate;
+        uint64_t rx_bitrate;
+        uint64_t speed;
+
+        /* 4-byte integers and enums */
         uint32_t master;
         uint32_t mtu;
         uint32_t min_mtu;
         uint32_t max_mtu;
         uint32_t tx_queues;
         uint32_t rx_queues;
-        uint8_t addr_gen_mode;
-        char *qdisc;
-        char **alternative_names;
-
-        union {
-                struct rtnl_link_stats64 stats64;
-                struct rtnl_link_stats stats;
-        };
-
-        uint64_t tx_bitrate;
-        uint64_t rx_bitrate;
-
-        /* bridge info */
         uint32_t forward_delay;
         uint32_t hello_time;
         uint32_t max_age;
         uint32_t ageing_time;
         uint32_t stp_state;
         uint32_t cost;
-        uint16_t priority;
-        uint8_t mcast_igmp_version;
-        uint8_t port_state;
         uint32_t fdb_max_learned;
         uint32_t fdb_n_learned;
-        bool has_fdb_learned;
+        uint32_t vni;
+        uint32_t label;
+        uint32_t miimon;
+        uint32_t updelay;
+        uint32_t downdelay;
+        uint32_t macvlan_mode;
+        int autonegotiation;
+        Duplex duplex;
+        NetDevPort port;
+        enum nl80211_iftype wlan_iftype;
 
-        /* vxlan info */
-        VxLanInfo vxlan_info;
-
-        /* vlan info */
+        /* 2-byte integers */
+        uint16_t priority;
         uint16_t vlan_id;
+        uint16_t tunnel_port;
+        uint16_t ipvlan_mode;
+        uint16_t ipvlan_flags;
 
-        /* tunnel info */
+        /* 1-byte integers and booleans */
+        uint8_t addr_gen_mode;
+        uint8_t mcast_igmp_version;
+        uint8_t port_state;
         uint8_t ttl;
         uint8_t tos;
         uint8_t inherit;
@@ -85,35 +108,7 @@ typedef struct LinkInfo {
         uint8_t csum;
         uint8_t csum6_tx;
         uint8_t csum6_rx;
-        uint16_t tunnel_port;
-        uint32_t vni;
-        uint32_t label;
-        union in_addr_union local;
-        union in_addr_union remote;
-
-        /* bonding info */
         uint8_t mode;
-        uint32_t miimon;
-        uint32_t updelay;
-        uint32_t downdelay;
-
-        /* macvlan and macvtap info */
-        uint32_t macvlan_mode;
-
-        /* ipvlan info */
-        uint16_t ipvlan_mode;
-        uint16_t ipvlan_flags;
-
-        /* ethtool info */
-        int autonegotiation;
-        uint64_t speed;
-        Duplex duplex;
-        NetDevPort port;
-
-        /* wlan info */
-        enum nl80211_iftype wlan_iftype;
-        char *ssid;
-        struct ether_addr bssid;
 
         bool has_hw_address:1;
         bool has_permanent_hw_address:1;
@@ -126,7 +121,7 @@ typedef struct LinkInfo {
         bool has_wlan_link_info:1;
         bool has_tunnel_ipv4:1;
         bool has_ipv6_address_generation_mode:1;
-
+        bool has_fdb_learned:1;
         bool needs_freeing:1;
 } LinkInfo;
 

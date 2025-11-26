@@ -15,49 +15,50 @@ typedef int (*route_netlink_handler_t)(
                 Route *route);
 
 typedef struct Route {
+        /* Pointers and other 8-byte aligned types */
         Manager *manager;
         Network *network;
         Wireguard *wireguard;
         ConfigSection *section;
+        OrderedSet *nexthops; /* RTA_MULTIPATH */
+        sd_event_source *expire;
+
+        /* Large structs */
+        union in_addr_union provider; /* DHCP server or router address */
+        union in_addr_union dst; /* RTA_DST */
+        union in_addr_union src; /* RTA_SRC (IPv6 only) */
+        union in_addr_union prefsrc; /* RTA_PREFSRC */
+        RouteNextHop nexthop; /* RTA_OIF, and RTA_GATEWAY or RTA_VIA (IPv4 only) */
+        RouteMetric metric; /* RTA_METRICS */
+
+        /* 64-bit integers */
+        /* This is an absolute point in time, and NOT a timespan/duration.
+         * Must be specified with clock_boottime_or_monotonic(). */
+        usec_t lifetime_usec; /* RTA_EXPIRES (IPv6 only) */
+
+        /* 32-bit integers and enums */
         NetworkConfigSource source;
         NetworkConfigState state;
-        union in_addr_union provider; /* DHCP server or router address */
-
         unsigned n_ref;
-
-        /* rtmsg header */
         int family;
+        unsigned flags; /* e.g. RTNH_F_ONLINK */
+        uint32_t priority; /* RTA_PRIORITY, note that ip(8) calls this 'metric' */
+        uint32_t table; /* RTA_TABLE, also used in rtmsg header */
+        uint32_t nexthop_id; /* RTA_NH_ID */
+        int gateway_onlink;
+
+        /* 8-bit integers */
         unsigned char dst_prefixlen;
         unsigned char src_prefixlen; /* IPv6 only */
         unsigned char tos; /* IPv4 only */
         unsigned char protocol;  /* RTPROT_* */
         unsigned char scope; /* IPv4 only */
         unsigned char type; /* RTN_*, e.g. RTN_LOCAL, RTN_UNREACHABLE */
-        unsigned flags; /* e.g. RTNH_F_ONLINK */
-
-        /* attributes */
-        union in_addr_union dst; /* RTA_DST */
-        union in_addr_union src; /* RTA_SRC (IPv6 only) */
-        uint32_t priority; /* RTA_PRIORITY, note that ip(8) calls this 'metric' */
-        union in_addr_union prefsrc; /* RTA_PREFSRC */
-        uint32_t table; /* RTA_TABLE, also used in rtmsg header */
         uint8_t pref; /* RTA_PREF (IPv6 only) */
 
-        /* nexthops */
-        RouteNextHop nexthop; /* RTA_OIF, and RTA_GATEWAY or RTA_VIA (IPv4 only) */
-        OrderedSet *nexthops; /* RTA_MULTIPATH */
-        uint32_t nexthop_id; /* RTA_NH_ID */
-
-        /* metrics (RTA_METRICS) */
-        RouteMetric metric;
-
-        /* This is an absolute point in time, and NOT a timespan/duration.
-         * Must be specified with clock_boottime_or_monotonic(). */
-        usec_t lifetime_usec; /* RTA_EXPIRES (IPv6 only) */
+        /* Booleans */
         /* Used when kernel does not support RTA_EXPIRES attribute. */
-        sd_event_source *expire;
         bool expiration_managed_by_kernel:1; /* RTA_CACHEINFO has nonzero rta_expires */
-
         /* Only used by conf persers and route_section_verify(). */
         bool prefsrc_set:1;
         bool scope_set:1;
@@ -66,7 +67,6 @@ typedef struct Route {
         bool protocol_set:1;
         bool pref_set:1;
         bool gateway_from_dhcp_or_ra:1;
-        int gateway_onlink;
 } Route;
 
 void log_route_debug(const Route *route, const char *str, Manager *manager);

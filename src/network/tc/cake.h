@@ -48,30 +48,26 @@ typedef enum CakeAckFilter {
 typedef struct CommonApplicationsKeptEnhanced {
         QDisc meta;
 
-        /* Shaper parameters */
-        int autorate;
+        /* 64-bit types */
         uint64_t bandwidth;
+        usec_t rtt;
 
-        /* Overhead compensation parameters */
-        bool overhead_set;
+        /* 32-bit types and enums */
+        int autorate;
         int overhead;
         uint32_t mpu;
         CakeCompensationMode compensation_mode;
         int raw;
-
-        /* Flow isolation parameters */
         CakeFlowIsolationMode flow_isolation_mode;
         int nat;
-
-        /* Priority queue parameters */
         CakePriorityQueueingPreset preset;
         uint32_t fwmark;
-
-        /* Other parameters */
         int wash;
         int split_gso;
-        usec_t rtt;
         CakeAckFilter ack_filter;
+
+        /* Booleans */
+        bool overhead_set;
 } CommonApplicationsKeptEnhanced;
 
 DEFINE_QDISC_CAST(CAKE, CommonApplicationsKeptEnhanced);
