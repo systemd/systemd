@@ -153,8 +153,7 @@ static int found_override(const char *top, const char *bottom) {
         if (r >= 0) {
                 if (equivalent(dest, bottom) > 0)
                         return notify_override_equivalent(top, bottom);
-                else
-                        return notify_override_redirected(top, bottom);
+                return notify_override_redirected(top, bottom);
         }
 
         r = notify_override_overridden(top, bottom);
@@ -444,8 +443,7 @@ static int process_suffix_chop(const char *arg) {
                         suffix += strspn(suffix, "/");
                         if (*suffix)
                                 return process_suffix(suffix, p);
-                        else
-                                return process_suffixes(arg);
+                        return process_suffixes(arg);
                 }
         }
 

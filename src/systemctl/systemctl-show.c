@@ -2363,7 +2363,9 @@ static int show_one(
 
                 return EXIT_PROGRAM_RUNNING_OR_SERVICE_OK;
 
-        } else if (show_mode == SYSTEMCTL_SHOW_HELP) {
+        }
+
+        if (show_mode == SYSTEMCTL_SHOW_HELP) {
                 show_unit_help(&info);
                 return 0;
         }
@@ -2547,7 +2549,9 @@ int verb_show(int argc, char *argv[], void *userdata) {
                                         return log_oom();
 
                                 continue;
-                        } else if (show_mode == SYSTEMCTL_SHOW_PROPERTIES) {
+                        }
+
+                        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES) {
                                 /* Interpret as job id */
                                 if (asprintf(&path, "/org/freedesktop/systemd1/job/%u", id) < 0)
                                         return log_oom();

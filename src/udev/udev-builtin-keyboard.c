@@ -146,7 +146,7 @@ static int set_trackpoint_sensitivity(sd_device *dev, const char *value) {
         r = safe_atoi(value, &val_i);
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to parse POINTINGSTICK_SENSITIVITY '%s': %m", value);
-        else if (val_i < 0 || val_i > 255)
+        if (val_i < 0 || val_i > 255)
                 return log_device_error_errno(dev, SYNTHETIC_ERRNO(ERANGE), "POINTINGSTICK_SENSITIVITY %d outside range [0..255]", val_i);
 
         xsprintf(val_s, "%d", val_i);

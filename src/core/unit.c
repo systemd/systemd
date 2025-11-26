@@ -3832,11 +3832,9 @@ static bool fragment_mtime_newer(const char *path, usec_t mtime, bool path_maske
         if (path_masked)
                 /* For masked files check if they are still so */
                 return !null_or_empty(&st);
-        else
-                /* For non-empty files check the mtime */
-                return timespec_load(&st.st_mtim) > mtime;
 
-        return false;
+        /* For non-empty files check the mtime */
+        return timespec_load(&st.st_mtim) > mtime;
 }
 
 bool unit_need_daemon_reload(Unit *u) {

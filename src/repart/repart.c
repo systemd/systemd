@@ -4656,8 +4656,8 @@ static int context_discard_gap_after(Context *context, Partition *p) {
         if (r < 0) {
                 if (p)
                         return log_error_errno(r, "Failed to discard gap after partition %" PRIu64 ".", p->partno);
-                else
-                        return log_error_errno(r, "Failed to discard gap at beginning of disk.");
+
+                return log_error_errno(r, "Failed to discard gap at beginning of disk.");
         }
 
         if (p)
@@ -9599,7 +9599,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
-        else if (!arg_image && !arg_root && in_initrd()) {
+
+        if (!arg_image && !arg_root && in_initrd()) {
 
                 /* By default operate on /sysusr/ or /sysroot/ when invoked in the initrd. We prefer the
                  * former, if it is mounted, so that we have deterministic behaviour on systems where /usr/

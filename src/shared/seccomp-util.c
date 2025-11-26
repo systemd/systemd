@@ -1071,6 +1071,8 @@ int seccomp_add_syscall_filter_item(
                 bool log_missing,
                 char ***added) {
 
+        int r;
+
         assert(seccomp);
         assert(name);
 
@@ -1091,40 +1093,38 @@ int seccomp_add_syscall_filter_item(
 
                 return add_syscall_filter_set(seccomp, other, action, exclude, log_missing, added);
 
-        } else {
-                int id, r;
+        }
 
-                r = dlopen_libseccomp();
-                if (r < 0)
-                        return r;
+        r = dlopen_libseccomp();
+        if (r < 0)
+                return r;
 
-                id = sym_seccomp_syscall_resolve_name(name);
-                if (id == __NR_SCMP_ERROR) {
-                        if (log_missing)
-                                log_debug("System call %s is not known, ignoring.", name);
-                        return 0;
-                }
-
-                r = sym_seccomp_rule_add_exact(seccomp, action, id, 0);
-                if (r < 0) {
-                        /* If the system call is not known on this architecture, then that's fine, let's ignore it */
-                        bool ignore = r == -EDOM;
-
-                        if (!ignore || log_missing)
-                                log_debug_errno(r, "Failed to add rule for system call %s() / %d%s: %m",
-                                                name, id, ignore ? ", ignoring" : "");
-                        if (!ignore)
-                                return r;
-                }
-
-                if (added) {
-                        r = strv_extend(added, name);
-                        if (r < 0)
-                                return r;
-                }
-
+        int id = sym_seccomp_syscall_resolve_name(name);
+        if (id == __NR_SCMP_ERROR) {
+                if (log_missing)
+                        log_debug("System call %s is not known, ignoring.", name);
                 return 0;
         }
+
+        r = sym_seccomp_rule_add_exact(seccomp, action, id, 0);
+        if (r < 0) {
+                /* If the system call is not known on this architecture, then that's fine, let's ignore it */
+                bool ignore = r == -EDOM;
+
+                if (!ignore || log_missing)
+                        log_debug_errno(r, "Failed to add rule for system call %s() / %d%s: %m",
+                                        name, id, ignore ? ", ignoring" : "");
+                if (!ignore)
+                        return r;
+        }
+
+        if (added) {
+                r = strv_extend(added, name);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int add_syscall_filter_set(

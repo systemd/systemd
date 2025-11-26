@@ -228,10 +228,14 @@ int main(int argc, char *argv[]) {
                 if (streq(argv[i], "chart")) {
                         mode = MODE_CHART;
                         continue;
-                } else if (streq(argv[i], "legacy")) {
+                }
+
+                if (streq(argv[i], "legacy")) {
                         type = TYPE_LEGACY;
                         continue;
-                } else if (streq(argv[i], "direct")) {
+                }
+
+                if (streq(argv[i], "direct")) {
                         type = TYPE_DIRECT;
                         continue;
                 }

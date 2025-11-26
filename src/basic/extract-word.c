@@ -113,7 +113,9 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                         if (flags & EXTRACT_RELAX)
                                                 goto finish_force_terminate;
                                         return -EINVAL;
-                                } else if (c == quote) {        /* found the end quote */
+                                }
+
+                                if (c == quote) {        /* found the end quote */
                                         quote = 0;
                                         if (flags & EXTRACT_UNQUOTE)
                                                 break;

@@ -1750,8 +1750,9 @@ int manager_enqueue_gc(Manager *m, Home *focus) {
                         m->gc_focus = NULL;
 
                 return 0;
-        } else
-                m->gc_focus = focus; /* start focused */
+        }
+
+        m->gc_focus = focus; /* start focused */
 
         r = sd_event_add_defer(m->event, &m->deferred_gc_event_source, on_deferred_gc, m);
         if (r < 0)

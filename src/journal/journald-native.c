@@ -186,60 +186,60 @@ static int manager_process_entry(
                         *remaining -= (e - p) + 1;
                         p = e + 1;
                         continue;
-                } else {
-                        uint64_t l, total;
-                        char *k;
-
-                        if (*remaining < e - p + 1 + sizeof(uint64_t) + 1) {
-                                log_debug("Failed to parse message, ignoring.");
-                                break;
-                        }
-
-                        l = unaligned_read_le64(e + 1);
-                        if (l > DATA_SIZE_MAX) {
-                                log_debug("Received binary data block of %"PRIu64" bytes is too large, ignoring entry.", l);
-                                goto finish;
-                        }
-
-                        total = (e - p) + 1 + l;
-                        if (entry_size + total + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
-                                log_debug("Entry is too big (%"PRIu64"bytes after processing %zu fields), ignoring.",
-                                          entry_size + total, n + 1);
-                                goto finish;
-                        }
-
-                        if ((uint64_t) *remaining < e - p + 1 + sizeof(uint64_t) + l + 1 ||
-                            e[1+sizeof(uint64_t)+l] != '\n') {
-                                log_debug("Failed to parse message, ignoring.");
-                                break;
-                        }
-
-                        k = malloc(total);
-                        if (!k) {
-                                log_oom();
-                                break;
-                        }
-
-                        memcpy(k, p, e - p);
-                        k[e - p] = '=';
-                        memcpy(k + (e - p) + 1, e + 1 + sizeof(uint64_t), l);
-
-                        if (journal_field_valid(p, e - p, false)) {
-                                iovec[n] = IOVEC_MAKE(k, (e - p) + 1 + l);
-                                entry_size += iovec[n].iov_len;
-                                n++;
-
-                                manager_process_entry_meta(k, (e - p) + 1 + l, ucred,
-                                                          &priority,
-                                                          &identifier,
-                                                          &message,
-                                                          &object_pid);
-                        } else
-                                free(k);
-
-                        *remaining -= (e - p) + 1 + sizeof(uint64_t) + l + 1;
-                        p = e + 1 + sizeof(uint64_t) + l + 1;
                 }
+
+                uint64_t l, total;
+                char *k;
+
+                if (*remaining < e - p + 1 + sizeof(uint64_t) + 1) {
+                        log_debug("Failed to parse message, ignoring.");
+                        break;
+                }
+
+                l = unaligned_read_le64(e + 1);
+                if (l > DATA_SIZE_MAX) {
+                        log_debug("Received binary data block of %"PRIu64" bytes is too large, ignoring entry.", l);
+                        goto finish;
+                }
+
+                total = (e - p) + 1 + l;
+                if (entry_size + total + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
+                        log_debug("Entry is too big (%"PRIu64"bytes after processing %zu fields), ignoring.",
+                                        entry_size + total, n + 1);
+                        goto finish;
+                }
+
+                if ((uint64_t) *remaining < e - p + 1 + sizeof(uint64_t) + l + 1 ||
+                        e[1+sizeof(uint64_t)+l] != '\n') {
+                        log_debug("Failed to parse message, ignoring.");
+                        break;
+                }
+
+                k = malloc(total);
+                if (!k) {
+                        log_oom();
+                        break;
+                }
+
+                memcpy(k, p, e - p);
+                k[e - p] = '=';
+                memcpy(k + (e - p) + 1, e + 1 + sizeof(uint64_t), l);
+
+                if (journal_field_valid(p, e - p, false)) {
+                        iovec[n] = IOVEC_MAKE(k, (e - p) + 1 + l);
+                        entry_size += iovec[n].iov_len;
+                        n++;
+
+                        manager_process_entry_meta(k, (e - p) + 1 + l, ucred,
+                                                        &priority,
+                                                        &identifier,
+                                                        &message,
+                                                        &object_pid);
+                } else
+                        free(k);
+
+                *remaining -= (e - p) + 1 + sizeof(uint64_t) + l + 1;
+                p = e + 1 + sizeof(uint64_t) + l + 1;
         }
 
         if (n <= 0)

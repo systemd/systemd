@@ -1375,7 +1375,9 @@ int link_drop_ipv6ll_addresses(Link *link) {
                 if (r < 0) {
                         log_link_debug_errno(link, r, "rtnl: received address message without valid ifindex, ignoring: %m");
                         continue;
-                } else if (link->ifindex != ifindex)
+                }
+
+                if (link->ifindex != ifindex)
                         continue;
 
                 uint32_t flags;
@@ -1833,7 +1835,9 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
                 return 0;
-        } else if (!IN_SET(type, RTM_NEWADDR, RTM_DELADDR)) {
+        }
+
+        if (!IN_SET(type, RTM_NEWADDR, RTM_DELADDR)) {
                 log_warning("rtnl: received unexpected message type %u when processing address, ignoring.", type);
                 return 0;
         }
@@ -1843,7 +1847,9 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get ifindex from message, ignoring: %m");
                 return 0;
-        } else if (ifindex <= 0) {
+        }
+
+        if (ifindex <= 0) {
                 log_warning("rtnl: received address message with invalid ifindex %d, ignoring.", ifindex);
                 return 0;
         }
@@ -1869,7 +1875,9 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         if (r < 0) {
                 log_link_warning(link, "rtnl: received address message without family, ignoring.");
                 return 0;
-        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
+        }
+
+        if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
                 log_link_debug(link, "rtnl: received address message with invalid family '%i', ignoring.", tmp->family);
                 return 0;
         }
@@ -1892,7 +1900,9 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 if (r < 0 && r != -ENODATA) {
                         log_link_warning_errno(link, r, "rtnl: could not get peer address from address message, ignoring: %m");
                         return 0;
-                } else if (r >= 0) {
+                }
+
+                if (r >= 0) {
                         if (in4_addr_equal(&tmp->in_addr.in, &tmp->in_addr_peer.in))
                                 tmp->in_addr_peer = IN_ADDR_NULL;
                 }

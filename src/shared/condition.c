@@ -604,9 +604,10 @@ static int condition_test_firmware(Condition *c, char **env) {
                         if (errno != ENOENT)
                                 log_debug_errno(errno, "Unexpected error when checking for /sys/firmware/devicetree/: %m");
                         return false;
-                } else
-                        return true;
-        } else if ((arg = startswith(c->parameter, "device-tree-compatible("))) {
+                }                         return true;
+        }
+
+        if ((arg = startswith(c->parameter, "device-tree-compatible("))) {
                 _cleanup_free_ char *dtc_arg = NULL;
                 char *end;
 
@@ -621,9 +622,12 @@ static int condition_test_firmware(Condition *c, char **env) {
                         return -ENOMEM;
 
                 return condition_test_firmware_devicetree_compatible(dtc_arg);
-        } else if (streq(c->parameter, "uefi"))
+        }
+
+        if (streq(c->parameter, "uefi"))
                 return is_efi_boot();
-        else if ((arg = startswith(c->parameter, "smbios-field("))) {
+
+        if ((arg = startswith(c->parameter, "smbios-field("))) {
                 _cleanup_free_ char *smbios_arg = NULL;
                 char *end;
 
@@ -639,10 +643,10 @@ static int condition_test_firmware(Condition *c, char **env) {
                 if (r < 0)
                         return log_debug_errno(r, "Malformed ConditionFirmware=%s: %m", c->parameter);
                 return r;
-        } else {
-                log_debug("Unsupported Firmware condition \"%s\"", c->parameter);
-                return false;
         }
+
+        log_debug("Unsupported Firmware condition \"%s\"", c->parameter);
+        return false;
 }
 
 static int condition_test_host(Condition *c, char **env) {

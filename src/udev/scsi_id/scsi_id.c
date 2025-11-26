@@ -110,10 +110,9 @@ static int get_file_options(const char *vendor, const char *model,
         if (!f) {
                 if (errno == ENOENT)
                         return 1;
-                else {
-                        log_error_errno(errno, "can't open %s: %m", config_file);
-                        return -1;
-                }
+
+                log_error_errno(errno, "can't open %s: %m", config_file);
+                return -1;
         }
 
         *newargv = NULL;

@@ -21,7 +21,7 @@ bool network_is_online(void) {
 
         if (state >= LINK_ONLINE_STATE_PARTIAL)
                 return true;
-        else if (state < 0) {
+        if (state < 0) {
                 _cleanup_free_ char *carrier_state = NULL, *addr_state = NULL;
 
                 r = sd_network_get_carrier_state(&carrier_state);

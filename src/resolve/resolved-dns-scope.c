@@ -180,10 +180,12 @@ DnsServer *dns_scope_get_dns_server(DnsScope *s) {
         if (s->link) {
                 assert(!s->delegate);
                 return link_get_dns_server(s->link);
-        } else if (s->delegate)
+        }
+
+        if (s->delegate)
                 return dns_delegate_get_dns_server(s->delegate);
-        else
-                return manager_get_dns_server(s->manager);
+
+        return manager_get_dns_server(s->manager);
 }
 
 unsigned dns_scope_get_n_dns_servers(DnsScope *s) {
@@ -195,10 +197,12 @@ unsigned dns_scope_get_n_dns_servers(DnsScope *s) {
         if (s->link) {
                 assert(!s->delegate);
                 return s->link->n_dns_servers;
-        } else if (s->delegate)
+        }
+
+        if (s->delegate)
                 return s->delegate->n_dns_servers;
-        else
-                return s->manager->n_dns_servers;
+
+        return s->manager->n_dns_servers;
 }
 
 void dns_scope_next_dns_server(DnsScope *s, DnsServer *if_current) {
@@ -1781,16 +1785,18 @@ bool dns_scope_is_default_route(DnsScope *scope) {
                  * volunteer as default route. */
                 return !dns_scope_has_route_only_domains(scope);
 
-        } else  if (scope->delegate) {
+        }
 
+        if (scope->delegate) {
                 if (scope->delegate->default_route >= 0)
                         return scope->delegate->default_route;
 
                 /* Delegates are by default not used as default route */
                 return false;
-        } else
-                /* The global DNS scope is always suitable as default route */
-                return true;
+        }
+
+        /* The global DNS scope is always suitable as default route */
+        return true;
 }
 
 int dns_scope_to_json(DnsScope *scope, bool with_cache, sd_json_variant **ret) {

@@ -773,8 +773,9 @@ int device_monitor_send(
                 if (!destination && errno == ECONNREFUSED) {
                         log_device_monitor(device, m, "Passed to netlink monitor.");
                         return 0;
-                } else
-                        return log_device_monitor_errno(device, m, errno, "Failed to send device to netlink monitor: %m");
+                }
+
+                return log_device_monitor_errno(device, m, errno, "Failed to send device to netlink monitor: %m");
         }
 
         log_device_monitor(device, m, "Passed %zi byte to netlink monitor.", count);

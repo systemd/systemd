@@ -890,7 +890,7 @@ static int parent_add_child(sd_device_enumerator *enumerator, const char *path, 
         if (r == -ENODEV)
                 /* this is necessarily racy, so ignore missing devices */
                 return 0;
-        else if (r < 0)
+        if (r < 0)
                 return r;
 
         r = test_matches(enumerator, device, flags);

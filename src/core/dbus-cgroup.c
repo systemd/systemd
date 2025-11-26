@@ -485,8 +485,9 @@ static int bus_cgroup_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "DelegateSubgroup")) {
+        if (streq(name, "DelegateSubgroup")) {
                 const char *s;
 
                 if (!UNIT_VTABLE(u)->can_delegate)
@@ -512,8 +513,9 @@ static int bus_cgroup_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "DelegateControllers", "DisableControllers")) {
+        if (STR_IN_SET(name, "DelegateControllers", "DisableControllers")) {
                 CGroupMask mask = 0;
 
                 if (streq(name, "DelegateControllers") && !UNIT_VTABLE(u)->can_delegate)
@@ -573,7 +575,9 @@ static int bus_cgroup_set_transient_property(
                 }
 
                 return 1;
-        } else if (STR_IN_SET(name, "IPIngressFilterPath", "IPEgressFilterPath")) {
+        }
+
+        if (STR_IN_SET(name, "IPIngressFilterPath", "IPEgressFilterPath")) {
                 char ***filters;
                 size_t n = 0;
 
@@ -642,7 +646,9 @@ static int bus_cgroup_set_transient_property(
                 }
 
                 return 1;
-        } else if (streq(name, "BPFProgram")) {
+        }
+
+        if (streq(name, "BPFProgram")) {
                 const char *a, *p;
                 size_t n = 0;
 
@@ -709,8 +715,9 @@ static int bus_cgroup_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "MemoryPressureWatch")) {
+        if (streq(name, "MemoryPressureWatch")) {
                 CGroupPressureWatch p;
                 const char *t;
 
@@ -732,8 +739,9 @@ static int bus_cgroup_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "MemoryPressureThresholdUSec")) {
+        if (streq(name, "MemoryPressureThresholdUSec")) {
                 uint64_t t;
 
                 r = sd_bus_message_read(message, "t", &t);
@@ -750,7 +758,9 @@ static int bus_cgroup_set_transient_property(
                 }
 
                 return 1;
-        } else if (streq(name, "CoredumpReceive")) {
+        }
+
+        if (streq(name, "CoredumpReceive")) {
                 int b;
 
                 if (!UNIT_VTABLE(u)->can_delegate)
@@ -1213,8 +1223,9 @@ int bus_cgroup_set_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "CPUQuotaPeriodUSec")) {
+        if (streq(name, "CPUQuotaPeriodUSec")) {
                 uint64_t u64;
 
                 r = sd_bus_message_read(message, "t", &u64);
@@ -1236,8 +1247,9 @@ int bus_cgroup_set_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "AllowedCPUs", "StartupAllowedCPUs", "AllowedMemoryNodes", "StartupAllowedMemoryNodes")) {
+        if (STR_IN_SET(name, "AllowedCPUs", "StartupAllowedCPUs", "AllowedMemoryNodes", "StartupAllowedMemoryNodes")) {
                 const void *a;
                 size_t n;
                 _cleanup_(cpu_set_done) CPUSet new_set = {};
@@ -1276,8 +1288,9 @@ int bus_cgroup_set_property(
                 }
 
                 return 1;
+        }
 
-        } else if ((iol_type = cgroup_io_limit_type_from_string(name)) >= 0) {
+        if ((iol_type = cgroup_io_limit_type_from_string(name)) >= 0) {
                 const char *path;
                 unsigned n = 0;
                 uint64_t u64;
@@ -1359,8 +1372,9 @@ int bus_cgroup_set_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "IODeviceWeight")) {
+        if (streq(name, "IODeviceWeight")) {
                 const char *path;
                 uint64_t weight;
                 unsigned n = 0;
@@ -1436,8 +1450,9 @@ int bus_cgroup_set_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "IODeviceLatencyTargetUSec")) {
+        if (streq(name, "IODeviceLatencyTargetUSec")) {
                 const char *path;
                 uint64_t target;
                 unsigned n = 0;
@@ -1511,8 +1526,9 @@ int bus_cgroup_set_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "DevicePolicy")) {
+        if (streq(name, "DevicePolicy")) {
                 const char *policy;
                 CGroupDevicePolicy p;
 
@@ -1531,8 +1547,9 @@ int bus_cgroup_set_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "DeviceAllow")) {
+        if (streq(name, "DeviceAllow")) {
                 const char *path, *rwm;
                 unsigned n = 0;
 
@@ -1596,8 +1613,9 @@ int bus_cgroup_set_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "IPAccounting")) {
+        if (streq(name, "IPAccounting")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -1612,8 +1630,9 @@ int bus_cgroup_set_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "IPAddressAllow", "IPAddressDeny")) {
+        if (STR_IN_SET(name, "IPAddressAllow", "IPAddressDeny")) {
                 _cleanup_set_free_ Set *new_prefixes = NULL;
                 size_t n = 0;
 

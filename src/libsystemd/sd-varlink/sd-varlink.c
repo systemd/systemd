@@ -1783,11 +1783,11 @@ _public_ int sd_varlink_get_timeout(sd_varlink *v, uint64_t *ret) {
                 if (ret)
                         *ret = usec_add(v->timestamp, v->timeout);
                 return 1;
-        } else {
-                if (ret)
-                        *ret = USEC_INFINITY;
-                return 0;
         }
+
+        if (ret)
+                *ret = USEC_INFINITY;
+        return 0;
 }
 
 _public_ int sd_varlink_flush(sd_varlink *v) {

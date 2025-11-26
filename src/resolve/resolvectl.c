@@ -1026,10 +1026,9 @@ static int verb_service(int argc, char **argv, void *userdata) {
 
         if (argc == 2)
                 return resolve_service(bus, NULL, NULL, argv[1]);
-        else if (argc == 3)
+        if (argc == 3)
                 return resolve_service(bus, NULL, argv[1], argv[2]);
-        else
-                return resolve_service(bus, argv[1], argv[2], argv[3]);
+        return resolve_service(bus, argv[1], argv[2], argv[3]);
 }
 
 #if HAVE_OPENSSL
