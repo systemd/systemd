@@ -958,4 +958,4 @@ static const char* const device_action_table[_SD_DEVICE_ACTION_MAX] = {
         [SD_DEVICE_UNBIND]  = "unbind",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(device_action, sd_device_action_t);
+DEFINE_STRING_TABLE_LOOKUP(device_action, sd_device_action_t, a);

@@ -1387,7 +1387,7 @@ static const char* const _condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_KERNEL_MODULE_LOADED]     = "ConditionKernelModuleLoaded",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(_condition_type, ConditionType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(_condition_type, ConditionType, i);
 
 const char* condition_type_to_string(ConditionType t) {
         return _condition_type_to_string(t);
@@ -1442,7 +1442,7 @@ static const char* const _assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_KERNEL_MODULE_LOADED]     = "AssertKernelModuleLoaded",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(_assert_type, ConditionType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(_assert_type, ConditionType, i);
 
 const char* assert_type_to_string(ConditionType t) {
         return _assert_type_to_string(t);
@@ -1467,4 +1467,4 @@ static const char* const condition_result_table[_CONDITION_RESULT_MAX] = {
         [CONDITION_ERROR]     = "error",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(condition_result, ConditionResult);
+DEFINE_STRING_TABLE_LOOKUP(condition_result, ConditionResult, r);

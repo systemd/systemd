@@ -14,7 +14,7 @@ static const char * const dhcp6_state_table[_DHCP6_STATE_MAX] = {
         [DHCP6_STATE_STOPPING]            = "stopping",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp6_state, DHCP6State);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp6_state, DHCP6State, s);
 
 static const char * const dhcp6_message_type_table[_DHCP6_MESSAGE_TYPE_MAX] = {
         [DHCP6_MESSAGE_SOLICIT]             = "Solicit",
@@ -54,7 +54,7 @@ static const char * const dhcp6_message_type_table[_DHCP6_MESSAGE_TYPE_MAX] = {
         [DHCP6_MESSAGE_CONTACT]             = "Contact",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_type, DHCP6MessageType);
+DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_type, DHCP6MessageType, s);
 
 static const char * const dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
         [DHCP6_STATUS_SUCCESS]                      = "Success",
@@ -82,7 +82,7 @@ static const char * const dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
         [DHCP6_STATUS_EXCESSIVE_TIME_SKEW]          = "Excessive time skew",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, DHCP6Status);
+DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, DHCP6Status, s);
 
 int dhcp6_message_status_to_errno(DHCP6Status s) {
         switch (s) {

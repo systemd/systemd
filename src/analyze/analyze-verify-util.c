@@ -382,4 +382,4 @@ static const char* const recursive_errors_table[_RECURSIVE_ERRORS_MAX] = {
         [RECURSIVE_ERRORS_ONE] = "one",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(recursive_errors, RecursiveErrors);
+DEFINE_STRING_TABLE_LOOKUP(recursive_errors, RecursiveErrors, i);

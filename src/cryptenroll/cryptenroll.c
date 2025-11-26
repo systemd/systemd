@@ -96,7 +96,7 @@ static const char* const enroll_type_table[_ENROLL_TYPE_MAX] = {
         [ENROLL_TPM2]     = "tpm2",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(enroll_type, EnrollType);
+DEFINE_STRING_TABLE_LOOKUP(enroll_type, EnrollType, t);
 
 static const char *const luks2_token_type_table[_ENROLL_TYPE_MAX] = {
         /* ENROLL_PASSWORD has no entry here, as slots of this type do not have a token in the LUKS2 header */
@@ -106,7 +106,7 @@ static const char *const luks2_token_type_table[_ENROLL_TYPE_MAX] = {
         [ENROLL_TPM2]     = "systemd-tpm2",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(luks2_token_type, EnrollType);
+DEFINE_STRING_TABLE_LOOKUP(luks2_token_type, EnrollType, t);
 
 static int determine_default_node(void) {
         int r;

@@ -845,7 +845,7 @@ static Network *network_free(Network *network) {
         return mfree(network);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(Network, network, network_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Network, network, network, network_free);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret) {
         Network *network;
@@ -1143,7 +1143,7 @@ static const char* const keep_configuration_table[_KEEP_CONFIGURATION_MAX] = {
         [KEEP_CONFIGURATION_YES]             = "yes",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(keep_configuration, KeepConfiguration, KEEP_CONFIGURATION_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(keep_configuration, KeepConfiguration, i, KEEP_CONFIGURATION_YES);
 
 static const char* const activation_policy_table[_ACTIVATION_POLICY_MAX] = {
         [ACTIVATION_POLICY_UP]          = "up",
@@ -1154,5 +1154,5 @@ static const char* const activation_policy_table[_ACTIVATION_POLICY_MAX] = {
         [ACTIVATION_POLICY_BOUND]       = "bound",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy);
+DEFINE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy, i);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_activation_policy, activation_policy, ActivationPolicy);

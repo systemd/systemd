@@ -1563,7 +1563,7 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
         return mfree(client);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_client, sd_dhcp6_client, dhcp6_client_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_client, sd_dhcp6_client, client, dhcp6_client_free);
 
 int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;

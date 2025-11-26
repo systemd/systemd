@@ -94,7 +94,7 @@ static const char *reboot_on_error_table[_REBOOT_ON_ERROR_MAX] = {
         [REBOOT_AUTO] = "auto",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(reboot_on_error, RebootOnError);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(reboot_on_error, RebootOnError, i);
 
 typedef struct BootEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */

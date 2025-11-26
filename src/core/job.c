@@ -1641,7 +1641,7 @@ static const char* const job_state_table[_JOB_STATE_MAX] = {
         [JOB_RUNNING] = "running",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(job_state, JobState);
+DEFINE_STRING_TABLE_LOOKUP(job_state, JobState, t);
 
 static const char* const job_type_table[_JOB_TYPE_MAX] = {
         [JOB_START]           = "start",
@@ -1655,7 +1655,7 @@ static const char* const job_type_table[_JOB_TYPE_MAX] = {
         [JOB_NOP]             = "nop",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(job_type, JobType);
+DEFINE_STRING_TABLE_LOOKUP(job_type, JobType, t);
 
 static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_DONE]        = "done",
@@ -1673,7 +1673,7 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_CONCURRENCY] = "concurrency",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);
+DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult, t);
 
 const char* job_type_to_access_method(JobType t) {
         assert(t >= 0);

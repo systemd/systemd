@@ -80,7 +80,7 @@ static Writer* writer_free(Writer *w) {
         return mfree(w);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(Writer, writer, writer_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Writer, writer, w, writer_free);
 
 int writer_write(Writer *w,
                  const struct iovec_wrapper *iovw,

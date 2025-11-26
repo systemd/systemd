@@ -23,7 +23,7 @@ static DnsAnswerItem *dns_answer_item_free(DnsAnswerItem *item) {
         return mfree(item);
 }
 
-DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(DnsAnswerItem, dns_answer_item, dns_answer_item_free);
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(DnsAnswerItem, dns_answer_item, d, dns_answer_item_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswerItem*, dns_answer_item_unref);
 
 static void dns_answer_item_hash_func(const DnsAnswerItem *a, struct siphash *state) {
@@ -104,7 +104,7 @@ static DnsAnswer *dns_answer_free(DnsAnswer *a) {
         return mfree(a);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsAnswer, dns_answer, dns_answer_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsAnswer, dns_answer, a, dns_answer_free);
 
 static int dns_answer_add_raw(
                 DnsAnswer *a,

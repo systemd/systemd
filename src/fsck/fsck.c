@@ -73,7 +73,7 @@ static const char * const fsck_repair_option_table[_FSCK_REPAIR_MAX] = {
         [FSCK_REPAIR_PREEN] = "-a",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(fsck_repair_option, FSCKRepair);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(fsck_repair_option, FSCKRepair, i);
 
 static void start_target(const char *target, const char *mode) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;

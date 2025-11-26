@@ -9,7 +9,7 @@ static const char* const ipvlan_mode_table[_NETDEV_IPVLAN_MODE_MAX] = {
         [NETDEV_IPVLAN_MODE_L3S] = "L3S",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(ipvlan_mode, IPVlanMode);
+DEFINE_STRING_TABLE_LOOKUP(ipvlan_mode, IPVlanMode, d);
 
 static const char* const ipvlan_flags_table[_NETDEV_IPVLAN_FLAGS_MAX] = {
         [NETDEV_IPVLAN_FLAGS_BRIGDE] = "bridge",
@@ -17,4 +17,4 @@ static const char* const ipvlan_flags_table[_NETDEV_IPVLAN_FLAGS_MAX] = {
         [NETDEV_IPVLAN_FLAGS_VEPA] = "vepa",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(ipvlan_flags, IPVlanFlags);
+DEFINE_STRING_TABLE_LOOKUP(ipvlan_flags, IPVlanFlags, d);

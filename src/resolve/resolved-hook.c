@@ -58,7 +58,7 @@ static Hook* hook_free(Hook *h) {
         return mfree(h);
 }
 
-DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(Hook, hook, hook_free);
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(Hook, hook, h, hook_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hook*, hook_unref);
 
 static Hook *hook_unlink(Hook *h) {

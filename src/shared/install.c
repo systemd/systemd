@@ -63,7 +63,7 @@ static const char *const preset_action_past_tense_table[_PRESET_ACTION_MAX] = {
         [PRESET_IGNORE]  = "ignored",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(preset_action_past_tense, PresetAction);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(preset_action_past_tense, PresetAction, action);
 
 static bool install_info_has_rules(const InstallInfo *i) {
         assert(i);
@@ -105,7 +105,7 @@ static const char *const install_mode_table[_INSTALL_MODE_MAX] = {
         [INSTALL_MODE_MASKED]  = "masked",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(install_mode, InstallMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(install_mode, InstallMode, i);
 
 static int in_search_path(const LookupPaths *lp, const char *path) {
         _cleanup_free_ char *parent = NULL;
@@ -3864,7 +3864,7 @@ static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
         [UNIT_FILE_BAD]             = "bad",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(unit_file_state, UnitFileState);
+DEFINE_STRING_TABLE_LOOKUP(unit_file_state, UnitFileState, s);
 
 static const char* const install_change_type_table[_INSTALL_CHANGE_TYPE_MAX] = {
         [INSTALL_CHANGE_SYMLINK]                 = "symlink",
@@ -3876,7 +3876,7 @@ static const char* const install_change_type_table[_INSTALL_CHANGE_TYPE_MAX] = {
         [INSTALL_CHANGE_AUXILIARY_FAILED]        = "auxiliary unit failed",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(install_change_type, InstallChangeType);
+DEFINE_STRING_TABLE_LOOKUP(install_change_type, InstallChangeType, t);
 
 static const char* const unit_file_preset_mode_table[_UNIT_FILE_PRESET_MODE_MAX] = {
         [UNIT_FILE_PRESET_FULL]         = "full",
@@ -3884,4 +3884,4 @@ static const char* const unit_file_preset_mode_table[_UNIT_FILE_PRESET_MODE_MAX]
         [UNIT_FILE_PRESET_DISABLE_ONLY] = "disable-only",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(unit_file_preset_mode, UnitFilePresetMode);
+DEFINE_STRING_TABLE_LOOKUP(unit_file_preset_mode, UnitFilePresetMode, m);

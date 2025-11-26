@@ -995,4 +995,4 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_CONTAINER_OTHER] = "container-other",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(virtualization, Virtualization);
+DEFINE_STRING_TABLE_LOOKUP(virtualization, Virtualization, v);

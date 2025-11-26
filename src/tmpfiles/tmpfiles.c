@@ -233,7 +233,7 @@ static const char *const creation_mode_verb_table[_CREATION_MODE_MAX] = {
         [CREATION_FORCE]    = "Created replacement",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode, i);
 
 static void context_done(Context *c) {
         assert(c);

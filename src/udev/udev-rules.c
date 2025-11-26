@@ -3292,4 +3292,4 @@ static const char* const resolve_name_timing_table[_RESOLVE_NAME_TIMING_MAX] = {
         [RESOLVE_NAME_EARLY] = "early",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(resolve_name_timing, ResolveNameTiming);
+DEFINE_STRING_TABLE_LOOKUP(resolve_name_timing, ResolveNameTiming, i);

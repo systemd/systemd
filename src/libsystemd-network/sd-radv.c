@@ -113,7 +113,7 @@ static sd_radv *radv_free(sd_radv *ra) {
         return mfree(ra);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv, sd_radv, radv_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv, sd_radv, ra, radv_free);
 
 static bool router_lifetime_is_valid(usec_t lifetime_usec) {
         assert_cc(RADV_MAX_ROUTER_LIFETIME_USEC <= UINT16_MAX * USEC_PER_SEC);

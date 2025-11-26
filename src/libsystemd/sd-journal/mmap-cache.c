@@ -250,7 +250,7 @@ static MMapCache* mmap_cache_free(MMapCache *m) {
         return mfree(m);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(MMapCache, mmap_cache, mmap_cache_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(MMapCache, mmap_cache, m, mmap_cache_free);
 
 static int mmap_try_harder(MMapFileDescriptor *f, void *addr, int flags, uint64_t offset, size_t size, void **ret) {
         MMapCache *m = mmap_cache_fd_cache(f);

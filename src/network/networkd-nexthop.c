@@ -110,7 +110,7 @@ static NextHop* nexthop_free(NextHop *nexthop) {
         return mfree(nexthop);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(NextHop, nexthop, nexthop_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(NextHop, nexthop, nexthop, nexthop_free);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 nexthop_hash_ops,
