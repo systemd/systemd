@@ -5023,6 +5023,11 @@ int unit_add_mounts_for(Unit *u, const char *path, UnitDependencyMask mask, Unit
         if (hashmap_contains(*unit_map, path)) /* Exit quickly if the path is already covered. */
                 return 0;
 
+        if (!unit_type_supported(UNIT_MOUNT)) {
+                log_once(LOG_NOTICE, "Mount unit not supported, skipping *MountsFor= dependencies.");
+                return 0;
+        }
+
         /* Use the canonical form of the path as the stored key. We call path_is_normalized()
          * only after simplification, since path_is_normalized() rejects paths with '.'.
          * path_is_normalized() also verifies that the path fits in PATH_MAX. */
