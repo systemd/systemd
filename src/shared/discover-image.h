@@ -18,11 +18,16 @@ typedef enum ImageType {
 typedef struct Image {
         unsigned n_ref;
 
-        ImageType type;
-        ImageClass class;
         char *name;
         char *path;
-        bool read_only;
+        ImageType type;
+        ImageClass class:28;
+        bool read_only:1;
+
+        bool metadata_valid:1;     /* true if the above 6 metadata fields have been read from the image */
+        bool discoverable:1;       /* true if we know for sure that image_find() would find the image given just the short name */
+        bool foreign_uid_owned:1;  /* true if this is of type IMAGE_DIRECTORY/IMAGE_SUBVOLUME and owned by foreign UID range */
+
 
         usec_t crtime;
         usec_t mtime;
@@ -38,10 +43,6 @@ typedef struct Image {
         char **os_release;
         char **sysext_release;
         char **confext_release;
-
-        bool metadata_valid:1;     /* true if the above 6 metadata fields have been read from the image */
-        bool discoverable:1;       /* true if we know for sure that image_find() would find the image given just the short name */
-        bool foreign_uid_owned:1;  /* true if this is of type IMAGE_DIRECTORY/IMAGE_SUBVOLUME and owned by foreign UID range */
 
         void *userdata;
 } Image;

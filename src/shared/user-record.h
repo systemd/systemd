@@ -251,170 +251,144 @@ typedef struct TmpfsLimit {
         }                                       \
 
 typedef struct UserRecord {
-        /* The following three fields are not part of the JSON record */
-        unsigned n_ref;
-        UserRecordMask mask;
-        bool incomplete; /* incomplete due to security restrictions. */
-
+        /* Pointers and other 8-byte aligned types */
         char *user_name;
         char *realm;
         char *user_name_and_realm_auto; /* the user_name field concatenated with '@' and the realm, if the latter is defined */
         char **aliases;
-        sd_id128_t uuid;
         char *real_name;
         char *email_address;
         char *password_hint;
         char *icon_name;
         char *location;
-
         char *blob_directory;
         Hashmap *blob_manifest;
-
-        UserDisposition disposition;
-        uint64_t last_change_usec;
-        uint64_t last_password_change_usec;
-
         char *shell;
-        mode_t umask;
         char **environment;
         char *time_zone;
         char *preferred_language;
         char **additional_languages;
-        int nice_level;
         struct rlimit *rlimits[_RLIMIT_MAX];
+        char *skeleton_directory;
+        char **hashed_password;
+        char **ssh_authorized_keys;
+        char **password;
+        char **token_pin;
+        char *cifs_domain;
+        char *cifs_user_name;
+        char *cifs_service;
+        char *cifs_extra_mount_options;
+        char *image_path;
+        char *image_path_auto; /* when none is configured explicitly, this is where we place the implicit image */
+        char *home_directory;
+        char *home_directory_auto; /* when none is set explicitly, this is where we place the implicit home directory */
+        /* fallback shell and home dir */
+        char *fallback_shell;
+        char *fallback_home_directory;
+        char **member_of;
+        char *file_system_type;
+        char *luks_cipher;
+        char *luks_cipher_mode;
+        char *luks_pbkdf_hash_algorithm;
+        char *luks_pbkdf_type;
+        char *luks_extra_mount_options;
+        char *state;
+        char *service;
+        char *preferred_session_type;
+        char *preferred_session_launcher;
+        char **pkcs11_token_uri;
+        Pkcs11EncryptedKey *pkcs11_encrypted_key;
+        Fido2HmacCredential *fido2_hmac_credential;
+        Fido2HmacSalt *fido2_hmac_salt;
+        char **recovery_key_type;
+        RecoveryKey *recovery_key;
+        char **capability_bounding_set;
+        char **capability_ambient_set;
+        char **self_modifiable_fields; /* fields a user can change about themself w/o auth */
+        char **self_modifiable_blobs;
+        char **self_modifiable_privileged;
+        char *default_area;
+        sd_json_variant *json;
 
-        int locked;               /* prohibit activation in general */
+        /* Large structs */
+        sd_id128_t uuid;
+        sd_id128_t partition_uuid;
+        sd_id128_t luks_uuid;
+        sd_id128_t file_system_uuid;
+        TmpfsLimit tmp_limit, dev_shm_limit;
+
+        /* 64-bit integers */
+        uint64_t last_change_usec;
+        uint64_t last_password_change_usec;
         uint64_t not_before_usec; /* prohibit activation before this unix time */
         uint64_t not_after_usec;  /* prohibit activation after this unix time */
-
-        UserStorage storage;
         uint64_t disk_size;
         uint64_t disk_size_relative; /* Disk size, relative to the free bytes of the medium, normalized to UINT32_MAX = 100% */
-        char *skeleton_directory;
-        mode_t access_mode;
-        AutoResizeMode auto_resize_mode;
         uint64_t rebalance_weight;
-
         uint64_t tasks_max;
         uint64_t memory_high;
         uint64_t memory_max;
         uint64_t cpu_weight;
         uint64_t io_weight;
-
-        bool nosuid;
-        bool nodev;
-        bool noexec;
-
-        char **hashed_password;
-        char **ssh_authorized_keys;
-        char **password;
-        char **token_pin;
-
-        char *cifs_domain;
-        char *cifs_user_name;
-        char *cifs_service;
-        char *cifs_extra_mount_options;
-
-        char *image_path;
-        char *image_path_auto; /* when none is configured explicitly, this is where we place the implicit image */
-        char *home_directory;
-        char *home_directory_auto; /* when none is set explicitly, this is where we place the implicit home directory */
-
-        /* fallback shell and home dir */
-        char *fallback_shell;
-        char *fallback_home_directory;
-
-        uid_t uid;
-        gid_t gid;
-
-        char **member_of;
-
-        char *file_system_type;
-        sd_id128_t partition_uuid;
-        sd_id128_t luks_uuid;
-        sd_id128_t file_system_uuid;
-
-        int luks_discard;
-        int luks_offline_discard;
-        char *luks_cipher;
-        char *luks_cipher_mode;
         uint64_t luks_volume_key_size;
-        char *luks_pbkdf_hash_algorithm;
-        char *luks_pbkdf_type;
         uint64_t luks_pbkdf_force_iterations;
         uint64_t luks_pbkdf_time_cost_usec;
         uint64_t luks_pbkdf_memory_cost;
         uint64_t luks_pbkdf_parallel_threads;
         uint64_t luks_sector_size;
-        char *luks_extra_mount_options;
-
         uint64_t disk_usage;
         uint64_t disk_free;
         uint64_t disk_ceiling;
         uint64_t disk_floor;
-
-        bool use_fallback; /* if true → use fallback_shell + fallback_home_directory instead of the regular ones */
-
-        char *state;
-        char *service;
-        int signed_locally;
-
         uint64_t good_authentication_counter;
         uint64_t bad_authentication_counter;
         uint64_t last_good_authentication_usec;
         uint64_t last_bad_authentication_usec;
-
         uint64_t ratelimit_begin_usec;
         uint64_t ratelimit_count;
         uint64_t ratelimit_interval_usec;
         uint64_t ratelimit_burst;
-
-        int removable;
-        int enforce_password_policy;
-        int auto_login;
-        int drop_caches;
-
-        char *preferred_session_type;
-        char *preferred_session_launcher;
-
         uint64_t stop_delay_usec;   /* How long to leave systemd --user around on log-out */
-        int kill_processes;         /* Whether to kill user processes forcibly on log-out */
-
-        /* The following exist mostly so that we can cover the full /etc/shadow set of fields */
         uint64_t password_change_min_usec;       /* maps to .sp_min */
         uint64_t password_change_max_usec;       /* maps to .sp_max */
         uint64_t password_change_warn_usec;      /* maps to .sp_warn */
         uint64_t password_change_inactive_usec;  /* maps to .sp_inact */
-        int password_change_now;                 /* Require a password change immediately on next login (.sp_lstchg = 0) */
-
-        char **pkcs11_token_uri;
-        Pkcs11EncryptedKey *pkcs11_encrypted_key;
         size_t n_pkcs11_encrypted_key;
-        int pkcs11_protected_authentication_path_permitted;
-
-        Fido2HmacCredential *fido2_hmac_credential;
         size_t n_fido2_hmac_credential;
-        Fido2HmacSalt *fido2_hmac_salt;
         size_t n_fido2_hmac_salt;
+        size_t n_recovery_key;
+
+        /* 4-byte integers and enums */
+        unsigned n_ref;
+        UserRecordMask mask;
+        UserDisposition disposition;
+        mode_t umask;
+        int nice_level;
+        int locked;               /* prohibit activation in general */
+        UserStorage storage;
+        mode_t access_mode;
+        AutoResizeMode auto_resize_mode;
+        uid_t uid;
+        gid_t gid;
+        int luks_discard;
+        int luks_offline_discard;
+        int signed_locally;
+        int removable;
+        int enforce_password_policy;
+        int auto_login;
+        int drop_caches;
+        int kill_processes;         /* Whether to kill user processes forcibly on log-out */
+        int password_change_now;                 /* Require a password change immediately on next login (.sp_lstchg = 0) */
+        int pkcs11_protected_authentication_path_permitted;
         int fido2_user_presence_permitted;
         int fido2_user_verification_permitted;
 
-        char **recovery_key_type;
-        RecoveryKey *recovery_key;
-        size_t n_recovery_key;
-
-        char **capability_bounding_set;
-        char **capability_ambient_set;
-
-        char **self_modifiable_fields; /* fields a user can change about themself w/o auth */
-        char **self_modifiable_blobs;
-        char **self_modifiable_privileged;
-
-        TmpfsLimit tmp_limit, dev_shm_limit;
-
-        char *default_area;
-
-        sd_json_variant *json;
+        /* 1-byte booleans */
+        bool incomplete; /* incomplete due to security restrictions. */
+        bool nosuid;
+        bool nodev;
+        bool noexec;
+        bool use_fallback; /* if true → use fallback_shell + fallback_home_directory instead of the regular ones */
 } UserRecord;
 
 UserRecord* user_record_new(void);

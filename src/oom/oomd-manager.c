@@ -31,9 +31,9 @@
 
 typedef struct ManagedOOMMessage {
         ManagedOOMMode mode;
+        uint32_t limit;
         char *path;
         char *property;
-        uint32_t limit;
         usec_t duration;
 } ManagedOOMMessage;
 
