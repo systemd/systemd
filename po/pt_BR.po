@@ -6,7 +6,7 @@
 # Rafael Fontenelle <rafaelff@gnome.org>, 2015-2020, 2025.
 # Gustavo Costa <xfgusta@gmail.com>, 2021.
 # Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024, 2025.
-# Gabriel Elyas <gabrielelyas@protonmail.com>, 2024.
+# Gabriel Elyas <gabrielelyas@protonmail.com>, 2024, 2025.
 # Fábio Rodrigues Ribeiro <farribeiro@gmail.com>, 2024.
 # "Geraldo S. Simião Kutz" <geraldo.simiao.kutz@gmail.com>, 2024, 2025.
 msgid ""
@@ -14,7 +14,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:30+0000\n"
-"Last-Translator: \"Geraldo S. Simião Kutz\" <geraldo.simiao.kutz@gmail.com>\n"
+"Last-Translator: Gabriel Elyas <gabrielelyas@protonmail.com>\n"
 "Language-Team: Portuguese (Brazil) <https://translate.fedoraproject.org/"
 "projects/systemd/main/pt_BR/>\n"
 "Language: pt_BR\n"
@@ -255,8 +255,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"O PIN do token de segurança está bloqueado, desbloqueie-o primeiro. (Dica: a "
-"remoção e a reinserção podem ser suficientes)"
+"O PIN do token de segurança está bloqueado, desbloqueie-o primeiro. "
+"(Dica: a remoção e a reinserção podem ser suficientes)"
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
@@ -272,15 +272,15 @@ msgstr "Desculpe, tente novamente o PIN do token de segurança: "
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"O PIN do token de segurança do usuário %s está incorreto (restam apenas "
-"algumas tentativas!)"
+"O PIN do token de segurança do usuário %s está incorreto "
+"(restam apenas algumas tentativas!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
-"O PIN do token de segurança do usuário %s está incorreto (só resta uma "
-"tentativa!)"
+"O PIN do token de segurança do usuário %s está incorreto "
+"(só resta uma tentativa!)"
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
