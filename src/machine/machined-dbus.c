@@ -270,12 +270,33 @@ static int machine_add_from_params(
                 return r;
 
         /* Ensure an unprivileged user cannot claim any process they don't control as their own machine */
-        if (uid != 0) {
+        switch (manager->runtime_scope) {
+
+        case RUNTIME_SCOPE_SYSTEM:
+                /* In system mode root may register anything */
+                if (uid == 0)
+                        break;
+
+                /* And non-root may only register things if they own the userns */
                 r = process_is_owned_by_uid(leader_pidref, uid);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Only root may register machines for other users");
+                if (r > 0)
+                        break;
+
+                /* Nothing else may */
+                return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Only root may register machines for other users");
+
+        case RUNTIME_SCOPE_USER:
+                /* In user mode the user owning our instance may register anything. */
+                if (uid == getuid())
+                        break;
+
+                /* Nothing else may */
+                return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Other users may not register machines with us, sorry.");
+
+        default:
+                assert_not_reached();
         }
 
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
