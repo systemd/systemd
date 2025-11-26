@@ -36,6 +36,7 @@ import sys
 import os
 from pathlib import Path
 import traceback
+import textwrap
 
 REMOVE_COMMENTS = False
 
@@ -412,7 +413,13 @@ def _concat(el, prefix=""):
                 s += i.tail[0]
             s += _remove_indent_and_escape(i.tail, el.tag)
     # return s.strip()
-    return s
+    prefix = "   "
+    if el.tag in ["listitem"]:
+        # Indent all lines
+        result = textwrap.indent(s, prefix, lambda line: True)
+    else:
+        result = s
+    return result
 
 
 def _original_xml(el):
@@ -504,9 +511,11 @@ def _get_listitem_depth(el):
     """Calculate the nesting depth of listitem ancestors for an element.
     Returns 0 if not inside any listitem, 1 for first-level list, 2 for nested, etc."""
     depth = 0
-    # If the parent is a varlistentry, always indent
-    if _is_inside_of(el, 'varlistentry'):
+    if el.tag == 'listitem':
         depth = 1
+    # If the parent is a varlistentry, always indent
+    # if _is_inside_of(el, 'varlistentry'):
+    #     depth = 1
     for ancestor in el.iterancestors():
         if ancestor.tag == 'listitem':
             depth += 1
@@ -871,9 +880,9 @@ def term(el):
         title = _concat(el).strip()
 
     if level >= 5:
-        global _indent_next_listItem_by
-        _indent_next_listItem_by += 3
-        return f".. option:: {title}\n\n   \n\n   "
+        # global _indent_next_listItem_by
+        # _indent_next_listItem_by += 3
+        return f".. option:: {title}"
     return _make_title(f"``{title}``", level) + '\n\n'
 
 # links
@@ -1001,16 +1010,7 @@ def listitem(el):
     if parent.tag == 'itemizedlist':
         listItemPrefix = '* '
 
-    # Use depth-aware indentation system
-    depth = _get_listitem_depth(el)
-
-    if depth >= 1:
-        # For nested list items (depth >= 1), add indentation
-        # Use depth directly since we want 2 spaces per nesting level
-        indent_spaces = " " * (2 * depth)
-        listItemPrefix = indent_spaces + listItemPrefix
-
-    return _concat(el, listItemPrefix)
+    return listItemPrefix + _concat(el)
 
 # sections
 
@@ -1140,7 +1140,6 @@ def informalexample(el):
     return _conv(el.getchildren()[0])
 
 def programlisting(el):
-    # TODO: newlines at the end aren't applied properly
     xi_include = el.find('.//{http://www.w3.org/2001/XInclude}include')
     # Systemd programlistings do include child elements, so just render them
     # if len(el.getchildren()) == 0:
