@@ -5,7 +5,7 @@
 # Benjamin Steinwender <b@stbe.at>, 2014.
 # Bernd Homuth <dev@hmt.im>, 2015.
 # Fabian Affolter <mail@fabian-affolter.ch>, 2020.
-# Ettore Atalan <atalanttore@googlemail.com>, 2021, 2024.
+# Ettore Atalan <atalanttore@googlemail.com>, 2021, 2024, 2025.
 # Christian Wehrli <christian@chw.onl>, 2021.
 # Christian Kirbach <christian.kirbach@gmail.com>, 2023.
 # Jarne Förster <fedora@mymailclient.de>, 2024.
@@ -17,7 +17,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:25+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Ettore Atalan <atalanttore@googlemail.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -1356,8 +1356,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Legitimierung ist zum Senden eines UNIX-Signals an die Prozesse von »$"
-"(unit)« notwendig."
+"Legitimierung ist zum Senden eines UNIX-Signals an die Prozesse von »$(unit)«"
+" notwendig."
 
 #: src/core/dbus-unit.c:620
 msgid ""
@@ -1383,8 +1383,8 @@ msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr ""
-"Legitimierung ist zum Löschen von Dateien und Verzeichnissen, die zu »$"
-"(unit)« gehören, erforderlich."
+"Legitimierung ist zum Löschen von Dateien und Verzeichnissen, die zu »$(unit)"
+"« gehören, erforderlich."
 
 #: src/core/dbus-unit.c:812
 msgid ""
