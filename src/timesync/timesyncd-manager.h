@@ -22,89 +22,68 @@
 #define DEFAULT_SAVE_TIME_INTERVAL_USEC (60 * USEC_PER_SEC)
 
 typedef struct Manager {
+        /* Pointers */
         sd_bus *bus;
         sd_event *event;
         sd_resolve *resolve;
-
-        LIST_HEAD(ServerName, system_servers);
-        LIST_HEAD(ServerName, link_servers);
-        LIST_HEAD(ServerName, runtime_servers);
-        LIST_HEAD(ServerName, fallback_servers);
-
-        RateLimit ratelimit;
-        bool exhausted_servers;
-        bool have_fallbacks;
-
-        /* network */
         sd_event_source *network_event_source;
         sd_network_monitor *network_monitor;
-
-        /* peer */
         sd_resolve_query *resolve_query;
         sd_event_source *event_receive;
         ServerName *current_server_name;
         ServerAddress *current_server_address;
-        int server_socket;
-        int missed_replies;
-        uint64_t packet_count;
         sd_event_source *event_timeout;
-        bool talking;
-
-        /* PolicyKit */
         Hashmap *polkit_registry;
+        sd_event_source *event_timer;
+        sd_event_source *event_clock_watch;
+        sd_event_source *event_retry;
+        sd_event_source *event_save_time;
+        sd_event_source *deferred_ntp_server_event_source;
 
-        /* last sent packet */
+        /* Structs and large arrays */
+        LIST_HEAD(ServerName, system_servers);
+        LIST_HEAD(ServerName, link_servers);
+        LIST_HEAD(ServerName, runtime_servers);
+        LIST_HEAD(ServerName, fallback_servers);
+        RateLimit ratelimit;
         struct timespec trans_time_mon;
         struct timespec trans_time;
-        struct ntp_ts request_nonce;
-        usec_t retry_interval;
-        usec_t connection_retry_usec;
-        bool pending;
-
-        /* poll timer */
-        sd_event_source *event_timer;
-        usec_t poll_interval_usec;
-        usec_t poll_interval_min_usec;
-        usec_t poll_interval_max_usec;
-        bool poll_resync;
-
-        /* history data */
         struct {
                 double offset;
                 double delay;
         } samples[8];
-        unsigned samples_idx;
-        double samples_jitter;
-        usec_t root_distance_max_usec;
-
-        /* last change */
-        bool jumped;
-        int64_t drift_freq;
-
-        /* watch for time changes */
-        sd_event_source *event_clock_watch;
-
-        /* Retry connections */
-        sd_event_source *event_retry;
-
-        /* RTC runs in local time, leave it alone */
-        bool rtc_local_time;
-
-        /* NTP response */
         struct ntp_msg ntpmsg;
         struct timespec origin_time, dest_time;
-        bool spike;
+        struct ntp_ts request_nonce;
 
-        /* Indicates whether we ever managed to set the local clock from NTP */
-        bool synchronized;
-
-        /* save time event */
-        sd_event_source *event_save_time;
+        /* 64-bit types */
+        uint64_t packet_count;
+        usec_t retry_interval;
+        usec_t connection_retry_usec;
+        usec_t poll_interval_usec;
+        usec_t poll_interval_min_usec;
+        usec_t poll_interval_max_usec;
+        double samples_jitter;
+        usec_t root_distance_max_usec;
+        int64_t drift_freq;
         usec_t save_time_interval_usec;
 
-        /* Used to coalesce bus PropertiesChanged events */
-        sd_event_source *deferred_ntp_server_event_source;
+        /* 32-bit types */
+        int server_socket;
+        int missed_replies;
+        unsigned samples_idx;
         unsigned ntp_server_change_mask;
+
+        /* Booleans */
+        bool exhausted_servers;
+        bool have_fallbacks;
+        bool talking;
+        bool pending;
+        bool poll_resync;
+        bool jumped;
+        bool rtc_local_time;
+        bool spike;
+        bool synchronized;
 } Manager;
 
 int manager_new(Manager **ret);
