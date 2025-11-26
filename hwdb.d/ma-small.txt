@@ -8099,6 +8099,30 @@ DB4000-DB4FFF     (base 16)		MB connect line GmbH
 				MINATO-KU  TOKYO  108-0073
 				JP
 
+8C-1F-64   (hex)		SEGRON Automation, s.r.o.
+DC1000-DC1FFF     (base 16)		SEGRON Automation, s.r.o.
+				Tomasikova 19
+				Bratislava    82101
+				SK
+
+8C-1F-64   (hex)		Abbott Diagnostics Technologies AS
+7F6000-7F6FFF     (base 16)		Abbott Diagnostics Technologies AS
+				P. O.  Box 6863 Rodeløkka
+				Oslo  Oslo  0504
+				NO
+
+8C-1F-64   (hex)		Zengar Institute Inc
+710000-710FFF     (base 16)		Zengar Institute Inc
+				1007 Fort St, 4th FL
+				Victoria  BC  V8V 3K5
+				CA
+
+8C-1F-64   (hex)		RESMED PTY LTD
+3C7000-3C7FFF     (base 16)		RESMED PTY LTD
+				1 Elizabeth Macarthur Drive, Bella Vista NSW 2153 Australia
+				NSW    2153
+				AT
+
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
 				7765 Old Telegraph Road
@@ -16235,6 +16259,18 @@ B1E000-B1EFFF     (base 16)		Aidhom
 				Acacias_geneva  Geneva  1227
 				CH
 
+8C-1F-64   (hex)		Elektrotechnik & Elektronik Oltmann GmbH
+FCA000-FCAFFF     (base 16)		Elektrotechnik & Elektronik Oltmann GmbH
+				Gartenfelder Str. 29
+				Berlin    D-13599
+				DE
+
+8C-1F-64   (hex)		ETM CO LTD
+AB0000-AB0FFF     (base 16)		ETM CO LTD
+				Room 803, B-dong, Woolim Lions Valley 5, 302, Galmachi-ro, Jungwon-gu
+				Gyeonggi-do    13201
+				KR
+
 8C-1F-64   (hex)		Daniele Saladino
 515000-515FFF     (base 16)		Daniele Saladino
 				Via G. B. Sala, 13
@@ -16247,11 +16283,29 @@ A10000-A10FFF     (base 16)		ZJU-Hangzhou Global Scientific and Technological In
 				Hangzhou  Zhejiang  311200
 				CN
 
-8C-1F-64   (hex)		ETM CO LTD
-AB0000-AB0FFF     (base 16)		ETM CO LTD
-				Room 803, B-dong, Woolim Lions Valley 5, 302, Galmachi-ro, Jungwon-gu
-				Gyeonggi-do    13201
-				KR
+8C-1F-64   (hex)		YUYAMA MFG Co.,Ltd
+5CF000-5CFFFF     (base 16)		YUYAMA MFG Co.,Ltd
+				1-4-30
+				MEISHINGUCHI,TOYONAKA  OSAKA  561-0841
+				JP
+
+8C-1F-64   (hex)		nanoTRONIX Computing Inc.
+F21000-F21FFF     (base 16)		nanoTRONIX Computing Inc.
+				1, Wood Road
+				Wilmington  DE   19806
+				US
+
+8C-1F-64   (hex)		RADIC Technologies, Inc.
+E91000-E91FFF     (base 16)		RADIC Technologies, Inc.
+				1625 The Alameda, Suite 708
+				SAN JOSE    95126
+				US
+
+8C-1F-64   (hex)		Fairwinds Technologies
+D55000-D55FFF     (base 16)		Fairwinds Technologies
+				6165 Guardian Gateway, Suites A-C 
+				Aberdeen Proving Ground  MD  21005
+				US
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -24389,6 +24443,42 @@ BA4000-BA4FFF     (base 16)		Buckeye Mountain
 				suwon-si  gyeonggi-do  16623
 				KR
 
+8C-1F-64   (hex)		Shenzhen Tezesk Energy Technology Co.,LTD
+02D000-02DFFF     (base 16)		Shenzhen Tezesk Energy Technology Co.,LTD
+				12AB, Building AB, New Energy Building, No.2239 Nanhai Avenue, Nanguang Community, Nanshan Subdistrict
+				 Shenzhen  Guangdong  518067
+				CN
+
+8C-1F-64   (hex)		MARVAUS TECHNOLOGIES PRIVATE LIMITED
+447000-447FFF     (base 16)		MARVAUS TECHNOLOGIES PRIVATE LIMITED
+				P-6095 Devender Vihar Sector 56
+				Gurugram  Haryana  122011
+				IN
+
+8C-1F-64   (hex)		Polarity Inc
+F37000-F37FFF     (base 16)		Polarity Inc
+				11294 Sunrise Park Dr
+				RANCHO CORDOVA  CA  95742-6599
+				US
+
+8C-1F-64   (hex)		Attack do Brasil Ind Com Apar de Som LTDA
+178000-178FFF     (base 16)		Attack do Brasil Ind Com Apar de Som LTDA
+				AV AYRTON SENNA DA SILVA, 400 – PQ INDL ZONA OESTE
+				Apucarana  Parana  86803-570
+				BR
+
+8C-1F-64   (hex)		Infosoft Digital Design and Services P L
+EDC000-EDCFFF     (base 16)		Infosoft Digital Design and Services P L
+				484, SECTOR-8 ,IMT MANESER,GURGAONMANESER
+				GURGAON  Haryana  122050
+				IN
+
+8C-1F-64   (hex)		Guangzhou Beizeng Information Technology Co.,Ltd
+39F000-39FFFF     (base 16)		Guangzhou Beizeng Information Technology Co.,Ltd
+				Room 714, Building D3, No. 197, Shuixi Road, Huangpu District, Guangzhou City, China
+				Guangzhou    510530
+				CN
+
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
 				Suite 2, Level 3, 18 - 20 York St
@@ -30215,12 +30305,6 @@ E21000-E21FFF     (base 16)		LLVISION TECHNOLOGY CO.,LTD
 				Beijing  Beijing  100026
 				CN
 
-70-B3-D5   (hex)		AML Oceanographic
-0CD000-0CDFFF     (base 16)		AML Oceanographic
-				2071 Malaview Avenue
-				Sidney  British Columbia  V8L 5X6
-				CA
-
 70-B3-D5   (hex)		Twoway Communications, Inc.
 4AA000-4AAFFF     (base 16)		Twoway Communications, Inc.
 				41 Wu Kung 6 Rd., New Taipei Industrial Park, New Taipei City,24891,Taiwan,R.O.C.
@@ -32467,6 +32551,30 @@ F99000-F99FFF     (base 16)		Sysinno Technology Inc.
 				17F-7, No.27, Guanxin Rd., East Dist.
 				Hsinchu    300
 				TW
+
+8C-1F-64   (hex)		InfoMac Sp. z o.o. Sp.k.
+840000-840FFF     (base 16)		InfoMac Sp. z o.o. Sp.k.
+				UL. WOJSKA POLSKIEGO 6
+				Szczecinek  zachodniopomorskie  78-400
+				PL
+
+8C-1F-64   (hex)		RSC
+B31000-B31FFF     (base 16)		RSC
+				36 27th Street, Umm Suqeim 3
+				Dubai  Dubai  00000
+				AE
+
+8C-1F-64   (hex)		Bounce Imaging
+1AE000-1AEFFF     (base 16)		Bounce Imaging
+				247 Cayuga Rd., Suite 15e
+				Cheektowaga  NY  14225
+				US
+
+70-B3-D5   (hex)		AML Oceanographic
+0CD000-0CDFFF     (base 16)		AML Oceanographic
+				121 ILSLEY AVE UNIT 112
+				DARTMOUTH  NS   B3B 1S4
+				CA
 
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
@@ -38510,12 +38618,6 @@ DC5000-DC5FFF     (base 16)		Excel Medical Electronics LLC
 				Jupiter  Florida  33458
 				US
 
-70-B3-D5   (hex)		Weigl Elektronik & Mediaprojekte
-01D000-01DFFF     (base 16)		Weigl Elektronik & Mediaprojekte
-				Limberg 3
-				Gramastetten  Oberoesterreich  4201
-				AT
-
 70-B3-D5   (hex)		christmann informationstechnik + medien GmbH & Co. KG
 564000-564FFF     (base 16)		christmann informationstechnik + medien GmbH & Co. KG
 				Ilseder Huette 10c
@@ -40457,6 +40559,12 @@ DDD000-DDDFFF     (base 16)		Irmos Technologies AG
 				Backnang    71540
 				DE
 
+8C-1F-64   (hex)		SAEL SRL
+60F000-60FFFF     (base 16)		SAEL SRL
+				Via Dei Genieri, 31
+				Torri di Quartesolo  Vicenza  36040
+				IT
+
 8C-1F-64   (hex)		Kyowakiden Industry Co.,Ltd.
 3D6000-3D6FFF     (base 16)		Kyowakiden Industry Co.,Ltd.
 				10-2 Kawaguchi-machi
@@ -40468,3 +40576,21 @@ DDD000-DDDFFF     (base 16)		Irmos Technologies AG
 				Sensing House, Shannon Free Zone East
 				Shannon  Co. Clare  V14 V99
 				IE
+
+8C-1F-64   (hex)		CEI Ptd Ltd
+0FD000-0FDFFF     (base 16)		CEI Ptd Ltd
+				2 Ang Mo Kio Ave 12
+				Singapore    569707
+				SG
+
+70-B3-D5   (hex)		Weigl GmbH & Co KG
+01D000-01DFFF     (base 16)		Weigl GmbH & Co KG
+				Limberg 3
+				Gramastetten  Oberoesterreich  4201
+				AT
+
+8C-1F-64   (hex)		Weigl GmbH & Co KG
+455000-455FFF     (base 16)		Weigl GmbH & Co KG
+				Weingartenstrasse 14/1/9-11
+				Ottensheim  Upper Austria  4100
+				AT
