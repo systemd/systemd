@@ -9,15 +9,15 @@ typedef struct GroupRecord {
         UserRecordMask mask;
         bool incomplete;
 
+        UserDisposition disposition;
+        uint64_t last_change_usec;
+
         char *group_name;
         char *realm;
         char *group_name_and_realm_auto;
         sd_id128_t uuid;
 
         char *description;
-
-        UserDisposition disposition;
-        uint64_t last_change_usec;
 
         gid_t gid;
 
