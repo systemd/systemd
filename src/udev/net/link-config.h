@@ -46,78 +46,62 @@ typedef struct Link {
 } Link;
 
 struct LinkConfig {
+        /* Pointers and 64-bit types */
         char *filename;
         char **dropins;
-
-        NetMatch match;
-        LIST_HEAD(Condition, conditions);
-
         char *description;
-
-        /* udev property */
         char **properties;
         char **import_properties;
         char **unset_properties;
-
-        /* rtnl setlink */
-        struct hw_addr_data hw_addr;
-        MACAddressPolicy mac_address_policy;
         NamePolicy *name_policy;
         NamePolicy *alternative_names_policy;
         char *name;
         char **alternative_names;
         char *alias;
+        char *wol_password_file;
+        uint8_t *wol_password;
+        OrderedHashmap *sr_iov_by_section;
+
+        LIST_HEAD(Condition, conditions);
+        LIST_FIELDS(LinkConfig, configs);
+
+        size_t gso_max_size;
+        uint64_t speed;
+        usec_t eee_tx_lpi_timer_usec;
+
+        /* Structs */
+        NetMatch match;
+        struct hw_addr_data hw_addr;
+        netdev_channels channels;
+        netdev_ring_param ring;
+        netdev_coalesce_param coalesce;
+        CPUSet rps_cpu_mask;
+
+        /* 32-bit types */
         uint32_t txqueues;
         uint32_t rxqueues;
         uint32_t txqueuelen;
         uint32_t mtu;
         uint32_t gso_max_segments;
-        size_t gso_max_size;
+        uint32_t advertise[N_ADVERTISE];
+        uint32_t wol;
+        int features[_NET_DEV_FEAT_MAX];
+        uint32_t eee_advertise[N_ADVERTISE];
+        uint32_t sr_iov_num_vfs;
 
-        /* ethtool link settings */
-        uint64_t speed;
+        /* Smaller integer types */
+        MACAddressPolicy mac_address_policy;
         Duplex duplex;
         int autonegotiation;
-        uint32_t advertise[N_ADVERTISE];
-        NetDevPort port;
-        uint8_t mdi;
-
-        /* ethtool WoL */
-        uint32_t wol;
-        char *wol_password_file;
-        uint8_t *wol_password;
-
-        /* ethtool features */
-        int features[_NET_DEV_FEAT_MAX];
-
-        /* ethtool channels */
-        netdev_channels channels;
-
-        /* ethtool ring parameters */
-        netdev_ring_param ring;
-
-        /* ethtool pause parameters */
         int rx_flow_control;
         int tx_flow_control;
         int autoneg_flow_control;
-
-        /* ethtool coalesce settings */
-        netdev_coalesce_param coalesce;
-
-        /* ethtool energy efficient ethernet settings */
         int eee_enabled;
         int eee_tx_lpi_enabled;
-        usec_t eee_tx_lpi_timer_usec;
-        uint32_t eee_advertise[N_ADVERTISE];
 
-        /* Rx RPS CPU mask */
-        CPUSet rps_cpu_mask;
-
-        /* SR-IOV */
-        uint32_t sr_iov_num_vfs;
-        OrderedHashmap *sr_iov_by_section;
-
-        LIST_FIELDS(LinkConfig, configs);
+        /* Smallest types */
+        NetDevPort port;
+        uint8_t mdi;
 };
 
 int link_config_ctx_new(LinkConfigContext **ret);

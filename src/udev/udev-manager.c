@@ -57,30 +57,28 @@ typedef enum EventState {
 
 typedef struct Event {
         Manager *manager;
-        Worker *worker;
-        EventState state;
-
         sd_device *dev;
-
-        sd_device_action_t action;
-        uint64_t seqnum;
+        Worker *worker;
         const char *id;
         const char *devpath;
         const char *devpath_old;
         const char *devnode;
+        char *whole_disk;
+        Set *blocker_events;
+        Set *blocking_events;
+        LIST_FIELDS(Event, same_disk);
+        LIST_FIELDS(Event, event);
+
+        sd_device_action_t action;
+        uint64_t seqnum;
 
         /* Used when the device is locked by another program. */
         usec_t requeue_next_usec;
         usec_t requeue_timeout_usec;
         unsigned locked_event_prioq_index;
-        char *whole_disk;
-        LIST_FIELDS(Event, same_disk);
 
+        EventState state;
         bool dependencies_built;
-        Set *blocker_events;
-        Set *blocking_events;
-
-        LIST_FIELDS(Event, event);
 } Event;
 
 typedef enum WorkerState {
