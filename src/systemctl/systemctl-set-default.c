@@ -31,10 +31,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 return free_and_strdup_warn(ret, key);
 
-        } else if (!value) {
-                if (runlevel_to_target(key))
-                        return free_and_strdup_warn(ret, key);
         }
+
+        if (!value && runlevel_to_target(key))
+                return free_and_strdup_warn(ret, key);
 
         return 0;
 }
@@ -65,27 +65,26 @@ static int determine_default(char **ret_name) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get default target: %m");
                 return 0;
-
-        } else {
-                sd_bus *bus;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                const char *name;
-
-                r = acquire_bus(BUS_MANAGER, &bus);
-                if (r < 0)
-                        return r;
-
-                r = bus_call_method(bus, bus_systemd_mgr, "GetDefaultTarget", &error, &reply, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get default target: %s", bus_error_message(&error, r));
-
-                r = sd_bus_message_read(reply, "s", &name);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                return free_and_strdup_warn(ret_name, name);
         }
+
+        sd_bus *bus;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *name;
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        r = bus_call_method(bus, bus_systemd_mgr, "GetDefaultTarget", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get default target: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "s", &name);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return free_and_strdup_warn(ret_name, name);
 }
 
 int verb_get_default(int argc, char *argv[], void *userdata) {

@@ -97,7 +97,7 @@ static struct udev_enumerate* udev_enumerate_free(struct udev_enumerate *udev_en
  *
  * Returns: #NULL
  **/
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_enumerate, udev_enumerate, udev_enumerate_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_enumerate, udev_enumerate, udev_enumerate, udev_enumerate_free);
 
 /**
  * udev_enumerate_get_udev:

@@ -191,7 +191,7 @@ static sd_bus_slot* bus_slot_free(sd_bus_slot *slot) {
         return mfree(slot);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus_slot, sd_bus_slot, bus_slot_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus_slot, sd_bus_slot, slot, bus_slot_free);
 
 _public_ sd_bus* sd_bus_slot_get_bus(sd_bus_slot *slot) {
         assert_return(slot, NULL);

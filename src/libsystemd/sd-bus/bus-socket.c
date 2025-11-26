@@ -489,8 +489,7 @@ static int bus_socket_auth_verify(sd_bus *b) {
 
         if (b->is_server)
                 return bus_socket_auth_verify_server(b);
-        else
-                return bus_socket_auth_verify_client(b);
+        return bus_socket_auth_verify_client(b);
 }
 
 static int bus_socket_write_auth(sd_bus *b) {
@@ -786,8 +785,7 @@ int bus_socket_start_auth(sd_bus *b) {
 
         if (b->is_server)
                 return bus_socket_read_auth(b);
-        else
-                return bus_socket_start_auth_client(b);
+        return bus_socket_start_auth_client(b);
 }
 
 static int bus_socket_inotify_setup(sd_bus *b) {

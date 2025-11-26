@@ -358,7 +358,7 @@ static sd_hwdb *hwdb_free(sd_hwdb *hwdb) {
         return mfree(hwdb);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_hwdb, sd_hwdb, hwdb_free)
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_hwdb, sd_hwdb, hwdb, hwdb_free)
 
 static int properties_prepare(sd_hwdb *hwdb, const char *modalias) {
         assert(hwdb);

@@ -70,8 +70,7 @@ static bool net_condition_test_strv(char * const *patterns, const char *string) 
                 if (string && fnmatch(q, string, 0) == 0) {
                         if (invert)
                                 return false;
-                        else
-                                match = true;
+                        match = true;
                 }
         }
 

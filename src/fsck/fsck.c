@@ -73,7 +73,7 @@ static const char * const fsck_repair_option_table[_FSCK_REPAIR_MAX] = {
         [FSCK_REPAIR_PREEN] = "-a",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(fsck_repair_option, FSCKRepair);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(fsck_repair_option, FSCKRepair, i);
 
 static void start_target(const char *target, const char *mode) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -434,7 +434,9 @@ static int run(int argc, char *argv[]) {
                         /* System should be rebooted. */
                         start_target(SPECIAL_REBOOT_TARGET, "replace-irreversibly");
                         return -EINVAL;
-                } else if (!(exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED)))
+                }
+
+                if (!(exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED)))
                         log_warning("Ignoring error.");
         }
 

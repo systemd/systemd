@@ -129,13 +129,15 @@ static int log_enable_gnutls_category(const char *cat) {
                         entry->enabled = true;
                 log_reset_gnutls_level();
                 return 0;
-        } else
-                FOREACH_ELEMENT(entry, gnutls_log_map)
-                        if (strv_contains((char**)entry->names, cat)) {
-                                entry->enabled = true;
-                                log_reset_gnutls_level();
-                                return 0;
-                        }
+        }
+
+        FOREACH_ELEMENT(entry, gnutls_log_map)
+                if (strv_contains((char**)entry->names, cat)) {
+                        entry->enabled = true;
+                        log_reset_gnutls_level();
+                        return 0;
+                }
+
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No such log category: %s", cat);
 }
 

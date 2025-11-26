@@ -160,7 +160,9 @@ int on_ac_power(void) {
                 if (r < 0) {
                         log_device_debug_errno(d, r, "Failed to query 'online' sysfs attribute, ignoring device: %m");
                         continue;
-                } else if (r > 0)  /* At least 1 and 2 are defined as different types of 'online' */
+                }
+
+                if (r > 0)  /* At least 1 and 2 are defined as different types of 'online' */
                         found_ac_online = true;
 
                 log_device_debug(d, "The power supply is currently %s.", r > 0 ? "online" : "offline");
@@ -169,13 +171,13 @@ int on_ac_power(void) {
         if (found_ac_online) {
                 log_debug("Found at least one online non-battery power supply, system is running on AC.");
                 return true;
-        } else if (found_discharging_battery) {
+        } if (found_discharging_battery) {
                 log_debug("Found at least one discharging battery and no online power sources, assuming system is running from battery.");
                 return false;
-        } else {
-                log_debug("No power supply reported online and no discharging battery found, assuming system is running on AC.");
-                return true;
         }
+
+        log_debug("No power supply reported online and no discharging battery found, assuming system is running on AC.");
+        return true;
 }
 
 /* Get the list of batteries */

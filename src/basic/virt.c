@@ -286,8 +286,9 @@ static Virtualization detect_vm_dmi(void) {
                         if (e && IN_SET(*e, 0, '-')) {
                                 log_debug("DMI product name has '.metal', assuming no virtualization");
                                 return VIRTUALIZATION_NONE;
-                        } else
-                                return VIRTUALIZATION_AMAZON;
+                        }
+
+                        return VIRTUALIZATION_AMAZON;
                 }
                 default:
                         assert_not_reached();
@@ -382,8 +383,8 @@ static Virtualization detect_vm_hypervisor(void) {
 
         if (streq(hvtype, "xen"))
                 return VIRTUALIZATION_XEN;
-        else
-                return VIRTUALIZATION_VM_OTHER;
+
+        return VIRTUALIZATION_VM_OTHER;
 }
 
 static Virtualization detect_vm_uml(void) {
@@ -995,4 +996,4 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_CONTAINER_OTHER] = "container-other",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(virtualization, Virtualization);
+DEFINE_STRING_TABLE_LOOKUP(virtualization, Virtualization, v);

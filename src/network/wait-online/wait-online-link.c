@@ -200,7 +200,9 @@ int rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) 
         if (r < 0) {
                 log_warning_errno(r, "rtnl: Could not get ifindex from link, ignoring: %m");
                 return 0;
-        } else if (ifindex <= 0) {
+        }
+
+        if (ifindex <= 0) {
                 log_warning("rtnl: received link message with invalid ifindex %d, ignoring", ifindex);
                 return 0;
         }

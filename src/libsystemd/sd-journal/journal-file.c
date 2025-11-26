@@ -3322,10 +3322,9 @@ static int test_object_offset(JournalFile *f, uint64_t p, uint64_t needle) {
 
         if (p == needle)
                 return TEST_FOUND;
-        else if (p < needle)
+        if (p < needle)
                 return TEST_LEFT;
-        else
-                return TEST_RIGHT;
+        return TEST_RIGHT;
 }
 
 int journal_file_move_to_entry_by_offset(
@@ -3363,10 +3362,9 @@ static int test_object_seqnum(JournalFile *f, uint64_t p, uint64_t needle) {
         sq = le64toh(READ_NOW(o->entry.seqnum));
         if (sq == needle)
                 return TEST_FOUND;
-        else if (sq < needle)
+        if (sq < needle)
                 return TEST_LEFT;
-        else
-                return TEST_RIGHT;
+        return TEST_RIGHT;
 }
 
 int journal_file_move_to_entry_by_seqnum(
@@ -3404,10 +3402,9 @@ static int test_object_realtime(JournalFile *f, uint64_t p, uint64_t needle) {
         rt = le64toh(READ_NOW(o->entry.realtime));
         if (rt == needle)
                 return TEST_FOUND;
-        else if (rt < needle)
+        if (rt < needle)
                 return TEST_LEFT;
-        else
-                return TEST_RIGHT;
+        return TEST_RIGHT;
 }
 
 int journal_file_move_to_entry_by_realtime(
@@ -3445,10 +3442,9 @@ static int test_object_monotonic(JournalFile *f, uint64_t p, uint64_t needle) {
         m = le64toh(READ_NOW(o->entry.monotonic));
         if (m == needle)
                 return TEST_FOUND;
-        else if (m < needle)
+        if (m < needle)
                 return TEST_LEFT;
-        else
-                return TEST_RIGHT;
+        return TEST_RIGHT;
 }
 
 static int find_data_object_by_boot_id(
@@ -4727,4 +4723,4 @@ static const char * const journal_object_type_table[] = {
         [OBJECT_TAG]              = "tag",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(journal_object_type, ObjectType);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(journal_object_type, ObjectType, type);

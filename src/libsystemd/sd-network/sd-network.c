@@ -363,13 +363,13 @@ static int monitor_add_inotify_watch(int fd) {
         wd = inotify_add_watch(fd, "/run/systemd/netif/links/", IN_MOVED_TO|IN_DELETE);
         if (wd >= 0)
                 return wd;
-        else if (errno != ENOENT)
+        if (errno != ENOENT)
                 return -errno;
 
         wd = inotify_add_watch(fd, "/run/systemd/netif/", IN_CREATE|IN_ISDIR);
         if (wd >= 0)
                 return wd;
-        else if (errno != ENOENT)
+        if (errno != ENOENT)
                 return -errno;
 
         wd = inotify_add_watch(fd, "/run/systemd/", IN_CREATE|IN_ISDIR);

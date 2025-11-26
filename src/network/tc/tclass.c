@@ -161,7 +161,7 @@ static TClass* tclass_free(TClass *tclass) {
         return mfree(tclass);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(TClass, tclass, tclass_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(TClass, tclass, tclass, tclass_free);
 
 static const char *tclass_get_tca_kind(const TClass *tclass) {
         assert(tclass);
@@ -526,7 +526,9 @@ int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, M
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
                 return 0;
-        } else if (!IN_SET(type, RTM_NEWTCLASS, RTM_DELTCLASS)) {
+        }
+
+        if (!IN_SET(type, RTM_NEWTCLASS, RTM_DELTCLASS)) {
                 log_warning("rtnl: received unexpected message type %u when processing TClass, ignoring.", type);
                 return 0;
         }
@@ -535,7 +537,9 @@ int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, M
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get ifindex from message, ignoring: %m");
                 return 0;
-        } else if (ifindex <= 0) {
+        }
+
+        if (ifindex <= 0) {
                 log_warning("rtnl: received TClass message with invalid ifindex %d, ignoring.", ifindex);
                 return 0;
         }

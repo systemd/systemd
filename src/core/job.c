@@ -254,19 +254,20 @@ Job* job_install(Job *j) {
                                                j->unit->id, job_type_to_string(j->type), uj->unit->id,
                                                job_type_to_string(uj->type), uj->id);
                                 return uj;
-                        } else {
-                                /* already running and not safe to merge into */
-                                /* Patch uj to become a merged job and re-run it. */
-                                /* XXX It should be safer to queue j to run after uj finishes, but it is
-                                 * not currently possible to have more than one installed job per unit. */
-                                job_merge_into_installed(uj, j);
-                                log_unit_debug(uj->unit,
-                                               "Merged into running job, re-running: %s/%s as %"PRIu32,
-                                               uj->unit->id, job_type_to_string(uj->type), uj->id);
-
-                                job_set_state(uj, JOB_WAITING);
-                                return uj;
                         }
+
+                        /* Already running and not safe to merge into */
+
+                        /* Patch uj to become a merged job and re-run it. */
+                        /* XXX It should be safer to queue j to run after uj finishes, but it is
+                         * not currently possible to have more than one installed job per unit. */
+                        job_merge_into_installed(uj, j);
+                        log_unit_debug(uj->unit,
+                                        "Merged into running job, re-running: %s/%s as %"PRIu32,
+                                        uj->unit->id, job_type_to_string(uj->type), uj->id);
+
+                        job_set_state(uj, JOB_WAITING);
+                        return uj;
                 }
         }
 
@@ -577,10 +578,10 @@ static const char* job_start_message_format(Unit *u, JobType t) {
 
         if (t == JOB_RELOAD)
                 return "Reloading %s...";
-        else if (t == JOB_START)
+        if (t == JOB_START)
                 return UNIT_VTABLE(u)->status_message_formats.starting_stopping[0] ?: "Starting %s...";
-        else
-                return UNIT_VTABLE(u)->status_message_formats.starting_stopping[1] ?: "Stopping %s...";
+
+        return UNIT_VTABLE(u)->status_message_formats.starting_stopping[1] ?: "Stopping %s...";
 }
 
 static void job_emit_start_message(Unit *u, uint32_t job_id, JobType t) {
@@ -1641,7 +1642,7 @@ static const char* const job_state_table[_JOB_STATE_MAX] = {
         [JOB_RUNNING] = "running",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(job_state, JobState);
+DEFINE_STRING_TABLE_LOOKUP(job_state, JobState, t);
 
 static const char* const job_type_table[_JOB_TYPE_MAX] = {
         [JOB_START]           = "start",
@@ -1655,7 +1656,7 @@ static const char* const job_type_table[_JOB_TYPE_MAX] = {
         [JOB_NOP]             = "nop",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(job_type, JobType);
+DEFINE_STRING_TABLE_LOOKUP(job_type, JobType, t);
 
 static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_DONE]        = "done",
@@ -1673,7 +1674,7 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_CONCURRENCY] = "concurrency",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);
+DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult, t);
 
 const char* job_type_to_access_method(JobType t) {
         assert(t >= 0);
@@ -1681,10 +1682,9 @@ const char* job_type_to_access_method(JobType t) {
 
         if (IN_SET(t, JOB_START, JOB_RESTART, JOB_TRY_RESTART))
                 return "start";
-        else if (t == JOB_STOP)
+        if (t == JOB_STOP)
                 return "stop";
-        else
-                return "reload";
+        return "reload";
 }
 
 /*
@@ -1725,8 +1725,8 @@ int job_compare(Job *a, Job *b, UnitDependencyAtom assume_dep) {
          * first anyway). JOB_RESTART is JOB_STOP in disguise (before it is patched to JOB_START). */
         if (IN_SET(b->type, JOB_STOP, JOB_RESTART))
                 return 1;
-        else
-                return -1;
+
+        return -1;
 }
 
 void job_set_activation_details(Job *j, ActivationDetails *info) {

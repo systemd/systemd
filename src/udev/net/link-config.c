@@ -1405,7 +1405,7 @@ static const char* const mac_address_policy_table[_MAC_ADDRESS_POLICY_MAX] = {
         [MAC_ADDRESS_POLICY_NONE] = "none",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(mac_address_policy, MACAddressPolicy);
+DEFINE_STRING_TABLE_LOOKUP(mac_address_policy, MACAddressPolicy, p);
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(
         config_parse_mac_address_policy,
         mac_address_policy,

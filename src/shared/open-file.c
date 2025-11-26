@@ -138,4 +138,4 @@ static const char * const open_file_flags_table[_OPENFILE_MAX] = {
         [OPENFILE_GRACEFUL]  = "graceful",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(open_file_flags, OpenFileFlag);
+DEFINE_STRING_TABLE_LOOKUP(open_file_flags, OpenFileFlag, t);

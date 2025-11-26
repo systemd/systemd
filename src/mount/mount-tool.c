@@ -1378,8 +1378,8 @@ static int discover_loop_backing_file(void) {
 
                 log_debug("Discovered where=%s", arg_mount_where);
                 return 0;
-
-        } else if (r < 0)
+        }
+        if (r < 0)
                 return log_error_errno(r, "Can't get loop device for %s: %m", arg_mount_what);
 
         r = acquire_mount_type(d);

@@ -1144,8 +1144,7 @@ static int terminate_machine(int argc, char *argv[], void *userdata) {
 static const char *select_copy_method(bool copy_from, bool force) {
         if (force)
                 return copy_from ? "CopyFromMachineWithFlags" : "CopyToMachineWithFlags";
-        else
-                return copy_from ? "CopyFromMachine" : "CopyToMachine";
+        return copy_from ? "CopyFromMachine" : "CopyToMachine";
 }
 
 static int copy_files(int argc, char *argv[], void *userdata) {

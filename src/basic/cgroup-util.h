@@ -262,5 +262,5 @@ typedef enum ManagedOOMPreference {
         _MANAGED_OOM_PREFERENCE_INVALID = -EINVAL,
 } ManagedOOMPreference;
 
-const char* managed_oom_preference_to_string(ManagedOOMPreference a) _const_;
+const char* managed_oom_preference_to_string(ManagedOOMPreference p) _const_;
 ManagedOOMPreference managed_oom_preference_from_string(const char *s) _pure_;

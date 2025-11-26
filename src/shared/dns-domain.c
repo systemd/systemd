@@ -66,7 +66,7 @@ int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags f
                                 /* Ending NUL */
                                 return -EINVAL;
 
-                        else if (IN_SET(*n, '\\', '.')) {
+                        if (IN_SET(*n, '\\', '.')) {
                                 /* Escaped backslash or dot */
 
                                 if (FLAGS_SET(flags, DNS_LABEL_LDH))
@@ -191,10 +191,10 @@ int dns_label_unescape_suffix(const char *name, const char **label_terminal, cha
                                 /* The '.' was not escaped */
                                 name = terminal + 1;
                                 break;
-                        } else {
-                                terminal = y;
-                                continue;
                         }
+
+                        terminal = y;
+                        continue;
                 }
 
                 terminal = PTR_SUB1(terminal, name);
@@ -716,15 +716,15 @@ int dns_name_between(const char *a, const char *b, const char *c) {
                 */
                 return dns_name_compare_func(a, b) < 0 &&
                        dns_name_compare_func(b, c) < 0;
-        else
-                /*
-                   a and c are equal or 'reversed':
-                   <--b--c         a----->
-                   or:
-                   <-----c         a--b-->
-                */
-                return dns_name_compare_func(b, c) < 0 ||
-                       dns_name_compare_func(a, b) < 0;
+
+        /*
+         * a and c are equal or 'reversed':
+         * <--b--c         a----->
+         * or:
+         * <-----c         a--b-->
+         */
+        return dns_name_compare_func(b, c) < 0 ||
+                dns_name_compare_func(a, b) < 0;
 }
 
 int dns_name_reverse(int family, const union in_addr_union *a, char **ret) {

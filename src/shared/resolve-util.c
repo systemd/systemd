@@ -14,21 +14,21 @@ static const char* const resolve_support_table[_RESOLVE_SUPPORT_MAX] = {
         [RESOLVE_SUPPORT_YES] = "yes",
         [RESOLVE_SUPPORT_RESOLVE] = "resolve",
 };
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(resolve_support, ResolveSupport, RESOLVE_SUPPORT_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(resolve_support, ResolveSupport, p, RESOLVE_SUPPORT_YES);
 
 static const char* const dnssec_mode_table[_DNSSEC_MODE_MAX] = {
         [DNSSEC_NO] = "no",
         [DNSSEC_ALLOW_DOWNGRADE] = "allow-downgrade",
         [DNSSEC_YES] = "yes",
 };
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dnssec_mode, DnssecMode, DNSSEC_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dnssec_mode, DnssecMode, p, DNSSEC_YES);
 
 static const char* const dns_over_tls_mode_table[_DNS_OVER_TLS_MODE_MAX] = {
         [DNS_OVER_TLS_NO] = "no",
         [DNS_OVER_TLS_OPPORTUNISTIC] = "opportunistic",
         [DNS_OVER_TLS_YES] = "yes",
 };
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_over_tls_mode, DnsOverTlsMode, DNS_OVER_TLS_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_over_tls_mode, DnsOverTlsMode, p, DNS_OVER_TLS_YES);
 
 bool dns_server_address_valid(int family, const union in_addr_union *sa) {
 
@@ -50,4 +50,4 @@ static const char* const dns_cache_mode_table[_DNS_CACHE_MODE_MAX] = {
         [DNS_CACHE_MODE_NO] = "no",
         [DNS_CACHE_MODE_NO_NEGATIVE] = "no-negative",
 };
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_cache_mode, DnsCacheMode, DNS_CACHE_MODE_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_cache_mode, DnsCacheMode, p, DNS_CACHE_MODE_YES);
