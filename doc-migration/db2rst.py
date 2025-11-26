@@ -38,6 +38,11 @@ from pathlib import Path
 import traceback
 import textwrap
 
+# Start indenting at the first or second listitem level
+# This is mainly an aesthetic choice.
+# To emulate the old docs, set to True
+INDENT_FIRST_LISTITEM_LEVEL = True
+
 REMOVE_COMMENTS = False
 
 # id attributes of DocBook elements are translated to ReST labels.
@@ -414,11 +419,14 @@ def _concat(el, prefix=""):
             s += _remove_indent_and_escape(i.tail, el.tag)
     # return s.strip()
     prefix = "   "
+    result = s
     if el.tag in ["listitem"]:
         # Indent all lines
-        result = textwrap.indent(s, prefix, lambda line: True)
-    else:
-        result = s
+        if _get_listitem_depth(el) == 1:
+            if INDENT_FIRST_LISTITEM_LEVEL:
+                result = textwrap.indent(s, prefix, lambda line: True)
+        else:
+            result = textwrap.indent(s, prefix, lambda line: True)
     return result
 
 
