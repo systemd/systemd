@@ -36,30 +36,41 @@ typedef enum AuditSetMode {
 } AuditSetMode;
 
 typedef struct JournalConfig {
-        /* Storage=, cred: journal.storage */
-        Storage storage;
+        /* Pointers and other 8-byte aligned types */
+        char *tty_path;
+
+        /* Large structs */
+        JournalMetrics system_storage_metrics;
+        JournalMetrics runtime_storage_metrics;
+        SocketAddress forward_to_socket;
+
+        /* 64-bit integers */
+        /* SyncIntervalSec= */
+        usec_t sync_interval_usec;
+        /* RateLimitIntervalSec= */
+        usec_t ratelimit_interval;
+        /* MaxRetentionSec= */
+        usec_t max_retention_usec;
+        /* MaxFileSec= */
+        usec_t max_file_usec;
+        /* LineMax= */
+        size_t line_max;
+
+        /* Smaller structs */
         /* Compress= */
         JournalCompressOptions compress;
+
+        /* 4-byte integers and enums */
+        /* Storage=, cred: journal.storage */
+        Storage storage;
         /* Seal= */
         int seal;
         /* ReadKMsg= */
         int read_kmsg;
         /* Audit= */
         AuditSetMode set_audit;
-        /* SyncIntervalSec= */
-        usec_t sync_interval_usec;
-        /* RateLimitIntervalSec= */
-        usec_t ratelimit_interval;
         /* RateLimitBurst= */
         unsigned ratelimit_burst;
-        /* SystemMaxUse=, SystemMaxFileSize=, SystemKeepFree=, SystemMaxFiles= */
-        JournalMetrics system_storage_metrics;
-        /* RuntimeMaxUse=, RuntimeMaxFileSize=, RuntimeKeepFree=, RuntimeMaxFiles= */
-        JournalMetrics runtime_storage_metrics;
-        /* MaxRetentionSec= */
-        usec_t max_retention_usec;
-        /* MaxFileSec= */
-        usec_t max_file_usec;
         /* ForwardToSyslog=, proc: systemd.journald.forward_to_syslog */
         int forward_to_syslog;
         /* ForwardToKMsg=, proc: systemd.journald.forward_to_kmsg */
@@ -68,10 +79,6 @@ typedef struct JournalConfig {
         int forward_to_console;
         /* ForwardToWall=, proc: systemd.journald.forward_to_wall */
         int forward_to_wall;
-        /* ForwardToSocket=, cred: journal.forward_to_socket */
-        SocketAddress forward_to_socket;
-        /* TTYPath= */
-        char *tty_path;
         /* MaxLevelStore=, proc: systemd.journald.max_level_store */
         int max_level_store;
         /* MaxLevelSyslog=, proc: systemd.journald.max_level_syslog */
@@ -86,8 +93,6 @@ typedef struct JournalConfig {
         int max_level_socket;
         /* SplitMode= */
         SplitMode split_mode;
-        /* LineMax= */
-        size_t line_max;
 } JournalConfig;
 
 void journal_config_done(JournalConfig *c);
