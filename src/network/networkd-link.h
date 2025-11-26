@@ -29,62 +29,82 @@ typedef enum LinkReconfigurationFlag {
 } LinkReconfigurationFlag;
 
 typedef struct Link {
+        /* Pointers and other 8-byte aligned types */
         Manager *manager;
-
-        unsigned n_ref;
-
-        int ifindex;
-        int master_ifindex;
-        int dsa_master_ifindex;
-        int sr_iov_phys_port_ifindex;
         Set *sr_iov_virt_port_ifindices;
-
         char *ifname;
         char **alternative_names;
         char *kind;
-        unsigned short iftype;
         char *state_file;
+        sd_device *dev;
+        char *driver;
+        sd_event_source *ipv6_mtu_wait_synced_event_source;
+        char *ssid;
+        char *previous_ssid;
+        sd_event_source *carrier_lost_timer;
+        Network *network;
+        NetDev *netdev;
+        Set *addresses;
+        Set *neighbors;
+        Set *qdiscs;
+        Set *tclasses;
+        sd_dhcp_client *dhcp_client;
+        sd_dhcp_lease *dhcp_lease;
+        char *lease_file;
+        char *dhcp4_6rd_tunnel_name;
+        Hashmap *ipv4acd_by_address;
+        sd_ipv4ll *ipv4ll;
+        sd_dhcp_server *dhcp_server;
+        sd_ndisc *ndisc;
+        sd_event_source *ndisc_expire;
+        Hashmap *ndisc_routers_by_sender;
+        Set *ndisc_rdnss;
+        Set *ndisc_dnssl;
+        Set *ndisc_captive_portals;
+        Set *ndisc_pref64;
+        Set *ndisc_redirects;
+        Set *ndisc_dnr;
+        sd_radv *radv;
+        sd_dhcp6_client *dhcp6_client;
+        sd_dhcp6_lease *dhcp6_lease;
+        Set *dhcp_pd_prefixes;
+        sd_lldp_rx *lldp_rx;
+        sd_lldp_tx *lldp_tx;
+        Hashmap *bound_by_links;
+        Hashmap *bound_to_links;
+        Set *slaves;
+        struct in_addr_full **dns;
+        OrderedSet *search_domains, *route_domains;
+        Set *dnssec_negative_trust_anchors;
+        char **ntp;
+
+        /* Large structs and arrays */
+        uint32_t bridge_vlan_bitmap[BRIDGE_VLAN_BITMAP_LEN];
+        struct in6_addr ipv6ll_address;
+        RateLimit automatic_reconfigure_ratelimit;
+        struct rtnl_link_stats64 stats_old, stats_new;
+
+        /* Smaller structs */
         struct hw_addr_data hw_addr;
         struct hw_addr_data bcast_addr;
         struct hw_addr_data permanent_hw_addr;
         struct hw_addr_data requested_hw_addr;
-        struct in6_addr ipv6ll_address;
+        struct ether_addr bssid;
+
+        /* 4-byte integers and enums */
+        unsigned n_ref;
+        int ifindex;
+        int master_ifindex;
+        int dsa_master_ifindex;
+        int sr_iov_phys_port_ifindex;
         uint32_t mtu;
         uint32_t min_mtu;
         uint32_t max_mtu;
         uint32_t original_mtu;
-        sd_device *dev;
-        char *driver;
-
-        sd_event_source *ipv6_mtu_wait_synced_event_source;
         unsigned ipv6_mtu_wait_trial_count;
-
-        /* bridge vlan */
-        uint16_t bridge_vlan_pvid;
-        bool bridge_vlan_pvid_is_untagged;
-        uint32_t bridge_vlan_bitmap[BRIDGE_VLAN_BITMAP_LEN];
-
-        /* to prevent multiple ethtool calls */
-        bool ethtool_driver_read;
-        bool ethtool_permanent_hw_addr_read;
-
-        /* link-local addressing */
         IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
-
-        /* wlan */
         enum nl80211_iftype wlan_iftype;
-        char *ssid;
-        char *previous_ssid;
-        struct ether_addr bssid;
-
         unsigned flags;
-        uint8_t kernel_operstate;
-
-        sd_event_source *carrier_lost_timer;
-
-        Network *network;
-        NetDev *netdev;
-
         LinkState state;
         LinkOperationalState operstate;
         LinkCarrierState carrier_state;
@@ -92,8 +112,6 @@ typedef struct Link {
         LinkAddressState ipv4_address_state;
         LinkAddressState ipv6_address_state;
         LinkOnlineState online_state;
-        RateLimit automatic_reconfigure_ratelimit;
-
         unsigned static_address_messages;
         unsigned static_address_label_messages;
         unsigned static_bridge_fdb_messages;
@@ -108,24 +126,35 @@ typedef struct Link {
         unsigned set_link_messages;
         unsigned set_flags_messages;
         unsigned create_stacked_netdev_messages;
-
-        Set *addresses;
-        Set *neighbors;
-        Set *qdiscs;
-        Set *tclasses;
-
-        sd_dhcp_client *dhcp_client;
-        sd_dhcp_lease *dhcp_lease;
-        char *lease_file;
         unsigned dhcp4_messages;
+        uint32_t ndisc_mtu;
+        unsigned ndisc_messages;
+        unsigned dhcp6_messages;
+        unsigned dhcp_pd_messages;
+        unsigned n_dns;
+        int dns_default_route;
+        ResolveSupport llmnr;
+        ResolveSupport mdns;
+        DnssecMode dnssec_mode;
+        DnsOverTlsMode dns_over_tls_mode;
+
+        /* 2-byte integers */
+        unsigned short iftype;
+        uint16_t bridge_vlan_pvid;
+
+        /* 1-byte integers and booleans */
+        uint8_t kernel_operstate;
         bool dhcp4_configured;
-        char *dhcp4_6rd_tunnel_name;
+        bool dhcp6_configured;
 
-        Hashmap *ipv4acd_by_address;
-
-        sd_ipv4ll *ipv4ll;
+        /* Bitfields */
+        bool bridge_vlan_pvid_is_untagged:1;
+        bool ethtool_driver_read:1;
+        bool ethtool_permanent_hw_addr_read:1;
+        bool ndisc_configured:1;
+        bool dhcp_pd_configured:1;
+        bool stats_updated:1;
         bool ipv4ll_address_configured:1;
-
         bool static_addresses_configured:1;
         bool static_address_labels_configured:1;
         bool static_bridge_fdb_configured:1;
@@ -141,61 +170,6 @@ typedef struct Link {
         bool master_set:1;
         bool stacked_netdevs_created:1;
         bool bridge_vlan_set:1;
-
-        sd_dhcp_server *dhcp_server;
-
-        sd_ndisc *ndisc;
-        sd_event_source *ndisc_expire;
-        Hashmap *ndisc_routers_by_sender;
-        Set *ndisc_rdnss;
-        Set *ndisc_dnssl;
-        Set *ndisc_captive_portals;
-        Set *ndisc_pref64;
-        Set *ndisc_redirects;
-        Set *ndisc_dnr;
-        uint32_t ndisc_mtu;
-        unsigned ndisc_messages;
-        bool ndisc_configured;
-
-        sd_radv *radv;
-
-        sd_dhcp6_client *dhcp6_client;
-        sd_dhcp6_lease *dhcp6_lease;
-        unsigned dhcp6_messages;
-        bool dhcp6_configured;
-
-        Set *dhcp_pd_prefixes;
-        unsigned dhcp_pd_messages;
-        bool dhcp_pd_configured;
-
-        /* This is about LLDP reception */
-        sd_lldp_rx *lldp_rx;
-
-        /* This is about LLDP transmission */
-        sd_lldp_tx *lldp_tx;
-
-        Hashmap *bound_by_links;
-        Hashmap *bound_to_links;
-        Set *slaves;
-
-        /* For speed meter */
-        struct rtnl_link_stats64 stats_old, stats_new;
-        bool stats_updated;
-
-        /* All kinds of DNS configuration the user configured via D-Bus */
-        struct in_addr_full **dns;
-        unsigned n_dns;
-        OrderedSet *search_domains, *route_domains;
-
-        int dns_default_route;
-        ResolveSupport llmnr;
-        ResolveSupport mdns;
-        DnssecMode dnssec_mode;
-        DnsOverTlsMode dns_over_tls_mode;
-        Set *dnssec_negative_trust_anchors;
-
-        /* Similar, but NTP server configuration */
-        char **ntp;
 } Link;
 
 extern const struct hash_ops link_hash_ops;

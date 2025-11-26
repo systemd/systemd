@@ -16,12 +16,12 @@ typedef enum RFKillState {
 typedef struct Wiphy {
         Manager *manager;
 
-        uint32_t index;
         char *name;
+        uint32_t index;
 
+        RFKillState rfkill_state;
         sd_device *dev;
         sd_device *rfkill;
-        RFKillState rfkill_state;
 } Wiphy;
 
 int wiphy_get_by_index(Manager *manager, uint32_t index, Wiphy **ret);

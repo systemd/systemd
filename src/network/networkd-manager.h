@@ -14,6 +14,7 @@ typedef enum ManagerState {
 } ManagerState;
 
 typedef struct Manager {
+        /* Pointers and other 8-byte aligned types */
         sd_netlink *rtnl;
         /* lazy initialized */
         sd_netlink *genl;
@@ -24,31 +25,11 @@ typedef struct Manager {
         sd_varlink_server *varlink_server;
         sd_device_monitor *device_monitor;
         Hashmap *polkit_registry;
-        int ethtool_fd;
-        int persistent_storage_fd;
-
-        KeepConfiguration keep_configuration;
-        IPv6PrivacyExtensions ipv6_privacy_extensions;
-
-        ManagerState state;
-        bool test_mode;
-        bool enumerating;
-        bool dirty;
-        bool manage_foreign_routes;
-        bool manage_foreign_rules;
-        bool manage_foreign_nexthops;
-        DHCPServerPersistLeases dhcp_server_persist_leases;
 
         Set *dirty_links;
         Set *new_wlan_ifindices;
 
         char *state_file;
-        LinkOperationalState operational_state;
-        LinkCarrierState carrier_state;
-        LinkAddressState address_state;
-        LinkAddressState ipv4_address_state;
-        LinkAddressState ipv6_address_state;
-        LinkOnlineState online_state;
 
         Hashmap *links_by_index;
         Hashmap *links_by_name;
@@ -59,18 +40,6 @@ typedef struct Manager {
         OrderedSet *address_pools;
         Set *dhcp_pd_subnet_ids;
 
-        UseDomains use_domains; /* default for all protocols */
-        UseDomains dhcp_use_domains;
-        UseDomains dhcp6_use_domains;
-        UseDomains ndisc_use_domains;
-
-        DHCPClientIdentifier dhcp_client_identifier;
-        DUID dhcp_duid;
-        DUID dhcp6_duid;
-        DUID duid_product_uuid;
-        bool has_product_uuid;
-        bool product_uuid_requested;
-
         char* dynamic_hostname;
         char* dynamic_timezone;
 
@@ -80,14 +49,10 @@ typedef struct Manager {
         Hashmap *nexthops_by_id;
         Set *nexthop_ids; /* requested IDs in .network files */
 
-        /* Manager stores routes without RTA_OIF attribute. */
-        unsigned route_remove_messages;
         Set *routes;
 
         /* IPv6 Address Label */
         Hashmap *address_labels_by_section;
-        unsigned static_address_label_messages;
-        bool static_address_labels_configured;
 
         /* Route table name */
         Hashmap *route_table_numbers_by_name;
@@ -97,33 +62,69 @@ typedef struct Manager {
         Hashmap *wiphy_by_index;
         Hashmap *wiphy_by_name;
 
-        /* For link speed meter */
-        bool use_speed_meter;
         sd_event_source *speed_meter_event_source;
-        usec_t speed_meter_interval_usec;
-        usec_t speed_meter_usec_new;
-        usec_t speed_meter_usec_old;
-
-        bool request_queued;
         OrderedSet *request_queue;
         OrderedSet *remove_request_queue;
 
         Hashmap *tuntap_fds_by_name;
 
-        unsigned reloading;
-
-        int serialization_fd;
-
-        /* sysctl */
-        int ip_forwarding[2];
 #if ENABLE_SYSCTL_BPF
         Hashmap *sysctl_shadow;
         sd_event_source *sysctl_event_source;
         struct ring_buffer *sysctl_buffer;
         struct sysctl_monitor_bpf *sysctl_skel;
         struct bpf_link *sysctl_link;
+#endif
+
+        /* Large structs */
+        DUID dhcp_duid;
+        DUID dhcp6_duid;
+        DUID duid_product_uuid;
+        int ip_forwarding[2];
+
+        /* 64-bit integers */
+        usec_t speed_meter_interval_usec;
+        usec_t speed_meter_usec_new;
+        usec_t speed_meter_usec_old;
+
+        /* 4-byte integers and enums */
+        int ethtool_fd;
+        int persistent_storage_fd;
+        KeepConfiguration keep_configuration;
+        IPv6PrivacyExtensions ipv6_privacy_extensions;
+        ManagerState state;
+        DHCPServerPersistLeases dhcp_server_persist_leases;
+        LinkOperationalState operational_state;
+        LinkCarrierState carrier_state;
+        LinkAddressState address_state;
+        LinkAddressState ipv4_address_state;
+        LinkAddressState ipv6_address_state;
+        LinkOnlineState online_state;
+        UseDomains use_domains; /* default for all protocols */
+        UseDomains dhcp_use_domains;
+        UseDomains dhcp6_use_domains;
+        UseDomains ndisc_use_domains;
+        DHCPClientIdentifier dhcp_client_identifier;
+        unsigned route_remove_messages;
+        unsigned static_address_label_messages;
+        unsigned reloading;
+        int serialization_fd;
+#if ENABLE_SYSCTL_BPF
         int cgroup_fd;
 #endif
+
+        /* Booleans */
+        bool test_mode;
+        bool enumerating;
+        bool dirty;
+        bool manage_foreign_routes;
+        bool manage_foreign_rules;
+        bool manage_foreign_nexthops;
+        bool has_product_uuid;
+        bool product_uuid_requested;
+        bool static_address_labels_configured;
+        bool use_speed_meter;
+        bool request_queued;
 } Manager;
 
 int manager_new(Manager **ret, bool test_mode);
