@@ -129,7 +129,7 @@ void sd_json_variant_sensitive(sd_json_variant *v);
 int sd_json_variant_is_sensitive(sd_json_variant *v);
 int sd_json_variant_is_sensitive_recursive(sd_json_variant *v);
 
-int sd_json_variant_get_source(sd_json_variant *v, const char **ret_source, unsigned *ret_line, unsigned *reterr_column);
+int sd_json_variant_get_source(sd_json_variant *v, const char **ret_source, unsigned *ret_line, unsigned *ret_column);
 
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_json_format_flags_t) {
         SD_JSON_FORMAT_OFF              = 1 << 0,  /* disable json output, make json_variant_format() fail with -ENOEXEC */

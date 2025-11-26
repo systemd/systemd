@@ -30,7 +30,7 @@ int bpf_program_new(uint32_t prog_type, const char *prog_name, BPFProgram **ret)
 int bpf_program_new_from_bpffs_path(const char *path, BPFProgram **ret);
 BPFProgram *bpf_program_free(BPFProgram *p);
 
-int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *insn, size_t count);
+int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *instructions, size_t count);
 int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size);
 int bpf_program_load_from_bpf_fs(BPFProgram *p, const char *path);
 

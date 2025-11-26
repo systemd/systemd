@@ -1139,24 +1139,24 @@ static int device_new_from_child(sd_device **ret, sd_device *child) {
         }
 }
 
-_public_ int sd_device_get_parent(sd_device *child, sd_device **ret) {
+_public_ int sd_device_get_parent(sd_device *device, sd_device **ret) {
         int r;
 
-        assert_return(child, -EINVAL);
+        assert_return(device, -EINVAL);
 
-        if (!child->parent_set) {
-                r = device_new_from_child(&child->parent, child);
+        if (!device->parent_set) {
+                r = device_new_from_child(&device->parent, device);
                 if (r < 0 && r != -ENODEV)
                         return r;
 
-                child->parent_set = true;
+                device->parent_set = true;
         }
 
-        if (!child->parent)
+        if (!device->parent)
                 return -ENOENT;
 
         if (ret)
-                *ret = child->parent;
+                *ret = device->parent;
         return 0;
 }
 
@@ -1276,7 +1276,7 @@ _public_ int sd_device_get_driver_subsystem(sd_device *device, const char **ret)
         return 0;
 }
 
-_public_ int sd_device_get_devtype(sd_device *device, const char **devtype) {
+_public_ int sd_device_get_devtype(sd_device *device, const char **ret) {
         int r;
 
         assert_return(device, -EINVAL);
@@ -1288,8 +1288,8 @@ _public_ int sd_device_get_devtype(sd_device *device, const char **devtype) {
         if (!device->devtype)
                 return -ENOENT;
 
-        if (devtype)
-                *devtype = device->devtype;
+        if (ret)
+                *ret = device->devtype;
 
         return 0;
 }
@@ -1398,7 +1398,7 @@ _public_ int sd_device_get_devpath(sd_device *device, const char **ret) {
         return 0;
 }
 
-_public_ int sd_device_get_devname(sd_device *device, const char **devname) {
+_public_ int sd_device_get_devname(sd_device *device, const char **ret) {
         int r;
 
         assert_return(device, -EINVAL);
@@ -1412,8 +1412,8 @@ _public_ int sd_device_get_devname(sd_device *device, const char **devname) {
 
         assert(!isempty(path_startswith(device->devname, "/dev/")));
 
-        if (devname)
-                *devname = device->devname;
+        if (ret)
+                *ret = device->devname;
         return 0;
 }
 
