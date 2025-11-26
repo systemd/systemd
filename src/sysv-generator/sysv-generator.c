@@ -53,12 +53,12 @@ typedef struct SysvStub {
         char *name;
         char *path;
         char *description;
-        int sysv_start_priority;
         char *pid_file;
         char **before;
         char **after;
         char **wants;
         char **wanted_by;
+        int sysv_start_priority;
         bool has_lsb;
         bool reload;
         bool loaded;
