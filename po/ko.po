@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-07-26 09:04+0000\n"
+"PO-Revision-Date: 2025-11-26 18:29+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "main/ko/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.12.2\n"
+"X-Generator: Weblate 5.14.3\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -54,8 +54,7 @@ msgstr "시스템 및 서비스 관리자 환경 변수 설정 또는 설정 해
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
-msgstr ""
-"시스템 및 서비스 관리자 환경 변수를 설정하거나 설정 또는 해제하려면 인증이 필"
+msgstr "시스템 및 서비스 관리자 환경 변수를 설정하거나 설정 또는 해제하려면 인증이 필"
 "요합니다."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
@@ -154,15 +153,13 @@ msgstr "홈 디렉토리를 위해 서명 키를 관리하려면 인증이 필�
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
-msgstr ""
-"사용자 %s의 홈은 현재 비어 있으며, 필요한 저장 장치 또는 파일 시스템 백업에 "
+msgstr "사용자 %s의 홈은 현재 비어 있으며, 필요한 저장 장치 또는 파일 시스템 백업에 "
 "연결하세요."
 
 #: src/home/pam_systemd_home.c:338
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
-"사용자 %s를 위해 너무나 많은 로그인 시도가 있었으며, 다음에 다시 시도하세요."
+msgstr "사용자 %s를 위해 너무나 많은 로그인 시도가 있었으며, 다음에 다시 시도하세요."
 
 #: src/home/pam_systemd_home.c:350
 msgid "Password: "
@@ -186,8 +183,7 @@ msgstr "복원 키: "
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
-msgstr ""
-"비밀번호/복구 키가 올바르지 않거나 사용자 %s의 인증에 충분하지 않습니다."
+msgstr "비밀번호/복구 키가 올바르지 않거나 사용자 %s의 인증에 충분하지 않습니다."
 
 #: src/home/pam_systemd_home.c:378
 msgid "Sorry, reenter recovery key: "
@@ -207,8 +203,7 @@ msgstr "비밀번호로 다시 시도하세요: "
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
-msgstr ""
-"비밀번호가 올바르지 않거나 인증에 충분하지 않으며, 그리고 사용자 %s의 구성된 "
+msgstr "비밀번호가 올바르지 않거나 인증에 충분하지 않으며, 그리고 사용자 %s의 구성된 "
 "보안 토큰이 삽입되어 있지 않습니다."
 
 #: src/home/pam_systemd_home.c:421
@@ -234,8 +229,7 @@ msgstr "사용자 %s의 보안 토큰에서 사용자를 확인해 주세요."
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
-msgstr ""
-"보안 토큰 핀이 잠겨 있으며, 이를 우선 잠금 해제를 해주세요. (암시: 제거하고 "
+msgstr "보안 토큰 핀이 잠겨 있으며, 이를 우선 잠금 해제를 해주세요. (암시: 제거하고 "
 "다시-삽입으로 충분 할 수 있습니다.)"
 
 #: src/home/pam_systemd_home.c:477
@@ -261,8 +255,7 @@ msgstr "사용자 %s의 보안 토큰 PIN이 잘못됨 (한 번만 남았습니�
 #: src/home/pam_systemd_home.c:682
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr ""
-"사용자 %s의 홈은 현재 활성화되어 있지 않으며, 우선 로컬에서 로그인 해주세요."
+msgstr "사용자 %s의 홈은 현재 활성화되어 있지 않으며, 우선 로컬에서 로그인 해주세요."
 
 #: src/home/pam_systemd_home.c:684
 #, c-format
@@ -327,9 +320,8 @@ msgstr "정적 호스트 이름 설정"
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
-msgstr ""
-"로컬 호스트 이름을 지정 호스트 이름처럼 정적으로 설정하려면 인증이 필요합니"
-"다."
+msgstr "로컬 호스트 이름을 지정 호스트 이름처럼 정적으로 설정하려면 인증이 필요합니다"
+"."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -623,8 +615,7 @@ msgstr "다른 사용자가 로그인 했을 때 시스템이 정지 상태진�
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
-msgstr ""
-"다른 사용자가 로그인 했을 때 시스템을 정지 상태로 놓으려면 인증이 필요합니다."
+msgstr "다른 사용자가 로그인 했을 때 시스템을 정지 상태로 놓으려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
@@ -634,8 +625,7 @@ msgstr "프로그램에서 전원 끄기를 막을 때 시스템 전원 끄기"
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
-msgstr ""
-"프로그램에서 전원 끄기를 막을 때 시스템 전원을 끄려면 인증이 필요합니다."
+msgstr "프로그램에서 전원 끄기를 막을 때 시스템 전원을 끄려면 인증이 필요합니다."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -1001,8 +991,7 @@ msgstr "systemd-networkd를 위한 영구 저장소가 사용 가능한지 여�
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
-msgstr ""
-"인증은 systemd-networkd를 위해 영구적으로 사용 가능한지 여부를 지정하기 위해 "
+msgstr "인증은 systemd-networkd를 위해 영구적으로 사용 가능한지 여부를 지정하기 위해 "
 "필요합니다."
 
 #: src/portable/org.freedesktop.portable1.policy:13
@@ -1127,8 +1116,7 @@ msgstr "지정된 시스템 버전 설치"
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
-msgstr ""
-"지정된 (아마도 오래된) 버전으로 시스템을 최신화하려면 인증이 필요합니다."
+msgstr "지정된 (아마도 오래된) 버전으로 시스템을 최신화하려면 인증이 필요합니다."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
@@ -1210,8 +1198,7 @@ msgstr "'$(unit)'의 처리에 유닉스 신호를 전송하려면 인증이 필
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr ""
-"'$(unit)'의 하위그룹 처리로 유닉스 신호를 전송하려면 인증이 필요합니다."
+msgstr "'$(unit)'의 하위그룹 처리로 유닉스 신호를 전송하려면 인증이 필요합니다."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
