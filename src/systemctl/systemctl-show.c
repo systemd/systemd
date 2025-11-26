@@ -180,6 +180,7 @@ static UnitCondition* unit_condition_free(UnitCondition *c) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitCondition*, unit_condition_free);
 
 typedef struct UnitStatusInfo {
+        /* Pointers and other 8-byte aligned types */
         const char *id;
         const char *load_state;
         const char *active_state;
@@ -187,96 +188,48 @@ typedef struct UnitStatusInfo {
         const char *sub_state;
         const char *unit_file_state;
         const char *unit_file_preset;
-
         const char *description;
         const char *following;
-
         char **documentation;
-
         const char *fragment_path;
         const char *source_path;
         const char *control_group;
-
         char **dropin_paths;
-
         char **triggered_by;
         char **triggers;
-
         const char *load_error;
         const char *result;
+        const char *pid_file;
+        const char *status_text;
+        const char *status_bus_error;
+        const char *status_varlink_error;
+        const char *log_namespace;
+        const char *failed_assert;
+        const char *failed_assert_parameter;
+        char **listen;
+        const char *sysfs_path;
+        const char *where;
+        const char *what;
 
+        /* Large structs and arrays */
+        sd_id128_t invocation_id;
+        LIST_HEAD(UnitCondition, conditions);
+        QuotaInfo exec_directories_quota[_EXEC_DIRECTORY_TYPE_MAX];
+        LIST_HEAD(ExecStatusInfo, exec_status_info_list);
+
+        /* 64-bit integers */
         usec_t inactive_exit_timestamp;
         usec_t inactive_exit_timestamp_monotonic;
         usec_t active_enter_timestamp;
         usec_t active_exit_timestamp;
         usec_t inactive_enter_timestamp;
-
         uint64_t runtime_max_sec;
-
-        uint32_t job_id;
-
-        sd_id128_t invocation_id;
-
-        bool need_daemon_reload;
-        bool transient;
-
-        /* Service */
-        bool running;
-        pid_t main_pid;
-        pid_t control_pid;
-        const char *pid_file;
-        const char *status_text;
-        const char *status_bus_error;
-        const char *status_varlink_error;
-        int status_errno;
-
-        uint32_t fd_store_max;
-        uint32_t n_fd_store;
-
         usec_t start_timestamp;
         usec_t exit_timestamp;
-
-        int exit_code, exit_status;
-
-        const char *log_namespace;
-
         usec_t condition_timestamp;
-        bool condition_result;
-        LIST_HEAD(UnitCondition, conditions);
-
         usec_t assert_timestamp;
-        bool assert_result;
-        bool failed_assert_trigger;
-        bool failed_assert_negate;
-        const char *failed_assert;
-        const char *failed_assert_parameter;
         usec_t next_elapse_real;
         usec_t next_elapse_monotonic;
-
-        /* Socket */
-        unsigned n_accepted;
-        unsigned n_connections;
-        unsigned n_refused;
-        bool accept;
-
-        /* Pairs of type, path */
-        char **listen;
-
-        /* Device */
-        const char *sysfs_path;
-
-        /* Mount, Automount */
-        const char *where;
-
-        /* Swap */
-        const char *what;
-
-        /* Slice */
-        unsigned concurrency_hard_max;
-        unsigned concurrency_soft_max;
-        unsigned n_currently_active;
-
-        /* CGroup */
         uint64_t memory_current;
         uint64_t memory_peak;
         uint64_t memory_swap_current;
@@ -302,15 +255,34 @@ typedef struct UnitStatusInfo {
         uint64_t ip_egress_bytes;
         uint64_t io_read_bytes;
         uint64_t io_write_bytes;
-
         uint64_t default_memory_min;
         uint64_t default_memory_low;
         uint64_t default_startup_memory_low;
 
-        /* Exec Quotas */
-        QuotaInfo exec_directories_quota[_EXEC_DIRECTORY_TYPE_MAX];
+        /* 4-byte integers and enums */
+        uint32_t job_id;
+        pid_t main_pid;
+        pid_t control_pid;
+        int status_errno;
+        uint32_t fd_store_max;
+        uint32_t n_fd_store;
+        int exit_code, exit_status;
+        unsigned n_accepted;
+        unsigned n_connections;
+        unsigned n_refused;
+        unsigned concurrency_hard_max;
+        unsigned concurrency_soft_max;
+        unsigned n_currently_active;
 
-        LIST_HEAD(ExecStatusInfo, exec_status_info_list);
+        /* Booleans */
+        bool need_daemon_reload;
+        bool transient;
+        bool running;
+        bool condition_result;
+        bool assert_result;
+        bool failed_assert_trigger;
+        bool failed_assert_negate;
+        bool accept;
 } UnitStatusInfo;
 
 static void unit_status_info_done(UnitStatusInfo *info) {
