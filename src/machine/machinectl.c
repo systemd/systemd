@@ -513,8 +513,8 @@ typedef struct MachineStatusInfo {
         const char *subgroup;
         const char *root_directory;
         pid_t leader;
-        uint64_t leader_pidfdid;
         pid_t supervisor;
+        uint64_t leader_pidfdid;
         uint64_t supervisor_pidfdid;
         struct dual_timestamp timestamp;
         int *netif;

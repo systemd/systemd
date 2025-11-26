@@ -54,16 +54,16 @@ typedef enum BreakpointValidity {
 
 typedef struct BreakpointInfo {
         BreakpointType type;
+        BreakpointValidity validity;
         const char *name;
         const char *unit;
-        BreakpointValidity validity;
 } BreakpointInfo;
 
 static const struct BreakpointInfo breakpoint_info_table[_BREAKPOINT_TYPE_MAX] = {
-        { BREAKPOINT_PRE_UDEV,          "pre-udev",        "breakpoint-pre-udev.service",        BREAKPOINT_IN_INITRD | BREAKPOINT_ON_HOST },
-        { BREAKPOINT_PRE_BASIC,         "pre-basic",       "breakpoint-pre-basic.service",       BREAKPOINT_IN_INITRD | BREAKPOINT_ON_HOST },
-        { BREAKPOINT_PRE_SYSROOT_MOUNT, "pre-mount",       "breakpoint-pre-mount.service",       BREAKPOINT_IN_INITRD                      },
-        { BREAKPOINT_PRE_SWITCH_ROOT,   "pre-switch-root", "breakpoint-pre-switch-root.service", BREAKPOINT_IN_INITRD | BREAKPOINT_DEFAULT },
+        { BREAKPOINT_PRE_UDEV,         BREAKPOINT_IN_INITRD | BREAKPOINT_ON_HOST,          "pre-udev",        "breakpoint-pre-udev.service" },
+        { BREAKPOINT_PRE_BASIC,        BREAKPOINT_IN_INITRD | BREAKPOINT_ON_HOST,         "pre-basic",       "breakpoint-pre-basic.service" },
+        { BREAKPOINT_PRE_SYSROOT_MOUNT,BREAKPOINT_IN_INITRD,                              "pre-mount",       "breakpoint-pre-mount.service" },
+        { BREAKPOINT_PRE_SWITCH_ROOT,  BREAKPOINT_IN_INITRD | BREAKPOINT_DEFAULT,   "pre-switch-root", "breakpoint-pre-switch-root.service" },
 };
 
 static bool breakpoint_applies(const BreakpointInfo *info, int log_level) {

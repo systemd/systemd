@@ -69,20 +69,20 @@ typedef struct Machine {
 
         sd_event_source *cgroup_empty_event_source;
 
-        bool in_gc_queue:1;
-        bool started:1;
-        bool stopping:1;
-        bool referenced:1;
-        bool allocate_unit;
-
         sd_bus_message *create_message;
 
         int *netif;
         size_t n_netif;
 
-        unsigned vsock_cid;
         char *ssh_address;
         char *ssh_private_key_path;
+        unsigned vsock_cid;
+
+        bool in_gc_queue:1;
+        bool started:1;
+        bool stopping:1;
+        bool referenced:1;
+        bool allocate_unit;
 
         LIST_HEAD(Operation, operations);
 

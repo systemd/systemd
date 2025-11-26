@@ -116,12 +116,6 @@ typedef struct Session {
         char *tty;
         TTYValidity tty_validity;
 
-        bool remote;
-        char *remote_user;
-        char *remote_host;
-        char *service;
-        char *desktop;
-
         char *scope;
         char *scope_job;
 
@@ -129,22 +123,29 @@ typedef struct Session {
         unsigned vtnr;
         int vtfd;
 
-        PidRef leader;
-        bool leader_fd_saved; /* pidfd of leader uploaded to fdstore */
-        pid_t deserialized_pid; /* PID deserialized from state file (for verification when pidfd is used) */
-        uint32_t audit_id;
-
         sd_event_source *leader_pidfd_event_source;
 
-        bool in_gc_queue;
-        bool started;
-        bool stopping;
+        PidRef leader;
+        pid_t deserialized_pid; /* PID deserialized from state file (for verification when pidfd is used) */
+        uint32_t audit_id;
+        bool leader_fd_saved:1; /* pidfd of leader uploaded to fdstore */
 
-        bool was_active;
+        bool in_gc_queue:1;
+        bool started:1;
+        bool stopping:1;
 
-        bool locked_hint;
+        bool was_active:1;
 
-        bool idle_hint;
+        bool locked_hint:1;
+
+        bool idle_hint:1;
+
+        bool remote;
+        char *remote_user;
+        char *remote_host;
+        char *service;
+        char *desktop;
+
         dual_timestamp idle_hint_timestamp;
 
         sd_bus_message *create_message;   /* The D-Bus message used to create the session, which we haven't responded to yet */
