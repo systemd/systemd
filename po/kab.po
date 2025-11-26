@@ -4,13 +4,14 @@
 # Slimane Selyan Amiri <selyan.kab@gmail.com>, 2021.
 # ButterflyOfFire <butterflyoffire@protonmail.com>, 2024.
 # ButterflyOfFire <butterflyoffire@users.noreply.translate.fedoraproject.org>, 2025.
+# Aksel Azwaw <akselyan@users.noreply.translate.fedoraproject.org>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:35+0000\n"
-"Last-Translator: ButterflyOfFire "
-"<butterflyoffire@users.noreply.translate.fedoraproject.org>\n"
+"Last-Translator: Aksel Azwaw "
+"<akselyan@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/"
 "main/kab/>\n"
 "Language: kab\n"
