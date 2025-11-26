@@ -697,6 +697,7 @@ int manager_default_environment(Manager *m) {
                                     "XDG_SESSION_CLASS",
                                     "XDG_SESSION_TYPE",
                                     "XDG_SESSION_DESKTOP",
+                                    "XDG_SESSION_EXTRA_DEVICE_ACCESS",
                                     "XDG_SEAT",
                                     "XDG_VTNR");
         }

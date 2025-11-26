@@ -121,6 +121,7 @@ typedef struct Session {
         char *remote_host;
         char *service;
         char *desktop;
+        bool extra_device_access;
 
         char *scope;
         char *scope_job;
