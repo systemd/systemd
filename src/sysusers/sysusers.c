@@ -68,8 +68,6 @@ static const char* item_type_to_string(ItemType t) {
 }
 
 typedef struct Item {
-        ItemType type;
-
         char *name;
         char *group_name;
         char *uid_path;
@@ -77,24 +75,20 @@ typedef struct Item {
         char *description;
         char *home;
         char *shell;
+        char *filename;
 
+        ItemType type;
         gid_t gid;
         uid_t uid;
-
-        char *filename;
         unsigned line;
 
+        bool locked;
         bool gid_set;
-
         /* When set the group with the specified GID must exist
          * and the check if a UID clashes with the GID is skipped.
          */
         bool id_set_strict;
-
         bool uid_set;
-
-        bool locked;
-
         bool todo_user;
         bool todo_group;
 } Item;
@@ -113,22 +107,20 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 typedef struct Context {
-        int audit_fd;
-
         OrderedHashmap *users, *groups;
         OrderedHashmap *todo_uids, *todo_gids;
         OrderedHashmap *members;
 
         Hashmap *database_by_uid, *database_by_username;
         Hashmap *database_by_gid, *database_by_groupname;
-
-        /* A helper set to hold names that are used by database_by_{uid,gid,username,groupname} above. */
         Set *names;
-
-        uid_t search_uid;
         UIDRange *uid_range;
 
         UGIDAllocationRange login_defs;
+
+        int audit_fd;
+        uid_t search_uid;
+
         bool login_defs_need_warning;
 } Context;
 
