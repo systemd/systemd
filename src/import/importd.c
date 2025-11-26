@@ -66,8 +66,10 @@ typedef enum TransferType {
 typedef struct Transfer {
         Manager *manager;
 
-        uint32_t id;
         char *object_path;
+        uint32_t id;
+
+        int log_fd;
 
         TransferType type;
         ImportVerify verify;
@@ -80,8 +82,6 @@ typedef struct Transfer {
         char *format;
 
         PidRef pidref;
-
-        int log_fd;
 
         char log_message[LINE_MAX];
         size_t log_message_size;

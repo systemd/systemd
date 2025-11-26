@@ -41,6 +41,9 @@ typedef struct TarImport {
         char *local;
         ImportFlags flags;
 
+        unsigned last_percent;
+        RateLimit progress_ratelimit;
+
         char *temp_path;
         char *final_path;
 
@@ -62,9 +65,6 @@ typedef struct TarImport {
         struct stat input_stat;
 
         PidRef tar_pid;
-
-        unsigned last_percent;
-        RateLimit progress_ratelimit;
 } TarImport;
 
 TarImport* tar_import_unref(TarImport *i) {
