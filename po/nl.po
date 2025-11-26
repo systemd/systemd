@@ -5,12 +5,13 @@
 # Richard E. van der Luit <fedoraproject@veneax.nl>, 2022.
 # Maarten <maarten@posteo.de>, 2023, 2025.
 # Tim Vangehugten <timvangehugten@gmail.com>, 2025.
+# "Richard E. van der Luit" <fedoraproject@veneax.nl>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:35+0000\n"
-"Last-Translator: Pjotr Vertaalt <pjotrvertaalt@gmail.com>\n"
+"Last-Translator: \"Richard E. van der Luit\" <fedoraproject@veneax.nl>\n"
 "Language-Team: Dutch <https://translate.fedoraproject.org/projects/systemd/"
 "main/nl/>\n"
 "Language: nl\n"
