@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-07-28 17:25+0000\n"
+"PO-Revision-Date: 2025-11-26 18:24+0000\n"
 "Last-Translator: naly zzwd <xeanhort007@gmail.com>\n"
 "Language-Team: Catalan <https://translate.fedoraproject.org/projects/systemd/"
 "main/ca/>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.12.2\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -270,15 +270,15 @@ msgstr "Torneu a provar el PIN del token de seguretat: "
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"El PIN del token de seguretat de l'usuari %s és incorrecte (només queden uns "
-"quants intents!)"
+"El PIN del token de seguretat de l'usuari %s és incorrecte "
+"(només queden uns quants intents!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
-"El PIN del token de seguretat de l'usuari %s és incorrecte (només queda un "
-"intent!)"
+"El PIN del token de seguretat de l'usuari %s és incorrecte "
+"(només queda un intent!)"
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
@@ -382,8 +382,7 @@ msgstr "Obté el número de sèrie del maquinari"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
 msgid "Authentication is required to get hardware serial number."
-msgstr ""
-"Es requereix autenticació per obtenir el número de sèrie del maquinari."
+msgstr "Es requereix autenticació per obtenir el número de sèrie del maquinari."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
@@ -1252,8 +1251,7 @@ msgstr "Gestiona les característiques opcionals"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
 msgid "Authentication is required to manage optional features."
-msgstr ""
-"Es requereix autenticació per gestionar les característiques opcionals."
+msgstr "Es requereix autenticació per gestionar les característiques opcionals."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1316,8 +1314,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Es requereix autenticació per enviar un senyal UNIX als processos de '$"
-"(unit)'."
+"Es requereix autenticació per enviar un senyal UNIX als processos de '$(unit)"
+"'."
 
 #: src/core/dbus-unit.c:620
 msgid ""
