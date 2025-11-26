@@ -9,52 +9,47 @@
 #include "journald-forward.h"
 
 typedef struct ClientContext {
-        unsigned n_ref;
-        unsigned lru_index;
+        /* Pointers and other 8-byte aligned types */
         usec_t timestamp;
-        bool in_lru;
-
-        pid_t pid;
-        uid_t uid;
-        gid_t gid;
-
         char *comm;
         char *exe;
         char *cmdline;
-        CapabilityQuintet capability_quintet;
-
-        uint32_t auditid;
-        uid_t loginuid;
-
         char *cgroup;
         char *session;
-        uid_t owner_uid;
-
         char *unit;
         char *user_unit;
-
         char *slice;
         char *user_slice;
-
-        sd_id128_t invocation_id;
-
         char *label;
         size_t label_size;
-
-        int log_level_max;
-
         struct iovec *extra_fields_iovec;
         size_t extra_fields_n_iovec;
         void *extra_fields_data;
         nsec_t extra_fields_mtime;
-
         usec_t log_ratelimit_interval;
-        unsigned log_ratelimit_burst;
-        bool log_ratelimit_interval_from_unit;
-        bool log_ratelimit_burst_from_unit;
-
         Set *log_filter_allowed_patterns;
         Set *log_filter_denied_patterns;
+
+        /* Large structs */
+        sd_id128_t invocation_id;
+        CapabilityQuintet capability_quintet;
+
+        /* 4-byte integers */
+        unsigned n_ref;
+        unsigned lru_index;
+        pid_t pid;
+        uid_t uid;
+        gid_t gid;
+        uint32_t auditid;
+        uid_t loginuid;
+        uid_t owner_uid;
+        int log_level_max;
+        unsigned log_ratelimit_burst;
+
+        /* Booleans */
+        bool in_lru:1;
+        bool log_ratelimit_interval_from_unit:1;
+        bool log_ratelimit_burst_from_unit:1;
 } ClientContext;
 
 int client_context_get(
