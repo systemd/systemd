@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-10-04 19:48+0000\n"
+"PO-Revision-Date: 2025-11-26 18:33+0000\n"
 "Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
 "main/tr/>\n"
@@ -20,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.13.3\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -260,8 +260,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"Güvenlik belirteci PIN kodu kilitli, lütfen önce kilidini açın. (İpucu: "
-"Çıkarma ve yeniden takma yeterli olabilir.)"
+"Güvenlik belirteci PIN kodu kilitli, lütfen önce kilidini açın. "
+"(İpucu: Çıkarma ve yeniden takma yeterli olabilir.)"
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
@@ -277,15 +277,15 @@ msgstr "Üzgünüm, güvenlik belirteci PIN kodunu yeniden deneyin: "
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"%s kullanıcısının güvenlik belirteci PIN kodu yanlış (sadece birkaç deneme "
-"kaldı!)"
+"%s kullanıcısının güvenlik belirteci PIN kodu yanlış "
+"(sadece birkaç deneme kaldı!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
-"%s kullanıcısının güvenlik belirteci PIN kodu yanlış (sadece bir deneme "
-"kaldı!)"
+"%s kullanıcısının güvenlik belirteci PIN kodu yanlış "
+"(sadece bir deneme kaldı!)"
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
