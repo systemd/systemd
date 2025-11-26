@@ -1539,9 +1539,12 @@ int config_parse_exec_cpu_sched_policy(
                 return 0;
         }
 
+        if (!sched_policy_supported(x))
+                log_syntax(unit, LOG_WARNING, filename, line, x, "Unsupported CPU scheduling policy: %s", rvalue);
+
         c->cpu_sched_policy = x;
         /* Moving to or from real-time policy? We need to adjust the priority */
-        c->cpu_sched_priority = CLAMP(c->cpu_sched_priority, sched_get_priority_min(x), sched_get_priority_max(x));
+        c->cpu_sched_priority = CLAMP(c->cpu_sched_priority, sched_get_priority_min_safe(x), sched_get_priority_max_safe(x));
         c->cpu_sched_set = true;
 
         return 0;
