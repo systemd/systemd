@@ -4,17 +4,17 @@
 # Enrico Nicoletto <liverig@gmail.com>, 2014.
 # Filipe Brandenburger <filbranden@gmail.com>, 2018.
 # Rafael Fontenelle <rafaelff@gnome.org>, 2015-2020, 2025.
-# Gustavo Costa <xfgusta@gmail.com>, 2021.
-# Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024.
-# Gabriel Elyas <gabrielelyas@protonmail.com>, 2024.
-# Fábio Rodrigues Ribeiro <farribeiro@gmail.com>, 2024.
-# "Geraldo S. Simião Kutz" <geraldo.simiao.kutz@gmail.com>, 2024.
+# Gustavo Costa <xfgusta@gmail.com>, 2021, 2025.
+# Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024, 2025.
+# Gabriel Elyas <gabrielelyas@protonmail.com>, 2024, 2025.
+# Fábio Rodrigues Ribeiro <farribeiro@gmail.com>, 2024, 2025.
+# "Geraldo S. Simião Kutz" <geraldo.simiao.kutz@gmail.com>, 2024, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-10-29 18:54+0000\n"
-"Last-Translator: Rafael Fontenelle <rafaelff@gnome.org>\n"
+"PO-Revision-Date: 2025-11-26 18:30+0000\n"
+"Last-Translator: Fábio Rodrigues Ribeiro <farribeiro@gmail.com>\n"
 "Language-Team: Portuguese (Brazil) <https://translate.fedoraproject.org/"
 "projects/systemd/main/pt_BR/>\n"
 "Language: pt_BR\n"
@@ -22,7 +22,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.13.3\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"

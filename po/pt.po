@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Portuguese translation of systemd.
-# Hugo Carvalho <hugokarvalho@hotmail.com>, 2021, 2022, 2023.
-# Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024.
+# Hugo Carvalho <hugokarvalho@hotmail.com>, 2021, 2022, 2023, 2025.
+# Tiago Rocha Cunha <tiagocunha.me@gmail.com>, 2024, 2025.
 # Américo Monteiro <a_monteiro@gmx.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-08-19 03:15+0000\n"
-"Last-Translator: Américo Monteiro <a_monteiro@gmx.com>\n"
+"PO-Revision-Date: 2025-11-26 18:36+0000\n"
+"Last-Translator: Tiago Rocha Cunha <tiagocunha.me@gmail.com>\n"
 "Language-Team: Portuguese <https://translate.fedoraproject.org/projects/"
 "systemd/main/pt/>\n"
 "Language: pt\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.13\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"

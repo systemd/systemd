@@ -2,21 +2,21 @@
 #
 # Danish translation for systemd.
 # Daniel Machon <dmachon.dev@gmail.com>, 2015.
-# scootergrisen <scootergrisen@gmail.com>, 2020, 2021.
+# scootergrisen <scootergrisen@gmail.com>, 2020, 2021, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2021-06-02 16:03+0000\n"
+"PO-Revision-Date: 2025-11-26 18:25+0000\n"
 "Last-Translator: scootergrisen <scootergrisen@gmail.com>\n"
 "Language-Team: Danish <https://translate.fedoraproject.org/projects/systemd/"
-"master/da/>\n"
+"main/da/>\n"
 "Language: da\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.6.2\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"

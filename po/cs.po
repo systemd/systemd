@@ -2,15 +2,15 @@
 #
 # Czech translation for systemd.
 #
-# Daniel Rusek <mail@asciiwolf.com>, 2022, 2023.
-# Pavel Borecki <pavel.borecki@gmail.com>, 2023, 2024.
+# Daniel Rusek <mail@asciiwolf.com>, 2022, 2023, 2025.
+# Pavel Borecki <pavel.borecki@gmail.com>, 2023, 2024, 2025.
 # Jan Kalabza <jan.kalabza@gmail.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-02-10 02:01+0000\n"
-"Last-Translator: Jan Kalabza <jan.kalabza@gmail.com>\n"
+"PO-Revision-Date: 2025-11-26 18:24+0000\n"
+"Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
 "Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
 "main/cs/>\n"
 "Language: cs\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
 "|| n%100>=20) ? 1 : 2);\n"
-"X-Generator: Weblate 5.9.2\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"

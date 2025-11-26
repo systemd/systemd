@@ -4,16 +4,16 @@
 # Sebastian Rasmussen <sebras@gmail.com>, 2015.
 # Andreas Henriksson <andreas@fatal.se>, 2016.
 # Josef Andersson <l10nl18nsweja@gmail.com>, 2015, 2017.
-# Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021, 2024.
+# Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021, 2024, 2025.
 # Luna Jernberg <bittin@reimu.nl>, 2020, 2023, 2024, 2025.
-# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2022, 2024.
+# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2022, 2024, 2025.
 # Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-07-29 19:53+0000\n"
-"Last-Translator: Luna Jernberg <bittin@reimu.nl>\n"
+"PO-Revision-Date: 2025-11-26 18:33+0000\n"
+"Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -21,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.12.2\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"

@@ -1,21 +1,21 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # A S Alam <amanpreet.alam@gmail.com>, 2020, 2021, 2023.
-# A S Alam <aalam@users.noreply.translate.fedoraproject.org>, 2023, 2024.
+# A S Alam <aalam@users.noreply.translate.fedoraproject.org>, 2023, 2024, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2024-01-16 14:35+0000\n"
-"Last-Translator: A S Alam <aalam@users.noreply.translate.fedoraproject.org>\n"
+"PO-Revision-Date: 2025-11-26 18:35+0000\n"
+"Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Punjabi <https://translate.fedoraproject.org/projects/systemd/"
-"master/pa/>\n"
+"main/pa/>\n"
 "Language: pa\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.3.1\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
