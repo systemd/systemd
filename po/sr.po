@@ -6,17 +6,17 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2021-02-23 22:40+0000\n"
-"Last-Translator: Frantisek Sumsal <frantisek@sumsal.cz>\n"
+"PO-Revision-Date: 2025-11-26 18:33+0000\n"
+"Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Serbian <https://translate.fedoraproject.org/projects/systemd/"
-"master/sr/>\n"
+"main/sr/>\n"
 "Language: sr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.4.2\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -25,8 +25,7 @@ msgstr "Пошаљи фразу назад ка систему"
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
-msgstr ""
-"Потребно је да се идентификујете да бисте послали фразу назад у систем."
+msgstr "Потребно је да се идентификујете да бисте послали фразу назад у систем."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -1311,8 +1310,7 @@ msgstr ""
 
 #: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
-msgstr ""
-"Постави часовник реалног времена на локалну временску зону или UTC зону"
+msgstr "Постави часовник реалног времена на локалну временску зону или UTC зону"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
 msgid ""
