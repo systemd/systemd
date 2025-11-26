@@ -136,15 +136,17 @@ TEST(link_find_address) {
 
 typedef struct LinkAllocEnv {
         Manager manager;
-        int ifindex;
         Link *link;
-        union in_addr_union ip_addr;
         LinkAddress *address;
-        DnsServerType server_type;
-        union in_addr_union server_addr;
         char *server_name;
-        uint16_t server_port;
         DnsServer *server;
+
+        union in_addr_union ip_addr;
+        union in_addr_union server_addr;
+
+        int ifindex;
+        DnsServerType server_type;
+        uint16_t server_port;
 } LinkAllocEnv;
 
 static void link_alloc_env_teardown(LinkAllocEnv *env) {

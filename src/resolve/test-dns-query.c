@@ -738,19 +738,22 @@ static GoConfig mk_go_config(void) {
 }
 
 typedef struct GoEnvironment {
-        Manager manager;
+        Manager manager; /* Largest member, keep it first */
+
+        Link *link;
+        DnsScope *scope;
+        char *server_name;
+        DnsServer *server;
+        DnsSearchDomain *search_domains[4];
+
+        union in_addr_union server_addr;
+
+        size_t n_search_domains;
         DnsProtocol protocol;
         int family;
         int ifindex;
-        Link *link;
-        DnsScope *scope;
         DnsServerType server_type;
-        union in_addr_union server_addr;
-        char *server_name;
         uint16_t server_port;
-        DnsServer *server;
-        size_t n_search_domains;
-        DnsSearchDomain *search_domains[4];
 } GoEnvironment;
 
 static void go_env_teardown(GoEnvironment *env) {
