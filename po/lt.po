@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-11-26 18:29+0000\n"
-"Last-Translator: Justinas Kairys <j.kairys@proton.me>\n"
+"PO-Revision-Date: 2025-11-26 18:30+0000\n"
+"Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Lithuanian <https://translate.fedoraproject.org/projects/"
 "systemd/main/lt/>\n"
 "Language: lt\n"
@@ -389,8 +389,7 @@ msgstr "Importuoti VM ar konteinerio atvaizdį"
 #: src/import/org.freedesktop.import1.policy:23
 #, fuzzy
 msgid "Authentication is required to import an image."
-msgstr ""
-"Norint importuoti VM ar konteinerio atvaizdį, reikia nustatyti tapatybę"
+msgstr "Norint importuoti VM ar konteinerio atvaizdį, reikia nustatyti tapatybę"
 
 #: src/import/org.freedesktop.import1.policy:32
 #, fuzzy
@@ -411,8 +410,7 @@ msgstr "Atsisiųsti VM ar konteinerio atvaizdį"
 #: src/import/org.freedesktop.import1.policy:43
 #, fuzzy
 msgid "Authentication is required to download a disk image."
-msgstr ""
-"Norint atsisiųsti VM ar konteinerio atvaizdį, reikia nustatyti tapatybę"
+msgstr "Norint atsisiųsti VM ar konteinerio atvaizdį, reikia nustatyti tapatybę"
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
@@ -582,8 +580,7 @@ msgstr "Leisti prijungti įrenginius prie darbo vietų"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr ""
-"Norint prijungti įrenginį prie darbo vietos, reikia nustatyti tapatybę."
+msgstr "Norint prijungti įrenginį prie darbo vietos, reikia nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
@@ -871,8 +868,7 @@ msgstr "Įgyti apvalkalą vietiniame serveryje"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr ""
-"Norint įgyti apvalkalą vietiniame serveryje, reikia nustatyti tapatybę."
+msgstr "Norint įgyti apvalkalą vietiniame serveryje, reikia nustatyti tapatybę."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
