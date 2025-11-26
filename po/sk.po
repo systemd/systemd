@@ -2,13 +2,13 @@
 #
 # Slovak translation for systemd.
 # Dušan Kazik <prescott66@gmail.com>, 2017.
-# Frantisek Sumsal <frantisek@sumsal.cz>, 2021.
+# Frantisek Sumsal <frantisek@sumsal.cz>, 2021, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:32+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"Last-Translator: Frantisek Sumsal <frantisek@sumsal.cz>\n"
 "Language-Team: Slovak <https://translate.fedoraproject.org/projects/systemd/"
 "main/sk/>\n"
 "Language: sk\n"
@@ -459,8 +459,7 @@ msgstr "Umožnenie aplikáciám odložiť spánok systému"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr ""
-"Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
+msgstr "Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
