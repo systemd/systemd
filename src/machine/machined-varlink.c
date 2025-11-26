@@ -745,6 +745,8 @@ static int manager_varlink_init_userdb(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
+        (void) sd_varlink_server_set_description(s, "varlink-userdb");
+
         r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_UserDatabase);
         if (r < 0)
                 return log_error_errno(r, "Failed to add UserDatabase interface to varlink server: %m");
@@ -757,9 +759,10 @@ static int manager_varlink_init_userdb(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
-        r = sd_varlink_server_listen_address(s, "/run/systemd/userdb/io.systemd.Machine", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+        const char *path = "/run/systemd/userdb/io.systemd.Machine";
+        r = sd_varlink_server_listen_address(s, path, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket '/run/systemd/userdb/io.systemd.Machine': %m");
+                return log_error_errno(r, "Failed to bind to varlink socket %s: %m", path);
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
@@ -889,9 +892,10 @@ static int manager_varlink_init_resolve_hook(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind on resolve hook disconnection events: %m");
 
-        r = sd_varlink_server_listen_address(s, "/run/systemd/resolve.hook/io.systemd.Machine", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+        const char *path = "/run/systemd/resolve.hook/io.systemd.Machine";
+        r = sd_varlink_server_listen_address(s, path, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to varlink socket %s: %m", path);
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
