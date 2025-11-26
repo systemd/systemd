@@ -49,13 +49,13 @@ static int build_user_json(const char *user_name, uid_t uid, const char *real_na
         return sd_json_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
-                                                           SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
-                                                           SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
-                                                           SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
+                                                           SD_JSON_BUILD_PAIR_STRING("userName", user_name),
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("uid", uid),
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("gid", GID_NOBODY),
                                                            SD_JSON_BUILD_PAIR_CONDITION(!isempty(real_name), "realName", SD_JSON_BUILD_STRING(real_name)),
                                                            SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
                                                            SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
-                                                           SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                                                           SD_JSON_BUILD_PAIR_BOOLEAN("locked", true),
                                                            SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
                                                            SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container")))));
 }
@@ -221,8 +221,8 @@ static int build_group_json(const char *group_name, gid_t gid, const char *descr
         return sd_json_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
-                                                           SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(group_name)),
-                                                           SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)),
+                                                           SD_JSON_BUILD_PAIR_STRING("groupName", group_name),
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("gid", gid),
                                                            SD_JSON_BUILD_PAIR_CONDITION(!isempty(description), "description", SD_JSON_BUILD_STRING(description)),
                                                            SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
                                                            SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container")))));

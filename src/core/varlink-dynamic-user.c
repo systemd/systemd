@@ -26,13 +26,13 @@ static int build_user_json(const char *user_name, uid_t uid, sd_json_variant **r
         assert(ret);
 
         return sd_json_buildo(ret, SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
-                                       SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
-                                       SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(uid)),
+                                       SD_JSON_BUILD_PAIR_STRING("userName", user_name),
+                                       SD_JSON_BUILD_PAIR_UNSIGNED("uid", uid),
+                                       SD_JSON_BUILD_PAIR_UNSIGNED("gid", uid),
                                        SD_JSON_BUILD_PAIR("realName", JSON_BUILD_CONST_STRING("Dynamic User")),
                                        SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
                                        SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
-                                       SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                                       SD_JSON_BUILD_PAIR_BOOLEAN("locked", true),
                                        SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.DynamicUser")),
                                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("dynamic")))));
 }
@@ -136,9 +136,9 @@ static int build_group_json(const char *group_name, gid_t gid, sd_json_variant *
         assert(ret);
 
         return sd_json_buildo(ret, SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
-                                       SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(group_name)),
+                                       SD_JSON_BUILD_PAIR_STRING("groupName", group_name),
                                        SD_JSON_BUILD_PAIR("description", JSON_BUILD_CONST_STRING("Dynamic Group")),
-                                       SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)),
+                                       SD_JSON_BUILD_PAIR_UNSIGNED("gid", gid),
                                        SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.DynamicUser")),
                                        SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("dynamic")))));
 }
