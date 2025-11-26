@@ -26,59 +26,56 @@ typedef enum DHCPRawOption {
 } DHCPRawOption;
 
 typedef struct sd_dhcp_server {
-        unsigned n_ref;
-
+        /* Pointers and other 8-byte aligned types */
         sd_event *event;
-        int event_priority;
         sd_event_source *receive_message;
         sd_event_source *receive_broadcast;
+        char *ifname;
+        char *timezone;
+        char *domain_name;
+        char *boot_server_name;
+        char *boot_filename;
+        OrderedSet *extra_options;
+        OrderedSet *vendor_options;
+        Hashmap *bound_leases_by_client_id;
+        Hashmap *bound_leases_by_address;
+        Hashmap *static_leases_by_client_id;
+        Hashmap *static_leases_by_address;
+        sd_dhcp_server_callback_t callback;
+        void *callback_userdata;
+        char *agent_circuit_id;
+        char *agent_remote_id;
+        char *lease_file;
+
+        /* Large structs and arrays */
+        DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
+
+        /* 64-bit integers */
+        usec_t max_lease_time;
+        usec_t default_lease_time;
+        usec_t ipv6_only_preferred_usec;
+
+        /* 4-byte integers */
+        unsigned n_ref;
+        int event_priority;
         int fd;
         int fd_raw;
         int fd_broadcast;
-
         int ifindex;
-        char *ifname;
-        bool bind_to_interface;
         be32_t address;
         be32_t netmask;
         be32_t subnet;
         uint32_t pool_offset;
         uint32_t pool_size;
-
-        char *timezone;
-        char *domain_name;
-
-        DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
         struct in_addr boot_server_address;
-        char *boot_server_name;
-        char *boot_filename;
-
-        OrderedSet *extra_options;
-        OrderedSet *vendor_options;
-
-        bool emit_router;
         struct in_addr router_address;
-
-        Hashmap *bound_leases_by_client_id;
-        Hashmap *bound_leases_by_address;
-        Hashmap *static_leases_by_client_id;
-        Hashmap *static_leases_by_address;
-
-        usec_t max_lease_time;
-        usec_t default_lease_time;
-        usec_t ipv6_only_preferred_usec;
-        bool rapid_commit;
-
-        sd_dhcp_server_callback_t callback;
-        void *callback_userdata;
-
         struct in_addr relay_target;
-
-        char *agent_circuit_id;
-        char *agent_remote_id;
-
         int lease_dir_fd;
-        char *lease_file;
+
+        /* Booleans */
+        bool bind_to_interface;
+        bool emit_router;
+        bool rapid_commit;
 } sd_dhcp_server;
 
 typedef struct DHCPRequest {
