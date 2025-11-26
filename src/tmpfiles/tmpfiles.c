@@ -126,27 +126,27 @@ typedef enum AgeBy {
 } AgeBy;
 
 typedef struct Item {
-        ItemType type;
-
         char *path;
         char *argument;
         void *binary_argument;        /* set if binary data, in which case it takes precedence over 'argument' */
-        size_t binary_argument_size;
         char **xattrs;
 #if HAVE_ACL
         acl_t acl_access;
         acl_t acl_access_exec;
         acl_t acl_default;
 #endif
+        size_t binary_argument_size;
+        usec_t age;
+        dev_t major_minor;
+
+        ItemType type;
         uid_t uid;
         gid_t gid;
         mode_t mode;
-        usec_t age;
         AgeBy age_by_file, age_by_dir;
-
-        dev_t major_minor;
         unsigned attribute_value;
         unsigned attribute_mask;
+        OperationMask done;
 
         bool uid_set:1;
         bool gid_set:1;
@@ -157,20 +157,12 @@ typedef struct Item {
         bool age_set:1;
         bool mask_perms:1;
         bool attribute_set:1;
-
         bool keep_first_level:1;
-
         bool append_or_force:1;
-
         bool allow_failure:1;
-
         bool try_replace:1;
-
         bool purge:1;
-
         bool ignore_if_target_missing:1;
-
-        OperationMask done;
 } Item;
 
 typedef struct ItemArray {

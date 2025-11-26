@@ -36,42 +36,41 @@
 
 typedef struct Manager {
         sd_event *event;
+        sd_device_monitor *monitor;
+        sd_varlink_server *varlink_server;
+        sd_event_source *inotify_event;
+        sd_event_source *kill_workers_event;
+        sd_event_source *requeue_locked_events_timer_event_source;
+
         Hashmap *workers;
+        Hashmap *properties;
+        Hashmap *locked_events_by_disk;
+
         LIST_HEAD(Event, events);
         Event *last_event;
-        char *cgroup;
 
         UdevRules *rules;
-        Hashmap *properties;
-
-        sd_device_monitor *monitor;
         UdevCtrl *ctrl;
-        sd_varlink_server *varlink_server;
-
-        char *worker_notify_socket_path;
-
-        /* used by udev-watch */
-        int inotify_fd;
-        sd_event_source *inotify_event;
+        Prioq *locked_events_by_time;
         Set *synthesize_change_child_event_sources;
 
-        sd_event_source *kill_workers_event;
-
-        Hashmap *locked_events_by_disk;
-        Prioq *locked_events_by_time;
-        sd_event_source *requeue_locked_events_timer_event_source;
+        char *cgroup;
+        char *worker_notify_socket_path;
 
         usec_t last_usec;
 
+        UdevConfig config;
         UdevConfig config_by_udev_conf;
         UdevConfig config_by_command;
         UdevConfig config_by_kernel;
         UdevConfig config_by_control;
-        UdevConfig config;
 
-        bool queue_file_created;
-        bool stop_exec_queue;
+        /* used by udev-watch */
+        int inotify_fd;
+
         bool exit;
+        bool stop_exec_queue;
+        bool queue_file_created;
 } Manager;
 
 Manager* manager_new(void);

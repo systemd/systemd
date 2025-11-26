@@ -28,20 +28,23 @@
 #include "udev-worker.h"
 
 typedef struct Spawn {
-        sd_device *device;
-        const char *cmd;
-        PidRef pidref;
-        usec_t timeout_warn_usec;
-        usec_t timeout_usec;
-        int timeout_signal;
+        sd_device *device;              /* The device this is all about */
+        const char *cmd;                /* The command line we execute */
+        char *result;                   /* The buffer to store stdout in, or NULL */
+
         usec_t event_birth_usec;
         usec_t cmd_birth_usec;
-        bool accept_failure;
-        int fd_stdout;
-        int fd_stderr;
-        char *result;
+        usec_t timeout_warn_usec;
+        usec_t timeout_usec;
         size_t result_size;
         size_t result_len;
+
+        PidRef pidref;
+        int fd_stdout;
+        int fd_stderr;
+        int timeout_signal;
+
+        bool accept_failure;
         bool truncated;
 } Spawn;
 

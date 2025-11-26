@@ -19,8 +19,8 @@ typedef struct ClockState {
         int timerfd_fd;                  /* non-negative is descriptor from timerfd_create */
         int adjtime_state;               /* return value from last adjtimex(2) call */
         sd_event_source *timerfd_event_source; /* non-null is the active io event source */
-        int inotify_fd;
         sd_event_source *inotify_event_source;
+        int inotify_fd;
         int run_systemd_wd;
         int run_systemd_timesync_wd;
         bool has_watchfile;
