@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-07-24 14:54+0000\n"
+"PO-Revision-Date: 2025-11-26 18:36+0000\n"
 "Last-Translator: Temuri Doghonadze <temuri.doghonadze@gmail.com>\n"
 "Language-Team: Georgian <https://translate.fedoraproject.org/projects/"
 "systemd/main/ka/>\n"
@@ -14,7 +14,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.12.2\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -220,8 +220,7 @@ msgstr "უსაფრთხოების კოდის PIN-კოდი: "
 #: src/home/pam_systemd_home.c:438
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
-"მომხმარებლისთვის %s უსაფრთხოების კოდს ფიზიკური ავთენტიკაცია ესაჭიროება."
+msgstr "მომხმარებლისთვის %s უსაფრთხოების კოდს ფიზიკური ავთენტიკაცია ესაჭიროება."
 
 #: src/home/pam_systemd_home.c:449
 #, c-format
@@ -238,8 +237,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"უსაფრთხოების კოდის PIN-კოდი დაბლოკილია. ჯერ განბლოკეთ ის. (მინიშნება: წაშლა "
-"და თავიდან ჩასმა, როგორც წესი, საკმარისია.)"
+"უსაფრთხოების კოდის PIN-კოდი დაბლოკილია. ჯერ განბლოკეთ ის. "
+"(მინიშნება: წაშლა და თავიდან ჩასმა, როგორც წესი, საკმარისია.)"
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
@@ -255,15 +254,15 @@ msgstr "უკაცრავად, თავიდან სცადეთ �
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"მომხმარებლისთვის %s უსაფრთხოების კოდის PIN კოდი არასწორია (დარჩენილია მხოლოდ "
-"რამდენიმე ცდა!)"
+"მომხმარებლისთვის %s უსაფრთხოების კოდის PIN კოდი არასწორია "
+"(დარჩენილია მხოლოდ რამდენიმე ცდა!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
-"მომხმარებლისთვის %s უსაფრთხოების კოდის PIN-კოდი არასწორია (დარჩა მხოლოდ "
-"ერთი!)"
+"მომხმარებლისთვის %s უსაფრთხოების კოდის PIN-კოდი არასწორია "
+"(დარჩა მხოლოდ ერთი!)"
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
