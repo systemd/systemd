@@ -351,24 +351,24 @@ static int list_timezones(int argc, char **argv, void *userdata) {
 
 typedef struct NTPStatusInfo {
         const char *server_name;
-        char *server_address;
+        char *server_address; /* This is allocated */
+
         usec_t poll_interval, poll_max, poll_min;
         usec_t root_distance_max;
+        usec_t root_delay, root_dispersion;
+        usec_t origin, recv, trans, dest;
+        usec_t jitter;
+        uint64_t packet_count;
+        int64_t freq;
 
         uint32_t leap, version, mode, stratum;
         int32_t precision;
-        usec_t root_delay, root_dispersion;
         union {
                 char str[5];
                 uint32_t val;
         } reference;
-        usec_t origin, recv, trans, dest;
 
         bool spike;
-        uint64_t packet_count;
-        usec_t jitter;
-
-        int64_t freq;
 } NTPStatusInfo;
 
 static void ntp_status_info_clear(NTPStatusInfo *p) {
