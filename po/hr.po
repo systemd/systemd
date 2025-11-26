@@ -3,14 +3,14 @@
 # SOME DESCRIPTIVE TITLE.
 # This file is distributed under the same license as the PACKAGE package.
 # gogo <trebelnik2@gmail.com>, 2016.
-# Gogo Gogsi <linux.hr@protonmail.com>, 2020, 2021, 2022.
+# Gogo Gogsi <linux.hr@protonmail.com>, 2020, 2021, 2022, 2025.
 # Marin Kresic <marinjurekresic@gmail.com>, 2024, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:28+0000\n"
-"Last-Translator: Marin Kresic <marinjurekresic@gmail.com>\n"
+"Last-Translator: Gogo Gogsi <linux.hr@protonmail.com>\n"
 "Language-Team: Croatian <https://translate.fedoraproject.org/projects/"
 "systemd/main/hr/>\n"
 "Language: hr\n"
@@ -597,8 +597,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr ""
-"Isključi sustav kada je aplikacija zatražila sprječavanje isključivanja"
+msgstr "Isključi sustav kada je aplikacija zatražila sprječavanje isključivanja"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid ""
@@ -664,8 +663,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr ""
-"Zaustavi sustav kada je aplikacija zatražila sprječavanje zaustavljanja"
+msgstr "Zaustavi sustav kada je aplikacija zatražila sprječavanje zaustavljanja"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
@@ -730,8 +728,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr ""
-"Hiberniraj sustav kada je aplikacija zatražila sprječavanje hibernacije"
+msgstr "Hiberniraj sustav kada je aplikacija zatražila sprječavanje hibernacije"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
@@ -1301,8 +1298,8 @@ msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr ""
-"Potrebna je ovjera za brisanje datoteka i direktorija pridruženih sa '$"
-"(unit)'."
+"Potrebna je ovjera za brisanje datoteka i direktorija pridruženih sa '$(unit)"
+"'."
 
 #: src/core/dbus-unit.c:812
 msgid ""
