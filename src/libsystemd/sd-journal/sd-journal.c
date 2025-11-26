@@ -1232,7 +1232,7 @@ _public_ int sd_journal_previous_skip(sd_journal *j, uint64_t skip) {
         return real_journal_next_skip(j, DIRECTION_UP, skip);
 }
 
-_public_ int sd_journal_get_cursor(sd_journal *j, char **ret_cursor) {
+_public_ int sd_journal_get_cursor(sd_journal *j, char **ret) {
         Object *o;
         int r;
 
@@ -1246,10 +1246,10 @@ _public_ int sd_journal_get_cursor(sd_journal *j, char **ret_cursor) {
         if (r < 0)
                 return r;
 
-        if (!ret_cursor)
+        if (!ret)
                 return 0;
 
-        if (asprintf(ret_cursor,
+        if (asprintf(ret,
                      "s=%s;i=%"PRIx64";b=%s;m=%"PRIx64";t=%"PRIx64";x=%"PRIx64,
                      SD_ID128_TO_STRING(j->current_file->header->seqnum_id), le64toh(o->entry.seqnum),
                      SD_ID128_TO_STRING(o->entry.boot_id), le64toh(o->entry.monotonic),
@@ -2813,7 +2813,7 @@ static bool field_is_valid(const char *field) {
         return true;
 }
 
-_public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **data, size_t *length) {
+_public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **ret_data, size_t *ret_size) {
         JournalFile *f;
         size_t field_length;
         Object *o;
@@ -2822,8 +2822,8 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
         assert_return(field, -EINVAL);
-        assert_return(data, -EINVAL);
-        assert_return(length, -EINVAL);
+        assert_return(ret_data, -EINVAL);
+        assert_return(ret_size, -EINVAL);
         assert_return(field_is_valid(field), -EINVAL);
 
         f = j->current_file;
@@ -2856,8 +2856,8 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 if (r < 0)
                         return r;
 
-                *data = d;
-                *length = l;
+                *ret_data = d;
+                *ret_size = l;
 
                 return 0;
         }
@@ -2865,15 +2865,15 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         return -ENOENT;
 }
 
-_public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *length) {
+_public_ int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, size_t *ret_size) {
         JournalFile *f;
         Object *o;
         int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
-        assert_return(data, -EINVAL);
-        assert_return(length, -EINVAL);
+        assert_return(ret_data, -EINVAL);
+        assert_return(ret_size, -EINVAL);
 
         f = j->current_file;
         if (!f)
@@ -2901,8 +2901,8 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
                         return r;
                 assert(r > 0);
 
-                *data = d;
-                *length = l;
+                *ret_data = d;
+                *ret_size = l;
 
                 j->current_field++;
 
@@ -2912,11 +2912,11 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
         return 0;
 }
 
-_public_ int sd_journal_enumerate_available_data(sd_journal *j, const void **data, size_t *length) {
+_public_ int sd_journal_enumerate_available_data(sd_journal *j, const void **ret_data, size_t *ret_size) {
         for (;;) {
                 int r;
 
-                r = sd_journal_enumerate_data(j, data, length);
+                r = sd_journal_enumerate_data(j, ret_data, ret_size);
                 if (r >= 0)
                         return r;
                 if (!JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(r))
@@ -3469,11 +3469,11 @@ _public_ int sd_journal_enumerate_unique(
         }
 }
 
-_public_ int sd_journal_enumerate_available_unique(sd_journal *j, const void **data, size_t *size) {
+_public_ int sd_journal_enumerate_available_unique(sd_journal *j, const void **ret_data, size_t *ret_size) {
         for (;;) {
                 int r;
 
-                r = sd_journal_enumerate_unique(j, data, size);
+                r = sd_journal_enumerate_unique(j, ret_data, ret_size);
                 if (r >= 0)
                         return r;
                 if (!JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(r))
@@ -3492,12 +3492,12 @@ _public_ void sd_journal_restart_unique(sd_journal *j) {
         j->unique_file_lost = false;
 }
 
-_public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
+_public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
         int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
-        assert_return(field, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         if (!j->fields_file) {
                 if (j->fields_file_lost)
@@ -3549,7 +3549,7 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
                                 /* Proceed with next file */
                                 j->fields_file = ordered_hashmap_next(j->files, f->path);
                                 if (!j->fields_file) {
-                                        *field = NULL;
+                                        *ret = NULL;
                                         return 0;
                                 }
 
@@ -3629,7 +3629,7 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
                 if (!field_is_valid(j->fields_buffer))
                         return -EBADMSG;
 
-                *field = j->fields_buffer;
+                *ret = j->fields_buffer;
                 return 1;
         }
 }
