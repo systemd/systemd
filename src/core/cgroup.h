@@ -107,36 +107,38 @@ typedef enum CGroupPressureWatch {
  * manager is running (except for an occasional SetProperties() configuration change), outside of reload
  * cycles. */
 typedef struct CGroupContext {
-        bool io_accounting;
-        bool memory_accounting;
-        bool tasks_accounting;
-        bool ip_accounting;
-
-        /* Configures the memory.oom.group attribute (on unified) */
-        bool memory_oom_group;
-
-        bool delegate;
-        CGroupMask delegate_controllers;
-        CGroupMask disable_controllers;
+        /* Pointers and other 8-byte aligned types */
         char *delegate_subgroup;
+        Set *ip_address_allow;
+        Set *ip_address_deny;
+        char **ip_filters_ingress;
+        char **ip_filters_egress;
+        Set *restrict_network_interfaces;
 
-        /* For unified hierarchy */
-        uint64_t cpu_weight;
-        uint64_t startup_cpu_weight;
-        usec_t cpu_quota_per_sec_usec;
-        usec_t cpu_quota_period_usec;
-
+        /* Large structs and arrays */
         CPUSet cpuset_cpus;
         CPUSet startup_cpuset_cpus;
         CPUSet cpuset_mems;
         CPUSet startup_cpuset_mems;
-
-        uint64_t io_weight;
-        uint64_t startup_io_weight;
         LIST_HEAD(CGroupIODeviceWeight, io_device_weights);
         LIST_HEAD(CGroupIODeviceLimit, io_device_limits);
         LIST_HEAD(CGroupIODeviceLatency, io_device_latencies);
+        LIST_HEAD(CGroupBPFForeignProgram, bpf_foreign_programs);
+        LIST_HEAD(CGroupDeviceAllow, device_allow);
+        LIST_HEAD(CGroupSocketBindItem, socket_bind_allow);
+        LIST_HEAD(CGroupSocketBindItem, socket_bind_deny);
+        CGroupTasksMax tasks_max;
+        NFTSetContext nft_set_context;
 
+        /* 64-bit integers */
+        CGroupMask delegate_controllers;
+        CGroupMask disable_controllers;
+        uint64_t cpu_weight;
+        uint64_t startup_cpu_weight;
+        usec_t cpu_quota_per_sec_usec;
+        usec_t cpu_quota_period_usec;
+        uint64_t io_weight;
+        uint64_t startup_io_weight;
         uint64_t default_memory_min;
         uint64_t default_memory_low;
         uint64_t default_startup_memory_low;
@@ -151,7 +153,27 @@ typedef struct CGroupContext {
         uint64_t startup_memory_swap_max;
         uint64_t memory_zswap_max;
         uint64_t startup_memory_zswap_max;
+        usec_t moom_mem_pressure_duration_usec;
+        usec_t memory_pressure_threshold_usec;
 
+        /* 4-byte integers and enums */
+        CGroupDevicePolicy device_policy;
+        ManagedOOMMode moom_swap;
+        ManagedOOMMode moom_mem_pressure;
+        uint32_t moom_mem_pressure_limit; /* Normalized to 2^32-1 == 100% */
+        ManagedOOMPreference moom_preference;
+        CGroupPressureWatch memory_pressure_watch;
+        /* NB: For now we don't make the period configurable, not the type, nor do we allow multiple
+         * triggers, nor triggers for non-memory pressure. We might add that later. */
+
+        /* Booleans and bitfields */
+        bool io_accounting;
+        bool memory_accounting;
+        bool tasks_accounting;
+        bool ip_accounting;
+        /* Configures the memory.oom.group attribute (on unified) */
+        bool memory_oom_group;
+        bool delegate;
         bool default_memory_min_set:1;
         bool default_memory_low_set:1;
         bool default_startup_memory_low_set:1;
@@ -162,47 +184,12 @@ typedef struct CGroupContext {
         bool startup_memory_max_set:1;
         bool startup_memory_swap_max_set:1;
         bool startup_memory_zswap_max_set:1;
-
         bool memory_zswap_writeback;
-
-        Set *ip_address_allow;
-        Set *ip_address_deny;
         /* These two flags indicate that redundant entries have been removed from
          * ip_address_allow/ip_address_deny, i.e. in_addr_prefixes_reduce() has already been called. */
         bool ip_address_allow_reduced;
         bool ip_address_deny_reduced;
-
-        char **ip_filters_ingress;
-        char **ip_filters_egress;
-        LIST_HEAD(CGroupBPFForeignProgram, bpf_foreign_programs);
-
-        Set *restrict_network_interfaces;
         bool restrict_network_interfaces_is_allow_list;
-
-        CGroupDevicePolicy device_policy;
-        LIST_HEAD(CGroupDeviceAllow, device_allow);
-
-        LIST_HEAD(CGroupSocketBindItem, socket_bind_allow);
-        LIST_HEAD(CGroupSocketBindItem, socket_bind_deny);
-
-        /* Common */
-        CGroupTasksMax tasks_max;
-
-        /* Settings for systemd-oomd */
-        ManagedOOMMode moom_swap;
-        ManagedOOMMode moom_mem_pressure;
-        uint32_t moom_mem_pressure_limit; /* Normalized to 2^32-1 == 100% */
-        usec_t moom_mem_pressure_duration_usec;
-        ManagedOOMPreference moom_preference;
-
-        /* Memory pressure logic */
-        CGroupPressureWatch memory_pressure_watch;
-        usec_t memory_pressure_threshold_usec;
-        /* NB: For now we don't make the period configurable, not the type, nor do we allow multiple
-         * triggers, nor triggers for non-memory pressure. We might add that later. */
-
-        NFTSetContext nft_set_context;
-
         /* Forward coredumps for processes that crash within this cgroup.
          * Requires 'delegate' to also be true. */
         bool coredump_receive;
