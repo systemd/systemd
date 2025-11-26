@@ -270,15 +270,15 @@ msgstr "Tente novamente o PIN do token de segurança: "
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"PIN do token de segurança do utilizador %s incorreto "
-"(só faltam algumas tentativas!)"
+"PIN do token de segurança do utilizador %s incorreto (só faltam algumas "
+"tentativas!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
-"PIN do token de segurança do utilizador %s incorreto "
-"(só falta uma tentativa!)"
+"PIN do token de segurança do utilizador %s incorreto (só falta uma "
+"tentativa!)"
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
@@ -525,7 +525,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr "Permitir que aplicações inibam o sistema de gerir o botão de hibernação"
+msgstr ""
+"Permitir que aplicações inibam o sistema de gerir o botão de hibernação"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
@@ -872,7 +873,8 @@ msgstr "Adquirir uma shell na máquina local"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr "É necessária autenticação para adquirir uma shell em uma máquina local."
+msgstr ""
+"É necessária autenticação para adquirir uma shell em uma máquina local."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"

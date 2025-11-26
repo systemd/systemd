@@ -288,15 +288,15 @@ msgstr "Извините, повторите попытку введения PIN
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"Неверный PIN-код токена безопасности пользователя %s "
-"(осталось всего несколько попыток!)"
+"Неверный PIN-код токена безопасности пользователя %s (осталось всего "
+"несколько попыток!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
-"Неверный PIN-код токена безопасности пользователя %s "
-"(осталась всего одна попытка!)"
+"Неверный PIN-код токена безопасности пользователя %s (осталась всего одна "
+"попытка!)"
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
@@ -460,7 +460,8 @@ msgstr "Настроить параметры клавиатуры"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr "Чтобы настроить параметры клавиатуры, необходимо пройти аутентификацию."
+msgstr ""
+"Чтобы настроить параметры клавиатуры, необходимо пройти аутентификацию."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
@@ -1244,7 +1245,8 @@ msgstr "Дамп состояние сервера"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
 msgid "Authentication is required to dump server state."
-msgstr "Чтобы создать дамп состояние сервера, необходимо пройти аутентификацию."
+msgstr ""
+"Чтобы создать дамп состояние сервера, необходимо пройти аутентификацию."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Dump statistics"

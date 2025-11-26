@@ -270,15 +270,15 @@ msgstr "Torneu a provar el PIN del token de seguretat: "
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"El PIN del token de seguretat de l'usuari %s és incorrecte "
-"(només queden uns quants intents!)"
+"El PIN del token de seguretat de l'usuari %s és incorrecte (només queden uns "
+"quants intents!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
-"El PIN del token de seguretat de l'usuari %s és incorrecte "
-"(només queda un intent!)"
+"El PIN del token de seguretat de l'usuari %s és incorrecte (només queda un "
+"intent!)"
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
@@ -382,7 +382,8 @@ msgstr "Obté el número de sèrie del maquinari"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
 msgid "Authentication is required to get hardware serial number."
-msgstr "Es requereix autenticació per obtenir el número de sèrie del maquinari."
+msgstr ""
+"Es requereix autenticació per obtenir el número de sèrie del maquinari."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
@@ -693,7 +694,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr "Atura el sistema mentre hi ha una aplicació que ha demanat d'inhibir-ho"
+msgstr ""
+"Atura el sistema mentre hi ha una aplicació que ha demanat d'inhibir-ho"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
@@ -872,7 +874,8 @@ msgstr "Adquireix un shell en un contenidor local"
 
 #: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr "Es requereix autenticació per adquirir un shell en un contenidor local."
+msgstr ""
+"Es requereix autenticació per adquirir un shell en un contenidor local."
 
 #: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
@@ -1249,7 +1252,8 @@ msgstr "Gestiona les característiques opcionals"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
 msgid "Authentication is required to manage optional features."
-msgstr "Es requereix autenticació per gestionar les característiques opcionals."
+msgstr ""
+"Es requereix autenticació per gestionar les característiques opcionals."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1312,8 +1316,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Es requereix autenticació per enviar un senyal UNIX als processos de '$(unit)"
-"'."
+"Es requereix autenticació per enviar un senyal UNIX als processos de '$"
+"(unit)'."
 
 #: src/core/dbus-unit.c:620
 msgid ""

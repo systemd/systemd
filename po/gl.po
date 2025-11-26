@@ -805,7 +805,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr "Indícalle ao cargador de arranque que arranque nunha entrada específica"
+msgstr ""
+"Indícalle ao cargador de arranque que arranque nunha entrada específica"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid ""
@@ -880,7 +881,8 @@ msgstr "Adquirir unha pseudo TTY nun equipo local"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr "Requírese autenticación para adquirir unha pseudo TTY nun equipo local."
+msgstr ""
+"Requírese autenticación para adquirir unha pseudo TTY nun equipo local."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
@@ -1019,7 +1021,8 @@ msgstr "Estabelecer DNSSEC Negative Trust Anchors"
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr "Requírese autenticación para estabelecer DNSSEC Negative Trust Anchors."
+msgstr ""
+"Requírese autenticación para estabelecer DNSSEC Negative Trust Anchors."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -1302,8 +1305,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Requírese autenticación para enviarlle un sinal UNIX aos procesos de '$(unit)"
-"'."
+"Requírese autenticación para enviarlle un sinal UNIX aos procesos de '$"
+"(unit)'."
 
 #: src/core/dbus-unit.c:620
 #, fuzzy
@@ -1311,12 +1314,13 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
-"Requírese autenticación para enviarlle un sinal UNIX aos procesos de '$(unit)"
-"'."
+"Requírese autenticación para enviarlle un sinal UNIX aos procesos de '$"
+"(unit)'."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr "Requírese autenticación para reinicair o estado «fallido» de '$(unit)'."
+msgstr ""
+"Requírese autenticación para reinicair o estado «fallido» de '$(unit)'."
 
 #: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."

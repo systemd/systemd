@@ -25,7 +25,8 @@ msgstr "Пошаљи фразу назад ка систему"
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
-msgstr "Потребно је да се идентификујете да бисте послали фразу назад у систем."
+msgstr ""
+"Потребно је да се идентификујете да бисте послали фразу назад у систем."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -1310,7 +1311,8 @@ msgstr ""
 
 #: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
-msgstr "Постави часовник реалног времена на локалну временску зону или UTC зону"
+msgstr ""
+"Постави часовник реалног времена на локалну временску зону или UTC зону"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
 msgid ""

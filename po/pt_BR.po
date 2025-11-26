@@ -138,7 +138,8 @@ msgstr "Redimensionar uma área home"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
-msgstr "É necessária autenticação para redimensionar a área home de um usuário."
+msgstr ""
+"É necessária autenticação para redimensionar a área home de um usuário."
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
@@ -255,8 +256,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"O PIN do token de segurança está bloqueado, desbloqueie-o primeiro. "
-"(Dica: a remoção e a reinserção podem ser suficientes)"
+"O PIN do token de segurança está bloqueado, desbloqueie-o primeiro. (Dica: a "
+"remoção e a reinserção podem ser suficientes)"
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
@@ -272,15 +273,15 @@ msgstr "Desculpe, tente novamente o PIN do token de segurança: "
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"O PIN do token de segurança do usuário %s está incorreto "
-"(restam apenas algumas tentativas!)"
+"O PIN do token de segurança do usuário %s está incorreto (restam apenas "
+"algumas tentativas!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
-"O PIN do token de segurança do usuário %s está incorreto "
-"(só resta uma tentativa!)"
+"O PIN do token de segurança do usuário %s está incorreto (só resta uma "
+"tentativa!)"
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
@@ -818,7 +819,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr "Indicar para o carregador de inicializar iniciar uma entrada específica"
+msgstr ""
+"Indicar para o carregador de inicializar iniciar uma entrada específica"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid ""
@@ -875,7 +877,8 @@ msgstr "Adquirir uma shell na máquina local"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr "É necessária autenticação para adquirir uma shell em uma máquina local."
+msgstr ""
+"É necessária autenticação para adquirir uma shell em uma máquina local."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"

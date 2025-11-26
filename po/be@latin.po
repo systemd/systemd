@@ -523,7 +523,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr "Dazvolić prahramam pieraškadžać sistemie apracoŭvać klavišu hibiernacyi"
+msgstr ""
+"Dazvolić prahramam pieraškadžać sistemie apracoŭvać klavišu hibiernacyi"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
@@ -1311,8 +1312,8 @@ msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
 msgstr ""
-"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia časavoha pojasu "
-"(miascovy abo UTC), u jakim zachoŭvajecca čas u RTC."
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia časavoha pojasu (miascovy abo "
+"UTC), u jakim zachoŭvajecca čas u RTC."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
@@ -1347,14 +1348,16 @@ msgstr "Nieabchodna aŭtentyfikacyja dlia pierazapusku '$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
-msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
 
 #: src/core/dbus-unit.c:620
 #, fuzzy
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
@@ -1363,7 +1366,8 @@ msgstr ""
 
 #: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
+msgstr ""
+"Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭlascivasciej '$(unit)'."
 
 #: src/core/dbus-unit.c:775
 #, fuzzy

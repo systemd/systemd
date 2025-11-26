@@ -275,8 +275,8 @@ msgstr "Вибачте, повторіть введення PIN-коду жет�
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"Помилковий PIN-код жетона безпеки користувача %s "
-"(лишилося лише декілька спроб!)"
+"Помилковий PIN-код жетона безпеки користувача %s (лишилося лише декілька "
+"спроб!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
@@ -368,7 +368,8 @@ msgstr "Встановлення даних щодо машини"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr "Для встановлення даних щодо локальної машини слід пройти розпізнавання."
+msgstr ""
+"Для встановлення даних щодо локальної машини слід пройти розпізнавання."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
@@ -897,7 +898,8 @@ msgstr "Отримання псевдо-TTY на локальному вузлі
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr "Для отримання псевдо-TTY на локальному вузлі слід пройти розпізнавання."
+msgstr ""
+"Для отримання псевдо-TTY на локальному вузлі слід пройти розпізнавання."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
@@ -1002,7 +1004,8 @@ msgstr "Вмикання або вимикання трансляційної DN
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
 msgid "Authentication is required to enable or disable multicast DNS."
-msgstr "Для вмикання або вимикання трансляційної DNS слід пройти розпізнавання."
+msgstr ""
+"Для вмикання або вимикання трансляційної DNS слід пройти розпізнавання."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99

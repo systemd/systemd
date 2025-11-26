@@ -256,8 +256,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"A biztonsági token PIN-kódja zárolva van, először oldja fel "
-"(tipp: az eltávolítás és az ismételt behelyezés elegendő lehet)."
+"A biztonsági token PIN-kódja zárolva van, először oldja fel (tipp: az "
+"eltávolítás és az ismételt behelyezés elegendő lehet)."
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
@@ -273,15 +273,15 @@ msgstr "Elnézést, próbálja újra a biztonsági token PIN-kódját: "
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"%s felhasználó biztonsági tokenjének PIN-kódja helytelen "
-"(már csak néhány próbálkozás maradt!)"
+"%s felhasználó biztonsági tokenjének PIN-kódja helytelen (már csak néhány "
+"próbálkozás maradt!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
-"%s felhasználó biztonsági tokenjének PIN-kódja helytelen "
-"(már egy próbálkozás maradt!)"
+"%s felhasználó biztonsági tokenjének PIN-kódja helytelen (már egy "
+"próbálkozás maradt!)"
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
@@ -750,7 +750,8 @@ msgstr "Hitelesítés szükséges a rendszer hibernálásához."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr "A rendszer hibernálása, miközben más felhasználók be vannak jelentkezve"
+msgstr ""
+"A rendszer hibernálása, miközben más felhasználók be vannak jelentkezve"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""

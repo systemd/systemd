@@ -15,8 +15,8 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=n==1 ? 0 : n%10>=2 && n%10<=4 && "
-"(n%100<10 || n%100>=20) ? 1 : 2;\n"
+"Plural-Forms: nplurals=3; plural=n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
+"|| n%100>=20) ? 1 : 2;\n"
 "X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -253,7 +253,8 @@ msgstr "Proszę potwierdzić obecność na tokenie zabezpieczeń użytkownika %s
 #: src/home/pam_systemd_home.c:460
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr "Proszę zweryfikować użytkownika na tokenie zabezpieczeń użytkownika %s."
+msgstr ""
+"Proszę zweryfikować użytkownika na tokenie zabezpieczeń użytkownika %s."
 
 #: src/home/pam_systemd_home.c:469
 msgid ""
@@ -277,15 +278,15 @@ msgstr "Proszę ponownie wpisać kod PIN tokena zabezpieczeń: "
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"Niepoprawny kod PIN tokena zabezpieczeń użytkownika %s "
-"(pozostało tylko kilka prób)."
+"Niepoprawny kod PIN tokena zabezpieczeń użytkownika %s (pozostało tylko "
+"kilka prób)."
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
-"Niepoprawny kod PIN tokena zabezpieczeń użytkownika %s "
-"(pozostała tylko jedna próba)."
+"Niepoprawny kod PIN tokena zabezpieczeń użytkownika %s (pozostała tylko "
+"jedna próba)."
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
@@ -583,7 +584,8 @@ msgstr "Zezwolenie na podłączanie urządzeń do stanowisk"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr "Wymagane jest uwierzytelnienie, aby podłączyć urządzenie do stanowiska."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby podłączyć urządzenie do stanowiska."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
@@ -1004,7 +1006,8 @@ msgstr "Włączenie/wyłączenie DNS przez TLS"
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr "Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć DNS przez TLS."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby włączyć lub wyłączyć DNS przez TLS."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
@@ -1332,8 +1335,8 @@ msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby usunąć pliki i katalogi powiązane z "
-"jednostką „$(unit)”."
+"Wymagane jest uwierzytelnienie, aby usunąć pliki i katalogi powiązane "
+"z jednostką „$(unit)”."
 
 #: src/core/dbus-unit.c:812
 msgid ""

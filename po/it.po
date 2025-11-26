@@ -241,7 +241,8 @@ msgstr ""
 #: src/home/pam_systemd_home.c:449
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr "Per piacere conferma la presenza sul token di sicurezza dell'utente %s."
+msgstr ""
+"Per piacere conferma la presenza sul token di sicurezza dell'utente %s."
 
 #: src/home/pam_systemd_home.c:460
 #, c-format
@@ -1028,7 +1029,8 @@ msgstr "Configura DNSSEC Negative Trust Anchors"
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr "Autenticazione richiesta per configurare DNSSEC Negative Trust Anchors."
+msgstr ""
+"Autenticazione richiesta per configurare DNSSEC Negative Trust Anchors."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -1311,8 +1313,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Autenticazione richiesta per inviare un segnale UNIX ai processi di '$(unit)"
-"'."
+"Autenticazione richiesta per inviare un segnale UNIX ai processi di '$"
+"(unit)'."
 
 #: src/core/dbus-unit.c:620
 msgid ""

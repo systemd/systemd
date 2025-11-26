@@ -230,8 +230,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"رمز PIN لرمز الأمان مُقفل، يُرجى فتحه أولاً. "
-"(تلميح: قد يكون الإزالة وإعادة الإدخال كافيين.)"
+"رمز PIN لرمز الأمان مُقفل، يُرجى فتحه أولاً. (تلميح: قد يكون الإزالة وإعادة "
+"الإدخال كافيين.)"
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
@@ -724,8 +724,7 @@ msgstr "أشر إلى محمّل الإقلاع للإقلاع إلى إدخال
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
-msgstr ""
-"الاستيثاق مطلوب للإشارة إلى محمّل الإقلاع للإقلاع إلى إدخال إقلاع معيّن."
+msgstr "الاستيثاق مطلوب للإشارة إلى محمّل الإقلاع للإقلاع إلى إدخال إقلاع معيّن."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"

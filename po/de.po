@@ -272,8 +272,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"Sicherheitstoken PIN ist gesperrt, bitte entsperren "
-"(Hinweis: Entfernen und neu einstecken könnte genügen.)"
+"Sicherheitstoken PIN ist gesperrt, bitte entsperren (Hinweis: Entfernen und "
+"neu einstecken könnte genügen.)"
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
@@ -1027,7 +1027,8 @@ msgstr "LLMNR aktivieren/deaktivieren"
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr "Legitimierung ist zum Aktivieren oder Deaktivieren von LLMNR notwendig."
+msgstr ""
+"Legitimierung ist zum Aktivieren oder Deaktivieren von LLMNR notwendig."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
@@ -1355,8 +1356,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Legitimierung ist zum Senden eines UNIX-Signals an die Prozesse von »$(unit)«"
-" notwendig."
+"Legitimierung ist zum Senden eines UNIX-Signals an die Prozesse von »$"
+"(unit)« notwendig."
 
 #: src/core/dbus-unit.c:620
 msgid ""
@@ -1382,8 +1383,8 @@ msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr ""
-"Legitimierung ist zum Löschen von Dateien und Verzeichnissen, die zu »$(unit)"
-"« gehören, erforderlich."
+"Legitimierung ist zum Löschen von Dateien und Verzeichnissen, die zu »$"
+"(unit)« gehören, erforderlich."
 
 #: src/core/dbus-unit.c:812
 msgid ""

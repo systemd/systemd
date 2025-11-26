@@ -277,8 +277,8 @@ msgstr "Lo siento, vuelva a intentar el PIN de seguridad: "
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
-"PIN de seguridad del usuario %s incorrecto "
-"(¡sólo quedan unos pocos intentos!)"
+"PIN de seguridad del usuario %s incorrecto (¡sólo quedan unos pocos "
+"intentos!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
@@ -1308,8 +1308,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Se requiere autenticación para enviar una señal UNIX a los procesos '$(unit)"
-"'."
+"Se requiere autenticación para enviar una señal UNIX a los procesos '$"
+"(unit)'."
 
 #: src/core/dbus-unit.c:620
 msgid ""

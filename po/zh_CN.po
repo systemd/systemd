@@ -237,7 +237,8 @@ msgstr "请验证用户 %s 的安全令牌上的用户。"
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
-msgstr "安全令牌 PIN 已经锁定，请先将其解锁。（提示：移除并重新插入可能就行。）"
+msgstr ""
+"安全令牌 PIN 已经锁定，请先将其解锁。（提示：移除并重新插入可能就行。）"
 
 #: src/home/pam_systemd_home.c:477
 #, c-format

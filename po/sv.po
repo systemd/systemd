@@ -40,7 +40,8 @@ msgstr "Hantera systemtjänster eller andra enheter"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr "Autentisering krävs för att hantera systemtjänster eller andra enheter."
+msgstr ""
+"Autentisering krävs för att hantera systemtjänster eller andra enheter."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -138,7 +139,8 @@ msgstr "Ändra lösenord för en hemarea"
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr "Autentisering krävs för att ändra lösenordet för en användares hemarea."
+msgstr ""
+"Autentisering krävs för att ändra lösenordet för en användares hemarea."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
@@ -154,7 +156,8 @@ msgstr "Hantera nycklar för signering av hemkatalog"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr "Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
+msgstr ""
+"Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
 
 #: src/home/pam_systemd_home.c:333
 #, c-format
@@ -244,8 +247,8 @@ msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
-"PIN-kod för säkerhetstoken är låst. Lås upp den först. "
-"(Tips: Det kan räcka med borttagning och återinsättning.)"
+"PIN-kod för säkerhetstoken är låst. Lås upp den först. (Tips: Det kan räcka "
+"med borttagning och återinsättning.)"
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
@@ -1182,8 +1185,8 @@ msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
 msgstr ""
-"Autentisering krävs för att uppdatera systemet till en specifik "
-"(eventuellt gammal) version."
+"Autentisering krävs för att uppdatera systemet till en specifik (eventuellt "
+"gammal) version."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
@@ -1264,8 +1267,8 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
-"Autentisering krävs för att skicka en UNIX-signal till processerna i ”$(unit)"
-"”."
+"Autentisering krävs för att skicka en UNIX-signal till processerna i ”$"
+"(unit)”."
 
 #: src/core/dbus-unit.c:620
 msgid ""
@@ -1278,8 +1281,8 @@ msgstr ""
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
-"Autentisering krävs för att återställa det \"fallerade\" tillståndet för "
-"\"$(unit)\"."
+"Autentisering krävs för att återställa det \"fallerade\" tillståndet för \"$"
+"(unit)\"."
 
 #: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."

@@ -459,7 +459,8 @@ msgstr "Umožnenie aplikáciám odložiť spánok systému"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr "Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
+msgstr ""
+"Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
@@ -467,7 +468,8 @@ msgstr "Umožnenie aplikáciám odložiť spánok systému"
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
-msgstr "Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
+msgstr ""
+"Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
@@ -529,7 +531,8 @@ msgstr "Umožnenie aplikáciám odložiť spánok systému"
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
-msgstr "Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
+msgstr ""
+"Vyžaduje sa overenie totožnosti na odloženie spánku systému aplikáciou."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -812,7 +815,8 @@ msgstr "Prihlásenie do miestneho kontajneru"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr "Vyžaduje sa overenie totožnosti na prihlásenie do miestneho kontajneru."
+msgstr ""
+"Vyžaduje sa overenie totožnosti na prihlásenie do miestneho kontajneru."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
