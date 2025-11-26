@@ -342,7 +342,7 @@ static int on_first_event(sd_event_source *s, void *userdata) {
                 return r;
 
         if (arg_follow && !c->has_cursor && !arg_since_set) {
-                r = sd_journal_get_cursor(c->journal, /* ret_cursor= */ NULL);
+                r = sd_journal_get_cursor(c->journal, /* ret= */ NULL);
                 if (r == -EADDRNOTAVAIL) {
                         /* If we shall operate in --follow mode, and we are unable to get a cursor after
                          * doing our first round of output, then this means there was no data to show
