@@ -9,8 +9,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2024-08-04 03:41+0000\n"
-"Last-Translator: Marin Kresic <marinjurekresic@gmail.com>\n"
+"PO-Revision-Date: 2025-11-26 18:28+0000\n"
+"Last-Translator: Anonymous <noreply@weblate.org>\n"
 "Language-Team: Croatian <https://translate.fedoraproject.org/projects/"
 "systemd/main/hr/>\n"
 "Language: hr\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.6.2\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -100,8 +100,7 @@ msgstr "Provjeri vjerodajnice osobnog prostora"
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr ""
-"Potrebna je ovjera za provjeru vjerodajnica osobnog prostora korisnika."
+msgstr "Potrebna je ovjera za provjeru vjerodajnica osobnog prostora korisnika."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -1081,8 +1080,7 @@ msgstr "Dodaj ili ukloni prijenosnu sliku usluge"
 #: src/portable/org.freedesktop.portable1.policy:24
 msgid ""
 "Authentication is required to attach or detach a portable service image."
-msgstr ""
-"Potrebna je ovjera za dodavanje ili uklanjanje prijenosne slike usluge."
+msgstr "Potrebna je ovjera za dodavanje ili uklanjanje prijenosne slike usluge."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
