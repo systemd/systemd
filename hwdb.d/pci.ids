@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2025.11.16
-#	Date:    2025-11-16 03:15:02
+#	Version: 2025.11.24
+#	Date:    2025-11-24 03:15:01
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -84,6 +84,7 @@
 	0001  PCAN-PCI CAN-Bus controller
 		001c 0004  2 Channel CAN Bus SJC1000
 		001c 0005  2 Channel CAN Bus SJC1000 (Optically Isolated)
+0029  MICROCHIP
 003d  Lockheed Martin-Marietta Corp
 # Real TJN ID is e159, but they got it wrong several times --mj
 0059  Tiger Jet Network Inc. (Wrong ID)
@@ -95,6 +96,7 @@
 00a7  Teles AG (Wrong ID)
 0100  nCipher Security
 0123  General Dynamics
+0127  MIPS
 0128  Dell (wrong ID)
 # 018a is not LevelOne but there is a board misprogrammed
 018a  LevelOne
@@ -152,11 +154,14 @@
 0303  Hewlett-Packard Company (Wrong ID)
 0308  ZyXEL Communications Corporation (Wrong ID)
 0315  SK-Electronics Co., Ltd.
+031e  ANDES
 0357  TTTech Computertechnik AG (Wrong ID)
 	000a  TTP-Monitoring Card V2.0
 0432  SCM Microsystems, Inc.
 	0001  Pluto2 DVB-T Receiver for PCMCIA [EasyWatch MobilSet]
+0489  SIFIVE
 0497  Dell Inc. (wrong ID)
+05b7  THEAD
 060e  Lightelligence
 	0001  Hummingbird ES
 0675  Dynalink
@@ -832,6 +837,7 @@
 		15d9 1d03  AOC-S4116L-H16IR (16DD/96DD) RAID Adapter
 		15d9 1d07  AOC-S4016L-L16IT Storage Adapter
 		15d9 1d08  AOC-S4016L-L16IR Storage Adapter
+		17aa 7855  ThinkSystem RAID 950W-16i 8GB Flash PCIe Gen4 24Gb Adapter
 		1d49 020a  ThinkSystem 450W-16e SAS/SATA PCIe Gen4 24Gb HBA
 	00ab  SAS3516 Fusion-MPT Tri-Mode RAID On Chip (ROC)
 # 8 Internal and 8 External port channel 9400 HBA
@@ -878,6 +884,7 @@
 		1028 23cb  PERC H975i Front
 		1028 23cd  PERC H975i Adapter
 		1028 2446  PERC H976i Front
+		17aa 784c  ThinkSystem RAID 960W PCIe Gen5 Adapter
 		1d49 020b  ThinkSystem 460-16e SAS/SATA PCIe Gen5 24Gb HBA
 	00b4  Fusion-MPT 24G SAS/PCIe SAS50xx/SAS51xx
 	00b5  Fusion-MPT 24G SAS/PCIe SAS50xx/SAS51xx
@@ -897,6 +904,7 @@
 		1028 22d3  PERC H975i Adapter - Virtual
 		1028 23cb  PERC H975i Front - Virtual
 		1028 23cd  PERC H975i Adapter - Virtual
+		17aa 784c  ThinkSystem RAID 960W PCIe Gen5 Adapter
 	00b6  Fusion-MPT 24G SAS/PCIe SAS50xx/SAS51xx
 		1000 5000  MegaRAID 9760W-32i 24G SAS/PCIe Storage Adapter
 		1000 5001  MegaRAID 9760W-16i 24G SAS/PCIe Storage Adapter
@@ -13296,6 +13304,7 @@
 	22eb  GB206 High Definition Audio Controller
 	22ec  GB207 High Definition Audio Controller
 	2302  GH100
+	230c  GH100 [H20 NVL16]
 	230e  GH100 [H20 NVL16]
 	2313  GH100 [H100 CNX]
 	2321  GH100 [H100L 94GB]
@@ -13547,7 +13556,7 @@
 	2f80  GB205 High Definition Audio Controller
 	3180  GB110 [Reserved Dev ID A]
 	3182  GB110 [B300 SXM6 AC]
-	31a1  GB110
+	31a1  GB110 [GB300 MaxQ]
 	31c0  GB110 [Reserved Dev ID B]
 	31c2  GB110 [GB300]
 	31fe  GB110
@@ -22978,6 +22987,7 @@
 15ce  Genrad Inc
 15cf  Hilscher Gesellschaft für Systemautomation mbH
 	0000  CIFX PCI/PCIe
+	0090  CIFX PCI/PCIe
 15d1  Infineon Technologies AG
 15d2  FIC (First International Computer Inc)
 15d3  NDS Technologies Israel Ltd
@@ -28949,9 +28959,23 @@
 	1608  PCIe Gen4 x4 M.2 2280
 	1f88  TE3420 PCIe Gen3 x4 M.2 2280
 	3420  PCIe Gen3 x4 M.2 2280
+	6100  TE3420 Series NVMe PCIe Gen3x4 SSD
+	6101  XE3420 Series NVMe PCIe Gen3x4 SSD
+	6102  TE4407 Series NVMe PCIe Gen4x4 SSD
+	6103  XE4407 Series NVMe PCIe Gen4x4 SSD
+	6104  TE4408 Series NVMe PCIe Gen4x4 SSD
+	6105  XE4408 Series NVMe PCIe Gen4x4 SSD
+	6106  TE4402 Series NVMe PCIe Gen4x4 SSD
+	6107  XE4402 Series NVMe PCIe Gen4x4 SSD
+	6108  TE4405 Series NVMe PCIe Gen4x4 SSD
+	6109  XE4405 Series NVMe PCIe Gen4x4 SSD
+	610a  TE4406 Series NVMe PCIe Gen4x4 SSD
+	610b  XE4406 Series NVMe PCIe Gen4x4 SSD
+	610c  TE3410 Series NVMe PCIe Gen3x4 SSD
 1f9d  Axelera AI
 	1100  Metis AIPU (rev 02)
 	11aa  Metis AIPU (rev 01)
+1fa4  Shandong SinoChip Semiconductors Co., Ltd
 1faa  Hexaflake (Shanghai) Information Technology Co., Ltd.
 	0c10  Compass C10 PF
 	0c11  Compass C10 VF
@@ -29306,6 +29330,11 @@
 		20d8 1211  TUNAN-7 2x100GbE Controller
 	2201  TUNAN-7 2x25GbE Controller
 		20d8 2201  TUNAN-7 2x25GbE Controller
+		20d8 2211  TUNAN-7V 2x25GbE Controller
+	3201  TUNAN-7 2x200GbE Controller
+		20d8 3201  TUNAN-7 2x200GbE Controller
+	4201  TUNAN-7 1x400GbE Controller
+		20d8 4201  TUNAN-7V 1x400GbE Controller
 20dc  Sharetronic Data Technology Co., Ltd.
 	1202  M.2 2280 PCIe Gen3 x 4 Series.
 20e1  CECloud Computing Technology Co., Ltd.
