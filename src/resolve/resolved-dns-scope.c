@@ -1889,4 +1889,4 @@ static const char* const dns_scope_origin_table[_DNS_SCOPE_ORIGIN_MAX] = {
         [DNS_SCOPE_DELEGATE] = "delegate",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(dns_scope_origin, DnsScopeOrigin);
+DEFINE_STRING_TABLE_LOOKUP(dns_scope_origin, DnsScopeOrigin, origin);

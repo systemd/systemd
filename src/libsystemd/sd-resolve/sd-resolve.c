@@ -598,7 +598,7 @@ static sd_resolve *resolve_free(sd_resolve *resolve) {
         return mfree(resolve);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_resolve, sd_resolve, resolve_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_resolve, sd_resolve, resolve, resolve_free);
 
 int sd_resolve_get_fd(sd_resolve *resolve) {
         assert_return(resolve, -EINVAL);
@@ -1153,7 +1153,7 @@ static sd_resolve_query *resolve_query_free(sd_resolve_query *q) {
         return mfree(q);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_resolve_query, sd_resolve_query, resolve_query_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_resolve_query, sd_resolve_query, q, resolve_query_free);
 
 int sd_resolve_query_is_done(sd_resolve_query *q) {
         assert_return(q, -EINVAL);

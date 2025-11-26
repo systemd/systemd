@@ -525,7 +525,7 @@ static SocketPeer* socket_peer_free(SocketPeer *p) {
         return mfree(p);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(SocketPeer, socket_peer, socket_peer_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(SocketPeer, socket_peer, p, socket_peer_free);
 
 int socket_acquire_peer(Socket *s, int fd, SocketPeer **ret) {
         _cleanup_(socket_peer_unrefp) SocketPeer *remote = NULL;
@@ -3659,7 +3659,7 @@ static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
         [SOCKET_EXEC_STOP_POST]   = "ExecStopPost",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(socket_exec_command, SocketExecCommand);
+DEFINE_STRING_TABLE_LOOKUP(socket_exec_command, SocketExecCommand, i);
 
 static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
         [SOCKET_SUCCESS]                         = "success",
@@ -3673,7 +3673,7 @@ static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
         [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult);
+DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult, i);
 
 static const char* const socket_timestamping_table[_SOCKET_TIMESTAMPING_MAX] = {
         [SOCKET_TIMESTAMPING_OFF] = "off",
@@ -3681,7 +3681,7 @@ static const char* const socket_timestamping_table[_SOCKET_TIMESTAMPING_MAX] = {
         [SOCKET_TIMESTAMPING_NS]  = "ns",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(socket_timestamping, SocketTimestamping);
+DEFINE_STRING_TABLE_LOOKUP(socket_timestamping, SocketTimestamping, p);
 
 SocketTimestamping socket_timestamping_from_string_harder(const char *s) {
         SocketTimestamping t;
@@ -3714,7 +3714,7 @@ static const char* const socket_defer_trigger_table[_SOCKET_DEFER_MAX] = {
         [SOCKET_DEFER_PATIENT] = "patient",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(socket_defer_trigger, SocketDeferTrigger, SOCKET_DEFER_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(socket_defer_trigger, SocketDeferTrigger, i, SOCKET_DEFER_YES);
 
 const UnitVTable socket_vtable = {
         .object_size = sizeof(Socket),

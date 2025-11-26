@@ -84,7 +84,7 @@ _public_ struct udev* udev_new(void) {
  *
  * Returns: the passed udev library context
  **/
-DEFINE_PUBLIC_TRIVIAL_REF_FUNC(struct udev, udev);
+DEFINE_PUBLIC_TRIVIAL_REF_FUNC(struct udev, udev, udev);
 
 /**
  * udev_unref:

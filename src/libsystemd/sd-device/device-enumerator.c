@@ -119,7 +119,7 @@ static sd_device_enumerator* device_enumerator_free(sd_device_enumerator *enumer
         return mfree(enumerator);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device_enumerator, sd_device_enumerator, device_enumerator_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device_enumerator, sd_device_enumerator, enumerator, device_enumerator_free);
 
 int device_enumerator_add_prioritized_subsystem(sd_device_enumerator *enumerator, const char *subsystem) {
         int r;

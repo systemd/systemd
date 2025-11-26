@@ -839,7 +839,7 @@ static const char *const resolv_conf_mode_table[_RESOLV_CONF_MODE_MAX] = {
         [RESOLV_CONF_AUTO]           = "auto",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(resolv_conf_mode, ResolvConfMode, RESOLV_CONF_AUTO);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(resolv_conf_mode, ResolvConfMode, a, RESOLV_CONF_AUTO);
 
 int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try) {
         int r;
@@ -912,7 +912,7 @@ static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
         [TIMEZONE_AUTO]    = "auto",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AUTO);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, a, TIMEZONE_AUTO);
 
 static const char *const console_mode_table[_CONSOLE_MODE_MAX] = {
         [CONSOLE_AUTOPIPE]    = "autopipe",
@@ -922,7 +922,7 @@ static const char *const console_mode_table[_CONSOLE_MODE_MAX] = {
         [CONSOLE_PIPE]        = "pipe",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);
+DEFINE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode, m);
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_userns_ownership, user_namespace_ownership, UserNamespaceOwnership);
 
@@ -935,7 +935,7 @@ static const char *const user_namespace_ownership_table[_USER_NAMESPACE_OWNERSHI
 };
 
 /* Note: while "yes" maps to "auto" here, we don't really document that, in order to make things clearer and less confusing to users. */
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(user_namespace_ownership, UserNamespaceOwnership, USER_NAMESPACE_OWNERSHIP_AUTO);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(user_namespace_ownership, UserNamespaceOwnership, a, USER_NAMESPACE_OWNERSHIP_AUTO);
 
 int config_parse_userns_chown(
                 const char *unit,

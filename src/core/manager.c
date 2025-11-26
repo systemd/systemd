@@ -5236,7 +5236,7 @@ static const char* const manager_state_table[_MANAGER_STATE_MAX] = {
         [MANAGER_STOPPING]     = "stopping",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(manager_state, ManagerState);
+DEFINE_STRING_TABLE_LOOKUP(manager_state, ManagerState, m);
 
 static const char* const manager_objective_table[_MANAGER_OBJECTIVE_MAX] = {
         [MANAGER_OK]          = "ok",
@@ -5251,7 +5251,7 @@ static const char* const manager_objective_table[_MANAGER_OBJECTIVE_MAX] = {
         [MANAGER_SWITCH_ROOT] = "switch-root",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(manager_objective, ManagerObjective);
+DEFINE_STRING_TABLE_LOOKUP(manager_objective, ManagerObjective, m);
 
 static const char* const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
         [MANAGER_TIMESTAMP_FIRMWARE]                 = "firmware",
@@ -5276,4 +5276,4 @@ static const char* const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
         [MANAGER_TIMESTAMP_SHUTDOWN_START]           = "shutdown-start",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp);
+DEFINE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp, m);

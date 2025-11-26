@@ -10,4 +10,4 @@ static const char* const bridge_state_table[_NETDEV_BRIDGE_STATE_MAX] = {
         [NETDEV_BRIDGE_STATE_FORWARDING] = "forwarding",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(bridge_state, BridgeState);
+DEFINE_STRING_TABLE_LOOKUP(bridge_state, BridgeState, d);

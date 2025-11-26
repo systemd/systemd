@@ -34,7 +34,7 @@ static const char *const fr_act_type_table[__FR_ACT_MAX] = {
 };
 
 assert_cc(__FR_ACT_MAX <= UINT8_MAX);
-DEFINE_STRING_TABLE_LOOKUP(fr_act_type, int);
+DEFINE_STRING_TABLE_LOOKUP(fr_act_type, int, t);
 
 static RoutingPolicyRule* routing_policy_rule_detach_impl(RoutingPolicyRule *rule) {
         assert(rule);
@@ -74,7 +74,7 @@ static RoutingPolicyRule* routing_policy_rule_free(RoutingPolicyRule *rule) {
         return mfree(rule);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(RoutingPolicyRule, routing_policy_rule, routing_policy_rule_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(RoutingPolicyRule, routing_policy_rule, rule, routing_policy_rule_free);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 routing_policy_rule_section_hash_ops,

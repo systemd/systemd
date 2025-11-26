@@ -950,4 +950,4 @@ static const char* const bus_transport_table[] = {
         [BUS_TRANSPORT_CAPSULE] = "capsule",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(bus_transport, BusTransport);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(bus_transport, BusTransport, transport);

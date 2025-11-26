@@ -673,7 +673,7 @@ static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
         return mfree(c);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(Tpm2Context, tpm2_context, tpm2_context_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Tpm2Context, tpm2_context, context, tpm2_context_free);
 
 static const TPMT_SYM_DEF SESSION_TEMPLATE_SYM_AES_128_CFB = {
         .algorithm = TPM2_ALG_AES,
@@ -6479,7 +6479,7 @@ static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MA
         [TPM2_EVENT_NVPCR_SEPARATOR] = "nvpcr-separator",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
+DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType, type);
 
 const char* tpm2_userspace_log_path(void) {
         return secure_getenv("SYSTEMD_MEASURE_LOG_USERSPACE") ?: "/run/log/systemd/tpm2-measure.log";
@@ -9210,7 +9210,7 @@ static const char* const tpm2_pcr_index_table[_TPM2_PCR_INDEX_MAX_DEFINED] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(tpm2_pcr_index, int, TPM2_PCRS_MAX - 1);
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(tpm2_pcr_index, int);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(tpm2_pcr_index, int, pcr);
 
 bool tpm2_nvpcr_name_is_valid(const char *name) {
         return filename_is_valid(name) &&

@@ -496,7 +496,7 @@ static const char * const media_state_table[_MEDIA_STATE_MAX] = {
         [MEDIA_STATE_OTHER]      = "other",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(media_state, MediaState);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(media_state, MediaState, i);
 
 static int dvd_ram_media_update_state(Context *c) {
         struct scsi_cmd sc;

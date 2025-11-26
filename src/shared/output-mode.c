@@ -42,4 +42,4 @@ static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
         [OUTPUT_WITH_UNIT] = "with-unit",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(output_mode, OutputMode);
+DEFINE_STRING_TABLE_LOOKUP(output_mode, OutputMode, m);

@@ -173,7 +173,7 @@ char* save_timezone(void);
 
 bool clock_supported(clockid_t clock);
 
-usec_t usec_shift_clock(usec_t, clockid_t from, clockid_t to);
+usec_t usec_shift_clock(usec_t x, clockid_t from, clockid_t to);
 
 int get_timezone(char **ret);
 const char* etc_localtime(void);

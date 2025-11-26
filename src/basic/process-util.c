@@ -1248,17 +1248,17 @@ bool oom_score_adjust_is_valid(int oa) {
         return oa >= OOM_SCORE_ADJ_MIN && oa <= OOM_SCORE_ADJ_MAX;
 }
 
-unsigned long personality_from_string(const char *p) {
+unsigned long personality_from_string(const char *s) {
         Architecture architecture;
 
-        if (!p)
+        if (!s)
                 return PERSONALITY_INVALID;
 
         /* Parse a personality specifier. We use our own identifiers that indicate specific ABIs, rather than just
          * hints regarding the register size, since we want to keep things open for multiple locally supported ABIs for
          * the same register size. */
 
-        architecture = architecture_from_string(p);
+        architecture = architecture_from_string(s);
         if (architecture < 0)
                 return PERSONALITY_INVALID;
 
@@ -2304,7 +2304,7 @@ static const char *const sigchld_code_table[] = {
         [CLD_CONTINUED] = "continued",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(sigchld_code, int);
+DEFINE_STRING_TABLE_LOOKUP(sigchld_code, int, i);
 
 static const char* const sched_policy_table[] = {
         [SCHED_OTHER] = "other",
@@ -2314,7 +2314,7 @@ static const char* const sched_policy_table[] = {
         [SCHED_RR] = "rr",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, i, INT_MAX);
 
 _noreturn_ void report_errno_and_exit(int errno_fd, int error) {
         int r;

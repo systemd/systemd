@@ -27,57 +27,55 @@ typedef void* (*mfree_func_t)(void *p);
                 0;                               \
         })
 
-#define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)                                     \
-        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */      \
-        scope type *name##_ref(type *p) {                                               \
-                if (!p)                                                                 \
+#define _DEFINE_TRIVIAL_REF_FUNC(type, name, arg, scope)                                \
+        scope type *name##_ref(type *arg) {                                             \
+                if (!arg)                                                               \
                         return NULL;                                                    \
                                                                                         \
                 /* For type check. */                                                   \
-                unsigned *q = &p->n_ref;                                                \
-                assert(*q > 0);                                                         \
-                assert_se(*q < UINT_MAX);                                               \
+                unsigned *_q = &arg->n_ref;                                             \
+                assert(*_q > 0);                                                        \
+                assert_se(*_q < UINT_MAX);                                              \
                                                                                         \
-                (*q)++;                                                                 \
-                return p;                                                               \
+                (*_q)++;                                                                \
+                return arg;                                                             \
         }
 
-#define _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, scope)                        \
-        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */      \
-        scope type *name##_unref(type *p) {                                             \
-                if (!p)                                                                 \
+#define _DEFINE_TRIVIAL_UNREF_FUNC(type, name, arg, free_func, scope)                   \
+        scope type *name##_unref(type *arg) {                                           \
+                if (!arg)                                                               \
                         return NULL;                                                    \
                                                                                         \
-                assert(p->n_ref > 0);                                                   \
-                p->n_ref--;                                                             \
-                if (p->n_ref > 0)                                                       \
+                assert(arg->n_ref > 0);                                                 \
+                arg->n_ref--;                                                           \
+                if (arg->n_ref > 0)                                                     \
                         return NULL;                                                    \
                                                                                         \
-                return free_func(p);                                                    \
+                return free_func(arg);                                                  \
         }
 
-#define DEFINE_TRIVIAL_REF_FUNC(type, name)     \
-        _DEFINE_TRIVIAL_REF_FUNC(type, name,)
-#define DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name)     \
-        _DEFINE_TRIVIAL_REF_FUNC(type, name, static)
-#define DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name)      \
-        _DEFINE_TRIVIAL_REF_FUNC(type, name, _public_)
+#define DEFINE_TRIVIAL_REF_FUNC(type, name, arg)     \
+        _DEFINE_TRIVIAL_REF_FUNC(type, name, arg,)
+#define DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name, arg)     \
+        _DEFINE_TRIVIAL_REF_FUNC(type, name, arg, static)
+#define DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name, arg)      \
+        _DEFINE_TRIVIAL_REF_FUNC(type, name, arg, _public_)
 
-#define DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func)        \
-        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func,)
-#define DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func)        \
-        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, static)
-#define DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func)         \
-        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, _public_)
+#define DEFINE_TRIVIAL_UNREF_FUNC(type, name, arg, free_func)        \
+        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, arg, free_func,)
+#define DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, arg, free_func)        \
+        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, arg, free_func, static)
+#define DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, arg, free_func)         \
+        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, arg, free_func, _public_)
 
-#define DEFINE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
-        DEFINE_TRIVIAL_REF_FUNC(type, name);                    \
-        DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func);
+#define DEFINE_TRIVIAL_REF_UNREF_FUNC(type, name, arg, free_func)    \
+        DEFINE_TRIVIAL_REF_FUNC(type, name, arg);                    \
+        DEFINE_TRIVIAL_UNREF_FUNC(type, name, arg, free_func);
 
-#define DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
-        DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name);                    \
-        DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func);
+#define DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(type, name, arg, free_func)    \
+        DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name, arg);                    \
+        DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, arg, free_func);
 
-#define DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
-        DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name);                    \
-        DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func);
+#define DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(type, name, arg, free_func)    \
+        DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name, arg);                    \
+        DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, arg, free_func);

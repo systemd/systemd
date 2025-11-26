@@ -18,7 +18,7 @@ static const char * const kernel_image_type_table[_KERNEL_IMAGE_TYPE_MAX] = {
         [KERNEL_IMAGE_TYPE_PE]      = "pe",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(kernel_image_type, KernelImageType);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(kernel_image_type, KernelImageType, t);
 
 static int uki_read_pretty_name(
                 int fd,
