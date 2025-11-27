@@ -2056,7 +2056,7 @@ bool exec_context_restrict_filesystems_set(const ExecContext *c) {
 bool exec_context_with_rootfs(const ExecContext *c) {
         assert(c);
 
-        /* Checks if RootDirectory=, RootImage= or RootDirectoryFileDescriptor= are used */
+        /* Checks if RootDirectory=, RootImage=, RootMStack= or RootDirectoryFileDescriptor= are used */
 
         return !empty_or_root(c->root_directory) || c->root_image || c->root_directory_as_fd || c->root_mstack;
 }
