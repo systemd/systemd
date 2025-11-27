@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <assert.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -9,7 +8,6 @@
 #include "fuzz.h"
 
 #include "nts.h"
-#include "nts_crypto.h"
 #include "nts_extfields.h"
 
 static void eat(const uint8_t *buf, size_t size) {

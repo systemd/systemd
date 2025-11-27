@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
 #include <assert.h>
 #include <endian.h>
 #include <sys/random.h>
-#include <sys/types.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
