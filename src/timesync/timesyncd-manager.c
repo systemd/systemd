@@ -1581,6 +1581,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
                 int prefs_len = 0;
                 FOREACH_ELEMENT(algo_type, prefs)
+                        /* filter out AEAD's that may not be supported */
                         if (NTS_get_param(*algo_type))
                                 prefs[prefs_len++] = *algo_type;
 
