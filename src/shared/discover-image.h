@@ -70,7 +70,7 @@ int image_name_lock(RuntimeScope scope, const char *name, int operation, LockFil
 int image_set_limit(Image *i, uint64_t referenced_max);
 int image_set_pool_limit(RuntimeScope scope, ImageClass class, uint64_t referenced_max);
 
-int image_read_metadata(Image *i, const ImagePolicy *image_policy, RuntimeScope scope);
+int image_read_metadata(Image *i, const char *root, const ImagePolicy *image_policy, RuntimeScope scope);
 
 bool image_in_search_path(RuntimeScope scope, ImageClass class, const char *root, const char *image);
 
