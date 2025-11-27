@@ -91,6 +91,24 @@ typedef enum PrivatePIDs {
         _PRIVATE_PIDS_INVALID = -EINVAL,
 } PrivatePIDs;
 
+typedef struct PinnedResource {
+        /* Pins a disk image, directory or mstack by file descriptors. The paths are stored too, but they are
+         * intended to be decoration only, to enhance log messages and should not be load-bearing
+         * otherwise. */
+        int directory_fd;
+        char *directory;
+        int image_fd;
+        char *image;
+        MStack *mstack_loaded;
+        char *mstack;
+} PinnedResource;
+
+#define PINNED_RESOURCE_NULL                    \
+        (PinnedResource) {                      \
+                .directory_fd = -EBADF,         \
+                .image_fd = -EBADF,             \
+        }
+
 typedef struct BindMount {
         char *source;
         char *destination;
@@ -128,10 +146,7 @@ typedef struct MountImage {
 typedef struct NamespaceParameters {
         RuntimeScope runtime_scope;
 
-        int root_directory_fd;
-        const char *root_directory;
-        const char *root_image;
-        const char *root_mstack;
+        const PinnedResource *rootfs;
         const MountOptions *root_image_options;
         const ImagePolicy *root_image_policy;
 
@@ -201,6 +216,7 @@ typedef struct NamespaceParameters {
         PrivateTmp private_tmp;
         PrivateTmp private_var_tmp;
         PrivatePIDs private_pids;
+        PrivateUsers private_users;
 
         PidRef *bpffs_pidref;
         int bpffs_socket_fd;
@@ -304,3 +320,6 @@ int refresh_extensions_in_namespace(
                 const PidRef *target,
                 const char *hierarchy_env,
                 const NamespaceParameters *p);
+
+void pinned_resource_done(PinnedResource *p);
+bool pinned_resource_is_set(const PinnedResource *p);
