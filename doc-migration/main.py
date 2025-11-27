@@ -3,6 +3,7 @@
 import os
 import json
 import argparse
+import shutil
 from typing import List
 from db2rst import convert_xml_to_rst
 
@@ -72,6 +73,36 @@ def update_json_file(json_path: str, updated_entries: List[dict]) -> None:
     """
     with open(json_path, 'w') as json_file:
         json.dump(updated_entries, json_file, indent=4)
+
+
+def copy_non_xml_code_examples(src_dir: str, output_dir: str) -> None:
+    """
+    Copies non-XML files from src_dir into code-examples located one level above output_dir.
+    Files with extensions c, sh, or py are placed into a subfolder named after the extension.
+    All other non-XML files go directly under that code-examples directory.
+    This includes a few of non-relevant files (meson.build etc), hopefully that
+    has no adverse effects through other processes outside of /doc-migration.
+    """
+    out_abs = os.path.abspath(output_dir)
+    parent_dir = os.path.dirname(out_abs)
+    code_examples_base = os.path.join(parent_dir, "code-examples")
+    os.makedirs(code_examples_base, exist_ok=True)
+
+    for entry in os.listdir(src_dir):
+        src_path = os.path.join(src_dir, entry)
+        if not os.path.isfile(src_path):
+            continue
+        if entry.endswith(".xml"):
+            continue
+
+        suffix = entry.rsplit(".", 1)[-1].lower() if "." in entry else ""
+        if suffix in {"c", "sh", "py"}:
+            dest_dir = os.path.join(code_examples_base, suffix)
+        else:
+            dest_dir = code_examples_base
+
+        os.makedirs(dest_dir, exist_ok=True)
+        shutil.copy2(src_path, os.path.join(dest_dir, entry))
 
 
 def process_xml_files_in_directory(dir: str, output_dir: str, specific_file: str = None, errored: bool = False, unhandled_only: bool = False) -> None:
@@ -205,6 +236,7 @@ def main():
 
     process_xml_files_in_directory(
         args.dir, args.output, args.file, args.errored, args.unhandled_only)
+    copy_non_xml_code_examples(args.dir, args.output)
 
 
 if __name__ == "__main__":
