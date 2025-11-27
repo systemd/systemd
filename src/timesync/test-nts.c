@@ -1,17 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_OPENSSL
-#include <openssl/ssl.h>
-#endif
-#include <stdio.h>
-#include <string.h>
-
 #include "nts.h"
 #include "nts_crypto.h"
 #include "nts_extfields.h"
 
 #include "tests.h"
-#include "timesyncd-conf.h"
 
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #pragma GCC diagnostic ignored "-Wshadow"
