@@ -37,6 +37,7 @@ import os
 from pathlib import Path
 import traceback
 import textwrap
+import shutil
 
 # Start indenting at the first or second listitem level
 # This is mainly an aesthetic choice.
@@ -88,6 +89,10 @@ FILES_USED_FOR_INCLUDES = [
 SKIP_LITERAL_INCLUDES = [
     '../man/vtable-example.xml'
 ]
+
+_SCRIPT_DIR = os.path.dirname(__file__)
+SKIP_LITERAL_INCLUDES_ABS = set(os.path.abspath(os.path.join(_SCRIPT_DIR, p)) for p in SKIP_LITERAL_INCLUDES)
+SKIP_LITERAL_INCLUDES_BASENAMES = set(os.path.basename(p) for p in SKIP_LITERAL_INCLUDES)
 
 ALLOWED_EMPTY_TAGS = [
     'refname',
@@ -194,7 +199,17 @@ def normalize_whitespace(elem):
 
 def _run(input_file, output_dir):
     global _current_filename
-    if input_file in SKIP_LITERAL_INCLUDES:
+    abs_input_file = os.path.abspath(input_file)
+    if abs_input_file in SKIP_LITERAL_INCLUDES_ABS:
+        # Copy skipped literal XML into code-examples/xml next to output_dir
+        parent_dir = os.path.dirname(os.path.abspath(output_dir))
+        dest_dir = os.path.join(parent_dir, 'code-examples', 'xml')
+        os.makedirs(dest_dir, exist_ok=True)
+        dest_path = os.path.join(dest_dir, os.path.basename(abs_input_file))
+        try:
+            shutil.copy2(abs_input_file, dest_path)
+        except Exception as e:
+            _warn(f"Failed to copy literal XML '{abs_input_file}' to '{dest_path}': {e}")
         return
     _current_filename = input_file
     # sys.stderr.write("Parsing XML file `%s'...\n" % input_file)
@@ -320,7 +335,11 @@ def _includes(el):
         elif not el.get("xpointer"):
             if el.get("parse") == 'text':
                 # Handle literal xml includes
-                return f".. literalinclude:: {el.get('href')}"
+                href = el.get('href')
+                basename = os.path.basename(href)
+                if basename in SKIP_LITERAL_INCLUDES_BASENAMES:
+                    return f".. literalinclude:: /code-examples/xml/{basename}"
+                return f".. literalinclude:: {href}"
             return f".. include:: {el.get('href').replace('xml', 'rst')}"
         elif el.get('href') in include_files:
             return f""".. include:: {el.get('href').replace('xml', 'rst')}
