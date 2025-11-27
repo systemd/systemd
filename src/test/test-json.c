@@ -48,7 +48,7 @@ static void test_tokenizer_one(const char *data, ...) {
                 if (t == JSON_TOKEN_END || t < 0)
                         break;
 
-                else if (t == JSON_TOKEN_STRING) {
+                if (t == JSON_TOKEN_STRING) {
                         const char *nn;
 
                         nn = va_arg(ap, const char *);
@@ -959,7 +959,7 @@ static const char *mytestenum_table[_mymax] = {
         [with_some_dashes] = "with-some-dashes",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(mytestenum, mytestenum);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(mytestenum, mytestenum, i);
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_mytestenum, mytestenum, mytestenum_from_string);
 

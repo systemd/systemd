@@ -174,4 +174,4 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_TILEGX]      = "tilegx",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(architecture, Architecture);
+DEFINE_STRING_TABLE_LOOKUP(architecture, Architecture, a);

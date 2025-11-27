@@ -2111,8 +2111,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "PrivateTmpEx")) {
+        if (streq(name, "PrivateTmpEx")) {
                 const char *s;
                 PrivateTmp t;
 
@@ -2146,8 +2147,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "PrivateUsersEx")) {
+        if (streq(name, "PrivateUsersEx")) {
                 const char *s;
                 PrivateUsers t;
 
@@ -2524,8 +2526,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "SetCredential", "SetCredentialEncrypted")) {
+        if (STR_IN_SET(name, "SetCredential", "SetCredentialEncrypted")) {
                 bool isempty = true;
 
                 r = sd_bus_message_enter_container(message, 'a', "(say)");
@@ -2595,8 +2598,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "LoadCredential", "LoadCredentialEncrypted")) {
+        if (STR_IN_SET(name, "LoadCredential", "LoadCredentialEncrypted")) {
                 bool isempty = true;
 
                 r = sd_bus_message_enter_container(message, 'a', "(ss)");
@@ -2641,8 +2645,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "ImportCredential", "ImportCredentialEx")) {
+        if (STR_IN_SET(name, "ImportCredential", "ImportCredentialEx")) {
                 bool empty = true, ex = streq(name, "ImportCredentialEx");
 
                 r = sd_bus_message_enter_container(message, 'a', ex ? "(ss)" : "s");
@@ -2692,8 +2697,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "SyslogLevel")) {
+        if (streq(name, "SyslogLevel")) {
                 int32_t level;
 
                 r = sd_bus_message_read(message, "i", &level);
@@ -2709,8 +2715,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "SyslogFacility")) {
+        if (streq(name, "SyslogFacility")) {
                 int32_t facility;
 
                 r = sd_bus_message_read(message, "i", &facility);
@@ -2726,8 +2733,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "LogNamespace")) {
+        if (streq(name, "LogNamespace")) {
                 const char *n;
 
                 r = sd_bus_message_read(message, "s", &n);
@@ -2752,8 +2760,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "LogExtraFields")) {
+        if (streq(name, "LogExtraFields")) {
                 size_t n = 0;
 
                 r = sd_bus_message_enter_container(message, 'a', "ay");
@@ -2908,7 +2917,7 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "SystemCallLog")) {
+        } if (streq(name, "SystemCallLog")) {
                 int allow_list;
                 _cleanup_strv_free_ char **l = NULL;
 
@@ -2969,8 +2978,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "SystemCallArchitectures")) {
+        if (streq(name, "SystemCallArchitectures")) {
                 _cleanup_strv_free_ char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
@@ -2996,8 +3006,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "RestrictAddressFamilies")) {
+        if (streq(name, "RestrictAddressFamilies")) {
                 _cleanup_strv_free_ char **l = NULL;
                 int allow_list;
 
@@ -3101,7 +3112,9 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "CPUAffinityFromNUMA")) {
+        }
+
+        if (streq(name, "CPUAffinityFromNUMA")) {
                 int q;
 
                 r = sd_bus_message_read_basic(message, 'b', &q);
@@ -3114,8 +3127,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "NUMAPolicy")) {
+        if (streq(name, "NUMAPolicy")) {
                 int32_t type;
 
                 r = sd_bus_message_read(message, "i", &type);
@@ -3129,8 +3143,9 @@ int bus_exec_context_set_transient_property(
                         c->numa_policy.type = type;
 
                 return 1;
+        }
 
-        } else if (streq(name, "Nice")) {
+        if (streq(name, "Nice")) {
                 int32_t q;
 
                 r = sd_bus_message_read(message, "i", &q);
@@ -3148,8 +3163,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "CPUSchedulingPolicy")) {
+        if (streq(name, "CPUSchedulingPolicy")) {
                 int32_t q;
 
                 r = sd_bus_message_read(message, "i", &q);
@@ -3174,8 +3190,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "CPUSchedulingPriority")) {
+        if (streq(name, "CPUSchedulingPriority")) {
                 int32_t p;
 
                 r = sd_bus_message_read(message, "i", &p);
@@ -3195,8 +3212,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "IOSchedulingClass")) {
+        if (streq(name, "IOSchedulingClass")) {
                 int32_t q;
 
                 r = sd_bus_message_read(message, "i", &q);
@@ -3220,8 +3238,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "IOSchedulingPriority")) {
+        if (streq(name, "IOSchedulingPriority")) {
                 int32_t p;
 
                 r = sd_bus_message_read(message, "i", &p);
@@ -3239,8 +3258,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "WorkingDirectory")) {
+        if (streq(name, "WorkingDirectory")) {
                 _cleanup_free_ char *simplified = NULL;
                 bool missing_ok = false, is_home = false;
                 const char *s;
@@ -3284,9 +3304,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name,
-                              "StandardInputFileDescriptorName", "StandardOutputFileDescriptorName", "StandardErrorFileDescriptorName")) {
+        if (STR_IN_SET(name, "StandardInputFileDescriptorName", "StandardOutputFileDescriptorName", "StandardErrorFileDescriptorName")) {
                 const char *s;
 
                 r = sd_bus_message_read(message, "s", &s);
@@ -3328,10 +3348,11 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name,
-                              "StandardInputFile",
-                              "StandardOutputFile", "StandardOutputFileToAppend", "StandardOutputFileToTruncate",
-                              "StandardErrorFile", "StandardErrorFileToAppend", "StandardErrorFileToTruncate")) {
+        }
+        if (STR_IN_SET(name,
+                       "StandardInputFile",
+                       "StandardOutputFile", "StandardOutputFileToAppend", "StandardOutputFileToTruncate",
+                       "StandardErrorFile", "StandardErrorFileToAppend", "StandardErrorFileToTruncate")) {
                 const char *s;
 
                 r = sd_bus_message_read(message, "s", &s);
@@ -3393,8 +3414,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "StandardInputData")) {
+        if (streq(name, "StandardInputData")) {
                 const void *p;
                 size_t sz;
 
@@ -3436,9 +3458,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "Environment")) {
-
+        if (streq(name, "Environment")) {
                 _cleanup_strv_free_ char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
@@ -3470,8 +3492,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "UnsetEnvironment")) {
+        if (streq(name, "UnsetEnvironment")) {
 
                 _cleanup_strv_free_ char **l = NULL;
 
@@ -3504,8 +3527,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "OOMScoreAdjust")) {
+        if (streq(name, "OOMScoreAdjust")) {
                 int oa;
 
                 r = sd_bus_message_read(message, "i", &oa);
@@ -3522,8 +3546,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "CoredumpFilter")) {
+        if (streq(name, "CoredumpFilter")) {
                 uint64_t f;
 
                 r = sd_bus_message_read(message, "t", &f);
@@ -3537,8 +3562,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "EnvironmentFiles")) {
+        if (streq(name, "EnvironmentFiles")) {
                 _cleanup_(memstream_done) MemStream m = {};
                 _cleanup_free_ char *joined = NULL;
                 _cleanup_strv_free_ char **l = NULL;
@@ -3622,8 +3648,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "PassEnvironment")) {
+        if (streq(name, "PassEnvironment")) {
 
                 _cleanup_strv_free_ char **l = NULL;
 
@@ -3655,10 +3682,11 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "ReadWriteDirectories", "ReadOnlyDirectories", "InaccessibleDirectories",
-                              "ReadWritePaths", "ReadOnlyPaths", "InaccessiblePaths", "ExecPaths", "NoExecPaths",
-                              "ExtensionDirectories")) {
+        if (STR_IN_SET(name, "ReadWriteDirectories", "ReadOnlyDirectories", "InaccessibleDirectories",
+                             "ReadWritePaths", "ReadOnlyPaths", "InaccessiblePaths", "ExecPaths", "NoExecPaths",
+                             "ExtensionDirectories")) {
                 _cleanup_strv_free_ char **l = NULL;
                 char ***dirs;
 
@@ -3711,8 +3739,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "ExecSearchPath")) {
+        if (streq(name, "ExecSearchPath")) {
                 _cleanup_strv_free_ char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
@@ -3740,8 +3769,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "RuntimeDirectory", "StateDirectory", "CacheDirectory", "LogsDirectory", "ConfigurationDirectory")) {
+        if (STR_IN_SET(name, "RuntimeDirectory", "StateDirectory", "CacheDirectory", "LogsDirectory", "ConfigurationDirectory")) {
                 _cleanup_strv_free_ char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
@@ -3788,8 +3818,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "StateDirectoryQuota", "CacheDirectoryQuota", "LogsDirectoryQuota")) {
+        if (STR_IN_SET(name, "StateDirectoryQuota", "CacheDirectoryQuota", "LogsDirectoryQuota")) {
                 uint64_t quota_absolute = UINT64_MAX;
                 uint32_t quota_scale = UINT32_MAX;
                 const char *enforce_flag;
@@ -3829,8 +3860,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "AppArmorProfile", "SmackProcessLabel")) {
+        if (STR_IN_SET(name, "AppArmorProfile", "SmackProcessLabel")) {
                 int ignore;
                 const char *s;
 
@@ -3863,8 +3895,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "BindPaths", "BindReadOnlyPaths")) {
+        if (STR_IN_SET(name, "BindPaths", "BindReadOnlyPaths")) {
                 char *source, *destination;
                 int ignore_enoent;
                 uint64_t mount_flags;
@@ -3923,8 +3956,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "TemporaryFileSystem")) {
+        if (streq(name, "TemporaryFileSystem")) {
                 const char *path, *options;
                 bool empty = true;
 
@@ -3969,7 +4003,9 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if ((suffix = startswith(name, "Limit"))) {
+        }
+
+        if ((suffix = startswith(name, "Limit"))) {
                 const char *soft = NULL;
                 int ri;
 
@@ -4038,8 +4074,9 @@ int bus_exec_context_set_transient_property(
 
                         return 1;
                 }
+        }
 
-        } else if (streq(name, "MountImages")) {
+        if (streq(name, "MountImages")) {
                 _cleanup_free_ char *format_str = NULL;
                 MountImage *mount_images = NULL;
                 size_t n_mount_images = 0;
@@ -4139,7 +4176,9 @@ int bus_exec_context_set_transient_property(
                 mount_images = mount_image_free_many(mount_images, &n_mount_images);
 
                 return 1;
-        } else if (streq(name, "ExtensionImages")) {
+        }
+
+        if (streq(name, "ExtensionImages")) {
                 _cleanup_free_ char *format_str = NULL;
                 MountImage *extension_images = NULL;
                 size_t n_extension_images = 0;
@@ -4228,8 +4267,9 @@ int bus_exec_context_set_transient_property(
                 extension_images = mount_image_free_many(extension_images, &n_extension_images);
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink", "LogsDirectorySymlink")) {
+        if (STR_IN_SET(name, "StateDirectorySymlink", "RuntimeDirectorySymlink", "CacheDirectorySymlink", "LogsDirectorySymlink")) {
                 char *source, *destination;
                 ExecDirectory *directory;
                 uint64_t symlink_flags;
@@ -4299,8 +4339,9 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "RootImagePolicy", "MountImagePolicy", "ExtensionImagePolicy")) {
+        if (STR_IN_SET(name, "RootImagePolicy", "MountImagePolicy", "ExtensionImagePolicy")) {
                 _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
                 const char *s;
 

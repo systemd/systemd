@@ -129,7 +129,9 @@ static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
         if (rcode == -ECANCELED) {
                 log_debug_errno(rcode, "PTY forwarder disconnected.");
                 return sd_event_exit(e, EXIT_SUCCESS);
-        } else if (rcode < 0) {
+        }
+
+        if (rcode < 0) {
                 (void) sd_event_exit(e, EXIT_FAILURE);
                 return log_error_errno(rcode, "Error on PTY forwarding logic: %m");
         }

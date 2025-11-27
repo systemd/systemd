@@ -645,8 +645,8 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
         if (version)
                 return describe(bus, target_path, version);
-        else
-                return list_versions(bus, target_path);
+
+        return list_versions(bus, target_path);
 }
 
 static int check_describe_finished(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
@@ -1464,7 +1464,8 @@ static int verb_enable(int argc, char **argv, void *userdata) {
 
         if (arg_reboot && did_anything)
                 return reboot_now();
-        else if (did_anything)
+
+        if (did_anything)
                 log_info("Feature(s) %s.", enable ? "downloaded" : "deleted");
         else
                 log_info("Nothing %s%s.",

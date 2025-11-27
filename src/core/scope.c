@@ -723,7 +723,7 @@ static const char* const scope_result_table[_SCOPE_RESULT_MAX] = {
         [SCOPE_FAILURE_OOM_KILL]  = "oom-kill",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(scope_result, ScopeResult);
+DEFINE_STRING_TABLE_LOOKUP(scope_result, ScopeResult, i);
 
 const UnitVTable scope_vtable = {
         .object_size = sizeof(Scope),

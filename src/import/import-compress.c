@@ -604,4 +604,4 @@ static const char* const import_compress_type_table[_IMPORT_COMPRESS_TYPE_MAX] =
 #endif
 };
 
-DEFINE_STRING_TABLE_LOOKUP(import_compress_type, ImportCompressType);
+DEFINE_STRING_TABLE_LOOKUP(import_compress_type, ImportCompressType, t);

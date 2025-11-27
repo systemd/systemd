@@ -112,8 +112,8 @@ bool oom_score_adjust_is_valid(int oa);
  * personality we're interested in. */
 #define OPINIONATED_PERSONALITY_MASK 0xFFUL
 
-unsigned long personality_from_string(const char *p);
-const char* personality_to_string(unsigned long);
+unsigned long personality_from_string(const char *s);
+const char* personality_to_string(unsigned long p);
 
 int safe_personality(unsigned long p);
 int opinionated_personality(unsigned long *ret);

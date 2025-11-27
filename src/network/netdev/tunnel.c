@@ -42,7 +42,7 @@ static const char* const tunnel_mode_table[_TUNNEL_MODE_MAX] = {
         [TUNNEL_MODE_IP6IP6] = "ip6ip6",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(tunnel_mode, TunnelMode);
+DEFINE_STRING_TABLE_LOOKUP(tunnel_mode, TunnelMode, d);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_tunnel_mode, tunnel_mode, TunnelMode);
 
 static int dhcp4_pd_create_6rd_tunnel_name(Link *link) {

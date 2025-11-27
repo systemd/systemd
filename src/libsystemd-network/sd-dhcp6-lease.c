@@ -1089,7 +1089,7 @@ static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
         return mfree(lease);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_lease, sd_dhcp6_lease, dhcp6_lease_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_lease, sd_dhcp6_lease, lease, dhcp6_lease_free);
 
 int dhcp6_lease_new(sd_dhcp6_lease **ret) {
         sd_dhcp6_lease *lease;

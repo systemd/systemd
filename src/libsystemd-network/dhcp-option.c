@@ -223,7 +223,7 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
                 r = option_append(message->options, size, offset, code, optlen, optval);
                 if (r >= 0)
                         return 0;
-                else if (r == -ENOBUFS && (use_file || use_sname)) {
+                if (r == -ENOBUFS && (use_file || use_sname)) {
                         /* did not fit, but we have more buffers to try
                            close the options array and move the offset to its end */
                         r = option_append(message->options, size, offset, SD_DHCP_OPTION_END, 0, NULL);
@@ -244,7 +244,8 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
                         if (r >= 0) {
                                 *offset = size + file_offset;
                                 return 0;
-                        } else if (r == -ENOBUFS && use_sname) {
+                        }
+                        if (r == -ENOBUFS && use_sname) {
                                 /* did not fit, but we have more buffers to try
                                    close the file array and move the offset to its end */
                                 r = option_append(message->file, sizeof(message->file), &file_offset, SD_DHCP_OPTION_END, 0, NULL);
@@ -266,9 +267,9 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
                         if (r >= 0) {
                                 *offset = size + use_file*sizeof(message->file) + sname_offset;
                                 return 0;
-                        } else
-                                /* no space, or other error, give up */
-                                return r;
+                        }
+                        /* no space, or other error, give up */
+                        return r;
                 }
         }
 
@@ -479,7 +480,7 @@ int sd_dhcp_option_new(uint8_t option, const void *data, size_t length, sd_dhcp_
         return 0;
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_option, sd_dhcp_option, dhcp_option_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_option, sd_dhcp_option, ra, dhcp_option_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 dhcp_option_hash_ops,
                 void,

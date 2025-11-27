@@ -211,7 +211,7 @@ static QDisc* qdisc_free(QDisc *qdisc) {
         return mfree(qdisc);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(QDisc, qdisc, qdisc_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(QDisc, qdisc, qdisc, qdisc_free);
 
 static const char *qdisc_get_tca_kind(const QDisc *qdisc) {
         assert(qdisc);
@@ -596,7 +596,9 @@ int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Ma
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
                 return 0;
-        } else if (!IN_SET(type, RTM_NEWQDISC, RTM_DELQDISC)) {
+        }
+
+        if (!IN_SET(type, RTM_NEWQDISC, RTM_DELQDISC)) {
                 log_warning("rtnl: received unexpected message type %u when processing QDisc, ignoring.", type);
                 return 0;
         }
@@ -605,7 +607,9 @@ int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Ma
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get ifindex from message, ignoring: %m");
                 return 0;
-        } else if (ifindex <= 0) {
+        }
+
+        if (ifindex <= 0) {
                 log_warning("rtnl: received QDisc message with invalid ifindex %d, ignoring.", ifindex);
                 return 0;
         }

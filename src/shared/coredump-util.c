@@ -33,7 +33,7 @@ static const char *const coredump_filter_table[_COREDUMP_FILTER_MAX] = {
         [COREDUMP_FILTER_SHARED_DAX]          = "shared-dax",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(coredump_filter, CoredumpFilter);
+DEFINE_STRING_TABLE_LOOKUP(coredump_filter, CoredumpFilter, i);
 
 int coredump_filter_mask_from_string(const char *s, uint64_t *ret) {
         uint64_t m = 0;

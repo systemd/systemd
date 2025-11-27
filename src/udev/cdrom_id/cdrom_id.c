@@ -389,9 +389,9 @@ static int cd_profiles_old_mmc(Context *c) {
                         c->media_track_count = 1;
                         c->media_track_count_data = 1;
                         return 1;
-                } else
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
-                                               "no current profile, assuming no media.");
+                }
+
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM), "no current profile, assuming no media.");
         };
 
         c->has_media = true;
@@ -496,7 +496,7 @@ static const char * const media_state_table[_MEDIA_STATE_MAX] = {
         [MEDIA_STATE_OTHER]      = "other",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(media_state, MediaState);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(media_state, MediaState, i);
 
 static int dvd_ram_media_update_state(Context *c) {
         struct scsi_cmd sc;

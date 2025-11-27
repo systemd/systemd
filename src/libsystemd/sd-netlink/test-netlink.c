@@ -244,7 +244,7 @@ static struct test_async_object *test_async_object_free(struct test_async_object
         return mfree(t);
 }
 
-DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(struct test_async_object, test_async_object, test_async_object_free);
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(struct test_async_object, test_async_object, p, test_async_object_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct test_async_object *, test_async_object_unref);
 
 static int link_handler2(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {

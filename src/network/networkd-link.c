@@ -305,7 +305,7 @@ static Link* link_free(Link *link) {
         return mfree(link);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(Link, link, link_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Link, link, link, link_free);
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 link_hash_ops,
@@ -2741,7 +2741,8 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0)
                 return log_debug_errno(r, "rtnl: failed to read ifindex from link message: %m");
-        else if (ifindex <= 0)
+
+        if (ifindex <= 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "rtnl: received link message without valid ifindex.");
 
         r = sd_rtnl_message_link_get_type(message, &iftype);
@@ -2850,7 +2851,9 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
         if (r < 0) {
                 log_warning_errno(r, "rtnl: Could not get message type, ignoring: %m");
                 return 0;
-        } else if (!IN_SET(type, RTM_NEWLINK, RTM_DELLINK)) {
+        }
+
+        if (!IN_SET(type, RTM_NEWLINK, RTM_DELLINK)) {
                 log_warning("rtnl: Received unexpected message type %u when processing link, ignoring.", type);
                 return 0;
         }
@@ -2859,7 +2862,9 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
         if (r < 0) {
                 log_warning_errno(r, "rtnl: Could not get ifindex from link message, ignoring: %m");
                 return 0;
-        } else if (ifindex <= 0) {
+        }
+
+        if (ifindex <= 0) {
                 log_warning("rtnl: received link message with invalid ifindex %d, ignoring.", ifindex);
                 return 0;
         }
@@ -3026,7 +3031,7 @@ static const char* const link_state_table[_LINK_STATE_MAX] = {
         [LINK_STATE_LINGER]      = "linger",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState);
+DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState, s);
 
 int link_flags_to_string_alloc(uint32_t flags, char **ret) {
         _cleanup_free_ char *str = NULL;
@@ -3073,7 +3078,7 @@ static const char * const kernel_operstate_table[] = {
         [IF_OPER_UP]             = "up",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(kernel_operstate, int);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(kernel_operstate, int, t);
 
 bool link_has_local_lease_domain(Link *link) {
         assert(link);

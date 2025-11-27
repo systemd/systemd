@@ -15,7 +15,7 @@ static const char * const netdev_local_address_type_table[_NETDEV_LOCAL_ADDRESS_
         [NETDEV_LOCAL_ADDRESS_DHCP_PD]  = "dhcp_pd",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(netdev_local_address_type, NetDevLocalAddressType);
+DEFINE_STRING_TABLE_LOOKUP(netdev_local_address_type, NetDevLocalAddressType, t);
 
 int link_get_local_address(
                 Link *link,

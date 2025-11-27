@@ -16,7 +16,7 @@ static const char* const fou_encap_type_table[_NETDEV_FOO_OVER_UDP_ENCAP_MAX] = 
         [NETDEV_FOO_OVER_UDP_ENCAP_GUE] = "GenericUDPEncapsulation",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(fou_encap_type, FooOverUDPEncapType);
+DEFINE_STRING_TABLE_LOOKUP(fou_encap_type, FooOverUDPEncapType, d);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_fou_encap_type, fou_encap_type, FooOverUDPEncapType);
 
 static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message *m) {
@@ -201,7 +201,7 @@ static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "FooOverUDP peer port is set but peer address not configured in %s. Rejecting configuration.",
                                               filename);
-        else if (t->peer_family != AF_UNSPEC && t->peer_port == 0)
+        if (t->peer_family != AF_UNSPEC && t->peer_port == 0)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "FooOverUDP peer port not set but peer address is configured in %s. Rejecting configuration.",
                                               filename);

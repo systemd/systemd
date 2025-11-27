@@ -872,10 +872,9 @@ static int print_entry(
 
         if (t)
                 return print_list(stdout, j, t);
-        else if (arg_field)
+        if (arg_field)
                 return print_field(stdout, j);
-        else
-                return print_info(stdout, j, n_found > 0);
+        return print_info(stdout, j, n_found > 0);
 }
 
 static int dump_list(int argc, char **argv, void *userdata) {

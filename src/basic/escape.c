@@ -441,10 +441,8 @@ char* xescape_full(const char *s, const char *bad, size_t console_width, XEscape
 char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFlags flags) {
         if (FLAGS_SET(flags, XESCAPE_8_BIT))
                 return xescape_full(str, /* bad= */ NULL, console_width, flags);
-        else
-                return utf8_escape_non_printable_full(str,
-                                                      console_width,
-                                                      FLAGS_SET(flags, XESCAPE_FORCE_ELLIPSIS));
+
+        return utf8_escape_non_printable_full(str, console_width, FLAGS_SET(flags, XESCAPE_FORCE_ELLIPSIS));
 }
 
 char* octescape(const char *s, size_t len) {

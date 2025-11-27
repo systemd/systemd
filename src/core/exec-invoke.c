@@ -1653,8 +1653,8 @@ static bool seccomp_allows_drop_privileges(const ExecContext *c) {
 
         if (c->syscall_allow_list)
                 return have_capget && have_capset && have_prctl;
-        else
-                return !(have_capget || have_capset || have_prctl);
+
+        return !(have_capget || have_capset || have_prctl);
 }
 
 static bool skip_seccomp_unavailable(const char *msg) {
@@ -2034,7 +2034,7 @@ static const char* const exec_directory_env_name_table[_EXEC_DIRECTORY_TYPE_MAX]
         [EXEC_DIRECTORY_CONFIGURATION] = "CONFIGURATION_DIRECTORY",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(exec_directory_env_name, ExecDirectoryType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(exec_directory_env_name, ExecDirectoryType, i);
 
 static int build_environment(
                 const ExecContext *c,
@@ -3010,7 +3010,8 @@ static int setup_exec_directory(
 
                                         log_notice("Unit state directory %s missing but matching configuration directory %s exists, assuming update from systemd 253 or older, creating compatibility symlink.", p, q);
                                         continue;
-                                } else if (r != -ENOENT)
+                                }
+                                if (r != -ENOENT)
                                         log_warning_errno(r, "Unable to detect whether unit configuration directory '%s' exists, assuming not: %m", q);
 
                         } else if (r < 0)

@@ -443,7 +443,7 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
         return mfree(lease);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_lease, sd_dhcp_lease, dhcp_lease_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_lease, sd_dhcp_lease, lease, dhcp_lease_free);
 
 static int lease_parse_be32_seconds(const uint8_t *option, size_t len, bool max_as_infinity, usec_t *ret) {
         assert(option);
@@ -1164,7 +1164,9 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
                         if (c == 0) {
                                 /* End of name */
                                 break;
-                        } else if (c <= 63) {
+                        }
+
+                        if (c <= 63) {
                                 const char *label;
 
                                 /* Literal label */

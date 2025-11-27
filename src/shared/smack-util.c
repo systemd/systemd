@@ -49,7 +49,7 @@ static const char* const smack_attr_table[_SMACK_ATTR_MAX] = {
         [SMACK_ATTR_IPOUT]      = "security.SMACK64IPOUT",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(smack_attr, SmackAttr);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(smack_attr, SmackAttr, i);
 
 #endif
 
