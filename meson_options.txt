@@ -449,8 +449,7 @@ option('gnutls', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 
 option('openssl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'openssl support')
 option('cryptolib', type : 'combo', choices : ['auto', 'openssl', 'gcrypt'], deprecated : true)
-option('timesync-nts', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'network time security support')
+option('timesync-nts', type : 'feature', description : 'network time security support')
 option('p11kit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'p11kit support')
 option('libfido2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },

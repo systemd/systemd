@@ -4,6 +4,7 @@
 #include <openssl/ssl.h>
 
 #include "nts_crypto.h"
+#include "timesyncd-forward.h"
 
 #if !OPENSSL_VERSION_PREREQ(3,0)
 #    error Your OpenSSL version does not support SIV modes, need at least version 3.0.
@@ -37,13 +38,12 @@ typedef int init_f(EVP_CIPHER_CTX*, const EVP_CIPHER*, ENGINE*, const uint8_t*, 
 typedef int upd_f(EVP_CIPHER_CTX*, uint8_t*, int*, const uint8_t*, int);
 
 static int process_assoc_data(
-        EVP_CIPHER_CTX *state,
-        const AssociatedData *info,
-        const struct NTS_AEADParam *aead,
+                EVP_CIPHER_CTX *state,
+                const AssociatedData *info,
+                const struct NTS_AEADParam *aead,
+                init_f EVP_CryptInit_ex,
+                upd_f EVP_CryptUpdate) {
 
-        init_f EVP_CryptInit_ex,
-        upd_f EVP_CryptUpdate
-) {
         assert(state);
         assert(info);
         assert(aead);
