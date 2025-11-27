@@ -2,8 +2,6 @@
 
 #include <string.h>
 
-#include "fuzz.h"
-
 #include "nts_crypto.h"
 
 
