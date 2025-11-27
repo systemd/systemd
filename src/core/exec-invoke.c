@@ -57,6 +57,7 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nsflags.h"
+#include "nsresource.h"
 #include "open-file.h"
 #include "osc-context.h"
 #include "pam-util.h"
@@ -2396,10 +2397,10 @@ static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, 
 
 static int setup_private_users(
                 PrivateUsers private_users,
-                uid_t ouid,
-                gid_t ogid,
-                uid_t uid,
-                gid_t gid,
+                uid_t ouid, /* service manager uid */
+                gid_t ogid, /* service manager gid */
+                uid_t uid,  /* unit uid */
+                gid_t gid,  /* unit gid */
                 bool allow_setgroups) {
 
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
@@ -2424,6 +2425,25 @@ static int setup_private_users(
 
         case PRIVATE_USERS_NO:
                 return 0; /* Early exit */
+
+        case PRIVATE_USERS_MANAGED: {
+                if (uid != 0 || gid != 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "When allocating dynamic user namespace range, target UID/GID must be root, refusing.");
+
+                _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K);
+                if (userns_fd < 0)
+                        return userns_fd;
+
+                if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                        return log_debug_errno(errno, "Failed to join freshly allocated user namespace: %m");
+
+                /* In "managed" mode the originating UID is not mapped hence we need to explicitly become root in the new userns now. */
+                r = reset_uid_gid();
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to reset UID/GID to root: %m");
+
+                return 1; /* Early exit */
+        }
 
         case PRIVATE_USERS_IDENTITY:
                 uid_map = strdup("0 0 65536\n");
