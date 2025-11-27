@@ -353,6 +353,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RootMStack=</varname></term>
+
+        <listitem><para>Takes a path to a
+        <citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        directory encapsulating a mount stack consisting of layers and bind mounts. Similar to
+        <varname>RootDirectory=</varname> and <varname>RootImage=</varname> this runs the service off a
+        distinct root file system, in this case set up via <literal>overlayfs</literal>.</para>
+
+        <para>Since <filename>.mstack/</filename> directories may reference disk images (DDIs) similar device
+        policy extensions and dependencies are in effect when <varname>RootMStack=</varname> is used as are
+        if <varname>RootImage=</varname> is used.</para>
+
+        <xi:include href="vpick.xml" xpointer="image"/>
+
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MountAPIVFS=</varname></term>
 
         <listitem><para>Takes a boolean argument. If on, a private mount namespace for the unit's processes is created
