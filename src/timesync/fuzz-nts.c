@@ -6,7 +6,6 @@
 #include <unistd.h>
 
 #include "fuzz.h"
-
 #include "nts.h"
 
 static void eat(const uint8_t *buf, size_t size) {
