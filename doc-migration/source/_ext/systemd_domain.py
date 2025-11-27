@@ -146,17 +146,47 @@ class SystemdObject(ObjectDescription[str]):
         return sig  # returned value is passed to add_target_and_index as "name"
 
     def add_target_and_index(self, name: str, sig: str, signode: addnodes.desc_signature) -> None:
-        # Register target/anchor and domain object entry
+        # Register target/anchor and domain object entry with de-duplication
         kind = self.name.split(':')[-1]  # env|option|constant
         group = (self.options.get('group') or 'miscellaneous').strip()
 
-        anchor = _composite_anchor(kind, self.env.docname, [sig])
-        signode['ids'].append(anchor)
+        # Base anchor computed from this signature
+        base = _composite_anchor(kind, self.env.docname, [sig])
+
+        # Track per-directive CSV duplicates
+        if not hasattr(self, '_systemd_seen_bases'):
+            self._systemd_seen_bases = set()
+            self._systemd_primary_anchor_for_base = {}
+
+        # Track per-document usage to ensure uniqueness across the whole page
         try:
-            # mark as explicit target so headerlink is emitted
-            self.state.document.note_explicit_target(signode)
+            counts = self.env.temp_data.setdefault('systemd_anchor_counts', {})  # type: ignore[attr-defined]
         except Exception:
-            pass
+            # If env.temp_data is not available for any reason, fall back to a local counter
+            if not hasattr(self.env, '_systemd_anchor_counts'):
+                self.env._systemd_anchor_counts = {}  # type: ignore[attr-defined]
+            counts = self.env._systemd_anchor_counts  # type: ignore[attr-defined]
+
+        assign_id = True
+        if base in getattr(self, '_systemd_seen_bases', set()):
+            # Duplicate alias within the same directive block — reuse first anchor
+            anchor = self._systemd_primary_anchor_for_base.get(base, base)
+            assign_id = False
+        else:
+            # First time we see this base in this directive
+            n = counts.get(base, 0)
+            anchor = base if n == 0 else f"{base}-{n+1}"
+            counts[base] = n + 1
+            self._systemd_seen_bases.add(base)
+            self._systemd_primary_anchor_for_base[base] = anchor
+
+        if assign_id:
+            signode['ids'].append(anchor)
+            try:
+                # mark as explicit target so headerlink is emitted
+                self.state.document.note_explicit_target(signode)
+            except Exception:
+                pass
 
         domain: SystemdDomain = self.env.get_domain('systemd')  # type: ignore
         domain.add_object(kind, _normalize_name(sig), {
