@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "memory-util.h"
-
+#include <errno.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>

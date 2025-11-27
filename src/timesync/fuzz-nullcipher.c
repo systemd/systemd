@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "nts_crypto.h"
-
+#include "timesyncd-forward.h"
 
 /* Null cipher, to let the fuzzer also generate meaningful inputs for
  * the encrypted extension fields */

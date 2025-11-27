@@ -5,7 +5,7 @@
 #include "nts.h"
 #include "nts_crypto.h"
 #include "nts_extfields.h"
-
+#include "timesyncd-forward.h"
 #include "tests.h"
 
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"

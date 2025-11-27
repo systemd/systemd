@@ -1749,7 +1749,6 @@ have = get_option('timesync-nts').require(
         error_message : 'openssl version >= 3.5 required').allowed()
 conf.set10('ENABLE_TIMESYNC_NTS', have)
 
-
 #####################################################################
 
 pymod = import('python')

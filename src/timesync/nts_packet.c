@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "nts.h"
+#include "timesyncd-forward.h"
 
 /* should we emit the NTS record that forces chrony to be 'compliant' */
 #define CHRONY_WORKAROUND
