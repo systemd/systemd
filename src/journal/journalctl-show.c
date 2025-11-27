@@ -362,7 +362,9 @@ static int on_first_event(sd_event_source *s, void *userdata) {
                         return log_error_errno(r, "Failed to get cursor: %m");
         }
 
+        /* Setup and initial processing are done, we're ready to wait for more data. */
         (void) sd_notify(/* unset_environment= */ false, "READY=1");
+
         return 0;
 }
 
@@ -472,11 +474,9 @@ static int setup_event(Context *c, int fd) {
         else if (r < 0)
                 return log_error_errno(r, "Failed to add io event source for stdout: %m");
 
-        if (arg_lines != 0 || arg_since_set) {
-                r = sd_event_add_defer(e, NULL, on_first_event, c);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add defer event source: %m");
-        }
+        r = sd_event_add_defer(e, NULL, on_first_event, c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add defer event source: %m");
 
         c->event = TAKE_PTR(e);
         return 0;
@@ -583,6 +583,7 @@ int action_show(char **matches) {
                 return 0;
         }
 
+        /* Setup is done, we'll start processing data. */
         (void) sd_notify(/* unset_environment= */ false, "READY=1");
 
         r = show(&c);
