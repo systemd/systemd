@@ -14,6 +14,7 @@
 #include "manager-serialize.h"
 #include "parse-util.h"
 #include "serialize.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
@@ -74,6 +75,13 @@ static void manager_serialize_uid_refs(Manager *m, FILE *f) {
 
 static void manager_serialize_gid_refs(Manager *m, FILE *f) {
         manager_serialize_uid_refs_internal(f, m->gid_refs, "destroy-ipc-gid");
+}
+
+static int unit_compare_id(Unit * const *a, Unit * const *b) {
+        assert(a);
+        assert(b);
+
+        return strcmp((*a)->id, (*b)->id);
 }
 
 int manager_serialize(
@@ -175,11 +183,23 @@ int manager_serialize(
 
         (void) fputc('\n', f);
 
+        _cleanup_free_ Unit **units = NULL;
+        size_t n_units = 0;
+
         HASHMAP_FOREACH_KEY(u, t, m->units) {
                 if (u->id != t)
                         continue;
 
-                r = unit_serialize_state(u, f, fds, switching_root);
+                if (!GREEDY_REALLOC(units, n_units + 1))
+                        return -ENOMEM;
+
+                units[n_units++] = u;
+        }
+
+        typesafe_qsort(units, n_units, unit_compare_id);
+
+        FOREACH_ARRAY(unit, units, n_units) {
+                r = unit_serialize_state(*unit, f, fds, switching_root);
                 if (r < 0)
                         return r;
         }
@@ -201,6 +221,9 @@ static int manager_deserialize_one_unit(Manager *m, const char *name, FILE *f, F
                         return r;
                 return log_notice_errno(r, "Failed to load unit \"%s\", skipping deserialization: %m", name);
         }
+
+        if (!streq(u->id, name))
+                log_warning("Loaded unit '%s' via alias '%s'! This is a dangerous behaivour potentially leading to https://github.com/systemd/systemd/issues/38817", u->id, name);
 
         r = unit_deserialize_state(u, f, fds);
         if (r < 0) {
