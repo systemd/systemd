@@ -68,7 +68,8 @@ REQUIREMENTS:
                      ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
                                and MOVE_MOUNT_BENEATH
-                     ≥ 6.6 for quota support on tmpfs
+                     ≥ 6.6 for quota support on tmpfs and cgroup2fs memory_hugetlb_accounting
+                           option
                      ≥ 6.9 for pidfs
                      ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
                             and block device 'partscan' sysfs attribute
