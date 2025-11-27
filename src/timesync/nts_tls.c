@@ -109,37 +109,48 @@ void NTS_TLS_close(NTS_TLS *opaque) {
         SSL_free(session);
 }
 
-#define CHECK(what) if(what); else goto CLEANUP;
-#define CLEANUP exit
-
 NTS_TLS* NTS_TLS_setup(
                 const char *hostname,
                 int socket) {
 
+        int r;
+
         assert(hostname);
 
         SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
-        CHECK(ctx);
-        #undef CLEANUP
-        #define CLEANUP ctx_cleanup
+        if (!ctx)
+                goto exit;
 
         SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
-        CHECK(SSL_CTX_set_default_verify_paths(ctx) == 1);
-        CHECK(SSL_CTX_set_min_proto_version(ctx, TLS1_3_VERSION) == 1);
+        r = SSL_CTX_set_default_verify_paths(ctx);
+        if (r != 1)
+                goto ctx_cleanup;
+
+        r = SSL_CTX_set_min_proto_version(ctx, TLS1_3_VERSION);
+        if (r != 1)
+                goto ctx_cleanup;
 
         SSL *tls = SSL_new(ctx);
-        CHECK(tls);
-        #undef CLEANUP
-        #define CLEANUP sess_cleanup
+        if (!tls)
+                goto ctx_cleanup;
 
-        CHECK(SSL_set1_host(tls, hostname) == 1);
-        CHECK(SSL_set_tlsext_host_name(tls, hostname) == 1);
+        r = SSL_set1_host(tls, hostname);
+        if (r != 1)
+                goto sess_cleanup;
+
+        r = SSL_set_tlsext_host_name(tls, hostname);
+        if (r != 1)
+                goto sess_cleanup;
 
         unsigned char alpn[] = "\x07ntske/1";
-        CHECK(SSL_set_alpn_protos(tls, alpn, strlen((char*)alpn)) == 0);
+        r = SSL_set_alpn_protos(tls, alpn, strlen((char*)alpn));
+        if (r != 0)
+                goto sess_cleanup;
 
         BIO *bio = BIO_new(BIO_s_socket());
-        CHECK(bio);
+        if (!bio)
+                goto sess_cleanup;
+
         BIO_set_fd(bio, socket, BIO_NOCLOSE);
         SSL_set_bio(tls, bio, bio);
 
