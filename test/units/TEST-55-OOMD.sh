@@ -125,6 +125,8 @@ test_basic() {
     if systemctl "$@" status TEST-55-OOMD-testbloat.service; then exit 42; fi
     if ! systemctl "$@" status TEST-55-OOMD-testchill.service; then exit 24; fi
 
+    assert_eq "$(systemctl "$@" show TEST-55-OOMD-testbloat.service -P ManagedOOMKills)" "1"
+
     systemctl "$@" kill --signal=KILL TEST-55-OOMD-testbloat.service || :
     systemctl "$@" stop TEST-55-OOMD-testbloat.service
     systemctl "$@" stop TEST-55-OOMD-testchill.service
@@ -296,6 +298,50 @@ testcase_reload() {
     assert_in 'Swap Used Limit: 90.00%' "$(oomctl)"
     assert_in 'Default Memory Pressure Limit: 60.00%' "$(oomctl)"
     assert_in 'Default Memory Pressure Duration: 2s' "$(oomctl)"
+}
+
+testcase_kernel_oom() {
+    cat >/tmp/script.sh <<"EOF"
+#!/bin/bash
+choom --adjust '+1000' -- bash -c 'echo f >/proc/sysrq-trigger && exec sleep infinity'
+choom --adjust '+1000' -p $$
+echo f >/proc/sysrq-trigger
+exec sleep infinity
+EOF
+    chmod +x /tmp/script.sh
+
+    (! systemd-run --wait --unit oom-kill -p OOMPolicy=continue /tmp/script.sh)
+    # With OOMPolicy=continue, we shouldn't get the oom-kill result.
+    assert_eq "$(systemctl show oom-kill -P Result)" "signal"
+    # Check that OOMKills reports 2 individual processes killed.
+    assert_eq "$(systemctl show oom-kill -P OOMKills)" "2"
+    systemctl reset-failed
+
+    (! systemd-run --wait --unit oom-kill -p OOMPolicy=kill /tmp/script.sh)
+    # Check that a regular kernel oom kill with OOMPolicy=kill results in the oom-kill result.
+    assert_eq "$(systemctl show oom-kill -P Result)" "oom-kill"
+    # Check that OOMKills reports 1 oom group kill instead of the number of processes that were killed.
+    assert_eq "$(systemctl show oom-kill -P OOMKills)" "1"
+    systemctl reset-failed
+
+    cat >/tmp/script.sh <<"EOF"
+#!/bin/bash
+echo '+memory' >/sys/fs/cgroup/system.slice/oom-kill.service/cgroup.subtree_control
+mkdir /sys/fs/cgroup/system.slice/oom-kill.service/sub
+echo 1 >/sys/fs/cgroup/system.slice/oom-kill.service/sub/memory.oom.group
+echo $$ >/sys/fs/cgroup/system.slice/oom-kill.service/sub/cgroup.procs
+choom --adjust '+1000' -p $$
+echo f >/proc/sysrq-trigger
+exec sleep infinity
+EOF
+    chmod +x /tmp/script.sh
+
+    (! systemd-run --wait --unit oom-kill -p OOMPolicy=kill -p Delegate=yes -p DelegateSubgroup=init.scope /tmp/script.sh)
+    # Test that an oom-kill in a delegated unit in a subcgroup with memory.oom.group=1 also results in the
+    # oom-kill exit status.
+    assert_eq "$(systemctl show oom-kill -P Result)" "oom-kill"
+    assert_eq "$(systemctl show oom-kill -P OOMKills)" "1"
+    systemctl reset-failed
 }
 
 run_testcases
