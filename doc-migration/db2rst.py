@@ -790,7 +790,7 @@ def varname(el):
 
     classname = _nearest_varlist_class(el)
     if classname:
-        return f":directive:{classname}:var:`%s`" % _concat(el).strip()
+        return f":systemd:var:`%s`" % _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
 
@@ -807,7 +807,7 @@ def option(el):
 
     classname = _nearest_varlist_class(el)
     if classname:
-        return f":directive:{classname}:option:`%s`" % _concat(el).strip()
+        return f":systemd:option:`%s`" % _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
 
@@ -817,7 +817,7 @@ def constant(el):
 
     classname = _nearest_varlist_class(el)
     if classname:
-        return f":directive:{classname}:constant:`%s`" % _concat(el).strip()
+        return f":systemd:constant:`%s`" % _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
 
@@ -982,25 +982,22 @@ def varlistentry(el):
     for i in el:
         if i.tag == 'term':
             if not first_term_emitted:
-                # Emit one canonical label and definition marker per term ABOVE the title
-                if group and term_names:
-                    # Compute composite heading id to match the actual section id
-                    composite_anchor = "-".join(_make_id(n) for n in term_names)
-                    # Emit one definition per term, carrying the composite anchor
+                # Emit domain definitions (no headings). Group names by inferred kind.
+                if term_names:
+                    names_by_type: Dict[str, List[str]] = {}
                     for name in term_names:
-                        role_type = _infer_role_type_from_name(name)
-                        s += ".. directive-def::\n"
-                        s += f"   :group: {group}\n"
-                        s += f"   :name: {name}\n"
-                        s += f"   :anchor: {composite_anchor}\n"
-                        if role_type:
-                            s += f"   :type: {role_type}\n"
+                        role_type = _infer_role_type_from_name(name) or 'option'
+                        names_by_type.setdefault(role_type, []).append(name)
+                    # Emit one systemd directive per type with comma-separated names
+                    for role_type, names in names_by_type.items():
+                        s += f".. systemd:{role_type}:: {', '.join(names)}\n"
+                        if group:
+                            s += f"   :group: {group}\n"
                         s += "\n"
-                # Render the visible heading/title (first term renders title for all terms)
-                s += _conv(i) + '\n\n'
+                # Do NOT render a title for the terms; keep only the name line created by the directive
                 first_term_emitted = True
             else:
-                # Skip subsequent term nodes; the first one already rendered a combined title
+                # Skip subsequent term nodes; a single directive line suffices
                 pass
         else:
             s += _conv(i)
