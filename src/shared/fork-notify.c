@@ -219,7 +219,7 @@ int journal_fork(RuntimeScope scope, char * const* units, PidRef *ret_pidref) {
                         "-q",
                         "--follow",
                         "--no-pager",
-                        "--lines=1",
+                        "--lines=0",
                         "--synchronize-on-exit=yes");
         if (!argv)
                 return log_oom_debug();
