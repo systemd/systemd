@@ -6,7 +6,6 @@
 #include <unistd.h>
 
 #include "fuzz.h"
-
 #include "nts.h"
 #include "nts_extfields.h"
 

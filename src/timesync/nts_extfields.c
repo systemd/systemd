@@ -8,14 +8,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "memory-util.h"
 #include "nts_crypto.h"
 #include "nts_extfields.h"
 
 #ifndef ENCRYPTED_PLACEHOLDERS
 #define ENCRYPTED_PLACEHOLDERS 0
 #endif
-
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 
 typedef struct {
         uint8_t *data;
@@ -129,7 +128,7 @@ int NTS_add_extension_fields(
         AssociatedData info[] = {
                 { dest, buf.data - dest },  /* aad */
                 { EF_nonce,  nonce_len },   /* nonce */
-                { NULL },
+                { },
         };
 
         int ptxt_len = ptxt.data - buf.data;
@@ -196,7 +195,7 @@ int NTS_parse_extension_fields(
                         AssociatedData info[] = {
                                 { src, buf.data - src }, /* aad */
                                 { nonce, nonce_len },    /* nonce */
-                                { NULL },
+                                { },
                         };
 
                         uint8_t *plaintext = content;
