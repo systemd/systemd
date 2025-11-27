@@ -57,6 +57,7 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nsflags.h"
+#include "nsresource.h"
 #include "open-file.h"
 #include "osc-context.h"
 #include "pam-util.h"
@@ -2402,7 +2403,14 @@ static int bpffs_prepare(
         return 0;
 }
 
-static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
+static int setup_private_users(
+                PrivateUsers private_users,
+                uid_t ouid, /* service manager uid */
+                gid_t ogid, /* service manager gid */
+                uid_t uid,  /* unit uid */
+                gid_t gid,  /* unit gid */
+                bool allow_setgroups) {
+
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
@@ -2423,6 +2431,25 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
 
         if (private_users == PRIVATE_USERS_NO)
                 return 0;
+
+        if (private_users == PRIVATE_USERS_DYNAMIC64K) {
+                if (uid != 0 || gid != 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "When allocating dynamic user namespace range, target UID/GID must be root, refusing.");
+
+                _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K);
+                if (userns_fd < 0)
+                        return userns_fd;
+
+                if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                        return log_debug_errno(errno, "Failed to join freshly allocated user namespace: %m");
+
+                /* In "dynamic64k" mode the originating UID is not mapped hence we need to explicitly become root in the new userns now. */
+                r = reset_uid_gid();
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to reset UID/GID to root: %m");
+
+                return 1;
+        }
 
         if (private_users == PRIVATE_USERS_IDENTITY) {
                 uid_map = strdup("0 0 65536\n");
