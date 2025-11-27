@@ -1,0 +1,126 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd.mstack">
+
+  <refentryinfo>
+    <title>systemd.mstack</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.mstack</refentrytitle>
+    <manvolnum>7</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.mstack</refname>
+    <refpurpose>Mount stacks in self descriptive directories</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>Directories with the <literal>.mstack/</literal> suffix may encode 'mount stacks' for assembling OS
+    mount hierarchies based on bind and overlay mounts, for use in
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    <option>--mstack=</option> switch or the service manager's <option>RootMStack=</option> setting for
+    services. <literal>.mstack/</literal> directroies may contain various files and subdirectories, where
+    each will effect one layer of an <literal>overlayfs</literal> mount, or a bind mount. The name of the
+    file or subdirectory indicates how it shall used in the mount hierarchy. Specifically, the following
+    names are defined:</para>
+
+    <orderedlist>
+      <listitem><para>A <filename>layer@<replaceable>id</replaceable>/</filename> directory will be turned into
+      a layer of an overlayfs mount. The <literal>id</literal> identifier is used to define the order of the
+      layers: a version sort is executed, with the first entry being the bottom layer in the
+      <literal>overlayfs</literal> stack, and the last entry becoming the highest layer (precisely:
+      highest "lowerdir") in the <literal>overlayfs</literal> stack.</para></listitem>
+
+      <listitem><para>Similar, a <filename>layer@<replaceable>id</replaceable>.raw</filename> regular file
+      will be mounted as a DDI, and the resulting mount will be turned into an overlayfs layer, following the
+      same sorting rules.</para></listitem>
+
+      <listitem><para>An <filename>rw</filename> directory will be turned into a writable layer at the very top
+      of the <literal>overlayfs</literal> stack. A subdirectory <filename>data</filename> of it will become
+      the "upperdir", a subdirectory <filename>work</filename> will become the "workdir". Note that these two
+      subdirectories do not need to be created explicitly, they are created automatically on first use should
+      they be missing.</para></listitem>
+
+      <listitem><para>A <filename>bind@<replaceable>location</replaceable>/</filename> directory will be bind
+      mounted to the mount point indicated by the <variable>location</variable> identifier, in read-write
+      fashion. The loction is encoded via the same escaping logic used for naming <literal>.mount</literal>
+      units, i.e. slashes become dashes.</para></listitem>
+
+      <listitem><para>Similar, a
+      <filename>bind@<replaceable>location</replaceable>.raw</filename> file will be mounted as a DDI, and the
+      resulting mount bind mounted to the specified location.</para></listitem>
+
+      <listitem><para>A <filename>robind@<replaceable>location</replaceable>/</filename> is treated very
+      similar to <filename>bind@<replaceable>location</replaceable>/</filename>, but the resulting bind mount
+      is read-only.</para></listitem>
+
+      <listitem><para>Similar, <filename>robind@<replaceable>location</replaceable>.raw</filename> creates a
+      read-only bind mount from a DDI.</para></listitem>
+
+      <listitem><para>If a <filename>root/</filename> subdirectory it is used as root of the resulting mount
+      hierarchy, and only the <filename>usr/</filename> subtree of the overlayfs mount will be bound to
+      <filename>usr/</filename> in the hierarchy.</para></listitem>
+    </orderedlist>
+
+    <para>Note that each of the entry types above may be a symbolic link pointing to a directory or image
+    file, instead a directory or image file itself.</para>
+
+    <para>On each listed file or subdirectory type the
+    <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    functionality may be used, for automatic selection of versioned resources.</para>
+
+    <para>Use the
+    <citerefentry><refentrytitle>systemd-mstack</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool
+    to process or mount <filename>.mstack/</filename> directories from the command line.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para>The following <filename>.mstack/</filename> consists of two read-only overlayfs layers as DDI, plus one
+    writable directory one on top. The read-only layers are symlinked:</para>
+
+    <orderedlist>
+      <listitem><para><filename>foobar.mstack/layer@0.raw</filename> → <filename>../base.raw</filename></para></listitem>
+      <listitem><para><filename>foobar.mstack/layer@1.raw</filename> → <filename>../app.raw</filename></para></listitem>
+      <listitem><para><filename>foobar.mstack/rw/</filename></para></listitem>
+    </orderedlist>
+
+    <para>The following <filename>.mstack/</filename> consists of a read-only DDI mounted to <literal>/usr/</literal>
+    and writable root:</para>
+
+    <orderedlist>
+      <listitem><para><filename>waldo.mstack/layer@0.raw</filename> → <filename>../vendor.raw</filename></para></listitem>
+      <listitem><para><filename>waldo.mstack/root/</filename></para></listitem>
+    </orderedlist>
+
+    <para>The following <filename>.mstack/</filename> consists of a read-only DDI mounted as root, but a
+    writable <filename>/var/</filename> mounted on top:</para>
+
+    <orderedlist>
+      <listitem><para><filename>quux.mstack/layer@0.raw</filename> → <filename>../myapp1.raw</filename></para></listitem>
+      <listitem><para><filename>quux.mstack/bind:var</filename> → <filename>../myapp1-var/</filename></para></listitem>
+    </orderedlist>
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-mstack</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-vpick</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      </simplelist></para>
+  </refsect1>
+
+</refentry>
