@@ -3511,8 +3511,7 @@ static int compile_symlinks(
 
 static bool insist_on_sandboxing(
                 const ExecContext *context,
-                const char *root_dir,
-                const char *root_image,
+                const PinnedResource *rootfs,
                 const BindMount *bind_mounts,
                 size_t n_bind_mounts) {
 
@@ -3526,7 +3525,7 @@ static bool insist_on_sandboxing(
         if (context->n_temporary_filesystems > 0)
                 return true;
 
-        if (root_dir || root_image || context->root_directory_as_fd)
+        if (pinned_resource_is_set(rootfs))
                 return true;
 
         if (context->n_mount_images > 0)
@@ -3553,8 +3552,7 @@ static bool insist_on_sandboxing(
 static int setup_ephemeral(
                 const ExecContext *context,
                 ExecRuntime *runtime,
-                char **root_image,            /* both input and output! modified if ephemeral logic enabled */
-                char **root_directory,        /* ditto */
+                PinnedResource *rootfs,
                 char **reterr_path) {
 
         _cleanup_close_ int fd = -EBADF;
@@ -3562,12 +3560,10 @@ static int setup_ephemeral(
         int r;
 
         assert(context);
-        assert(!context->root_directory_as_fd);
         assert(runtime);
-        assert(root_image);
-        assert(root_directory);
+        assert(rootfs);
 
-        if (!*root_image && !*root_directory)
+        if (!rootfs->image && !rootfs->directory)
                 return 0;
 
         if (!runtime->ephemeral_copy)
@@ -3593,32 +3589,32 @@ static int setup_ephemeral(
         if (fd != -EAGAIN)
                 return log_debug_errno(fd, "Failed to receive file descriptor queued on ephemeral storage socket: %m");
 
-        if (*root_image) {
-                log_debug("Making ephemeral copy of %s to %s", *root_image, new_root);
+        if (rootfs->image) {
+                log_debug("Making ephemeral copy of %s to %s", rootfs->image, new_root);
 
-                fd = copy_file(*root_image, new_root, O_EXCL, 0600,
+                fd = copy_file(rootfs->image, new_root, O_EXCL, 0600,
                                COPY_LOCK_BSD|COPY_REFLINK|COPY_CRTIME|COPY_NOCOW_AFTER);
                 if (fd < 0) {
-                        *reterr_path = strdup(*root_image);
+                        *reterr_path = strdup(rootfs->image);
                         return log_debug_errno(fd, "Failed to copy image %s to %s: %m",
-                                               *root_image, new_root);
+                                               rootfs->image, new_root);
                 }
         } else {
-                assert(*root_directory);
+                assert(rootfs->directory);
 
-                log_debug("Making ephemeral snapshot of %s to %s", *root_directory, new_root);
+                log_debug("Making ephemeral snapshot of %s to %s", rootfs->directory, new_root);
 
                 fd = btrfs_subvol_snapshot_at(
-                                AT_FDCWD, *root_directory,
+                                AT_FDCWD, rootfs->directory,
                                 AT_FDCWD, new_root,
                                 BTRFS_SNAPSHOT_FALLBACK_COPY |
                                 BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
                                 BTRFS_SNAPSHOT_RECURSIVE |
                                 BTRFS_SNAPSHOT_LOCK_BSD);
                 if (fd < 0) {
-                        *reterr_path = strdup(*root_directory);
+                        *reterr_path = strdup(rootfs->directory);
                         return log_debug_errno(fd, "Failed to snapshot directory %s to %s: %m",
-                                               *root_directory, new_root);
+                                               rootfs->directory, new_root);
                 }
         }
 
@@ -3626,11 +3622,14 @@ static int setup_ephemeral(
         if (r < 0)
                 return log_debug_errno(r, "Failed to queue file descriptor on ephemeral storage socket: %m");
 
-        if (*root_image)
-                free_and_replace(*root_image, new_root);
-        else {
-                assert(*root_directory);
-                free_and_replace(*root_directory, new_root);
+        if (rootfs->image) {
+                free_and_replace(rootfs->image, new_root);
+                close_and_replace(rootfs->image_fd, fd);
+        } else {
+                assert(rootfs->directory);
+
+                free_and_replace(rootfs->directory, new_root);
+                close_and_replace(rootfs->directory_fd, fd);
         }
 
         return 1;
@@ -3684,20 +3683,35 @@ static int verity_settings_prepare(
         return 0;
 }
 
-static int pick_versions(
+static int pin_rootfs(
                 const ExecContext *context,
                 const ExecParameters *params,
-                char **ret_root_image,
-                char **ret_root_directory,
+                PinnedResource *ret,
                 char **reterr_path) {
 
         int r;
 
         assert(context);
-        assert(!context->root_directory_as_fd);
         assert(params);
-        assert(ret_root_image);
-        assert(ret_root_directory);
+        assert(ret);
+
+        if (!FLAGS_SET(params->flags, EXEC_APPLY_CHROOT)) {
+                *ret = PINNED_RESOURCE_NULL;
+                return 0;
+        }
+
+        if (context->root_directory_as_fd) {
+                _cleanup_close_ int fd = fcntl(params->root_directory_fd, F_DUPFD_CLOEXEC, 3);
+                if (fd < 0)
+                        return log_debug_errno(errno, "Failed to duplicate root directory fd: %m");
+
+                *ret = (PinnedResource) {
+                        .directory_fd = TAKE_FD(fd),
+                        .image_fd = -EBADF,
+                };
+
+                return 1;
+        }
 
         if (context->root_image) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
@@ -3719,8 +3733,24 @@ static int pick_versions(
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "No matching entry in .v/ directory %s found.", context->root_image);
                 }
 
-                *ret_root_image = TAKE_PTR(result.path);
-                *ret_root_directory = NULL;
+                /* path_pick() returns us an O_PATH fd, let's turn this into a fully opened file, because
+                 * mountfsd will want this later, and it wants a fully opened fd, so that security checks
+                 * have been passed */
+                _cleanup_close_ int reopened_fd = -EBADF;
+                reopened_fd = fd_reopen(result.fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDWR);
+                if (ERRNO_IS_NEG_FS_WRITE_REFUSED(reopened_fd))
+                        reopened_fd = fd_reopen(result.fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+                if (reopened_fd < 0) {
+                        *reterr_path = strdup(context->root_image);
+                        return log_debug_errno(reopened_fd, "Failed to open image '%s': %m", context->root_image);
+                }
+
+                *ret = (PinnedResource) {
+                        .image = TAKE_PTR(result.path),
+                        .image_fd = TAKE_FD(reopened_fd),
+                        .directory_fd = -EBADF,
+                };
+
                 return r;
         }
 
@@ -3744,12 +3774,53 @@ static int pick_versions(
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "No matching entry in .v/ directory %s found.", context->root_directory);
                 }
 
-                *ret_root_image = NULL;
-                *ret_root_directory = TAKE_PTR(result.path);
+                *ret = (PinnedResource) {
+                        .directory = TAKE_PTR(result.path),
+                        .directory_fd = TAKE_FD(result.fd),
+                        .image_fd = -EBADF,
+                };
+
                 return r;
         }
 
-        *ret_root_image = *ret_root_directory = NULL;
+        if (context->root_mstack) {
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+
+                r = path_pick(/* toplevel_path= */ NULL,
+                              /* toplevel_fd= */ AT_FDCWD,
+                              context->root_mstack,
+                              pick_filter_image_mstack,
+                              /* n_filters= */ 1,
+                              PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
+                              &result);
+                if (r < 0) {
+                        *reterr_path = strdup(context->root_mstack);
+                        return r;
+                }
+
+                if (!result.path) {
+                        *reterr_path = strdup(context->root_mstack);
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "No matching entry in .v/ directory %s found.", context->root_mstack);
+                }
+
+                _cleanup_(mstack_freep) MStack *mstack = NULL;
+                r = mstack_load(result.path, result.fd, &mstack);
+                if (r < 0) {
+                        *reterr_path = TAKE_PTR(result.path);
+                        return r;
+                }
+
+                *ret = (PinnedResource) {
+                        .mstack = TAKE_PTR(result.path),
+                        .mstack_loaded = TAKE_PTR(mstack),
+                        .image_fd = -EBADF,
+                        .directory_fd = -EBADF,
+                };
+
+                return r;
+        }
+
+        *ret = PINNED_RESOURCE_NULL;
         return 0;
 }
 
@@ -3757,7 +3828,8 @@ static int apply_mount_namespace(
                 ExecCommandFlags command_flags,
                 const ExecContext *context,
                 const ExecParameters *params,
-                ExecRuntime *runtime,
+                const ExecRuntime *runtime,
+                const PinnedResource *rootfs,
                 const char *memory_pressure_path,
                 bool needs_sandboxing,
                 uid_t exec_directory_uid,
@@ -3772,7 +3844,7 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
-                *private_namespace_dir = NULL, *host_os_release_stage = NULL, *root_image = NULL, *root_dir = NULL;
+                *private_namespace_dir = NULL, *host_os_release_stage = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
         bool setup_os_release_symlink;
@@ -3785,26 +3857,6 @@ static int apply_mount_namespace(
         assert(runtime);
 
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
-
-        if (params->flags & EXEC_APPLY_CHROOT && !context->root_directory_as_fd) {
-                r = pick_versions(
-                                context,
-                                params,
-                                &root_image,
-                                &root_dir,
-                                reterr_path);
-                if (r < 0)
-                        return r;
-
-                r = setup_ephemeral(
-                                context,
-                                runtime,
-                                &root_image,
-                                &root_dir,
-                                reterr_path);
-                if (r < 0)
-                        return r;
-        }
 
         r = compile_bind_mounts(context, params, exec_directory_uid, exec_directory_gid, &bind_mounts, &n_bind_mounts, &empty_directories);
         if (r < 0)
@@ -3844,7 +3896,7 @@ static int apply_mount_namespace(
         }
 
         /* Symlinks (exec dirs, os-release) are set up after other mounts, before they are made read-only. */
-        setup_os_release_symlink = needs_sandboxing && exec_context_get_effective_mount_apivfs(context) && (root_dir || root_image);
+        setup_os_release_symlink = needs_sandboxing && exec_context_get_effective_mount_apivfs(context) && pinned_resource_is_set(rootfs);
         r = compile_symlinks(context, params, setup_os_release_symlink, &symlinks);
         if (r < 0)
                 return r;
@@ -3891,10 +3943,10 @@ static int apply_mount_namespace(
                         return -ENOMEM;
         }
 
-        if (root_image) {
+        if (rootfs->image) {
                 r = verity_settings_prepare(
                         &verity,
-                        root_image,
+                        rootfs->image,
                         &context->root_hash, context->root_hash_path,
                         &context->root_hash_sig, context->root_hash_sig_path,
                         context->root_verity);
@@ -3905,9 +3957,7 @@ static int apply_mount_namespace(
         NamespaceParameters parameters = {
                 .runtime_scope = params->runtime_scope,
 
-                .root_directory = root_dir,
-                .root_image = root_image,
-                .root_directory_fd = params->flags & EXEC_APPLY_CHROOT ? params->root_directory_fd : -EBADF,
+                .rootfs = rootfs,
                 .root_image_options = context->root_image_options,
                 .root_image_policy = context->root_image_policy ?: &image_policy_service,
 
@@ -3955,7 +4005,7 @@ static int apply_mount_namespace(
                 /* If DynamicUser=no and RootDirectory= is set then lets pass a relaxed sandbox info,
                  * otherwise enforce it, don't ignore protected paths and fail if we are enable to apply the
                  * sandbox inside the mount namespace. */
-                .ignore_protect_paths = !needs_sandboxing && !context->dynamic_user && root_dir,
+                .ignore_protect_paths = !needs_sandboxing && !context->dynamic_user && pinned_resource_is_set(rootfs),
 
                 .protect_control_groups = needs_sandboxing ? exec_get_protect_control_groups(context) : PROTECT_CONTROL_GROUPS_NO,
                 .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
@@ -3981,6 +4031,7 @@ static int apply_mount_namespace(
                 .protect_proc = needs_sandboxing ? context->protect_proc : PROTECT_PROC_DEFAULT,
                 .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
                 .private_bpf = needs_sandboxing ? context->private_bpf : PRIVATE_BPF_NO,
+                .private_users = needs_sandboxing ? context->private_users : PRIVATE_USERS_NO,
 
                 .bpffs_pidref = bpffs_pidref,
                 .bpffs_socket_fd = bpffs_socket_fd,
@@ -3997,17 +4048,18 @@ static int apply_mount_namespace(
         if (r == -ENOANO) {
                 if (insist_on_sandboxing(
                                     context,
-                                    root_dir, root_image,
+                                    rootfs,
                                     bind_mounts,
                                     n_bind_mounts))
                         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Failed to set up namespace, and refusing to continue since "
                                                "the selected namespacing options alter mount environment non-trivially.\n"
-                                               "Bind mounts: %zu, temporary filesystems: %zu, root directory: %s, root image: %s, dynamic user: %s",
+                                               "Bind mounts: %zu, temporary filesystems: %zu, root directory: %s, root image: %s, root mstack: %s, dynamic user: %s",
                                                n_bind_mounts,
                                                context->n_temporary_filesystems,
-                                               yes_no(root_dir),
-                                               yes_no(root_image),
+                                               yes_no(rootfs->directory_fd >= 0),
+                                               yes_no(rootfs->image_fd >= 0),
+                                               yes_no(!!rootfs->mstack_loaded),
                                                yes_no(context->dynamic_user));
 
                 log_debug("Failed to set up namespace, assuming containerized execution and ignoring.");
@@ -4630,7 +4682,8 @@ static bool exec_namespace_is_delegated(
 static int setup_delegated_namespaces(
                 const ExecContext *context,
                 ExecParameters *params,
-                ExecRuntime *runtime,
+                const ExecRuntime *runtime,
+                const PinnedResource *rootfs,
                 bool delegate,
                 const char *memory_pressure_path,
                 uid_t uid,
@@ -4656,6 +4709,7 @@ static int setup_delegated_namespaces(
         assert(context);
         assert(params);
         assert(runtime);
+        assert(rootfs);
         assert(reterr_exit_status);
 
         if (exec_needs_network_namespace(context) &&
@@ -4761,7 +4815,8 @@ static int setup_delegated_namespaces(
                                 context,
                                 params,
                                 runtime,
-                                          memory_pressure_path,
+                                rootfs,
+                                memory_pressure_path,
                                 needs_sandboxing,
                                 uid,
                                 gid,
@@ -5913,6 +5968,20 @@ int exec_invoke(
                 }
         }
 
+        _cleanup_(pinned_resource_done) PinnedResource rootfs = PINNED_RESOURCE_NULL;
+        _cleanup_free_ char *error_path = NULL;
+        r = pin_rootfs(context, params, &rootfs, &error_path);
+        if (r < 0) {
+                *exit_status = EXIT_NAMESPACE;
+                return log_error_errno(r, "Failed to open service's root fs%s%s: %m", error_path ? ": " : "", strempty(error_path));
+        }
+
+        r = setup_ephemeral(context, runtime, &rootfs, &error_path);
+        if (r < 0) {
+                *exit_status = EXIT_NAMESPACE;
+                return log_error_errno(r, "Failed to make ephemeral copy of service's root fs%s%s: %m", error_path ? ": " : "", strempty(error_path));
+        }
+
         /* Load a bunch of libraries we'll possibly need later, before we turn off dlopen() */
         (void) dlopen_bpf();
         (void) dlopen_cryptsetup();
@@ -5947,13 +6016,14 @@ int exec_invoke(
                                 /* allow_setgroups= */ false);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
-                if (r < 0 && context->private_users != PRIVATE_USERS_NO) {
-                        *exit_status = EXIT_USER;
-                        return log_error_errno(r, "Failed to set up user namespacing for unprivileged user: %m");
-                }
-                if (r < 0)
-                        log_info_errno(r, "Failed to set up user namespacing for unprivileged user, ignoring: %m");
-                else {
+                if (r < 0) {
+                        if (context->private_users != PRIVATE_USERS_NO) {
+                                *exit_status = EXIT_USER;
+                                return log_error_errno(r, "Failed to set up user namespacing for unprivileged user: %m");
+                        }
+
+                        log_notice_errno(r, "Failed to set up user namespacing for unprivileged user, ignoring: %m");
+                } else {
                         assert(r > 0);
                         userns_set_up = true;
                         log_debug("Set up unprivileged user namespace");
@@ -5965,6 +6035,7 @@ int exec_invoke(
                         context,
                         params,
                         runtime,
+                        &rootfs,
                         /* delegate= */ false,
                         memory_pressure_path,
                         uid,
@@ -6046,6 +6117,7 @@ int exec_invoke(
                         context,
                         params,
                         runtime,
+                        &rootfs,
                         /* delegate= */ true,
                         memory_pressure_path,
                         uid,
@@ -6064,6 +6136,10 @@ int exec_invoke(
         /* We are done now with the nsresourced/mountfsd shenanigans, let's close the connections */
         nsresource_link = sd_varlink_unref(nsresource_link);
         mountfsd_link = sd_varlink_unref(mountfsd_link);
+
+        /* We don't need the pinned rootfs anymore at this point. Close the fds now, so that they are
+         * definitely gone before we do our fd rearrangements below. */
+        pinned_resource_done(&rootfs);
 
         /* Kill unnecessary process, for the case that e.g. when the bpffs mount point is hidden. */
         pidref_done_sigkill_wait(&bpffs_pidref);
@@ -6498,7 +6574,6 @@ int exec_invoke(
                         }
                 }
 #endif
-
         }
 
         if (!strv_isempty(context->unset_environment)) {
