@@ -1119,22 +1119,6 @@ static int context_install(
         return 1;
 }
 
-static int context_apply(
-                Context *c,
-                const char *version,
-                UpdateSet **ret_applied) {
-
-        int r;
-
-        r = context_acquire(c, version);
-        if (r < 0)
-                return r;  /* error */
-        else if (r == 0)
-                return 0;  /* no update needed */
-
-        return context_install(c, version, ret_applied);
-}
-
 static int process_image(
                 bool ro,
                 char **ret_mounted_dir,
@@ -1477,7 +1461,12 @@ static int verb_update(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = context_apply(context, version, &applied);
+        r = context_acquire(context, version);
+        if (r < 0)
+                return r;  /* error */
+
+        if (r > 0)  /* update needed */
+                r = context_install(context, version, &applied);
         if (r < 0)
                 return r;
 
