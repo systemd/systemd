@@ -3859,12 +3859,11 @@ static int apply_mount_namespace(
                 if (asprintf(&private_namespace_dir, "/run/user/" UID_FMT "/systemd", geteuid()) < 0)
                         return -ENOMEM;
 
-                if (setup_os_release_symlink) {
-                        if (asprintf(&host_os_release_stage,
-                                     "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage",
-                                     geteuid()) < 0)
-                                return -ENOMEM;
-                }
+                if (setup_os_release_symlink &&
+                    asprintf(&host_os_release_stage,
+                             "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage",
+                             geteuid()) < 0)
+                        return -ENOMEM;
         }
 
         if (root_image) {
