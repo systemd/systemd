@@ -9,6 +9,7 @@
 #include "sd-varlink.h"
 
 #include "build.h"
+#include "bus-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -21,6 +22,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "pidfd-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -46,6 +48,7 @@ static char **arg_graceful = NULL;
 static usec_t arg_timeout = 0;
 static bool arg_exec = false;
 static PushFds arg_push_fds = {};
+static bool arg_ask_password = true;
 
 static void push_fds_done(PushFds *p) {
         assert(p);
@@ -87,6 +90,7 @@ static int help(void) {
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
+               "     --no-ask-password   Do not prompt for password\n"
                "     --no-pager          Do not pipe output into a pager\n"
                "     --more              Request multiple responses\n"
                "     --collect           Collect multiple responses in a JSON array\n"
@@ -126,21 +130,23 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TIMEOUT,
                 ARG_EXEC,
                 ARG_PUSH_FD,
+                ARG_NO_ASK_PASSWORD,
         };
 
         static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'          },
-                { "version",  no_argument,       NULL, ARG_VERSION  },
-                { "no-pager", no_argument,       NULL, ARG_NO_PAGER },
-                { "more",     no_argument,       NULL, ARG_MORE     },
-                { "oneway",   no_argument,       NULL, ARG_ONEWAY   },
-                { "json",     required_argument, NULL, ARG_JSON     },
-                { "collect",  no_argument,       NULL, ARG_COLLECT  },
-                { "quiet",    no_argument,       NULL, 'q'          },
-                { "graceful", required_argument, NULL, ARG_GRACEFUL },
-                { "timeout",  required_argument, NULL, ARG_TIMEOUT  },
-                { "exec",     no_argument,       NULL, ARG_EXEC     },
-                { "push-fd",  required_argument, NULL, ARG_PUSH_FD  },
+                { "help",            no_argument,       NULL, 'h'                },
+                { "version",         no_argument,       NULL, ARG_VERSION         },
+                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
+                { "more",            no_argument,       NULL, ARG_MORE            },
+                { "oneway",          no_argument,       NULL, ARG_ONEWAY          },
+                { "json",            required_argument, NULL, ARG_JSON            },
+                { "collect",         no_argument,       NULL, ARG_COLLECT         },
+                { "quiet",           no_argument,       NULL, 'q'                 },
+                { "graceful",        required_argument, NULL, ARG_GRACEFUL        },
+                { "timeout",         required_argument, NULL, ARG_TIMEOUT         },
+                { "exec",            no_argument,       NULL, ARG_EXEC            },
+                { "push-fd",         required_argument, NULL, ARG_PUSH_FD         },
+                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
                 {},
         };
 
@@ -252,6 +258,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_push_fds.fds[arg_push_fds.n_fds++] = TAKE_FD(add_fd);
                         break;
                 }
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -618,6 +628,8 @@ static int verb_call(int argc, char *argv[], void *userdata) {
 
         if (arg_exec && (arg_collect || (arg_method_flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE))) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--exec and --collect/--more/--oneway may not be combined.");
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         url = argv[1];
         method = argv[2];
