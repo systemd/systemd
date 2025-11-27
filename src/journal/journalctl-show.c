@@ -362,7 +362,6 @@ static int on_first_event(sd_event_source *s, void *userdata) {
                         return log_error_errno(r, "Failed to get cursor: %m");
         }
 
-        (void) sd_notify(/* unset_environment= */ false, "READY=1");
         return 0;
 }
 
@@ -572,6 +571,9 @@ int action_show(char **matches) {
                 if (r < 0)
                         return r;
 
+                /* Setup is done, we're ready to start processing data. */
+                (void) sd_notify(/* unset_environment= */ false, "READY=1");
+
                 r = sd_event_loop(c.event);
                 if (r < 0)
                         return r;
@@ -583,6 +585,7 @@ int action_show(char **matches) {
                 return 0;
         }
 
+        /* Setup is done, we'll start processing data. */
         (void) sd_notify(/* unset_environment= */ false, "READY=1");
 
         r = show(&c);
