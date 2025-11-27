@@ -1882,7 +1882,7 @@ static int merge_subprocess(
                         if (r < 0)
                                 return r;
 
-                        r = dissected_image_decrypt(m, /* passphrase= */ NULL, &verity_settings, pick_image_policy(img), flags);
+                        r = dissected_image_decrypt(m, arg_root, /* passphrase= */ NULL, &verity_settings, pick_image_policy(img), flags);
                         if (r < 0)
                                 return r;
 
@@ -2157,7 +2157,7 @@ static int image_discover_and_read_metadata(ImageClass image_class, Hashmap **re
                 return log_error_errno(r, "Failed to discover images: %m");
 
         HASHMAP_FOREACH(img, images) {
-                r = image_read_metadata(img, image_class_info[image_class].default_image_policy, RUNTIME_SCOPE_SYSTEM);
+                r = image_read_metadata(img, arg_root, image_class_info[image_class].default_image_policy, RUNTIME_SCOPE_SYSTEM);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
         }
