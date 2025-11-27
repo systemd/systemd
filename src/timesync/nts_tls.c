@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <assert.h>
-#include <fcntl.h>
 #include <openssl/ssl.h>
-#include <sys/socket.h>
 #include <string.h>
 #include <unistd.h>
 
