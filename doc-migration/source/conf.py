@@ -23,7 +23,7 @@ sys.path.append(os.path.abspath("./_ext"))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 # extensions = ['sphinxcontrib.globalsubs', 'directive_roles', 'external_man_links', 'autogen_index']
-extensions = ['directive_roles', 'external_man_links', 'autogen_index']
+extensions = ['systemd_domain', 'external_man_links', 'autogen_index']
 
 templates_path = ['_templates']
 include_patterns = ['index.rst', 'directives.rst', 'docs/*.rst']
