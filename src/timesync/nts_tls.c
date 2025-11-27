@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "nts.h"
+#include "timesyncd-forward.h"
 
 int NTS_TLS_extract_keys(
                 NTS_TLS *opaque,
