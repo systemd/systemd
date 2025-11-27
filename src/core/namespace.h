@@ -70,6 +70,7 @@ typedef enum PrivateUsers {
         PRIVATE_USERS_SELF,
         PRIVATE_USERS_IDENTITY,
         PRIVATE_USERS_FULL,
+        PRIVATE_USERS_MANAGED,
         _PRIVATE_USERS_MAX,
         _PRIVATE_USERS_INVALID = -EINVAL,
 } PrivateUsers;
