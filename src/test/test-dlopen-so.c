@@ -25,6 +25,7 @@
 #include "selinux-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
+#include "dm-util.h"
 
 #define ASSERT_DLOPEN(func, cond)                               \
         do {                                                    \
@@ -67,7 +68,9 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_qrencode, HAVE_QRENCODE);
         ASSERT_DLOPEN(dlopen_tpm2, HAVE_TPM2);
         ASSERT_DLOPEN(dlopen_zstd, HAVE_ZSTD);
-
+#if HAVE_LIBDEVMAPPER
+        ASSERT_DLOPEN(dlopen_libdevmapper, HAVE_LIBDEVMAPPER);
+#endif
         return 0;
 }
 

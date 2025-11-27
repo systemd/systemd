@@ -296,6 +296,7 @@ conf.set_quoted('SYSTEMD_USERWORK_PATH',                      libexecdir / 'syst
 conf.set_quoted('SYSTEMD_MOUNTWORK_PATH',                     libexecdir / 'systemd-mountwork')
 conf.set_quoted('SYSTEMD_NSRESOURCEWORK_PATH',                libexecdir / 'systemd-nsresourcework')
 conf.set_quoted('SYSTEMD_VERITYSETUP_PATH',                   libexecdir / 'systemd-veritysetup')
+conf.set_quoted('SYSTEMD_DMCLONE_PATH',                       bindir / 'systemd-dmclone')
 conf.set_quoted('SYSTEM_CONFIG_UNIT_DIR',                     pkgsysconfdir / 'system')
 conf.set_quoted('SYSTEM_DATA_UNIT_DIR',                       systemunitdir)
 conf.set_quoted('SYSTEM_ENV_GENERATOR_DIR',                   systemenvgeneratordir)
@@ -1298,6 +1299,16 @@ foreach ident : [
                 dependencies : libcryptsetup)
         conf.set10('HAVE_' + ident.to_upper(), have_ident)
 endforeach
+
+libdevmapper = get_option('libdevmapper')
+libdevmapper = dependency('devmapper',
+                           version : '>= 1.02',
+                           required : libdevmapper)
+
+
+have = libdevmapper.found()
+conf.set10('HAVE_LIBDEVMAPPER', have)
+libdevmapper_cflags = libdevmapper.partial_dependency(includes: true, compile_args: true)
 
 conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS',
            libcryptsetup_plugins.allowed() and
@@ -2389,6 +2400,7 @@ subdir('src/debug-generator')
 subdir('src/delta')
 subdir('src/detect-virt')
 subdir('src/dissect')
+subdir('src/dmclone')
 subdir('src/environment-d-generator')
 subdir('src/escape')
 subdir('src/factory-reset')
