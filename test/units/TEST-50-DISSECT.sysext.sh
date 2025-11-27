@@ -181,6 +181,52 @@ prepare_extension_image_raw() {
     prepend_trap "rm -rf ${ext_dir@Q}.raw"
 }
 
+prepare_extension_image_raw_verity() {
+    local root=${1:-}
+    local hierarchy=${2:?}
+    local ext_dir ext_release name tmpcrt
+
+    name="test-extension"
+    ext_dir="$root/var/lib/extensions/$name"
+    ext_release="$ext_dir/usr/lib/extension-release.d/extension-release.$name"
+    tmpcrt=$(mktemp --directory "/tmp/test-sysext.crt.XXXXXXXXXX")
+
+    prepend_trap "rm -rf ${ext_dir@Q} ${ext_dir@Q}.raw '$root/etc/verity.d/test-ext.crt' '$tmpcrt'"
+
+    mkdir -p "${ext_release%/*}"
+    echo "ID=_any" >"$ext_release"
+    mkdir -p "$ext_dir/$hierarchy"
+    touch "$ext_dir$hierarchy/preexisting-file-in-extension-image"
+    tee >"$tmpcrt/verity.openssl.cnf" <<EOF
+[ req ]
+prompt = no
+distinguished_name = req_distinguished_name
+[ req_distinguished_name ]
+C = DE
+ST = Test State
+L = Test Locality
+O = Org Name
+OU = Org Unit Name
+CN = Common Name
+emailAddress = test@email.com
+EOF
+    openssl req \
+        -config "$tmpcrt/verity.openssl.cnf" \
+        -new -x509 \
+        -newkey rsa:1024 \
+        -keyout "$tmpcrt/test-ext.key" \
+        -out "$tmpcrt/test-ext.crt" \
+        -days 365 \
+        -nodes
+    systemd-repart --make-ddi=sysext \
+        --private-key="$tmpcrt/test-ext.key" --certificate="$tmpcrt/test-ext.crt" \
+        --copy-source="$ext_dir" "$ext_dir.raw"
+    rm -rf "$ext_dir"
+    mkdir -p "$root/etc/verity.d"
+    mv "$tmpcrt/test-ext.crt" "$root/etc/verity.d/"
+    rm -rf "$tmpcrt"
+}
+
 prepare_extension_mutable_dir() {
     local dir=${1:?}
 
@@ -1237,6 +1283,28 @@ fi
 run_systemd_sysext "$fake_root" merge --image-policy="*"
 extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
 run_systemd_sysext "$fake_root" unmerge
+)
+
+( init_trap
+: "Check if verity user certs get loaded from --root="
+fake_root=${roots_dir:+"$roots_dir/verity-user-cert-from-root"}
+hierarchy=/opt
+
+# On OpenSUSE Tumbleweed EROFS is not supported
+if [ -e /usr/lib/modprobe.d/60-blacklist_fs-erofs.conf ]; then
+    echo >&2 "Skipping test due to missing erofs support"
+    exit 0
+fi
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_raw_verity "$fake_root" "$hierarchy"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge --image-policy=root=signed+absent:usr=signed+absent
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
 )
 
 } # End of run_sysext_tests

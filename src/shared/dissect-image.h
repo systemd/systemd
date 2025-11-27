@@ -171,7 +171,7 @@ void dissected_image_close(DissectedImage *m);
 DissectedImage* dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 
-int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const VeritySettings *verity, const ImagePolicy *image_policy, DissectImageFlags flags);
+int dissected_image_decrypt(DissectedImage *m, const char *root, const char *passphrase, const VeritySettings *verity, const ImagePolicy *image_policy, DissectImageFlags flags);
 int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const VeritySettings *verity, const ImagePolicy *image_policy, DissectImageFlags flags);
 int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
