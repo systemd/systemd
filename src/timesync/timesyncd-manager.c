@@ -27,6 +27,10 @@
 #include "log.h"
 #include "logarithm.h"
 #include "network-util.h"
+#if ENABLE_TIMESYNC_NTS
+#include "nts.h"
+#include "nts_extfields.h"
+#endif
 #include "random-util.h"
 #include "ratelimit.h"
 #include "resolve-private.h"
@@ -36,11 +40,6 @@
 #include "time-util.h"
 #include "timesyncd-manager.h"
 #include "timesyncd-server.h"
-
-#if ENABLE_TIMESYNC_NTS
-#include "nts.h"
-#include "nts_extfields.h"
-#endif
 
 #ifndef ADJ_SETOFFSET
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */
