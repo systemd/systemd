@@ -2470,18 +2470,19 @@ static int setup_private_users(
                                        "1 1 " UID_FMT "\n", (uid_t) (UINT32_MAX - 1));
                 if (r < 0)
                         return -ENOMEM;
-        /* Can only set up multiple mappings with CAP_SETUID. */
-        } else if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid)) {
-                r = asprintf(&uid_map,
-                             UID_FMT " " UID_FMT " 1\n"     /* Map $OUID → $OUID */
-                             UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
-                             ouid, ouid, uid, uid);
-                if (r < 0)
-                        return -ENOMEM;
         } else {
-                r = asprintf(&uid_map,
-                             UID_FMT " " UID_FMT " 1\n",    /* Map $OUID → $OUID */
-                             ouid, ouid);
+                assert(private_users == PRIVATE_USERS_SELF);
+
+                /* Can only set up multiple mappings with CAP_SETUID. */
+                if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid))
+                        r = asprintf(&uid_map,
+                                     UID_FMT " " UID_FMT " 1\n"     /* Map $OUID → $OUID */
+                                     UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
+                                     ouid, ouid, uid, uid);
+                else
+                        r = asprintf(&uid_map,
+                                     UID_FMT " " UID_FMT " 1\n",    /* Map $OUID → $OUID */
+                                     ouid, ouid);
                 if (r < 0)
                         return -ENOMEM;
         }
@@ -2495,18 +2496,18 @@ static int setup_private_users(
                                        "1 1 " GID_FMT "\n", (gid_t) (UINT32_MAX - 1));
                 if (r < 0)
                         return -ENOMEM;
-        /* Can only set up multiple mappings with CAP_SETGID. */
-        } else if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid)) {
-                r = asprintf(&gid_map,
-                             GID_FMT " " GID_FMT " 1\n"     /* Map $OGID → $OGID */
-                             GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
-                             ogid, ogid, gid, gid);
-                if (r < 0)
-                        return -ENOMEM;
         } else {
-                r = asprintf(&gid_map,
-                             GID_FMT " " GID_FMT " 1\n",    /* Map $OGID -> $OGID */
-                             ogid, ogid);
+                /* Can only set up multiple mappings with CAP_SETGID. */
+                assert(private_users == PRIVATE_USERS_SELF);
+                if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid))
+                        r = asprintf(&gid_map,
+                                     GID_FMT " " GID_FMT " 1\n"     /* Map $OGID → $OGID */
+                                     GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
+                                     ogid, ogid, gid, gid);
+                else
+                        r = asprintf(&gid_map,
+                                     GID_FMT " " GID_FMT " 1\n",    /* Map $OGID -> $OGID */
+                                     ogid, ogid);
                 if (r < 0)
                         return -ENOMEM;
         }
