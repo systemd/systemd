@@ -1213,12 +1213,16 @@ static int unprivileged_remove(Image *i) {
 
         assert(i);
 
-        _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, /* size= */ NSRESOURCE_UIDS_64K);
+        _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+                        /* nsresource_link= */ NULL,
+                        /* name= */ NULL,
+                        /* size= */ NSRESOURCE_UIDS_64K);
         if (userns_fd < 0)
                 return log_debug_errno(userns_fd, "Failed to allocate transient user namespace: %m");
 
         _cleanup_close_ int tree_fd = -EBADF;
         r = mountfsd_mount_directory(
+                        /* mountfsd_link= */ NULL,
                         i->path,
                         userns_fd,
                         DISSECT_IMAGE_FOREIGN_UID,
@@ -1557,13 +1561,22 @@ static int unpriviled_clone(Image *i, const char *new_path) {
         assert(i);
         assert(new_path);
 
-        _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, /* size= */ NSRESOURCE_UIDS_64K);
+        _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+                        /* link= */ NULL,
+                        /* name= */ NULL,
+                        /* size= */ NSRESOURCE_UIDS_64K);
         if (userns_fd < 0)
                 return log_debug_errno(userns_fd, "Failed to allocate transient user namespace: %m");
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+        r = mountfsd_connect(&link);
+        if (r < 0)
+                return r;
 
         /* Map original image */
         _cleanup_close_ int tree_fd = -EBADF;
         r = mountfsd_mount_directory(
+                        link,
                         i->path,
                         userns_fd,
                         DISSECT_IMAGE_FOREIGN_UID,
@@ -1574,6 +1587,7 @@ static int unpriviled_clone(Image *i, const char *new_path) {
         /* Make new image */
         _cleanup_close_ int new_fd = -EBADF;
         r = mountfsd_make_directory(
+                        link,
                         new_path,
                         MODE_INVALID,
                         /* flags= */ 0,
@@ -1584,12 +1598,15 @@ static int unpriviled_clone(Image *i, const char *new_path) {
         /* Mount new image */
         _cleanup_close_ int target_fd = -EBADF;
         r = mountfsd_mount_directory_fd(
+                        link,
                         new_fd,
                         userns_fd,
                         DISSECT_IMAGE_FOREIGN_UID,
                         &target_fd);
         if (r < 0)
                 return r;
+
+        link = sd_varlink_unref(link);
 
         /* Fork off child that moves into userns and does the copying */
         r = pidref_safe_fork_full(
