@@ -205,6 +205,8 @@ typedef struct NamespaceParameters {
         PidRef *bpffs_pidref;
         int bpffs_socket_fd;
         int bpffs_errno_pipe;
+
+        sd_varlink *mountfsd_link;
 } NamespaceParameters;
 
 int setup_namespace(const NamespaceParameters *p, char **reterr_path);
