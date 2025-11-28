@@ -90,6 +90,7 @@ TEST(mstack) {
 
                         ASSERT_OK(mstack_open_images(
                                                   mstack,
+                                                  /* mountfsd_link= */ NULL,
                                                   /* userns_fd= */ -EBADF,
                                                   /* image_policy= */ NULL,
                                                   /* image_filter= */ NULL,
