@@ -19,6 +19,7 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -539,6 +540,68 @@ TEST(umountat) {
         ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", q, "tmpfs", 0, NULL));
         ASSERT_OK(umountat_detach_verbose(LOG_ERR, dfd, "foo"));
         ASSERT_ERROR(umountat_detach_verbose(LOG_ERR, dfd, "foo"), EINVAL);
+}
+
+TEST(mount_fd_clone) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        int r;
+
+        CHECK_PRIV;
+
+        assert_se(mkdtemp_malloc(NULL, &t) >= 0);
+
+        /* Set up a socket pair to transfer the mount fd from the child (in a different mountns) to us. */
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, fds));
+
+        ASSERT_OK(r = safe_fork_full("(mount-fd-clone-setup)", /* stdio_fds= */ NULL, (int[]) { fds[1] }, 1, FORK_COMMON_FLAGS, NULL));
+        if (r == 0) {
+                /* Child: Create a tmpfs mount, clone it as a detached mount fd, send it to parent. */
+                _cleanup_close_ int mount_fd = -EBADF;
+
+                /* Create a tmpfs mount in this child's mountns. */
+                ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", t, "tmpfs", 0, NULL));
+
+                /* Create a file in it to verify the mount later. */
+                _cleanup_free_ char *marker = ASSERT_NOT_NULL(path_join(t, "marker"));
+                ASSERT_OK(touch(marker));
+
+                /* Clone the mount as a detached mount fd. */
+                ASSERT_OK_ERRNO(mount_fd = open_tree(AT_FDCWD, t, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC));
+
+                /* Send the mount fd to the parent. */
+                ASSERT_OK(send_one_fd(fds[1], mount_fd, 0));
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        fds[1] = safe_close(fds[1]);
+
+        /* Parent: Receive the mount fd, clone it with mount_fd_clone(), and verify we can attach it. */
+        _cleanup_close_ int foreign_mount_fd = -EBADF;
+        foreign_mount_fd = receive_one_fd(fds[0], 0);
+        ASSERT_OK(foreign_mount_fd);
+
+        /* Now clone the foreign mount fd to take ownership. */
+        _cleanup_close_ int cloned_fd = -EBADF;
+        cloned_fd = mount_fd_clone(foreign_mount_fd);
+        ASSERT_OK(cloned_fd);
+
+        /* Create a directory to attach the cloned mount to. */
+        _cleanup_free_ char *target = path_join(t, "target");
+        assert_se(target);
+        ASSERT_OK_ERRNO(mkdir(target, 0755));
+
+        /* Attach the cloned mount. */
+        ASSERT_OK_ERRNO(move_mount(cloned_fd, "", AT_FDCWD, target, MOVE_MOUNT_F_EMPTY_PATH));
+
+        /* Verify the marker file is accessible. */
+        _cleanup_free_ char *marker = path_join(target, "marker");
+        assert_se(marker);
+        ASSERT_OK_ERRNO(access(marker, F_OK));
+
+        /* Cleanup. */
+        ASSERT_OK_ERRNO(umount2(target, MNT_DETACH));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
