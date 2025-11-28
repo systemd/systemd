@@ -2625,6 +2625,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                 return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
 
                         r = mountfsd_mount_image(
+                                        p->mountfsd_link,
                                         p->root_image,
                                         userns_fd,
                                         p->root_image_policy,
@@ -2649,7 +2650,13 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                 return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
                 }
 
-                r = mstack_open_images(mstack, userns_fd, p->root_image_policy, /* image_filter= */ NULL, mstack_flags);
+                r = mstack_open_images(
+                                mstack,
+                                p->mountfsd_link,
+                                userns_fd,
+                                p->root_image_policy,
+                                /* image_filter= */ NULL,
+                                mstack_flags);
                 if (r < 0)
                         return r;
         }
