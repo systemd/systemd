@@ -1455,26 +1455,28 @@ static int mount_private_apivfs(
                 const char *opts,
                 RuntimeScope scope) {
 
-        _cleanup_(rmdir_and_freep) char *temporary_mount = NULL;
         int r;
 
         assert(fstype);
         assert(entry_path);
         assert(bind_source);
 
-        (void) mkdir_p_label(entry_path, 0755);
+        /* First, check if we have enough privileges to mount a new instance. */
+        _cleanup_close_ int mount_fd = make_fsmount(
+                        LOG_DEBUG,
+                        /* what= */ fstype,
+                        fstype,
+                        MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                        opts,
+                        /* userns_fd= */ -EBADF);
+        if (mount_fd < 0) {
+                if (!ERRNO_IS_NEG_PRIVILEGE(mount_fd))
+                        return mount_fd;
 
-        /* First, check if we have enough privileges to mount a new instance. Note, a new sysfs instance
-         * cannot be mounted on an already existing mount. Let's use a temporary place. */
-        r = create_temporary_mount_point(scope, &temporary_mount);
-        if (r < 0)
-                return r;
+                (void) mkdir_p_label(entry_path, 0755);
 
-        r = mount_nofollow_verbose(LOG_DEBUG, fstype, temporary_mount, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
-        if (ERRNO_IS_NEG_PRIVILEGE(r)) {
                 /* When we do not have enough privileges to mount a new instance, fall back to use an
                  * existing mount. */
-
                 r = path_is_mount_point(entry_path);
                 if (r < 0)
                         return log_debug_errno(r, "Unable to determine whether '%s' is already mounted: %m", entry_path);
@@ -1490,8 +1492,8 @@ static int mount_private_apivfs(
 
                 return 1;
         }
-        if (r < 0)
-                return r;
+
+        (void) mkdir_p_label(entry_path, 0755);
 
         /* OK. We have a new mount instance. Let's clear an existing mount and its submounts. */
         r = umount_recursive(entry_path, /* flags= */ 0);
@@ -1499,9 +1501,8 @@ static int mount_private_apivfs(
                 log_debug_errno(r, "Failed to unmount directories below '%s', ignoring: %m", entry_path);
 
         /* Then, move the new mount instance. */
-        r = mount_nofollow_verbose(LOG_DEBUG, temporary_mount, entry_path, /* fstype= */ NULL, MS_MOVE, /* options= */ NULL);
-        if (r < 0)
-                return r;
+        if (move_mount(mount_fd, "", -EBADF, entry_path, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                return log_debug_errno(errno, "Failed to attach '%s' to '%s': %m", fstype, entry_path);
 
         /* We mounted a new instance now. Let's bind mount the children over now. This matters for nspawn
          * where a bunch of files are overmounted, in particular the boot id. */
