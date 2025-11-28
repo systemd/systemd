@@ -450,16 +450,16 @@
         <term><varname>BindPaths=</varname></term>
         <term><varname>BindReadOnlyPaths=</varname></term>
 
-        <listitem><para>Configures unit-specific bind mounts. A bind mount makes a particular file or directory
-        available at an additional place in the unit's view of the file system. Any bind mounts created with this
-        option are specific to the unit, and are not visible in the host's mount table. This option expects a
-        whitespace separated list of bind mount definitions. Each definition consists of a colon-separated triple of
-        source path, destination path and option string, where the latter two are optional. If only a source path is
-        specified the source and destination is taken to be the same. The option string may be either
-        <literal>rbind</literal> or <literal>norbind</literal> for configuring a recursive or non-recursive bind
-        mount. If the destination path is omitted, the option string must be omitted too.
-        Each bind mount definition may be prefixed with <literal>-</literal>, in which case it will be ignored
-        when its source path does not exist.</para>
+        <listitem><para>Configures unit-specific bind mounts. A bind mount makes a particular file or
+        directory available at an additional place in the unit's view of the file system. Any bind mounts
+        created with this option are specific to the unit, and are not visible in the host's mount
+        table. This option expects a whitespace separated list of bind mount definitions. Each definition
+        consists of a colon-separated triple of source path, destination path and option string, where the
+        latter two are optional. If only a source path is specified the source and destination is taken to be
+        the same. The option string may be either <literal>rbind</literal> or <literal>norbind</literal> for
+        configuring a recursive or non-recursive bind mount. If the destination path is omitted, the option
+        string must be omitted too.  Each bind mount definition may be prefixed with <literal>-</literal>, in
+        which case it will be ignored when its source path does not exist or is not accessible.</para>
 
         <para><varname>BindPaths=</varname> creates regular writable bind mounts (unless the source file system mount
         is already marked read-only), while <varname>BindReadOnlyPaths=</varname> creates read-only bind mounts. These

@@ -2016,12 +2016,20 @@ static int apply_one_mount(
                 }
 
                 r = chase(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH|CHASE_TRIGGER_AUTOFS, &chased, NULL);
-                if (r == -ENOENT && m->ignore) {
-                        log_debug_errno(r, "Path %s does not exist, ignoring.", mount_entry_source(m));
-                        return 0;
-                }
-                if (r < 0)
+                if (r < 0) {
+                        if (m->ignore) {
+                                if (r == -ENOENT) {
+                                        log_debug_errno(r, "Path '%s' does not exist, ignoring.", mount_entry_source(m));
+                                        return 0;
+                                }
+                                if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                                        log_debug_errno(r, "Path '%s' is not accessible, ignoring: %m", mount_entry_source(m));
+                                        return 0;
+                                }
+                        }
+
                         return log_debug_errno(r, "Failed to follow symlinks on %s: %m", mount_entry_source(m));
+                }
 
                 log_debug("Followed source symlinks %s %s %s.",
                           mount_entry_source(m), glyph(GLYPH_ARROW_RIGHT), chased);
