@@ -6,6 +6,7 @@
 
 #include "sd-bus.h"
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "bus-common-errors.h"
 #include "bus-error.h"
@@ -483,12 +484,20 @@ static int portable_extract_by_path(
                         return log_error_errno(r, "Failed to extract image name from path '%s': %m", path);
 
                 if (scope == RUNTIME_SCOPE_USER && uid_is_foreign(st.st_uid)) {
-                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K);
+                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+                                        /* vl= */ NULL,
+                                        /* name= */ NULL,
+                                        NSRESOURCE_UIDS_64K);
                         if (userns_fd < 0)
                                 return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
                         _cleanup_close_ int mfd = -EBADF;
-                        r = mountfsd_mount_directory_fd(rfd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &mfd);
+                        r = mountfsd_mount_directory_fd(
+                                        /* vl= */ NULL,
+                                        rfd,
+                                        userns_fd,
+                                        DISSECT_IMAGE_FOREIGN_UID,
+                                        &mfd);
                         if (r < 0)
                                 return r;
 
@@ -604,11 +613,15 @@ static int portable_extract_by_path(
                         return log_debug_errno(r, "Failed to create temporary directory: %m");
 
                 if (scope == RUNTIME_SCOPE_USER) {
-                        userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K);
+                        userns_fd = nsresource_allocate_userns(
+                                        /* vl= */ NULL,
+                                        /* name= */ NULL,
+                                        NSRESOURCE_UIDS_64K);
                         if (userns_fd < 0)
                                 return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
                         r = mountfsd_mount_image_fd(
+                                        /* vl= */ NULL,
                                         rfd,
                                         userns_fd,
                                         /* options= */ NULL,
@@ -1808,7 +1821,10 @@ static int install_image(
 
         if (flags & PORTABLE_MIXED_COPY_LINK) {
                 if (scope == RUNTIME_SCOPE_USER) {
-                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K);
+                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+                                        /* vl= */ NULL,
+                                        /* name= */ NULL,
+                                        NSRESOURCE_UIDS_64K);
                         if (userns_fd < 0)
                                 return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
@@ -1820,21 +1836,31 @@ static int install_image(
                         if (fstat(fd, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat '%s': %m", image_path);
 
+                        _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
+                        r = mountfsd_connect(&mountfsd_link);
+                        if (r < 0)
+                                return r;
+
                         _cleanup_close_ int tree_fd = -EBADF;
                         if (uid_is_foreign(st.st_uid)) {
-                                r = mountfsd_mount_directory_fd(fd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &tree_fd);
+                                r = mountfsd_mount_directory_fd(
+                                                mountfsd_link,
+                                                fd,
+                                                userns_fd,
+                                                DISSECT_IMAGE_FOREIGN_UID,
+                                                &tree_fd);
                                 if (r < 0)
                                         return r;
                         } else
                                 tree_fd = TAKE_FD(fd);
 
                         _cleanup_close_ int directory_fd = -EBADF;
-                        r = mountfsd_make_directory(target, MODE_INVALID, /* flags= */ 0, &directory_fd);
+                        r = mountfsd_make_directory(mountfsd_link, target, MODE_INVALID, /* flags= */ 0, &directory_fd);
                         if (r < 0)
                                 return r;
 
                         _cleanup_close_ int copy_fd = -EBADF;
-                        r = mountfsd_mount_directory_fd(directory_fd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &copy_fd);
+                        r = mountfsd_mount_directory_fd(mountfsd_link, directory_fd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &copy_fd);
                         if (r < 0)
                                 return r;
 
