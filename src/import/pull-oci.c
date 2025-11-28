@@ -479,12 +479,27 @@ static int oci_pull_job_on_open_disk(PullJob *j) {
                 if (r < 0)
                         return r;
 
-                _cleanup_close_ int directory_fd = -EBADF;
-                r = mountfsd_make_directory(st->temp_path, MODE_INVALID, /* flags= */ 0, &directory_fd);
+                _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
+                r = mountfsd_connect(&mountfsd_link);
                 if (r < 0)
                         return r;
 
-                r = mountfsd_mount_directory_fd(directory_fd, i->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &st->tree_fd);
+                _cleanup_close_ int directory_fd = -EBADF;
+                r = mountfsd_make_directory(
+                                mountfsd_link,
+                                st->temp_path,
+                                MODE_INVALID,
+                                /* flags= */ 0,
+                                &directory_fd);
+                if (r < 0)
+                        return r;
+
+                r = mountfsd_mount_directory_fd(
+                                mountfsd_link,
+                                directory_fd,
+                                i->userns_fd,
+                                DISSECT_IMAGE_FOREIGN_UID,
+                                &st->tree_fd);
                 if (r < 0)
                         return r;
         } else {
@@ -1124,7 +1139,13 @@ static int oci_pull_save_mstack(OciPull *i) {
                         if (r < 0)
                                 return r;
 
-                        r = mountfsd_make_directory_fd(dir_fd, "rw", 0755, /* flags= */ 0, /* ret_fd= */ NULL);
+                        r = mountfsd_make_directory_fd(
+                                        /* link= */ NULL,
+                                        dir_fd,
+                                        "rw",
+                                        0755,
+                                        /* flags= */ 0,
+                                        /* ret_fd= */ NULL);
                         if (r < 0)
                                 return r;
                 } else {
