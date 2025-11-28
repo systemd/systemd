@@ -1,0 +1,9 @@
+[Unit]
+Description=Test notify-reload without signal handler
+
+[Service]
+Type=notify-reload
+# Use Python harness instead of bash because bash catches signals at the
+# interpreter level regardless of whether a trap is set, making SigCgt always
+# include SIGHUP. Python lets us explicitly set SIG_DFL.
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-80-NOTIFYACCESS.units/notify-reload-no-handler-harness.py

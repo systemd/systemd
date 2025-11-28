@@ -262,6 +262,26 @@
             command for reloading of the service's configuration.</para>
 
             <para>The signal to send can be tweaked via <varname>ReloadSignal=</varname>, see below.</para>
+
+            <para>For <option>notify-reload</option> services, systemd verifies that the service's main process
+            has actually installed a handler for the configured reload signal (by default
+            <constant>SIGHUP</constant>). This verification checks for both traditional signal handlers (via
+            <citerefentry project="man-pages"><refentrytitle>sigaction</refentrytitle><manvolnum>2</manvolnum></citerefentry>)
+            and blocked signals that are typically handled via
+            <citerefentry project="man-pages"><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+            This verification is performed at two points:</para>
+
+            <orderedlist>
+              <listitem><para>When the service first sends <literal>READY=1</literal> during initial startup. If no
+              signal handler is detected at this point, the service startup is aborted.</para></listitem>
+
+              <listitem><para>Immediately before sending the reload signal. If the handler is no longer present,
+              systemd logs a warning but the reload signal is still sent.</para></listitem>
+            </orderedlist>
+
+            <para>This prevents accidentally starting services that lack the required signal handler. Services
+            using <option>notify-reload</option> must install their reload signal handler before sending the
+            initial <literal>READY=1</literal> notification.</para>
             </listitem>
 
             <listitem><para>Behavior of <option>idle</option> is very similar to <option>simple</option>; however,
