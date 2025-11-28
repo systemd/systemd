@@ -367,6 +367,7 @@ static int mount_mstack(void) {
                         /* dir_fd= */ -EBADF,
                         arg_where,
                         /* temp_dir= */ NULL,  /* auto-create temporary directory */
+                        /* mountfsd_link= */ NULL,
                         /* userns_fd= */ -EBADF,
                         arg_image_policy,
                         arg_image_filter,
