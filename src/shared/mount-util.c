@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sched.h>
 #include <stdlib.h>
 #include <sys/mount.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -30,6 +32,7 @@
 #include "process-util.h"
 #include "runtime-scope.h"
 #include "set.h"
+#include "socket-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -1419,6 +1422,66 @@ int fd_make_mount_point(int fd) {
                 return r;
 
         return 1;
+}
+
+int mount_fd_clone(int mount_fd, bool recursive) {
+        int r;
+
+        assert(mount_fd >= 0);
+
+        /* Clone a detached mount (that may be owned by a foreign mountns, i.e. mountfsd's). For this we have
+         * to jump through some hoops, because the kernel currently doesn't allow us to just call
+         * open_tree(OPEN_TREE_CLONE) directly to get a clone of a mount that is detached and owned by
+         * another mountns. Hence here's what we do: we clone short-lived child in a new mount namespace
+         * owned by our userns. There, we attach the mount (invisible to anyone else). This is sufficient to
+         * pass the kernel check, so next we use open_tree(OPEN_TREE_CLONE) to get our own detached mount.
+         * This we send back to the parent, which then can use it. */
+
+        _cleanup_close_pair_ int transfer_fds[2] = EBADF_PAIR;
+        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, transfer_fds);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to create socket pair: %m");
+
+        _cleanup_close_pair_ int errno_pipe_fds[2] = EBADF_PAIR;
+        if (pipe2(errno_pipe_fds, O_CLOEXEC|O_NONBLOCK) < 0)
+                return log_debug_errno(errno, "Failed to open pipe: %m");
+
+        /* Fork a child. Note that we set FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE here, i.e. get a new mount namespace */
+        r = safe_fork_full(
+                        "(clonemnt)",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { mount_fd, transfer_fds[1], errno_pipe_fds[1] }, 3,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
+                        /* ret_pid= */ NULL);
+        if (r < 0) {
+                errno_pipe_fds[1] = safe_close(errno_pipe_fds[1]);
+
+                int q = read_errno(errno_pipe_fds[0]);
+                if (q < 0 && q != -EIO)
+                        return q;
+
+                return r;
+        }
+        if (r == 0) { /* Child */
+
+                /* Attach mount */
+                if (move_mount(mount_fd, "", -EBADF, "/", MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                        report_errno_and_exit(errno_pipe_fds[1], -errno);
+
+                /* And now clone the attached mount that is now ours. */
+                _cleanup_close_ int cloned_fd = open_tree(
+                                mount_fd, "",
+                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_EMPTY_PATH|(recursive ? AT_RECURSIVE : 0));
+                if (cloned_fd < 0)
+                        report_errno_and_exit(errno_pipe_fds[1], cloned_fd);
+
+                /* And send it to the parent. */
+                r = send_one_fd(transfer_fds[1], cloned_fd, /* flags= */ 0);
+                report_errno_and_exit(errno_pipe_fds[1], r);
+        }
+
+        /* Accept the new cloned mount */
+        return receive_one_fd(transfer_fds[0], 0);
 }
 
 int make_userns(uid_t uid_shift,
