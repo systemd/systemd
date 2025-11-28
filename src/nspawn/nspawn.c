@@ -19,6 +19,7 @@
 #include "sd-id128.h"
 #include "sd-netlink.h"
 #include "sd-path.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "barrier.h"
@@ -5442,7 +5443,13 @@ static int run_container(
                         } else {
                                 _cleanup_free_ char *host_ifname = NULL;
 
-                                r = nsresource_add_netif_veth(userns_fd, child_netns_fd, /* namespace_ifname= */ NULL, &host_ifname, /* ret_namespace_ifname= */ NULL);
+                                r = nsresource_add_netif_veth(
+                                                /* vl= */ NULL,
+                                                userns_fd,
+                                                child_netns_fd,
+                                                /* namespace_ifname= */ NULL,
+                                                &host_ifname,
+                                                /* ret_namespace_ifname= */ NULL);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to add network interface to container: %m");
 
@@ -6030,6 +6037,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(mstack_freep) MStack *mstack = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL, *mountfsd_link = NULL;
 
         log_setup();
 
@@ -6132,13 +6140,28 @@ static int run(int argc, char *argv[]) {
         if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                 /* Let's allocate a 64K userns first, if managed mode is chosen */
 
+                r = nsresource_connect(&nsresource_link);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to connect to nsresourced: %m");
+                        goto finish;
+                }
+
+                r = mountfsd_connect(&mountfsd_link);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to connect to mountsd: %m");
+                        goto finish;
+                }
+
                 _cleanup_free_ char *userns_name = NULL;
                 if (asprintf(&userns_name, "nspawn-" PID_FMT "-%s", getpid_cached(), arg_machine) < 0) {
                         r = log_oom();
                         goto finish;
                 }
 
-                userns_fd = nsresource_allocate_userns(userns_name, NSRESOURCE_UIDS_64K); /* allocate 64K UIDs */
+                userns_fd = nsresource_allocate_userns(
+                                nsresource_link,
+                                userns_name,
+                                NSRESOURCE_UIDS_64K); /* allocate 64K UIDs */
                 if (userns_fd < 0) {
                         r = log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
                         goto finish;
@@ -6293,6 +6316,7 @@ static int run(int argc, char *argv[]) {
 
                 if (userns_fd >= 0) {
                         r = mountfsd_mount_directory(
+                                        mountfsd_link,
                                         arg_directory,
                                         userns_fd,
                                         determine_dissect_image_flags(),
@@ -6443,6 +6467,7 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                 } else {
                         r = mountfsd_mount_image(
+                                        mountfsd_link,
                                         arg_image,
                                         userns_fd,
                                         /* options= */ NULL,
@@ -6485,6 +6510,7 @@ static int run(int argc, char *argv[]) {
 
                 r = mstack_open_images(
                                 mstack,
+                                mountfsd_link,
                                 userns_fd,
                                 arg_image_policy,
                                 /* image_filter= */ NULL,
@@ -6506,6 +6532,9 @@ static int run(int argc, char *argv[]) {
         r = custom_mount_prepare_all(rootdir, arg_custom_mounts, arg_n_custom_mounts);
         if (r < 0)
                 goto finish;
+
+        mountfsd_link = sd_varlink_unref(mountfsd_link);
+        nsresource_link = sd_varlink_unref(nsresource_link);
 
         if (!arg_quiet) {
                 const char *t = arg_mstack ?: arg_image ?: arg_directory;
@@ -6547,7 +6576,8 @@ static int run(int argc, char *argv[]) {
                                 mstack,
                                 userns_fd,
                                 fds,
-                                veth_name, &veth_created,
+                                veth_name,
+                                &veth_created,
                                 &expose_args, &master,
                                 &pid, &ret);
                 if (r <= 0)
