@@ -2750,6 +2750,47 @@ static void service_enter_reload_post(Service *s) {
                 service_reload_finish(s, SERVICE_SUCCESS);
 }
 
+static int service_check_reload_signal_handler(Service *s, bool fatal) {
+        int r;
+
+        assert(s);
+
+        if (!pidref_is_set(&s->main_pid))
+                return 0;
+
+        /* Check if the process has a traditional signal handler (SigCgt) */
+        r = pidref_has_sigcgt(&s->main_pid, s->reload_signal);
+        if (r < 0) {
+                if (r != -ESRCH)
+                        log_unit_warning_errno(UNIT(s), r, "Failed to check for reload signal handler: %m");
+                return fatal ? r : 0;
+        }
+
+        if (r == 0) {
+                /* No traditional handler, check if the signal is blocked (SigBlk). A blocked signal is
+                 * typically handled via signalfd, which is a valid way to handle signals (e.g., via
+                 * sd_event_add_signal() with SD_EVENT_SIGNAL_PROCMASK). */
+                r = pidref_has_sigblk(&s->main_pid, s->reload_signal);
+                if (r < 0) {
+                        if (r != -ESRCH)
+                                log_unit_warning_errno(UNIT(s), r, "Failed to check for blocked reload signal: %m");
+                        return fatal ? r : 0;
+                }
+        }
+
+        if (r == 0) {
+                log_unit_warning(
+                                UNIT(s),
+                                "Main process " PID_FMT " lacks handler for reload signal %s%s",
+                                s->main_pid.pid,
+                                signal_to_string(s->reload_signal),
+                                fatal ? ", refusing to reload." : ".");
+                return fatal ? -ENOTSUP : 0;
+        }
+
+        return 1;
+}
+
 static void service_enter_reload_signal(Service *s) {
         int r;
 
@@ -2773,6 +2814,11 @@ static void service_enter_reload_signal(Service *s) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
                         goto fail;
                 }
+
+                /* This is naturally racy, but that's fine. The issue we're looking for is almost always a
+                 * static programming error (handler not yet installed), but if a user wants to shoot
+                 * themself in the foot intentionally by racing with us, who are we to stop them :-) */
+                (void) service_check_reload_signal_handler(s, /* fatal= */ false);
 
                 r = pidref_kill_and_sigcont(&s->main_pid, s->reload_signal);
                 if (r < 0) {
@@ -4847,6 +4893,10 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                 return;
 
         if (strv_contains(tags, "READY=1")) {
+                /* service_enter_start_post() (and the READY=1 -> RELOAD logic above) can transition us out
+                 * of SERVICE_START. Capture whether this notification hit during SERVICE_START before we
+                 * mutate the state so we can still run the handler check below. */
+                bool service_start_transition = s->state == SERVICE_START;
 
                 if (s->notify_state == NOTIFY_RELOADING)
                         s->notify_state = NOTIFY_RELOAD_READY;
@@ -4878,6 +4928,17 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                 if (IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD) &&
                     s->state == SERVICE_START)
                         service_enter_start_post(s);
+
+                /* For Type=notify-reload, verify the reload signal handler exists. On first start,
+                 * missing handler is fatal. Use the cached flag above since we may already be in
+                 * START_POST/RUNNING by the time we get here. */
+                if (s->type == SERVICE_NOTIFY_RELOAD && service_start_transition) {
+                        r = service_check_reload_signal_handler(s, /* fatal= */ true);
+                        if (r < 0) {
+                                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_PROTOCOL);
+                                return;
+                        }
+                }
 
                 /* Sending READY=1 while we are reloading informs us that the reloading is complete. */
                 if (s->state == SERVICE_RELOAD_NOTIFY)
