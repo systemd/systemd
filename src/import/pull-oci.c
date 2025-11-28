@@ -464,12 +464,27 @@ static int oci_pull_job_on_open_disk(PullJob *j) {
                 if (r < 0)
                         return r;
 
+                _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
+                r = mountfsd_connect(&mountfsd_link);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to mountfsd: %m");
+
                 _cleanup_close_ int directory_fd = -EBADF;
-                r = mountfsd_make_directory(st->temp_path, MODE_INVALID, /* flags= */ 0, &directory_fd);
+                r = mountfsd_make_directory(
+                                mountfsd_link,
+                                st->temp_path,
+                                MODE_INVALID,
+                                /* flags= */ 0,
+                                &directory_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make directory via mountfsd: %m");
 
-                r = mountfsd_mount_directory_fd(directory_fd, i->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &st->tree_fd);
+                r = mountfsd_mount_directory_fd(
+                                mountfsd_link,
+                                directory_fd,
+                                i->userns_fd,
+                                DISSECT_IMAGE_FOREIGN_UID,
+                                &st->tree_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mount directory via mountsd: %m");
         } else {
@@ -1140,6 +1155,7 @@ static int oci_pull_save_mstack(OciPull *i) {
                                 return r;
 
                         r = mountfsd_make_directory_fd(
+                                        /* vl= */ NULL,
                                         dir_fd,
                                         "rw",
                                         0755,
