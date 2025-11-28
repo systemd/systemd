@@ -2346,16 +2346,15 @@ int read_errno(int errno_fd) {
                 log_debug_errno(n, "Failed to read errno: %m");
                 return -EIO;
         }
-        if (n == sizeof(r)) {
-                if (r == 0)
-                        return 0;
-                if (r < 0) /* child process reported an error, return it */
-                        return log_debug_errno(r, "Child process failed with errno: %m");
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received an errno, but it's a positive value.");
-        }
-        if (n != 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpected amount of bytes while reading errno.");
+        if (n == 0) /* the process exited without reporting an error, assuming success */
+                return 0;
+        if (n != sizeof(r))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpected amount of bytes (%zi) while reading errno.", n);
 
-        /* the process exited without reporting an error, assuming success */
-        return 0;
+        if (r == 0)
+                return 0;
+        if (r < 0) /* child process reported an error, return it */
+                return log_debug_errno(r, "Child process failed with errno: %m");
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received positive errno from child, refusing: %d", r);
 }
