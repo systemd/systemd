@@ -4607,7 +4607,7 @@ static int setup_delegated_namespaces(
                 bool delegate,
                 const char *memory_pressure_path,
                 uid_t uid,
-                uid_t gid,
+                gid_t gid,
                 const ExecCommand *command,
                 bool needs_sandboxing,
                 bool have_cap_sys_admin,
