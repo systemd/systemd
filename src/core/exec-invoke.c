@@ -2404,6 +2404,7 @@ static int bpffs_prepare(
 }
 
 static int setup_private_users(
+                sd_varlink *nsresource_link,
                 PrivateUsers private_users,
                 uid_t ouid, /* service manager uid */
                 gid_t ogid, /* service manager gid */
@@ -2436,7 +2437,10 @@ static int setup_private_users(
                 if (uid != 0 || gid != 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "When allocating dynamic user namespace range, target UID/GID must be root, refusing.");
 
-                _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K);
+                _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+                                nsresource_link,
+                                /* name= */ NULL,
+                                NSRESOURCE_UIDS_64K);
                 if (userns_fd < 0)
                         return userns_fd;
 
@@ -3763,6 +3767,7 @@ static int apply_mount_namespace(
                 PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
                 int bpffs_errno_pipe,
+                sd_varlink *mountfsd_link,
                 char **reterr_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
@@ -3982,6 +3987,8 @@ static int apply_mount_namespace(
                 .bpffs_pidref = bpffs_pidref,
                 .bpffs_socket_fd = bpffs_socket_fd,
                 .bpffs_errno_pipe = bpffs_errno_pipe,
+
+                .mountfsd_link = mountfsd_link,
         };
 
         r = setup_namespace(&parameters, reterr_path);
@@ -4636,6 +4643,7 @@ static int setup_delegated_namespaces(
                 PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
                 int bpffs_errno_pipe,
+                sd_varlink *mountfsd_link,
                 int *reterr_exit_status) {
 
         int r;
@@ -4750,18 +4758,20 @@ static int setup_delegated_namespaces(
             exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWNS) == delegate) {
                 _cleanup_free_ char *error_path = NULL;
 
-                r = apply_mount_namespace(command->flags,
-                                          context,
-                                          params,
-                                          runtime,
+                r = apply_mount_namespace(
+                                command->flags,
+                                context,
+                                params,
+                                runtime,
                                           memory_pressure_path,
-                                          needs_sandboxing,
-                                          uid,
-                                          gid,
-                                          bpffs_pidref,
-                                          bpffs_socket_fd,
-                                          bpffs_errno_pipe,
-                                          &error_path);
+                                needs_sandboxing,
+                                uid,
+                                gid,
+                                bpffs_pidref,
+                                bpffs_socket_fd,
+                                bpffs_errno_pipe,
+                                mountfsd_link,
+                                &error_path);
                 if (r < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
                         return log_error_errno(r, "Failed to set up mount namespacing%s%s: %m",
@@ -5683,6 +5693,24 @@ int exec_invoke(
                 }
         }
 
+        _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL, *nsresource_link = NULL;
+        if (needs_sandboxing &&
+            exec_context_get_effective_private_users(context, params) == PRIVATE_USERS_DYNAMIC64K) {
+
+                /* In dynamic 64K mode we need to allocate a userns via nsresource, and then assign mounts to
+                 * it. We must do so with our original privileges (since after creating the userns, we might
+                 * simply not have the necessary privs for the IPC calls anymore), hence do this here, ahead
+                 * of time. */
+
+                r = mountfsd_connect(&mountfsd_link);
+                if (r < 0)
+                        return r;
+
+                r = nsresource_connect(&nsresource_link);
+                if (r < 0)
+                        return r;
+        }
+
         needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
 
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
@@ -5877,7 +5905,14 @@ int exec_invoke(
 
                 /* The kernel requires /proc/pid/setgroups be set to "deny" prior to writing /proc/pid/gid_map in
                  * unprivileged user namespaces. */
-                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid, /* allow_setgroups= */ false);
+                r = setup_private_users(
+                                nsresource_link,
+                                pu,
+                                saved_uid,
+                                saved_gid,
+                                uid,
+                                gid,
+                                /* allow_setgroups= */ false);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
                 if (r < 0 && context->private_users != PRIVATE_USERS_NO) {
@@ -5908,6 +5943,7 @@ int exec_invoke(
                         &bpffs_pidref,
                         bpffs_socket_fd,
                         bpffs_errno_pipe,
+                        mountfsd_link,
                         exit_status);
         if (r < 0)
                 return r;
@@ -5957,8 +5993,14 @@ int exec_invoke(
         } else if (needs_sandboxing && !userns_set_up) {
                 PrivateUsers pu = exec_context_get_effective_private_users(context, params);
 
-                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid,
-                                        /* allow_setgroups= */ pu == PRIVATE_USERS_FULL);
+                r = setup_private_users(
+                                nsresource_link,
+                                pu,
+                                saved_uid,
+                                saved_gid,
+                                uid,
+                                gid,
+                                /* allow_setgroups= */ pu == PRIVATE_USERS_FULL);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_error_errno(r, "Failed to set up user namespacing: %m");
@@ -5982,9 +6024,14 @@ int exec_invoke(
                         &bpffs_pidref,
                         bpffs_socket_fd,
                         bpffs_errno_pipe,
+                        mountfsd_link,
                         exit_status);
         if (r < 0)
                 return r;
+
+        /* We are done now with the nsresourced/mountfsd shenanigans, let's close the connections */
+        nsresource_link = sd_varlink_unref(nsresource_link);
+        mountfsd_link = sd_varlink_unref(mountfsd_link);
 
         /* Kill unnecessary process, for the case that e.g. when the bpffs mount point is hidden. */
         pidref_done_sigkill_wait(&bpffs_pidref);
