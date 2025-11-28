@@ -363,7 +363,12 @@ int tar_export_start(
                         return log_error_errno(r, "Failed to open '%s': %m", p);
 
                 _cleanup_close_ int mapped_fd = -EBADF;
-                r = mountfsd_mount_directory_fd(directory_fd, e->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &mapped_fd);
+                r = mountfsd_mount_directory_fd(
+                                /* vl= */ NULL,
+                                directory_fd,
+                                e->userns_fd,
+                                DISSECT_IMAGE_FOREIGN_UID,
+                                &mapped_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mount directory via mountfsd: %m");
 
