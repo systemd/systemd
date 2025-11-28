@@ -2958,8 +2958,11 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 return log_debug_errno(errno, "Failed to remount '/' as SLAVE: %m");
 
         if (p->root_directory_fd >= 0) {
+                _cleanup_close_ int fd_clone = mount_fd_clone(p->root_directory_fd, /* recursive= */ true);
+                if (fd_clone < 0)
+                        return log_error_errno(fd_clone, "Failed to clone root directory file descriptor: %m");
 
-                if (move_mount(p->root_directory_fd, "", AT_FDCWD, root, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                if (move_mount(fd_clone, "", AT_FDCWD, root, MOVE_MOUNT_F_EMPTY_PATH) < 0)
                         return log_debug_errno(errno, "Failed to move detached mount to '%s': %m", root);
 
                 /* We just remounted / as slave, but that didn't affect the detached mount that we just
