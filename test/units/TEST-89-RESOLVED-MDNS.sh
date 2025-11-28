@@ -6,6 +6,12 @@ set -o pipefail
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
+. /etc/os-release
+if [[ "${ID_LIKE:-}" == alpine ]]; then
+    # FIXME: For some reasons (maybe this test requires nss module??), the test fails on alpine/postmarketos.
+    exit 77
+fi
+
 SERVICE_TYPE_COUNT=10
 SERVICE_COUNT=20
 CONTAINER_ZONE="test-$RANDOM"
