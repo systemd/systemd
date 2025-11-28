@@ -174,7 +174,7 @@ EOF
     test -n "$found"
 
     journalctl --sync
-    timeout -v 30 journalctl _PID=1 _COMM=systemd --since "$since" -n all --follow | grep -m 1 -q -F 'foobar: systemd-udevd failed to process the device, ignoring: File exists'
+    timeout -v 30 journalctl --since "$since" -n all --follow _PID=1 _COMM=systemd | grep -m 1 -q -F 'foobar: systemd-udevd failed to process the device, ignoring: File exists'
     # check if the invalid SYSTEMD_ALIAS property for the interface foobar is ignored by PID1
     assert_eq "$(systemctl show --property=SysFSPath --value /sys/subsystem/net/devices/hoge)" "/sys/devices/virtual/net/hoge"
 }

@@ -846,11 +846,23 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int parse_argv_as_mount_helper(int argc, char *argv[]) {
-        const char *options = NULL;
+        const char *options = NULL, *image, *path;
         bool fake = false;
         int c, r;
 
         /* Implements util-linux "external helper" command line interface, as per mount(8) man page. */
+
+        if (argc <= 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Expected an image file path and target directory.");
+
+        /* musl's getopt() stops parsing when a non-option value is found. However, the mount command always
+         * passes the device and mountpoint at first, then passes options. Hence, we need to cut the first
+         * two arguments before enterling the getopt() loop below. */
+        image = argv[1];
+        path = argv[2];
+        argc -= 2;
+        argv += 2;
 
         while ((c = getopt(argc, argv, "sfnvN:o:t:")) >= 0) {
                 switch (c) {
@@ -882,7 +894,7 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
                 }
         }
 
-        if (optind + 2 != argc)
+        if (optind != argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Expected an image file path and target directory as only argument.");
 
@@ -911,11 +923,11 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
         if (fake)
                 return 0;
 
-        r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+        r = parse_path_argument(image, /* suppress_root= */ false, &arg_image);
         if (r < 0)
                 return r;
 
-        r = parse_path_argument(argv[optind+1], /* suppress_root= */ false, &arg_path);
+        r = parse_path_argument(path, /* suppress_root= */ false, &arg_path);
         if (r < 0)
                 return r;
 

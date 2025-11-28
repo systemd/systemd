@@ -14,6 +14,8 @@ fi
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+. /etc/os-release
+
 export SYSTEMD_LOG_LEVEL=debug
 export PAGER=cat
 
@@ -1199,6 +1201,11 @@ testcase_minimize() {
     trap "rm -rf '$defs' '$imgs'" RETURN
 
     for format in ext4 vfat erofs; do
+        if [[ "$format" == erofs && "${ID_LIKE:-}" == alpine && "$OFFLINE" == no ]]; then
+            # See comment in testcase_compression() below.
+            continue;
+        fi
+
         if ! command -v "mkfs.$format" >/dev/null; then
             continue
         fi
@@ -1459,6 +1466,20 @@ testcase_compression() {
 
     # TODO: add btrfs once btrfs-progs v6.11 is available in distributions.
     for format in squashfs erofs; do
+        if [[ "$format" == erofs && "${ID_LIKE:-}" == alpine && "$OFFLINE" == no ]]; then
+            # erofs in alpine/postmarketos seems to be broken. Maybe, it is built without linux/fs.h and
+            # ioctl(BLKGETSIZE/BLKGETSIZE64) is skipped. Hence, systemd-repart fails with the following:
+            # --------
+            # Executing mkfs command: /usr/bin/mkfs.erofs -U 50644e90-19f4-4699-82d4-15fa9995b3a0 -zlz4hc,level=3 /dev/loop2 /var/tmp/.#reparta56c035ccf6e33dd
+            # Successfully forked off '(mkfs)' as PID 3918.
+            # mkfs.erofs 1.8.10
+            # <E> erofs_io: failed to get block device size(/dev/loop2): Not supported
+            # Try '/usr/bin/mkfs.erofs --help' for more information.
+            # (mkfs) failed with exit status 1.
+            # --------
+            continue;
+        fi
+
         case "$format" in
             squashfs)
                 command -v mksquashfs >/dev/null || continue ;;

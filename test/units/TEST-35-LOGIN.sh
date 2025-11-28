@@ -8,6 +8,12 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+RUN_OUT="$(mktemp)"
+
+run() {
+    "$@" |& tee "$RUN_OUT"
+}
+
 cleanup_test_user() (
     set +ex
 
@@ -23,6 +29,17 @@ setup_test_user() {
     mkdir -p /var/spool/cron /var/spool/mail
     useradd -m -s /usr/bin/bash logind-test-user
     trap cleanup_test_user EXIT
+}
+
+session_bus_path() {
+    local session
+
+    session=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
+    if ! [[ "${session?}" =~ c[0-9]* ]]; then
+        # When numeric, bus path is prefixed with '_3'
+        session="_3${session}"
+    fi
+    echo "/org/freedesktop/login1/session/${session}"
 }
 
 test_write_dropin() {
@@ -268,6 +285,7 @@ cleanup_session() (
     loginctl terminate-user logind-test-user
 
     if ! timeout 30 bash -c "while loginctl --no-legend | grep -q logind-test-user; do sleep 1; done"; then
+        loginctl
         echo "WARNING: session for logind-test-user still active, ignoring."
     fi
 
@@ -556,12 +574,11 @@ testcase_session_properties() {
     trap cleanup_session RETURN
     create_session
 
-    s=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
-    /usr/lib/systemd/tests/unit-tests/manual/test-session-properties "/org/freedesktop/login1/session/_3${s?}" /dev/tty2
+    /usr/lib/systemd/tests/unit-tests/manual/test-session-properties "$(session_bus_path)" /dev/tty2
 }
 
 testcase_list_users_sessions_seats() {
-    local session seat
+    local path seat
 
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
@@ -574,11 +591,11 @@ testcase_list_users_sessions_seats() {
     # Activate the session
     loginctl activate "$(loginctl --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')"
 
-    session=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
+    path=$(session_bus_path)
     : check that we got a valid session id
-    busctl get-property org.freedesktop.login1 "/org/freedesktop/login1/session/_3${session?}" org.freedesktop.login1.Session Id
-    busctl get-property org.freedesktop.login1 "/org/freedesktop/login1/session/_3${session?}" org.freedesktop.login1.Session CanIdle
-    busctl get-property org.freedesktop.login1 "/org/freedesktop/login1/session/_3${session?}" org.freedesktop.login1.Session CanLock
+    busctl get-property org.freedesktop.login1 "$path" org.freedesktop.login1.Session Id
+    busctl get-property org.freedesktop.login1 "$path" org.freedesktop.login1.Session CanIdle
+    busctl get-property org.freedesktop.login1 "$path" org.freedesktop.login1.Session CanLock
     assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $2 }')" "$(id -ru logind-test-user)"
     seat=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $4 }')
     assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $6 }')" user
@@ -761,28 +778,34 @@ EOF
     systemd-sysusers --inline "u lightuser"
 
     systemd-run -u "$TRANSIENTUNIT3" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_TYPE=unspecified" -p Type=exec -p User=lightuser sleep infinity
-    loginctl | grep lightuser | grep -q background-light
+    run loginctl
+    grep 'lightuser .* background-light ' "$RUN_OUT"
     systemctl stop "$TRANSIENTUNIT3"
 
     systemd-run -u "$TRANSIENTUNIT4" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_TYPE=tty" -p Type=exec -p User=lightuser sleep infinity
-    loginctl | grep lightuser | grep -q user-light
+    run loginctl
+    grep 'lightuser .* user-light ' "$RUN_OUT"
     systemctl stop "$TRANSIENTUNIT4"
 
     # Now check that run0's session class control works
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT0" sleep infinity
-    loginctl | grep lightuser | grep -qw background-light
+    run loginctl
+    grep 'lightuser .* background-light ' "$RUN_OUT"
     systemctl stop "$RUN0UNIT0"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT1" --lightweight=yes sleep infinity
-    loginctl | grep lightuser | grep -qw background-light
+    run loginctl
+    grep 'lightuser .* background-light ' "$RUN_OUT"
     systemctl stop "$RUN0UNIT1"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT2" --lightweight=no sleep infinity
-    loginctl | grep lightuser | grep -qw background
+    run loginctl
+    grep 'lightuser .* background ' "$RUN_OUT"
     systemctl stop "$RUN0UNIT2"
 
     systemd-run --service-type=notify run0 -u root --unit="$RUN0UNIT3" sleep infinity
-    loginctl | grep root | grep -qw background-light
+    run loginctl
+    grep 'root .* background-light ' "$RUN_OUT"
     systemctl stop "$RUN0UNIT3"
 }
 
@@ -802,10 +825,11 @@ testcase_restart() {
 
     systemctl restart systemd-logind
 
+    run loginctl
     for c in $classes; do
         unit="user-sleeper-$c.service"
         systemctl --quiet is-active "$unit"
-        loginctl | grep logind-test-user | grep -qw "$c"
+        grep 'logind-test-user .* '"$c"' ' "$RUN_OUT"
         systemctl kill "$unit"
     done
 }
