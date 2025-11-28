@@ -4,8 +4,11 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "sd-varlink.h"
+
 #include "alloc-util.h"
 #include "chase.h"
+#include "dissect-image.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
@@ -522,6 +525,7 @@ static const char *mount_name(MStackMount *m) {
 
 int mstack_open_images(
                 MStack *mstack,
+                sd_varlink *mountfsd_link,
                 int userns_fd,
                 const ImagePolicy *image_policy,
                 const ImageFilter *image_filter,
@@ -530,6 +534,16 @@ int mstack_open_images(
         int r;
 
         assert(mstack);
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        if (userns_fd >= 0 && !mountfsd_link) {
+                /* User a single connection for all mounts */
+                r = mountfsd_connect(&_vl);
+                if (r < 0)
+                        return r;
+
+                mountfsd_link = _vl;
+        }
 
         FOREACH_ARRAY(m, mstack->mounts, mstack->n_mounts) {
 
@@ -556,6 +570,7 @@ int mstack_open_images(
 
                         if (userns_fd >= 0) {
                                 r = mountfsd_mount_image_fd(
+                                                mountfsd_link,
                                                 m->what_fd,
                                                 userns_fd,
                                                 /* options= */ NULL,
@@ -649,6 +664,7 @@ int mstack_open_images(
 
                         if (userns_fd >= 0) {
                                 r = mountfsd_mount_directory_fd(
+                                                mountfsd_link,
                                                 m->what_fd,
                                                 userns_fd,
                                                 dissect_image_flags,
@@ -1039,6 +1055,7 @@ int mstack_apply(
                 int dir_fd,
                 const char *where,
                 const char *temp_mount_dir,
+                sd_varlink *link,
                 int userns_fd,
                 const ImagePolicy *image_policy,
                 const ImageFilter *image_filter,
@@ -1053,7 +1070,7 @@ int mstack_apply(
         if (r < 0)
                 return r;
 
-        r = mstack_open_images(&mstack, userns_fd, image_policy, image_filter, flags);
+        r = mstack_open_images(&mstack, link, userns_fd, image_policy, image_filter, flags);
         if (r < 0)
                 return r;
 
