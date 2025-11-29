@@ -408,6 +408,11 @@ manual_testcase_02_mdns_llmnr() {
 
 testcase_03_23951() {
     : "--- nss-resolve/nss-myhostname tests"
+
+    if ! check_nss_module resolve; then
+        return 0
+    fi
+
     # Sanity check
     TIMESTAMP=$(date '+%F %T')
     # Issue: https://github.com/systemd/systemd/issues/23951
@@ -426,6 +431,10 @@ testcase_03_23951() {
 }
 
 testcase_04_18812() {
+    if ! check_nss_module resolve; then
+        return 0
+    fi
+
     # Issue: https://github.com/systemd/systemd/issues/18812
     # PR: https://github.com/systemd/systemd/pull/18896
     # Follow-up issue: https://github.com/systemd/systemd/issues/23152
@@ -446,6 +455,10 @@ testcase_04_18812() {
 }
 
 testcase_05_25088() {
+    if ! check_nss_module resolve; then
+        return 0
+    fi
+
     # Issue: https://github.com/systemd/systemd/issues/25088
     run getent -s resolve hosts 127.128.0.5
     grep -qEx '127\.128\.0\.5\s+localhost5(\s+localhost5?\.localdomain[45]?){4}' "$RUN_OUT"
