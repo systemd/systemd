@@ -49,6 +49,9 @@ struct CoredumpContext {
         uid_t uid;         /* META_ARGV_UID */
         gid_t gid;         /* META_ARGV_GID */
         int signo;         /* META_ARGV_SIGNAL */
+        bool got_pidfd;    /* META_ARGV_PIDFD */
+        bool same_pidns;
+        bool forwarded;
         usec_t timestamp;  /* META_ARGV_TIMESTAMP */
         uint64_t rlimit;   /* META_ARGV_RLIMIT */
         char *hostname;    /* META_ARGV_HOSTNAME */
@@ -58,9 +61,6 @@ struct CoredumpContext {
         char *unit;        /* META_UNIT */
         char *auxv;        /* META_PROC_AUXV */
         size_t auxv_size;  /* META_PROC_AUXV */
-        bool got_pidfd;    /* META_ARGV_PIDFD */
-        bool same_pidns;
-        bool forwarded;
         int input_fd;
         int mount_tree_fd;
         struct iovec_wrapper iovw;
