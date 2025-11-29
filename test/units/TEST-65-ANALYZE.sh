@@ -79,8 +79,12 @@ systemd-analyze dump "*.socket" "*.service" aaaaaaa ... >/dev/null
 systemd-analyze dump systemd-journald.service >/dev/null
 (! systemd-analyze dump "")
 (! systemd-analyze dump --global systemd-journald.service)
-# malloc
-systemd-analyze malloc >/dev/null
+# malloc (supported only when built with glibc)
+if built_with_musl; then
+    (! systemd-analyze malloc)
+else
+    systemd-analyze malloc >/dev/null
+fi
 (! systemd-analyze malloc --global)
 # unit-files
 systemd-analyze unit-files >/dev/null

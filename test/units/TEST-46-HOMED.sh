@@ -6,6 +6,8 @@ set -o pipefail
 
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 # Check if homectl is installed, and if it isn't bail out early instead of failing
 if ! command -v homectl >/dev/null; then
@@ -785,6 +787,11 @@ testcase_sign() {
     # Test signing key logic
     homectl list-signing-keys | grep -q local.public
     (! (homectl list-signing-keys | grep -q signtest.public))
+
+    if built_with_musl; then
+        # FIXME: musl does not support yescrypt. Use SHA512 and update signature.
+        return 0
+    fi
 
     print_identity() {
         cat <<\EOF
