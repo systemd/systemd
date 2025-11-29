@@ -105,7 +105,7 @@
 /* To do LUKS2 offline encryption, we need to keep some extra free space at the end of the partition. */
 #define LUKS2_METADATA_KEEP_FREE (LUKS2_METADATA_SIZE*2ULL)
 
-/* LUKS2 volume key size. */
+/* LUKS2 default volume key size (no integrity). */
 #define VOLUME_KEY_SIZE (512ULL/8ULL)
 
 /* Use 4K as the default filesystem sector size because as long as the partitions are aligned to 4K, the
@@ -265,6 +265,21 @@ typedef enum EncryptMode {
         _ENCRYPT_MODE_MAX,
         _ENCRYPT_MODE_INVALID = -EINVAL,
 } EncryptMode;
+
+typedef enum IntegrityMode {
+        INTEGRITY_OFF,
+        INTEGRITY_INLINE,
+        _INTEGRITY_MODE_MAX,
+        _INTEGRITY_MODE_INVALID = -EINVAL,
+} IntegrityMode;
+
+typedef enum IntegrityAlg {
+        INTEGRITY_ALG_HMAC_SHA1,
+        INTEGRITY_ALG_HMAC_SHA256,
+        INTEGRITY_ALG_HMAC_SHA512,
+        _INTEGRITY_ALG_MAX,
+        _INTEGRITY_ALG_INVALID = -EINVAL,
+} IntegrityAlg;
 
 typedef enum VerityMode {
         VERITY_OFF,
@@ -444,6 +459,8 @@ typedef struct Partition {
         struct iovec key;
         Tpm2PCRValue *tpm2_hash_pcr_values;
         size_t tpm2_n_hash_pcr_values;
+        IntegrityMode integrity;
+        IntegrityAlg integrity_alg;
         VerityMode verity;
         char *verity_match_key;
         MinimizeMode minimize;
@@ -552,6 +569,22 @@ static const char *encrypt_mode_table[_ENCRYPT_MODE_MAX] = {
         [ENCRYPT_KEY_FILE_TPM2] = "key-file+tpm2",
 };
 
+/* Going forward, the plan is to add two more modes:
+ * [INTEGRITY_DATA] = "data" (interleave data and integrity tags on the same device),
+ * [INTEGRITY_META] = "meta" (use a separate device for storing integrity tags).
+ * Also, INTEGRITY_INLINE will be using hardware sector integrity fields when used
+ * without encryption. */
+static const char *integrity_mode_table[_INTEGRITY_MODE_MAX] = {
+        [INTEGRITY_OFF]    = "off",    /* no integrity protection */
+        [INTEGRITY_INLINE] = "inline", /* luks2 storage when encrypted */
+};
+
+static const char *integrity_alg_table[_INTEGRITY_ALG_MAX] = {
+        [INTEGRITY_ALG_HMAC_SHA1]   = "hmac-sha1",
+        [INTEGRITY_ALG_HMAC_SHA256] = "hmac-sha256",
+        [INTEGRITY_ALG_HMAC_SHA512] = "hmac-sha512",
+};
+
 static const char *verity_mode_table[_VERITY_MODE_MAX] = {
         [VERITY_OFF]  = "off",
         [VERITY_DATA] = "data",
@@ -584,6 +617,8 @@ static const char *progress_phase_table[_PROGRESS_PHASE_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(empty_mode, EmptyMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(append_mode, AppendMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(integrity_mode, IntegrityMode, INTEGRITY_INLINE);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(integrity_alg, IntegrityAlg);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(minimize_mode, MinimizeMode, MINIMIZE_BEST);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase, ProgressPhase);
@@ -2633,6 +2668,9 @@ static int config_parse_key_file(
         return parse_key_file(rvalue, &partition->key);
 }
 
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_integrity, integrity_mode, IntegrityMode, INTEGRITY_OFF);
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_integrity_alg, integrity_alg, IntegrityAlg, INTEGRITY_ALG_HMAC_SHA256);
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF);
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF);
 
@@ -2787,6 +2825,8 @@ static int partition_read_definition(
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
                 { "Partition", "TPM2PCRs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
                 { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
+                { "Partition", "Integrity",                config_parse_integrity,         0,                                  &p->integrity               },
+                { "Partition", "IntegrityAlgorithm",       config_parse_integrity_alg,     0,                                  &p->integrity_alg           },
                 { "Partition", "Compression",              config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression             },
                 { "Partition", "CompressionLevel",         config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression_level       },
                 { "Partition", "SupplementFor",            config_parse_string,            0,                                  &p->supplement_for_name     },
@@ -2920,6 +2960,10 @@ static int partition_read_definition(
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "SizeMinBytes=/SizeMaxBytes= cannot be used with Verity=%s.",
                                   verity_mode_to_string(p->verity));
+
+        if (p->integrity == INTEGRITY_INLINE && p->encrypt == ENCRYPT_OFF)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "Integrity=inline requires Encrypt=.");
 
         if (p->default_subvolume && !ordered_hashmap_contains(p->subvolumes, p->default_subvolume))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -4989,6 +5033,39 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
         return 0;
 }
 
+/* libcryptsetup uses its own names for integrity algorithms, e.g. 'hmac(sha1)' but systemd
+ * prefers more standardized 'hmac-sha1', do the conversion here. Default to hmac(sha256). */
+static const char* dmcrypt_integrity_alg_name(Partition *p) {
+        if (p->integrity != INTEGRITY_INLINE)
+                return NULL;
+
+        switch (p->integrity_alg) {
+        case INTEGRITY_ALG_HMAC_SHA1:
+                return "hmac(sha1)";
+        case INTEGRITY_ALG_HMAC_SHA512:
+                return "hmac(sha512)";
+        case INTEGRITY_ALG_HMAC_SHA256:
+        default:
+                return "hmac(sha256)";
+        }
+}
+
+/* Integrity puts specific limitations on the key size depending on the algorithm */
+static size_t dmcrypt_proper_key_size(Partition *p) {
+        if (p->integrity != INTEGRITY_INLINE)
+                return VOLUME_KEY_SIZE;
+
+        switch (p->integrity_alg) {
+        case INTEGRITY_ALG_HMAC_SHA1:
+                return 672/8;
+        case INTEGRITY_ALG_HMAC_SHA512:
+                return 1024/8;
+        case INTEGRITY_ALG_HMAC_SHA256:
+        default:
+                return 768/8;
+        }
+}
+
 static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline) {
 #if HAVE_LIBCRYPTSETUP
 #if HAVE_TPM2
@@ -4997,6 +5074,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         _cleanup_fclose_ FILE *h = NULL;
         _cleanup_free_ char *hp = NULL, *vol = NULL, *dm_name = NULL;
         const char *passphrase = NULL;
+        const size_t volume_key_size = dmcrypt_proper_key_size(p);
         size_t passphrase_size = 0;
         const char *vt;
         int r;
@@ -5021,6 +5099,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 .label = vl,
                 .sector_size = partition_fs_sector_size(context, p),
                 .data_device = offline ? node : NULL,
+                .integrity = dmcrypt_integrity_alg_name(p),
         };
         struct crypt_params_reencrypt reencrypt_params = {
                 .mode = CRYPT_REENCRYPT_ENCRYPT,
@@ -5032,6 +5111,10 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         };
 
         if (offline) {
+                /* libcryptsetup does not currently support reencryption of devices with integrity profiles.*/
+                if (p->integrity == INTEGRITY_INLINE)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Integrity=inline cannot be enabled in offline mode.");
+
                 r = var_tmp_dir(&vt);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine temporary files directory: %m");
@@ -5084,7 +5167,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         "xts-plain64",
                         SD_ID128_TO_UUID_STRING(p->luks_uuid),
                         NULL,
-                        VOLUME_KEY_SIZE,
+                        /* volume_key_size= */ volume_key_size,
                         &luks_params);
         if (r < 0)
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
@@ -5097,7 +5180,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 cd,
                                 CRYPT_ANY_SLOT,
                                 NULL,
-                                VOLUME_KEY_SIZE,
+                                /* volume_key_size= */ volume_key_size,
                                 strempty(iovec_key->iov_base),
                                 iovec_key->iov_len);
                 if (r < 0)
@@ -5272,7 +5355,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 cd,
                                 CRYPT_ANY_SLOT,
                                 /* volume_key= */ NULL,
-                                /* volume_key_size= */ VOLUME_KEY_SIZE,
+                                /* volume_key_size= */ volume_key_size,
                                 base64_encoded,
                                 base64_encoded_size);
                 if (keyslot < 0)
@@ -5372,10 +5455,29 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 cd,
                                 dm_name,
                                 NULL,
-                                VOLUME_KEY_SIZE,
-                                (arg_discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0) | CRYPT_ACTIVATE_PRIVATE);
+                                /* volume_key_size= */ volume_key_size,
+                                (arg_discard && p->integrity != INTEGRITY_INLINE ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0) | CRYPT_ACTIVATE_PRIVATE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to activate LUKS superblock: %m");
+
+                /* crypt_wipe() the whole device to avoid integrity errors upon mkfs */
+                if (p->integrity == INTEGRITY_INLINE) {
+                        r = sym_crypt_wipe(
+                                        cd,
+                                        vol,
+                                        CRYPT_WIPE_ZERO,
+                                        /* offset= */ 0,
+                                        /* length= */ 0,
+                                        /* wipe_block_size= */ 1 * U64_MB,
+                                        /* flags= */ 0,
+                                        /* progress= */ NULL,
+                                        /* usrptr= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to wipe LUKS device: %m");
+
+                        log_info("%s integrity protection for future partition %" PRIu64 " initialized.",
+                                 integrity_alg_to_string(p->integrity_alg), p->partno);
+                }
 
                 dev_fd = open(vol, O_RDWR|O_CLOEXEC|O_NOCTTY);
                 if (dev_fd < 0)
