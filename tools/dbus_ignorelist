@@ -244,6 +244,7 @@ org.freedesktop.login1.Session.ReleaseDevice()
 org.freedesktop.login1.Session.Remote
 org.freedesktop.login1.Session.RemoteHost
 org.freedesktop.login1.Session.RemoteUser
+org.freedesktop.login1.Session.RemoteAccess
 org.freedesktop.login1.Session.ResumeDevice()
 org.freedesktop.login1.Session.Scope
 org.freedesktop.login1.Session.Seat
