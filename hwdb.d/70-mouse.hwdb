@@ -857,6 +857,19 @@ mouse:bluetooth:v056ep0061:name:Laser  BTmouse:*
  MOUSE_DPI=*800@333 1600@333
 
 ##########################################
+# ProtoArc
+##########################################
+
+# ProtoArc EM01 NL
+mouse:usb:v25a7pfa61:name:Compx 2.4G Receiver Mouse:*
+ ID_INPUT_TRACKBALL=1
+ MOUSE_DPI=200@250 *400@250 800@250 1200@250 1600@250
+
+mouse:bluetooth:v25a7pfaa0:name:EM01 NL:*
+ ID_INPUT_TRACKBALL=1
+ MOUSE_DPI=200@150 *400@150 800@150 1200@150 1600@150
+
+##########################################
 # P-Active
 ##########################################
 
