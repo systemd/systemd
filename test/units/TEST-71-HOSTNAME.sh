@@ -166,6 +166,10 @@ testcase_hardware_serial() {
 testcase_nss-myhostname() {
     local database host i
 
+    if ! check_nss_module myhostname; then
+        return 0
+    fi
+
     HOSTNAME="$(hostnamectl hostname)"
 
     # Set up a dummy network for _gateway and _outbound labels
@@ -315,7 +319,6 @@ EOF
     assert_in "heisenberg" "$(cat /run/alternate-path/myhostname)"
     assert_in "CHASSIS=watch" "$(cat /run/alternate-path/mymachine-info)"
 }
-
 
 run_testcases
 

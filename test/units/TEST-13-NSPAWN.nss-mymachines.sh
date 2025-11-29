@@ -7,6 +7,10 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+if ! check_nss_module mymachine; then
+    exit 0
+fi
+
 at_exit() {
     set +e
 
