@@ -233,7 +233,13 @@ testcase_basic() {
     PASSWORD=xEhErW0ndafV4s homectl with test-user -- rm /home/test-user/xyz
     PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
     (! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
-    [[ "$(PASSWORD=xEhErW0ndafV4s homectl with test-user -- stat -c %U /home/test-user/hoge)" == "test-user" ]]
+    if check_nss_module systemd; then
+        [[ "$(PASSWORD=xEhErW0ndafV4s homectl with test-user -- stat -c %U /home/test-user/hoge)" == "test-user" ]]
+        [[ "$(PASSWORD=xEhErW0ndafV4s homectl with test-user -- stat -c %u /home/test-user/hoge)" == "$(id -u test-user)" ]]
+    fi
+    # The machine ID may start with a numeric, and in that case the field name must be quoted.
+    [[ "$(PASSWORD=xEhErW0ndafV4s homectl with test-user -- stat -c %u /home/test-user/hoge)" == \
+       "$(homectl inspect --json=short test-user | jq .binding.\""$(cat /etc/machine-id)"\".uid)" ]]
     [[ "$(PASSWORD=xEhErW0ndafV4s homectl with test-user -- cat /home/test-user/hoge)" == "$(cat "$TMP_SKEL"/hoge)" ]]
 
     # Regression tests
@@ -587,6 +593,11 @@ testcase_ssh() {
         return 0
     fi
 
+    # 'ssh homedsshtest@localhost' requires systemd NSS module.
+    if ! check_nss_module systemd; then
+        return 0
+    fi
+
     if ! command -v ssh >/dev/null || ! command -v sshd >/dev/null; then
         echo "ssh/sshd is not installed, skipping the ssh test."
         return 0
@@ -690,17 +701,24 @@ testcase_alias() {
     userdbctl user aliastest2@myrealm
     userdbctl user aliastest3@myrealm
 
-    getent passwd aliastest
-    getent passwd aliastest2
-    getent passwd aliastest3
-    getent passwd aliastest@myrealm
-    getent passwd aliastest2@myrealm
-    getent passwd aliastest3@myrealm
+    if check_nss_module systemd; then
+        getent passwd aliastest
+        getent passwd aliastest2
+        getent passwd aliastest3
+        getent passwd aliastest@myrealm
+        getent passwd aliastest2@myrealm
+        getent passwd aliastest3@myrealm
+    fi
 
     homectl remove aliastest
 }
 
 testcase_quota() {
+    # 'run0 -u' requires systemd NSS module.
+    if ! check_nss_module systemd; then
+        return 0
+    fi
+
     NEWPASSWORD=quux homectl create tmpfsquota --storage=subvolume --dev-shm-limit=50K --tmp-limit=50K -P
     for p in /dev/shm /tmp; do
         if findmnt -n -o options "$p" | grep -q usrquota; then
@@ -725,6 +743,11 @@ testcase_quota() {
 }
 
 testcase_subarea() {
+    # 'run0 -u' requires systemd NSS module.
+    if ! check_nss_module systemd; then
+        return 0
+    fi
+
     NEWPASSWORD=quux homectl create subareatest --storage=subvolume -P
     run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest mkdir Areas
     run0 --property=SetCredential=pam.authtok.systemd-run0:quux -u subareatest cp -av /etc/skel Areas/furb
