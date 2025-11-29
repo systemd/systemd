@@ -5551,6 +5551,35 @@ int exec_invoke(
                         }
                 }
 
+        if (context->memory_thp == MEMORY_THP_DISABLE) {
+                if (prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0) < 0) {
+                        if (errno == EINVAL)
+                                log_debug_errno(errno, "Disabling per-process THP is not supported.");
+                        else {
+                                *exit_status = EXIT_MEMORY_THP;
+                                return log_error_errno(errno, "Failed to disable THP per process: %m");
+                        }
+                }
+        } else if (context->memory_thp == MEMORY_THP_MADVISE) {
+                if (prctl(PR_SET_THP_DISABLE, 1, PR_THP_DISABLE_EXCEPT_ADVISED, 0, 0) < 0) {
+                        if (errno == EINVAL)
+                                log_debug_errno(errno, "Disabling per-process THP (except madvise) is not supported.");
+                        else {
+                                *exit_status = EXIT_MEMORY_THP;
+                                return log_error_errno(errno, "Failed to disable THP (except madvise) per process: %m");
+                        }
+                }
+        } else if (context->memory_thp == MEMORY_THP_SYSTEM) {
+                if (prctl(PR_SET_THP_DISABLE, 0, 0, 0, 0) < 0) {
+                        if (errno == EINVAL)
+                                log_debug_errno(errno, "Resetting per-process THP setting to system wide setting is not supported.");
+                        else {
+                                *exit_status = EXIT_MEMORY_THP;
+                                return log_error_errno(errno, "Failed to reset THP process settings to system wide settings: %m");
+                        }
+                }
+        }
+
 #if ENABLE_UTMP
         if (context->utmp_id) {
                 _cleanup_free_ char *username_alloc = NULL;
