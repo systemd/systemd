@@ -297,7 +297,7 @@ static int tar_pull_make_local_copy(TarPull *p) {
                         }
 
                         _cleanup_close_ int directory_fd = -EBADF;
-                        r = mountfsd_make_directory(t, /* flags= */ 0, &directory_fd);
+                        r = mountfsd_make_directory(t, MODE_INVALID, /* flags= */ 0, &directory_fd);
                         if (r < 0)
                                 return r;
 
@@ -609,7 +609,7 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
                         return r;
 
                 _cleanup_close_ int directory_fd = -EBADF;
-                r = mountfsd_make_directory(where, /* flags= */ 0, &directory_fd);
+                r = mountfsd_make_directory(where, MODE_INVALID, /* flags= */ 0, &directory_fd);
                 if (r < 0)
                         return r;
 
