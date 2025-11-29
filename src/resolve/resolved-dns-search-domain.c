@@ -90,7 +90,7 @@ static DnsSearchDomain* dns_search_domain_free(DnsSearchDomain *d) {
         return mfree(d);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsSearchDomain, dns_search_domain, dns_search_domain_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsSearchDomain, dns_search_domain, d, dns_search_domain_free);
 
 void dns_search_domain_unlink(DnsSearchDomain *d) {
         assert(d);

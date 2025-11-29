@@ -198,4 +198,4 @@ static const char* const image_clean_pool_mode_table[_IMAGE_CLEAN_POOL_MAX] = {
         [IMAGE_CLEAN_POOL_REMOVE_HIDDEN] = "hidden"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(image_clean_pool_mode, ImageCleanPoolMode);
+DEFINE_STRING_TABLE_LOOKUP(image_clean_pool_mode, ImageCleanPoolMode, mode);

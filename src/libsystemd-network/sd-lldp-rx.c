@@ -32,7 +32,7 @@ static const char * const lldp_rx_event_table[_SD_LLDP_RX_EVENT_MAX] = {
         [SD_LLDP_RX_EVENT_REFRESHED] = "refreshed",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(lldp_rx_event, sd_lldp_rx_event_t);
+DEFINE_STRING_TABLE_LOOKUP(lldp_rx_event, sd_lldp_rx_event_t, e);
 
 static void lldp_rx_flush_neighbors(sd_lldp_rx *lldp_rx) {
         assert(lldp_rx);
@@ -395,7 +395,7 @@ static sd_lldp_rx *lldp_rx_free(sd_lldp_rx *lldp_rx) {
         return mfree(lldp_rx);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_lldp_rx, sd_lldp_rx, lldp_rx_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_lldp_rx, sd_lldp_rx, lldp_rx, lldp_rx_free);
 
 int sd_lldp_rx_new(sd_lldp_rx **ret) {
         _cleanup_(sd_lldp_rx_unrefp) sd_lldp_rx *lldp_rx = NULL;

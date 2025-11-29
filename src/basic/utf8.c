@@ -328,20 +328,26 @@ size_t utf8_encode_unichar(char *out_utf8, char32_t g) {
                 if (out_utf8)
                         out_utf8[0] = g & 0x7f;
                 return 1;
-        } else if (g < (1 << 11)) {
+        }
+
+        if (g < (1 << 11)) {
                 if (out_utf8) {
                         out_utf8[0] = 0xc0 | ((g >> 6) & 0x1f);
                         out_utf8[1] = 0x80 | (g & 0x3f);
                 }
                 return 2;
-        } else if (g < (1 << 16)) {
+        }
+
+        if (g < (1 << 16)) {
                 if (out_utf8) {
                         out_utf8[0] = 0xe0 | ((g >> 12) & 0x0f);
                         out_utf8[1] = 0x80 | ((g >> 6) & 0x3f);
                         out_utf8[2] = 0x80 | (g & 0x3f);
                 }
                 return 3;
-        } else if (g < (1 << 21)) {
+        }
+
+        if (g < (1 << 21)) {
                 if (out_utf8) {
                         out_utf8[0] = 0xf0 | ((g >> 18) & 0x07);
                         out_utf8[1] = 0x80 | ((g >> 12) & 0x3f);

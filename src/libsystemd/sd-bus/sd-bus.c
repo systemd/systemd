@@ -89,7 +89,7 @@ static sd_bus** bus_choose_default(int (**bus_open)(sd_bus **)) {
                         if (bus_open)
                                 *bus_open = sd_bus_open_system;
                         return &default_system_bus;
-                } else if (STR_IN_SET(e, "user", "session")) {
+                } if (STR_IN_SET(e, "user", "session")) {
                         if (bus_open)
                                 *bus_open = sd_bus_open_user;
                         return &default_user_bus;
@@ -112,11 +112,10 @@ static sd_bus** bus_choose_default(int (**bus_open)(sd_bus **)) {
                 if (bus_open)
                         *bus_open = sd_bus_open_user;
                 return &default_user_bus;
-        } else {
-                if (bus_open)
+        }                 if (bus_open)
                         *bus_open = sd_bus_open_system;
                 return &default_system_bus;
-        }
+
 }
 
 sd_bus *bus_resolve(sd_bus *bus) {
@@ -1077,27 +1076,27 @@ static int bus_parse_next_address(sd_bus *b) {
                         if (r < 0)
                                 return r;
                         break;
+                }
 
-                } else if (startswith(a, "tcp:")) {
-
+                if (startswith(a, "tcp:")) {
                         a += 4;
                         r = parse_tcp_address(b, &a, &guid);
                         if (r < 0)
                                 return r;
 
                         break;
+                }
 
-                } else if (startswith(a, "unixexec:")) {
-
+                if (startswith(a, "unixexec:")) {
                         a += 9;
                         r = parse_exec_address(b, &a, &guid);
                         if (r < 0)
                                 return r;
 
                         break;
+                }
 
-                } else if (startswith(a, "x-machine-unix:")) {
-
+                if (startswith(a, "x-machine-unix:")) {
                         a += 15;
                         r = parse_container_unix_address(b, &a, &guid);
                         if (r < 0)
@@ -1276,8 +1275,7 @@ _public_ int sd_bus_open_with_description(sd_bus **ret, const char *description)
         if (!e) {
                 if (cg_pid_get_owner_uid(0, NULL) >= 0)
                         return sd_bus_open_user_with_description(ret, description);
-                else
-                        return sd_bus_open_system_with_description(ret, description);
+                return sd_bus_open_system_with_description(ret, description);
         }
 
         r = sd_bus_new(&b);
@@ -2269,8 +2267,7 @@ static usec_t calc_elapse(sd_bus *bus, uint64_t usec) {
 
         if (IN_SET(bus->state, BUS_WATCH_BIND, BUS_OPENING, BUS_AUTHENTICATING))
                 return usec;
-        else
-                return usec_add(now(CLOCK_MONOTONIC), usec);
+        return usec_add(now(CLOCK_MONOTONIC), usec);
 }
 
 static int timeout_compare(const void *a, const void *b) {
@@ -2462,14 +2459,16 @@ _public_ int sd_bus_call(
                                         return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INCONSISTENT_MESSAGE,
                                                                 "Reply message contained file descriptors which I couldn't accept. Sorry.");
 
-                                } else if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR)
-                                        return sd_bus_error_copy(reterr_error, &incoming->error);
-                                else {
-                                        r = -EIO;
-                                        goto fail;
                                 }
 
-                        } else if (BUS_MESSAGE_COOKIE(incoming) == cookie &&
+                                if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR)
+                                        return sd_bus_error_copy(reterr_error, &incoming->error);
+
+                                r = -EIO;
+                                goto fail;
+                        }
+
+                        if (BUS_MESSAGE_COOKIE(incoming) == cookie &&
                                    bus->unique_name &&
                                    incoming->sender &&
                                    streq(bus->unique_name, incoming->sender)) {
@@ -3434,7 +3433,8 @@ _public_ int sd_bus_flush(sd_bus *bus) {
                 if (ERRNO_IS_NEG_DISCONNECT(r)) {
                         bus_enter_closing(bus, r);
                         return -ECONNRESET;
-                } else if (r < 0)
+                }
+                if (r < 0)
                         return r;
 
                 if (bus->wqueue_size <= 0)

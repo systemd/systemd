@@ -130,7 +130,7 @@ static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
         [TRANSFER_PULL_RAW]   = "pull-raw",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(transfer_type, TransferType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(transfer_type, TransferType, i);
 
 static Transfer *transfer_unref(Transfer *t) {
         if (!t)

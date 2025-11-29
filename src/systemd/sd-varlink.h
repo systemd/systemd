@@ -93,7 +93,7 @@ int sd_varlink_connect_url(sd_varlink **ret, const char *url);
 int sd_varlink_connect_fd(sd_varlink **ret, int fd);
 int sd_varlink_connect_fd_pair(sd_varlink **ret, int input_fd, int output_fd, const struct ucred *override_ucred);
 
-sd_varlink* sd_varlink_ref(sd_varlink *link);
+sd_varlink* sd_varlink_ref(sd_varlink *v);
 sd_varlink* sd_varlink_unref(sd_varlink *v);
 
 int sd_varlink_get_fd(sd_varlink *v);

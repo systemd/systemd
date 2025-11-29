@@ -99,13 +99,14 @@ static int table_add_triggered(Table *table, char **triggered) {
 
         if (strv_isempty(triggered))
                 return table_add_cell(table, NULL, TABLE_EMPTY, NULL);
-        else if (strv_length(triggered) == 1)
+
+        if (strv_length(triggered) == 1)
                 return table_add_cell(table, NULL, TABLE_STRING, triggered[0]);
-        else
-                /* This should never happen, currently our socket units can only trigger a
-                 * single unit. But let's handle this anyway, who knows what the future
-                 * brings? */
-                return table_add_cell(table, NULL, TABLE_STRV, triggered);
+
+        /* This should never happen, currently our socket units can only trigger a
+         * single unit. But let's handle this anyway, who knows what the future
+         * brings? */
+        return table_add_cell(table, NULL, TABLE_STRV, triggered);
 }
 
 static char *format_unit_id(const char *unit, const char *machine) {

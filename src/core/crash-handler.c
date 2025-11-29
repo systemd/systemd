@@ -207,4 +207,4 @@ static const char* const crash_action_table[_CRASH_ACTION_MAX] = {
         [CRASH_POWEROFF] = "poweroff",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(crash_action, CrashAction);
+DEFINE_STRING_TABLE_LOOKUP(crash_action, CrashAction, action);

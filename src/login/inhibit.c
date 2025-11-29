@@ -284,48 +284,47 @@ static int run(int argc, char *argv[]) {
 
         if (arg_action == ACTION_LIST)
                 return print_inhibitors(bus);
-        else {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_strv_free_ char **arguments = NULL;
-                _cleanup_free_ char *w = NULL;
-                _cleanup_close_ int fd = -EBADF;
-                pid_t pid;
 
-                /* Ignore SIGINT and allow the forked process to receive it */
-                (void) ignore_signals(SIGINT);
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **arguments = NULL;
+        _cleanup_free_ char *w = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        pid_t pid;
 
-                if (!arg_who) {
-                        w = strv_join(argv + optind, " ");
-                        if (!w)
-                                return log_oom();
+        /* Ignore SIGINT and allow the forked process to receive it */
+        (void) ignore_signals(SIGINT);
 
-                        arg_who = w;
-                }
-
-                if (!arg_mode)
-                        arg_mode = "block";
-
-                fd = inhibit(bus, &error);
-                if (fd < 0)
-                        return log_error_errno(fd, "Failed to inhibit: %s", bus_error_message(&error, fd));
-
-                arguments = strv_copy(argv + optind);
-                if (!arguments)
+        if (!arg_who) {
+                w = strv_join(argv + optind, " ");
+                if (!w)
                         return log_oom();
 
-                r = safe_fork("(inhibit)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
-                if (r < 0)
-                        return r;
-                if (r == 0) {
-                        /* Child */
-                        execvp(arguments[0], arguments);
-                        log_open();
-                        log_error_errno(errno, "Failed to execute %s: %m", argv[optind]);
-                        _exit(EXIT_FAILURE);
-                }
-
-                return wait_for_terminate_and_check(argv[optind], pid, WAIT_LOG);
+                arg_who = w;
         }
+
+        if (!arg_mode)
+                arg_mode = "block";
+
+        fd = inhibit(bus, &error);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to inhibit: %s", bus_error_message(&error, fd));
+
+        arguments = strv_copy(argv + optind);
+        if (!arguments)
+                return log_oom();
+
+        r = safe_fork("(inhibit)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child */
+                execvp(arguments[0], arguments);
+                log_open();
+                log_error_errno(errno, "Failed to execute %s: %m", argv[optind]);
+                _exit(EXIT_FAILURE);
+        }
+
+        return wait_for_terminate_and_check(argv[optind], pid, WAIT_LOG);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

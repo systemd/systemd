@@ -252,7 +252,7 @@ static TableData *table_data_free(TableData *d) {
         return mfree(d);
 }
 
-DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(TableData, table_data, table_data_free);
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(TableData, table_data, t, table_data_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(TableData*, table_data_unref);
 
 Table *table_unref(Table *t) {
@@ -1614,7 +1614,9 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
                         *q = 0;
                         return d->formatted;
-                } else if (d->type == TABLE_FIELD) {
+                }
+
+                if (d->type == TABLE_FIELD) {
                         d->formatted = strjoin(s, ":");
                         if (!d->formatted)
                                 return NULL;
@@ -2467,71 +2469,71 @@ int table_print(Table *t, FILE *f) {
                         }
 
                         break; /* Every column should be happy, no need to repeat calculations. */
-                } else {
-                        /* We need to compress the table, columns can't get what they asked for. We first provide each column
-                         * with the minimum they need, and then distribute anything left. */
-                        bool finalize = false;
-                        size_t extra;
+                }
 
-                        extra = table_effective_width - table_minimum_width;
+                /* We need to compress the table, columns can't get what they asked for. We first provide each column
+                 * with the minimum they need, and then distribute anything left. */
+                bool finalize = false;
+                size_t extra;
 
-                        for (size_t j = 0; j < display_columns; j++)
-                                width[j] = SIZE_MAX;
+                extra = table_effective_width - table_minimum_width;
 
-                        for (;;) {
-                                bool restart = false;
+                for (size_t j = 0; j < display_columns; j++)
+                        width[j] = SIZE_MAX;
 
-                                for (size_t j = 0; j < display_columns; j++) {
-                                        size_t delta, w;
+                for (;;) {
+                        bool restart = false;
 
-                                        /* Did this column already get something assigned? If so, let's skip to the next */
-                                        if (width[j] != SIZE_MAX)
-                                                continue;
+                        for (size_t j = 0; j < display_columns; j++) {
+                                size_t delta, w;
 
-                                        if (weight_sum == 0)
-                                                w = minimum_width[j] + extra / (display_columns - j); /* avoid division by zero */
-                                        else
-                                                w = minimum_width[j] + (extra * column_weight[j]) / weight_sum;
+                                /* Did this column already get something assigned? If so, let's skip to the next */
+                                if (width[j] != SIZE_MAX)
+                                        continue;
 
-                                        if (w >= requested_width[j]) {
-                                                /* Never give more than requested. If we hit a column like this, there's more
-                                                 * space to allocate to other columns which means we need to restart the
-                                                 * iteration. However, if we hit a column like this, let's assign it the space
-                                                 * it wanted for good early. */
+                                if (weight_sum == 0)
+                                        w = minimum_width[j] + extra / (display_columns - j); /* avoid division by zero */
+                                else
+                                        w = minimum_width[j] + (extra * column_weight[j]) / weight_sum;
 
-                                                w = requested_width[j];
-                                                restart = true;
+                                if (w >= requested_width[j]) {
+                                        /* Never give more than requested. If we hit a column like this, there's more
+                                         * space to allocate to other columns which means we need to restart the
+                                         * iteration. However, if we hit a column like this, let's assign it the space
+                                         * it wanted for good early. */
 
-                                        } else if (!finalize)
-                                                continue;
+                                        w = requested_width[j];
+                                        restart = true;
 
-                                        width[j] = w;
+                                } else if (!finalize)
+                                        continue;
 
-                                        assert(w >= minimum_width[j]);
-                                        delta = w - minimum_width[j];
+                                width[j] = w;
 
-                                        assert(delta <= extra);
-                                        extra -= delta;
+                                assert(w >= minimum_width[j]);
+                                delta = w - minimum_width[j];
 
-                                        assert(weight_sum >= column_weight[j]);
-                                        weight_sum -= column_weight[j];
+                                assert(delta <= extra);
+                                extra -= delta;
 
-                                        if (restart && !finalize)
-                                                break;
-                                }
+                                assert(weight_sum >= column_weight[j]);
+                                weight_sum -= column_weight[j];
 
-                                if (finalize)
+                                if (restart && !finalize)
                                         break;
-
-                                if (!restart)
-                                        finalize = true;
                         }
 
-                        if (!any_soft) /* Some columns got less than requested. If some cells were "soft",
-                                        * let's try to reformat them with the new widths. Otherwise, let's
-                                        * move on. */
+                        if (finalize)
                                 break;
+
+                        if (!restart)
+                                finalize = true;
                 }
+
+                if (!any_soft) /* Some columns got less than requested. If some cells were "soft",
+                                * let's try to reformat them with the new widths. Otherwise, let's
+                                * move on. */
+                        break;
         }
 
         /* Second pass: show output */
@@ -3213,11 +3215,11 @@ int table_set_json_field_name(Table *t, size_t idx, const char *name) {
 
                 t->n_json_fields = m;
                 return r;
-        } else {
-                if (idx >= t->n_json_fields)
-                        return 0;
-
-                t->json_fields[idx] = mfree(t->json_fields[idx]);
-                return 1;
         }
+
+        if (idx >= t->n_json_fields)
+                return 0;
+
+        t->json_fields[idx] = mfree(t->json_fields[idx]);
+        return 1;
 }

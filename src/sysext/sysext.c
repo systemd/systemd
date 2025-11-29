@@ -82,7 +82,7 @@ static const char* const mutable_mode_table[_MUTABLE_MAX] = {
         [MUTABLE_EPHEMERAL_IMPORT] = "ephemeral-import",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(mutable_mode, MutableMode, MUTABLE_YES);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(mutable_mode, MutableMode, i, MUTABLE_YES);
 
 static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for confext */
 static char *arg_root = NULL;

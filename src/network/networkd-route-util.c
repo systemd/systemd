@@ -347,7 +347,7 @@ static const char * const route_type_table[__RTN_MAX] = {
 };
 
 assert_cc(__RTN_MAX <= UCHAR_MAX);
-DEFINE_STRING_TABLE_LOOKUP(route_type, int);
+DEFINE_STRING_TABLE_LOOKUP(route_type, int, t);
 
 static const char * const route_scope_table[] = {
         [RT_SCOPE_UNIVERSE] = "global",
@@ -357,7 +357,7 @@ static const char * const route_scope_table[] = {
         [RT_SCOPE_NOWHERE]  = "nowhere",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(route_scope, int, UINT8_MAX);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(route_scope, int, t, UINT8_MAX);
 
 static const char * const route_protocol_table[] = {
         [RTPROT_KERNEL] = "kernel",
@@ -365,7 +365,7 @@ static const char * const route_protocol_table[] = {
         [RTPROT_STATIC] = "static",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(route_protocol, int, UINT8_MAX);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(route_protocol, int, t, UINT8_MAX);
 
 static const char * const route_protocol_full_table[] = {
         [RTPROT_REDIRECT] = "redirect",
@@ -390,7 +390,7 @@ static const char * const route_protocol_full_table[] = {
         [RTPROT_EIGRP]    = "eigrp",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(route_protocol_full, int, UINT8_MAX);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(route_protocol_full, int, t, UINT8_MAX);
 
 int route_flags_to_string_alloc(uint32_t flags, char **ret) {
         _cleanup_free_ char *str = NULL;
@@ -421,7 +421,7 @@ static const char * const route_table_table[] = {
         [RT_TABLE_LOCAL]   = "local",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_table, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_table, int, i);
 
 int manager_get_route_table_from_string(const Manager *m, const char *s, uint32_t *ret) {
         uint32_t t;

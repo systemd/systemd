@@ -149,7 +149,7 @@ static const char* const passphrase_type_table[_PASSPHRASE_TYPE_MAX] = {
         [PASSPHRASE_BOTH]         = "passphrase or recovery key",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(passphrase_type, PassphraseType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(passphrase_type, PassphraseType, i);
 
 static const char* const token_type_table[_TOKEN_TYPE_MAX] = {
         [TOKEN_TPM2]   = "tpm2",
@@ -157,7 +157,7 @@ static const char* const token_type_table[_TOKEN_TYPE_MAX] = {
         [TOKEN_PKCS11] = "pkcs11",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(token_type, TokenType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(token_type, TokenType, i);
 
 /* Options Debian's crypttab knows we don't:
     check=

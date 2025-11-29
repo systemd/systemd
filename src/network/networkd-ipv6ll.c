@@ -230,7 +230,7 @@ static const char* const ipv6_link_local_address_gen_mode_table[_IPV6_LINK_LOCAL
         [IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_RANDOM]         = "random",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(ipv6_link_local_address_gen_mode, IPv6LinkLocalAddressGenMode);
+DEFINE_STRING_TABLE_LOOKUP(ipv6_link_local_address_gen_mode, IPv6LinkLocalAddressGenMode, s);
 DEFINE_CONFIG_PARSE_ENUM(
         config_parse_ipv6_link_local_address_gen_mode,
         ipv6_link_local_address_gen_mode,

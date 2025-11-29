@@ -67,7 +67,7 @@ static UdevEvent* udev_event_free(UdevEvent *event) {
         return mfree(event);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(UdevEvent, udev_event, udev_event_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(UdevEvent, udev_event, event, udev_event_free);
 
 static int device_rename(sd_device *device, const char *name) {
         _cleanup_free_ char *new_syspath = NULL;

@@ -21,7 +21,7 @@ static const char* const lldp_mode_table[_LLDP_MODE_MAX] = {
         [LLDP_MODE_ROUTERS_ONLY] = "routers-only",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(lldp_mode, LLDPMode, LLDP_MODE_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(lldp_mode, LLDPMode, m, LLDP_MODE_YES);
 
 static bool link_lldp_rx_enabled(Link *link) {
         assert(link);

@@ -505,8 +505,7 @@ static usec_t watchdog_calc_timeout(void) {
          * pretimeout if configured and supported. */
         if (watchdog_supports_pretimeout && timestamp_is_set(watchdog_pretimeout) && watchdog_timeout >= watchdog_pretimeout)
                 return watchdog_timeout - watchdog_pretimeout;
-        else
-                return watchdog_timeout;
+        return watchdog_timeout;
 }
 
 usec_t watchdog_runtime_wait(unsigned divisor) {

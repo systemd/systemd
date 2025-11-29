@@ -28,4 +28,4 @@ static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_IDLE] = "idle",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, IOPRIO_NR_CLASSES-1);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, i, IOPRIO_NR_CLASSES-1);

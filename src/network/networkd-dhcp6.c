@@ -944,4 +944,4 @@ static const char* const dhcp6_client_start_mode_table[_DHCP6_CLIENT_START_MODE_
         [DHCP6_CLIENT_START_MODE_SOLICIT]             = "solicit",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(dhcp6_client_start_mode, DHCP6ClientStartMode);
+DEFINE_STRING_TABLE_LOOKUP(dhcp6_client_start_mode, DHCP6ClientStartMode, i);

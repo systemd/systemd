@@ -315,7 +315,8 @@ static int make_choice(
                                 flags & ~PICK_RESOLVE,
                                 ret);
 
-        } else if (r != -ENOEXEC)
+        }
+        if (r != -ENOEXEC)
                 return log_debug_errno(r, "Failed to format file name: %m");
 
         /* Underspecified, so we do our enumeration dance */

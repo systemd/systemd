@@ -10,4 +10,4 @@ static const char *const console_mode_table[_CONSOLE_MODE_MAX] = {
         [CONSOLE_GUI]         = "gui",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);
+DEFINE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode, m);

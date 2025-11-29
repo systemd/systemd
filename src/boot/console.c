@@ -104,7 +104,7 @@ EFI_STATUS console_key_read(uint64_t *ret_key, uint64_t timeout_usec) {
                 /* The EFI timer fired instead. If this was a watchdog timeout, loop again. */
                 if (timeout_usec == UINT64_MAX)
                         continue;
-                else if (timeout_usec > watchdog_ping_usec) {
+                if (timeout_usec > watchdog_ping_usec) {
                         timeout_usec -= watchdog_ping_usec;
                         continue;
                 }
@@ -149,7 +149,9 @@ EFI_STATUS console_key_read(uint64_t *ret_key, uint64_t timeout_usec) {
                 if (ret_key)
                         *ret_key = KEYPRESS(shift, keydata.Key.ScanCode, keydata.Key.UnicodeChar);
                 return EFI_SUCCESS;
-        } else if (BS->CheckEvent(ST->ConIn->WaitForKey) == EFI_SUCCESS) {
+        }
+
+        if (BS->CheckEvent(ST->ConIn->WaitForKey) == EFI_SUCCESS) {
                 EFI_INPUT_KEY k;
 
                 err = ST->ConIn->ReadKeyStroke(ST->ConIn, &k);

@@ -82,9 +82,8 @@ int main(int argc, char *argv[]) {
 
         if (argc == 3)
                 return test_acd(argv[1], argv[2]);
-        else {
-                log_error("This program takes two arguments.\n"
-                          "\t %s <ifname> <IPv4 address>", program_invocation_short_name);
-                return EXIT_FAILURE;
-        }
+
+        log_error("This program takes two arguments.\n"
+                  "\t %s <ifname> <IPv4 address>", program_invocation_short_name);
+        return EXIT_FAILURE;
 }

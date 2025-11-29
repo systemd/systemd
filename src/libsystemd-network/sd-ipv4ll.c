@@ -65,7 +65,7 @@ static sd_ipv4ll *ipv4ll_free(sd_ipv4ll *ll) {
         return mfree(ll);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_ipv4ll, sd_ipv4ll, ipv4ll_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_ipv4ll, sd_ipv4ll, ll, ipv4ll_free);
 
 int sd_ipv4ll_new(sd_ipv4ll **ret) {
         _cleanup_(sd_ipv4ll_unrefp) sd_ipv4ll *ll = NULL;

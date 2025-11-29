@@ -73,7 +73,7 @@ static const char *output_table[_OUTPUT_MAX] = {
         [OUTPUT_JSON]     = "json",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(output, Output);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(output, Output, i);
 
 static const char *user_disposition_to_color(UserDisposition d) {
         assert(d >= 0);

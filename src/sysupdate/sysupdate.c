@@ -815,31 +815,30 @@ static int context_show_version(Context *c, const char *version) {
                 printf("\n");
 
                 return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
-        } else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *t_json = NULL;
-
-                r = table_to_json(t, &t_json);
-                if (r < 0)
-                        return log_error_errno(r, "failed to convert table to JSON: %m");
-
-                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("version", us->version),
-                                          SD_JSON_BUILD_PAIR_BOOLEAN("newest", FLAGS_SET(us->flags, UPDATE_NEWEST)),
-                                          SD_JSON_BUILD_PAIR_BOOLEAN("available", FLAGS_SET(us->flags, UPDATE_AVAILABLE)),
-                                          SD_JSON_BUILD_PAIR_BOOLEAN("installed", FLAGS_SET(us->flags, UPDATE_INSTALLED)),
-                                          SD_JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
-                                          SD_JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
-                                          SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", FLAGS_SET(us->flags, UPDATE_INCOMPLETE)),
-                                          SD_JSON_BUILD_PAIR_STRV("changelogUrls", changelog_urls),
-                                          SD_JSON_BUILD_PAIR_VARIANT("contents", t_json));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create JSON: %m");
-
-                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to print JSON: %m");
-
-                return 0;
         }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *t_json = NULL;
+        r = table_to_json(t, &t_json);
+        if (r < 0)
+                return log_error_errno(r, "failed to convert table to JSON: %m");
+
+        r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("version", us->version),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("newest", FLAGS_SET(us->flags, UPDATE_NEWEST)),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("available", FLAGS_SET(us->flags, UPDATE_AVAILABLE)),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("installed", FLAGS_SET(us->flags, UPDATE_INSTALLED)),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", FLAGS_SET(us->flags, UPDATE_INCOMPLETE)),
+                                        SD_JSON_BUILD_PAIR_STRV("changelogUrls", changelog_urls),
+                                        SD_JSON_BUILD_PAIR_VARIANT("contents", t_json));
+        if (r < 0)
+                return log_error_errno(r, "Failed to create JSON: %m");
+
+        r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print JSON: %m");
+
+        return 0;
 }
 
 static int context_vacuum(
@@ -1166,48 +1165,47 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
         if (version)
                 return context_show_version(context, version);
-        else if (!sd_json_format_enabled(arg_json_format_flags))
+        if (!sd_json_format_enabled(arg_json_format_flags))
                 return context_show_table(context);
-        else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-                _cleanup_strv_free_ char **versions = NULL;
-                const char *current = NULL;
 
-                FOREACH_ARRAY(update_set, context->update_sets, context->n_update_sets) {
-                        UpdateSet *us = *update_set;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        _cleanup_strv_free_ char **versions = NULL;
+        const char *current = NULL;
 
-                        if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
-                            FLAGS_SET(us->flags, UPDATE_NEWEST))
-                                current = us->version;
+        FOREACH_ARRAY(update_set, context->update_sets, context->n_update_sets) {
+                UpdateSet *us = *update_set;
 
-                        r = strv_extend(&versions, us->version);
+                if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
+                        FLAGS_SET(us->flags, UPDATE_NEWEST))
+                        current = us->version;
+
+                r = strv_extend(&versions, us->version);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        FOREACH_ARRAY(tr, context->transfers, context->n_transfers)
+                STRV_FOREACH(appstream_url, (*tr)->appstream) {
+                        /* Avoid duplicates */
+                        if (strv_contains(appstream_urls, *appstream_url))
+                                continue;
+
+                        r = strv_extend(&appstream_urls, *appstream_url);
                         if (r < 0)
                                 return log_oom();
                 }
 
-                FOREACH_ARRAY(tr, context->transfers, context->n_transfers)
-                        STRV_FOREACH(appstream_url, (*tr)->appstream) {
-                                /* Avoid duplicates */
-                                if (strv_contains(appstream_urls, *appstream_url))
-                                        continue;
+        r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("current", current),
+                                        SD_JSON_BUILD_PAIR_STRV("all", versions),
+                                        SD_JSON_BUILD_PAIR_STRV("appstreamUrls", appstream_urls));
+        if (r < 0)
+                return log_error_errno(r, "Failed to create JSON: %m");
 
-                                r = strv_extend(&appstream_urls, *appstream_url);
-                                if (r < 0)
-                                        return log_oom();
-                        }
+        r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print JSON: %m");
 
-                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("current", current),
-                                          SD_JSON_BUILD_PAIR_STRV("all", versions),
-                                          SD_JSON_BUILD_PAIR_STRV("appstreamUrls", appstream_urls));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create JSON: %m");
-
-                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to print JSON: %m");
-
-                return 0;
-        }
+        return 0;
 }
 
 static int verb_features(int argc, char **argv, void *userdata) {
@@ -1304,7 +1302,9 @@ static int verb_features(int argc, char **argv, void *userdata) {
                 }
 
                 return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
-        } else if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+        }
+
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
                 table = table_new("", "feature", "description", "documentation");
                 if (!table)
                         return log_oom();
@@ -1322,24 +1322,24 @@ static int verb_features(int argc, char **argv, void *userdata) {
                 }
 
                 return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
-        } else {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-                _cleanup_strv_free_ char **features = NULL;
-
-                HASHMAP_FOREACH(f, context->features) {
-                        r = strv_extend(&features, f->id);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRV("features", features));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create JSON: %m");
-
-                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to print JSON: %m");
         }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        _cleanup_strv_free_ char **features = NULL;
+
+        HASHMAP_FOREACH(f, context->features) {
+                r = strv_extend(&features, f->id);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRV("features", features));
+        if (r < 0)
+                return log_error_errno(r, "Failed to create JSON: %m");
+
+        r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print JSON: %m");
 
         return 0;
 }
@@ -1507,7 +1507,8 @@ static int verb_pending_or_reboot(int argc, char **argv, void *userdata) {
                         return reboot_now();
 
                 return EXIT_SUCCESS;
-        } else if (r == 0)
+        }
+        if (r == 0)
                 log_info("Newest installed version '%s' matches booted version '%s'.",
                          context->newest_installed->version, booted_version);
         else

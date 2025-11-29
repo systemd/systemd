@@ -80,7 +80,7 @@ static Writer* writer_free(Writer *w) {
         return mfree(w);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(Writer, writer, writer_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Writer, writer, w, writer_free);
 
 int writer_write(Writer *w,
                  const struct iovec_wrapper *iovw,
@@ -117,15 +117,17 @@ int writer_write(Writer *w,
                 if (w->server)
                         w->server->event_count += 1;
                 return 0;
-        } else if (r == -EBADMSG)
+        }
+        if (r == -EBADMSG)
                 return r;
 
         log_debug_errno(r, "%s: Write failed, rotating: %m", w->journal->path);
         r = do_rotate(&w->journal, w->mmap, file_flags);
         if (r < 0)
                 return r;
-        else
-                log_debug("%s: Successfully rotated journal", w->journal->path);
+
+        log_debug("%s: Successfully rotated journal", w->journal->path);
+
         r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, /* verbose = */ true);
         if (r < 0)
                 return r;

@@ -2191,7 +2191,7 @@ static const char* const portable_change_type_table[_PORTABLE_CHANGE_TYPE_MAX] =
         [PORTABLE_WRITE] = "write",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(portable_change_type, int);
+DEFINE_STRING_TABLE_LOOKUP(portable_change_type, int, t);
 
 static const char* const portable_state_table[_PORTABLE_STATE_MAX] = {
         [PORTABLE_DETACHED] = "detached",
@@ -2203,4 +2203,4 @@ static const char* const portable_state_table[_PORTABLE_STATE_MAX] = {
         [PORTABLE_RUNNING_RUNTIME] = "running-runtime",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(portable_state, PortableState);
+DEFINE_STRING_TABLE_LOOKUP(portable_state, PortableState, t);

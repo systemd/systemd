@@ -98,8 +98,9 @@ TEST(mnt_id) {
                 if (mnt_id == mnt_id2) {
                         log_debug("mnt ids of %s is %i.", p, mnt_id);
                         continue;
-                } else
-                        log_debug("mnt ids of %s are %i (from /proc/self/mountinfo), %i (from path_get_mnt_id()).", p, mnt_id, mnt_id2);
+                }
+
+                log_debug("mnt ids of %s are %i (from /proc/self/mountinfo), %i (from path_get_mnt_id()).", p, mnt_id, mnt_id2);
 
                 /* The ids don't match? This can easily happen e.g. running with "unshare --mount-proc".
                  * See #11505. */

@@ -229,7 +229,7 @@ static UserRecord* user_record_free(UserRecord *h) {
         return mfree(h);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(UserRecord, user_record, user_record_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(UserRecord, user_record, h, user_record_free);
 
 int json_dispatch_realm(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char **s = userdata;
@@ -2903,7 +2903,7 @@ static const char* const user_storage_table[_USER_STORAGE_MAX] = {
         [USER_CIFS]      = "cifs",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(user_storage, UserStorage);
+DEFINE_STRING_TABLE_LOOKUP(user_storage, UserStorage, t);
 
 static const char* const user_disposition_table[_USER_DISPOSITION_MAX] = {
         [USER_INTRINSIC] = "intrinsic",
@@ -2915,7 +2915,7 @@ static const char* const user_disposition_table[_USER_DISPOSITION_MAX] = {
         [USER_RESERVED]  = "reserved",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(user_disposition, UserDisposition);
+DEFINE_STRING_TABLE_LOOKUP(user_disposition, UserDisposition, t);
 
 static const char* const auto_resize_mode_table[_AUTO_RESIZE_MODE_MAX] = {
         [AUTO_RESIZE_OFF]             = "off",
@@ -2923,4 +2923,4 @@ static const char* const auto_resize_mode_table[_AUTO_RESIZE_MODE_MAX] = {
         [AUTO_RESIZE_SHRINK_AND_GROW] = "shrink-and-grow",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(auto_resize_mode, AutoResizeMode);
+DEFINE_STRING_TABLE_LOOKUP(auto_resize_mode, AutoResizeMode, m);

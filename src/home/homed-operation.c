@@ -63,7 +63,7 @@ static Operation *operation_free(Operation *o) {
         return mfree(o);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(Operation, operation, operation_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Operation, operation, operation, operation_free);
 
 void operation_result(Operation *o, int ret, const sd_bus_error *error) {
         assert(o);

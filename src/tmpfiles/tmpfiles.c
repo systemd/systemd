@@ -233,7 +233,7 @@ static const char *const creation_mode_verb_table[_CREATION_MODE_MAX] = {
         [CREATION_FORCE]    = "Created replacement",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode, i);
 
 static void context_done(Context *c) {
         assert(c);
@@ -1427,12 +1427,12 @@ static int path_set_acl(
                 if (ERRNO_IS_NOT_SUPPORTED(errno))
                         /* No error if filesystem doesn't support ACLs. Return negative. */
                         return -errno;
-                else
-                        /* Return positive to indicate we already warned */
-                        return -log_error_errno(errno,
-                                                "Setting %s ACL \"%s\" on %s failed: %m",
-                                                type == ACL_TYPE_ACCESS ? "access" : "default",
-                                                strna(t), pretty);
+
+                /* Return positive to indicate we already warned */
+                return -log_error_errno(errno,
+                                        "Setting %s ACL \"%s\" on %s failed: %m",
+                                        type == ACL_TYPE_ACCESS ? "access" : "default",
+                                        strna(t), pretty);
         }
         return 0;
 }
@@ -3562,7 +3562,9 @@ static int parse_age_by_from_arg(const char *age_by_str, Item *item) {
                         if (*s == age_by_types[i].age_by_chr) {
                                 ab_f |= age_by_types[i].age_by_flag;
                                 break;
-                        } else if (*s == ascii_toupper(age_by_types[i].age_by_chr)) {
+                        }
+
+                        if (*s == ascii_toupper(age_by_types[i].age_by_chr)) {
                                 ab_d |= age_by_types[i].age_by_flag;
                                 break;
                         }
@@ -3654,7 +3656,9 @@ static int parse_line(
                         /* invalid quoting and such or an unknown specifier */
                         *invalid_config = true;
                 return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to parse line: %m");
-        } else if (r < 2) {
+        }
+
+        if (r < 2) {
                 *invalid_config = true;
                 return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Syntax error.");
         }

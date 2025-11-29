@@ -52,23 +52,22 @@ DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const D
 
         if (cname->key->type == DNS_TYPE_CNAME)
                 return dns_resource_key_new(key->class, key->type, cname->cname.name);
-        else {
-                _cleanup_free_ char *destination = NULL;
-                DnsResourceKey *k;
 
-                r = dns_name_change_suffix(dns_resource_key_name(key), dns_resource_key_name(cname->key), cname->dname.name, &destination);
-                if (r < 0)
-                        return NULL;
-                if (r == 0)
-                        return dns_resource_key_ref((DnsResourceKey*) key);
+        _cleanup_free_ char *destination = NULL;
+        DnsResourceKey *k;
 
-                k = dns_resource_key_new_consume(key->class, key->type, destination);
-                if (!k)
-                        return NULL;
+        r = dns_name_change_suffix(dns_resource_key_name(key), dns_resource_key_name(cname->key), cname->dname.name, &destination);
+        if (r < 0)
+                return NULL;
+        if (r == 0)
+                return dns_resource_key_ref((DnsResourceKey*) key);
 
-                TAKE_PTR(destination);
-                return k;
-        }
+        k = dns_resource_key_new_consume(key->class, key->type, destination);
+        if (!k)
+                return NULL;
+
+        TAKE_PTR(destination);
+        return k;
 }
 
 int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key, char *name) {
@@ -162,8 +161,7 @@ const char* dns_resource_key_name(const DnsResourceKey *key) {
 
         if (dns_name_is_root(name))
                 return ".";
-        else
-                return name;
+        return name;
 }
 
 bool dns_resource_key_is_address(const DnsResourceKey *key) {
@@ -290,7 +288,7 @@ int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsRe
 
                 if (cname->type == DNS_TYPE_CNAME)
                         return dns_name_equal(joined, dns_resource_key_name(cname));
-                else if (cname->type == DNS_TYPE_DNAME)
+                if (cname->type == DNS_TYPE_DNAME)
                         return dns_name_endswith(joined, dns_resource_key_name(cname));
         }
 
@@ -527,7 +525,7 @@ static DnsResourceRecord* dns_resource_record_free(DnsResourceRecord *rr) {
         return mfree(rr);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsResourceRecord, dns_resource_record, dns_resource_record_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsResourceRecord, dns_resource_record, rr, dns_resource_record_free);
 
 int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *hostname) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
@@ -2533,7 +2531,7 @@ static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] =
         [DNSSEC_ALGORITHM_PRIVATEDNS]         = "PRIVATEDNS",
         [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",
 };
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_algorithm, int, 255);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_algorithm, int, i, 255);
 
 static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
         /* Names as listed on https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
@@ -2542,7 +2540,7 @@ static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
         [DNSSEC_DIGEST_GOST_R_34_11_94] = "GOST_R_34.11-94",
         [DNSSEC_DIGEST_SHA384]          = "SHA-384",
 };
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_digest, int, 255);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_digest, int, i, 255);
 
 static const char* const sshfp_algorithm_table[_SSHFP_ALGORITHM_MAX_DEFINED] = {
         [SSHFP_ALGORITHM_RSA]     = "RSA",     /* RFC 4255 */
@@ -2551,13 +2549,13 @@ static const char* const sshfp_algorithm_table[_SSHFP_ALGORITHM_MAX_DEFINED] = {
         [SSHFP_ALGORITHM_ED25519] = "Ed25519", /* RFC 7479 */
         [SSHFP_ALGORITHM_ED448]   = "Ed448",   /* RFC 8709 */
 };
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sshfp_algorithm, int, 255);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sshfp_algorithm, int, i, 255);
 
 static const char* const sshfp_key_type_table[_SSHFP_KEY_TYPE_MAX_DEFINED] = {
         [SSHFP_KEY_TYPE_SHA1]     = "SHA-1",     /* RFC 4255 */
         [SSHFP_KEY_TYPE_SHA256]   = "SHA-256",   /* RFC 4255 */
 };
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sshfp_key_type, int, 255);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sshfp_key_type, int, i, 255);
 
 int dns_json_dispatch_resource_key(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         DnsResourceKey **k = ASSERT_PTR(userdata);

@@ -39,7 +39,8 @@ int flush_fd(int fd) {
                                 return count;
 
                         return -errno;
-                } else if (l == 0)
+                }
+                if (l == 0)
                         return count;
 
                 if (l > INT_MAX-count) /* On overflow terminate */

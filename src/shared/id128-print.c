@@ -52,12 +52,15 @@ int id128_pretty_print(sd_id128_t id, Id128PrettyPrintMode mode) {
                 printf(SD_ID128_FORMAT_STR "\n",
                        SD_ID128_FORMAT_VAL(id));
                 return 0;
-        } else if (mode == ID128_PRINT_UUID) {
+        }
+
+        if (mode == ID128_PRINT_UUID) {
                 printf(SD_ID128_UUID_FORMAT_STR "\n",
                        SD_ID128_FORMAT_VAL(id));
                 return 0;
-        } else
-                return id128_pretty_print_sample("XYZ", id);
+        }
+
+        return id128_pretty_print_sample("XYZ", id);
 }
 
 int id128_print_new(Id128PrettyPrintMode mode) {

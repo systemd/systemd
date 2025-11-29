@@ -536,4 +536,4 @@ static const char* const inhibit_mode_table[_INHIBIT_MODE_MAX] = {
         [INHIBIT_DELAY]      = "delay",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(inhibit_mode, InhibitMode);
+DEFINE_STRING_TABLE_LOOKUP(inhibit_mode, InhibitMode, k);

@@ -2623,7 +2623,7 @@ static DecryptedImage* decrypted_image_free(DecryptedImage *d) {
         return NULL;
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DecryptedImage, decrypted_image, decrypted_image_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DecryptedImage, decrypted_image, p, decrypted_image_free);
 
 #if HAVE_LIBCRYPTSETUP
 static int decrypted_image_new(DecryptedImage **ret) {

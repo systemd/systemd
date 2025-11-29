@@ -581,12 +581,12 @@ static const char *progress_phase_table[_PROGRESS_PHASE_MAX] = {
         [PROGRESS_REREADING_TABLE]            = "rereading-table",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(empty_mode, EmptyMode);
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(append_mode, AppendMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(empty_mode, EmptyMode, i);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(append_mode, AppendMode, i);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode, i);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(minimize_mode, MinimizeMode, MINIMIZE_BEST);
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase, ProgressPhase);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase, ProgressPhase, i);
 
 static uint64_t round_down_size(uint64_t v, uint64_t p) {
         return (v / p) * p;
@@ -4656,8 +4656,8 @@ static int context_discard_gap_after(Context *context, Partition *p) {
         if (r < 0) {
                 if (p)
                         return log_error_errno(r, "Failed to discard gap after partition %" PRIu64 ".", p->partno);
-                else
-                        return log_error_errno(r, "Failed to discard gap at beginning of disk.");
+
+                return log_error_errno(r, "Failed to discard gap at beginning of disk.");
         }
 
         if (p)
@@ -9599,7 +9599,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
-        else if (!arg_image && !arg_root && in_initrd()) {
+
+        if (!arg_image && !arg_root && in_initrd()) {
 
                 /* By default operate on /sysusr/ or /sysroot/ when invoked in the initrd. We prefer the
                  * former, if it is mounted, so that we have deterministic behaviour on systems where /usr/

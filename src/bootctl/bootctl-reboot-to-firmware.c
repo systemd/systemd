@@ -31,17 +31,17 @@ int verb_reboot_to_firmware(int argc, char *argv[], void *userdata) {
 
                 log_error_errno(r, "Failed to query reboot-to-firmware state: %m");
                 return 3; /* other kind of error */
-        } else {
-                r = parse_boolean(argv[1]);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse argument: %s", argv[1]);
-
-                r = efi_set_reboot_to_firmware(r);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set reboot-to-firmware option: %m");
-
-                return 0;
         }
+
+        r = parse_boolean(argv[1]);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse argument: %s", argv[1]);
+
+        r = efi_set_reboot_to_firmware(r);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set reboot-to-firmware option: %m");
+
+        return 0;
 }
 
 int vl_method_set_reboot_to_firmware(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

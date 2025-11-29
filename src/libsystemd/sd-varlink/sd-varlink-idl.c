@@ -979,7 +979,7 @@ static int varlink_idl_subparse_struct_or_enum(
 
                         if (!token)
                                 return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
-                        else if (streq(token, "#")) {
+                        if (streq(token, "#")) {
                                 _cleanup_free_ char *comment = NULL;
 
                                 r = varlink_idl_subparse_comment(p, line, column, &comment);

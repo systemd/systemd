@@ -309,7 +309,7 @@ static const struct {
         }
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(mount_mode, MountMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(mount_mode, MountMode, i);
 
 static const char* mount_entry_path(const MountEntry *p) {
         assert(p);
@@ -3967,7 +3967,7 @@ static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
         [PROTECT_HOME_TMPFS]     = "tmpfs",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_home, ProtectHome, PROTECT_HOME_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_home, ProtectHome, p, PROTECT_HOME_YES);
 
 static const char *const protect_hostname_table[_PROTECT_HOSTNAME_MAX] = {
         [PROTECT_HOSTNAME_NO]      = "no",
@@ -3975,7 +3975,7 @@ static const char *const protect_hostname_table[_PROTECT_HOSTNAME_MAX] = {
         [PROTECT_HOSTNAME_PRIVATE] = "private",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_hostname, ProtectHostname, PROTECT_HOSTNAME_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_hostname, ProtectHostname, p, PROTECT_HOSTNAME_YES);
 
 static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
         [PROTECT_SYSTEM_NO]     = "no",
@@ -3984,7 +3984,7 @@ static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
         [PROTECT_SYSTEM_STRICT] = "strict",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_system, ProtectSystem, PROTECT_SYSTEM_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_system, ProtectSystem, p, PROTECT_SYSTEM_YES);
 
 static const char *const protect_control_groups_table[_PROTECT_CONTROL_GROUPS_MAX] = {
         [PROTECT_CONTROL_GROUPS_NO]      = "no",
@@ -3993,7 +3993,7 @@ static const char *const protect_control_groups_table[_PROTECT_CONTROL_GROUPS_MA
         [PROTECT_CONTROL_GROUPS_STRICT]  = "strict",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_control_groups, ProtectControlGroups, PROTECT_CONTROL_GROUPS_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_control_groups, ProtectControlGroups, i, PROTECT_CONTROL_GROUPS_YES);
 
 static const char* const protect_proc_table[_PROTECT_PROC_MAX] = {
         [PROTECT_PROC_DEFAULT]    = "default",
@@ -4002,28 +4002,28 @@ static const char* const protect_proc_table[_PROTECT_PROC_MAX] = {
         [PROTECT_PROC_PTRACEABLE] = "ptraceable",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(protect_proc, ProtectProc);
+DEFINE_STRING_TABLE_LOOKUP(protect_proc, ProtectProc, i);
 
 static const char* const proc_subset_table[_PROC_SUBSET_MAX] = {
         [PROC_SUBSET_ALL] = "all",
         [PROC_SUBSET_PID] = "pid",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset);
+DEFINE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset, i);
 
 static const char* const private_bpf_table[_PRIVATE_BPF_MAX] = {
         [PRIVATE_BPF_NO]  = "no",
         [PRIVATE_BPF_YES] = "yes",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_bpf, PrivateBPF, PRIVATE_BPF_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_bpf, PrivateBPF, i, PRIVATE_BPF_YES);
 
 #include "bpf-delegate-configs.inc"
 
-DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_cmd, uint64_t);
-DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_map_type, uint64_t);
-DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_prog_type, uint64_t);
-DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_attach_type, uint64_t);
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_cmd, uint64_t, u);
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_map_type, uint64_t, u);
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_prog_type, uint64_t, u);
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_attach_type, uint64_t, u);
 
 char* bpf_delegate_to_string(uint64_t u, const char * (*parser)(uint64_t) _const_ ) {
         assert(parser);
@@ -4087,7 +4087,7 @@ static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
         [PRIVATE_TMP_DISCONNECTED] = "disconnected",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_tmp, PrivateTmp, PRIVATE_TMP_CONNECTED);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_tmp, PrivateTmp, i, PRIVATE_TMP_CONNECTED);
 
 static const char* const private_users_table[_PRIVATE_USERS_MAX] = {
         [PRIVATE_USERS_NO]       = "no",
@@ -4096,11 +4096,11 @@ static const char* const private_users_table[_PRIVATE_USERS_MAX] = {
         [PRIVATE_USERS_FULL]     = "full",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_users, PrivateUsers, PRIVATE_USERS_SELF);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_users, PrivateUsers, i, PRIVATE_USERS_SELF);
 
 static const char* const private_pids_table[_PRIVATE_PIDS_MAX] = {
         [PRIVATE_PIDS_NO]  = "no",
         [PRIVATE_PIDS_YES] = "yes",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_pids, PrivatePIDs, PRIVATE_PIDS_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_pids, PrivatePIDs, i, PRIVATE_PIDS_YES);

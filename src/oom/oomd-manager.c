@@ -217,7 +217,7 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
         r = cg_read_subgroup(d, &subpath);
         if (r < 0)
                 return r;
-        else if (r == 0) { /* No subgroups? We're a leaf node */
+        if (r == 0) { /* No subgroups? We're a leaf node */
                 r = oomd_insert_cgroup_context(NULL, new_h, path);
                 if (r == -ENOMEM)
                         return r;

@@ -754,7 +754,8 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                         if (r < 0 && !IN_SET(r, -ELOOP, -ERFKILL, -EADDRNOTAVAIL)) {
                                 log_debug_errno(r, "Failed to detect whether %s exists, skipping: %m", name);
                                 continue;
-                        } else if (r != 0) {
+                        }
+                        if (r != 0) {
                                 log_debug("Native unit for %s already exists, skipping.", name);
                                 continue;
                         }

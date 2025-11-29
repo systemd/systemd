@@ -396,7 +396,7 @@ static const char* const storage_table[_STORAGE_MAX] = {
         [STORAGE_NONE]       = "none"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(storage, Storage);
+DEFINE_STRING_TABLE_LOOKUP(storage, Storage, s);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_storage, storage, Storage);
 
 static const char* const split_mode_table[_SPLIT_MAX] = {
@@ -405,7 +405,7 @@ static const char* const split_mode_table[_SPLIT_MAX] = {
         [SPLIT_NONE]  = "none",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(split_mode, SplitMode);
+DEFINE_STRING_TABLE_LOOKUP(split_mode, SplitMode, s);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode, split_mode, SplitMode);
 
 static const char* const audit_set_mode_table[_AUDIT_SET_MODE_MAX] = {
