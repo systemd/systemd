@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
+#include <gnu/libc-version.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mount.h>
@@ -1176,6 +1177,9 @@ static void test_exec_capabilityboundingset(Manager *m) {
 }
 
 static void test_exec_basic(Manager *m) {
+        if (isempty(gnu_get_libc_version()))
+                return (void) log_tests_skipped("ConditionVersion=glibc will not pass under musl");
+
         if (MANAGER_IS_SYSTEM(m) || have_userns_privileges())
                 test(m, "exec-basic.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         else

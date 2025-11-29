@@ -453,3 +453,8 @@ generate_locale() {
         locale-gen "$locale"
     fi
 }
+
+built_with_musl() (
+    set +ex
+    ! systemd-analyze --quiet condition 'ConditionVersion=glibc $= ?*'
+)
