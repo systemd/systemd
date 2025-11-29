@@ -347,6 +347,7 @@ if install_tests
                 'test-execute',
                 'test-fstab-generator',
                 'test-journals',
+                'test-devlinkd',
                 'test-network',
                 'test-network-generator-conversion',
                 'test-path',
