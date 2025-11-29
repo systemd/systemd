@@ -852,7 +852,10 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
 
         /* Implements util-linux "external helper" command line interface, as per mount(8) man page. */
 
-        while ((c = getopt(argc, argv, "sfnvN:o:t:")) >= 0) {
+        /* Here, use getopt_long() rather than getopt() even though we do not use longopts, as musl's
+         * getopt() stops parsing when a non-option value is found. However, the mount command always passes
+         * the device and mountpoint at first, then passes options. */
+        while ((c = getopt_long(argc, argv, "sfnvN:o:t:", /* longopts= */ NULL, /* longindex= */ NULL)) >= 0) {
                 switch (c) {
 
                 case 'f':
