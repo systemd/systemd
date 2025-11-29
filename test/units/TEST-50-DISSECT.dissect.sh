@@ -9,6 +9,14 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+. /etc/os-release
+if [[ "${ID_LIKE:-}" == alpine ]]; then
+    # Alpine/postmarketOS builds libdevmapper and so on without systemd support, and seems to not wait for
+    # uevents for dm-X devices being processed by systemd-udevd. That causes a significant issue in
+    # dissect-image.c especially when multiple dm-X devices are activated/deactivated in parallel.
+    exit 0
+fi
+
 systemd-dissect --json=short "$MINIMAL_IMAGE.raw" | \
     grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
 systemd-dissect "$MINIMAL_IMAGE.raw" | grep -q -F "MARKER=1"

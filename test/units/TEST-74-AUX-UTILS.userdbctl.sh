@@ -53,7 +53,7 @@ if [[ ! -v ASAN_OPTIONS ]]; then
     set +o pipefail
     systemd-run -q -t --property SystemCallFilter=~open_tree id definitelynotarealuser | grep -q "no such user"
     systemd-run -q -t --property SystemCallFilter=~open_tree id --groups definitelynotarealuser | grep -q "no such user"
-    systemd-run -q -t --property SystemCallFilter=~open_tree groups definitelynotarealuser | grep -q "no such user"
+    systemd-run -q -t --property SystemCallFilter=~open_tree groups definitelynotarealuser | grep -q -E '(unknown|no such user)'
     set -o pipefail
     # getent shows no output when the entry is not found, but exists with 2, while sd-run crashing will exit
     # with 1

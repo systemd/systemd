@@ -106,7 +106,7 @@ ExecStart=test -f ${path}/x:yz/test
 ExecStart=test -f ${path}/zzz/test
 ExecStart=test -d ${path}/www
 ExecStart=test -L ${path}/ro
-ExecStart=sh -c "! test -w ${path}/www"
+ExecStart=bash -c "! test -w ${path}/www"
 EOF
     systemctl daemon-reload
     systemctl start --wait testservice-34.service
