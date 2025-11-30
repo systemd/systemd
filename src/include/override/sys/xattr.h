@@ -10,11 +10,13 @@
 /* Supported since kernel v6.13 (6140be90ec70c39fa844741ca3cc807dd0866394). */
 #if !HAVE_SETXATTRAT
 int missing_setxattrat(int fd, const char *path, int at_flags, const char *name, const struct xattr_args *args, size_t size);
-#  define setxattrat missing_setxattrat
+#  define setxattrat(fd, path, at_flags, name, args, size)              \
+        missing_setxattrat(fd, path, at_flags, name, args, size)
 #endif
 
 /* Supported since kernel v6.13 (6140be90ec70c39fa844741ca3cc807dd0866394). */
 #if !HAVE_REMOVEXATTRAT
 int missing_removexattrat(int fd, const char *path, int at_flags, const char *name);
-#  define removexattrat missing_removexattrat
+#  define removexattrat(fd, path, at_flags, name)       \
+        missing_removexattrat(fd, path, at_flags, name)
 #endif

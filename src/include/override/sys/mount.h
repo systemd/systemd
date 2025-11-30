@@ -43,7 +43,8 @@ extern int umount2(const char *__special_file, int __flags);
 extern int fsopen(const char *__fs_name, unsigned int __flags);
 #else
 int missing_fsopen(const char *fsname, unsigned flags);
-#  define fsopen missing_fsopen
+#  define fsopen(fsname, flags)                 \
+        missing_fsopen(fsname, flags)
 #endif
 
 /* Create a mount representation for the FD created by fsopen using
@@ -54,7 +55,8 @@ int missing_fsopen(const char *fsname, unsigned flags);
 extern int fsmount(int __fd, unsigned int __flags, unsigned int __ms_flags);
 #else
 int missing_fsmount(int fd, unsigned flags, unsigned ms_flags);
-#  define fsmount missing_fsmount
+#  define fsmount(fd, flags, ms_flags)          \
+        missing_fsmount(fd, flags, ms_flags)
 #endif
 
 /* Add the mounted FROM_DFD referenced by FROM_PATHNAME filesystem returned
@@ -66,7 +68,8 @@ int missing_fsmount(int fd, unsigned flags, unsigned ms_flags);
 extern int move_mount(int __from_dfd, const char *__from_pathname, int __to_dfd, const char *__to_pathname, unsigned int flags);
 #else
 int missing_move_mount(int from_dfd, const char *from_pathname, int to_dfd, const char *to_pathname, unsigned flags);
-#  define move_mount missing_move_mount
+#  define move_mount(from_dfd, from_pathname, to_dfd, to_pathname, flags) \
+        missing_move_mount(from_dfd, from_pathname, to_dfd, to_pathname, flags)
 #endif
 
 /* Set parameters and trigger CMD action on the FD context.  KEY, VALUE,
@@ -77,7 +80,8 @@ int missing_move_mount(int from_dfd, const char *from_pathname, int to_dfd, cons
 extern int fsconfig(int __fd, unsigned int __cmd, const char *__key, const void *__value, int __aux);
 #else
 int missing_fsconfig(int fd, unsigned cmd, const char *key, const void *value, int aux);
-#  define fsconfig missing_fsconfig
+#  define fsconfig(fd, cmd, key, value, aux)            \
+        missing_fsconfig(fd, cmd, key, value, aux)
 #endif
 
 /* Open the mount point FILENAME in directory DFD using FLAGS.  */
@@ -87,7 +91,8 @@ int missing_fsconfig(int fd, unsigned cmd, const char *key, const void *value, i
 extern int open_tree(int __dfd, const char *__filename, unsigned int __flags);
 #else
 int missing_open_tree(int dfd, const char *filename, unsigned flags);
-#  define open_tree missing_open_tree
+#  define open_tree(dfd, filename, flags)       \
+        missing_open_tree(dfd, filename, flags)
 #endif
 
 /* Change the mount properties of the mount or an entire mount tree.  If
@@ -101,7 +106,8 @@ int missing_open_tree(int dfd, const char *filename, unsigned flags);
 extern int mount_setattr(int __dfd, const char *__path, unsigned int __flags, struct mount_attr *__uattr, size_t __usize);
 #else
 int missing_mount_setattr(int dfd, const char *path, unsigned flags, struct mount_attr *attr, size_t size);
-#  define mount_setattr missing_mount_setattr
+#  define mount_setattr(dfd, path, flags, attr, size)           \
+        missing_mount_setattr(dfd, path, flags, attr, size)
 #endif
 
 /* Not defined in glibc yet as of glibc-2.41.
@@ -110,5 +116,6 @@ int missing_mount_setattr(int dfd, const char *path, unsigned flags, struct moun
 extern int open_tree_attr(int __dfd, const char *__filename, unsigned int __flags, struct mount_attr *__uattr, size_t __usize);
 #else
 int missing_open_tree_attr(int dfd, const char *filename, unsigned int flags, struct mount_attr *attr, size_t size);
-#  define open_tree_attr missing_open_tree_attr
+#  define open_tree_attr(dfd, filename, flags, attr, size)              \
+        missing_open_tree_attr(dfd, filename, flags, attr, size)
 #endif

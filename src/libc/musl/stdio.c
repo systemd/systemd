@@ -12,6 +12,8 @@ int missing_renameat2(int __oldfd, const char *__old, int __newfd, const char *_
 }
 #endif
 
+/* The header stdio.h overrides putc() and friends with _check_writable(). To define the functions below, the
+ * original functions need to be called, hence the symbol needs to be wrapped with (). */
 #define DEFINE_PUT(func)                                         \
         int func##_check_writable(int c, FILE *stream) {         \
                 if (!__fwritable(stream)) {                      \
@@ -19,7 +21,7 @@ int missing_renameat2(int __oldfd, const char *__old, int __newfd, const char *_
                         return EOF;                              \
                 }                                                \
                                                                  \
-                return func(c, stream);                          \
+                return (func)(c, stream);                        \
         }
 
 #define DEFINE_FPUTS(func)                                       \
@@ -29,15 +31,8 @@ int missing_renameat2(int __oldfd, const char *__old, int __newfd, const char *_
                         return EOF;                              \
                 }                                                \
                                                                  \
-                return func(s, stream);                          \
+                return (func)(s, stream);                        \
         }
-
-#undef putc
-#undef putc_unlocked
-#undef fputc
-#undef fputc_unlocked
-#undef fputs
-#undef fputs_unlocked
 
 DEFINE_PUT(putc);
 DEFINE_PUT(putc_unlocked);

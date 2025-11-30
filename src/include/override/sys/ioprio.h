@@ -5,10 +5,12 @@
 
 #if !HAVE_IOPRIO_GET
 int missing_ioprio_get(int which, int who);
-#  define ioprio_get missing_ioprio_get
+#  define ioprio_get(which, who)                \
+        missing_ioprio_get(which, who)
 #endif
 
 #if !HAVE_IOPRIO_SET
 int missing_ioprio_set(int which, int who, int ioprio);
-#  define ioprio_set missing_ioprio_set
+#  define ioprio_set(which, who, ioprio)        \
+        missing_ioprio_set(which, who, ioprio)
 #endif
