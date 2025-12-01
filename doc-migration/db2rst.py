@@ -1117,6 +1117,10 @@ def citerefentry(el):
 
     if project in extlink_formats:
         return extlink_formats[project]
+    else:
+        # default to 'man-pages', this seems to be the general intent when the
+        # `project` attribute is omitted
+        return extlink_formats['man-pages']
 
     if project == 'url':
         refentry = el.xpath("refentrytitle")[0]
