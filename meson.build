@@ -1744,6 +1744,12 @@ conf.set10('ENABLE_SSH_USERDB_CONFIG', conf.get('ENABLE_USERDB') == 1 and sshdco
 
 conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', want_slow_tests)
 
+have = get_option('timesync-nts').require(
+        conf.get('HAVE_OPENSSL') == 1 and
+        libopenssl.version().version_compare('>= 3.5'),
+        error_message : 'openssl version >= 3.5 required').allowed()
+conf.set10('ENABLE_TIMESYNC_NTS', have)
+
 #####################################################################
 
 pymod = import('python')
@@ -3290,6 +3296,12 @@ if static_libudev == 'false'
         missing += 'static-libudev'
 else
         found += f'static-libudev(@static_libudev@)'
+endif
+
+if conf.get('ENABLE_TIMESYNC_NTS') == 1
+        found += 'timesync-nts'
+else
+        missing += 'timesync-nts'
 endif
 
 summary({
