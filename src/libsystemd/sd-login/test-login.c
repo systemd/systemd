@@ -59,6 +59,9 @@ TEST(login) {
         log_info("sd_pid_get_user_unit(0, …) → %s / \"%s\"", e(r), strnull(user_unit));
         assert_se(IN_SET(r, 0, -ENODATA));
 
+        /* Coverage for https://github.com/systemd/systemd/issues/39949 */
+        assert_se(!unit || !user_unit || !streq(unit, user_unit));
+
         r = sd_pid_get_slice(0, &slice);
         log_info("sd_pid_get_slice(0, …) → %s / \"%s\"", e(r), strnull(slice));
         assert_se(IN_SET(r, 0, -ENODATA));
