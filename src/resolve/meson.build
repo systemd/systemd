@@ -83,7 +83,6 @@ executables += [
                 'dbus' : true,
                 'sources' : systemd_resolved_sources,
                 'extract' : systemd_resolved_extract_sources,
-                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
         },
         executable_template + resolve_common_template + {
                 'name' : 'resolvectl',
