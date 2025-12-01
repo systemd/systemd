@@ -276,6 +276,11 @@ static int tar_pull_make_local_copy(TarPull *p) {
                         if (r < 0)
                                 return r;
 
+                        _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
+                        r = mountfsd_connect(&mountfsd_link);
+                        if (r < 0)
+                                return r;
+
                         /* Usually, tar_pull_job_on_open_disk_tar() would allocate ->tree_fd for us, but if
                          * already downloaded the image before, and are just making a copy of the original
                          * download, we need to open ->tree_fd now */
@@ -289,7 +294,12 @@ static int tar_pull_make_local_copy(TarPull *p) {
                                         return log_error_errno(errno, "Failed to stat '%s': %m", p->final_path);
 
                                 if (uid_is_foreign(st.st_uid)) {
-                                        r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &p->tree_fd);
+                                        r = mountfsd_mount_directory_fd(
+                                                        mountfsd_link,
+                                                        directory_fd,
+                                                        p->userns_fd,
+                                                        DISSECT_IMAGE_FOREIGN_UID,
+                                                        &p->tree_fd);
                                         if (r < 0)
                                                 return r;
                                 } else
@@ -297,12 +307,22 @@ static int tar_pull_make_local_copy(TarPull *p) {
                         }
 
                         _cleanup_close_ int directory_fd = -EBADF;
-                        r = mountfsd_make_directory(t, /* flags= */ 0, &directory_fd);
+                        r = mountfsd_make_directory(
+                                        mountfsd_link,
+                                        t,
+                                        MODE_INVALID,
+                                        /* flags= */ 0,
+                                        &directory_fd);
                         if (r < 0)
                                 return r;
 
                         _cleanup_close_ int copy_fd = -EBADF;
-                        r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &copy_fd);
+                        r = mountfsd_mount_directory_fd(
+                                        mountfsd_link,
+                                        directory_fd,
+                                        p->userns_fd,
+                                        DISSECT_IMAGE_FOREIGN_UID,
+                                        &copy_fd);
                         if (r < 0)
                                 return r;
 
@@ -608,12 +628,27 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
                 if (r < 0)
                         return r;
 
-                _cleanup_close_ int directory_fd = -EBADF;
-                r = mountfsd_make_directory(where, /* flags= */ 0, &directory_fd);
+                _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
+                r = mountfsd_connect(&mountfsd_link);
                 if (r < 0)
                         return r;
 
-                r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &p->tree_fd);
+                _cleanup_close_ int directory_fd = -EBADF;
+                r = mountfsd_make_directory(
+                                mountfsd_link,
+                                where,
+                                MODE_INVALID,
+                                /* flags= */ 0,
+                                &directory_fd);
+                if (r < 0)
+                        return r;
+
+                r = mountfsd_mount_directory_fd(
+                                mountfsd_link,
+                                directory_fd,
+                                p->userns_fd,
+                                DISSECT_IMAGE_FOREIGN_UID,
+                                &p->tree_fd);
                 if (r < 0)
                         return r;
         } else {
