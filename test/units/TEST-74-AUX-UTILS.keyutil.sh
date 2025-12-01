@@ -47,6 +47,13 @@ testcase_extract_public() {
     (! /usr/lib/systemd/systemd-keyutil extract-public)
 }
 
+testcase_extract_certificate() {
+    CERT="$(/usr/lib/systemd/systemd-keyutil extract-certificate --certificate /tmp/test.crt)"
+    assert_eq "$CERT" "$(cat /tmp/test.crt)"
+
+    (! /usr/lib/systemd/systemd-keyutil extract-certificate)
+}
+
 verify_pkcs7() {
     # Verify using internal certificate
     openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify >/dev/null
