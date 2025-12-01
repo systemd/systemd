@@ -79,17 +79,6 @@ summary({
 
 #####################################################################
 
-# Try to install the git pre-commit hook
-git_setup_sh = find_program('tools/git-setup.sh', required : false)
-if git_setup_sh.found()
-        git_hook = run_command(git_setup_sh, check : false)
-        if git_hook.returncode() == 0
-                message(git_hook.stdout().strip())
-        endif
-endif
-
-#####################################################################
-
 fs = import('fs')
 if get_option('split-bin') == 'auto'
         split_bin = not fs.is_symlink('/usr/sbin')
@@ -351,7 +340,6 @@ cc = meson.get_compiler('c')
 userspace_c_args = []
 userspace_c_ld_args = []
 userspace_sources = []
-meson_build_sh = files('tools/meson-build.sh')
 
 want_tests = get_option('tests')
 want_slow_tests = want_tests != 'false' and get_option('slow-tests')
@@ -1953,10 +1941,6 @@ conf.set10('ENABLE_UKIFY', want_ukify)
 
 #####################################################################
 
-check_efi_alignment_py = files('tools/check-efi-alignment.py')
-
-#####################################################################
-
 use_provided_vmlinux_h = false
 use_generated_vmlinux_h = false
 provided_vmlinux_h_path = get_option('vmlinux-h-path')
@@ -2028,24 +2012,6 @@ conf.set10('ENABLE_SYSCTL_BPF', conf.get('HAVE_VMLINUX_H') == 1 and libbpf.versi
 
 #####################################################################
 
-check_version_history_py   = files('tools/check-version-history.py')
-elf2efi_py                 = files('tools/elf2efi.py')
-export_dbus_interfaces_py  = files('tools/dbus_exporter.py')
-generate_gperfs            = files('tools/generate-gperfs.py')
-make_autosuspend_rules_py  = files('tools/make-autosuspend-rules.py')
-make_directive_index_py    = files('tools/make-directive-index.py')
-sync_docs_py               = files('tools/sync-docs.py')
-make_man_index_py          = files('tools/make-man-index.py')
-meson_render_jinja2        = files('tools/meson-render-jinja2.py')
-update_dbus_docs_py        = files('tools/update-dbus-docs.py')
-update_hwdb_autosuspend_sh = files('tools/update-hwdb-autosuspend.sh')
-update_hwdb_sh             = files('tools/update-hwdb.sh')
-update_man_rules_py        = files('tools/update-man-rules.py')
-update_syscall_tables_sh   = files('tools/update-syscall-tables.sh')
-xml_helper_py              = files('tools/xml_helper.py')
-
-#####################################################################
-
 version_tag = get_option('version-tag')
 if version_tag == ''
         version_tag = meson.project_version()
@@ -2053,6 +2019,7 @@ endif
 
 conf.set_quoted('VERSION_TAG', version_tag)
 
+subdir('tools')
 subdir('src/version')
 
 shared_lib_tag = get_option('shared-lib-tag')
@@ -2072,7 +2039,7 @@ config_h = configure_file(
 
 userspace_c_args += ['-include', 'config.h']
 
-jinja2_cmdline = [meson_render_jinja2, config_h]
+jinja2_cmdline = [meson_render_jinja2_py, config_h]
 
 userspace = declare_dependency(
         compile_args : userspace_c_args,
@@ -2907,20 +2874,17 @@ endif
 
 #####################################################################
 
-check_help    = files('tools/check-help.sh')
-check_version = files('tools/check-version.sh')
-
 foreach exec : public_programs
         name = fs.name(exec.full_path())
         if want_tests != 'false'
                 test('check-help-' + name,
-                     check_help,
+                     check_help_sh,
                      suite : 'dist',
                      args : exec.full_path(),
                      depends: exec)
 
                 test('check-version-' + name,
-                     check_version,
+                     check_version_sh,
                      suite : 'dist',
                      args : [exec.full_path(),
                              project_major_version],
@@ -2951,7 +2915,7 @@ if git.found()
 
         run_target(
                 'git-contrib',
-                command : files('tools/git-contrib.sh'))
+                command : git_contrib_sh)
 
         ####################################################
 
@@ -3014,10 +2978,9 @@ foreach name, exe : executables_by_name
         symbol_analysis_exes += exe
 endforeach
 
-find_unused_library_symbols = find_program('tools/find-unused-library-symbols.py')
 test(
         'libshared-unused-symbols',
-        find_unused_library_symbols,
+        find_unused_library_symbols_py,
         suite : 'unused-symbols',
         args : [libshared, libcore] + nss_targets + pam_targets + symbol_analysis_exes,
 )
@@ -3025,7 +2988,7 @@ test(
 run_target(
         'check-api-docs',
         depends : [man, libsystemd, libudev],
-        command : [files('tools/check-api-docs.sh'),
+        command : [check_api_docs_sh,
                    libsystemd.full_path(),
                    libudev.full_path()])
 
@@ -3040,7 +3003,7 @@ if not meson.is_cross_build()
                 output : fs.name(dbus_interfaces_dir),
                 install : dbus_interfaces_dir != 'no',
                 install_dir : fs.parent(dbus_interfaces_dir),
-                command : [export_dbus_interfaces_py, '@OUTPUT@', dbus_programs])
+                command : [dbus_exporter_py, '@OUTPUT@', dbus_programs])
 endif
 
 custom_target(
@@ -3048,7 +3011,7 @@ custom_target(
         capture : true,
         install : want_tests != 'no' and install_tests,
         install_dir : testdata_dir,
-        command : [files('tools/meson-extract-unit-files.py'),
+        command : [meson_extract_unit_files_py,
                    meson.project_build_root()])
 
 #####################################################################
