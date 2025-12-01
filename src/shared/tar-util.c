@@ -4,7 +4,7 @@
 #include "log.h"
 #include "tar-util.h"
 
-#if HAVE_LIBARCHIVE
+#if HAVE_LIBARCHIVE && HAVE_ACL
 #include <sys/mount.h>
 #include <sys/sysmacros.h>
 
