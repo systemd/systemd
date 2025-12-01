@@ -115,12 +115,11 @@ static int generate(void) {
                 return log_error_errno(r, "Failed to create unit file %s: %m", p);
 
         /* And now redirect default.target to our new target */
-        p = strjoina(arg_dest, "/" SPECIAL_DEFAULT_TARGET);
-        if (symlink("kernel-command-line.target", p) < 0)
-                return log_error_errno(errno, "Failed to link unit file kernel-command-line.target %s %s: %m",
-                                       glyph(GLYPH_ARROW_RIGHT), p);
-
-        return 0;
+        return generator_add_symlink(
+                        arg_dest,
+                        SPECIAL_DEFAULT_TARGET,
+                        /* dep_type= */ NULL,
+                        "kernel-command-line.target");
 }
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
