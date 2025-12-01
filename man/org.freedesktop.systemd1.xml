@@ -3139,6 +3139,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b RootEphemeral = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootMStack = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as ExtensionDirectories = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sba(ss)) ExtensionImages = [...];
@@ -3789,6 +3791,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property RootHashSignaturePath is not documented!-->
 
     <!--property RootEphemeral is not documented!-->
+
+    <!--property RootMStack is not documented!-->
 
     <!--property OOMScoreAdjust is not documented!-->
 
@@ -4497,6 +4501,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootEphemeral"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootMStack"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionDirectories"/>
 
@@ -5396,6 +5402,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b RootEphemeral = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootMStack = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as ExtensionDirectories = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sba(ss)) ExtensionImages = [...];
@@ -6064,6 +6072,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property RootHashSignaturePath is not documented!-->
 
     <!--property RootEphemeral is not documented!-->
+
+    <!--property RootMStack is not documented!-->
 
     <!--property OOMScoreAdjust is not documented!-->
 
@@ -6748,6 +6758,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootEphemeral"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootMStack"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionDirectories"/>
 
@@ -7471,6 +7483,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b RootEphemeral = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootMStack = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as ExtensionDirectories = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sba(ss)) ExtensionImages = [...];
@@ -8064,6 +8078,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property RootEphemeral is not documented!-->
 
+    <!--property RootMStack is not documented!-->
+
     <!--property OOMScoreAdjust is not documented!-->
 
     <!--property CoredumpFilter is not documented!-->
@@ -8655,6 +8671,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootEphemeral"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootMStack"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionDirectories"/>
 
@@ -9511,6 +9529,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b RootEphemeral = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootMStack = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as ExtensionDirectories = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(sba(ss)) ExtensionImages = [...];
@@ -10086,6 +10106,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property RootEphemeral is not documented!-->
 
+    <!--property RootMStack is not documented!-->
+
     <!--property OOMScoreAdjust is not documented!-->
 
     <!--property CoredumpFilter is not documented!-->
@@ -10659,6 +10681,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootEphemeral"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootMStack"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExtensionDirectories"/>
 
