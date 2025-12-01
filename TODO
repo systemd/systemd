@@ -124,6 +124,15 @@ Features:
 * networkd: maintain a file in /run/ that can be symlinked into /run/issue.d/
   that always shows the current primary IP address
 
+* oci: add support for blake hashes for layers
+
+* oci: add support for "importctl import-oci" which implements the "OCI layout"
+  spec (i.e. acquiring via local fs access), as opposed to the current
+  "importctl pull-oci" which focusses on the "OCI image spec", i.e. downloads
+  from the web (i.e. acquiring via URLs).
+
+* oci: support "data" in any OCI decriptor, not just manifest config.
+
 * report:
   - should the list of metrics use JSON-SEQ? or maybe be wrapped in a json
     array (the latter might be necessary, once we sign the combination)
@@ -204,6 +213,10 @@ Features:
 * homed/pam_systemd: allow authentication by ssh-agent, so that run0/polkit can
   be allowed if caller comes with the right ssh-agent keys.
 
+* machined: gc for OCI layers that are not referenced anymore by any .mstack/ links.
+
+* pull-oci: progress notification
+
 * networkd/machined: implement reverse name lookups in the resolved hook
 
 * networkd's resolved hook: optionally map all lease IP addresses handed out to
@@ -220,18 +233,7 @@ Features:
   the file systems to disk later (using btrfs device replacement), if needed as
   part of an installer logic.
 
-* add a concept of overlay directory stacks to image discovery, i.e. have a dir
-  with a name suffix of ".ovl" or so that contains DDIs and plain dirs (and
-  possible .v dirs) that are glued together on use via overlayfs. one special
-  subdir should be used as writable top layer.
-
 * journald: log pidfid as another field, i.e. _PIDFDID=
-
-* systemd-nspawn: something like --volatile= but that isn't volatile, but
-  stores the data in some separate dir on disk. Usecase: keep always up-to-date
-  DDIs of some OS in your home dir, but combine its /usr/ with a locally
-  maintained root fs in a regular dir to maintain local state. (idea: call it
-  --mutable= and take dir or DDI and merge in)
 
 * measure all log-in attempts into a new nvpcr
 
@@ -1127,12 +1129,6 @@ Features:
   with success notifications from nspawn payloads. When this is enabled,
   automatically support reverting back to older OS version images if newer ones
   fail to boot.
-
-* implement new "systemd-fsrebind" tool that works like gpt-auto-generator but
-  looks at a root dir and then applies vpick on various dirs/images to pick a
-  root tree, a /usr/ tree, a /home/, a /srv/, a /var/ tree and so on. Dirs
-  could also be btrfs subvols (combine with btrfs auto-snapshort approach for
-  creating versions like these automatically).
 
 * remove tomoyo support, it's obsolete and unmaintained apparently
 
