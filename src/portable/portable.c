@@ -180,7 +180,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(portable_metadata_hash_ops, char, 
 
 static int extract_now(
                 RuntimeScope scope,
-                const char *where,
+                int rfd,
+                const char *image_path,
                 char **matches,
                 const char *image_name,
                 bool path_is_extension,
@@ -197,7 +198,7 @@ static int extract_now(
         const char *os_release_id;
         int r;
 
-        /* Extracts the metadata from a directory tree 'where'. Extracts two kinds of information: the /etc/os-release
+        /* Extracts the metadata from a directory tree 'dir_fd'. Extracts two kinds of information: the /etc/os-release
          * data, and all unit files matching the specified expression. Note that this function is called in two very
          * different but also similar contexts. When the tool gets invoked on a directory tree, we'll process it
          * directly, and in-process, and thus can return the requested data directly, via 'ret_os_release' and
@@ -207,15 +208,15 @@ static int extract_now(
          * used to send the data to the parent. */
 
         assert(scope < _RUNTIME_SCOPE_MAX);
-        assert(where);
+        assert(rfd >= 0);
 
         /* First, find os-release/extension-release and send it upstream (or just save it). */
         if (path_is_extension) {
                 ImageClass class = IMAGE_SYSEXT;
 
-                r = open_extension_release(where, IMAGE_SYSEXT, image_name, relax_extension_release_check, &os_release_path, &os_release_fd);
+                r = open_extension_release_at(rfd, IMAGE_SYSEXT, image_name, relax_extension_release_check, &os_release_path, &os_release_fd);
                 if (r == -ENOENT) {
-                        r = open_extension_release(where, IMAGE_CONFEXT, image_name, relax_extension_release_check, &os_release_path, &os_release_fd);
+                        r = open_extension_release_at(rfd, IMAGE_CONFEXT, image_name, relax_extension_release_check, &os_release_path, &os_release_fd);
                         if (r >= 0)
                                 class = IMAGE_CONFEXT;
                 }
@@ -225,7 +226,7 @@ static int extract_now(
                 os_release_id = strjoina((class == IMAGE_SYSEXT) ? "/usr/lib" : "/etc", "/extension-release.d/extension-release.", image_name);
         } else {
                 os_release_id = "/etc/os-release";
-                r = open_os_release(where, &os_release_path, &os_release_fd);
+                r = open_os_release_at(rfd, &os_release_path, &os_release_fd);
         }
         if (r < 0)
                 log_debug_errno(r,
@@ -256,7 +257,7 @@ static int extract_now(
         /* Then, send unit file data to the parent (or/and add it to the hashmap). For that we use our usual unit
          * discovery logic. Note that we force looking inside of /lib/systemd/system/ for units too, as the
          * image might have a legacy split-usr layout. */
-        r = lookup_paths_init(&paths, scope, LOOKUP_PATHS_SPLIT_USR, where);
+        r = lookup_paths_init(&paths, scope, LOOKUP_PATHS_SPLIT_USR, /* root_dir= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire lookup paths: %m");
 
@@ -265,14 +266,18 @@ static int extract_now(
                 return -ENOMEM;
 
         STRV_FOREACH(i, paths.search_path) {
-                _cleanup_free_ char *resolved = NULL;
+                _cleanup_free_ char *relative = NULL, *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
-                r = chase_and_opendir(*i, where, 0, &resolved, &d);
+                r = chase_and_opendirat(rfd, *i, CHASE_AT_RESOLVE_IN_ROOT, &relative, &d);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to open unit path '%s', ignoring: %m", *i);
                         continue;
                 }
+
+                r = chaseat_prefix_root(relative, image_path, &resolved);
+                if (r < 0)
+                        return r;
 
                 FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to read directory: %m")) {
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *m = NULL;
@@ -332,7 +337,7 @@ static int extract_now(
                                         return log_debug_errno(r, "Failed to send unit metadata to parent: %m");
                         }
 
-                        m = portable_metadata_new(de->d_name, where, con, fd);
+                        m = portable_metadata_new(de->d_name, image_path, con, fd);
                         if (!m)
                                 return -ENOMEM;
                         fd = -EBADF;
@@ -384,16 +389,28 @@ static int portable_extract_by_path(
                         LOCK_SH,
                         &d);
         if (r == -EISDIR) {
-                _cleanup_free_ char *image_name = NULL;
-
                 /* We can't turn this into a loop-back block device, and this returns EISDIR? Then this is a directory
                  * tree and not a raw device. It's easy then. */
 
+                 _cleanup_free_ char *image_name = NULL;
                 r = path_extract_filename(path, &image_name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract image name from path '%s': %m", path);
 
-                r = extract_now(scope, path, matches, image_name, path_is_extension, /* relax_extension_release_check= */ false, -1, &os_release, &unit_files);
+                _cleanup_close_ int rfd = open(path, O_DIRECTORY|O_CLOEXEC);
+                if (rfd < 0)
+                        return log_error_errno(errno, "Failed to open '%s': %m", path);
+
+                r = extract_now(scope,
+                                rfd,
+                                path,
+                                matches,
+                                image_name,
+                                path_is_extension,
+                                /* relax_extension_release_check= */ false,
+                                /* socket_fd= */ -EBADF,
+                                &os_release,
+                                &unit_files);
                 if (r < 0)
                         return r;
 
@@ -496,7 +513,22 @@ static int portable_extract_by_path(
                                 report_errno_and_exit(errno_pipe_fd[1], r);
                         }
 
-                        r = extract_now(scope, tmpdir, matches, m->image_name, path_is_extension, relax_extension_release_check, seq[1], NULL, NULL);
+                        _cleanup_close_ int rfd = open(tmpdir, O_DIRECTORY|O_CLOEXEC);
+                        if (rfd < 0) {
+                                r = log_debug_errno(errno, "Failed to open '%s': %m", tmpdir);
+                                report_errno_and_exit(errno_pipe_fd[1], r);
+                        }
+
+                        r = extract_now(scope,
+                                        rfd,
+                                        path,
+                                        matches,
+                                        m->image_name,
+                                        path_is_extension,
+                                        relax_extension_release_check,
+                                        seq[1],
+                                        /* ret_os_release= */ NULL,
+                                        /* ret_unit_files= */ NULL);
                         report_errno_and_exit(errno_pipe_fd[1], r);
                 }
 
