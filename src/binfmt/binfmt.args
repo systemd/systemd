@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+help Show this help
+        return help();
+
+option --version
+help Show package version
+        return version();
+
+option --cat-config
+help Show configuration files
+        arg_cat_flags = CAT_CONFIG_ON;
+
+option --tldr
+help Show non-comment parts of configuration
+        arg_cat_flags = CAT_TLDR;
+
+option --no-pager
+help Do not pipe output into a pager
+        arg_pager_flags |= PAGER_DISABLE;
+
+option --unregister
+help Unregister all existing entries
+        arg_unregister = true;
