@@ -5,7 +5,6 @@ executables += [
                 'name' : 'systemd-sleep',
                 'sources' : files('sleep.c'),
                 'extract' : files('battery-capacity.c'),
-                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
         },
         test_template + {
                 'sources' : files('test-battery-capacity.c'),
