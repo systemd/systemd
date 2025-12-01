@@ -47,7 +47,6 @@ executables += [
                 'dbus' : true,
                 'sources' : systemd_logind_sources,
                 'extract' : systemd_logind_extract_sources,
-                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
                 'dependencies' : [
                         threads,
                 ],

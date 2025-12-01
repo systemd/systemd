@@ -2335,7 +2335,6 @@ else
         }
 endif
 fuzz_additional_kwargs += {
-        'include_directories' : include_directories('src/fuzz'),
         'c_args' : test_cflags,
 }
 
@@ -2566,9 +2565,9 @@ foreach dict : executables
 
         kwargs = {}
         foreach key, val : dict
-                if key in ['name', 'dbus', 'public', 'conditions',
-                           'type', 'suite', 'timeout', 'parallel',
-                           'objects', 'sources', 'extract']
+                if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
+                           'timeout', 'parallel', 'objects', 'sources', 'extract',
+                           'include_directories']
                         continue
                 endif
 
@@ -2579,15 +2578,15 @@ foreach dict : executables
                 kwargs += { key : [ kwargs.get(key, []), val ]}
         endforeach
 
+        include_directories = dict['include_directories']
+        if not is_test
+                include_directories += fs.parent(exe_sources[0])
+        endif
+
         foreach val : dict.get('objects', [])
                 obj = objects_by_name[val]
-                kwargs += {
-                        'objects' : obj['objects'],
-                        'include_directories' : [
-                                kwargs.get('include_directories', []),
-                                obj['include_directories'],
-                        ],
-                }
+                kwargs += { 'objects' : obj['objects'] }
+                include_directories += obj['include_directories']
         endforeach
 
         if is_test
@@ -2598,6 +2597,7 @@ foreach dict : executables
         endif
 
         if is_fuzz
+                include_directories += include_directories('src/fuzz')
                 foreach key, val : fuzz_additional_kwargs
                         if key == 'sources'
                                 exe_sources += val
@@ -2612,6 +2612,7 @@ foreach dict : executables
                 sources : exe_sources,
                 kwargs : kwargs,
                 implicit_include_directories : false,
+                include_directories : include_directories,
         )
 
         executables_by_name += { name : exe }
