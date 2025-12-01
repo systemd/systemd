@@ -111,6 +111,7 @@ simple_tests += files(
         'test-format-util.c',
         'test-fs-util.c',
         'test-fstab-util.c',
+        'test-getopt.c',
         'test-glob-util.c',
         'test-gpt.c',
         'test-gunicode.c',
