@@ -917,6 +917,8 @@ test ! -f /tmp/img/abc
 
 # Test RootDirectoryFileDescriptor=
 systemd-run --wait --pipe --root-directory=/tmp/img -- grep -q 'MARKER=1' /usr/lib/os-release
+# Make sure the same root file descriptor can be reused multiple times.
+systemd-run --wait --pipe --same-root-dir -p ExecStartPre=true true
 
 systemd-dissect --mtree /tmp/img >/dev/null
 systemd-dissect --list /tmp/img >/dev/null
