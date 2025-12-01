@@ -196,6 +196,7 @@ int openssl_load_private_key(
                 OpenSSLAskPasswordUI **ret_user_interface);
 
 int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret);
+int openssl_extract_certificate(X509 *cert, X509 **ret);
 
 struct OpenSSLAskPasswordUI {
         AskPasswordRequest request;
