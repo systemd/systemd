@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <assert.h>
-#include <openssl/ssl.h>
+#include <openssl/evp.h>
+#include <openssl/opensslv.h>
 
 #include "nts_crypto.h"
 #include "timesyncd-forward.h"
