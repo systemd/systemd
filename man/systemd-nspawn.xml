@@ -130,11 +130,11 @@
 
     <itemizedlist>
       <listitem><para>Only disk image based containers are supported (i.e. <option>--image=</option>).
-      Directory based ones (i.e. <option>--directory=</option>) are not supported.</para></listitem>
+      Directory based ones (i.e. <option>--directory=</option>) are only supported if owned by the "foreign"
+      UID range.</para></listitem>
 
-      <listitem><para>Machine registration via <option>--machine=</option> is not supported.</para></listitem>
-
-      <listitem><para>Only <option>--private-network</option> and <option>--network-veth</option> networking modes are supported.</para></listitem>
+      <listitem><para>Only <option>--private-network</option> and <option>--network-veth</option> networking
+      modes are supported.</para></listitem>
     </itemizedlist>
 
     <para>When running in unprivileged mode, some needed functionality is provided via
