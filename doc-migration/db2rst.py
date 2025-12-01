@@ -548,6 +548,21 @@ def _get_listitem_depth(el):
             depth += 1
     return depth
 
+def _wrap_with_inclusion_markers_if_necessary(el, s):
+    entry_id = el.get("id")
+    if entry_id is not None:
+        return f"""
+
+.. inclusion-marker-do-not-remove {entry_id}
+
+{s}
+
+.. inclusion-end-marker-do-not-remove {entry_id}
+
+"""
+    else:
+        return s
+
 ###################           DocBook elements        #####################
 
 # special "elements"
@@ -989,10 +1004,6 @@ def variablelist(el):
 
 def varlistentry(el):
     s = ""
-    entry_id = el.get("id")
-    if entry_id is not None:
-        s += "\n\n.. inclusion-marker-do-not-remove %s\n\n" % entry_id
-
     # Determine group once for this entry (nearest id wins, then nearest variablelist@class)
     group = _nearest_directive_group(el)
     term_names = _collect_term_names(el)
@@ -1021,20 +1032,21 @@ def varlistentry(el):
         else:
             s += _conv(i)
 
-    if entry_id is not None:
-        s += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % entry_id
-    return s
+    return _wrap_with_inclusion_markers_if_necessary(el, s)
+
 
 
 def listitem(el):
     parent = el.getparent()
     listItemPrefix = ''
+    s = ""
     if parent.tag == 'orderedlist':
         listItemPrefix = '1.'
     if parent.tag == 'itemizedlist':
         listItemPrefix = '* '
 
-    return listItemPrefix + _concat(el)
+    s += listItemPrefix + _concat(el)
+    return _wrap_with_inclusion_markers_if_necessary(el, s)
 
 # sections
 
@@ -1044,7 +1056,9 @@ def example(el):
     elements = [i for i in el]
     first, rest = elements[0], elements[1:]
 
-    return _make_title(_concat(first), 4) + "\n\n" + "".join(_conv(i) for i in rest)
+    s = _make_title(_concat(first), 4) + "\n\n" + "".join(_conv(i) for i in rest)
+    s = _wrap_with_inclusion_markers_if_necessary(el, s)
+    return s
 
 
 def sect1(el):
@@ -1275,7 +1289,8 @@ def table(el):
             row_line = "   * - " + "\n     - ".join(row)
         rst_table.append(row_line)
 
-    return '\n'.join(rst_table)
+    s = '\n'.join(rst_table) + "\n\n"
+    return _wrap_with_inclusion_markers_if_necessary(el, s)
 
 
 # tbody tags outside of tables (See directly above) are only used as
@@ -1340,7 +1355,7 @@ def para(el):
         s += _block_separated_with_blank_line(el, False) + '\n\n \n\n'
     if entry_id is not None:
         s += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % entry_id
-    return s
+    return _wrap_with_inclusion_markers_if_necessary(el, s)
 
 
 def simpara(el):
