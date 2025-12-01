@@ -954,7 +954,7 @@ def itemizedlist(el):
 
 
 def orderedlist(el):
-    return _indent(el, 2, "1. ", True)
+    return _indent(el, 2, "1. ", True) + "\n\n"
 
 
 def simplelist(el):
@@ -1290,10 +1290,10 @@ def tbody(el):
         # Even though these are generally consumed by the preprocessor and not
         # Sphinx itself, we still use the same inclusion-marker directive
         # syntax, in case someone wants to include these snippets somewhere else.
-        output.append(f".. inclusion-marker-do-not-remove {id}")
+        output.append(f"\n \n.. inclusion-marker-do-not-remove {id}\n \n")
         row_line = "* - " + "\n  - ".join([_concat(entry) for entry in entries])
         output.append(row_line)
-        output.append(f".. inclusion-end-marker-do-not-remove {id}")
+        output.append(f"\n \n.. inclusion-end-marker-do-not-remove {id}\n \n")
     return '\n'.join(output)
 
 def userinput(el):
