@@ -663,7 +663,7 @@ static int pick_image_search_path(
         }
 
         case RUNTIME_SCOPE_USER: {
-                if (class != IMAGE_MACHINE)
+                if (!IN_SET(class, IMAGE_MACHINE, IMAGE_PORTABLE))
                         break;
 
                 static const uint64_t dirs[] = {
@@ -676,7 +676,7 @@ static int pick_image_search_path(
                 FOREACH_ELEMENT(d, dirs) {
                         _cleanup_free_ char *p = NULL;
 
-                        r = sd_path_lookup(*d, "machines", &p);
+                        r = sd_path_lookup(*d, image_dirname_to_string(class), &p);
                         if (r == -ENXIO) /* No XDG_RUNTIME_DIR set */
                                 continue;
                         if (r < 0)
