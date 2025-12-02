@@ -34,7 +34,6 @@ executables += [
                 'name' : 'systemd-timesyncd',
                 'sources' : timesyncd_sources,
                 'extract' : timesyncd_extract_sources,
-                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
                 'link_with' : timesyncd_link_with,
                 'dependencies' : [
                         libm,

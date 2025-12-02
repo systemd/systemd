@@ -125,11 +125,12 @@ generated_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_d
 libcore_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc]
 libcore_build_dir = meson.current_build_dir()
 libcore_name = 'systemd-core-@0@'.format(shared_lib_tag)
+core_includes = [includes, include_directories('.')]
 
 libcore_static = static_library(
         libcore_name,
         libcore_sources,
-        include_directories : [includes, include_directories('.')],
+        include_directories : core_includes,
         implicit_include_directories : false,
         c_args : ['-fvisibility=default'],
         dependencies : [libaudit_cflags,
@@ -156,8 +157,6 @@ libcore = shared_library(
         link_with : libshared,
         install : true,
         install_dir : pkglibdir)
-
-core_includes = [includes, include_directories('.')]
 
 systemd_sources = files(
         'main.c',
@@ -210,7 +209,6 @@ executables += [
                 'name' : 'systemd-executor',
                 'public' : true,
                 'sources' : systemd_executor_sources,
-                'include_directories' : core_includes,
                 'link_with' : executor_libs,
                 'dependencies' : [
                         libapparmor_cflags,

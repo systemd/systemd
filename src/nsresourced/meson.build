@@ -32,7 +32,6 @@ executables += [
                 'name' : 'systemd-nsresourced',
                 'sources' : systemd_nsresourced_sources,
                 'extract' : systemd_nsresourced_extract_sources,
-                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
                 'dependencies' : threads,
         },
         libexec_template + {
