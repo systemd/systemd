@@ -1263,19 +1263,30 @@ def parameter(el):
 
 
 def table(el):
+    tgroup = el.find('.//tgroup')
     title = _concat(el.find('title'))
     headers = el.findall('.//thead/row/entry')
     # Table bodies can either have rows or xi:includes
     parseableChildren = el.xpath(".//tbody/xi:include | .//tbody/row", namespaces={'xi': 'http://www.w3.org/2001/XInclude'})
 
+    # Table has more columns defined in <tgroup cols=""> than
+    # it has header row entries, so fill up header row with
+    # empty entries
+    if len(tgroup) > 0 and tgroup.get('cols'):
+        while len(headers) < int(tgroup.get('cols')):
+            headers.append(ET.Element('entry'))
+
     # Collect header names
     header_texts = [_concat(header) for header in headers]
-
+    number_of_columns = len(headers)
     # Collect row data
     row_data = []
     for row in parseableChildren:
         if row.tag == 'row':
             entries = row.findall('entry')
+            # Fill up missing columns with empty entries
+            while len(entries) < number_of_columns:
+                 entries.append(ET.Element('entry'))
             row_data.append([_concat(entry) for entry in entries])
         if row.tag == '{http://www.w3.org/2001/XInclude}include':
             row_data.append(ET.tostring(row, encoding=str))
