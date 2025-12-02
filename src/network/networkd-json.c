@@ -10,6 +10,7 @@
 #include "dhcp-server-lease-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "extract-word.h"
+#include "in-addr-util.h"
 #include "ip-protocol-list.h"
 #include "json-util.h"
 #include "netif-util.h"
@@ -34,15 +35,21 @@
 
 static int address_append_json(Address *address, bool serializing, sd_json_variant **array) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *address_str = NULL;
         int r;
 
         assert(address);
         assert(array);
 
+        r = in_addr_to_string(address->family, &address->in_addr, &address_str);
+        if (r < 0)
+                return r;
+
         r = sd_json_buildo(
                         &v,
                         SD_JSON_BUILD_PAIR_INTEGER("Family", address->family),
                         JSON_BUILD_PAIR_IN_ADDR("Address", &address->in_addr, address->family),
+                        SD_JSON_BUILD_PAIR_STRING("AddressString", address_str),
                         JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Peer", &address->in_addr_peer, address->family),
                         SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength", address->prefixlen),
                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(address->source)),
