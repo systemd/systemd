@@ -152,6 +152,44 @@ static sd_netlink *netlink_free(sd_netlink *nl) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_netlink, sd_netlink, netlink_free);
 
+static usec_t netlink_now(sd_netlink *nl, clock_t clock) {
+        assert(nl);
+
+        usec_t now_usec;
+        if (nl->event && sd_event_now(nl->event, clock, &now_usec) > 0)
+                return now_usec;
+
+        return now(CLOCK_MONOTONIC);
+}
+
+static usec_t timespan_to_timestamp(sd_netlink *nl, usec_t usec) {
+        static bool default_timeout_set = false;
+        static usec_t default_timeout;
+        int r;
+
+        assert(nl);
+
+        if (usec == 0) {
+                if (!default_timeout_set) {
+                        const char *e;
+
+                        default_timeout_set = true;
+                        default_timeout = NETLINK_DEFAULT_TIMEOUT_USEC;
+
+                        e = secure_getenv("SYSTEMD_NETLINK_DEFAULT_TIMEOUT");
+                        if (e) {
+                                r = parse_sec(e, &default_timeout);
+                                if (r < 0)
+                                        log_debug_errno(r, "sd-netlink: Failed to parse $SYSTEMD_NETLINK_DEFAULT_TIMEOUT environment variable, ignoring: %m");
+                        }
+                }
+
+                usec = default_timeout;
+        }
+
+        return usec_add(netlink_now(nl, CLOCK_MONOTONIC), usec);
+}
+
 int sd_netlink_send(
                 sd_netlink *nl,
                 sd_netlink_message *message,
@@ -204,7 +242,6 @@ static int process_timeout(sd_netlink *nl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         struct reply_callback *c;
         sd_netlink_slot *slot;
-        usec_t n;
         int r;
 
         assert(nl);
@@ -213,8 +250,7 @@ static int process_timeout(sd_netlink *nl) {
         if (!c)
                 return 0;
 
-        n = now(CLOCK_MONOTONIC);
-        if (c->timeout > n)
+        if (c->timeout > netlink_now(nl, CLOCK_MONOTONIC))
                 return 0;
 
         r = message_new_synthetic_error(nl, -ETIMEDOUT, c->serial, &m);
@@ -384,32 +420,6 @@ int sd_netlink_process(sd_netlink *nl, sd_netlink_message **ret) {
         return r;
 }
 
-static usec_t timespan_to_timestamp(usec_t usec) {
-        static bool default_timeout_set = false;
-        static usec_t default_timeout;
-        int r;
-
-        if (usec == 0) {
-                if (!default_timeout_set) {
-                        const char *e;
-
-                        default_timeout_set = true;
-                        default_timeout = NETLINK_DEFAULT_TIMEOUT_USEC;
-
-                        e = secure_getenv("SYSTEMD_NETLINK_DEFAULT_TIMEOUT");
-                        if (e) {
-                                r = parse_sec(e, &default_timeout);
-                                if (r < 0)
-                                        log_debug_errno(r, "sd-netlink: Failed to parse $SYSTEMD_NETLINK_DEFAULT_TIMEOUT environment variable, ignoring: %m");
-                        }
-                }
-
-                usec = default_timeout;
-        }
-
-        return usec_add(now(CLOCK_MONOTONIC), usec);
-}
-
 static int netlink_poll(sd_netlink *nl, bool need_more, usec_t timeout_usec) {
         usec_t m = USEC_INFINITY;
         int r, e;
@@ -434,7 +444,7 @@ static int netlink_poll(sd_netlink *nl, bool need_more, usec_t timeout_usec) {
                 if (r < 0)
                         return r;
 
-                m = usec_sub_unsigned(until, now(CLOCK_MONOTONIC));
+                m = usec_sub_unsigned(until, netlink_now(nl, CLOCK_MONOTONIC));
         }
 
         r = fd_wait_for_event(nl->fd, e, MIN(m, timeout_usec));
@@ -508,7 +518,7 @@ int sd_netlink_call_async(
                 return r;
 
         slot->reply_callback.callback = callback;
-        slot->reply_callback.timeout = timespan_to_timestamp(usec);
+        slot->reply_callback.timeout = timespan_to_timestamp(nl, usec);
 
         k = sd_netlink_send(nl, m, &slot->reply_callback.serial);
         if (k < 0)
@@ -549,7 +559,7 @@ int sd_netlink_read(
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
-        usec = timespan_to_timestamp(timeout);
+        usec = timespan_to_timestamp(nl, timeout);
 
         for (;;) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
@@ -591,7 +601,7 @@ int sd_netlink_read(
                 if (usec != USEC_INFINITY) {
                         usec_t n;
 
-                        n = now(CLOCK_MONOTONIC);
+                        n = netlink_now(nl, CLOCK_MONOTONIC);
                         if (n >= usec)
                                 return -ETIMEDOUT;
 
