@@ -33,9 +33,30 @@ int user_search_dirs(const char *suffix, char ***ret_config_dirs, char ***ret_da
         return 0;
 }
 
-int runtime_directory_generic(RuntimeScope scope, const char *suffix, char **ret) {
-        int r;
+int config_directory_generic(RuntimeScope scope, const char *suffix, char **ret) {
+        assert(ret);
 
+        /* This does not bother with $CONFIGURATION_DIRECTORY, and hence can be applied to get other
+         * service's config dir */
+
+        switch (scope) {
+        case RUNTIME_SCOPE_USER:
+                return xdg_user_config_dir(suffix, ret);
+
+        case RUNTIME_SCOPE_SYSTEM: {
+                char *d = path_join("/etc", suffix);
+                if (!d)
+                        return -ENOMEM;
+                *ret = d;
+                return 0;
+        }
+
+        default:
+                return -EINVAL;
+        }
+}
+
+int runtime_directory_generic(RuntimeScope scope, const char *suffix, char **ret) {
         assert(ret);
 
         /* This does not bother with $RUNTIME_DIRECTORY, and hence can be applied to get other service's
@@ -43,24 +64,19 @@ int runtime_directory_generic(RuntimeScope scope, const char *suffix, char **ret
 
         switch (scope) {
         case RUNTIME_SCOPE_USER:
-                r = xdg_user_runtime_dir(suffix, ret);
-                if (r < 0)
-                        return r;
-                break;
+                return xdg_user_runtime_dir(suffix, ret);
 
         case RUNTIME_SCOPE_SYSTEM: {
                 char *d = path_join("/run", suffix);
                 if (!d)
                         return -ENOMEM;
                 *ret = d;
-                break;
+                return 0;
         }
 
         default:
                 return -EINVAL;
         }
-
-        return 0;
 }
 
 int runtime_directory(RuntimeScope scope, const char *fallback_suffix, char **ret) {
