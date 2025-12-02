@@ -298,7 +298,7 @@ int dlopen_cryptsetup(void) {
 
         return 1;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "cryptsetup support is not compiled in.");
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "cryptsetup support is not compiled in.");
 #endif
 }
 
