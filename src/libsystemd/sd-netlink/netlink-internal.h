@@ -55,6 +55,11 @@ typedef struct sd_netlink_slot {
         };
 } sd_netlink_slot;
 
+typedef struct NetlinkIgnoredSerial {
+        uint32_t serial;
+        usec_t timeout_usec; /* timestamp in CLOCK_MONOTONIC */
+} NetlinkIgnoredSerial;
+
 typedef struct sd_netlink {
         unsigned n_ref;
 
@@ -78,6 +83,7 @@ typedef struct sd_netlink {
         bool processing:1;
 
         uint32_t serial;
+        Hashmap *ignored_serials;
 
         struct Prioq *reply_callbacks_prioq;
         Hashmap *reply_callbacks;
