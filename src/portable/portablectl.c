@@ -48,6 +48,7 @@ static bool arg_no_block = false;
 static char **arg_extension_images = NULL;
 static bool arg_force = false;
 static bool arg_clean = false;
+static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
 STATIC_DESTRUCTOR_REGISTER(arg_extension_images, strv_freep);
 
@@ -224,9 +225,9 @@ static int acquire_bus(sd_bus **bus) {
         if (*bus)
                 return 0;
 
-        r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, bus);
+        r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
+                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
         (void) sd_bus_set_allow_interactive_authorization(*bus, arg_ask_password);
 
@@ -1335,6 +1336,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_EXTENSION,
                 ARG_FORCE,
                 ARG_CLEAN,
+                ARG_USER,
+                ARG_SYSTEM,
         };
 
         static const struct option options[] = {
@@ -1357,6 +1360,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "extension",       required_argument, NULL, ARG_EXTENSION       },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "clean",           no_argument,       NULL, ARG_CLEAN           },
+                { "user",            no_argument,       NULL, ARG_USER            },
+                { "system",          no_argument,       NULL, ARG_SYSTEM          },
                 {}
         };
 
@@ -1466,6 +1471,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CLEAN:
                         arg_clean = true;
+                        break;
+
+                case ARG_USER:
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
+                case ARG_SYSTEM:
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
                 case '?':

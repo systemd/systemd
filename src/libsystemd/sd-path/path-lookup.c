@@ -231,7 +231,7 @@ static int acquire_lookup_dirs(
                 },
                 [LOOKUP_DIR_ATTACHED] = {
                         [RUNTIME_SCOPE_SYSTEM] = { "/etc/systemd/system.attached", "/run/systemd/system.attached" },
-                        /* Portable services are not available to regular users for now. */
+                        [RUNTIME_SCOPE_USER]   = { "systemd/user.attached",        "systemd/user.attached"        },
                 },
         };
 
@@ -349,7 +349,9 @@ static int get_paths_from_environ(const char *var, char ***ret) {
 
 static char** user_unit_search_dirs(
                 const char *persistent_config,
+                const char *persistent_attached,
                 const char *runtime_config,
+                const char *runtime_attached,
                 const char *global_persistent_config,
                 const char *global_runtime_config,
                 const char *generator,
@@ -364,6 +366,7 @@ static char** user_unit_search_dirs(
         /* The returned strv might contain duplicates, and we expect caller to filter them. */
 
         assert(persistent_config);
+        assert(persistent_attached);
         assert(global_persistent_config);
         assert(global_runtime_config);
         assert(persistent_control);
@@ -375,7 +378,8 @@ static char** user_unit_search_dirs(
                          STRV_IFNOTNULL(runtime_control),
                          STRV_IFNOTNULL(transient),
                          STRV_IFNOTNULL(generator_early),
-                         persistent_config);
+                         persistent_config,
+                         persistent_attached);
         if (!paths)
                 return NULL;
 
@@ -392,6 +396,7 @@ static char** user_unit_search_dirs(
         /* strv_extend_many() can deal with NULL-s in arguments */
         if (strv_extend_many(&paths,
                              runtime_config,
+                             runtime_attached,
                              global_runtime_config,
                              generator) < 0)
                 return NULL;
@@ -551,7 +556,8 @@ int lookup_paths_init(
                         break;
 
                 case RUNTIME_SCOPE_USER:
-                        add = user_unit_search_dirs(persistent_config, runtime_config,
+                        add = user_unit_search_dirs(persistent_config, persistent_attached,
+                                                    runtime_config, runtime_attached,
                                                     global_persistent_config, global_runtime_config,
                                                     generator, generator_early, generator_late,
                                                     transient,
