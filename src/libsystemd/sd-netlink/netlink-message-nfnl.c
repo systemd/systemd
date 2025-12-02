@@ -178,10 +178,8 @@ int sd_nfnl_call_batch(
                 sd_netlink *nfnl,
                 sd_netlink_message **messages,
                 size_t n_messages,
-                uint64_t usec,
-                sd_netlink_message ***ret_messages) {
+                uint64_t usec) {
 
-        _cleanup_free_ sd_netlink_message **replies = NULL;
         _cleanup_free_ uint32_t *serials = NULL;
         int r;
 
@@ -190,24 +188,14 @@ int sd_nfnl_call_batch(
         assert_return(messages, -EINVAL);
         assert_return(n_messages > 0, -EINVAL);
 
-        if (ret_messages) {
-                replies = new0(sd_netlink_message*, n_messages);
-                if (!replies)
-                        return -ENOMEM;
-        }
-
         r = sd_nfnl_send_batch(nfnl, messages, n_messages, &serials);
         if (r < 0)
                 return r;
 
         for (size_t i = 0; i < n_messages; i++)
-                RET_GATHER(r,
-                           sd_netlink_read(nfnl, serials[i], usec, ret_messages ? replies + i : NULL));
+                RET_GATHER(r, sd_netlink_read(nfnl, serials[i], usec, /* ret= */ NULL));
         if (r < 0)
                 return r;
-
-        if (ret_messages)
-                *ret_messages = TAKE_PTR(replies);
 
         return 0;
 }
