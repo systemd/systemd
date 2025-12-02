@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/loop.h>
+#include <sched.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -35,6 +36,8 @@
 #include "log.h"
 #include "loop-util.h"
 #include "mkdir.h"
+#include "namespace-util.h"
+#include "nsresource.h"
 #include "os-util.h"
 #include "path-lookup.h"
 #include "pidref.h"
@@ -49,6 +52,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "uid-classification.h"
 #include "unit-name.h"
 #include "vpick.h"
 
@@ -334,10 +338,14 @@ static int extract_now(
                 }
         }
 
-        /* Then, send unit file data to the parent (or/and add it to the hashmap). For that we use our usual unit
-         * discovery logic. Note that we force looking inside of /lib/systemd/system/ for units too, as the
-         * image might have a legacy split-usr layout. */
-        r = lookup_paths_init(&paths, scope, LOOKUP_PATHS_SPLIT_USR, /* root_dir= */ NULL);
+        /* Then, send unit file data to the parent (or/and add it to the hashmap). For that we use our usual
+         * unit discovery logic. If we're running in a user session, we look for units in
+         * /usr/lib/systemd/user/ and corresponding directories. */
+        r = lookup_paths_init(
+                        &paths,
+                        scope == RUNTIME_SCOPE_USER ? RUNTIME_SCOPE_GLOBAL : RUNTIME_SCOPE_SYSTEM,
+                        LOOKUP_PATHS_SPLIT_USR,
+                        /* root_dir= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire lookup paths: %m");
 
@@ -456,52 +464,106 @@ static int portable_extract_by_path(
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata* os_release = NULL;
         _cleanup_(image_policy_freep) ImagePolicy *pinned_image_policy = NULL;
-        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         int r;
 
         assert(path);
 
-        r = loop_device_make_by_path(
-                        path,
-                        O_RDONLY,
-                        /* sector_size= */ UINT32_MAX,
-                        LO_FLAGS_PARTSCAN,
-                        LOCK_SH,
-                        &d);
-        if (r == -EISDIR) {
-                /* We can't turn this into a loop-back block device, and this returns EISDIR? Then this is a directory
-                 * tree and not a raw device. It's easy then. */
+        _cleanup_close_ int rfd = open(path, O_PATH|O_CLOEXEC);
+        if (rfd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
 
-                 _cleanup_free_ char *image_name = NULL;
+        struct stat st;
+        if (fstat(rfd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat '%s': %m", path);
+
+        if (S_ISDIR(st.st_mode)) {
+                _cleanup_free_ char *image_name = NULL;
                 r = path_extract_filename(path, &image_name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract image name from path '%s': %m", path);
 
-                _cleanup_close_ int rfd = open(path, O_DIRECTORY|O_CLOEXEC);
-                if (rfd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", path);
+                if (scope == RUNTIME_SCOPE_USER && uid_is_foreign(st.st_uid)) {
+                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K);
+                        if (userns_fd < 0)
+                                return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
-                r = extract_now(scope,
-                                rfd,
-                                path,
-                                matches,
-                                image_name,
-                                path_is_extension,
-                                /* relax_extension_release_check= */ false,
-                                /* socket_fd= */ -EBADF,
-                                &os_release,
-                                &unit_files);
-                if (r < 0)
-                        return r;
+                        _cleanup_close_ int mfd = -EBADF;
+                        r = mountfsd_mount_directory_fd(rfd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &mfd);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to open '%s' via mountfsd: %m", path);
 
-        } else if (r < 0)
-                return log_debug_errno(r, "Failed to set up loopback device for %s: %m", path);
-        else {
-                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+                        _cleanup_close_pair_ int seq[2] = EBADF_PAIR;
+                        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, seq) < 0)
+                                return log_debug_errno(errno, "Failed to allocated SOCK_SEQPACKET socket: %m");
+
+                        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+                        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+                                return log_debug_errno(errno, "Failed to create pipe: %m");
+
+                        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
+                        r = pidref_safe_fork("(sd-extract)",
+                                             FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_REOPEN_LOG,
+                                             &child);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                seq[0] = safe_close(seq[0]);
+                                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                                if (setns(CLONE_NEWUSER, userns_fd) < 0) {
+                                        r = log_debug_errno(errno, "Failed to join userns: %m");
+                                        report_errno_and_exit(errno_pipe_fd[1], r);
+                                }
+
+                                r = extract_now(scope,
+                                                mfd,
+                                                path,
+                                                matches,
+                                                image_name,
+                                                path_is_extension,
+                                                /* relax_extension_release_check= */ false,
+                                                seq[1],
+                                                /* ret_os_release= */ NULL,
+                                                /* ret_unit_files= */ NULL);
+                                report_errno_and_exit(errno_pipe_fd[1], r);
+                        }
+
+                        seq[1] = safe_close(seq[1]);
+                        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+                        r = receive_portable_metadata(seq[0], path, &os_release, &unit_files);
+                        if (r < 0)
+                                return r;
+
+                        r = pidref_wait_for_terminate_and_check("(sd-extract)", &child, 0);
+                        if (r < 0)
+                                return r;
+                        if (r != EXIT_SUCCESS) {
+                                if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
+                                        return log_debug_errno(r, "Failed to extract portable metadata from '%s': %m", path);
+
+                                return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Child failed.");
+                        }
+                } else {
+                        r = extract_now(scope,
+                                        rfd,
+                                        path,
+                                        matches,
+                                        image_name,
+                                        path_is_extension,
+                                        /* relax_extension_release_check= */ false,
+                                        /* socket_fd= */ -EBADF,
+                                        &os_release,
+                                        &unit_files);
+                        if (r < 0)
+                                return r;
+                }
+        } else {
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
                 _cleanup_(rmdir_and_freep) char *tmpdir = NULL;
                 _cleanup_close_pair_ int seq[2] = EBADF_PAIR, errno_pipe_fd[2] = EBADF_PAIR;
                 _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
+                _cleanup_close_ int userns_fd = -EBADF;
                 DissectImageFlags flags =
                         DISSECT_IMAGE_READ_ONLY |
                         DISSECT_IMAGE_GENERIC_ROOT |
@@ -518,6 +580,18 @@ static int portable_extract_by_path(
                 else
                         flags |= DISSECT_IMAGE_VALIDATE_OS;
 
+                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+                r = verity_settings_load(
+                                &verity,
+                                path,
+                                /* root_hash_path= */ NULL,
+                                /* root_hash_sig_path= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read verity artifacts for %s: %m", path);
+
+                if (verity.data_path)
+                        flags |= DISSECT_IMAGE_NO_PARTITION_TABLE;
+
                 /* We now have a loopback block device, let's fork off a child in its own mount namespace, mount it
                  * there, and extract the metadata we need. The metadata is sent from the child back to us. */
 
@@ -529,38 +603,70 @@ static int portable_extract_by_path(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create temporary directory: %m");
 
-                r = dissect_loop_device(
-                                d,
-                                /* verity= */ NULL,
-                                /* mount_options= */ NULL,
-                                image_policy,
-                                /* image_filter= */ NULL,
-                                flags,
-                                &m);
-                if (r == -ENOPKG)
-                        sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Couldn't identify a suitable partition table or file system in '%s'.", path);
-                else if (r == -EADDRNOTAVAIL)
-                        sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "No root partition for specified root hash found in '%s'.", path);
-                else if (r == -ENOTUNIQ)
-                        sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Multiple suitable root partitions found in image '%s'.", path);
-                else if (r == -ENXIO)
-                        sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "No suitable root partition found in image '%s'.", path);
-                else if (r == -EPROTONOSUPPORT)
-                        sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Device '%s' is loopback block device with partition scanning turned off, please turn it on.", path);
-                if (r < 0)
-                        return r;
+                if (scope == RUNTIME_SCOPE_USER) {
+                        userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K);
+                        if (userns_fd < 0)
+                                return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
-                r = verity_settings_load(&verity, path, NULL, NULL);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to load root hash: %m");
+                        r = mountfsd_mount_image_fd(
+                                        rfd,
+                                        userns_fd,
+                                        /* options= */ NULL,
+                                        image_policy,
+                                        &verity,
+                                        flags,
+                                        &m);
+                        if (r < 0)
+                                return r;
+                } else {
+                        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
 
-                r = dissected_image_load_verity_sig_partition(m, d->fd, &verity);
-                if (r < 0)
-                        return r;
+                        r = loop_device_make_by_path_at(
+                                        rfd,
+                                        /* path= */ NULL,
+                                        O_RDONLY,
+                                        /* sector_size= */ UINT32_MAX,
+                                        LO_FLAGS_PARTSCAN,
+                                        LOCK_SH,
+                                        &d);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to set up loopback device for %s: %m", path);
 
-                r = dissected_image_guess_verity_roothash(m, &verity);
-                if (r < 0)
-                        return r;
+                        r = dissect_loop_device(
+                                        d,
+                                        &verity,
+                                        /* mount_options= */ NULL,
+                                        image_policy,
+                                        /* image_filter= */ NULL,
+                                        flags,
+                                        &m);
+                        if (r == -ENOPKG)
+                                sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Couldn't identify a suitable partition table or file system in '%s'.", path);
+                        else if (r == -EADDRNOTAVAIL)
+                                sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "No root partition for specified root hash found in '%s'.", path);
+                        else if (r == -ENOTUNIQ)
+                                sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Multiple suitable root partitions found in image '%s'.", path);
+                        else if (r == -ENXIO)
+                                sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "No suitable root partition found in image '%s'.", path);
+                        else if (r == -EPROTONOSUPPORT)
+                                sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Device '%s' is loopback block device with partition scanning turned off, please turn it on.", path);
+                        if (r < 0)
+                                return r;
+
+                        r = dissected_image_load_verity_sig_partition(m, d->fd, &verity);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to load verity sig partition for '%s': %m", path);
+
+                        r = dissected_image_guess_verity_roothash(m, &verity);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to guess verity roothash for '%s': %m", path);
+                }
+
+                if (!m->image_name) {
+                        r = dissected_image_name_from_path(path, &m->image_name);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (ret_pinned_image_policy) {
                         pinned_image_policy = image_policy_new_from_dissected(m, &verity);
@@ -574,33 +680,44 @@ static int portable_extract_by_path(
                 if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                         return log_debug_errno(errno, "Failed to create pipe: %m");
 
-                r = pidref_safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_LOG, &child);
+                r = pidref_safe_fork(
+                                "(sd-dissect)",
+                                FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|(scope == RUNTIME_SCOPE_SYSTEM ? FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE : 0),
+                                &child);
                 if (r < 0)
                         return r;
                 if (r == 0) {
                         seq[0] = safe_close(seq[0]);
                         errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
+                        if (scope == RUNTIME_SCOPE_USER) {
+                                r = detach_mount_namespace_userns(userns_fd);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to detach mount namespace: %m");
+                                        report_errno_and_exit(errno_pipe_fd[1], r);
+                                }
+                        }
+
                         r = dissected_image_mount(
                                         m,
                                         tmpdir,
                                         /* uid_shift= */ UID_INVALID,
                                         /* uid_range= */ UID_INVALID,
-                                        /* userns_fd= */ -EBADF,
+                                        userns_fd,
                                         flags);
                         if (r < 0) {
-                                log_debug_errno(r, "Failed to mount dissected image: %m");
+                                log_debug_errno(r, "Failed to mount dissected image '%s': %m", path);
                                 report_errno_and_exit(errno_pipe_fd[1], r);
                         }
 
-                        _cleanup_close_ int rfd = open(tmpdir, O_DIRECTORY|O_CLOEXEC);
-                        if (rfd < 0) {
+                        _cleanup_close_ int mfd = open(tmpdir, O_DIRECTORY|O_CLOEXEC);
+                        if (mfd < 0) {
                                 r = log_debug_errno(errno, "Failed to open '%s': %m", tmpdir);
                                 report_errno_and_exit(errno_pipe_fd[1], r);
                         }
 
                         r = extract_now(scope,
-                                        rfd,
+                                        mfd,
                                         path,
                                         matches,
                                         m->image_name,
@@ -772,15 +889,17 @@ static int extract_image_and_extensions(
          * extension-release metadata match, otherwise reject it immediately as invalid, or it will fail when
          * the units are started. Also, collect valid portable prefixes if caller requested that. */
         if (validate_extension || ret_valid_prefixes) {
-                _cleanup_free_ char *prefixes = NULL;
+                _cleanup_free_ char *prefixes = NULL, *portable_scope_str = NULL;
 
-                r = parse_env_file_fd(os_release->fd, os_release->name,
-                                     "ID", &id,
-                                     "ID_LIKE", &id_like,
-                                     "VERSION_ID", &version_id,
-                                     "SYSEXT_LEVEL", &sysext_level,
-                                     "CONFEXT_LEVEL", &confext_level,
-                                     "PORTABLE_PREFIXES", &prefixes);
+                r = parse_env_file_fd(
+                                os_release->fd, os_release->name,
+                                "ID", &id,
+                                "ID_LIKE", &id_like,
+                                "VERSION_ID", &version_id,
+                                "SYSEXT_LEVEL", &sysext_level,
+                                "CONFEXT_LEVEL", &confext_level,
+                                "PORTABLE_PREFIXES", &prefixes,
+                                "PORTABLE_SCOPE", &portable_scope_str);
                 if (r < 0)
                         return r;
                 if (isempty(id))
@@ -791,6 +910,31 @@ static int extract_image_and_extensions(
                         if (!valid_prefixes)
                                 return -ENOMEM;
                 }
+
+                RuntimeScope portable_scope = RUNTIME_SCOPE_SYSTEM;
+                if (portable_scope_str) {
+                        if (streq(portable_scope_str, "any"))
+                                portable_scope = RUNTIME_SCOPE_GLOBAL;
+                        else {
+                                portable_scope = runtime_scope_from_string(portable_scope_str);
+                                if (portable_scope < 0)
+                                        return sd_bus_error_setf(
+                                                        error,
+                                                        SD_BUS_ERROR_INVALID_ARGS,
+                                                        "Invalid PORTABLE_SCOPE value '%s' in image %s.",
+                                                        portable_scope_str,
+                                                        name_or_path);
+                        }
+                }
+
+                if (portable_scope != RUNTIME_SCOPE_GLOBAL && portable_scope != scope)
+                        return sd_bus_error_setf(
+                                        error,
+                                        SD_BUS_ERROR_INVALID_ARGS,
+                                        "Image %s portable scope '%s' incompatible with portabled runtime scope '%s'.",
+                                        name_or_path,
+                                        runtime_scope_to_string(portable_scope),
+                                        runtime_scope_to_string(scope));
         }
 
         ORDERED_HASHMAP_FOREACH(ext, extension_images) {
@@ -1377,6 +1521,7 @@ static int install_chroot_dropin(
 }
 
 static int install_profile_dropin(
+                RuntimeScope scope,
                 const char *image_path,
                 const PortableMetadata *m,
                 const char *dropin_dir,
@@ -1396,7 +1541,7 @@ static int install_profile_dropin(
         if (!profile)
                 return 0;
 
-        r = find_portable_profile(profile, m->name, &from);
+        r = find_portable_profile(scope, profile, m->name, &from);
         if (r < 0) {
                 if (r != -ENOENT)
                         return log_debug_errno(errno, "Profile '%s' is not accessible: %m", profile);
@@ -1454,6 +1599,7 @@ static const char *attached_path(const LookupPaths *paths, PortableFlags flags) 
 }
 
 static int attach_unit_file(
+                RuntimeScope scope,
                 const LookupPaths *paths,
                 const char *image_path,
                 ImageType type,
@@ -1523,7 +1669,7 @@ static int attach_unit_file(
         if (r < 0)
                 return r;
 
-        r = install_profile_dropin(image_path, m, dropin_dir, profile, flags, &profile_dropin, changes, n_changes);
+        r = install_profile_dropin(scope, image_path, m, dropin_dir, profile, flags, &profile_dropin, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -1577,13 +1723,11 @@ static int attach_unit_file(
         return 0;
 }
 
-static int image_target_path(
-                const char *image_path,
-                PortableFlags flags,
-                char **ret) {
-
-        const char *fn, *where;
+static int image_target_path(RuntimeScope scope, const char *image_path, PortableFlags flags, char **ret) {
+        _cleanup_free_ char *where = NULL;
+        const char *fn;
         char *joined = NULL;
+        int r;
 
         assert(image_path);
         assert(ret);
@@ -1591,11 +1735,13 @@ static int image_target_path(
         fn = last_path_component(image_path);
 
         if (flags & PORTABLE_RUNTIME)
-                where = "/run/portables/";
+                r = runtime_directory_generic(scope, "portables", &where);
         else
-                where = "/etc/portables/";
+                r = config_directory_generic(scope, "portables", &where);
+        if (r < 0)
+                return r;
 
-        joined = strjoin(where, fn);
+        joined = path_join(where, fn);
         if (!joined)
                 return -ENOMEM;
 
@@ -1623,28 +1769,63 @@ static int install_image(
         if (image_in_search_path(scope, IMAGE_PORTABLE, NULL, image_path))
                 return 0;
 
-        r = image_target_path(image_path, flags, &target);
+        r = image_target_path(scope, image_path, flags, &target);
         if (r < 0)
                 return log_debug_errno(r, "Failed to generate image symlink path: %m");
 
         (void) mkdir_parents(target, 0755);
 
         if (flags & PORTABLE_MIXED_COPY_LINK) {
-                r = copy_tree(image_path,
-                              target,
-                              UID_INVALID,
-                              GID_INVALID,
-                              COPY_REFLINK | COPY_FSYNC | COPY_FSYNC_FULL | COPY_SYNCFS,
-                              /* denylist= */ NULL,
-                              /* subvolumes= */ NULL);
-                if (r < 0)
-                        return log_debug_errno(
-                                        r,
-                                        "Failed to copy %s %s %s: %m",
-                                        image_path,
-                                        glyph(GLYPH_ARROW_RIGHT),
-                                        target);
+                if (scope == RUNTIME_SCOPE_USER) {
+                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K);
+                        if (userns_fd < 0)
+                                return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
+                        _cleanup_close_ int fd = open(image_path, O_DIRECTORY|O_CLOEXEC);
+                        if (fd < 0)
+                                return log_error_errno(errno, "Failed to open '%s': %m", image_path);
+
+                        struct stat st;
+                        if (fstat(fd, &st) < 0)
+                                return log_error_errno(errno, "Failed to stat '%s': %m", image_path);
+
+                        _cleanup_close_ int tree_fd = -EBADF;
+                        if (uid_is_foreign(st.st_uid)) {
+                                r = mountfsd_mount_directory_fd(fd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &tree_fd);
+                                if (r < 0)
+                                        return r;
+                        } else
+                                tree_fd = TAKE_FD(fd);
+
+                        _cleanup_close_ int directory_fd = -EBADF;
+                        r = mountfsd_make_directory(target, MODE_INVALID, /* flags= */ 0, &directory_fd);
+                        if (r < 0)
+                                return r;
+
+                        _cleanup_close_ int copy_fd = -EBADF;
+                        r = mountfsd_mount_directory_fd(directory_fd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &copy_fd);
+                        if (r < 0)
+                                return r;
+
+                        r = copy_tree_at_foreign(tree_fd, copy_fd, userns_fd);
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = copy_tree(image_path,
+                                      target,
+                                      UID_INVALID,
+                                      GID_INVALID,
+                                      COPY_REFLINK | COPY_FSYNC | COPY_FSYNC_FULL | COPY_SYNCFS,
+                                      /* denylist= */ NULL,
+                                      /* subvolumes= */ NULL);
+                        if (r < 0)
+                                return log_debug_errno(
+                                                r,
+                                                "Failed to copy %s %s %s: %m",
+                                                image_path,
+                                                glyph(GLYPH_ARROW_RIGHT),
+                                                target);
+                }
         } else {
                 if (symlink(image_path, target) < 0)
                         return log_debug_errno(
@@ -1881,6 +2062,7 @@ int portable_attach(
 
         HASHMAP_FOREACH(item, unit_files) {
                 r = attach_unit_file(
+                                scope,
                                 &paths,
                                 image->path,
                                 image->type,
@@ -2187,7 +2369,7 @@ int portable_detach(
         SET_FOREACH(item, markers) {
                 _cleanup_free_ char *target = NULL;
 
-                r = image_target_path(item, flags, &target);
+                r = image_target_path(scope, item, flags, &target);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to determine image path for '%s', ignoring: %m", item);
                         continue;
@@ -2351,10 +2533,17 @@ int portable_get_state(
         return 0;
 }
 
-int portable_get_profiles(char ***ret) {
+int portable_get_profiles(RuntimeScope scope, char ***ret) {
+        _cleanup_strv_free_ char **dirs = NULL;
+        int r;
+
         assert(ret);
 
-        return conf_files_list_nulstr(ret, NULL, NULL, CONF_FILES_DIRECTORY|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED, PORTABLE_PROFILE_DIRS);
+        r = portable_profile_dirs(scope, &dirs);
+        if (r < 0)
+                return r;
+
+        return conf_files_list_strv(ret, NULL, NULL, CONF_FILES_DIRECTORY|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED, (const char* const*) dirs);
 }
 
 static const char* const portable_change_type_table[_PORTABLE_CHANGE_TYPE_MAX] = {
