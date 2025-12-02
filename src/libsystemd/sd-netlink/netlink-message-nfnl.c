@@ -12,6 +12,8 @@
 #include "netlink-internal.h"
 #include "netlink-util.h"
 
+#include "log.h"
+
 bool nfproto_is_valid(int nfproto) {
         return IN_SET(nfproto,
                       NFPROTO_UNSPEC,
@@ -136,6 +138,8 @@ int sd_nfnl_send_batch(
         if (serials)
                 serials[0] = message_get_serial(batch_begin);
 
+        log_debug("sd-netlink: sending %"PRIu32" (NFNL_MSG_BATCH_BEGIN)", message_get_serial(batch_begin));
+
         iovs[c++] = IOVEC_MAKE(batch_begin->hdr, batch_begin->hdr->nlmsg_len);
 
         for (size_t i = 0; i < n_messages; i++) {
@@ -151,6 +155,7 @@ int sd_nfnl_send_batch(
                 netlink_seal_message(nfnl, messages[i]);
                 if (serials)
                         serials[i + 1] = message_get_serial(messages[i]);
+                log_debug("sd-netlink: sending %"PRIu32, message_get_serial(messages[i]));
 
                 /* It seems that the kernel accepts an arbitrary number. Let's set the lower 16 bits of the
                  * serial of the first message. */
@@ -164,6 +169,7 @@ int sd_nfnl_send_batch(
                 return r;
 
         netlink_seal_message(nfnl, batch_end);
+        log_debug("sd-netlink: sending %"PRIu32" (NFNL_MSG_BATCH_END)", message_get_serial(batch_end));
         iovs[c++] = IOVEC_MAKE(batch_end->hdr, batch_end->hdr->nlmsg_len);
 
         assert(c == n_messages + 2);
@@ -203,13 +209,21 @@ int sd_nfnl_call_batch(
         if (r < 0)
                 return r;
 
+        log_debug("sd-netlink: reading %"PRIu32" (NFNL_MSG_BATCH_BEGIN)", serials[0]);
         r = sd_netlink_read(nfnl, serials[0], usec, /* ret = */ NULL);
+        if (r < 0)
+                log_debug_errno(r, "sd-netlink: reading %"PRIu32" (NFNL_MSG_BATCH_BEGIN) failed: %m", serials[0]);
         for (size_t i = 0; i < n_messages; i++)
                 /* On error, kernel may not send replies for some messages. Let's ignore remaining replies. */
-                if (r < 0)
+                if (r < 0) {
+                        log_debug("sd-netlink: ignoring %"PRIu32, serials[i + 1]);
                         (void) sd_netlink_ignore_serial(nfnl, serials[i + 1], usec);
-                else
+                } else {
+                        log_debug("sd-netlink: reading %"PRIu32, serials[i + 1]);
                         r = sd_netlink_read(nfnl, serials[i + 1], usec, ret_messages ? replies + i : NULL);
+                        if (r < 0)
+                                log_debug_errno(r, "sd-netlink: reading %"PRIu32" failed: %m", serials[i + 1]);
+                }
         if (r < 0)
                 return r;
 
