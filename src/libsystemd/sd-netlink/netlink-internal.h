@@ -55,6 +55,11 @@ typedef struct sd_netlink_slot {
         };
 } sd_netlink_slot;
 
+typedef struct NetlinkIgnoredSerial {
+        uint32_t serial;
+        usec_t timeout_usec; /* timestamp in CLOCK_MONOTONIC */
+} NetlinkIgnoredSerial;
+
 typedef struct sd_netlink {
         unsigned n_ref;
 
@@ -78,6 +83,7 @@ typedef struct sd_netlink {
         bool processing:1;
 
         uint32_t serial;
+        Hashmap *ignored_serials;
 
         struct Prioq *reply_callbacks_prioq;
         Hashmap *reply_callbacks;
@@ -95,6 +101,9 @@ typedef struct sd_netlink {
 
         Hashmap *genl_family_by_name;
         Hashmap *genl_family_by_id;
+
+        /* Tristate, indicates if the kernel contains bf2ac490d28c21a349e9eef81edc45320fca4a3c (v6.10). */
+        int kernel_honor_ack_in_batch_begin_end;
 } sd_netlink;
 
 struct netlink_attribute {
@@ -181,8 +190,7 @@ int sd_nfnl_call_batch(
                 sd_netlink *nfnl,
                 sd_netlink_message **messages,
                 size_t n_messages,
-                uint64_t usec,
-                sd_netlink_message ***ret_messages);
+                uint64_t usec);
 int sd_nfnl_message_new(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
