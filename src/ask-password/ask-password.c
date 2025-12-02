@@ -25,6 +25,7 @@
 
 static const char *arg_icon = NULL;
 static const char *arg_id = NULL;               /* identifier for 'ask-password' protocol */
+static const char *arg_emoji = NULL;
 static const char *arg_key_name = NULL;         /* name in kernel keyring */
 static const char *arg_credential_name = NULL;  /* name in $CREDENTIALS_DIRECTORY directory */
 static char *arg_message = NULL;
@@ -37,6 +38,10 @@ static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_message, freep);
 
+static int help(void);
+
+#include "ask-password.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -47,27 +52,7 @@ static int help(void) {
 
         printf("%1$s [OPTIONS...] MESSAGE\n\n"
                "%3$sQuery the user for a passphrase, via the TTY or a UI agent.%4$s\n\n"
-               "  -h --help           Show this help\n"
-               "     --icon=NAME      Icon name\n"
-               "     --id=ID          Query identifier (e.g. \"cryptsetup:/dev/sda5\")\n"
-               "     --keyname=NAME   Kernel key name for caching passwords (e.g. \"cryptsetup\")\n"
-               "     --credential=NAME\n"
-               "                      Credential name for ImportCredential=, LoadCredential= or\n"
-               "                      SetCredential= credentials\n"
-               "     --timeout=SEC    Timeout in seconds\n"
-               "     --echo=yes|no|masked\n"
-               "                      Control whether to show password while typing (echo)\n"
-               "  -e --echo           Equivalent to --echo=yes\n"
-               "     --emoji=yes|no|auto\n"
-               "                      Show a lock and key emoji\n"
-               "     --no-tty         Ask question via agent even on TTY\n"
-               "     --accept-cached  Accept cached passwords\n"
-               "     --multiple       List multiple passwords if available\n"
-               "     --no-output      Do not print password to standard output\n"
-               "  -n                  Do not suffix password written to standard output with\n"
-               "                      newline\n"
-               "     --user           Ask only our own user's agents\n"
-               "     --system         Ask agents of the system and of all users\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -78,148 +63,16 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_ICON = 0x100,
-                ARG_TIMEOUT,
-                ARG_EMOJI,
-                ARG_NO_TTY,
-                ARG_ACCEPT_CACHED,
-                ARG_MULTIPLE,
-                ARG_ID,
-                ARG_KEYNAME,
-                ARG_NO_OUTPUT,
-                ARG_VERSION,
-                ARG_CREDENTIAL,
-                ARG_USER,
-                ARG_SYSTEM,
-        };
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
-        static const struct option options[] = {
-                { "help",          no_argument,       NULL, 'h'               },
-                { "version",       no_argument,       NULL, ARG_VERSION       },
-                { "icon",          required_argument, NULL, ARG_ICON          },
-                { "timeout",       required_argument, NULL, ARG_TIMEOUT       },
-                { "echo",          optional_argument, NULL, 'e'               },
-                { "emoji",         required_argument, NULL, ARG_EMOJI         },
-                { "no-tty",        no_argument,       NULL, ARG_NO_TTY        },
-                { "accept-cached", no_argument,       NULL, ARG_ACCEPT_CACHED },
-                { "multiple",      no_argument,       NULL, ARG_MULTIPLE      },
-                { "id",            required_argument, NULL, ARG_ID            },
-                { "keyname",       required_argument, NULL, ARG_KEYNAME       },
-                { "no-output",     no_argument,       NULL, ARG_NO_OUTPUT     },
-                { "credential",    required_argument, NULL, ARG_CREDENTIAL    },
-                { "user",          no_argument,       NULL, ARG_USER          },
-                { "system",        no_argument,       NULL, ARG_SYSTEM        },
-                {}
-        };
-
-        const char *emoji = NULL;
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        /* Note the asymmetry: the long option --echo= allows an optional argument, the short option does
-         * not. */
-
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
-        while ((c = getopt_long(argc, argv, "+hen", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_ICON:
-                        arg_icon = optarg;
-                        break;
-
-                case ARG_TIMEOUT:
-                        r = parse_sec(optarg, &arg_timeout);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --timeout= parameter: %s", optarg);
-
-                        break;
-
-                case 'e':
-                        if (!optarg) {
-                                /* Short option -e is used, or no argument to long option --echo= */
-                                arg_flags |= ASK_PASSWORD_ECHO;
-                                arg_flags &= ~ASK_PASSWORD_SILENT;
-                        } else if (isempty(optarg) || streq(optarg, "masked"))
-                                /* Empty argument or explicit string "masked" for default behaviour. */
-                                arg_flags &= ~(ASK_PASSWORD_ECHO|ASK_PASSWORD_SILENT);
-                        else {
-                                r = parse_boolean_argument("--echo=", optarg, NULL);
-                                if (r < 0)
-                                        return r;
-
-                                SET_FLAG(arg_flags, ASK_PASSWORD_ECHO, r);
-                                SET_FLAG(arg_flags, ASK_PASSWORD_SILENT, !r);
-                        }
-                        break;
-
-                case ARG_EMOJI:
-                        emoji = optarg;
-                        break;
-
-                case ARG_NO_TTY:
-                        arg_flags |= ASK_PASSWORD_NO_TTY;
-                        break;
-
-                case ARG_ACCEPT_CACHED:
-                        arg_flags |= ASK_PASSWORD_ACCEPT_CACHED;
-                        break;
-
-                case ARG_MULTIPLE:
-                        arg_multiple = true;
-                        break;
-
-                case ARG_ID:
-                        arg_id = optarg;
-                        break;
-
-                case ARG_KEYNAME:
-                        arg_key_name = optarg;
-                        break;
-
-                case ARG_NO_OUTPUT:
-                        arg_no_output = true;
-                        break;
-
-                case ARG_CREDENTIAL:
-                        arg_credential_name = optarg;
-                        break;
-
-                case ARG_USER:
-                        arg_flags |= ASK_PASSWORD_USER;
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_flags &= ~ASK_PASSWORD_USER;
-                        break;
-
-                case 'n':
-                        arg_newline = false;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        if (isempty(emoji) || streq(emoji, "auto"))
+        if (isempty(arg_emoji) || streq(arg_emoji, "auto"))
                 SET_FLAG(arg_flags, ASK_PASSWORD_HIDE_EMOJI, FLAGS_SET(arg_flags, ASK_PASSWORD_ECHO));
         else {
-                r = parse_boolean_argument("--emoji=", emoji, NULL);
+                r = parse_boolean_argument("--emoji=", arg_emoji, NULL);
                 if (r < 0)
                         return r;
 
