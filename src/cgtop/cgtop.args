@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+global help_key_width 22
+
+option -h --help
+help Show this help
+        return help();
+
+option --version
+help Show package version
+        return version();
+
+option --order=path|tasks|cpu|memory|io
+help Order by specified property
+        arg_order = order_from_string(optarg);
+        if (arg_order < 0)
+                return log_error_errno(arg_order,
+                                       "Invalid argument to --order=: %s",
+                                       optarg);
+
+option -p
+help Same as --order=path, order by path
+        arg_order = ORDER_PATH;
+
+option -t
+help Same as --order=tasks, order by number of tasks/processes
+        arg_order = ORDER_TASKS;
+
+option -c
+help Same as --order=cpu, order by CPU load
+        arg_order = ORDER_CPU;
+
+option -m
+help Same as --order=memory, order by memory load
+        arg_order = ORDER_MEMORY;
+
+option -i
+help Same as --order=io, order by IO load
+        arg_order = ORDER_IO;
+
+option --cpu[=percentage]
+help Show CPU usage as percentage (default)
+        if (optarg) {
+                arg_cpu_type = cpu_type_from_string(optarg);
+                if (arg_cpu_type < 0)
+                        return log_error_errno(arg_cpu_type,
+                                               "Unknown argument to --cpu=: %s",
+                                               optarg);
+        } else
+                arg_cpu_type = CPU_TIME;
+
+option --cpu=time
+help Show CPU usage as time
+        skip
+
+option --depth=DEPTH
+help Maximum traversal depth (default: %u)
+        r = safe_atou(optarg, &arg_depth);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse depth parameter '%s': %m", optarg);
+
+option -d= --delay=DELAY
+help Delay between updates
+        r = parse_sec(optarg, &arg_delay);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse delay parameter '%s': %m", optarg);
+        if (arg_delay <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid delay parameter '%s'",
+                                       optarg);
+option -n= --iterations=N
+help Run for N iterations before exiting
+        r = safe_atou(optarg, &arg_iterations);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse iterations parameter '%s': %m", optarg);
+
+option -1
+help Shortcut for --iterations=1
+        arg_iterations = 1;
+
+option -b --batch
+help Run in batch mode, accepting no input
+        arg_batch = true;
+
+option -r --raw
+help Provide machine-readable numbers
+        arg_raw = true;
+
+option -k
+help Count all processes instead of tasks (incl. kernel)
+        arg_count = COUNT_ALL_PROCESSES;
+
+option -P
+help Count userspace processes instead of tasks (excl. kernel)
+        arg_count = COUNT_USERSPACE_PROCESSES;
+
+option --recursive=yes|no
+help Sum up process count recursively
+        r = parse_boolean_argument("--recursive=", optarg, &arg_recursive);
+        if (r < 0)
+                return r;
+
+        arg_recursive_unset = !r;
+
+option --machine=CONTAINER -M=
+help Operate on local container
+        arg_machine = optarg;
