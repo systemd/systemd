@@ -187,8 +187,7 @@ int sd_nfnl_call_batch(
                 sd_netlink *nfnl,
                 sd_netlink_message **messages,
                 size_t n_messages,
-                uint64_t usec,
-                sd_netlink_message ***ret_messages);
+                uint64_t usec);
 int sd_nfnl_message_new(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
