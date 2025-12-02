@@ -42,6 +42,7 @@ static int netlink_new(sd_netlink **ret) {
                 .sockaddr.nl.nl_family = AF_NETLINK,
                 .original_pid = getpid_cached(),
                 .protocol = -1,
+                .kernel_honor_ack_in_batch_begin_end = -1,
 
                 /* Kernel change notification messages have sequence number 0. We want to avoid that with our
                  * own serials, in order not to get confused when matching up kernel replies to our earlier
