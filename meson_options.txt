@@ -430,8 +430,6 @@ option('libcryptsetup', type : 'feature', deprecated : { 'true' : 'enabled', 'fa
        description : 'libcryptsetup support')
 option('libcryptsetup-plugins', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libcryptsetup LUKS2 external token handlers support (plugins)')
-option('libdevmapper', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'libdevmapper support')
 option('libcurl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libcurl support')
 option('idn', type : 'boolean',

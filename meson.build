@@ -1300,15 +1300,6 @@ foreach ident : [
         conf.set10('HAVE_' + ident.to_upper(), have_ident)
 endforeach
 
-libdevmapper = get_option('libdevmapper')
-libdevmapper = dependency('devmapper',
-                           version : '>= 1.02',
-                           required : libdevmapper)
-
-
-have = libdevmapper.found()
-conf.set10('HAVE_LIBDEVMAPPER', have)
-libdevmapper_cflags = libdevmapper.partial_dependency(includes: true, compile_args: true)
 
 conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS',
            libcryptsetup_plugins.allowed() and
