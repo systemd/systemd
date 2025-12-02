@@ -427,12 +427,13 @@ static int image_make(
         }
 
         _cleanup_free_ char *parent = NULL;
-        if (!dir_path) {
+        if (!dir_path && !path_is_absolute(filename)) {
                 (void) fd_get_path(dir_fd, &parent);
                 dir_path = parent;
         }
 
         read_only =
+                (path_is_absolute(filename) && path_startswith(filename, "/usr")) ||
                 (dir_path && path_startswith(dir_path, "/usr")) ||
                 (faccessat(fd, "", W_OK, AT_EACCESS|AT_EMPTY_PATH) < 0 && errno == EROFS);
 
