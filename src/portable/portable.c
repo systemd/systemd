@@ -399,7 +399,7 @@ static int portable_extract_by_path(
         else {
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
                 _cleanup_(rmdir_and_freep) char *tmpdir = NULL;
-                _cleanup_close_pair_ int seq[2] = EBADF_PAIR;
+                _cleanup_close_pair_ int seq[2] = EBADF_PAIR, errno_pipe_fd[2] = EBADF_PAIR;;
                 _cleanup_(sigkill_waitp) pid_t child = 0;
                 DissectImageFlags flags =
                         DISSECT_IMAGE_READ_ONLY |
@@ -454,11 +454,15 @@ static int portable_extract_by_path(
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, seq) < 0)
                         return log_debug_errno(errno, "Failed to allocated SOCK_SEQPACKET socket: %m");
 
+                if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+                        return log_debug_errno(errno, "Failed to create pipe: %m");
+
                 r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_LOG, &child);
                 if (r < 0)
                         return r;
                 if (r == 0) {
                         seq[0] = safe_close(seq[0]);
+                        errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
                         r = dissected_image_mount(
                                         m,
@@ -469,16 +473,15 @@ static int portable_extract_by_path(
                                         flags);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to mount dissected image: %m");
-                                goto child_finish;
+                                report_errno_and_exit(errno_pipe_fd[1], r);
                         }
 
                         r = extract_now(scope, tmpdir, matches, m->image_name, path_is_extension, relax_extension_release_check, seq[1], NULL, NULL);
-
-                child_finish:
-                        _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+                        report_errno_and_exit(errno_pipe_fd[1], r);
                 }
 
                 seq[1] = safe_close(seq[1]);
+                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
                 unit_files = hashmap_new(&portable_metadata_hash_ops);
                 if (!unit_files)
@@ -543,7 +546,15 @@ static int portable_extract_by_path(
                 r = wait_for_terminate_and_check("(sd-dissect)", child, 0);
                 if (r < 0)
                         return r;
+
                 child = 0;
+
+                if (r != EXIT_SUCCESS) {
+                        if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
+                                return log_debug_errno(r, "Failed to extract portable metadata from '%s': %m", path);
+
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Child failed.");
+                }
         }
 
         if (!os_release)
