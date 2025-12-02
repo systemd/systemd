@@ -25,7 +25,11 @@ static char **arg_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_path, strv_freep);
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void);
+
+#include "bless-boot.args.inc"
+
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -41,9 +45,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     bad             Mark this boot as bad\n"
                "     indeterminate   Undo any marking as good or bad\n"
                "\nOptions:\n"
-               "  -h --help          Show this help\n"
-               "     --version       Print version\n"
-               "     --path=PATH     Path to the $BOOT partition (may be used multiple times)\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -51,50 +53,6 @@ static int help(int argc, char *argv[], void *userdata) {
                link);
 
         return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_PATH = 0x100,
-                ARG_VERSION,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "path",         required_argument, NULL, ARG_PATH         },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_PATH:
-                        r = strv_extend(&arg_path, optarg);
-                        if (r < 0)
-                                return log_oom();
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1;
 }
 
 static int acquire_path(void) {
@@ -321,6 +279,10 @@ static int make_bad(const char *prefix, uint64_t done, const char *suffix, char 
         return 0;
 }
 
+static int verb_help(int argc, char *argv[], void *userdata) {
+        return help();
+}
+
 static int verb_status(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
         uint64_t left, done;
@@ -533,7 +495,7 @@ exists:
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",          VERB_ANY, VERB_ANY, 0,            help        },
+                { "help",          VERB_ANY, VERB_ANY, 0,            verb_help   },
                 { "status",        VERB_ANY, 1,        VERB_DEFAULT, verb_status },
                 { "good",          VERB_ANY, 1,        0,            verb_set    },
                 { "bad",           VERB_ANY, 1,        0,            verb_set    },
@@ -545,7 +507,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 
