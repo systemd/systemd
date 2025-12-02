@@ -563,6 +563,9 @@ def _get_listitem_depth(el):
 
 def _wrap_with_inclusion_markers_if_necessary(el, s):
     entry_id = el.get("id")
+    # Just in case we did this already
+    if f".. inclusion-marker-do-not-remove {entry_id}" in s:
+        return s
     if entry_id is not None:
         return f"""
 
@@ -1361,15 +1364,10 @@ def caution(el):
 
 def para(el):
     s = ""
-    entry_id = el.get("id")
-    if entry_id is not None:
-        s += "\n\n.. inclusion-marker-do-not-remove %s\n\n" % entry_id
     if _is_inside_of(el, 'listitem'):
         s += _concat(el) + "\n \n"
     else:
         s += _block_separated_with_blank_line(el, False) + '\n\n \n\n'
-    if entry_id is not None:
-        s += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % entry_id
     return _wrap_with_inclusion_markers_if_necessary(el, s)
 
 
