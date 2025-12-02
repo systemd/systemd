@@ -151,6 +151,12 @@ int socket_broadcast_group_unref(sd_netlink *nl, unsigned group);
 int socket_write_message(sd_netlink *nl, sd_netlink_message *m);
 int socket_read_message(sd_netlink *nl);
 
+int netlink_read_internal(
+                sd_netlink *nl,
+                uint32_t serial,
+                uint64_t timeout_timestamp,
+                sd_netlink_message **ret);
+
 int netlink_add_match_internal(
                 sd_netlink *nl,
                 sd_netlink_slot **ret_slot,
