@@ -537,19 +537,15 @@ int sd_netlink_call_async(
         return k;
 }
 
-int sd_netlink_read(
+int netlink_read_internal(
                 sd_netlink *nl,
                 uint32_t serial,
-                uint64_t timeout,
+                uint64_t timeout_timestamp, /* yes, this is a timestamp in CLOCK_MONOTONIC */
                 sd_netlink_message **ret) {
 
-        usec_t usec;
         int r;
 
-        assert_return(nl, -EINVAL);
-        assert_return(!netlink_pid_changed(nl), -ECHILD);
-
-        usec = timespan_to_timestamp(timeout);
+        assert(nl);
 
         for (;;) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
@@ -588,14 +584,17 @@ int sd_netlink_read(
                         /* received message, so try to process straight away */
                         continue;
 
-                if (usec != USEC_INFINITY) {
+                if (timeout_timestamp == 0)
+                        return -ETIMEDOUT;
+
+                if (timeout_timestamp != USEC_INFINITY) {
                         usec_t n;
 
                         n = now(CLOCK_MONOTONIC);
-                        if (n >= usec)
+                        if (n >= timeout_timestamp)
                                 return -ETIMEDOUT;
 
-                        left = usec_sub_unsigned(usec, n);
+                        left = usec_sub_unsigned(timeout_timestamp, n);
                 } else
                         left = USEC_INFINITY;
 
@@ -605,6 +604,18 @@ int sd_netlink_read(
                 if (r == 0)
                         return -ETIMEDOUT;
         }
+}
+
+int sd_netlink_read(
+                sd_netlink *nl,
+                uint32_t serial,
+                uint64_t timeout, /* timespan, 0 is mapped to the default (25 seconds) */
+                sd_netlink_message **ret) {
+
+        assert_return(nl, -EINVAL);
+        assert_return(!netlink_pid_changed(nl), -ECHILD);
+
+        return netlink_read_internal(nl, serial, timespan_to_timestamp(timeout), ret);
 }
 
 int sd_netlink_call(
