@@ -588,6 +588,9 @@ def TreeRoot(el):
     output = _conv(el).lstrip()
     # add .. SPDX-License-Identifier: LGPL-2.1-or-later
     output = f'.. SPDX-License-Identifier: LGPL-2.1-or-later\n\n{output}'
+    # Add orphan declaration for two files that are not ToCed
+    if 'standard-specifiers' in _current_filename or 'version-info' in _current_filename:
+         output = f':orphan:\n\n{output}'
     # remove trailing whitespace
     output = re.sub(r"[ \t]+\n", "\n", output)
     # leave only one blank line
