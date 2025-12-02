@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-cgtop',
                 'public' : true,
                 'sources' : files('cgtop.c'),
+                'arg_parser' : files('cgtop.args'),
         },
 ]

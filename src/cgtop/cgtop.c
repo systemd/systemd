@@ -72,7 +72,9 @@ typedef enum {
         _CPU_INVALID = -EINVAL,
 } CPUType;
 
-static unsigned arg_depth = 3;
+#define DEFAULT_DEPTH 3u
+
+static unsigned arg_depth = DEFAULT_DEPTH;
 static unsigned arg_iterations = UINT_MAX;
 static bool arg_batch = false;
 static bool arg_raw = false;
@@ -690,6 +692,10 @@ static void display(Hashmap *a) {
         }
 }
 
+static int help(void);
+
+#include "cgtop.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -700,180 +706,21 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [CGROUP]\n\n"
                "Show top control groups by their resource usage.\n\n"
-               "  -h --help           Show this help\n"
-               "     --version        Show package version\n"
-
-               "     --order=path|tasks|cpu|memory|io\n"
-               "                      Order by specified property\n"
-               "  -p                  Same as --order=path, order by path\n"
-               "  -t                  Same as --order=tasks, order by number of\n"
-               "                      tasks/processes\n"
-               "  -c                  Same as --order=cpu, order by CPU load\n"
-               "  -m                  Same as --order=memory, order by memory load\n"
-               "  -i                  Same as --order=io, order by IO load\n"
-               "  -r --raw            Provide raw (not human-readable) numbers\n"
-               "     --cpu[=percentage]\n"
-               "                      Show CPU usage as percentage (default)\n"
-               "     --cpu=time       Show CPU usage as time\n"
-               "  -P                  Count userspace processes instead of tasks (excl. kernel)\n"
-               "  -k                  Count all processes instead of tasks (incl. kernel)\n"
-               "     --recursive=BOOL Sum up process count recursively\n"
-               "  -d --delay=DELAY    Delay between updates\n"
-               "  -n --iterations=N   Run for N iterations before exiting\n"
-               "  -1                  Shortcut for --iterations=1\n"
-               "  -b --batch          Run in batch mode, accepting no input\n"
-               "     --depth=DEPTH    Maximum traversal depth (default: %u)\n"
-               "  -M --machine=       Show container\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
-               arg_depth,
+               DEFAULT_DEPTH,
                link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_DEPTH,
-                ARG_CPU_TYPE,
-                ARG_ORDER,
-                ARG_RECURSIVE,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'           },
-                { "version",      no_argument,       NULL, ARG_VERSION   },
-                { "delay",        required_argument, NULL, 'd'           },
-                { "iterations",   required_argument, NULL, 'n'           },
-                { "batch",        no_argument,       NULL, 'b'           },
-                { "raw",          no_argument,       NULL, 'r'           },
-                { "depth",        required_argument, NULL, ARG_DEPTH     },
-                { "cpu",          optional_argument, NULL, ARG_CPU_TYPE  },
-                { "order",        required_argument, NULL, ARG_ORDER     },
-                { "recursive",    required_argument, NULL, ARG_RECURSIVE },
-                { "machine",      required_argument, NULL, 'M'           },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 1);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hptcmin:brd:kPM:1", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_CPU_TYPE:
-                        if (optarg) {
-                                arg_cpu_type = cpu_type_from_string(optarg);
-                                if (arg_cpu_type < 0)
-                                        return log_error_errno(arg_cpu_type,
-                                                               "Unknown argument to --cpu=: %s",
-                                                               optarg);
-                        } else
-                                arg_cpu_type = CPU_TIME;
-
-                        break;
-
-                case ARG_DEPTH:
-                        r = safe_atou(optarg, &arg_depth);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse depth parameter '%s': %m", optarg);
-
-                        break;
-
-                case 'd':
-                        r = parse_sec(optarg, &arg_delay);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse delay parameter '%s': %m", optarg);
-                        if (arg_delay <= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid delay parameter '%s'",
-                                                       optarg);
-
-                        break;
-
-                case 'n':
-                        r = safe_atou(optarg, &arg_iterations);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse iterations parameter '%s': %m", optarg);
-
-                        break;
-
-                case '1':
-                        arg_iterations = 1;
-                        break;
-
-                case 'b':
-                        arg_batch = true;
-                        break;
-
-                case 'r':
-                        arg_raw = true;
-                        break;
-
-                case 'p':
-                        arg_order = ORDER_PATH;
-                        break;
-
-                case 't':
-                        arg_order = ORDER_TASKS;
-                        break;
-
-                case 'c':
-                        arg_order = ORDER_CPU;
-                        break;
-
-                case 'm':
-                        arg_order = ORDER_MEMORY;
-                        break;
-
-                case 'i':
-                        arg_order = ORDER_IO;
-                        break;
-
-                case ARG_ORDER:
-                        arg_order = order_from_string(optarg);
-                        if (arg_order < 0)
-                                return log_error_errno(arg_order,
-                                                       "Invalid argument to --order=: %s",
-                                                       optarg);
-                        break;
-
-                case 'k':
-                        arg_count = COUNT_ALL_PROCESSES;
-                        break;
-
-                case 'P':
-                        arg_count = COUNT_USERSPACE_PROCESSES;
-                        break;
-
-                case ARG_RECURSIVE:
-                        r = parse_boolean_argument("--recursive=", optarg, &arg_recursive);
-                        if (r < 0)
-                                return r;
-
-                        arg_recursive_unset = !r;
-                        break;
-
-                case 'M':
-                        arg_machine = optarg;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (optind == argc - 1)
                 arg_root = argv[optind];
