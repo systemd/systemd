@@ -428,7 +428,17 @@ static int image_make(
 
         _cleanup_free_ char *parent = NULL;
         if (!dir_path) {
-                (void) fd_get_path(dir_fd, &parent);
+                if (empty_or_root(filename)) {
+                        parent = strdup("/");
+                        if (!parent)
+                                return -ENOMEM;
+                } else if (path_is_absolute(filename)) {
+                        r = path_extract_directory(filename, &parent);
+                        if (r < 0)
+                                return r;
+                } else
+                        (void) fd_get_path(dir_fd, &parent);
+
                 dir_path = parent;
         }
 
