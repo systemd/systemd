@@ -56,6 +56,8 @@ int sd_netlink_call_async(sd_netlink *nl, sd_netlink_slot **ret_slot, sd_netlink
 int sd_netlink_call(sd_netlink *nl, sd_netlink_message *message, uint64_t timeout, sd_netlink_message **ret);
 int sd_netlink_read(sd_netlink *nl, uint32_t serial, uint64_t timeout, sd_netlink_message **ret);
 
+int sd_netlink_ignore_serial(sd_netlink *nl, uint32_t serial, uint64_t timeout_usec);
+
 int sd_netlink_get_events(sd_netlink *nl);
 int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *ret);
 int sd_netlink_process(sd_netlink *nl, sd_netlink_message **ret);
