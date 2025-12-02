@@ -11,6 +11,8 @@
 #include "netlink-internal.h"
 #include "netlink-util.h"
 
+#include "log.h"
+
 bool nfproto_is_valid(int nfproto) {
         return IN_SET(nfproto,
                       NFPROTO_UNSPEC,
@@ -203,6 +205,10 @@ int sd_nfnl_call_batch(
                 read_reply_for_begin = true;
 
                 r = sd_netlink_read(nfnl, serials[0], usec, /* ret= */ NULL);
+                if (r < 0)
+                        log_debug_errno(r, "sd-netlink: failed to receive reply for batch begin: %m");
+                else
+                        log_debug("sd-netlink: received reply for batch begin.");
                 if (nfnl->kernel_honor_ack_in_batch_begin_end < 0) {
                         if (r >= 0)
                                 nfnl->kernel_honor_ack_in_batch_begin_end = true;
@@ -221,6 +227,10 @@ int sd_nfnl_call_batch(
                         (void) sd_netlink_ignore_serial(nfnl, serials[i], usec);
                 else {
                         r = sd_netlink_read(nfnl, serials[i], usec, /* ret= */ NULL);
+                        if (r < 0)
+                                log_debug_errno(r, "sd-netlink: failed to receive message for batch body (%zu): %m", i);
+                        else
+                                log_debug("sd-netlink: received reply for batch body (%zu).", i);
                         if (r == -ETIMEDOUT && !read_reply_for_begin) {
                                 /* Even if the kernel is older than v6.10, the kernel returns some errors,
                                  * e.g. unprivileged, to the BATCH_BEGIN. Hence, if we have not received any
@@ -236,8 +246,13 @@ int sd_nfnl_call_batch(
                         (void) sd_netlink_ignore_serial(nfnl, serials[n_messages + 1], usec);
         } else {
                 assert(nfnl->kernel_honor_ack_in_batch_begin_end >= 0);
-                if (nfnl->kernel_honor_ack_in_batch_begin_end)
+                if (nfnl->kernel_honor_ack_in_batch_begin_end) {
                         r = sd_netlink_read(nfnl, serials[n_messages + 1], usec, /* ret= */ NULL);
+                        if (r < 0)
+                                log_debug_errno(r, "sd-netlink: failed to receive message for batch end: %m");
+                        else
+                                log_debug("sd-netlink: received reply for batch end.");
+                }
         }
 
         return r;
