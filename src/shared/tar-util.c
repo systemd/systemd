@@ -104,6 +104,7 @@ static void open_inode_done_many(OpenInode *array, size_t n) {
 }
 
 static int open_inode_apply_acl(OpenInode *of) {
+#if HAVE_ACL
         int r = 0;
 
         assert(of);
@@ -124,6 +125,9 @@ static int open_inode_apply_acl(OpenInode *of) {
         }
 
         return r;
+#else
+        return 0;
+#endif
 }
 
 static int open_inode_finalize(OpenInode *of) {
@@ -426,12 +430,11 @@ static int archive_entry_read_acl(
                 acl_t *acl,
                 TarFlags flags) {
 
-        int r;
-
         assert(entry);
         assert(acl);
 
-        int type;
+#if HAVE_ACL
+        int r, type;
         if (ntype == ACL_TYPE_ACCESS)
                 type = ARCHIVE_ENTRY_ACL_TYPE_ACCESS;
         else if (ntype == ACL_TYPE_DEFAULT)
@@ -538,6 +541,9 @@ static int archive_entry_read_acl(
         if (*acl)
                 sym_acl_free(*acl);
         *acl = TAKE_PTR(a);
+#else
+        assert(!*acl);
+#endif
         return 0;
 }
 
@@ -1119,6 +1125,7 @@ static int archive_generate_sparse(struct archive_entry *entry, int fd) {
         return 0;
 }
 
+#if HAVE_ACL
 static int archive_write_acl(
                 struct archive_entry *entry,
                 acl_type_t ntype,
@@ -1208,6 +1215,7 @@ static int archive_write_acl(
 
         return 0;
 }
+#endif
 
 static int archive_item(
                 RecurseDirEvent event,
@@ -1293,6 +1301,7 @@ static int archive_item(
                 sym_archive_entry_set_symlink(entry, s);
         }
 
+#if HAVE_ACL
         if (inode_type_can_acl(sx->stx_mode)) {
 
                 r = dlopen_libacl();
@@ -1322,6 +1331,7 @@ static int archive_item(
                         }
                 }
         }
+#endif
 
         _cleanup_free_ char *xattrs = NULL;
         r = flistxattr_malloc(inode_fd, &xattrs);
