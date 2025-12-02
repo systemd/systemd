@@ -1017,9 +1017,13 @@ static int resolve_mutable_directory(
                 if (!path_in_root)
                         return log_oom();
 
-                r = mkdir_p(path_in_root, 0700);
+                /* This also creates /var/lib/extensions.mutable if needed */
+                r = mkdir_p(path_in_root, 0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create a directory '%s': %m", path_in_root);
+
+                if (chmod(path_in_root, hierarchy_mode) < 0)
+                        return log_error_errno(errno, "Failed to chmod directory '%s': %m", path_in_root);
 
                 _cleanup_close_ int atfd = open(path_in_root, O_DIRECTORY|O_CLOEXEC);
                 if (atfd < 0)
