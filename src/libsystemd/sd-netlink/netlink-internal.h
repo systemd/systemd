@@ -101,6 +101,9 @@ typedef struct sd_netlink {
 
         Hashmap *genl_family_by_name;
         Hashmap *genl_family_by_id;
+
+        /* Tristate, indicates if the kernel contains bf2ac490d28c21a349e9eef81edc45320fca4a3c (v6.10). */
+        int kernel_honor_ack_in_batch_begin_end;
 } sd_netlink;
 
 struct netlink_attribute {
