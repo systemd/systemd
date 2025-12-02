@@ -178,6 +178,86 @@ static int send_one_fd_iov_with_data_fd(
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(portable_metadata_hash_ops, char, string_hash_func, string_compare_func,
                                               PortableMetadata, portable_metadata_unref);
 
+static int receive_portable_metadata(
+                int socket_fd,
+                const char *path,
+                PortableMetadata **ret_os_release,
+                Hashmap **ret_unit_files) {
+
+        _cleanup_(portable_metadata_unrefp) PortableMetadata* os_release = NULL;
+        _cleanup_(hashmap_freep) Hashmap *unit_files = NULL;
+        int r;
+
+        assert(socket_fd >= 0);
+        assert(path);
+        assert(ret_os_release);
+        assert(ret_unit_files);
+
+        unit_files = hashmap_new(&portable_metadata_hash_ops);
+        if (!unit_files)
+                return -ENOMEM;
+
+        for (;;) {
+                _cleanup_(portable_metadata_unrefp) PortableMetadata *add = NULL;
+                _cleanup_close_ int fd = -EBADF;
+                /* We use NAME_MAX space for the SELinux label here. The kernel currently enforces no limit,
+                 * but according to suggestions from the SELinux people this will change and it will probably
+                 * be identical to NAME_MAX. For now we use that, but this should be updated one day when the
+                 * final limit is known. */
+                char iov_buffer[PATH_MAX + NAME_MAX + 2];
+                struct iovec iov = IOVEC_MAKE(iov_buffer, sizeof(iov_buffer));
+
+                ssize_t n = receive_one_fd_iov(socket_fd, &iov, 1, 0, &fd);
+                if (n == -EIO)
+                        break;
+                if (n < 0)
+                        return log_debug_errno(n, "Failed to receive item: %m");
+                iov_buffer[n] = 0;
+
+                /* We can't really distinguish a zero-length datagram without any fds from EOF (both are
+                 * signalled the same way by recvmsg()). Hence, accept either as end notification. */
+                if (isempty(iov_buffer) && fd < 0)
+                        break;
+
+                if (isempty(iov_buffer) || fd < 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                "Invalid item sent from child.");
+
+                /* Given recvmsg cannot be used with multiple io vectors if you don't know the size in
+                 * advance, use a marker to separate the name and the optional SELinux context. */
+                char *selinux_label = memchr(iov_buffer, 0, n);
+                assert(selinux_label);
+                selinux_label++;
+
+                add = portable_metadata_new(iov_buffer, path, selinux_label, fd);
+                if (!add)
+                        return -ENOMEM;
+                fd = -EBADF;
+
+                /* Note that we do not initialize 'add->source' here, as the source path is not usable here
+                 * as it refers to a path only valid in the short-living namespaced child process we forked
+                 * here. */
+
+                if (PORTABLE_METADATA_IS_UNIT(add)) {
+                        r = hashmap_put(unit_files, add->name, add);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to add item to unit file list: %m");
+
+                        add = NULL;
+
+                } else if (PORTABLE_METADATA_IS_OS_RELEASE(add) || PORTABLE_METADATA_IS_EXTENSION_RELEASE(add)) {
+
+                        assert(!os_release);
+                        os_release = TAKE_PTR(add);
+                } else
+                        assert_not_reached();
+        }
+
+        *ret_os_release = TAKE_PTR(os_release);
+        *ret_unit_files = TAKE_PTR(unit_files);
+        return 0;
+}
+
 static int extract_now(
                 RuntimeScope scope,
                 int rfd,
@@ -519,65 +599,9 @@ static int portable_extract_by_path(
                 seq[1] = safe_close(seq[1]);
                 errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-                unit_files = hashmap_new(&portable_metadata_hash_ops);
-                if (!unit_files)
-                        return -ENOMEM;
-
-                for (;;) {
-                        _cleanup_(portable_metadata_unrefp) PortableMetadata *add = NULL;
-                        _cleanup_close_ int fd = -EBADF;
-                        /* We use NAME_MAX space for the SELinux label here. The kernel currently enforces no limit, but
-                         * according to suggestions from the SELinux people this will change and it will probably be
-                         * identical to NAME_MAX. For now we use that, but this should be updated one day when the final
-                         * limit is known. */
-                        char iov_buffer[PATH_MAX + NAME_MAX + 2];
-                        struct iovec iov = IOVEC_MAKE(iov_buffer, sizeof(iov_buffer));
-
-                        ssize_t n = receive_one_fd_iov(seq[0], &iov, 1, 0, &fd);
-                        if (n == -EIO)
-                                break;
-                        if (n < 0)
-                                return log_debug_errno(n, "Failed to receive item: %m");
-                        iov_buffer[n] = 0;
-
-                        /* We can't really distinguish a zero-length datagram without any fds from EOF (both are signalled the
-                         * same way by recvmsg()). Hence, accept either as end notification. */
-                        if (isempty(iov_buffer) && fd < 0)
-                                break;
-
-                        if (isempty(iov_buffer) || fd < 0)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid item sent from child.");
-
-                        /* Given recvmsg cannot be used with multiple io vectors if you don't know the size in advance,
-                         * use a marker to separate the name and the optional SELinux context. */
-                        char *selinux_label = memchr(iov_buffer, 0, n);
-                        assert(selinux_label);
-                        selinux_label++;
-
-                        add = portable_metadata_new(iov_buffer, path, selinux_label, fd);
-                        if (!add)
-                                return -ENOMEM;
-                        fd = -EBADF;
-
-                        /* Note that we do not initialize 'add->source' here, as the source path is not usable here as
-                         * it refers to a path only valid in the short-living namespaced child process we forked
-                         * here. */
-
-                        if (PORTABLE_METADATA_IS_UNIT(add)) {
-                                r = hashmap_put(unit_files, add->name, add);
-                                if (r < 0)
-                                        return log_debug_errno(r, "Failed to add item to unit file list: %m");
-
-                                add = NULL;
-
-                        } else if (PORTABLE_METADATA_IS_OS_RELEASE(add) || PORTABLE_METADATA_IS_EXTENSION_RELEASE(add)) {
-
-                                assert(!os_release);
-                                os_release = TAKE_PTR(add);
-                        } else
-                                assert_not_reached();
-                }
+                r = receive_portable_metadata(seq[0], path, &os_release, &unit_files);
+                if (r < 0)
+                        return r;
 
                 r = pidref_wait_for_terminate_and_check("(sd-dissect)", &child, 0);
                 if (r < 0)
