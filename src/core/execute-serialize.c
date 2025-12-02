@@ -428,6 +428,10 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_item(f, "exec-cgroup-context-vrf-bind-interface", c->vrf_bind_interface);
+        if (r < 0)
+                return r;
+
         fputc('\n', f); /* End marker */
 
         return 0;
@@ -907,6 +911,10 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->restrict_network_interfaces_is_allow_list = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-vrf-bind-interface="))) {
+                        r = free_and_strdup(&c->vrf_bind_interface, val);
+                        if (r < 0)
+                                return r;
                 } else
                         log_warning("Failed to parse serialized line, ignoring: %s", l);
         }
