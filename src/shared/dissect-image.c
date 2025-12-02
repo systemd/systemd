@@ -4512,7 +4512,7 @@ Architecture dissected_image_architecture(DissectedImage *m) {
 }
 
 bool dissected_image_is_portable(DissectedImage *m) {
-        return m && strv_env_pairs_get(m->os_release, "PORTABLE_PREFIXES");
+        return m && (strv_env_pairs_get(m->os_release, "PORTABLE_PREFIXES") || strv_env_pairs_get(m->os_release, "PORTABLE_SCOPE"));
 }
 
 bool dissected_image_is_initrd(DissectedImage *m) {
