@@ -31,6 +31,7 @@
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
+#include "label-util.h"
 #include "lock-util.h"
 #include "log.h"
 #include "loop-util.h"
@@ -1915,6 +1916,119 @@ int image_set_pool_limit(RuntimeScope scope, ImageClass class, uint64_t referenc
                 return r;
         if (r < 0)
                 return log_debug_errno(r, "Failed to set subtree quota limit for '%s': %m", pool);
+
+        return 0;
+}
+
+int image_get_pool_path(RuntimeScope scope, ImageClass class, char **ret) {
+        assert(scope >= 0 && scope < _RUNTIME_SCOPE_MAX);
+        assert(class >= 0 && class < _IMAGE_CLASS_MAX);
+        assert(ret);
+
+        return get_pool_directory(scope, class, /* fname= */ NULL, /* suffix= */ NULL, ret);
+}
+
+int image_get_pool_usage(RuntimeScope scope, ImageClass class, uint64_t *ret) {
+        int r;
+
+        assert(scope >= 0 && scope < _RUNTIME_SCOPE_MAX);
+        assert(class >= 0 && class < _IMAGE_CLASS_MAX);
+        assert(ret);
+
+        _cleanup_free_ char *pool = NULL;
+        r = get_pool_directory(scope, class, /* fname= */ NULL, /* suffix= */ NULL, &pool);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int fd = open(pool, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        if (fd < 0)
+                return -errno;
+
+        BtrfsQuotaInfo q;
+        r = btrfs_subvol_get_subtree_quota_fd(fd, /* subvol_id= */ 0, &q);
+        if (r < 0)
+                return r;
+
+        *ret = q.referenced;
+        return 0;
+}
+
+int image_get_pool_limit(RuntimeScope scope, ImageClass class, uint64_t *ret) {
+        int r;
+
+        assert(scope >= 0 && scope < _RUNTIME_SCOPE_MAX);
+        assert(class >= 0 && class < _IMAGE_CLASS_MAX);
+        assert(ret);
+
+        _cleanup_free_ char *pool = NULL;
+        r = get_pool_directory(scope, class, /* fname= */ NULL, /* suffix= */ NULL, &pool);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int fd = open(pool, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        if (fd < 0)
+                return -errno;
+
+        BtrfsQuotaInfo q;
+        r = btrfs_subvol_get_subtree_quota_fd(fd, /* subvol_id= */ 0, &q);
+        if (r < 0)
+                return r;
+
+        *ret = q.referenced_max;
+        return 0;
+}
+
+static int check_btrfs(const char *path) {
+        struct statfs sfs;
+        int r;
+
+        if (statfs(path, &sfs) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                _cleanup_free_ char *parent = NULL;
+                r = path_extract_directory(path, &parent);
+                if (r < 0)
+                        return r;
+
+                if (statfs(parent, &sfs) < 0)
+                        return -errno;
+        }
+
+        return F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC);
+}
+
+int image_setup_pool(RuntimeScope scope, ImageClass class, bool use_btrfs_subvol, bool use_btrfs_quota) {
+        int r;
+
+        assert(class >= 0 && class < _IMAGE_CLASS_MAX);
+
+        _cleanup_free_ char *pool = NULL;
+        r = image_get_pool_path(scope, class, &pool);
+        if (r < 0)
+                return r;
+
+        r = check_btrfs(pool);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 0;
+
+        if (!use_btrfs_subvol)
+                return 0;
+
+        (void) btrfs_subvol_make_label(pool);
+
+        if (!use_btrfs_quota)
+                return 0;
+
+        r = btrfs_quota_enable(pool, /* b= */ true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to enable quota for %s, ignoring: %m", pool);
+
+        r = btrfs_subvol_auto_qgroup(pool, /* subvol_id= */ 0, /* create_intermediary_qgroup= */ true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set up default quota hierarchy for %s, ignoring: %m", pool);
 
         return 0;
 }
