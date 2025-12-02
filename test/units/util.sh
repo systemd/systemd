@@ -308,7 +308,7 @@ install_extension_images() {
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/script0.sh
-TemporaryFileSystem=/var/lib
+TemporaryFileSystem=/var/lib /home
 StateDirectory=app0
 RuntimeDirectory=app0
 EOF
@@ -366,6 +366,7 @@ EOF
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/script1.sh
+TemporaryFileSystem=/home
 StateDirectory=app1
 RuntimeDirectory=app1
 EOF
@@ -379,6 +380,14 @@ EOF
         chmod +x "$initdir/opt/script1.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/other_file"
         mksquashfs "$initdir" /tmp/app1.raw -noappend
+        veritysetup format /tmp/app1.raw /tmp/app1.verity --root-hash-file /tmp/app1.roothash
+        openssl smime -sign -nocerts -noattr -binary \
+                -in /tmp/app1.roothash \
+                -inkey /usr/share/mkosi.key \
+                -signer /usr/share/mkosi.crt \
+                -outform der \
+                -out /tmp/app1.roothash.p7s
+        chmod go+r /tmp/app1*
 
         initdir="/var/tmp/app-nodistro"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system"
