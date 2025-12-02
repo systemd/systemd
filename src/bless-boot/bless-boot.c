@@ -38,11 +38,11 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...] COMMAND\n"
-               "\n%sMark the boot process as good or bad.%s\n"
+               "\n%sMark the boot entry as good or bad.%s\n"
                "\nCommands:\n"
-               "     status          Show status of current boot loader entry\n"
-               "     good            Mark this boot as good\n"
-               "     bad             Mark this boot as bad\n"
+               "     status          Show status of current boot entry\n"
+               "     good            Mark this boot entry as good\n"
+               "     bad             Mark this boot entry as bad\n"
                "     indeterminate   Undo any marking as good or bad\n"
                "\nOptions:\n"
                OPTION_HELP_GENERATED
@@ -150,7 +150,9 @@ static int parse_counter(
                 done = 0;
 
         if (done == 0)
-                log_warning("The 'tries done' counter is currently at zero. This can't really be, after all we are running, and this boot must hence count as one. Proceeding anyway.");
+                log_warning("The 'tries done' counter is currently at zero. "
+                            "This can't really be, after all we are running, "
+                            "and this boot must hence count as one. Proceeding anyway.");
 
         *p = e;
 
@@ -244,9 +246,10 @@ static int make_good(const char *prefix, const char *suffix, char **ret) {
         assert(suffix);
         assert(ret);
 
-        /* Generate the path we'd use on good boots. This one is easy. If we are successful, we simple drop the counter
-         * pair entirely from the name. After all, we know all is good, and the logs will contain information about the
-         * tries we needed to come here, hence it's safe to drop the counters from the name. */
+        /* Generate the path we'd use on good boots. This one is easy. If we are successful, we simply drop
+         * the counter pair entirely from the name. After all, we know all is good, and the logs will contain
+         * information about the tries we needed to come here, hence it's safe to drop the counters from the
+         * name. */
 
         good = strjoin(prefix, suffix);
         if (!good)
@@ -332,12 +335,12 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
                 if (faccessat(fd, skip_leading_slash(path), F_OK, 0) >= 0) {
                         /* If the item we booted with still exists under its name, it means we have not
-                         * change the current boot's marking so far. This may have two reasons: because we
+                         * changed the current boot's marking so far. This may have two reasons: because we
                          * simply didn't do that yet but still plan to, or because the left tries counter is
-                         * already at zero, hence we cannot further decrease it to mark it even
-                         * "worse"... Here we check the current counter to detect the latter case and return
-                         * "dirty", since the item is already marked bad from a previous boot, but otherwise
-                         * report "indeterminate" since we just didn't make a decision yet. */
+                         * already at zero, hence we cannot further decrease it to mark it even "worse"…
+                         * Here we check the current counter to detect the latter case and return "dirty",
+                         * since the item is already marked bad from a previous boot, but otherwise report
+                         * "indeterminate" since we just didn't make a decision yet. */
                         puts(left == 0 ? "dirty" : "indeterminate");
                         return 0;
                 }
@@ -362,7 +365,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 /* We didn't find any of the three? If so, let's try the next directory, before we give up. */
         }
 
-        return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Couldn't determine boot state.");
+        return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Couldn't determine boot entry state.");
 }
 
 static int rename_in_dir_idempotent(int fd, const char *from, const char *to) {
@@ -417,11 +420,11 @@ static int verb_set(int argc, char *argv[], void *userdata) {
         if (streq(argv[0], "good")) {
                 target = good;
                 source1 = path;
-                source2 = bad;      /* Maybe this boot was previously marked as 'bad'? */
+                source2 = bad;      /* Maybe this boot entry was previously marked as 'bad'? */
         } else if (streq(argv[0], "bad")) {
                 target = bad;
                 source1 = path;
-                source2 = good;     /* Maybe this boot was previously marked as 'good'? */
+                source2 = good;     /* Maybe this boot entry was previously marked as 'good'? */
         } else {
                 assert(streq(argv[0], "indeterminate"));
 
@@ -513,11 +516,11 @@ static int run(int argc, char *argv[]) {
 
         if (detect_container() > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Marking a boot is not supported in containers.");
+                                       "Marking of boots is not supported in containers.");
 
         if (!is_efi_boot())
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Marking a boot is only supported on EFI systems.");
+                                       "Marking of boots is only supported on EFI systems.");
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

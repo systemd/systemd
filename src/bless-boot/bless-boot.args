@@ -5,10 +5,10 @@ help Show this help
         return help();
 
 option --version
-help Print version
+help Print package version
         return version();
 
-option --path=PATH
+option --path=MOUNTPOINT
 help Path to the $BOOT partition (may be used multiple times)
         r = strv_extend(&arg_path, optarg);
         if (r < 0)

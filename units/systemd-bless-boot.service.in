@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Mark the Current Boot Loader Entry as Good
+Description=Mark the Current Boot Entry as Good
 Documentation=man:systemd-bless-boot.service(8)
 DefaultDependencies=no
 Requires=boot-complete.target
