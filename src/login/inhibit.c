@@ -18,6 +18,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -35,6 +36,7 @@ static const char *arg_mode = NULL;
 static bool arg_ask_password = true;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 static enum {
         ACTION_INHIBIT,
@@ -124,12 +126,12 @@ static int print_inhibitors(sd_bus *bus) {
 
                 table_set_header(table, arg_legend);
 
-                r = table_print(table, NULL);
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
-                        return table_log_print_error(r);
+                        return r;
         }
 
-        if (arg_legend) {
+        if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
                 if (table_isempty(table))
                         printf("No inhibitors.\n");
                 else
@@ -154,6 +156,8 @@ static int help(void) {
                "     --no-ask-password    Do not attempt interactive authorization\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
+               "     --json=pretty|short|off\n"
+               "                          Generate JSON output\n"
                "     --what=WHAT          Operations to inhibit, colon separated list of:\n"
                "                          shutdown, sleep, idle, handle-power-key,\n"
                "                          handle-suspend-key, handle-hibernate-key,\n"
@@ -183,6 +187,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -196,10 +201,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "list",             no_argument,       NULL, ARG_LIST            },
                 { "no-pager",         no_argument,       NULL, ARG_NO_PAGER        },
                 { "no-legend",        no_argument,       NULL, ARG_NO_LEGEND       },
+                { "json",             required_argument, NULL, ARG_JSON            },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -247,6 +253,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_LEGEND:
                         arg_legend = false;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
                         break;
 
                 case '?':
