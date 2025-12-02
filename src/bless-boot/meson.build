@@ -18,6 +18,7 @@ executables += [
                         'ENABLE_BOOTLOADER',
                 ],
                 'sources' : files('bless-boot.c'),
+                'arg_parser' : files('bless-boot.args'),
                 'link_with' : boot_link_with,
         },
         generator_template + {
