@@ -1614,7 +1614,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
 
                 case ARG_JSON:
                         r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r < 0)
+                        if (r <= 0)
                                 return r;
                         break;
 
