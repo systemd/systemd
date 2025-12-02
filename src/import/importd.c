@@ -27,7 +27,6 @@
 #include "import-common.h"
 #include "import-util.h"
 #include "json-util.h"
-#include "machine-pool.h"
 #include "main-func.h"
 #include "notify-recv.h"
 #include "os-util.h"
@@ -820,9 +819,9 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
                                          "Local image name %s is invalid", local);
 
         if (class == IMAGE_MACHINE) {
-                r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
+                r = image_setup_pool(m->runtime_scope, class, m->use_btrfs_subvol, m->use_btrfs_quota);
                 if (r < 0)
-                        return r;
+                        return sd_bus_error_set_errnof(error, r, "Failed to set up machine pool: %m");
         }
 
         type = startswith(sd_bus_message_get_member(msg), "ImportTar") ?
@@ -921,9 +920,9 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
                                          "Local image name %s is invalid", local);
 
         if (class == IMAGE_MACHINE) {
-                r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
+                r = image_setup_pool(m->runtime_scope, class, m->use_btrfs_subvol, m->use_btrfs_quota);
                 if (r < 0)
-                        return r;
+                        return sd_bus_error_set_errnof(error, r, "Failed to set up machine pool: %m");
         }
 
         r = transfer_new(m, &t);
@@ -1126,9 +1125,9 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
                                          "Unknown verification mode %s", verify);
 
         if (class == IMAGE_MACHINE) {
-                r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
+                r = image_setup_pool(m->runtime_scope, class, m->use_btrfs_subvol, m->use_btrfs_quota);
                 if (r < 0)
-                        return r;
+                        return sd_bus_error_set_errnof(error, r, "Failed to set up machine pool: %m");
         }
 
         type = startswith(sd_bus_message_get_member(msg), "PullTar") ?
