@@ -99,6 +99,20 @@ ALLOWED_EMPTY_TAGS = [
     'refpurpose'
 ]
 
+# These are rendered as inline code, but can also contain
+# elements that are themselves rendered as inline code.
+# So we need a way to not nest these
+INLINE_CODE_ELEMENTS = [
+    'arg',
+    'command',
+    'term',
+    'cmdsynopsis',
+    'programlisting',
+    'constant',
+    'replaceable',
+    'filename'
+]
+
 # to avoid dupliate error reports
 _not_handled_tags = set()
 
@@ -525,11 +539,10 @@ def _indent(el, indent, first_line=None, suppress_blank_line=False):
 def _normalize_whitespace(s):
     return " ".join(s.split())
 
-def _is_inside_of(el, tagname):
-    isInsideTag = False
-    for ancestor in el.iterancestors(tag=tagname):
-        isInsideTag = True
-    return isInsideTag
+def _is_inside_of(el, tagnames):
+    if isinstance(tagnames, (str, bytes)):
+        tagnames = (tagnames,)
+    return next(el.iterancestors(tag=tagnames), None) is not None
 
 def _remove_line_breaks(s):
     return s.replace('\n', ' ').replace('\r', '').strip()
@@ -737,9 +750,9 @@ def cmdsynopsis(el):
     return "``%s``" % _concat(el).strip()
 
 def command(el):
-    # Only enclose in backticks if it’s not part of a term
+    # Only enclose in backticks if it’s not part of a term etc.
     # (which is already enclosed in backticks)
-    if _is_inside_of(el, 'term') or _is_inside_of(el, 'cmdsynopsis') or _is_inside_of(el, 'programlisting'):
+    if _is_inside_of(el, INLINE_CODE_ELEMENTS):
         return _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
@@ -846,7 +859,7 @@ def option(el):
 
 
 def constant(el):
-    if _is_inside_of(el, 'term'):
+    if _is_inside_of(el, INLINE_CODE_ELEMENTS):
         return _concat(el).strip()
 
     classname = _nearest_varlist_class(el)
@@ -870,25 +883,18 @@ group = optional
 # WARNING: Inline emphasis start-string without end-string.
 # The workaround is: *<PATTERN>*\s
 def replaceable(el):
-    # If it’s in an arg with `choice="opt"`, it should have brackets
+    # If it’s in an arg with `choice="opt"`,
+    # it should have angle brackets `< >`
     if el.text is None and len(el.getchildren()) == 0:
         return " "
-    isInsideArg = False
-    isRepeat = False
-    result = ''
-    isInsideTerm = _is_inside_of(el, 'term')
-    isInsideProgramlisting = _is_inside_of(el, 'programlisting')
+    result = _concat(el).strip()
     for arg in el.iterancestors(tag='arg'):
         if arg.get("choice") == 'opt':
-            isInsideArg = True
+            result = f"<{result}>"
         if arg.get("rep") == 'repeat':
-            isRepeat = True
-    if isInsideArg or isInsideTerm or isInsideProgramlisting:
-        result = f"{_concat(el).strip()}{'...' if isRepeat else ''}"
-        # result = f"*[%s{'...' if isRepeat else ''}]*" % _concat(el).strip()
-    else:
-        # Otherwise < >
-        result = "*<%s>*" % _concat(el).strip()
+             result = f"{result}..."
+    if not _is_inside_of(el, INLINE_CODE_ELEMENTS):
+        result = f":emphasis:`{result}`{_escape_if_needed(el.tail)}"
 
     # if el.tail and re.match(r'^\S', el.tail):
     #     # tail starts with a non-whitespace char → needs escaping
