@@ -1024,7 +1024,7 @@ RestrictNetworkInterfaces=~eth1</programlisting>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>NFTSet=</varname><replaceable>family</replaceable>:<replaceable>table</replaceable>:<replaceable>set</replaceable></term>
+        <term><varname>NFTSet=<replaceable>sd_source_type</replaceable>:<replaceable>nft_address_family</replaceable>:<replaceable>nft_table_name</replaceable>:<replaceable>nft_set_name</replaceable>…</varname></term>
         <listitem>
           <para>This setting provides a method for integrating dynamic cgroup, user and group IDs into
           firewall rules with <ulink url="https://netfilter.org/projects/nftables/index.html">NFT</ulink>
@@ -1085,7 +1085,7 @@ RestrictNetworkInterfaces=~eth1</programlisting>
           <command>systemctl daemon-reload</command> can be used to refill the sets.</para>
 
           <para>Example:
-          <programlisting>[Unit]
+          <programlisting>[Service]
 NFTSet=cgroup:inet:filter:my_service user:inet:filter:serviceuser
 </programlisting>
           Corresponding NFT rules:
