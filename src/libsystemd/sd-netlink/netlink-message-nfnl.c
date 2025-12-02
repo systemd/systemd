@@ -119,7 +119,7 @@ int sd_nfnl_send_batch(
                 return -ENOMEM;
 
         if (ret_serials) {
-                serials = new(uint32_t, n_messages);
+                serials = new(uint32_t, n_messages + 1);
                 if (!serials)
                         return -ENOMEM;
         }
@@ -133,6 +133,9 @@ int sd_nfnl_send_batch(
                 return r;
 
         netlink_seal_message(nfnl, batch_begin);
+        if (serials)
+                serials[0] = message_get_serial(batch_begin);
+
         iovs[c++] = IOVEC_MAKE(batch_begin->hdr, batch_begin->hdr->nlmsg_len);
 
         for (size_t i = 0; i < n_messages; i++) {
@@ -147,7 +150,7 @@ int sd_nfnl_send_batch(
 
                 netlink_seal_message(nfnl, messages[i]);
                 if (serials)
-                        serials[i] = message_get_serial(messages[i]);
+                        serials[i + 1] = message_get_serial(messages[i]);
 
                 /* It seems that the kernel accepts an arbitrary number. Let's set the lower 16 bits of the
                  * serial of the first message. */
@@ -200,9 +203,9 @@ int sd_nfnl_call_batch(
         if (r < 0)
                 return r;
 
+        r = sd_netlink_read(nfnl, serials[0], usec, /* ret = */ NULL);
         for (size_t i = 0; i < n_messages; i++)
-                RET_GATHER(r,
-                           sd_netlink_read(nfnl, serials[i], usec, ret_messages ? replies + i : NULL));
+                RET_GATHER(r, netlink_read_internal(nfnl, serials[i + 1], /* timeout_timestamp= */ 0, ret_messages ? replies + i : NULL));
         if (r < 0)
                 return r;
 
