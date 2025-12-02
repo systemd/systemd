@@ -9,7 +9,7 @@
     If you extend it, please send me a patch: wojdyr at gmail.
 
     Docbook has >400 elements, most of them are not supported (yet).
-    ``pydoc db2rst`` shows the list of supported elements.
+    `pydoc db2rst` shows the list of supported elements.
 
     In reST, inline markup can not be nested (major deficiency of reST).
     Since it is not clear what to do with, say,
@@ -747,14 +747,14 @@ type = _no_special_markup
 property = _no_special_markup
 
 def cmdsynopsis(el):
-    return "``%s``" % _concat(el).strip()
+    return f":code:`{_concat(el).strip()}`"
 
 def command(el):
     # Only enclose in backticks if it’s not part of a term etc.
     # (which is already enclosed in backticks)
     if _is_inside_of(el, INLINE_CODE_ELEMENTS):
         return _concat(el).strip()
-    return "``%s``" % _concat(el).strip()
+    return f":code:`{_concat(el).strip()}`{_escape_if_needed(el.tail)}"
 
 token = command
 interfacename = command
@@ -831,14 +831,19 @@ def _collect_term_names(vle):
             names.append(text)
     return names
 
+def _escape_if_needed(tail):
+    if tail and re.match(r'^\S', tail):
+        return '\\'
+    return ''
+
 def varname(el):
     if _is_inside_of(el, 'term'):
         return _concat(el).strip()
 
     classname = _nearest_varlist_class(el)
     if classname:
-        return f":systemd:var:`%s`" % _concat(el).strip()
-    return "``%s``" % _concat(el).strip()
+        return f":systemd:var:`{_concat(el).strip()}`{_escape_if_needed(el.tail)}"
+    return f":code:`{_concat(el).strip()}`{_escape_if_needed(el.tail)}"
 
 
 def option(el):
@@ -854,8 +859,8 @@ def option(el):
 
     classname = _nearest_varlist_class(el)
     if classname:
-        return f":systemd:option:`%s`" % _concat(el).strip()
-    return "``%s``" % _concat(el).strip()
+        return f":systemd:option:`{_concat(el).strip()}`"
+    return f":code:`{_concat(el).strip()}`"
 
 
 def constant(el):
@@ -864,8 +869,9 @@ def constant(el):
 
     classname = _nearest_varlist_class(el)
     if classname:
-        return f":systemd:constant:`%s`" % _concat(el).strip()
-    return "``%s``" % _concat(el).strip()
+        return f":systemd:constant:`{_concat(el).strip()}`{_escape_if_needed(el.tail)}"
+
+    return f":code:`{_concat(el).strip()}`{_escape_if_needed(el.tail)}"
 
 
 filename = command
@@ -923,7 +929,6 @@ def term(el):
 
     if hasMultipleTerms:
         title = ', '.join(titleStrings)
-        # return _make_title(f"``{titleString}``", 4)
     else:
         title = _concat(el).strip()
 
@@ -931,7 +936,7 @@ def term(el):
         # global _indent_next_listItem_by
         # _indent_next_listItem_by += 3
         return f".. option:: {title}"
-    return _make_title(f"``{title}``", level) + '\n\n'
+    return _make_title(f":code:`{title}`", level) + '\n\n'
 
 # links
 
@@ -1224,7 +1229,7 @@ def funcsynopsis(el):
 
 
 def funcsynopsisinfo(el):
-    return "``%s``" % _concat(el)
+    return f":code:`{_concat(el)}`"
 
 
 def funcprototype(el):
@@ -1247,11 +1252,11 @@ def funcdef(el):
 
 
 def function(el):
-    return "``%s``" % _concat(el).strip()
+    return f":code:`{_concat(el).strip()}`"
 
 
 def parameter(el):
-    return "``%s``" % _concat(el).strip()
+    return f":code:`{_concat(el).strip()}`"
 
 
 def table(el):
