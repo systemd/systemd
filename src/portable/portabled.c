@@ -15,6 +15,7 @@
 #include "hashmap.h"
 #include "log.h"
 #include "main-func.h"
+#include "path-lookup.h"
 #include "portabled.h"
 #include "service-util.h"
 #include "signal-util.h"
@@ -22,7 +23,7 @@
 static Manager* manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
 
-static int manager_new(Manager **ret) {
+static int manager_new(RuntimeScope scope, Manager **ret) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
 
@@ -33,8 +34,12 @@ static int manager_new(Manager **ret) {
                 return -ENOMEM;
 
         *m = (Manager) {
-                .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+                .runtime_scope = scope,
         };
+
+        r = runtime_directory_generic(scope, "systemd/portables", &m->state_dir);
+        if (r < 0)
+                return r;
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -70,6 +75,8 @@ static Manager* manager_unref(Manager *m) {
         sd_bus_flush_close_unref(m->bus);
         sd_event_unref(m->event);
 
+        free(m->state_dir);
+
         return mfree(m);
 }
 
@@ -79,9 +86,21 @@ static int manager_connect_bus(Manager *m) {
         assert(m);
         assert(!m->bus);
 
-        r = sd_bus_default_system(&m->bus);
+        if (m->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                r = sd_bus_default_system(&m->bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to system bus: %m");
+        } else {
+                assert(m->runtime_scope == RUNTIME_SCOPE_USER);
+
+                r = sd_bus_default_user(&m->bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to user bus: %m");
+        }
+
+        r = sd_bus_attach_event(m->bus, m->event, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to system bus: %m");
+                return log_error_errno(r, "Failed to attach user bus to event loop: %m");
 
         r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
@@ -94,10 +113,6 @@ static int manager_connect_bus(Manager *m) {
         r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.portable1", 0, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
-
-        r = sd_bus_attach_event(m->bus, m->event, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         (void) sd_bus_set_exit_on_disconnect(m->bus, true);
 
@@ -125,6 +140,7 @@ static bool check_idle(void *userdata) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
+        RuntimeScope scope = RUNTIME_SCOPE_SYSTEM;
         int r;
 
         log_setup();
@@ -133,17 +149,14 @@ static int run(int argc, char *argv[]) {
                                "Manage registrations of portable images.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
-                               /* runtime_scope= */ NULL,
+                               &scope,
                                argc, argv);
         if (r <= 0)
                 return r;
 
         umask(0022);
 
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
-
-        r = manager_new(&m);
+        r = manager_new(scope, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate manager object: %m");
 
