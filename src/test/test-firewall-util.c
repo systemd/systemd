@@ -79,8 +79,10 @@ TEST(v4) {
 static int intro(void) {
         int r;
 
+        /*
         if (getuid() != 0)
                 return log_tests_skipped("not root");
+        */
 
         ASSERT_OK_ERRNO(setenv("SYSTEMD_FIREWALL_UTIL_NFT_TABLE_NAME", "io.systemd-test.nat", /* overwrite = */ true));
         ASSERT_OK_ERRNO(setenv("SYSTEMD_FIREWALL_UTIL_DNAT_MAP_NAME", "test_map_port_ipport", /* overwrite = */ true));
