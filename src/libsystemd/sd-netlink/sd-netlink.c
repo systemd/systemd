@@ -126,6 +126,8 @@ static sd_netlink *netlink_free(sd_netlink *nl) {
 
         assert(nl);
 
+        hashmap_free(nl->ignored_serials);
+
         ordered_set_free(nl->rqueue);
         hashmap_free(nl->rqueue_by_serial);
         hashmap_free(nl->rqueue_partial_by_serial);
@@ -188,6 +190,58 @@ static usec_t timespan_to_timestamp(sd_netlink *nl, usec_t usec) {
         }
 
         return usec_add(netlink_now(nl, CLOCK_MONOTONIC), usec);
+}
+
+static void netlink_trim_ignored_serials(sd_netlink *nl) {
+        NetlinkIgnoredSerial *s;
+        usec_t now_usec = 0;
+
+        assert(nl);
+
+        HASHMAP_FOREACH(s, nl->ignored_serials) {
+                if (s->timeout_usec == USEC_INFINITY)
+                        continue;
+
+                if (now_usec == 0)
+                        now_usec = netlink_now(nl, CLOCK_MONOTONIC);
+
+                if (s->timeout_usec < now_usec)
+                        free(hashmap_remove(nl->ignored_serials, UINT32_TO_PTR(s->serial)));
+        }
+}
+
+int sd_netlink_ignore_serial(sd_netlink *nl, uint32_t serial, uint64_t timeout_usec) {
+        int r;
+
+        assert_return(nl, -EINVAL);
+        assert_return(!netlink_pid_changed(nl), -ECHILD);
+        assert_return(serial != 0, -EINVAL);
+
+        timeout_usec = timespan_to_timestamp(nl, timeout_usec);
+
+        NetlinkIgnoredSerial *existing = hashmap_get(nl->ignored_serials, UINT32_TO_PTR(serial));
+        if (existing) {
+                existing->timeout_usec = timeout_usec;
+                return 0;
+        }
+
+        netlink_trim_ignored_serials(nl);
+
+        _cleanup_free_ NetlinkIgnoredSerial *s = new(NetlinkIgnoredSerial, 1);
+        if (!s)
+                return -ENOMEM;
+
+        *s = (NetlinkIgnoredSerial) {
+                .serial = serial,
+                .timeout_usec = timeout_usec,
+        };
+
+        r = hashmap_ensure_put(&nl->ignored_serials, &trivial_hash_ops_value_free, UINT32_TO_PTR(s->serial), s);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(s);
+        return 0;
 }
 
 int sd_netlink_send(
@@ -372,6 +426,8 @@ static int process_running(sd_netlink *nl, sd_netlink_message **ret) {
         int r;
 
         assert(nl);
+
+        netlink_trim_ignored_serials(nl);
 
         r = process_timeout(nl);
         if (r != 0)
