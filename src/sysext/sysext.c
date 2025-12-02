@@ -1033,23 +1033,25 @@ static int resolve_mutable_directory(
         }
 
         if (IN_SET(arg_mutable, MUTABLE_YES, MUTABLE_EPHEMERAL, MUTABLE_EPHEMERAL_IMPORT)) {
-                _cleanup_free_ char *path_in_root = NULL;
+                _cleanup_close_ int path_fd = -EBADF, chmod_fd = -EBADF;
 
-                path_in_root = path_join(root, path);
-                if (!path_in_root)
-                        return log_oom();
-
-                r = mkdir_p(path_in_root, 0700);
+                /* This also creates, e.g., /var/lib/extensions.mutable/usr if needed
+                 * and all parent directories plus it also works when the last part
+                 * is a symlink to the real /usr */
+                r = chase(path, root, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY|CHASE_PREFIX_ROOT, /* ret_path */ NULL, &path_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create a directory '%s': %m", path_in_root);
+                        return log_error_errno(r, "Failed to chase/create base directory '%s/%s': %m", strempty(root), skip_leading_slash(path));
 
-                _cleanup_close_ int atfd = open(path_in_root, O_DIRECTORY|O_CLOEXEC);
-                if (atfd < 0)
-                        return log_error_errno(errno, "Failed to open directory '%s': %m", path_in_root);
+                chmod_fd = fd_reopen(path_fd, O_CLOEXEC|O_DIRECTORY);
+                if (chmod_fd < 0)
+                        return log_error_errno(chmod_fd, "Failed to reopen '%s/%s': %m", strempty(root), skip_leading_slash(path));
 
-                r = mac_selinux_fix_full(atfd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0);
+                if (fchmod(chmod_fd, hierarchy_mode) < 0)
+                        return log_error_errno(errno, "Failed to chmod directory '%s/%s': %m", strempty(root), skip_leading_slash(path));
+
+                r = mac_selinux_fix_full(chmod_fd, /* inode_path= */ NULL, hierarchy, /* flags= */ 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to fix SELinux label for '%s': %m", path_in_root);
+                        return log_error_errno(r, "Failed to fix SELinux label for '%s/%s': %m", strempty(root), skip_leading_slash(path));
         }
 
         r = chase(path, root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
