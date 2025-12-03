@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <fnmatch.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -29,9 +30,9 @@
 #include "terminal-util.h"
 #include "user-util.h"
 
-static const char *arg_what = "idle:sleep:shutdown";
+static const char *arg_what = NULL;
 static const char *arg_who = NULL;
-static const char *arg_why = "Unknown reason";
+static const char *arg_why = NULL;
 static const char *arg_mode = NULL;
 static bool arg_ask_password = true;
 static PagerFlags arg_pager_flags = 0;
@@ -65,6 +66,8 @@ static int print_inhibitors(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_strv_free_ char **what_filter = NULL;
+
         int r;
 
         pager_open(arg_pager_flags);
@@ -85,6 +88,12 @@ static int print_inhibitors(sd_bus *bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        if (arg_what) {
+                what_filter = strv_split(arg_what, ":");
+                if (!what_filter)
+                        return log_oom();
+        }
+
         for (;;) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
                 const char *what, *who, *why, *mode;
@@ -95,6 +104,25 @@ static int print_inhibitors(sd_bus *bus) {
                         return bus_log_parse_error(r);
                 if (r == 0)
                         break;
+
+                if (what_filter) {
+                        bool skip = false;
+
+                        STRV_FOREACH(op, what_filter)
+                                if (!string_contains_word(what, ":", *op)) {
+                                        skip = true;
+                                        break;
+                                }
+
+                        if (skip)
+                                continue;
+                }
+
+                if (arg_who && !streq(who, arg_who))
+                        continue;
+
+                if (arg_why && fnmatch(arg_why, why, FNM_CASEFOLD) != 0)
+                        continue;
 
                 if (arg_mode && !streq(mode, arg_mode))
                         continue;
@@ -307,6 +335,9 @@ static int run(int argc, char *argv[]) {
                 /* Ignore SIGINT and allow the forked process to receive it */
                 (void) ignore_signals(SIGINT);
 
+                if (!arg_what)
+                        arg_what = "idle:sleep:shutdown";
+
                 if (!arg_who) {
                         w = strv_join(argv + optind, " ");
                         if (!w)
@@ -314,6 +345,9 @@ static int run(int argc, char *argv[]) {
 
                         arg_who = w;
                 }
+
+                if (!arg_why)
+                        arg_why = "Unknown reason";
 
                 if (!arg_mode)
                         arg_mode = "block";
