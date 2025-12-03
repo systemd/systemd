@@ -1778,7 +1778,7 @@ int config_parse_exec_root_hash_sig(
                 void *userdata) {
 
         _cleanup_free_ void *roothash_sig_decoded = NULL;
-        char *value;
+        const char *value;
         ExecContext *c = ASSERT_PTR(data);
         size_t roothash_sig_decoded_size = 0;
         int r;
