@@ -1,0 +1,189 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+global help_key_width 25
+
+option -h --help
+
+option --version
+
+option --no-pager
+help Do not pipe output into a pager
+        arg_pager_flags |= PAGER_DISABLE;
+
+option --no-legend
+help Do not show the headers and footers
+        arg_legend = false;
+
+option --json=pretty|short|off|help
+help Generate JSON output
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+option --system
+help Show credentials passed to system
+        arg_system = true;
+
+option --transcode=base64|unbase64|hex|unhex
+help Transcode credential data
+        if (streq(optarg, "help")) {
+                if (arg_legend)
+                        puts("Supported transcode types:");
+
+                return DUMP_STRING_TABLE(transcode_mode, TranscodeMode, _TRANSCODE_MAX);
+        }
+
+        if (parse_boolean(optarg) == 0) /* If specified as "false", turn transcoding off */
+                arg_transcode = TRANSCODE_OFF;
+        else {
+                TranscodeMode m;
+
+                m = transcode_mode_from_string(optarg);
+                if (m < 0)
+                        return log_error_errno(m, "Failed to parse transcode mode: %m");
+
+                arg_transcode = m;
+        }
+
+option --newline=auto|yes|no
+help Suffix output with newline
+        if (isempty(optarg) || streq(optarg, "auto"))
+                arg_newline = -1;
+        else {
+                r = parse_boolean_argument("--newline=", optarg, NULL);
+                if (r < 0)
+                        return r;
+
+                arg_newline = r;
+        }
+
+option -p --pretty
+help Output as SetCredentialEncrypted= line
+        arg_pretty = true;
+
+option --name=[NAME]
+help Override filename included in encrypted credential
+        if (isempty(optarg)) {
+                arg_name = NULL;
+                arg_name_any = true;
+        } else {
+                if (!credential_name_valid(optarg))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid credential name: %s", optarg);
+                arg_name = optarg;
+                arg_name_any = false;
+        }
+
+option --timestamp=TIME
+help Include specified timestamp in encrypted credential
+        r = parse_timestamp(optarg, &arg_timestamp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --timestamp=: %s", optarg);
+
+option --not-after=TIME
+help Include specified invalidation time in encrypted credential
+        r = parse_timestamp(optarg, &arg_not_after);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --not-after= timestamp: %s", optarg);
+
+option --with-key=host|tpm2|host+tpm2|null|auto|auto-initrd|help
+help Which keys to encrypt with
+        if (streq(optarg, "help")) {
+                if (arg_legend)
+                        puts("Supported key types:");
+                return DUMP_STRING_TABLE(cred_key_type, CredKeyType, _CRED_KEY_TYPE_MAX);
+        }
+
+        if (isempty(optarg))
+                arg_with_key = _CRED_AUTO;
+        else {
+                CredKeyType t = cred_key_type_from_string(optarg);
+                if (t < 0)
+                        return log_error_errno(t, "Failed to parse key type: %m");
+
+                arg_with_key = cred_key_id[t];
+        }
+
+option -H
+help Same as --with-key=host
+        arg_with_key = CRED_AES256_GCM_BY_HOST;
+
+option -T
+help Same as --with-key=tpm2
+        arg_with_key = _CRED_AUTO_TPM2;
+
+
+option --tpm2-device=PATH|auto|list
+help Pick TPM2 device
+        if (streq(optarg, "list"))
+                return tpm2_list_devices(arg_legend, arg_quiet);
+
+        arg_tpm2_device = streq(optarg, "auto") ? NULL : optarg;
+
+option --tpm2-pcrs=PCR1+PCR2+PCR3+…
+help Specify TPM2 PCRs to seal against (fixed hash)
+        /* For fixed hash PCR policies only */
+        r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_tpm2_pcr_mask);
+        if (r < 0)
+                return r;
+
+option --tpm2-public-key=PATH
+help Specify PEM certificate to seal against
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_public_key);
+        if (r < 0)
+                return r;
+
+option  --tpm2-public-key-pcrs=PCR1+PCR2+PCR3+…
+help Specify TPM2 PCRs to seal against (public key)
+        r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_tpm2_public_key_pcr_mask);
+        if (r < 0)
+                return r;
+
+option --tpm2-signature=PATH
+help Specify signature for public key PCR policy
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_signature);
+        if (r < 0)
+                return r;
+
+option --user
+help Select user-scoped credential encryption
+        if (!uid_is_valid(arg_uid))
+                arg_uid = getuid();
+
+option --uid=[UID|self]
+help Select user for scoped credentials
+        if (isempty(optarg))
+                arg_uid = UID_INVALID;
+        else if (streq(optarg, "self"))
+                arg_uid = getuid();
+        else {
+                const char *name = optarg;
+
+                r = get_user_creds(
+                                &name,
+                                &arg_uid,
+                                /* ret_gid= */ NULL,
+                                /* ret_home= */ NULL,
+                                /* ret_shell= */ NULL,
+                                /* flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve user '%s': %s",
+                                               optarg, STRERROR_USER(r));
+        }
+
+option --allow-null
+help Allow decrypting credentials with null key
+        arg_credential_flags &= ~CREDENTIAL_REFUSE_NULL;
+        arg_credential_flags |= CREDENTIAL_ALLOW_NULL;
+
+option --refuse-null
+help Refuse decrypting credentials with null key
+        arg_credential_flags |= CREDENTIAL_REFUSE_NULL;
+        arg_credential_flags &= ~CREDENTIAL_ALLOW_NULL;
+
+option --no-ask-password
+help Do not query for authentication
+        arg_ask_password = false;
+
+option -q --quiet
+help Suppress additional output
+        arg_quiet = true;

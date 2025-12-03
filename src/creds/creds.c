@@ -134,6 +134,8 @@ static sd_id128_t cred_key_id[_CRED_KEY_TYPE_MAX] = {
         [CRED_KEY_TYPE_TPM2_ABSENT]      = CRED_AES256_GCM_BY_NULL,
 };
 
+#include "creds.args.inc"
+
 static int open_credential_directory(
                 bool encrypted,
                 DIR **ret_dir,
@@ -761,7 +763,7 @@ static int verb_has_tpm2(int argc, char **argv, void *userdata) {
         return verb_has_tpm2_generic(arg_quiet);
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -780,40 +782,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "  decrypt INPUT [OUTPUT]  Decrypt ciphertext credential file and write to\n"
                "                          plaintext credential file\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "     --json=pretty|short|off\n"
-               "                          Generate JSON output\n"
-               "     --system             Show credentials passed to system\n"
-               "     --transcode=base64|unbase64|hex|unhex\n"
-               "                          Transcode credential data\n"
-               "     --newline=auto|yes|no\n"
-               "                          Suffix output with newline\n"
-               "  -p --pretty             Output as SetCredentialEncrypted= line\n"
-               "     --name=NAME          Override filename included in encrypted credential\n"
-               "     --timestamp=TIME     Include specified timestamp in encrypted credential\n"
-               "     --not-after=TIME     Include specified invalidation time in encrypted\n"
-               "                          credential\n"
-               "     --with-key=host|tpm2|host+tpm2|null|auto|auto-initrd\n"
-               "                          Which keys to encrypt with\n"
-               "  -H                      Shortcut for --with-key=host\n"
-               "  -T                      Shortcut for --with-key=tpm2\n"
-               "     --tpm2-device=PATH\n"
-               "                          Pick TPM2 device\n"
-               "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
-               "                          Specify TPM2 PCRs to seal against (fixed hash)\n"
-               "     --tpm2-public-key=PATH\n"
-               "                          Specify PEM certificate to seal against\n"
-               "     --tpm2-public-key-pcrs=PCR1+PCR2+PCR3+…\n"
-               "                          Specify TPM2 PCRs to seal against (public key)\n"
-               "     --tpm2-signature=PATH\n"
-               "                          Specify signature for public key PCR policy\n"
-               "     --user               Select user-scoped credential encryption\n"
-               "     --uid=UID            Select user for scoped credentials\n"
-               "     --allow-null         Allow decrypting credentials with null key\n"
-               "     --refuse-null        Refuse decrypting credentials with null key\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -826,272 +795,11 @@ static int verb_help(int argc, char **argv, void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_JSON,
-                ARG_SYSTEM,
-                ARG_TRANSCODE,
-                ARG_NEWLINE,
-                ARG_WITH_KEY,
-                ARG_TPM2_DEVICE,
-                ARG_TPM2_PCRS,
-                ARG_TPM2_PUBLIC_KEY,
-                ARG_TPM2_PUBLIC_KEY_PCRS,
-                ARG_TPM2_SIGNATURE,
-                ARG_NAME,
-                ARG_TIMESTAMP,
-                ARG_NOT_AFTER,
-                ARG_USER,
-                ARG_UID,
-                ARG_ALLOW_NULL,
-                ARG_REFUSE_NULL,
-                ARG_NO_ASK_PASSWORD,
-        };
-
-        static const struct option options[] = {
-                { "help",                 no_argument,       NULL, 'h'                      },
-                { "version",              no_argument,       NULL, ARG_VERSION              },
-                { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
-                { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
-                { "json",                 required_argument, NULL, ARG_JSON                 },
-                { "system",               no_argument,       NULL, ARG_SYSTEM               },
-                { "transcode",            required_argument, NULL, ARG_TRANSCODE            },
-                { "newline",              required_argument, NULL, ARG_NEWLINE              },
-                { "pretty",               no_argument,       NULL, 'p'                      },
-                { "with-key",             required_argument, NULL, ARG_WITH_KEY             },
-                { "tpm2-device",          required_argument, NULL, ARG_TPM2_DEVICE          },
-                { "tpm2-pcrs",            required_argument, NULL, ARG_TPM2_PCRS            },
-                { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
-                { "tpm2-public-key-pcrs", required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS },
-                { "tpm2-signature",       required_argument, NULL, ARG_TPM2_SIGNATURE       },
-                { "name",                 required_argument, NULL, ARG_NAME                 },
-                { "timestamp",            required_argument, NULL, ARG_TIMESTAMP            },
-                { "not-after",            required_argument, NULL, ARG_NOT_AFTER            },
-                { "quiet",                no_argument,       NULL, 'q'                      },
-                { "user",                 no_argument,       NULL, ARG_USER                 },
-                { "uid",                  required_argument, NULL, ARG_UID                  },
-                { "allow-null",           no_argument,       NULL, ARG_ALLOW_NULL           },
-                { "refuse-null",          no_argument,       NULL, ARG_REFUSE_NULL          },
-                { "no-ask-password",      no_argument,       NULL, ARG_NO_ASK_PASSWORD      },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hHTpq", options, NULL)) >= 0) {
-
-                switch (c) {
-
-                case 'h':
-                        return verb_help(0, NULL, NULL);
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_system = true;
-                        break;
-
-                case ARG_TRANSCODE:
-                        if (streq(optarg, "help")) {
-                                if (arg_legend)
-                                        puts("Supported transcode types:");
-
-                                return DUMP_STRING_TABLE(transcode_mode, TranscodeMode, _TRANSCODE_MAX);
-                        }
-
-                        if (parse_boolean(optarg) == 0) /* If specified as "false", turn transcoding off */
-                                arg_transcode = TRANSCODE_OFF;
-                        else {
-                                TranscodeMode m;
-
-                                m = transcode_mode_from_string(optarg);
-                                if (m < 0)
-                                        return log_error_errno(m, "Failed to parse transcode mode: %m");
-
-                                arg_transcode = m;
-                        }
-
-                        break;
-
-                case ARG_NEWLINE:
-                        if (isempty(optarg) || streq(optarg, "auto"))
-                                arg_newline = -1;
-                        else {
-                                r = parse_boolean_argument("--newline=", optarg, NULL);
-                                if (r < 0)
-                                        return r;
-
-                                arg_newline = r;
-                        }
-                        break;
-
-                case 'p':
-                        arg_pretty = true;
-                        break;
-
-                case ARG_WITH_KEY:
-                        if (streq(optarg, "help")) {
-                                if (arg_legend)
-                                        puts("Supported key types:");
-                                return DUMP_STRING_TABLE(cred_key_type, CredKeyType, _CRED_KEY_TYPE_MAX);
-                        }
-
-                        if (isempty(optarg))
-                                arg_with_key = _CRED_AUTO;
-                        else {
-                                CredKeyType t = cred_key_type_from_string(optarg);
-                                if (t < 0)
-                                        return log_error_errno(t, "Failed to parse key type: %m");
-
-                                arg_with_key = cred_key_id[t];
-                        }
-                        break;
-
-                case 'H':
-                        arg_with_key = CRED_AES256_GCM_BY_HOST;
-                        break;
-
-                case 'T':
-                        arg_with_key = _CRED_AUTO_TPM2;
-                        break;
-
-                case ARG_TPM2_DEVICE:
-                        if (streq(optarg, "list"))
-                                return tpm2_list_devices(arg_legend, arg_quiet);
-
-                        arg_tpm2_device = streq(optarg, "auto") ? NULL : optarg;
-                        break;
-
-                case ARG_TPM2_PCRS: /* For fixed hash PCR policies only */
-                        r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_tpm2_pcr_mask);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_TPM2_PUBLIC_KEY:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_public_key);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_TPM2_PUBLIC_KEY_PCRS: /* For public key PCR policies only */
-                        r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_tpm2_public_key_pcr_mask);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_TPM2_SIGNATURE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_signature);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_NAME:
-                        if (isempty(optarg)) {
-                                arg_name = NULL;
-                                arg_name_any = true;
-                                break;
-                        }
-
-                        if (!credential_name_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid credential name: %s", optarg);
-
-                        arg_name = optarg;
-                        arg_name_any = false;
-                        break;
-
-                case ARG_TIMESTAMP:
-                        r = parse_timestamp(optarg, &arg_timestamp);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse timestamp: %s", optarg);
-
-                        break;
-
-                case ARG_NOT_AFTER:
-                        r = parse_timestamp(optarg, &arg_not_after);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --not-after= timestamp: %s", optarg);
-
-                        break;
-
-                case ARG_USER:
-                        if (!uid_is_valid(arg_uid))
-                                arg_uid = getuid();
-
-                        break;
-
-                case ARG_UID:
-                        if (isempty(optarg))
-                                arg_uid = UID_INVALID;
-                        else if (streq(optarg, "self"))
-                                arg_uid = getuid();
-                        else {
-                                const char *name = optarg;
-
-                                r = get_user_creds(
-                                                &name,
-                                                &arg_uid,
-                                                /* ret_gid= */ NULL,
-                                                /* ret_home= */ NULL,
-                                                /* ret_shell= */ NULL,
-                                                /* flags= */ 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to resolve user '%s': %s",
-                                                               optarg, STRERROR_USER(r));
-                        }
-                        break;
-
-                case ARG_ALLOW_NULL:
-                        arg_credential_flags &= ~CREDENTIAL_REFUSE_NULL;
-                        arg_credential_flags |= CREDENTIAL_ALLOW_NULL;
-                        break;
-
-                case ARG_REFUSE_NULL:
-                        arg_credential_flags |= CREDENTIAL_REFUSE_NULL;
-                        arg_credential_flags &= ~CREDENTIAL_ALLOW_NULL;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-        }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         SET_FLAG(arg_credential_flags, CREDENTIAL_IPC_ALLOW_INTERACTIVE, arg_ask_password);
 
