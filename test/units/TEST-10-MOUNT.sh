@@ -89,7 +89,7 @@ check_dependencies() {
     # again with the userspace options. Typically, the window between the two calls is very short, but when
     # the mount event source is ratelimited after the first event, processing the second event may be delayed
     # about 1 second. Hence, here we need to wait for a while.
-    timeout 10 bash -c 'until systemctl show --property=After --value tmp-deptest.mount | grep -q -F remote-fs-pre.target; do sleep .1; done'
+    timeout 10 bash -c 'until systemctl show --property=After --value tmp-deptest.mount | grep -F remote-fs-pre.target >/dev/null; do sleep .1; done'
     after=$(systemctl show --property=After --value tmp-deptest.mount)
     assert_not_in "local-fs-pre.target" "$after"
     assert_in "remote-fs-pre.target" "$after"
