@@ -2116,7 +2116,7 @@ static int build_environment(
         }
 
         if (!sd_id128_is_null(p->invocation_id)) {
-                assert(p->invocation_id_string);
+                assert(!isempty(p->invocation_id_string));
 
                 x = strjoin("INVOCATION_ID=", p->invocation_id_string);
                 if (!x)
