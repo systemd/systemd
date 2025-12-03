@@ -15,12 +15,8 @@ help Show a diff when overridden files differ
                 return r;
         arg_diff = r;
 
-option -t= --type=LIST
+option -t= --type=[LIST]
 help Only display a selected set of override types
-        int f;
-
-        f = parse_flags(optarg, arg_flags);
-        if (f < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to parse flags field.");
-        arg_flags = f;
+        r = update_flags(&arg_flags, optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --type='%s': %m", optarg);
