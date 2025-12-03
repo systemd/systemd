@@ -238,7 +238,6 @@ static int image_new(
                 ImageClass c,
                 const char *pretty,
                 const char *path,
-                const char *filename,
                 bool read_only,
                 usec_t crtime,
                 usec_t mtime,
@@ -249,7 +248,7 @@ static int image_new(
         assert(t >= 0);
         assert(t < _IMAGE_TYPE_MAX);
         assert(pretty);
-        assert(filename);
+        assert(path);
         assert(ret);
 
         i = new(Image, 1);
@@ -273,7 +272,7 @@ static int image_new(
         if (!i->name)
                 return -ENOMEM;
 
-        i->path = path_join(path, filename);
+        i->path = strdup(path);
         if (!i->path)
                 return -ENOMEM;
 
@@ -387,10 +386,8 @@ static int image_update_quota(Image *i, int fd) {
 static int image_make(
                 ImageClass c,
                 const char *pretty,
-                int dir_fd,
-                const char *dir_path,
-                const char *filename,
                 int fd, /* O_PATH fd */
+                const char *path,
                 const struct stat *st,
                 Image **ret) {
 
@@ -398,9 +395,8 @@ static int image_make(
         bool read_only;
         int r;
 
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(dir_path || dir_fd == AT_FDCWD);
-        assert(filename);
+        assert(path);
+        assert(path_is_absolute(path));
 
         /* We explicitly *do* follow symlinks here, since we want to allow symlinking trees, raw files and block
          * devices into /var/lib/machines/, and treat them normally.
@@ -411,7 +407,7 @@ static int image_make(
         _cleanup_close_ int _fd = -EBADF;
         if (fd < 0) {
                 /* If we didn't get an fd passed in, then let's pin it via O_PATH now */
-                _fd = openat(dir_fd, filename, O_PATH|O_CLOEXEC);
+                _fd = open(path, O_PATH|O_CLOEXEC);
                 if (_fd < 0)
                         return -errno;
 
@@ -427,14 +423,8 @@ static int image_make(
                 st = &stbuf;
         }
 
-        _cleanup_free_ char *parent = NULL;
-        if (!dir_path) {
-                (void) fd_get_path(dir_fd, &parent);
-                dir_path = parent;
-        }
-
         read_only =
-                (dir_path && path_startswith(dir_path, "/usr")) ||
+                path_startswith(path, "/usr") ||
                 (faccessat(fd, "", W_OK, AT_EACCESS|AT_EMPTY_PATH) < 0 && errno == EROFS);
 
         if (S_ISDIR(st->st_mode)) {
@@ -446,7 +436,7 @@ static int image_make(
 
                 if (!pretty) {
                         r = extract_image_basename(
-                                        filename,
+                                        path,
                                         image_class_suffix_to_string(c),
                                         /* format_suffixes= */ NULL,
                                         &pretty_buffer,
@@ -474,8 +464,7 @@ static int image_make(
                                 r = image_new(IMAGE_SUBVOLUME,
                                               c,
                                               pretty,
-                                              dir_path,
-                                              filename,
+                                              path,
                                               info.read_only || read_only,
                                               info.otime,
                                               info.ctime,
@@ -500,8 +489,7 @@ static int image_make(
                 r = image_new(IMAGE_DIRECTORY,
                               c,
                               pretty,
-                              dir_path,
-                              filename,
+                              path,
                               read_only || (file_attr & FS_IMMUTABLE_FL),
                               crtime,
                               0, /* we don't use mtime of stat() here, since it's not the time of last change of the tree, but only of the top-level dir */
@@ -512,7 +500,7 @@ static int image_make(
                 (*ret)->foreign_uid_owned = uid_is_foreign(st->st_uid);
                 return 0;
 
-        } else if (S_ISREG(st->st_mode) && endswith(filename, ".raw")) {
+        } else if (S_ISREG(st->st_mode) && endswith(path, ".raw")) {
                 usec_t crtime = 0;
 
                 /* It's a RAW disk image */
@@ -524,7 +512,7 @@ static int image_make(
 
                 if (!pretty) {
                         r = extract_image_basename(
-                                        filename,
+                                        path,
                                         image_class_suffix_to_string(c),
                                         STRV_MAKE(".raw"),
                                         &pretty_buffer,
@@ -538,8 +526,7 @@ static int image_make(
                 r = image_new(IMAGE_RAW,
                               c,
                               pretty,
-                              dir_path,
-                              filename,
+                              path,
                               !(st->st_mode & 0222) || read_only,
                               crtime,
                               timespec_load(&st->st_mtim),
@@ -562,7 +549,7 @@ static int image_make(
 
                 if (!pretty) {
                         r = extract_image_basename(
-                                        filename,
+                                        path,
                                         /* class_suffix= */ NULL,
                                         /* format_suffix= */ NULL,
                                         &pretty_buffer,
@@ -575,20 +562,20 @@ static int image_make(
 
                 _cleanup_close_ int block_fd = fd_reopen(fd, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
                 if (block_fd < 0)
-                        log_debug_errno(errno, "Failed to open block device %s/%s, ignoring: %m", strnull(dir_path), filename);
+                        log_debug_errno(errno, "Failed to open block device '%s', ignoring: %m", path);
                 else {
                         if (!read_only) {
                                 int state = 0;
 
                                 if (ioctl(block_fd, BLKROGET, &state) < 0)
-                                        log_debug_errno(errno, "Failed to issue BLKROGET on device %s/%s, ignoring: %m", strnull(dir_path), filename);
+                                        log_debug_errno(errno, "Failed to issue BLKROGET on device '%s', ignoring: %m", path);
                                 else if (state)
                                         read_only = true;
                         }
 
                         r = blockdev_get_device_size(block_fd, &size);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m", strnull(dir_path), filename);
+                                log_debug_errno(r, "Failed to issue BLKGETSIZE64 on device '%s', ignoring: %m", path);
 
                         block_fd = safe_close(block_fd);
                 }
@@ -596,8 +583,7 @@ static int image_make(
                 r = image_new(IMAGE_BLOCK,
                               c,
                               pretty,
-                              dir_path,
-                              filename,
+                              path,
                               !(st->st_mode & 0222) || read_only,
                               0,
                               0,
@@ -773,11 +759,11 @@ int image_find(RuntimeScope scope,
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(path, search) {
+        STRV_FOREACH(s, search) {
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
-                r = chase_and_opendir(*path, root, CHASE_PREFIX_ROOT, &resolved, &d);
+                r = chase_and_opendir(*s, root, CHASE_PREFIX_ROOT, &resolved, &d);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -848,7 +834,7 @@ int image_find(RuntimeScope scope,
 
                                 /* Refresh the stat data for the discovered target */
                                 st = result.st;
-                                fd = safe_close(fd);
+                                close_and_replace(fd, result.fd);
 
                                 _cleanup_free_ char *bn = NULL;
                                 r = path_extract_filename(result.path, &bn);
@@ -868,7 +854,11 @@ int image_find(RuntimeScope scope,
                                 continue;
                         }
 
-                        r = image_make(class, name, dirfd(d), resolved, fname, fd, &st, ret);
+                        _cleanup_free_ char *path = path_join(resolved, fname);
+                        if (!path)
+                                return -ENOMEM;
+
+                        r = image_make(class, name, fd, path, &st, ret);
                         if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
                                 continue;
                         if (r < 0)
@@ -884,10 +874,8 @@ int image_find(RuntimeScope scope,
         if (scope == RUNTIME_SCOPE_SYSTEM && class == IMAGE_MACHINE && streq(name, ".host")) {
                 r = image_make(class,
                                ".host",
-                               /* dir_fd= */ AT_FDCWD,
-                               /* dir_path= */ NULL,
-                               /* filename= */ empty_to_root(root),
                                /* fd= */ -EBADF,
+                               /* path= */ empty_to_root(root),
                                /* st= */ NULL,
                                ret);
                 if (r < 0)
@@ -903,6 +891,7 @@ int image_find(RuntimeScope scope,
 };
 
 int image_from_path(const char *path, Image **ret) {
+        int r;
 
         /* Note that we don't set the 'discoverable' field of the returned object, because we don't check here whether
          * the image is in the image search path. And if it is we don't know if the path we used is actually not
@@ -912,20 +901,21 @@ int image_from_path(const char *path, Image **ret) {
                 return image_make(
                                 IMAGE_MACHINE,
                                 ".host",
-                                /* dir_fd= */ AT_FDCWD,
-                                /* dir_path= */ NULL,
-                                /* filename= */ "/",
                                 /* fd= */ -EBADF,
+                                /* path= */ "/",
                                 /* st= */ NULL,
                                 ret);
+
+        _cleanup_free_ char *absolute = NULL;
+        r = path_make_absolute_cwd(path, &absolute);
+        if (r < 0)
+                return r;
 
         return image_make(
                         _IMAGE_CLASS_INVALID,
                         /* pretty= */ NULL,
-                        /* dir_fd= */ AT_FDCWD,
-                        /* dir_path= */ NULL,
-                        /* filename= */ path,
                         /* fd= */ -EBADF,
+                        absolute,
                         /* st= */ NULL,
                         ret);
 }
@@ -964,11 +954,11 @@ int image_discover(
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(path, search) {
+        STRV_FOREACH(s, search) {
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
-                r = chase_and_opendir(*path, root, CHASE_PREFIX_ROOT, &resolved, &d);
+                r = chase_and_opendir(*s, root, CHASE_PREFIX_ROOT, &resolved, &d);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -1056,7 +1046,7 @@ int image_discover(
 
                                         /* Refresh the stat data for the discovered target */
                                         st = result.st;
-                                        fd = safe_close(fd);
+                                        close_and_replace(fd, result.fd);
 
                                         _cleanup_free_ char *bn = NULL;
                                         r = path_extract_filename(result.path, &bn);
@@ -1070,6 +1060,7 @@ int image_discover(
                                                 return log_oom();
 
                                         fname = fname_buf;
+
                                 } else {
                                         r = extract_image_basename(
                                                         fname,
@@ -1102,7 +1093,11 @@ int image_discover(
                         if (hashmap_contains(*images, pretty))
                                 continue;
 
-                        r = image_make(class, pretty, dirfd(d), resolved, fname, fd, &st, &image);
+                        _cleanup_free_ char *path = path_join(resolved, fname);
+                        if (!path)
+                                return -ENOMEM;
+
+                        r = image_make(class, pretty, fd, path, &st, &image);
                         if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
                                 continue;
                         if (r < 0)
@@ -1123,10 +1118,8 @@ int image_discover(
 
                 r = image_make(IMAGE_MACHINE,
                                ".host",
-                               /* dir_fd= */ AT_FDCWD,
-                               /* dir_path= */ NULL,
-                               empty_to_root(root),
                                /* fd= */ -EBADF,
+                               /* path= */ empty_to_root(root),
                                /* st= */ NULL,
                                &image);
                 if (r < 0)
