@@ -124,7 +124,7 @@ systemd — System and Service Manager
 
                 if meta is not None:
                     html_output += f"      {meta['title']}({meta['manvolnum']}) — {meta['summary']} <{file}>\n"
-                    man_output += f"**{meta['title']}**\({meta['manvolnum']}) — {meta['summary']}"
+                    man_output += f"   * **{meta['title']}**\({meta['manvolnum']}) — {meta['summary']}\n"
                 else:
                     html_output += f"   {display_name}\n"
                     man_output += f"   * {display_name}\n"
