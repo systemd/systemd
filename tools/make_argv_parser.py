@@ -14,6 +14,9 @@
 # This string will be wrapped to fit in the available number of columns,
 # specified b TARGET_LINE_WIDTH.
 #
+# A lone 'scope' specifies that the block should be wrapped in a scope.
+# This is done automatically if any variables are defined with _cleanup_.
+#
 # After the 'option' line, a 'group' line may be used to specify
 # option grouping. This string will be appended to the variable for
 # the generated option help.
@@ -72,6 +75,7 @@ class Option:
     group: str | None
     help: str
     body: list[str]
+    scope: bool
     skip_code: bool = False
 
     def short_name(self) -> str | None:
@@ -276,9 +280,11 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
         if option.skip_code:
             continue
 
-        yield f'\t\tcase {option.enum_name()}:'
+        yield f"\t\tcase {option.enum_name()}:{' {' if option.scope else ''}"
         for line in option.body:
             yield '\t\t\t' + line
+        if option.scope:
+            yield '\t\t}'
         yield ''
 
     yield "\t\tcase '?':"
@@ -390,6 +396,7 @@ def parse_input(lines: list[str]) -> tuple[list[Option], Globals]:
                 help = []
                 group = None
                 body: list[str] = []
+                scope = False
 
                 n += 1
 
@@ -402,6 +409,8 @@ def parse_input(lines: list[str]) -> tuple[list[Option], Globals]:
                     help += [m.group('help')]
                 elif m := re.match(r'group (?P<group>.+)', line):
                     group = m.group('group')
+                elif m := re.match(r'scope$', line):
+                    scope = True
                 else:
                     raise ValueError(f'unexpected directive {n+1}: {line!r}')
 
@@ -424,6 +433,11 @@ def parse_input(lines: list[str]) -> tuple[list[Option], Globals]:
                     # end of body
                     assert names
 
+                    # Heuristically match variable declarations ;-)
+                    scope = (scope or any(
+                        re.match(r'^(const |_cleanup_|[a-zA-Z0-9_]+ \**[a-zA-Z0-9_]+(,| = |;$))', l)
+                        for l in body))
+
                     opt = Option(
                         names,
                         argtype,
@@ -431,6 +445,7 @@ def parse_input(lines: list[str]) -> tuple[list[Option], Globals]:
                         group,
                         help=' '.join(help),
                         body=body,
+                        scope=scope,
                     )
                     options += [opt]
 
