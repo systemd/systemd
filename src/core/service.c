@@ -2115,7 +2115,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (unit_stop_pending(UNIT(s)))
                 allow_restart = false;
 
-        if (s->result == SERVICE_SUCCESS)
+        if (s->result == SERVICE_SUCCESS || f == SERVICE_FAILURE_START_LIMIT_HIT)
                 s->result = f;
 
         if (s->result == SERVICE_SUCCESS) {
