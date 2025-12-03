@@ -66,6 +66,7 @@ executables += [
                 'name' : 'systemd-inhibit',
                 'public' : true,
                 'sources' : files('inhibit.c'),
+                'arg_parser' : files('inhibit.args'),
         },
         libexec_template + {
                 'name' : 'systemd-user-runtime-dir',

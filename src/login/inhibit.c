@@ -45,6 +45,8 @@ static enum {
         ACTION_LIST
 } arg_action = ACTION_INHIBIT;
 
+#include "inhibit.args.inc"
+
 static int inhibit(sd_bus *bus, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
@@ -178,21 +180,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...] COMMAND ...\n"
                "\n%sExecute a process while inhibiting shutdown/sleep/idle.%s\n\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --no-ask-password    Do not attempt interactive authorization\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "     --json=pretty|short|off\n"
-               "                          Generate JSON output\n"
-               "     --what=WHAT          Operations to inhibit, colon separated list of:\n"
-               "                          shutdown, sleep, idle, handle-power-key,\n"
-               "                          handle-suspend-key, handle-hibernate-key,\n"
-               "                          handle-lid-switch\n"
-               "     --who=STRING         A descriptive string who is inhibiting\n"
-               "     --why=STRING         A descriptive string why is being inhibited\n"
-               "     --mode=MODE          One of block, block-weak, or delay\n"
-               "     --list               List active inhibitors\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -203,98 +191,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_WHAT,
-                ARG_WHO,
-                ARG_WHY,
-                ARG_MODE,
-                ARG_LIST,
-                ARG_NO_ASK_PASSWORD,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_JSON,
-        };
-
-        static const struct option options[] = {
-                { "help",             no_argument,       NULL, 'h'                 },
-                { "version",          no_argument,       NULL, ARG_VERSION         },
-                { "no-ask-password",  no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { "what",             required_argument, NULL, ARG_WHAT            },
-                { "who",              required_argument, NULL, ARG_WHO             },
-                { "why",              required_argument, NULL, ARG_WHY             },
-                { "mode",             required_argument, NULL, ARG_MODE            },
-                { "list",             no_argument,       NULL, ARG_LIST            },
-                { "no-pager",         no_argument,       NULL, ARG_NO_PAGER        },
-                { "no-legend",        no_argument,       NULL, ARG_NO_LEGEND       },
-                { "json",             required_argument, NULL, ARG_JSON            },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
-        while ((c = getopt_long(argc, argv, "+h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_WHAT:
-                        arg_what = optarg;
-                        break;
-
-                case ARG_WHO:
-                        arg_who = optarg;
-                        break;
-
-                case ARG_WHY:
-                        arg_why = optarg;
-                        break;
-
-                case ARG_MODE:
-                        arg_mode = optarg;
-                        break;
-
-                case ARG_LIST:
-                        arg_action = ACTION_LIST;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (arg_action == ACTION_INHIBIT && optind == argc)
                 arg_action = ACTION_LIST;
