@@ -604,6 +604,8 @@ int button_open(Button *b) {
         if (r < 0)
                 return r;
 
+        (void) button_check_switches(b);
+
         return 0;
 }
 
