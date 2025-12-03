@@ -1149,7 +1149,8 @@ static int acquire_mount_type(sd_device *d) {
         if (arg_mount_type)
                 return 0;
 
-        if (sd_device_get_property_value(d, "ID_FS_TYPE", &v) < 0)
+        if (sd_device_get_property_value(d, "ID_FS_MOUNTTYPE", &v) < 0 &&
+            sd_device_get_property_value(d, "ID_FS_TYPE", &v) < 0)
                 return 0;
 
         arg_mount_type = strdup(v);
@@ -1529,7 +1530,8 @@ static int list_devices(void) {
                                 break;
 
                         case COLUMN_FSTYPE:
-                                (void) sd_device_get_property_value(d, "ID_FS_TYPE", &x);
+                                if (sd_device_get_property_value(d, "ID_FS_MOUNTTYPE", &x) < 0)
+                                        (void) sd_device_get_property_value(d, "ID_FS_TYPE", &x);
                                 break;
 
                         case COLUMN_LABEL:
