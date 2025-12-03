@@ -177,6 +177,7 @@ udev_binaries_dict = [
         udev_plugin_template + {
                 'name' : 'iocost',
                 'sources' : files('iocost/iocost.c'),
+                'arg_parser' : files('iocost/iocost.args'),
         },
         udev_plugin_template + {
                 'name' : 'mtd_probe',
