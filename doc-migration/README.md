@@ -5,11 +5,11 @@
     - [Manual installation](#manual-installation)
   - [Transformation Process](#transformation-process)
     - [1. Docbook to `rst`](#1-docbook-to-rst)
-    - [2. `rst` to Sphinx](#2-rst-to-sphinx)
+    - [2. `rst` to Sphinx html and man](#2-rst-to-sphinx-html-and-man)
       - [Sphinx Preprocessor Script](#sphinx-preprocessor-script)
       - [Sphinx Extensions](#sphinx-extensions)
       - [Custom Sphinx Extensions](#custom-sphinx-extensions)
-        - [directive\_roles.py (90% done)](#directive_rolespy-90-done)
+        - [systemd\_domain.py](#systemd_domainpy)
         - [external\_man\_links.py](#external_man_linkspy)
       - [Includes](#includes)
   - [Todo](#todo)
@@ -23,7 +23,6 @@ Python dependencies for parsing docbook files and generating `rst`:
 Python dependencies for generating `html` and `man` pages from `rst`:
 
 - `sphinx`
-- `sphinxcontrib-globalsubs`
 - `furo` (The Sphinx theme)
 
 To install these (see [Sphinx Docs](https://www.sphinx-doc.org/en/master/tutorial/getting-started.html#setting-up-your-project-and-development-environment)):
@@ -45,15 +44,27 @@ $ cd doc-migration && ./convert.sh
 
 ## Transformation Process
 
-You can run the entire process with `./convert.sh` in the `doc-migration` folder. The individual steps are:
+You can run the entire process with `./convert.sh` in the `doc-migration` folder. The individual steps are described below:
+
+1. Docbook to `rst` with `db2rst.py`
+2. Sphinx `Makefile`
+   1. Custom Preprocessor
+   2. Sphinx itself
+   3. Some progressive enhancement to further improve the html output in `/source/_static/js/custom.js`
 
 ### 1. Docbook to `rst`
+
+This step migrates the old Docbook `xml` files to Sphinx `rst` files. While the vast majority of the docs is converted correctly, the result is not perfect: there are a number of cases listed in the `/EDGE_CASES.md` file that require manual fixes before or after this conversion. In some cases, `rst` is simply not flexible enough to achieve a clean mapping of the old `xml` syntax, in others, the switch to a different markup language necessitates extra character escaping, in yet other the effort required to handle them automatically far exceeded the effort needed to just fix them once manually after this conversion. We have document as many of these as we could find to make the final sprint over the finish line as painless as possible for systemd.
+
+**Usage:**
 
 Use the `main.py` script to convert a single Docbook file to `rst`:
 
 ```sh
 # in the `doc-migration` folder:
-$ python3 main.py --file ../man/busctl.xml --output 'in-progress'
+$ python3 main.py --file ../man/busctl.xml --output 'source/docs'
+# or whatever your local Python version is, adpat as needed in all examples:
+$ python3.13 main.py --file ../man/busctl.xml --output 'source/docs'
 ```
 
 This file calls `db2rst.py` that parses Docbook elements on each file, does some string transformation to the contents of each, and glues them all back together again. It will also output info on unhandled elements, so we know whether our converter is feature complete and can achieve parity with the old docs.
@@ -62,10 +73,14 @@ To run the script against all files you can use :
 
 ```sh
 # in the `doc-migration` folder:
-$ python3 main.py --dir ../man --output 'in-progress'
+$ python3 main.py --dir ../man --output 'source/docs'
 ```
 
-> When using the script to convert all files at once in our man folder we recommend using "in-progress" folder name as our output dir so we don't end up replacing some the files that were converted and been marked as finished inside the source folder.
+To do the actual conversion of all files:
+```sh
+# you may need
+$ rm -rf source/docs/ && python3 main.py --dir ../man --output 'source/docs'
+```
 
 After using the above script at least once you will get two files(`errors.json`,`successes_with_unhandled_tags.json`) in the output dir.
 
@@ -78,7 +93,13 @@ running : `python3 main.py --unhandled-only` will only process the files that ar
 
 This is to avoid running all files at once when we only need to work on files that are not completely processed.
 
-### 2. `rst` to Sphinx
+At the time of delivery of this work package (Dec. 2025), all tags are handled, and no errors are logged. The script does emit two warnings about unhandled inline comments, as `rst` does not have those and there is no good way to convert them. These are listed in `EDGE_CASES.md`.
+
+At some point, this step will be discarded, as all documentation now lives in `rst` files.
+
+### 2. `rst` to Sphinx html and man
+
+This will be the new regular documentation build step:
 
 ```sh
 # in the `/doc-migration` folder
@@ -92,7 +113,9 @@ $ make html man
 
 #### Sphinx Preprocessor Script
 
-The makefile runs `/doc-migration/preprocess_rst.py` before Sphinx. This script does the  variable substitutions defined in the `global_substitutions` object in `/doc-migrations/source/conf.py` (the Sphinx config file). The reasoning for this instead of using Sphinx-native substitutions is explained at the top of `preprocess_rst.py`.
+The makefile runs `/doc-migration/preprocess_rst.py` before Sphinx. This script does the variable substitutions defined in the `global_substitutions` object in `/doc-migrations/source/conf.py` (the Sphinx config file). We originally tried solving this problem with the `globalsubs` Sphinx extension and the `rst_prolog` feature, but neither were sufficient, more details can be found at the top of `preprocess_rst.py`.
+
+The preprocessor also handles a custom include tag (e.g. `%% include="standard-specifiers.rst" id="a" %%`) for some cases that could not be handled with `rst` alone. This was a necessary workaround since the old docs do partial includes of tables in other tables, and other inner-block includes rst does not support. Using this tag also resolves Sphinx confusion when including a footnote reference and its footnote with two separate includes (since there are no inline/inline-block footnotes in `rst`), using the `%% include…` syntax for both solves the problem.
 
 #### Sphinx Extensions
 
@@ -100,34 +123,90 @@ We use the following Sphinx extensions to achieve parity with the old docs:
 
 #### Custom Sphinx Extensions
 
-##### directive_roles.py (90% done)
+These live in `/source/_ext` and are activated via the `extensions` variable in `conf.py`.
 
-This is used to add custom Sphinx directives and roles to generate systemd directive lists page.
+##### systemd_domain.py
 
-To achieve the functionality exiting in `tools/make-directive-index.py` by building the Directive Index page from custom Sphinx role, here is an example:
+A custom Sphinx domain for systemd. This allows us to have a neat, concise syntax for defining and referencing systemd properties. Anything declared this way will also be picked up in the directives list, which is itself a custom systemd Sphinx directive used in `directives.rst`.
 
-The formula for those sphinx roles is like this: `:directive:{directive_id}:{type}`
+Based on the directives config that we’ve migrated to `directives_data` in `conf.py`, we define four roles/directives:
+1. `var`
+2. `env`
+3. `option`
+4. `constant`
 
-For example we can use an inline Sphinx role like this:
+These can be used as block-level declarations to define a systemd property, e.g.:
 
+```rst
+.. systemd:option:: ExternalSizeMax=, JournalSizeMax=
+   :group: config-directives
+
+    Optional text content follows here.
 ```
- :directive:environment-variables:var:`SYSEXT_SCOPE=`
+
+As you can see, there is an optional `:group:` attribute that maps to the directive groups in `directives_data` in `conf.py`, and results in the directives being grouped into the proper sections in the directives overview.
+
+Several examples follow:
+
+```rst
+.. systemd:option:: list
+
+   Show all peers on the bus, by their service names. By default, shows both unique and well-known names, but this may be changed with the :code:`--unique` and :code:`--acquired` switches. This is the default operation if no command is specified.
 ```
 
-This will be then inserted in the SystemD directive page on build under the group `environment-variables`
-we can use the `{type}` to have more control over how this will be treated inside the Directive Index page.
+```rst
+.. systemd:var:: $SYSTEMD_LESSCHARSET
+   :group: environment-variables
+
+   Override the charset passed to :code:`less` (by default "utf-8", if the invoking terminal is determined to be UTF-8 compatible).
+```
+
+```rst
+.. systemd:constant:: K
+  :group: environment-variables
+
+  This option instructs the pager to exit immediately when :kbd:`Ctrl` + :kbd:`C` is pressed.
+```
+
+You can also declare multiple directives at once by comma-separating them, and each will be linkable individually, and appear in the directives list individually:
+
+```rst
+.. systemd:option:: SystemMaxUse=, SystemKeepFree=, SystemMaxFileSize=, SystemMaxFiles=, RuntimeMaxUse=, RuntimeKeepFree=, RuntimeMaxFileSize=, RuntimeMaxFiles=
+   :group: config-directives
+```
+
+To reference (link) to any directive, use the role syntax:
+
+```rst
+:systemd:var:`SystemMaxUse=` and :systemd:var:`RuntimeMaxUse=` control how much disk space the journal may use up at most.
+```
+
+```rst
+:systemd:constant:`SYSTEMD_LOG_LEVEL=debug,console:info` specifies to log at debug level.
+```
+
+To display the directives list (currently in `directives.rst`), simply use this custom Sphinx directive:
+
+```rst
+.. systemd:directiveindex::
+```
 
 ##### external_man_links.py
 
-This is used to create custom sphinx roles to handle external links for man pages to avoid having full urls in rst for example:
+This is used to create custom sphinx roles to handle external links for man pages to avoid having full urls in rst, for example:
 
-`:die-net:`refentrytitle(manvolnum)` will lead to 'http://linux.die.net/man/{manvolnum}/{refentrytitle}'
-a full list of these roles can be found in [external_man_links](source/_ext/external_man_links.py).
+```rst
+:die-net:`refentrytitle(manvolnum)`
+```
+
+…will lead to 'http://linux.die.net/man/{manvolnum}/{refentrytitle}'.
+
+A full list of these roles can be found in [external_man_links](source/_ext/external_man_links.py).
 
 #### Includes
 
 1. Versions
-   In the Docbook files you may find lines like these: `<xi:include href="version-info.xml" xpointer="v205"/>` which would render into `Added in version 205` in the docs. This is now archived with the existing [sphinx directive ".. versionadded::"](https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-versionadded) and represented as `.. versionadded:: 205` in the rst file
+   In the Docbook files you may find lines like these: `<xi:include href="version-info.xml" xpointer="v205"/>` which would render into `Added in version 205` in the docs. This is now achieved with the existing [sphinx directive ".. versionadded::"](https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-versionadded) and represented as `.. versionadded:: 205` in the rst file.
 
 2. Code Snippets
    These can be included with the [literalinclude directive](https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-literalinclude) when living in their own file.
@@ -136,7 +215,7 @@ a full list of these roles can be found in [external_man_links](source/_ext/exte
 
   ```rst
   .. literalinclude:: ./check-os-release-simple.py
-  :language: python
+     :language: python
   ```
 
   There is also the option to include a [code block](https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-code-block) directly in the rst file.
@@ -152,7 +231,21 @@ a full list of these roles can be found in [external_man_links](source/_ext/exte
 
 3. Text Snippets
 
-  There are a few xml files were sections of these files are reused in multiple other files. While it is no problem to include a whole other rst file the concept of only including a part of that file is a bit more tricky. You can choose to include text partial that starts after a specific text and also to stop before reaching another text. So we decided it would be best to add start and stop markers to define the section in these source files. These markers are: `.. inclusion-marker-do-not-remove` / ``So that a`<xi:include href="standard-options.xml" xpointer="no-pager" />` turns into:
+  There are a few xml files were sections of these files are reused in multiple other files. While it is no problem to include a whole other rst file the concept of only including a part of that file is a bit more tricky. You can choose to include text partial that starts after a specific text and also to stop before reaching another text. Mapping to the rst `.. include::` directive’s `start-after` and `end-before`options, we use corresponding marker comments to define these section in these source files. These markers are: `.. inclusion-marker-do-not-remove {xpointer-id}` and `.. inclusion-end-marker-do-not-remove {xpointer-id}`, for example:
+
+  This directive is enclosed by inclusion markers generated from `<varlistentry id='no-pager'>`:
+
+  ```rst
+  .. inclusion-marker-do-not-remove no-pager
+
+  .. systemd:option:: --no-pager
+
+    Do not pipe output into a pager.
+
+  .. inclusion-end-marker-do-not-remove no-pager
+  ```
+
+  The syntax to include this section was converted from `<xi:include href="standard-options.xml" xpointer="no-pager" />` to:
 
   ```rst
   .. include:: ./standard-options.rst
@@ -160,36 +253,28 @@ a full list of these roles can be found in [external_man_links](source/_ext/exte
     :end-before: .. inclusion-end-marker-do-not-remove no-pager
   ```
 
+  Since rst does not support all inclusion scenarios that occur within the systemd docs, we have added a second inclusion syntax that is handled in a Sphinx preprocessor (see the file `preprocess_rst.py`). The syntax is similar:
+
+  ```
+  %% include="standard-specifiers.rst" id="a" %%
+  ```
+
+  This essentially does the same thing as the longer `.. include::` declaration above, but works inside tables and other block elements within which `rst` doesn’t allow includes.
+
 ## Todo
 
 An incomplete list.
-- [ ] kernel-install.html -> `Compatibility with the kernel build system`
-- [ ] fix nested inline styles with _is_inside_of in all inline style tags
-- [ ] two successive <para> have the wrong indentation (hostnamectl.xml for example)
-- [ ] css styls for right sidebar, too wide
 
-- [ ] Generate `man_pages` file list in conf somehow
-- [ ] env vars in conf don’t work
-  - [x] Do the substitutions in a safe manner
-  - [ ] systemd needs to implement the env vars themselves
-- [ ] Some xml files contain invisible whitespace instead of proper spaces, eg. `U+00a0` in `man/libsystemd-pkgconfig.xml`, these will mess up conversion to .rst in some cases.
-- [x] Handle nested includes, eg in `man/libsystemd-pkgconfig.xml` used in `man/sd_machine_get_class.xml` -> seems to work fine
-- [x] Ignore `man/directives-template.xml`
+- [ ] Generate alias files from all entries in the `name`
+  - [ ] <citerefentry><refentrytitle>systemd-sysusers.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>-style citrefs should be converted to internal links and not man
+- [ ] Clean up literal include file copying, there are currently pointless files in /includes
 - [ ] Custom Link transformations:
   - [ ] `custom-man.xsl`
   - [x] `custom-html.xsl`
-- [ ] See whether `tools/tools/xml_helper.py` does anything we don’t do, this also contains useful code for:
-  - [ ] Build a man index, as in `tools/make-man-index.py`
-  - [x] Build a directives index, as in `tools/make-directive-index.py`
-    - [ ] Fix this:
-      - [ ] missing groups
-      - [ ] Unknown Title(Unknown Volume)
-      - [ ] Duplicate references
-      - [ ] Order things properly
-      - [ ] Make higher order headlines foldable?
-
+- [ ] HTML improvements:
+  - [ ] Render directive headlines so furo picks them up in the sidebar (probably an issue with the content replacement when `.. systemd:directiveindex::` is parsed in `systemd_domain.py`)
+  - [ ] Extremely optional: Make higher order headlines foldable?
+- [ ] Unclear what these do:
   - [ ] DBUS doc generation `tools/update-dbus-docs.py`
-- [ ] See whether `tools/update-man-rules.py` does anything we don’t do
-- [x] Make sure the `global_substitutions` we generate for Sphinx’s `conf.py` match the Meson rules in `man/rules/meson.build`
-- [ ] Make sure the `man_pages` we generate for Sphinx’s `conf.py` match the Meson rules in `man/rules/meson.build` -> [see this PR comment](https://github.com/systemd/systemd/pull/33673#discussion_r1672128044)
-- [ ] Re-implement check-api-docs
+  - [ ] See whether `tools/update-man-rules.py` does anything we don’t do
+  - [ ] check-api-docs
