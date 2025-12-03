@@ -30,6 +30,7 @@
 # The following settings are understood:
 #   help_key_width NN — how many columns should be used for the '-o --option'
 #                       part of the --help string.
+#   optstring_prefix c — add 'c' before the option string. Useful with '-' or '+'.
 #
 # Lines with # at the beginning of the line are discarded.
 # Normal C comments with /* */ or // are propagated.
@@ -45,11 +46,14 @@ from typing import Generator
 class Globals:
     target_line_width: int = 80
     help_key_width: int|None = None
+    optstring_prefix: str = ''
 
     def set(self, name: str, value: str) -> None:
         # A consumer for the 'global foo bar' settings.
         if name == 'help_key_width':
             self.help_key_width = int(value)
+        elif name == 'optstring_prefix':
+            self.optstring_prefix = value
         else:
             raise ValueError(f'Uknown global setting {name!r}')
 
@@ -197,7 +201,7 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
     opt_args = []
     opt_enums = []
     opt_comments = []
-    optstring = ''
+    optstring = globals.optstring_prefix
 
     for option in options:
         if option.skip_code:
@@ -237,6 +241,14 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
     yield ''
     yield '\tint c, _unused_ r;'
     yield ''
+
+    if optstring.startswith('+'):
+        yield "\t/* Resetting to 0 forces the invocation of an internal initialization routine of"
+        yield "\t * getopt_long() that checks for GNU extensions in optstring ('-' or '+' at the beginning)."
+        yield "\t */"
+        yield '\toptind = 0;'
+        yield ''
+
     yield f'\twhile ((c = getopt_long(argc, argv, "{optstring}", options, NULL)) >= 0)'
     yield '\t\tswitch (c) {'
     yield ''
