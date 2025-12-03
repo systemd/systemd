@@ -70,8 +70,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_oom();
 
         if (arg_root && !path_startswith(arg_target, arg_root))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path '%s' does not start with specified root '%s', refusing.", arg_target, arg_root);
-
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Specified path '%s' does not start with specified root '%s', refusing.",
+                                       arg_target, arg_root);
         return 1;
 }
 
