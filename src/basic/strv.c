@@ -921,9 +921,9 @@ int strv_extendf(char ***l, const char *format, ...) {
         return strv_consume(l, x);
 }
 
-char* startswith_strv(const char *s, char * const *l) {
+char* startswith_strv_internal(const char *s, char * const *l) {
         STRV_FOREACH(i, l) {
-                char *found = startswith(s, *i);
+                char *found = (char*) startswith(s, *i);
                 if (found)
                         return found;
         }
@@ -931,9 +931,9 @@ char* startswith_strv(const char *s, char * const *l) {
         return NULL;
 }
 
-char* endswith_strv(const char *s, char * const *l) {
+char* endswith_strv_internal(const char *s, char * const *l) {
         STRV_FOREACH(i, l) {
-                char *found = endswith(s, *i);
+                char *found = (char*) endswith(s, *i);
                 if (found)
                         return found;
         }
