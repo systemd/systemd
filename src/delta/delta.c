@@ -54,7 +54,7 @@ static const char have_dropins[] =
 static PagerFlags arg_pager_flags = 0;
 static int arg_diff = -1;
 
-static enum {
+typedef enum ShowFlags {
         SHOW_MASKED     = 1 << 0,
         SHOW_EQUIVALENT = 1 << 1,
         SHOW_REDIRECTED = 1 << 2,
@@ -64,9 +64,46 @@ static enum {
 
         SHOW_DEFAULTS =
         (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDDEN | SHOW_EXTENDED)
-} arg_flags = 0;
+} ShowFlags;
+static ShowFlags arg_flags = 0;
 
-static int parse_flags(const char *flag_str, int flags);
+static int update_flags(ShowFlags *flags, const char *s) {
+        int r, new = 0;
+
+        if (isempty(s)) {
+                *flags = 0;
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&s, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *flags |= new;
+                        return 0;
+                }
+
+                if (streq(word, "masked"))
+                        new |= SHOW_MASKED;
+                else if (streq(word, "equivalent"))
+                        new |= SHOW_EQUIVALENT;
+                else if (streq(word, "redirected"))
+                        new |= SHOW_REDIRECTED;
+                else if (streq(word, "overridden"))
+                        new |= SHOW_OVERRIDDEN;
+                else if (streq(word, "unchanged"))
+                        new |= SHOW_UNCHANGED;
+                else if (streq(word, "extended"))
+                        new |= SHOW_EXTENDED;
+                else if (streq(word, "default"))
+                        new |= SHOW_DEFAULTS;
+                else
+                        return -EINVAL;
+        }
+}
 
 #include "delta.args.inc"
 
@@ -477,36 +514,6 @@ static int help(void) {
                link);
 
         return 0;
-}
-
-static int parse_flags(const char *flag_str, int flags) {
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                int r;
-
-                r = extract_first_word(&flag_str, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return flags;
-
-                if (streq(word, "masked"))
-                        flags |= SHOW_MASKED;
-                else if (streq(word, "equivalent"))
-                        flags |= SHOW_EQUIVALENT;
-                else if (streq(word, "redirected"))
-                        flags |= SHOW_REDIRECTED;
-                else if (streq(word, "overridden"))
-                        flags |= SHOW_OVERRIDDEN;
-                else if (streq(word, "unchanged"))
-                        flags |= SHOW_UNCHANGED;
-                else if (streq(word, "extended"))
-                        flags |= SHOW_EXTENDED;
-                else if (streq(word, "default"))
-                        flags |= SHOW_DEFAULTS;
-                else
-                        return -EINVAL;
-        }
 }
 
 static int run(int argc, char *argv[]) {
