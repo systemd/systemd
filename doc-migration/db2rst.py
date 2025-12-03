@@ -344,7 +344,7 @@ def _includes(el):
         if el.get('href') == 'version-info.xml':
             versionString = conf.global_substitutions.get(
                 el.get("xpointer"))
-            return f"\n\n.. only:: html\n\n   \n\n   .. versionadded:: {versionString}\n \n \n"
+            return f"\n\n.. versionadded:: {versionString}\n \n \n"
         elif not el.get("xpointer"):
             if el.get("parse") == 'text':
                 # Handle literal xml includes
