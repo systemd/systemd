@@ -124,7 +124,7 @@ static int validate_image_fd(int fd, MountImageParameters *p) {
                         return r;
         }
 
-        fl = fd_verify_safe_flags(fd);
+        fl = fd_verify_safe_flags_full(fd, O_NONBLOCK);
         if (fl < 0)
                 return log_debug_errno(fl, "Image file descriptor has unsafe flags set: %m");
 
