@@ -942,31 +942,23 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case 'M':
-                        if (isempty(optarg))
-                                arg_machine = mfree(arg_machine);
-                        else {
-                                if (!hostname_is_valid(optarg, 0))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Invalid machine name: %s", optarg);
+                        if (!isempty(optarg) && !hostname_is_valid(optarg, /* ValidHostnameFlags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid machine name: %s", optarg);
 
-                                r = free_and_strdup(&arg_machine, optarg);
-                                if (r < 0)
-                                        return log_oom();
-                        }
+                        r = free_and_strdup_warn(&arg_machine, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_HOSTNAME:
-                        if (isempty(optarg))
-                                arg_hostname = mfree(arg_hostname);
-                        else {
-                                if (!hostname_is_valid(optarg, 0))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Invalid hostname: %s", optarg);
+                        if (!isempty(optarg) && !hostname_is_valid(optarg, /* ValidHostnameFlags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid hostname: %s", optarg);
 
-                                r = free_and_strdup(&arg_hostname, optarg);
-                                if (r < 0)
-                                        return log_oom();
-                        }
+                        r = free_and_strdup_warn(&arg_hostname, optarg);
+                        if (r < 0)
+                                return r;
 
                         arg_settings_mask |= SETTING_HOSTNAME;
                         break;
