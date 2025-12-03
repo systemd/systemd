@@ -18,6 +18,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -28,13 +29,14 @@
 #include "terminal-util.h"
 #include "user-util.h"
 
-static const char *arg_what = "idle:sleep:shutdown";
+static const char *arg_what = NULL;
 static const char *arg_who = NULL;
-static const char *arg_why = "Unknown reason";
+static const char *arg_why = NULL;
 static const char *arg_mode = NULL;
 static bool arg_ask_password = true;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 static enum {
         ACTION_INHIBIT,
@@ -63,6 +65,9 @@ static int print_inhibitors(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_strv_free_ char **what_filter = NULL;
+        _cleanup_free_ char *why_filter = NULL;
+
         int r;
 
         pager_open(arg_pager_flags);
@@ -83,6 +88,20 @@ static int print_inhibitors(sd_bus *bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        if (arg_what) {
+                what_filter = strv_split(arg_what, ":");
+                if (!what_filter)
+                        return log_oom();
+        }
+
+        if (arg_why) {
+                why_filter = strdup(arg_why);
+                if (!why_filter)
+                        return log_oom();
+
+                ascii_strlower(why_filter);
+        }
+
         for (;;) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
                 const char *what, *who, *why, *mode;
@@ -93,6 +112,33 @@ static int print_inhibitors(sd_bus *bus) {
                         return bus_log_parse_error(r);
                 if (r == 0)
                         break;
+
+                if (what_filter) {
+                        bool skip = false;
+
+                        STRV_FOREACH(op, what_filter)
+                                if (!string_contains_word(what, ":", *op)) {
+                                        skip = true;
+                                        break;
+                                }
+
+                        if (skip)
+                                continue;
+                }
+
+                if (arg_who && !streq(who, arg_who))
+                        continue;
+
+                if (why_filter) {
+                        _cleanup_free_ char *s = NULL;
+
+                        s = strdup(why);
+                        if (!s)
+                                return log_oom();
+
+                        if (!strstr(ascii_strlower(s), why_filter))
+                                continue;
+                }
 
                 if (arg_mode && !streq(mode, arg_mode))
                         continue;
@@ -124,12 +170,12 @@ static int print_inhibitors(sd_bus *bus) {
 
                 table_set_header(table, arg_legend);
 
-                r = table_print(table, NULL);
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
-                        return table_log_print_error(r);
+                        return r;
         }
 
-        if (arg_legend) {
+        if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
                 if (table_isempty(table))
                         printf("No inhibitors.\n");
                 else
@@ -154,6 +200,8 @@ static int help(void) {
                "     --no-ask-password    Do not attempt interactive authorization\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
+               "     --json=pretty|short|off\n"
+               "                          Generate JSON output\n"
                "     --what=WHAT          Operations to inhibit, colon separated list of:\n"
                "                          shutdown, sleep, idle, handle-power-key,\n"
                "                          handle-suspend-key, handle-hibernate-key,\n"
@@ -183,6 +231,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -196,10 +245,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "list",             no_argument,       NULL, ARG_LIST            },
                 { "no-pager",         no_argument,       NULL, ARG_NO_PAGER        },
                 { "no-legend",        no_argument,       NULL, ARG_NO_LEGEND       },
+                { "json",             required_argument, NULL, ARG_JSON            },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -249,6 +299,13 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_legend = false;
                         break;
 
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -294,6 +351,9 @@ static int run(int argc, char *argv[]) {
                 /* Ignore SIGINT and allow the forked process to receive it */
                 (void) ignore_signals(SIGINT);
 
+                if (!arg_what)
+                        arg_what = "idle:sleep:shutdown";
+
                 if (!arg_who) {
                         w = strv_join(argv + optind, " ");
                         if (!w)
@@ -301,6 +361,9 @@ static int run(int argc, char *argv[]) {
 
                         arg_who = w;
                 }
+
+                if (!arg_why)
+                        arg_why = "Unknown reason";
 
                 if (!arg_mode)
                         arg_mode = "block";
