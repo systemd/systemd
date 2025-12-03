@@ -79,30 +79,30 @@ systemd-repart --dry-run=no --empty=create --size=410M --definitions=/tmp/valida
 systemd-dissect --mount --mkdir /var/tmp/validatefs-test.raw /tmp/validatefs-test.mount
 
 getfattr --dump /tmp/validatefs-test.mount/
-getfattr --dump /tmp/validatefs-test.mount/ | grep -q user.validatefs.gpt_type_uuid=
-getfattr --dump /tmp/validatefs-test.mount/ | grep -q user.validatefs.gpt_label=\"kromm\"
-getfattr --dump /tmp/validatefs-test.mount/ | grep -q user.validatefs.mount_point=\"/\"
+getfattr --dump /tmp/validatefs-test.mount/ | grep user.validatefs.gpt_type_uuid= >/dev/null
+getfattr --dump /tmp/validatefs-test.mount/ | grep user.validatefs.gpt_label=\"kromm\" >/dev/null
+getfattr --dump /tmp/validatefs-test.mount/ | grep user.validatefs.mount_point=\"/\" >/dev/null
 /usr/lib/systemd/systemd-validatefs --root=/tmp/validatefs-test.mount /tmp/validatefs-test.mount/
 (! /usr/lib/systemd/systemd-validatefs /tmp/validatefs-test.mount/ )
 
 getfattr --dump /tmp/validatefs-test.mount/usr
-getfattr --dump /tmp/validatefs-test.mount/usr | grep -q user.validatefs.gpt_type_uuid='".*\\000.*"'
-getfattr --dump /tmp/validatefs-test.mount/usr | grep -q user.validatefs.gpt_label='"plisch\\000plisch-verity"'
-getfattr --dump /tmp/validatefs-test.mount/usr | grep -q user.validatefs.mount_point=\"/usr\"
+getfattr --dump /tmp/validatefs-test.mount/usr | grep user.validatefs.gpt_type_uuid='".*\\000.*"' >/dev/null
+getfattr --dump /tmp/validatefs-test.mount/usr | grep user.validatefs.gpt_label='"plisch\\000plisch-verity"' >/dev/null
+getfattr --dump /tmp/validatefs-test.mount/usr | grep user.validatefs.mount_point=\"/usr\" >/dev/null
 /usr/lib/systemd/systemd-validatefs --root=/tmp/validatefs-test.mount /tmp/validatefs-test.mount/usr
 (! /usr/lib/systemd/systemd-validatefs /tmp/validatefs-test.mount/usr )
 
 getfattr --dump /tmp/validatefs-test.mount/home
-getfattr --dump /tmp/validatefs-test.mount/home | grep -q user.validatefs.gpt_type_uuid=
-getfattr --dump /tmp/validatefs-test.mount/home | grep -q user.validatefs.gpt_label=\"rupft\"
-getfattr --dump /tmp/validatefs-test.mount/home | grep -q user.validatefs.mount_point=\"/home\"
+getfattr --dump /tmp/validatefs-test.mount/home | grep user.validatefs.gpt_type_uuid= >/dev/null
+getfattr --dump /tmp/validatefs-test.mount/home | grep user.validatefs.gpt_label=\"rupft\" >/dev/null
+getfattr --dump /tmp/validatefs-test.mount/home | grep user.validatefs.mount_point=\"/home\" >/dev/null
 /usr/lib/systemd/systemd-validatefs --root=/tmp/validatefs-test.mount /tmp/validatefs-test.mount/home
 (! /usr/lib/systemd/systemd-validatefs /tmp/validatefs-test.mount/home )
 
 getfattr --dump /tmp/validatefs-test.mount/efi
-(! getfattr --dump /tmp/validatefs-test.mount/efi | grep -q user.validatefs.gpt_type_uuid= )
-(! getfattr --dump /tmp/validatefs-test.mount/efi | grep -q user.validatefs.gpt_label= )
-(! getfattr --dump /tmp/validatefs-test.mount/efi | grep -q  user.validatefs.mount_point= )
+(! getfattr --dump /tmp/validatefs-test.mount/efi | grep user.validatefs.gpt_type_uuid= >/dev/null )
+(! getfattr --dump /tmp/validatefs-test.mount/efi | grep user.validatefs.gpt_label= >/dev/null )
+(! getfattr --dump /tmp/validatefs-test.mount/efi | grep user.validatefs.mount_point= >/dev/null )
 /usr/lib/systemd/systemd-validatefs --root=/tmp/validatefs-test.mount /tmp/validatefs-test.mount/efi
 /usr/lib/systemd/systemd-validatefs /tmp/validatefs-test.mount/efi
 
