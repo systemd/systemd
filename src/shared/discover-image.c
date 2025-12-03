@@ -237,7 +237,6 @@ static int image_new(
                 ImageClass c,
                 const char *pretty,
                 const char *path,
-                const char *filename,
                 bool read_only,
                 usec_t crtime,
                 usec_t mtime,
@@ -248,7 +247,7 @@ static int image_new(
         assert(t >= 0);
         assert(t < _IMAGE_TYPE_MAX);
         assert(pretty);
-        assert(filename);
+        assert(path);
         assert(ret);
 
         i = new(Image, 1);
@@ -272,7 +271,7 @@ static int image_new(
         if (!i->name)
                 return -ENOMEM;
 
-        i->path = path_join(path, filename);
+        i->path = strdup(path);
         if (!i->path)
                 return -ENOMEM;
 
@@ -387,19 +386,16 @@ static int image_make(
                 ImageClass c,
                 const char *pretty,
                 int dir_fd,
-                const char *dir_path,
-                const char *filename,
-                int fd, /* O_PATH fd */
+                const char *path,
                 const struct stat *st,
                 Image **ret) {
 
-        _cleanup_free_ char *pretty_buffer = NULL;
+        _cleanup_free_ char *pretty_buffer = NULL, *image_path = NULL;
+         _cleanup_close_ int fd = -EBADF;
         bool read_only;
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(dir_path || dir_fd == AT_FDCWD);
-        assert(filename);
 
         /* We explicitly *do* follow symlinks here, since we want to allow symlinking trees, raw files and block
          * devices into /var/lib/machines/, and treat them normally.
@@ -407,34 +403,31 @@ static int image_make(
          * This function returns -ENOENT if we can't find the image after all, and -EMEDIUMTYPE if it's not a file we
          * recognize. */
 
-        _cleanup_close_ int _fd = -EBADF;
-        if (fd < 0) {
-                /* If we didn't get an fd passed in, then let's pin it via O_PATH now */
-                _fd = openat(dir_fd, filename, O_PATH|O_CLOEXEC);
-                if (_fd < 0)
+        if (!isempty(path)) {
+                /* If a path is provided, open it relative to dir_fd */
+                fd = openat(dir_fd, path, O_PATH|O_CLOEXEC);
+                if (fd < 0)
                         return -errno;
 
-                fd = _fd;
+                dir_fd = fd;
                 st = NULL; /* refresh stat() data now that we have the inode pinned */
         }
 
+        r = fd_get_path(dir_fd, &image_path);
+        if (r < 0)
+                return r;
+
         struct stat stbuf;
         if (!st) {
-                if (fstat(fd, &stbuf) < 0)
+                if (fstat(dir_fd, &stbuf) < 0)
                         return -errno;
 
                 st = &stbuf;
         }
 
-        _cleanup_free_ char *parent = NULL;
-        if (!dir_path) {
-                (void) fd_get_path(dir_fd, &parent);
-                dir_path = parent;
-        }
-
         read_only =
-                (dir_path && path_startswith(dir_path, "/usr")) ||
-                (faccessat(fd, "", W_OK, AT_EACCESS|AT_EMPTY_PATH) < 0 && errno == EROFS);
+                path_startswith(image_path, "/usr") ||
+                (faccessat(dir_fd, "", W_OK, AT_EACCESS|AT_EMPTY_PATH) < 0 && errno == EROFS);
 
         if (S_ISDIR(st->st_mode)) {
                 unsigned file_attr = 0;
@@ -445,7 +438,7 @@ static int image_make(
 
                 if (!pretty) {
                         r = extract_image_basename(
-                                        filename,
+                                        image_path,
                                         image_class_suffix_to_string(c),
                                         /* format_suffixes= */ NULL,
                                         &pretty_buffer,
@@ -458,7 +451,7 @@ static int image_make(
 
                 if (btrfs_might_be_subvol(st)) {
 
-                        r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
+                        r = fd_is_fs_type(dir_fd, BTRFS_SUPER_MAGIC);
                         if (r < 0)
                                 return r;
                         if (r > 0) {
@@ -466,15 +459,14 @@ static int image_make(
 
                                 /* It's a btrfs subvolume */
 
-                                r = btrfs_subvol_get_info_fd(fd, 0, &info);
+                                r = btrfs_subvol_get_info_fd(dir_fd, 0, &info);
                                 if (r < 0)
                                         return r;
 
                                 r = image_new(IMAGE_SUBVOLUME,
                                               c,
                                               pretty,
-                                              dir_path,
-                                              filename,
+                                              image_path,
                                               info.read_only || read_only,
                                               info.otime,
                                               info.ctime,
@@ -483,24 +475,23 @@ static int image_make(
                                         return r;
 
                                 (*ret)->foreign_uid_owned = uid_is_foreign(st->st_uid);
-                                (void) image_update_quota(*ret, fd);
+                                (void) image_update_quota(*ret, dir_fd);
                                 return 0;
                         }
                 }
 
                 /* Get directory creation time (not available everywhere, but that's OK */
-                (void) fd_getcrtime(fd, &crtime);
+                (void) fd_getcrtime(dir_fd, &crtime);
 
                 /* If the IMMUTABLE bit is set, we consider the directory read-only. Since the ioctl is not
                  * supported everywhere we ignore failures. */
-                (void) read_attr_fd(fd, &file_attr);
+                (void) read_attr_fd(dir_fd, &file_attr);
 
                 /* It's just a normal directory. */
                 r = image_new(IMAGE_DIRECTORY,
                               c,
                               pretty,
-                              dir_path,
-                              filename,
+                              image_path,
                               read_only || (file_attr & FS_IMMUTABLE_FL),
                               crtime,
                               0, /* we don't use mtime of stat() here, since it's not the time of last change of the tree, but only of the top-level dir */
@@ -511,7 +502,7 @@ static int image_make(
                 (*ret)->foreign_uid_owned = uid_is_foreign(st->st_uid);
                 return 0;
 
-        } else if (S_ISREG(st->st_mode) && endswith(filename, ".raw")) {
+        } else if (S_ISREG(st->st_mode) && endswith(image_path, ".raw")) {
                 usec_t crtime = 0;
 
                 /* It's a RAW disk image */
@@ -519,11 +510,11 @@ static int image_make(
                 if (!ret)
                         return 0;
 
-                (void) fd_getcrtime(fd, &crtime);
+                (void) fd_getcrtime(dir_fd, &crtime);
 
                 if (!pretty) {
                         r = extract_image_basename(
-                                        filename,
+                                        image_path,
                                         image_class_suffix_to_string(c),
                                         STRV_MAKE(".raw"),
                                         &pretty_buffer,
@@ -537,8 +528,7 @@ static int image_make(
                 r = image_new(IMAGE_RAW,
                               c,
                               pretty,
-                              dir_path,
-                              filename,
+                              image_path,
                               !(st->st_mode & 0222) || read_only,
                               crtime,
                               timespec_load(&st->st_mtim),
@@ -561,7 +551,7 @@ static int image_make(
 
                 if (!pretty) {
                         r = extract_image_basename(
-                                        filename,
+                                        image_path,
                                         /* class_suffix= */ NULL,
                                         /* format_suffix= */ NULL,
                                         &pretty_buffer,
@@ -572,22 +562,22 @@ static int image_make(
                         pretty = pretty_buffer;
                 }
 
-                _cleanup_close_ int block_fd = fd_reopen(fd, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                _cleanup_close_ int block_fd = fd_reopen(dir_fd, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
                 if (block_fd < 0)
-                        log_debug_errno(errno, "Failed to open block device %s/%s, ignoring: %m", strnull(dir_path), filename);
+                        log_debug_errno(errno, "Failed to open block device '%s', ignoring: %m", image_path);
                 else {
                         if (!read_only) {
                                 int state = 0;
 
                                 if (ioctl(block_fd, BLKROGET, &state) < 0)
-                                        log_debug_errno(errno, "Failed to issue BLKROGET on device %s/%s, ignoring: %m", strnull(dir_path), filename);
+                                        log_debug_errno(errno, "Failed to issue BLKROGET on device '%s', ignoring: %m", image_path);
                                 else if (state)
                                         read_only = true;
                         }
 
                         r = blockdev_get_device_size(block_fd, &size);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m", strnull(dir_path), filename);
+                                log_debug_errno(r, "Failed to issue BLKGETSIZE64 on device '%s', ignoring: %m", image_path);
 
                         block_fd = safe_close(block_fd);
                 }
@@ -595,8 +585,7 @@ static int image_make(
                 r = image_new(IMAGE_BLOCK,
                               c,
                               pretty,
-                              dir_path,
-                              filename,
+                              image_path,
                               !(st->st_mode & 0222) || read_only,
                               0,
                               0,
@@ -867,7 +856,7 @@ int image_find(RuntimeScope scope,
                                 continue;
                         }
 
-                        r = image_make(class, name, dirfd(d), resolved, fname, fd, &st, ret);
+                        r = image_make(class, name, fd, /* path= */ NULL, &st, ret);
                         if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
                                 continue;
                         if (r < 0)
@@ -884,9 +873,7 @@ int image_find(RuntimeScope scope,
                 r = image_make(class,
                                ".host",
                                /* dir_fd= */ AT_FDCWD,
-                               /* dir_path= */ NULL,
-                               /* filename= */ empty_to_root(root),
-                               /* fd= */ -EBADF,
+                               /* path= */ empty_to_root(root),
                                /* st= */ NULL,
                                ret);
                 if (r < 0)
@@ -912,9 +899,7 @@ int image_from_path(const char *path, Image **ret) {
                                 IMAGE_MACHINE,
                                 ".host",
                                 /* dir_fd= */ AT_FDCWD,
-                                /* dir_path= */ NULL,
-                                /* filename= */ "/",
-                                /* fd= */ -EBADF,
+                                /* path= */ "/",
                                 /* st= */ NULL,
                                 ret);
 
@@ -922,9 +907,7 @@ int image_from_path(const char *path, Image **ret) {
                         _IMAGE_CLASS_INVALID,
                         /* pretty= */ NULL,
                         /* dir_fd= */ AT_FDCWD,
-                        /* dir_path= */ NULL,
-                        /* filename= */ path,
-                        /* fd= */ -EBADF,
+                        /* path= */ path,
                         /* st= */ NULL,
                         ret);
 }
@@ -1101,7 +1084,7 @@ int image_discover(
                         if (hashmap_contains(*images, pretty))
                                 continue;
 
-                        r = image_make(class, pretty, dirfd(d), resolved, fname, fd, &st, &image);
+                        r = image_make(class, pretty, fd, /* path= */ NULL, &st, &image);
                         if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
                                 continue;
                         if (r < 0)
@@ -1123,9 +1106,7 @@ int image_discover(
                 r = image_make(IMAGE_MACHINE,
                                ".host",
                                /* dir_fd= */ AT_FDCWD,
-                               /* dir_path= */ NULL,
-                               empty_to_root(root),
-                               /* fd= */ -EBADF,
+                               /* path= */ empty_to_root(root),
                                /* st= */ NULL,
                                &image);
                 if (r < 0)
