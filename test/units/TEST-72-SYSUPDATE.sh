@@ -299,9 +299,9 @@ EOF
     # sure that sysupdate still recognizes the installation and can complete it
     # in place
     rm -r "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d"
-    "$SYSUPDATE" --offline list v5 | grep -q "incomplete"
+    "$SYSUPDATE" --offline list v5 | grep "incomplete" >/dev/null
     update_now
-    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    "$SYSUPDATE" --offline list v5 | grep -v "incomplete" >/dev/null
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
 
@@ -311,9 +311,9 @@ EOF
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
     mkdir "$CONFIGDIR/optional.feature.d"
     echo -e "[Feature]\nEnabled=true" > "$CONFIGDIR/optional.feature.d/enable.conf"
-    "$SYSUPDATE" --offline list v5 | grep -q "incomplete"
+    "$SYSUPDATE" --offline list v5 | grep "incomplete" >/dev/null
     update_now
-    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    "$SYSUPDATE" --offline list v5 | grep -v "incomplete" >/dev/null
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
     test -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
@@ -322,7 +322,7 @@ EOF
     rm -r "$CONFIGDIR/optional.feature.d"
     (! "$SYSUPDATE" --verify=no check-new)
     "$SYSUPDATE" vacuum
-    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    "$SYSUPDATE" --offline list v5 | grep -v "incomplete" >/dev/null
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"

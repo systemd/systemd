@@ -84,7 +84,7 @@ runas testuser systemd-run --wait --user --unit=test-caps \
 
 runas testuser systemd-run --wait --user --unit=test-devices \
     -p PrivateDevices=yes -p PrivateIPC=yes \
-    bash -c "ls -1 /dev/ | wc -l | grep -q -F 18"
+    bash -c "ls -1 /dev/ | wc -l | grep -F 18 >/dev/null"
 
 # Same check as test/test-execute/exec-privatenetwork-yes.service
 runas testuser systemd-run --wait --user --unit=test-network \
