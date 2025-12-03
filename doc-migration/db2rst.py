@@ -986,7 +986,8 @@ def itemizedlist(el):
 
 
 def orderedlist(el):
-    return _indent(el, 2, "1. ", True) + "\n\n"
+    return _concat(el) + "\n\n"
+    return _indent(el, 2, "", True) + "\n\n"
 
 
 def simplelist(el):
@@ -1056,13 +1057,13 @@ def varlistentry(el):
 def listitem(el):
     parent = el.getparent()
     listItemPrefix = ''
-    s = ""
     if parent.tag == 'orderedlist':
-        listItemPrefix = '1.'
+        preceding_listitems = el.xpath("./preceding-sibling::listitem")
+        listItemPrefix = f'{len(preceding_listitems) + 1}. '
     if parent.tag == 'itemizedlist':
         listItemPrefix = '* '
 
-    s += listItemPrefix + _concat(el)
+    s = listItemPrefix + _concat(el)
     return _wrap_with_inclusion_markers_if_necessary(el, s)
 
 # sections
