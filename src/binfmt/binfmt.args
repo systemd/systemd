@@ -1,12 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 option -h --help
-help Show this help
-        return help();
 
 option --version
-help Show package version
-        return version();
 
 option --cat-config
 help Show configuration files
