@@ -398,7 +398,7 @@ $imgs/zzz7 : start=     6291416, size=      131072, type=3B8F8425-20E0-4F3B-907F
 
     # Validate that the VolumeLabel= had the desired effect
     PASSWORD="" systemd-dissect "$imgs/zzz" -M "$imgs/mount"
-    udevadm info /dev/disk/by-label/schrupfel | grep -q ID_FS_TYPE=crypto_LUKS
+    udevadm info /dev/disk/by-label/schrupfel | grep ID_FS_TYPE=crypto_LUKS >/dev/null
     systemd-dissect -U "$imgs/mount"
 }
 
@@ -947,12 +947,12 @@ EOF
     fi
 
     systemd-dissect "$imgs/verity" --root-hash "$drh"
-    systemd-dissect "$imgs/verity" --root-hash "$drh" --json=short | grep -q '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"'
+    systemd-dissect "$imgs/verity" --root-hash "$drh" --json=short | grep '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"' >/dev/null
     systemd-dissect "$imgs/verity" --root-hash "$drh" -M "$imgs/mnt"
     systemd-dissect -U "$imgs/mnt"
 
     systemd-dissect "$imgs/offline" --root-hash "$offline_drh"
-    systemd-dissect "$imgs/offline" --root-hash "$offline_drh" --json=short | grep -q '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"'
+    systemd-dissect "$imgs/offline" --root-hash "$offline_drh" --json=short | grep '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"' >/dev/null
     systemd-dissect "$imgs/offline" --root-hash "$offline_drh" -M "$imgs/mnt"
     systemd-dissect -U "$imgs/mnt"
 }
@@ -1011,8 +1011,8 @@ EOF
     udevadm wait --timeout=60 --settle "${loop:?}p1" "${loop:?}p2"
 
     # Check that the verity block sizes are as expected
-    veritysetup dump "${loop}p2" | grep 'Data block size:' | grep -q '4096'
-    veritysetup dump "${loop}p2" | grep 'Hash block size:' | grep -q '1024'
+    veritysetup dump "${loop}p2" | grep 'Data block size:' | grep '4096' >/dev/null
+    veritysetup dump "${loop}p2" | grep 'Hash block size:' | grep '1024' >/dev/null
 }
 
 testcase_verity_hash_size_from_data_size() {
@@ -1089,7 +1089,7 @@ EOF
     assert_rc 0 test $data_bytes -lt $((100 * 1024 * 1024))
 
     # Check that the verity hash tree is created from the actual on-disk data, not the custom size
-    veritysetup dump "${loop}p2" | grep 'Data blocks:' | grep -q "$data_verity_blocks"
+    veritysetup dump "${loop}p2" | grep 'Data blocks:' | grep "$data_verity_blocks" >/dev/null
 }
 
 testcase_exclude_files() {

@@ -60,10 +60,10 @@ grep -q '^PRIORITY=6$' /tmp/output
 ID="$(systemd-id128 new)"
 echo -e 'HEAD\nTAIL\nTAIL' | systemd-cat -t "$ID"
 journalctl --sync
-journalctl -b -t "$ID" | grep -q HEAD
-journalctl -b -t "$ID" | grep -q TAIL
-journalctl -b -t "$ID" --truncate-newline | grep -q HEAD
-journalctl -b -t "$ID" --truncate-newline | grep -q -v TAIL
+journalctl -b -t "$ID" | grep HEAD >/dev/null
+journalctl -b -t "$ID" | grep TAIL >/dev/null
+journalctl -b -t "$ID" --truncate-newline | grep HEAD >/dev/null
+journalctl -b -t "$ID" --truncate-newline | grep -v TAIL >/dev/null
 
 # '-b all' negates earlier use of -b (-b and -m are otherwise exclusive)
 journalctl -b -1 -b all -m >/dev/null

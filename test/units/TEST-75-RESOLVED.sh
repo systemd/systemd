@@ -349,7 +349,7 @@ manual_testcase_02_mdns_llmnr() {
     # defaults to yes (both the global and per-link settings are yes)
     assert_in 'yes' "$(resolvectl mdns hoge)"
     assert_in 'yes' "$(resolvectl llmnr hoge)"
-    lsof -p "$(systemctl show --property MainPID --value systemd-resolved.service)" | grep -q ":mdns\|:5353"
+    lsof -p "$(systemctl show --property MainPID --value systemd-resolved.service)" | grep ":mdns\|:5353" >/dev/null
     # set per-link setting
     resolvectl mdns hoge yes
     resolvectl llmnr hoge yes
@@ -390,7 +390,7 @@ manual_testcase_02_mdns_llmnr() {
         echo "LLMNR=no"
     } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
     systemctl reload systemd-resolved.service
-    (! lsof -p "$(systemctl show --property MainPID --value systemd-resolved.service)" | grep -q ":mdns\|:5353")
+    (! lsof -p "$(systemctl show --property MainPID --value systemd-resolved.service)" | grep ":mdns\|:5353" >/dev/null)
     # set per-link setting
     resolvectl mdns hoge yes
     resolvectl llmnr hoge yes
@@ -1417,7 +1417,7 @@ testcase_15_wait_online_dns() {
         /usr/lib/systemd/systemd-networkd-wait-online --timeout=0 --dns --interface=dns0
 
     # Wait until it blocks waiting for updated DNS config
-    timeout 30 bash -c "journalctl -b -u $unit -f | grep -q -m1 'dns0: No.*DNS server is accessible'"
+    timeout 30 bash -c "journalctl -b -u $unit -f | grep -m1 'dns0: No.*DNS server is accessible'" >/dev/null
 
     # Update the global configuration. Restart rather than reload systemd-resolved so that
     # systemd-networkd-wait-online has to re-connect to the varlink service.

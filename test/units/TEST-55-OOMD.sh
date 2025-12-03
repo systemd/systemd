@@ -103,7 +103,7 @@ test_basic() {
     systemctl "$@" status TEST-55-OOMD-workload.slice
 
     # Verify systemd-oomd is monitoring the expected units.
-    timeout 1m bash -xec "until oomctl | grep -q -F 'Path: $cgroup_path'; do sleep 1; done"
+    timeout 1m bash -xec "until oomctl | grep -F 'Path: $cgroup_path' >/dev/null; do sleep 1; done"
     assert_in 'Memory Pressure Limit: 20.00%' \
               "$(oomctl | tac | sed -e '/Memory Pressure Monitored CGroups:/q' | tac | grep -A8 "Path: $cgroup_path")"
 

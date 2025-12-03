@@ -999,3 +999,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - When modifying existing tests, please convert the test to use the new assertion
   macros from `tests.h` if it is not already using those.
+
+## Integration Tests
+
+- Never use `grep -q` in a pipeline, use `grep >/dev/null` instead. The former
+  will generate `SIGPIPE` for the previous command in the pipeline when it finds
+  a match which will cause the test to fail unexpectedly.
