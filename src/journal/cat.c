@@ -26,6 +26,8 @@ static int arg_priority = LOG_INFO;
 static int arg_stderr_priority = -1;
 static bool arg_level_prefix = true;
 
+#include "cat.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -36,13 +38,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...] COMMAND ...\n"
                "\n%sExecute process with stdout/stderr connected to the journal.%s\n\n"
-               "  -h --help                      Show this help\n"
-               "     --version                   Show package version\n"
-               "  -t --identifier=STRING         Set syslog identifier\n"
-               "  -p --priority=PRIORITY         Set priority value (0..7)\n"
-               "     --stderr-priority=PRIORITY  Set priority value (0..7) used for stderr\n"
-               "     --level-prefix=BOOL         Control whether level prefix shall be parsed\n"
-               "     --namespace=NAMESPACE       Connect to specified journal namespace\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -52,90 +48,13 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_STDERR_PRIORITY,
-                ARG_LEVEL_PREFIX,
-                ARG_NAMESPACE,
-        };
-
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "identifier",      required_argument, NULL, 't'                 },
-                { "priority",        required_argument, NULL, 'p'                 },
-                { "stderr-priority", required_argument, NULL, ARG_STDERR_PRIORITY },
-                { "level-prefix",    required_argument, NULL, ARG_LEVEL_PREFIX    },
-                { "namespace",       required_argument, NULL, ARG_NAMESPACE       },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
-        while ((c = getopt_long(argc, argv, "+ht:p:", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        help();
-                        return 0;
-
-                case ARG_VERSION:
-                        return version();
-
-                case 't':
-                        arg_identifier = empty_to_null(optarg);
-                        break;
-
-                case 'p':
-                        arg_priority = log_level_from_string(optarg);
-                        if (arg_priority < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse priority value.");
-                        break;
-
-                case ARG_STDERR_PRIORITY:
-                        arg_stderr_priority = log_level_from_string(optarg);
-                        if (arg_stderr_priority < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse stderr priority value.");
-                        break;
-
-                case ARG_LEVEL_PREFIX:
-                        r = parse_boolean_argument("--level-prefix=", optarg, &arg_level_prefix);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_NAMESPACE:
-                        arg_namespace = empty_to_null(optarg);
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1;
-}
-
 static int run(int argc, char *argv[]) {
         _cleanup_close_ int outfd = -EBADF, errfd = -EBADF, saved_stderr = -EBADF;
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 

@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+global optstring_prefix +
+
+option -h --help
+
+option --version
+
+option -t= --identifier=[STRING]
+        arg_identifier = empty_to_null(optarg);
+
+option -p= --priority=PRIORITY
+        arg_priority = log_level_from_string(optarg);
+        if (arg_priority < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to parse priority value.");
+
+option --stderr-priority=PRIORITY
+        arg_stderr_priority = log_level_from_string(optarg);
+        if (arg_stderr_priority < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to parse stderr priority value.");
+
+option --level-prefix=yes|no
+        r = parse_boolean_argument("--level-prefix=", optarg, &arg_level_prefix);
+        if (r < 0)
+                return r;
+
+option --namespace=[NAMESPACE]
+        arg_namespace = empty_to_null(optarg);

@@ -85,6 +85,7 @@ executables += [
                 'name' : 'systemd-cat',
                 'public' : true,
                 'sources' : files('cat.c'),
+                'arg_parser' : files('cat.args'),
                 'objects' : ['systemd-journald'],
                 'dependencies' : [threads],
         },
