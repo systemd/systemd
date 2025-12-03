@@ -42,6 +42,9 @@ static void print_property(UdevEvent *event, const char *name, const char *value
         if (streq(name, "TYPE")) {
                 udev_builtin_add_property(event, "ID_FS_TYPE", value);
 
+        } else if (streq(name, "MOUNTTYPE")) {
+                udev_builtin_add_property(event, "ID_FS_MOUNTTYPE", value);
+
         } else if (streq(name, "USAGE")) {
                 udev_builtin_add_property(event, "ID_FS_USAGE", value);
 
