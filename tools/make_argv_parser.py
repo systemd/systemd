@@ -160,6 +160,9 @@ class Option:
 
 
 def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
+    # 0. Generate forward declaration
+    yield 'static int help(void);'
+
     # 1. Generate help string
     if (help_key_width := globals.help_key_width) is None:
         help_key_width = max(len(option.help_key() or '') for option in options)

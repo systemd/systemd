@@ -24,6 +24,8 @@ static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_unregister = false;
 
+#include "binfmt.args.inc"
+
 static int delete_rule(const char *rulename) {
         const char *fn = strjoina("/proc/sys/fs/binfmt_misc/", rulename);
         return write_string_file(fn, "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
@@ -105,9 +107,6 @@ static int cat_config(char **files) {
 
         return cat_files(NULL, files, arg_cat_flags);
 }
-
-static int help(void);
-#include "binfmt.args.inc"
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
