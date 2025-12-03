@@ -36,8 +36,7 @@ extern int umount(const char *__special_file);
 /* Unmount a filesystem.  Force unmounting if FLAGS is set to MNT_FORCE.  */
 extern int umount2(const char *__special_file, int __flags);
 
-/* Open the filesystem referenced by FS_NAME so it can be configured for
-   mouting.  */
+/* Open the filesystem referenced by FS_NAME so it can be configured for mounting. */
 /* Defined since glibc-2.36.
  * Supported since kernel v5.2 (24dcb3d90a1f67fe08c68a004af37df059d74005). */
 #if HAVE_FSOPEN
