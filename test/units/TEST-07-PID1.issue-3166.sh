@@ -14,3 +14,4 @@ while [[ "$active_state" == "activating" || "$active_state" =~ ^(in)?active$ ]];
 done
 systemctl is-failed issue3166-fail-on-restart.service || exit 1
 [[ "$(systemctl show --value --property NRestarts issue3166-fail-on-restart.service)" -le 3 ]] || exit 1
+[[ "$(systemctl show --value --property Result issue3166-fail-on-restart.service)" = "start-limit-hit" ]] || exit 1
