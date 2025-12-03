@@ -62,6 +62,58 @@ html_theme_options = {
     }
 }
 
+def extract_manpage_metadata(text: str):
+    """
+    Extract :title:, :summary:, and :manvolnum: from the first 10 lines of an RST file.
+    Returns a dict with keys 'title', 'summary', 'manvolnum' or None if any is missing.
+    """
+    title = summary = manvol = None
+    for line in text.splitlines()[:10]:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # Skip comment lines, e.g. '.. something', but allow '.. :field:' just in case
+        if stripped.startswith("..") and not (
+            stripped.startswith(".. :title:")
+            or stripped.startswith(".. :summary:")
+            or stripped.startswith(".. :manvolnum:")
+        ):
+            continue
+        if stripped.startswith(":title:"):
+            title = stripped[len(":title:"):].strip()
+            continue
+        if stripped.startswith(":summary:"):
+            summary = stripped[len(":summary:"):].strip()
+            continue
+        if stripped.startswith(":manvolnum:"):
+            manvol = stripped[len(":manvolnum:"):].strip()
+            continue
+        # Stop when we reach real content
+        if not stripped.startswith(":"):
+            break
+    if title and summary and manvol:
+        return {"title": title, "summary": summary, "manvolnum": manvol}
+    return None
+
+# Find all RST files for the man page list
+def find_man_sources():
+    result = []
+    for root, dirs, files in os.walk("."):
+        for f in files:
+            if f.endswith(".rst") and f not in ("index.rst",):
+                path = os.path.join(root, f)
+                docname = path[:-4]  # strip ".rst"
+                name = os.path.basename(docname)
+                with open(path, "r", encoding="utf-8") as file_content:
+                    meta = extract_manpage_metadata(file_content.read())
+                    if meta is not None:
+                        result.append((f"docs/{name}", meta['title'], meta['summary'], [], meta['manvolnum']))
+    result.append(('index', 'systemd.index', 'List all manpages from the systemd project', None, 7))
+    result.append(('directives', 'systemd.directives', 'Index of configuration directives', None, 7))
+    return result
+
+man_pages = find_man_sources()
+
 # Note that these substitutions are performed _before_ Sphinx runs.
 # They live in doc-migration/preprocess_rst.py, which is called by
 # the makefile.
