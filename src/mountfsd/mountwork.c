@@ -353,6 +353,8 @@ static int vl_method_mount_image(
         }
 
         r = validate_image_fd(image_fd, &p);
+        if (r == -EREMOTEIO)
+                return sd_varlink_errorbo(link, "io.systemd.MountFileSystem.BadFileDescriptorFlags", SD_JSON_BUILD_PAIR_STRING("parameter", "imageFileDescriptor"));
         if (r < 0)
                 return r;
 
