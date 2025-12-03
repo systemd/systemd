@@ -839,6 +839,9 @@ def _collect_term_names(vle):
 
 def _escape_if_needed(tail):
     if tail and re.match(r'^\S', tail):
+        # These are fine as tails, see https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#inline-markup-recognition-rules
+        if tail[0] in ['-', '.', ',', ':', ';', '!', '?', '\\', '/', "'", '"', ')', ']', '}', '>']:
+            return ''
         return '\\'
     return ''
 
