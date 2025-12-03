@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-vpick',
                 'public' : true,
                 'sources' : files('vpick-tool.c'),
+                'arg_parser' : files('vpick-tool.args'),
         },
 ]
