@@ -25,8 +25,6 @@ static char **arg_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_path, strv_freep);
 
-static int help(void);
-
 #include "bless-boot.args.inc"
 
 static int help(void) {

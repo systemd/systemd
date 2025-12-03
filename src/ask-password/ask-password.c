@@ -38,8 +38,6 @@ static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_message, freep);
 
-static int help(void);
-
 #include "ask-password.args.inc"
 
 static int help(void) {

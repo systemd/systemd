@@ -890,7 +890,6 @@ static int verb_revert(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int help(void);
 #include "timedatectl.args.inc"
 
 static int help(void) {

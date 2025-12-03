@@ -18,8 +18,6 @@ static enum {
         ACTION_LOW,
 } arg_action = ACTION_AC_POWER;
 
-static int help(void);
-
 #include "ac-power.args.inc"
 
 static int help(void) {

@@ -79,6 +79,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 #define NAME_IS_ACQUIRED INT_TO_PTR(1)
 #define NAME_IS_ACTIVATABLE INT_TO_PTR(2)
 
+#include "busctl.args.inc"
+
 static int acquire_bus(bool set_monitor, sd_bus **ret) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int pin_fd = -EBADF;
@@ -2054,10 +2056,6 @@ static int set_property(int argc, char **argv, void *userdata) {
 
         return 0;
 }
-
-static int help(void);
-
-#include "busctl.args.inc"
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;

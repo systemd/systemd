@@ -140,6 +140,8 @@ static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, uint64
 #define MAYBE_FORMAT_BYTES(is_valid, t) \
         maybe_format_bytes((char[BUFSIZE2]){}, BUFSIZE2, is_valid, t)
 
+#include "cgtop.args.inc"
+
 static bool is_root_cgroup(const char *path) {
 
         /* Returns true if the specified path belongs to the root cgroup. The root cgroup is special on cgroup v2 as it
@@ -691,10 +693,6 @@ static void display(Hashmap *a) {
                 putchar('\n');
         }
 }
-
-static int help(void);
-
-#include "cgtop.args.inc"
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
