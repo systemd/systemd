@@ -29,7 +29,7 @@ mkdir -p /tmp/ageby/d{1..4}
 # timestamp. But, if the timestamp is visible in "stat" it is a
 # good indicator that the test can be run.
 TEST_TMPFILES_AGEBY_BTIME=${TEST_TMPFILES_AGEBY_BTIME:-0}
-if stat --format "%w" /tmp/ageby 2>/dev/null | grep -qv '^[\?\-]$'; then
+if stat --format "%w" /tmp/ageby 2>/dev/null | grep -v '^[\?\-]$' >/dev/null; then
     TEST_TMPFILES_AGEBY_BTIME=1
 fi
 
@@ -85,7 +85,7 @@ fi
 
 # Check for an invalid "age" and "age-by" arguments.
 for a in ':' ':1s' '2:1h' 'nope:42h' '"  :7m"' 'm:' '::' '"+r^w-x:2/h"' 'b ar::64'; do
-    systemd-tmpfiles --clean - <<EOF 2>&1 | grep -q -F 'Invalid age'
+    systemd-tmpfiles --clean - <<EOF 2>&1 | grep -F 'Invalid age' >/dev/null
 d /tmp/ageby - - - ${a} -
 EOF
 done

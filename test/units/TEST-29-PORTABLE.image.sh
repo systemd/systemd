@@ -33,13 +33,13 @@ systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
 systemctl is-active minimal-app0-foo.service && exit 1
 
-portablectl list | grep -q -F "minimal_1"
-busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1'
+portablectl list | grep -F "minimal_1" >/dev/null
+busctl tree org.freedesktop.portable1 --no-pager | grep -F '/org/freedesktop/portable1/image/minimal_5f1' >/dev/null
 
 portablectl detach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
-portablectl list | grep -q -F "No images."
-busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
+portablectl list | grep -F "No images." >/dev/null
+busctl tree org.freedesktop.portable1 --no-pager | grep -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1 >/dev/null
 
 # Ensure we don't regress (again) when using --force
 
@@ -74,13 +74,13 @@ systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
 systemctl is-active minimal-app0-foo.service && exit 1
 
-portablectl list | grep -q -F "minimal_1"
-busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1'
+portablectl list | grep -F "minimal_1" >/dev/null
+busctl tree org.freedesktop.portable1 --no-pager | grep -F '/org/freedesktop/portable1/image/minimal_5f1' >/dev/null
 
 portablectl detach --force --now --runtime /usr/share/minimal_1.raw minimal-app0
 
-portablectl list | grep -q -F "No images."
-busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
+portablectl list | grep -F "No images." >/dev/null
+busctl tree org.freedesktop.portable1 --no-pager | grep -F '/org/freedesktop/portable1/image/minimal_5f1' >/dev/null && exit 1
 
 portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app0.raw /usr/share/minimal_0.raw app0
 
@@ -182,7 +182,7 @@ systemctl is-active app0.service
 status="$(portablectl is-attached --extension /tmp/app10.raw /usr/share/minimal_0.raw)"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl inspect --force --cat --extension /tmp/app10.raw /usr/share/minimal_0.raw app0 | grep -q -F "Extension Release: /tmp/app10.raw"
+portablectl inspect --force --cat --extension /tmp/app10.raw /usr/share/minimal_0.raw app0 | grep -F "Extension Release: /tmp/app10.raw" >/dev/null
 
 # Ensure that we can detach even when an image has been deleted already (stop the unit manually as
 # portablectl won't find it)
@@ -197,7 +197,7 @@ systemctl is-active app0.service
 status="$(portablectl is-attached --extension /tmp/app0.raw --extension /tmp/conf0.raw /usr/share/minimal_0.raw)"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl inspect --force --cat --extension /tmp/app0.raw --extension /tmp/conf0.raw /usr/share/minimal_0.raw app0 | grep -q -F "Extension Release: /tmp/conf0.raw"
+portablectl inspect --force --cat --extension /tmp/app0.raw --extension /tmp/conf0.raw /usr/share/minimal_0.raw app0 | grep -F "Extension Release: /tmp/conf0.raw" >/dev/null
 
 portablectl detach --now --runtime --extension /tmp/app0.raw --extension /tmp/conf0.raw /usr/share/minimal_0.raw app0
 
@@ -228,9 +228,9 @@ status="$(portablectl is-attached --extension app1 minimal_0)"
 
 # Ensure 'portablectl list' shows the correct status for both images
 portablectl list
-portablectl list | grep -F "minimal_0" | grep -q -F "attached-runtime"
-portablectl list | grep -F "app0" | grep -q -F "attached-runtime"
-portablectl list | grep -F "app1" | grep -q -F "attached-runtime"
+portablectl list | grep -F "minimal_0" | grep -F "attached-runtime" >/dev/null
+portablectl list | grep -F "app0" | grep -F "attached-runtime" >/dev/null
+portablectl list | grep -F "app1" | grep -F "attached-runtime" >/dev/null
 
 portablectl detach --runtime --extension /tmp/app0.raw /usr/share/minimal_0.raw app
 
