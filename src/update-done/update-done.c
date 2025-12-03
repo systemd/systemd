@@ -20,6 +20,8 @@ static char *arg_root = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
+#include "update-done.args.inc"
+
 static int save_timestamp(const char *dir, struct timespec *ts) {
         _cleanup_free_ char *message = NULL, *dirpath = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -70,8 +72,7 @@ static int help(void) {
         printf("%1$s [OPTIONS...]\n\n"
                "%5$sMark /etc/ and /var/ as fully updated.%6$s\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
-               "     --root=PATH         Operate on root directory PATH\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -83,56 +84,16 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_ROOT = 0x100,
-        };
-
-        static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'          },
-                { "root",     required_argument, NULL, ARG_ROOT     },
-                {},
-        };
-
-        int r, c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
-
-        return 1;
-}
-
-
 static int run(int argc, char *argv[]) {
         struct stat st;
         int r;
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         log_setup();
 
