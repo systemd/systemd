@@ -324,7 +324,7 @@ static int timer_coldplug(Unit *u) {
 static void timer_enter_dead(Timer *t, TimerResult f) {
         assert(t);
 
-        if (t->result == TIMER_SUCCESS)
+        if (t->result == TIMER_SUCCESS || f == TIMER_FAILURE_START_LIMIT_HIT)
                 t->result = f;
 
         unit_log_result(UNIT(t), t->result == TIMER_SUCCESS, timer_result_to_string(t->result));
