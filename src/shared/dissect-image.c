@@ -5081,6 +5081,12 @@ int mountfsd_mount_image_fd(
         if (r < 0)
                 return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
 
+        _cleanup_close_ int reopened_fd = -EBADF;
+
+        image_fd = fd_reopen_condition(image_fd, O_CLOEXEC|O_NOCTTY|O_NONBLOCK|(FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY) ? O_RDONLY : O_RDWR), O_PATH, &reopened_fd);
+        if (image_fd < 0)
+                return log_error_errno(image_fd, "Failed to reopen fd: %m");
+
         r = sd_varlink_push_dup_fd(vl, image_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to push image fd into varlink connection: %m");
