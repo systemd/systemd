@@ -127,10 +127,21 @@ class Option:
         return ''.join((*lhs, *rhs))
 
     def _insert_defaults(self) -> None:
+        match self.long_name():
+            case 'help':
+                help = 'Show this help'
+                body = ['return help();']
+            case 'version':
+                help = 'Show package version'
+                body = ['return version();']
+            case _:
+                help = 'XXXXXXXXXX'
+                body = ['#warning TBD']
+
         if not self.help:
-            self.help = 'XXXXXXXXXX'
+            self.help = help
         if not self.body:
-            self.body = ['#warning TBD']
+            self.body = body
 
     def __post_init__(self) -> None:
         # trim empty lines at end of body
