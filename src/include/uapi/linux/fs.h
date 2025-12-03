@@ -426,10 +426,13 @@ typedef int __bitwise __kernel_rwf_t;
 /* buffered IO that drops the cache after reading or writing data */
 #define RWF_DONTCACHE	((__kernel_rwf_t)0x00000080)
 
+/* prevent pipe and socket writes from raising SIGPIPE */
+#define RWF_NOSIGNAL	((__kernel_rwf_t)0x00000100)
+
 /* mask of flags supported by the kernel */
 #define RWF_SUPPORTED	(RWF_HIPRI | RWF_DSYNC | RWF_SYNC | RWF_NOWAIT |\
 			 RWF_APPEND | RWF_NOAPPEND | RWF_ATOMIC |\
-			 RWF_DONTCACHE)
+			 RWF_DONTCACHE | RWF_NOSIGNAL)
 
 #define PROCFS_IOCTL_MAGIC 'f'
 
