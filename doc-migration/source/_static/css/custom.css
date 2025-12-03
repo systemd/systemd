@@ -8,20 +8,40 @@ section {
   margin-block-end: 2em;
 }
 
-.systemd-object-header {
-  font-size: 1.5em;
-  font-weight: 600;
-}
-
-/* Make right sidebar wider to accomodate long titles */
-.toc-drawer {
-  width: 100%;
+@media (max-width: 63em) {
+  /* Space between mobile header buttons */
+  .mobile-header .header-left, .mobile-header .header-right {
+    gap: 0.75em;
+  }
 }
 
 /* Make Toc section headers bold */
 .toc-tree li a:has(+ ul) {
   font-weight: 600;
 }
+
+/* Hide Toc captions in HTML */
+.toctree-wrapper .caption span.caption-text {
+  display: none;
+}
+
+.sidebar-tree .reference.internal .reference-name,
+.toctree-wrapper .reference.internal .reference-name {
+  font-weight: 600;
+}
+.sidebar-tree .reference.internal .reference-description,
+.toctree-wrapper .reference.internal .reference-description {
+  color: var(--color-foreground-muted);
+}
+
+.sidebar-tree .reference.internal.current {
+  border-right: 5px solid var(--color-sidebar-link-text--top-level)
+}
+
+.sidebar-logo-container {
+  margin-block: 2.4em 1.6em;
+}
+
 
 .sig-name,
 .sig-prename {
