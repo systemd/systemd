@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --no-pager
+help Do not pipe output into a pager
+        arg_pager_flags |= PAGER_DISABLE;
+
+option --diff[=yes|no]
+help Show a diff when overridden files differ
+        r = parse_boolean_argument("--diff", optarg, NULL);
+        if (r < 0)
+                return r;
+        arg_diff = r;
+
+option -t= --type=LIST
+help Only display a selected set of override types
+        int f;
+
+        f = parse_flags(optarg, arg_flags);
+        if (f < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to parse flags field.");
+        arg_flags = f;
