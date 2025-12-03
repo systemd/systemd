@@ -31,6 +31,8 @@ static char *arg_root = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_target, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
+#include "validatefs.args.inc"
+
 static int help(void) {
         int r;
 
@@ -41,9 +43,7 @@ static int help(void) {
 
         printf("%1$s [OPTIONS...] /path/to/mountpoint\n"
                "\n%3$sCheck file system validation constraints.%4$s\n\n"
-               "  -h --help            Show this help and exit\n"
-               "     --version         Print version string and exit\n"
-               "     --root=PATH|auto  Operate relative to the specified path\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -54,58 +54,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_ROOT,
-        };
+        int r;
 
-        int c, r;
-
-        static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'         },
-                { "version" , no_argument,       NULL, ARG_VERSION },
-                { "root",     required_argument, NULL, ARG_ROOT    },
-                {}
-        };
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_ROOT:
-                        if (streq(optarg, "auto")) {
-                                arg_root = mfree(arg_root);
-
-                                if (in_initrd()) {
-                                        arg_root = strdup("/sysroot");
-                                        if (!arg_root)
-                                                return log_oom();
-                                }
-
-                                break;
-                        }
-
-                        if (!path_is_absolute(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--root= argument must be 'auto' or absolute path, got: %s", optarg);
-
-                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (optind + 1 != argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
