@@ -119,7 +119,7 @@ testcase_long_path() {
     systemctl daemon-reload
 
     # check that unit is active(mounted)
-    systemctl --no-pager show -p SubState --value "$long_path" | grep -q mounted
+    systemctl --no-pager show -p SubState --value "$long_path" | grep mounted >/dev/null
 
     # check that relevant part of journal doesn't contain any errors related to unit
     [ "$(journalctl -b --since="$ts" --priority=err | grep -c "$long_mnt")" = "0" ]
@@ -149,7 +149,7 @@ testcase_mount_ratelimit() {
     done
 
     systemctl daemon-reload
-    systemctl list-units -t mount tmp-meow* | grep -q tmp-meow
+    systemctl list-units -t mount tmp-meow* | grep tmp-meow >/dev/null
 
     for ((i = 0; i < num_dirs; i++)); do
         umount "/tmp/meow${i}"
@@ -165,7 +165,7 @@ testcase_mount_ratelimit() {
 
     # Verify that the mount units are always cleaned up at the end.
     # Give some time for units to settle so we don't race between exiting the rate limit state and cleaning up the units.
-    timeout 2m bash -c 'while systemctl list-units -t mount tmp-meow* | grep -q tmp-meow; do systemctl daemon-reload; sleep 10; done'
+    timeout 2m bash -c 'while systemctl list-units -t mount tmp-meow* | grep tmp-meow >/dev/null; do systemctl daemon-reload; sleep 10; done'
 }
 
 mkdir -p /run/systemd/journald.conf.d

@@ -60,7 +60,7 @@ busctl emit --auto-start=no --destination=systemd-logind.service \
 systemd-run --quiet --service-type=notify --unit=test-busctl-wait --pty \
             -p Environment=SYSTEMD_LOG_LEVEL=debug \
             -p ExecStartPost="busctl emit /test org.freedesktop.fake1 TestSignal s success" \
-            busctl --timeout=30 wait /test org.freedesktop.fake1 TestSignal | grep -qF 's "success"'
+            busctl --timeout=30 wait /test org.freedesktop.fake1 TestSignal | grep -F 's "success"' >/dev/null
 
 busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
                     Version
