@@ -1437,7 +1437,7 @@ _public_ int sd_bus_open_user(sd_bus **ret) {
 
 int bus_set_address_system_remote(sd_bus *b, const char *host) {
         _cleanup_free_ char *e = NULL;
-        char *m = NULL, *c = NULL, *a, *rbracket = NULL, *p = NULL;
+        const char *m = NULL, *c = NULL, *a, *rbracket = NULL, *p = NULL;
 
         assert(b);
         assert(host);
@@ -1475,7 +1475,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
         /* Let's see if a port was given */
         m = strchr(rbracket ? rbracket + 1 : host, ':');
         if (m) {
-                char *t;
+                const char *t;
                 bool got_forward_slash = false;
 
                 p = m + 1;
@@ -1521,14 +1521,15 @@ interpret_port_as_machine_old_syntax:
         if (!ssh_escaped)
                 return -ENOMEM;
 
-        a = strjoin("unixexec:path=", ssh_escaped, ",argv1=-xT",
-                    p ? ",argv2=-p,argv3=" : "", strempty(p),
-                    ",argv", p ? "4" : "2", "=--,argv", p ? "5" : "3", "=", e,
-                    ",argv", p ? "6" : "4", "=systemd-stdio-bridge", c);
-        if (!a)
+        char *address = strjoin(
+                        "unixexec:path=", ssh_escaped, ",argv1=-xT",
+                        p ? ",argv2=-p,argv3=" : "", strempty(p),
+                        ",argv", p ? "4" : "2", "=--,argv", p ? "5" : "3", "=", e,
+                        ",argv", p ? "6" : "4", "=systemd-stdio-bridge", c);
+        if (!address)
                 return -ENOMEM;
 
-        return free_and_replace(b->address, a);
+        return free_and_replace(b->address, address);
 }
 
 _public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
