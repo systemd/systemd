@@ -39,30 +39,28 @@ html_title = ''
 html_css_files = [
     'css/custom.css',
 ]
+html_js_files = [
+    'js/custom.js',
+]
 html_theme_options = {
     # TODO: update these `source`-options with the proper values
     "source_repository": "https://github.com/neighbourhoodie/nh-systemd",
     "source_branch": "man_pages_in_sphinx",
     "source_directory": "doc-migration/source/",
+    "sidebar_hide_name": True,
     "light_logo": "systemd-logo.svg",
-    "dark_logo": "systemd-logo.svg",
+    "dark_logo": "systemd-logo-dark.svg",
     "light_css_variables": {
         "color-brand-primary": "#35a764",
         "color-brand-content": "#35a764",
+        "color-brand-visited": "#197b43"
     },
+    "dark_css_variables": {
+        "color-brand-primary": "#2fd576",
+        "color-brand-content": "#2fd576",
+        "color-brand-visited": "#b3efcd"
+    }
 }
-
-
-man_pages = [
-    # ('docs/systemd-directives', 'directives', 'Systemd Directives', None, '7'),
-    ('docs/busctl', 'busctl', 'Introspect the bus', None, '1'),
-    # ('docs/systemctl', 'systemctl', 'Control the systemd system and service manager', None, '1'),
-    # ('docs/journalctl', 'journalctl', 'Print log entries from the systemd journal', None, '1'),
-    # ('docs/os-release', 'os-release', 'Operating system identification', None, '5'),
-    # ('docs/systemd', 'systemd, init', 'systemd system and service manager', None, '1'),
-    # ('docs/kernel-install', 'kernel-install', 'Add and remove kernel and initrd images to and from the boot partition', None, '8'),
-    # ('docs/sd_machine_get_class', 'sd_machine_get_class', 'Determine the class and network interface indices of a locally running virtual machine or container', None, '3'),
-]
 
 # Note that these substitutions are performed _before_ Sphinx runs.
 # They live in doc-migration/preprocess_rst.py, which is called by
