@@ -411,23 +411,23 @@ def process_systemd_directive_index(app: Sphinx, doctree, from_doc_name: str) ->
 
         section_id = f"systemd-group-{nodes.make_id(group_id)}"
         sec = nodes.section(ids=[section_id])
+        # Group heading (keep a real section title; add bold line for man as fallback)
         sec += nodes.title(text=meta.get('title', group_id))
+        if getattr(getattr(app, 'builder', None), 'name', '') == 'man':
+            sec += nodes.paragraph('', '', nodes.strong(text=meta.get('title', group_id)))
         desc = meta.get('description', '')
         if desc:
             sec += nodes.paragraph(text=desc)
 
-        # Sort by kind then name
+        # Sort by kind then name, render as definition list
+        dlist = nodes.definition_list()
         for (kind, norm_name), entries in sorted(entries_by_obj.items(), key=lambda x: (x[0][0], x[0][1])):
-            # Render object header
             title_text = entries[0].get('name') or norm_name
-            obj_sec = nodes.section()
-            obj_title = nodes.title(text=title_text, classes=['systemd-directive-header'])
-            obj_id = nodes.make_id(f"{group_id}-{kind}-{norm_name}")
-            obj_title['ids'] = [obj_id]
-            obj_sec['ids'] = [obj_id]
-            obj_sec += obj_title
 
-            # Links: one per doc
+            term = nodes.term()
+            term += nodes.Text(title_text)
+
+            dd = nodes.definition()
             links_para = nodes.paragraph()
             linked_docs: List[str] = []
             for e in entries:
@@ -442,9 +442,12 @@ def process_systemd_directive_index(app: Sphinx, doctree, from_doc_name: str) ->
                 if len(links_para):
                     links_para += nodes.Text(", ")
                 links_para += ref
+            dd += links_para
 
-            obj_sec += links_para
-            sec += obj_sec
+            dli = nodes.definition_list_item('', term, dd)
+            dlist += dli
+
+        sec += dlist
 
         return sec
 
@@ -457,10 +460,6 @@ def process_systemd_directive_index(app: Sphinx, doctree, from_doc_name: str) ->
     for gid in sorted(set(grouped.keys()) - seen_groups):
         sections.append(render_group(gid))
 
-    container = nodes.container()
-    container['ids'] = ['systemd-directive-index']
-    container.extend(sections)
-
     # If this is the directives document, force-replace its body now
     if from_doc_name == 'directives':
         try:
@@ -468,15 +467,16 @@ def process_systemd_directive_index(app: Sphinx, doctree, from_doc_name: str) ->
                 doctree.pop()
         except Exception:
             doctree.children = []
-        doctree += container
-        logger.info("systemd: doctree-resolved: replaced body of 'directives' with generated index")
+        for s in sections:
+            doctree += s
+        logger.info("systemd: doctree-resolved: replaced body of 'directives' with generated index (sections direct)")
         return
 
-    # Otherwise, replace placeholder container in this doctree (if present)
+    # Otherwise, replace placeholder in this doctree (if present) with the sections directly
     replaced = False
     for n in doctree.traverse(nodes.Element):
         if getattr(n, 'ids', None) and 'systemd-directive-index' in n['ids']:
-            n.replace_self(container)
+            n.replace_self(sections)
             replaced = True
             break
     # If not found, nothing to replace in this doctree
@@ -502,23 +502,23 @@ def build_systemd_index_container(app: Sphinx, from_doc_name: str) -> nodes.cont
 
         section_id = f"systemd-group-{nodes.make_id(group_id)}"
         sec = nodes.section(ids=[section_id])
+        # Group heading (keep a real section title; add bold line for man as fallback)
         sec += nodes.title(text=meta.get('title', group_id))
+        if getattr(getattr(app, 'builder', None), 'name', '') == 'man':
+            sec += nodes.paragraph('', '', nodes.strong(text=meta.get('title', group_id)))
         desc = meta.get('description', '')
         if desc:
             sec += nodes.paragraph(text=desc)
 
-        # Sort by kind then name
+        # Sort by kind then name, render as definition list
+        dlist = nodes.definition_list()
         for (kind, norm_name), entries in sorted(entries_by_obj.items(), key=lambda x: (x[0][0], x[0][1])):
-            # Render object header
             title_text = entries[0].get('name') or norm_name
-            obj_sec = nodes.section()
-            obj_title = nodes.title(text=title_text, classes=['systemd-directive-header'])
-            obj_id = nodes.make_id(f"{group_id}-{kind}-{norm_name}")
-            obj_title['ids'] = [obj_id]
-            obj_sec['ids'] = [obj_id]
-            obj_sec += obj_title
 
-            # Links: one per doc
+            term = nodes.term()
+            term += nodes.Text(title_text)
+
+            dd = nodes.definition()
             links_para = nodes.paragraph()
             linked_docs: List[str] = []
             for e in entries:
@@ -533,9 +533,12 @@ def build_systemd_index_container(app: Sphinx, from_doc_name: str) -> nodes.cont
                 if len(links_para):
                     links_para += nodes.Text(", ")
                 links_para += ref
+            dd += links_para
 
-            obj_sec += links_para
-            sec += obj_sec
+            dli = nodes.definition_list_item('', term, dd)
+            dlist += dli
+
+        sec += dlist
 
         return sec
 
@@ -576,7 +579,7 @@ def on_env_updated(app: Sphinx, env) -> None:
     replaced = False
     for n in list(doctree.traverse(nodes.Element)):
         if getattr(n, 'ids', None) and 'systemd-directive-index' in n['ids']:
-            n.replace_self(container)
+            n.replace_self(list(container.children))
             replaced = True
             break
 
@@ -588,8 +591,9 @@ def on_env_updated(app: Sphinx, env) -> None:
                 doctree.pop()
         except Exception:
             doctree.children = []
-        doctree += container
-        logger.info("systemd: env-updated: placeholder not found; injected index container into 'directives'")
+        for s in container.children:
+            doctree += s
+        logger.info("systemd: env-updated: placeholder not found; injected index sections into 'directives'")
 
     # Persist doctree changes so the builder writes updated content
     try:
