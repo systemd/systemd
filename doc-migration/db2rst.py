@@ -328,18 +328,17 @@ def _includes(el):
     # There is a single file (standard-conf.xml) that includes bits of itself,
     # but this is actually a footnote… and rst doesn’t do inline footnotes.
     if not el.get('href'):
-        return "[#]_"
+        return "[#usrlocalfootnote]_"
     # Some files _just_ include the footnote, but not the surrounding section
     if el.get('xpointer') == "usr-local-footnote":
         _add_standard_conf_footnote()
-        return "[#]_"
+        return "[#usrlocalfootnote]_"
     file_path_pathlib = Path(el.get('href'))
     file_extension = file_path_pathlib.suffix
     # If th above standard-conf.xml include happens, also include the footnote # from that file to the footnotes section
     if file_path_pathlib.match("standard-conf.xml"):
-        xpointer = el.get('xpointer')
-        if xpointer in ['conf', 'confd', 'main-conf']:
-            _add_standard_conf_footnote()
+        _add_standard_conf_footnote()
+        return f'\n\n%% include="{el.get('href').replace('xml', 'rst')}" id="{el.get('xpointer')}" %%'
     include_files = FILES_USED_FOR_INCLUDES
     if file_extension == '.xml':
         if el.get('href') == 'version-info.xml':
@@ -602,7 +601,7 @@ def TreeRoot(el):
             # preprocessor include, since rst also has trouble with
             # these block level includes inside footnotes.
             if footnote.get('href'):
-                output += f'\n\n.. [#] %% include="{footnote.get('href').replace('xml', 'rst')}" id="{footnote.get('xpointer')}" %%'
+                output += f'\n\n%% include="{footnote.get('href').replace('xml', 'rst')}" id="{footnote.get('xpointer')}" %%'
             else:
                 # output += f"\n\n.. [#] {_remove_line_breaks(_conv(footnote))}"
                 output += f"\n\n.. [#] {_conv(footnote)}"
@@ -712,13 +711,14 @@ def arg(el):
 
 
 def footnote(el):
-    # TODO: handle footnotes with multiple children?
     id = el.get('id')
     output = ""
-    # This is a special case that shouldn’t be rendered as a footnote
+    # This is a special case that should be rendered as
+    # an entire footnote _block_ at the bottom of standard-conf.rst
     if id == "usr-local-footnote":
+        output += "\n\n.. rubric:: Footnotes\n\n"
         output += "\n\n.. inclusion-marker-do-not-remove %s\n\n" % id
-        output += _conv(el.getchildren()[0])
+        output += ".. [#usrlocalfootnote] " + _conv(el.getchildren()[0]).strip()
         output += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % id
         return output
     _footnotes.append(el.getchildren()[0])
@@ -1377,7 +1377,7 @@ def caution(el):
 
 def para(el):
     s = ""
-    if _is_inside_of(el, 'listitem'):
+    if _is_inside_of(el, ['listitem', 'footnote']):
         s += _concat(el) + "\n \n"
     else:
         s += _block_separated_with_blank_line(el, False) + '\n\n \n\n'
