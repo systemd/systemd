@@ -6,6 +6,7 @@
   - [Transformation Process](#transformation-process)
     - [1. Docbook to `rst`](#1-docbook-to-rst)
     - [2. `rst` to Sphinx html and man](#2-rst-to-sphinx-html-and-man)
+      - [Sphinx Options](#sphinx-options)
       - [Sphinx Extensions](#sphinx-extensions)
         - [systemd\_domain.py](#systemd_domainpy)
         - [preprocessor.py](#preprocessorpy)
@@ -109,6 +110,17 @@ $ make html man
 
 - The `html` files end up in `/doc-migration/build/html`. Open the `index.html` there to browse the docs.
 - The `man` files end up in `/doc-migration/build/man`. Preview an individual file with `$ mandoc -l build/man/busctl.1`
+
+#### Sphinx Options
+
+Sphinx-build takes [many options](https://www.sphinx-doc.org/en/master/man/sphinx-build.html#options) than can be passed in like this: `SPHINXOPTS="-a -E -v" make html`. The most useful ones:
+
+- `-j auto` -> Distribute the build over however many CPU cores are available. Parallel builds are generally much faster. Does not work on Windows. Highly Recommended.
+
+For debugging etc:
+- `-v` -> Verbose. Logs all the things.
+- `-a` -> Always rebuilds all files. If you have a caching issue, try this.
+- `-E` -> Fresh-Env, rebuilds the cross-reference environment.
 
 #### Sphinx Extensions
 
