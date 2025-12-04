@@ -293,8 +293,10 @@
         <para>Controls enrollment of secure boot keys found on the ESP if the system is in setup mode:
         <variablelist>
           <varlistentry>
-            <term><option>off</option></term>
-            <listitem><para>No action is taken.</para>
+            <term><option>if-safe</option></term>
+            <listitem><para>This is the default. Same behavior as <option>manual</option>, but will try to automatically
+            enroll the key named <literal>auto</literal> if it is considered to be safe. Currently, this is only
+            the case if the system is running inside a virtual machine.</para>
 
             <xi:include href="version-info.xml" xpointer="v253"/></listitem>
           </varlistentry>
@@ -308,10 +310,8 @@
           </varlistentry>
 
           <varlistentry>
-            <term><option>if-safe</option></term>
-            <listitem><para>Same behavior as <option>manual</option>, but will try to automatically
-            enroll the key <literal>auto</literal> if it is considered to be safe. Currently, this is only
-            the case if the system is running inside a virtual machine.</para>
+            <term><option>off</option></term>
+            <listitem><para>No action is taken.</para>
 
             <xi:include href="version-info.xml" xpointer="v253"/></listitem>
           </varlistentry>
