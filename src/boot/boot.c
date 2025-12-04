@@ -2962,9 +2962,8 @@ static void config_load_all_entries(
 
         config_add_system_entries(config);
 
-        /* Find secure boot signing keys and autoload them if configured.  Otherwise, create menu entries so
-         * that the user can load them manually.  If the secure-boot-enroll variable is set to no (the
-         * default), we do not even search for keys on the ESP */
+        /* Using the rules defined by the `secure-boot-enroll` variable, find secure boot signing keys
+         * and perform operations like autoloading them or create menu entries if configured. */
         (void) secure_boot_discover_keys(config, root_dir);
 
         if (config->n_entries == 0)
