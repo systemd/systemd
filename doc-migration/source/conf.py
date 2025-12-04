@@ -9,12 +9,17 @@
 
 import sys
 import os
+import json
+from pathlib import Path
 project = 'systemd'
 copyright = '2024, systemd'
 author = 'systemd'
 
 language = 'en'
 
+src_dir = Path(__file__).parent
+docs_dir = src_dir / "docs"
+cache_file = src_dir / "_man_pages_cache.json"
 
 sys.path.append(os.path.abspath("./_ext"))
 
@@ -96,7 +101,7 @@ def extract_manpage_metadata(text: str):
     return None
 
 # Find all RST files for the man page list
-def find_man_sources():
+def generate_man_pages():
     result = []
     for root, dirs, files in os.walk("."):
         for f in files:
@@ -112,12 +117,21 @@ def find_man_sources():
     result.append(('directives', 'systemd.directives', 'Index of configuration directives', None, 7))
     return result
 
-man_pages = find_man_sources()
+def needs_regen(cache_file, docs_dir):
+    if not cache_file.exists():
+        return True
+    cached_mtime = os.path.getmtime(cache_file)
+    return any(f.stat().st_mtime > cached_mtime for f in docs_dir.glob("*.rst"))
 
-# Note that these substitutions are performed _before_ Sphinx runs.
-# They live in doc-migration/preprocess_rst.py, which is called by
-# the makefile.
-#
+if needs_regen(cache_file, docs_dir):
+    man_pages = generate_man_pages()
+    with open(cache_file, "w", encoding="utf-8") as f:
+        json.dump(man_pages, f)
+else:
+    with open(cache_file, "r", encoding="utf-8") as f:
+        man_pages = json.load(f)
+
+
 # The function at the start generates version number substitutions, eg.
 # {'v183': '183', 'v184': '184', etc…}
 # These don't seem to be used, but we’re leaving them in just in case.
