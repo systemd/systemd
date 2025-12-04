@@ -79,6 +79,7 @@ executables += [
                 'public' : true,
                 'conditions' : ['HAVE_QRENCODE'],
                 'sources' : files('bsod.c'),
+                'arg_parser' : files('bsod.args'),
                 'dependencies' : libqrencode,
         },
         executable_template + {
