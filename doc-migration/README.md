@@ -6,10 +6,9 @@
   - [Transformation Process](#transformation-process)
     - [1. Docbook to `rst`](#1-docbook-to-rst)
     - [2. `rst` to Sphinx html and man](#2-rst-to-sphinx-html-and-man)
-      - [Sphinx Preprocessor Script](#sphinx-preprocessor-script)
       - [Sphinx Extensions](#sphinx-extensions)
-      - [Custom Sphinx Extensions](#custom-sphinx-extensions)
         - [systemd\_domain.py](#systemd_domainpy)
+        - [preprocessor.py](#preprocessorpy)
         - [external\_man\_links.py](#external_man_linkspy)
       - [Includes](#includes)
   - [Todo](#todo)
@@ -48,7 +47,7 @@ You can run the entire process with `./convert.sh` in the `doc-migration` folder
 
 1. Docbook to `rst` with `db2rst.py`
 2. Sphinx `Makefile`
-   1. Custom Preprocessor
+   1. Preprocessor Extension for Sphinx
    2. Sphinx itself
    3. Some progressive enhancement to further improve the html output in `/source/_static/js/custom.js`
 
@@ -111,19 +110,9 @@ $ make html man
 - The `html` files end up in `/doc-migration/build/html`. Open the `index.html` there to browse the docs.
 - The `man` files end up in `/doc-migration/build/man`. Preview an individual file with `$ mandoc -l build/man/busctl.1`
 
-#### Sphinx Preprocessor Script
-
-The makefile runs `/doc-migration/preprocess_rst.py` before Sphinx. This script does the variable substitutions defined in the `global_substitutions` object in `/doc-migrations/source/conf.py` (the Sphinx config file). We originally tried solving this problem with the `globalsubs` Sphinx extension and the `rst_prolog` feature, but neither were sufficient, more details can be found at the top of `preprocess_rst.py`.
-
-The preprocessor also handles a custom include tag (e.g. `%% include="standard-specifiers.rst" id="a" %%`) for some cases that could not be handled with `rst` alone. This was a necessary workaround since the old docs do partial includes of tables in other tables, and other inner-block includes rst does not support. Using this tag also resolves Sphinx confusion when including a footnote reference and its footnote with two separate includes (since there are no inline/inline-block footnotes in `rst`), using the `%% include…` syntax for both solves the problem.
-
 #### Sphinx Extensions
 
-We use the following Sphinx extensions to achieve parity with the old docs:
-
-#### Custom Sphinx Extensions
-
-These live in `/source/_ext` and are activated via the `extensions` variable in `conf.py`.
+We use the following Sphinx extensions to achieve parity with the old docs. These live in `/source/_ext` and are activated via the `extensions` variable in `conf.py`.
 
 ##### systemd_domain.py
 
@@ -191,6 +180,13 @@ To display the directives list (currently in `directives.rst`), simply use this 
 .. systemd:directiveindex::
 ```
 
+
+##### preprocessor.py
+
+This extension does the variable substitutions defined in the `global_substitutions` object in `/doc-migrations/source/conf.py` (the Sphinx config file). We originally tried solving this problem with the `globalsubs` Sphinx extension and the `rst_prolog` feature, but neither were sufficient, more details can be found at the top of `preprocessor.py`.
+
+The preprocessor also handles a custom include tag (e.g. `%% include="standard-specifiers.rst" id="a" %%`) for some cases that could not be handled with `rst` alone. This was a necessary workaround since the old docs do partial includes of tables in other tables, and other inner-block includes rst does not support. Using this tag also resolves Sphinx confusion when including a footnote reference and its footnote with two separate includes (since there are no inline/inline-block footnotes in `rst`), using the `%% include…` syntax for both solves the problem.
+
 ##### external_man_links.py
 
 This is used to create custom sphinx roles to handle external links for man pages to avoid having full urls in rst, for example:
@@ -206,32 +202,11 @@ A full list of these roles can be found in [external_man_links](source/_ext/exte
 #### Includes
 
 1. Versions
-   In the Docbook files you may find lines like these: `<xi:include href="version-info.xml" xpointer="v205"/>` which would render into `Added in version 205` in the docs. This is now achieved with the existing [sphinx directive ".. versionadded::"](https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-versionadded) and represented as `.. versionadded:: 205` in the rst file.
+   In the Docbook files you may find lines like these: `<xi:include href="version-info.xml" xpointer="v205"/>` which would render into `Added in version 205` in the docs. This is now achieved with the existing [sphinx directive ".. versionadded::"](https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-versionadded) and represented as `.. versionadded:: 205` in the rst file, no includes required.
 
-2. Code Snippets
-   These can be included with the [literalinclude directive](https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-literalinclude) when living in their own file.
+2. Block Includes
 
-   Example:
-
-  ```rst
-  .. literalinclude:: ./check-os-release-simple.py
-     :language: python
-  ```
-
-  There is also the option to include a [code block](https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-code-block) directly in the rst file.
-
-  Example:
-
-  ```rst
-  .. code-block:: sh
-
-  a{sv} 3 One s Eins Two u 2 Yes b true
-
-  ```
-
-3. Text Snippets
-
-  There are a few xml files were sections of these files are reused in multiple other files. While it is no problem to include a whole other rst file the concept of only including a part of that file is a bit more tricky. You can choose to include text partial that starts after a specific text and also to stop before reaching another text. Mapping to the rst `.. include::` directive’s `start-after` and `end-before`options, we use corresponding marker comments to define these section in these source files. These markers are: `.. inclusion-marker-do-not-remove {xpointer-id}` and `.. inclusion-end-marker-do-not-remove {xpointer-id}`, for example:
+  There are a few xml files were sections of these files are reused in multiple other files. While it trivial to include an `rst` file in another one, only including parts of other files is slightly more involved, since `rst` has no easily adressable elements. Mapping to the rst `.. include::` directive’s `start-after` and `end-before`options, we use corresponding marker comments to define includable sections in these source files. These markers are: `.. inclusion-marker-do-not-remove {xpointer-id}` and `.. inclusion-end-marker-do-not-remove {xpointer-id}`, for example:
 
   This directive is enclosed by inclusion markers generated from `<varlistentry id='no-pager'>`:
 
@@ -253,18 +228,19 @@ A full list of these roles can be found in [external_man_links](source/_ext/exte
     :end-before: .. inclusion-end-marker-do-not-remove no-pager
   ```
 
-  Since rst does not support all inclusion scenarios that occur within the systemd docs, we have added a second inclusion syntax that is handled in a Sphinx preprocessor (see the file `preprocess_rst.py`). The syntax is similar:
+  Since rst does not support all inclusion scenarios that occur within the systemd docs, we have added a second inclusion syntax that is handled in a Sphinx preprocessor extension (see the file `_ext/preprocessor.py`). The syntax is similar:
 
   ```
   %% include="standard-specifiers.rst" id="a" %%
   ```
 
-  This essentially does the same thing as the longer `.. include::` declaration above, but works inside tables and other block elements within which `rst` doesn’t allow includes.
+  This essentially does the same thing as the longer `.. include::` declaration above, but works inside tables and other block elements within which `rst` doesn’t allow includes. So `%% include` can also be used as a shorthand for `.. include::`.
 
 ## Todo
 
 An incomplete list.
 
+- [ ] The footnote in common-variables…
 - [ ] Generate alias files from all entries in the `name`
   - [ ] <citerefentry><refentrytitle>systemd-sysusers.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>-style citrefs should be converted to internal links and not man
 - [ ] Clean up literal include file copying, there are currently pointless files in /includes
