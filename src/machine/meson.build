@@ -32,6 +32,7 @@ executables += [
                 'name' : 'machinectl',
                 'public' : true,
                 'sources' : files('machinectl.c'),
+                'arg_parser' : files('machinectl.args'),
                 'dependencies' : [
                         liblz4_cflags,
                         libxz_cflags,
