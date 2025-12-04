@@ -69,6 +69,7 @@ class ArgType(Enum):
     no_argument       = 0
     optional_argument = 1
     required_argument = 2
+    positional        = 3
 
 
 @dataclass
@@ -102,6 +103,11 @@ class Option:
         return next(self.long_names(), None)
 
     def enum_name(self) -> str:
+        if self.argtype == ArgType.positional:
+            # getopt_long() returns 1 if "-" was the first character of the
+            # option string, and a non-option argument was discovered.
+            return '1'
+
         if sn := self.short_name():
             return f"'{sn}'"
         ln = self.long_name()
@@ -135,6 +141,9 @@ class Option:
         return ''.join((*lhs, *rhs))
 
     def _insert_defaults(self) -> None:
+        if self.argtype == ArgType.positional:
+            self.help = 'skip'
+
         match self.long_name():
             case 'help':
                 help = 'Show this help'
@@ -168,7 +177,33 @@ class Option:
 
 
 def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
+    # Figure out the optstring and other variables
+    opt_names = []
+    opt_args = []
+    opt_enums = []
+    opt_comments = []
+    optstring = globals.optstring_prefix
+
+    for option in options:
+        if option.skip_code:
+            continue
+
+        for pos, ln in enumerate(option.long_names()):
+            opt_names += [ln]
+            opt_args += [option.argtype.name]
+            opt_enums += [option.enum_name()]
+            opt_comments += ['' if pos == 0 else ' /* Compatibility alias */']
+
+        if sn := option.short_name():
+            optstring += sn
+            if option.argtype == ArgType.required_argument:
+                optstring += ':'
+            elif option.argtype == ArgType.optional_argument:
+                optstring += '::'
+
     # 0. Generate forward declarations and defines
+    yield f'#define OPTSTRING "{optstring}"'
+    yield ''
     yield 'static int help(void);'
     yield ''
     yield 'static int _unused_ verb_help(int argc, char *argv[], void *userdata) {'
@@ -216,7 +251,9 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
     #    that don't have a single-leter param.
     enums = [option.enum_name()
              for option in options
-             if not option.skip_code and not option.short_name()]
+             if not (option.skip_code or
+                     option.short_name() or
+                     option.argtype == ArgType.positional)]
     if enums:
         yield '\tenum {'
         yield f'\t\t{enums[0]} = 0x100,'
@@ -226,29 +263,6 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
         yield ''
 
     # 4. Generate 'static const struct option options[]'.
-    opt_names = []
-    opt_args = []
-    opt_enums = []
-    opt_comments = []
-    optstring = globals.optstring_prefix
-
-    for option in options:
-        if option.skip_code:
-            continue
-
-        for pos, ln in enumerate(option.long_names()):
-            opt_names += [ln]
-            opt_args += [option.argtype.name]
-            opt_enums += [option.enum_name()]
-            opt_comments += ['' if pos == 0 else ' /* Compatibility alias */']
-
-        if sn := option.short_name():
-            optstring += sn
-            if option.argtype == ArgType.required_argument:
-                optstring += ':'
-            elif option.argtype == ArgType.optional_argument:
-                optstring += '::'
-
     opt_names_width = max(len(it) for it in opt_names) + 2
     opt_args_width = max(len(it) for it in opt_args)
     opt_enums_width = max(len(it) for it in opt_enums)
@@ -268,6 +282,8 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
     yield '\tassert(argc >= 0);'
     yield '\tassert(argv);'
     yield ''
+    # Define the optstring as a variable to allow it to be dynamically overridden.
+    yield '\tconst char *optstring = OPTSTRING;'
     yield '\tint c, _unused_ r;'
     yield ''
 
@@ -278,7 +294,7 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
         yield '\toptind = 0;'
         yield ''
 
-    yield f'\twhile ((c = getopt_long(argc, argv, "{optstring}", options, NULL)) >= 0)'
+    yield '\twhile ((c = getopt_long(argc, argv, optstring, options, NULL)) >= 0)'
     yield '\t\tswitch (c) {'
     yield ''
 
@@ -327,6 +343,10 @@ def parse_option_line(desc: str) -> tuple[list[str], ArgType, str | None]:
     names = []
     argtype = None
     metavar = None
+
+    if desc == 'positional':
+        # handle positional args when '-' is the first character of the option string
+        return [desc], ArgType.positional, None
 
     for word in split:
         m = re.match(r'^(?P<name>--?[a-zA-Z0-9_-]+)(?P<rest>\[?=.*)?$', word)
