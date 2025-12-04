@@ -50,6 +50,7 @@ executables += [
                         'import-raw.c',
                         'import-tar.c',
                 ),
+                'arg_parser' : files('import.args'),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
         },
