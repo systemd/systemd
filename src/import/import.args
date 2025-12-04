@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --force
+help Force creation of image
+        arg_import_flags |= IMPORT_FORCE;
+
+option    --image-root=PATH
+help Image root directory
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image_root);
+        if (r < 0)
+                return r;
+
+option --read-only
+help Create a read-only image
+        arg_import_flags |= IMPORT_READ_ONLY;
+
+option --direct
+help Import directly to specified file
+        arg_import_flags |= IMPORT_DIRECT;
+
+option --btrfs-subvol=yes|no
+help Controls whether to create a btrfs subvolume instead of a directory
+        r = parse_boolean_argument("--btrfs-subvol=", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        SET_FLAG(arg_import_flags, IMPORT_BTRFS_SUBVOL, r);
+
+option --btrfs-quota=yes|no
+help Controls whether to set up quota for btrfs subvolume
+        r = parse_boolean_argument("--btrfs-quota=", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        SET_FLAG(arg_import_flags, IMPORT_BTRFS_QUOTA, r);
+
+option --convert-qcow2=yes|no
+help Controls whether to convert QCOW2 images to regular disk images
+        r = parse_boolean_argument("--convert-qcow2=", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        SET_FLAG(arg_import_flags, IMPORT_CONVERT_QCOW2, r);
+
+option --sync=yes|no
+help Controls whether to sync() before completing
+        r = parse_boolean_argument("--sync=", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        SET_FLAG(arg_import_flags, IMPORT_SYNC, r);
+
+option --offset=BYTES
+help Offset to seek to in destination
+        uint64_t u;
+
+        r = safe_atou64(optarg, &u);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --offset= argument: %s", optarg);
+        if (!FILE_SIZE_VALID(u))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --offset= switch too large: %s", optarg);
+
+        arg_offset = u;
+
+option --size-max=BYTES
+help Maximum number of bytes to write to destination
+        uint64_t u;
+
+        r = parse_size(optarg, 1024, &u);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --size-max= argument: %s", optarg);
+        if (!FILE_SIZE_VALID(u))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --size-max= switch too large: %s", optarg);
+
+        arg_size_max = u;
+
+option --class=CLASS
+help Select image class (machine, sysext, confext, portable)
+        arg_class = image_class_from_string(optarg);
+        if (arg_class < 0)
+                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", optarg);
+
+option --system
+help Operate in per-system mode
+        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+
+option --user
+help Operate in per-user mode
+        arg_runtime_scope = RUNTIME_SCOPE_USER;
