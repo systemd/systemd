@@ -41,6 +41,7 @@ executables += [
                 ],
                 'sources' : systemd_journal_gatewayd_sources,
                 'extract' : systemd_journal_gatewayd_extract_sources,
+                'arg_parser' : files('journal-gatewayd.args'),
                 'dependencies' : common_deps + [libmicrohttpd],
         },
         libexec_template + {
