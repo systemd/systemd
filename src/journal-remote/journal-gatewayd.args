@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --cert=CERT.PEM
+help Server certificate in PEM format
+        if (arg_cert_pem)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Certificate file specified twice");
+        r = read_full_file_full(
+                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
+                        READ_FULL_FILE_CONNECT_SOCKET,
+                        NULL,
+                        &arg_cert_pem, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read certificate file: %m");
+        assert(arg_cert_pem);
+
+option --key=KEY.PEM
+help Server key in PEM format
+        if (arg_key_pem)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Key file specified twice");
+        r = read_full_file_full(
+                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                        NULL,
+                        &arg_key_pem, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read key file: %m");
+        assert(arg_key_pem);
+
+option --trust=CERT.PEM
+help Certificate authority certificate in PEM format
+        #if HAVE_GNUTLS
+                if (arg_trust_pem)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "CA certificate file specified twice");
+                r = read_full_file_full(
+                                AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
+                                READ_FULL_FILE_CONNECT_SOCKET,
+                                NULL,
+                                &arg_trust_pem, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read CA certificate file: %m");
+                assert(arg_trust_pem);
+                break;
+        #else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --trust= is not available.");
+        #endif
+
+option --system
+help Serve system journal
+        arg_journal_type |= SD_JOURNAL_SYSTEM;
+
+option --user
+help Serve the user journal for the current user
+        arg_journal_type |= SD_JOURNAL_CURRENT_USER;
+
+option -m --merge
+help Serve all available journals
+        arg_merge = true;
+
+option -D= --directory=PATH
+help Serve journal files in directory
+        r = free_and_strdup_warn(&arg_directory, optarg);
+        if (r < 0)
+                return r;
+
+option --file=PATH
+help Serve this journal file
+        r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add paths: %m");
