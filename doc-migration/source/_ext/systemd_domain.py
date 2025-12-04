@@ -373,6 +373,20 @@ class SystemdDomain(Domain):
             del self.objects[key]
         logger.debug("systemd domain: cleared objects for %s", docname)
 
+    def merge_domaindata(self, docnames, otherdata):
+        """Merge parallel build data produced by workers."""
+        my_objects = self.data.setdefault('objects', {})
+        worker_objects = otherdata.get('objects', {})
+
+        for key, entries in worker_objects.items():
+            if key not in my_objects:
+                # Just take the whole list of objects from the worker
+                my_objects[key] = list(entries)
+            else:
+                # Append objects from the worker
+                # (Sphinx ensures no duplicates across workers)
+                my_objects[key].extend(entries)
+
 
 class SystemdDirectiveIndex(SphinxDirective):
     """
@@ -614,6 +628,20 @@ class LegacyDirectiveDomain(Domain):
 
     def get_role(self, name: str):
         return DirectiveCompatRole()
+
+    def merge_domaindata(self, docnames, otherdata):
+        """Merge parallel build data produced by workers."""
+        my_objects = self.data.setdefault('objects', {})
+        worker_objects = otherdata.get('objects', {})
+
+        for key, entries in worker_objects.items():
+            if key not in my_objects:
+                # Just take the whole list of objects from the worker
+                my_objects[key] = list(entries)
+            else:
+                # Append objects from the worker
+                # (Sphinx ensures no duplicates across workers)
+                my_objects[key].extend(entries)
 
 
 def on_config_inited(app: Sphinx, config) -> None:
