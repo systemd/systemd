@@ -34,6 +34,8 @@ static char **arg_fdnames = NULL;
 static bool arg_inetd = false;
 static bool arg_now = false;
 
+#include "socket-activate.args.inc"
+
 static int add_epoll(int epoll_fd, int fd) {
         struct epoll_event ev = {
                 .events = EPOLLIN,
@@ -329,16 +331,7 @@ static int help(void) {
         printf("%s [OPTIONS...] COMMAND ...\n"
                "\n%sListen on sockets and launch child on connection.%s\n"
                "\nOptions:\n"
-               "  -h --help                  Show this help and exit\n"
-               "     --version               Print version string and exit\n"
-               "  -l --listen=ADDR           Listen for raw connections at ADDR\n"
-               "  -d --datagram              Listen on datagram instead of stream socket\n"
-               "     --seqpacket             Listen on SOCK_SEQPACKET instead of stream socket\n"
-               "  -a --accept                Spawn separate child for each connection\n"
-               "  -E --setenv=NAME[=VALUE]   Pass an environment variable to children\n"
-               "     --fdname=NAME[:NAME...] Specify names for file descriptors\n"
-               "     --inetd                 Enable inetd file descriptor passing protocol\n"
-               "     --now                   Start instantly instead of waiting for connection\n"
+               OPTION_HELP_GENERATED
                "\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
@@ -350,116 +343,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_FDNAME,
-                ARG_SEQPACKET,
-                ARG_INETD,
-                ARG_NOW,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "help",        no_argument,       NULL, 'h'           },
-                { "version",     no_argument,       NULL, ARG_VERSION   },
-                { "datagram",    no_argument,       NULL, 'd'           },
-                { "seqpacket",   no_argument,       NULL, ARG_SEQPACKET },
-                { "listen",      required_argument, NULL, 'l'           },
-                { "accept",      no_argument,       NULL, 'a'           },
-                { "setenv",      required_argument, NULL, 'E'           },
-                { "environment", required_argument, NULL, 'E'           }, /* legacy alias */
-                { "fdname",      required_argument, NULL, ARG_FDNAME    },
-                { "inetd",       no_argument,       NULL, ARG_INETD     },
-                { "now",         no_argument,       NULL, ARG_NOW       },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
-        while ((c = getopt_long(argc, argv, "+hl:aE:d", options, NULL)) >= 0)
-                switch (c) {
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case 'l':
-                        r = strv_extend(&arg_listen, optarg);
-                        if (r < 0)
-                                return log_oom();
-
-                        break;
-
-                case 'd':
-                        if (arg_socket_type == SOCK_SEQPACKET)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--datagram may not be combined with --seqpacket.");
-
-                        arg_socket_type = SOCK_DGRAM;
-                        break;
-
-                case ARG_SEQPACKET:
-                        if (arg_socket_type == SOCK_DGRAM)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--seqpacket may not be combined with --datagram.");
-
-                        arg_socket_type = SOCK_SEQPACKET;
-                        break;
-
-                case 'a':
-                        arg_accept = true;
-                        break;
-
-                case 'E':
-                        r = strv_env_replace_strdup_passthrough(&arg_setenv, optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
-                        break;
-
-                case ARG_FDNAME: {
-                        _cleanup_strv_free_ char **names = NULL;
-
-                        names = strv_split(optarg, ":");
-                        if (!names)
-                                return log_oom();
-
-                        STRV_FOREACH(s, names)
-                                if (!fdname_is_valid(*s)) {
-                                        _cleanup_free_ char *esc = NULL;
-
-                                        esc = cescape(*s);
-                                        log_warning("File descriptor name \"%s\" is not valid.", esc);
-                                }
-
-                        /* Empty optargs means one empty name */
-                        r = strv_extend_strv(&arg_fdnames,
-                                             strv_isempty(names) ? STRV_MAKE("") : names,
-                                             false);
-                        if (r < 0)
-                                return log_error_errno(r, "strv_extend_strv: %m");
-                        break;
-                }
-
-                case ARG_INETD:
-                        arg_inetd = true;
-                        break;
-
-                case ARG_NOW:
-                        arg_now = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (optind == argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
