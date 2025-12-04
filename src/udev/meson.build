@@ -147,6 +147,7 @@ udev_binaries_dict = [
                 'sources' : udevadm_sources +
                             keyboard_keys_from_name_inc,
                 'extract' : udevadm_extract_sources,
+                'arg_parser' : files('udevadm.args'),
                 'include_directories' : [
                         libexec_template['include_directories'],
                         include_directories('.', 'net'),
