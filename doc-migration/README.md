@@ -6,6 +6,8 @@
   - [Transformation Process](#transformation-process)
     - [1. Docbook to `rst`](#1-docbook-to-rst)
     - [2. `rst` to Sphinx html and man](#2-rst-to-sphinx-html-and-man)
+      - [Notes on incremental builds](#notes-on-incremental-builds)
+      - [Notes on `man_pages` generation](#notes-on-man_pages-generation)
       - [Sphinx Options](#sphinx-options)
       - [Sphinx Extensions](#sphinx-extensions)
         - [systemd\_domain.py](#systemd_domainpy)
@@ -111,9 +113,17 @@ $ make html man
 - The `html` files end up in `/doc-migration/build/html`. Open the `index.html` there to browse the docs.
 - The `man` files end up in `/doc-migration/build/man`. Preview an individual file with `$ mandoc -l build/man/busctl.1`
 
+#### Notes on incremental builds
+
+Sphinx supports parallel and incremental builds, but this only applies to `rst` reads and `html` writes, not to `man` writes. It is possible to write an extension that patches Sphinx’s `ManualPageBuilder` to only write actually changed files, but this needs to take into account changed includes as well. This might be considered as a future optimisation.
+
+#### Notes on `man_pages` generation
+
+Sphinx requires the explicit listing of all man pages in the `man_pages` conf variable. We build this at runtime from the files themselves. The data is cached in a `doc-migration/source/_man_pages_cache.json` file (next to `conf.py`) and re-used. Delete it to force the `man_pages` list to be rebuilt.
+
 #### Sphinx Options
 
-Sphinx-build takes [many options](https://www.sphinx-doc.org/en/master/man/sphinx-build.html#options) than can be passed in like this: `SPHINXOPTS="-a -E -v" make html`. The most useful ones:
+Sphinx-build takes [many options](https://www.sphinx-doc.org/en/master/man/sphinx-build.html#options) that can be passed in like this: `SPHINXOPTS="-a -E -v" make html`. The most useful ones:
 
 - `-j auto` -> Distribute the build over however many CPU cores are available. Parallel builds are generally much faster. Does not work on Windows. Highly Recommended.
 
