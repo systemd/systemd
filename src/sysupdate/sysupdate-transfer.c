@@ -1101,6 +1101,23 @@ static int run_callout(
         return sd_event_loop(event);
 }
 
+static int url_get_protocol(const char *url, const char **protocol) {
+        const char *d;
+        size_t length;
+
+        /* Find colon separating protocol and hostname */
+        d = strchr(url, ':');
+        if (!d || url == d)
+                return -EINVAL;
+
+        length = d - url;
+
+        *protocol = strndup(url, length);
+        if (!*protocol)
+                return -ENOMEM;
+        return 0;
+}
+
 static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const char *digest, bool fsync) {
         int r;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *instances_array = NULL;
@@ -1113,8 +1130,13 @@ static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const cha
                         return log_error_errno(r, "Failed to append instance info to pull request: %m");
         }
 
+        const char *protocol;
+        r = url_get_protocol(i->path, &protocol);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse protocol from URL %s: %m", i->path);
+
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *pull_link = NULL;
-        r = sd_varlink_connect_exec(&pull_link, SYSTEMD_PULL_PATH, /* argv= */ NULL);
+        r = sd_varlink_connect_address(&pull_link, path_join(SYSTEMD_PULL_WORKER_DIRECTORY_PATH, protocol));
         if (r < 0)
                 return log_error_errno(r, "Failed to connect systemd-pull: %m");
 
