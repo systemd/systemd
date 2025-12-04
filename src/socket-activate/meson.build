@@ -5,6 +5,7 @@ executables += [
                 'name' : 'systemd-socket-activate',
                 'public' : true,
                 'sources' : files('socket-activate.c'),
+                'arg_parser' : files('socket-activate.args'),
                 'dependencies' : threads,
         },
 ]
