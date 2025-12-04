@@ -18,7 +18,7 @@ ConditionCapability=CAP_SYS_ADMIN
 [Socket]
 ListenStream=/run/systemd/io.systemd.sysext
 FileDescriptorName=varlink
-SocketMode=0600
+SocketMode=0666
 Accept=yes
 MaxConnectionsPerSource=16
 
