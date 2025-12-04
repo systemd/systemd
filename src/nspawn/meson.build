@@ -42,6 +42,7 @@ executables += [
                 'public' : true,
                 'sources' : nspawn_sources,
                 'extract' : nspawn_extract_sources,
+                'arg_parser' : files('nspawn.args'),
                 'include_directories' : [
                         executable_template['include_directories'],
                         include_directories('.')
