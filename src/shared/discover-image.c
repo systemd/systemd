@@ -1919,7 +1919,7 @@ int image_set_pool_limit(RuntimeScope scope, ImageClass class, uint64_t referenc
         return 0;
 }
 
-int image_read_metadata(Image *i, const ImagePolicy *image_policy, RuntimeScope scope) {
+int image_read_metadata(Image *i, const char *root, const ImagePolicy *image_policy, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         int r;
 
@@ -2045,6 +2045,7 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy, RuntimeScope 
 
                 r = dissected_image_decrypt(
                                 m,
+                                root,
                                 /* passphrase= */ NULL,
                                 &verity,
                                 image_policy,
