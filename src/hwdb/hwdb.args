@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+global help_key_width 15
+
+option -h --help
+
+option --version
+
+option --usr
+help Generate in "UDEVLIBEXECDIR"/ instead of /etc/udev/
+        arg_hwdb_bin_dir = UDEVLIBEXECDIR;
+
+option -s --strict
+help Exit with non-zero value on any parsing error when updating
+        arg_strict = true;
+
+option -r= --root=PATH
+help Alternative root path in the filesystem
+        arg_root = optarg;
