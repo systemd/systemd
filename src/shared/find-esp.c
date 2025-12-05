@@ -300,7 +300,8 @@ static int verify_fsroot_dir(
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(errno)) ? LOG_DEBUG : LOG_ERR, errno,
                                       "Failed to determine block device node of \"%s\": %m", path);
 
-        assert(S_ISDIR(sxa.stx_mode)); /* We used O_DIRECTORY above, when opening, so this must hold */
+        if (!S_ISDIR(sxa.stx_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "Path \"%s\" is not a directory", path);
 
         if (FLAGS_SET(sxa.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) {
 
