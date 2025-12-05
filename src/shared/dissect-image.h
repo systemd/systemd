@@ -82,6 +82,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH    = 1 << 27, /* Allow interactive authorization when going through mountfsd */
         DISSECT_IMAGE_FOREIGN_UID               = 1 << 28, /* Request a foreign UID range mapping */
         DISSECT_IMAGE_IDENTITY_UID              = 1 << 29, /* Explicitly request an identity UID range mapping */
+        DISSECT_IMAGE_NO_BLKID                  = 1 << 30, /* Do not use libblkid to probe file systems (requires pin by ImagePolicy and dm-verity) */
 } DissectImageFlags;
 
 typedef struct DissectedImage {
@@ -165,6 +166,7 @@ int dissect_image_file(const char *path, const VeritySettings *verity, const Mou
 int dissect_image_file_and_warn(const char *path, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *filter, DissectImageFlags flags, DissectedImage **ret);
 int dissect_loop_device(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *image_filter, DissectImageFlags flags, DissectedImage **ret);
 int dissect_loop_device_and_warn(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, const ImageFilter *image_filter, DissectImageFlags flags, DissectedImage **ret);
+int dissected_image_new_from_verity(const char *src, const VeritySettings *verity, const MountOptions *options, const ImagePolicy *image_policy, const ImageFilter *image_filter, DissectImageFlags dissect_image_flags, DissectedImage **ret);
 
 void dissected_image_close(DissectedImage *m);
 DissectedImage* dissected_image_unref(DissectedImage *m);
