@@ -153,6 +153,9 @@ class Option:
             case 'version':
                 help = 'Show package version'
                 body = ['return version();']
+            case 'no-pager':
+                help = 'Do not start the pager'
+                body = ['arg_pager_flags |= PAGER_DISABLE;']
             case _:
                 help = 'XXXXXXXXXX'
                 body = ['#warning TBD']

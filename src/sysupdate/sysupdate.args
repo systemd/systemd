@@ -78,8 +78,6 @@ help Do not fetch metadata from the network
         arg_offline = true;
 
 option --no-pager
-help Do not pipe output into a pager
-        arg_pager_flags |= PAGER_DISABLE;
 
 option --no-legend
 help Do not show the headers and footers

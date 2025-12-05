@@ -5,8 +5,6 @@ option -h --help
 option --version
 
 option --no-pager
-help Do not pipe output into a pager
-        arg_pager_flags |= PAGER_DISABLE;
 
 option --diff[=yes|no]
 help Show a diff when overridden files differ

@@ -114,8 +114,6 @@ help with-unit
                 arg_legend = false;
 
 option --no-pager
-help Do not pipe output into a pager
-        arg_pager_flags |= PAGER_DISABLE;
 
 option --no-legend
 help Do not show headers and footers
