@@ -8240,6 +8240,9 @@ usb:v046BpFF10*
 usb:v046BpFF20*
  ID_MODEL_FROM_DATABASE=Virtual CDROM
 
+usb:v046BpFFB0*
+ ID_MODEL_FROM_DATABASE=Virtual Ethernet
+
 usb:v046C*
  ID_VENDOR_FROM_DATABASE=Toshiba Corp., Digital Media Equipment
 
