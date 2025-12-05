@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --log-target=console|journal|journal-or-kmsg|kmsg|null
+help Set log target
+        r = log_set_target_from_string(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse log target '%s': %m", optarg);
+
+option --log-level=debug|info|notice|warning|err|crit|alert|emerg
+help Set log level
+        r = log_set_max_level_from_string(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse log level '%s': %m", optarg);
+
+option --log-color=yes|no
+help Highlight important messages
+        r = log_show_color_from_string(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse log color '%s': %m", optarg);
+
+option --log-location=yes|no
+help Include code location in messages
+        r = log_show_location_from_string(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse log location '%s': %m", optarg);
+
+option --log-time=yes|no
+help Prefix messages with current time
+        r = log_show_time_from_string(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse log time setting '%s': %m", optarg);
+
+option --deserialize=FD
+help Deserialize process config from FD
+        _cleanup_close_ int fd = -EBADF;
+        FILE *f;
+
+        fd = parse_fd(optarg);
+        if (fd < 0)
+                return log_error_errno(fd,
+                                       "Failed to parse serialization fd \"%s\": %m",
+                                       optarg);
+
+        r = fd_cloexec(fd, /* cloexec= */ true);
+        if (r < 0)
+                return log_error_errno(r,
+                                       "Failed to set serialization fd %d to close-on-exec: %m",
+                                       fd);
+
+        f = take_fdopen(&fd, "r");
+        if (!f)
+                return log_error_errno(errno, "Failed to open serialization fd %d: %m", fd);
+
+        safe_fclose(arg_serialization);
+        arg_serialization = f;

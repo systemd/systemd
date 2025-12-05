@@ -30,6 +30,8 @@ static FILE *arg_serialization = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_serialization, fclosep);
 
+#include "executor.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -40,18 +42,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
                "%sSandbox and execute processes.%s\n\n"
-               "  -h --help                Show this help and exit\n"
-               "     --version             Print version string and exit\n"
-               "     --log-target=TARGET   Set log target (console, journal,\n"
-               "                                           journal-or-kmsg,\n"
-               "                                           kmsg, null)\n"
-               "     --log-level=LEVEL     Set log level (debug, info, notice,\n"
-               "                                          warning, err, crit,\n"
-               "                                          alert, emerg)\n"
-               "     --log-color=BOOL      Highlight important messages\n"
-               "     --log-location=BOOL   Include code location in messages\n"
-               "     --log-time=BOOL       Prefix messages with current time\n"
-               "     --deserialize=FD      Deserialize process config from FD\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -62,113 +53,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                COMMON_GETOPT_ARGS,
-                ARG_VERSION,
-                ARG_DESERIALIZE,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "log-level",      required_argument, NULL, ARG_LOG_LEVEL      },
-                { "log-target",     required_argument, NULL, ARG_LOG_TARGET     },
-                { "log-color",      required_argument, NULL, ARG_LOG_COLOR      },
-                { "log-location",   required_argument, NULL, ARG_LOG_LOCATION   },
-                { "log-time",       required_argument, NULL, ARG_LOG_TIME       },
-                { "help",           no_argument,       NULL, 'h'                },
-                { "version",        no_argument,       NULL, ARG_VERSION        },
-                { "deserialize",    required_argument, NULL, ARG_DESERIALIZE    },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_LOG_LEVEL:
-                        r = log_set_max_level_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse log level \"%s\": %m", optarg);
-
-                        break;
-
-                case ARG_LOG_TARGET:
-                        r = log_set_target_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse log target \"%s\": %m", optarg);
-
-                        break;
-
-                case ARG_LOG_COLOR:
-                        r = log_show_color_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(
-                                                r,
-                                                "Failed to parse log color setting \"%s\": %m",
-                                                optarg);
-
-                        break;
-
-                case ARG_LOG_LOCATION:
-                        r = log_show_location_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(
-                                                r,
-                                                "Failed to parse log location setting \"%s\": %m",
-                                                optarg);
-
-                        break;
-
-                case ARG_LOG_TIME:
-                        r = log_show_time_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(
-                                                r,
-                                                "Failed to parse log time setting \"%s\": %m",
-                                                optarg);
-
-                        break;
-
-                case ARG_DESERIALIZE: {
-                        _cleanup_close_ int fd = -EBADF;
-                        FILE *f;
-
-                        fd = parse_fd(optarg);
-                        if (fd < 0)
-                                return log_error_errno(fd,
-                                                       "Failed to parse serialization fd \"%s\": %m",
-                                                       optarg);
-
-                        r = fd_cloexec(fd, /* cloexec= */ true);
-                        if (r < 0)
-                                return log_error_errno(r,
-                                                       "Failed to set serialization fd %d to close-on-exec: %m",
-                                                       fd);
-
-                        f = take_fdopen(&fd, "r");
-                        if (!f)
-                                return log_error_errno(errno, "Failed to open serialization fd %d: %m", fd);
-
-                        safe_fclose(arg_serialization);
-                        arg_serialization = f;
-
-                        break;
-                }
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (!arg_serialization)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No serialization fd specified.");
