@@ -3030,7 +3030,7 @@ static int udev_rule_apply_token_to_event(
                                 if (!copied)
                                         return log_oom();
 
-                                r = device_cache_sysattr_value(dev, resolved, value, /* error = */ 0);
+                                r = device_cache_sysattr_value(dev, resolved, copied, /* error = */ 0);
                                 if (r < 0)
                                         log_event_warning_errno(event, token, r, "Failed to cache sysfs attribute \"%s\", ignoring: %m", resolved);
                                 else if (r > 0) {
