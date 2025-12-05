@@ -20,6 +20,21 @@ pci:v*d*sv*sd*bc01*
 pci:v*d*sv*sd*bc01sc00*
  ID_PCI_SUBCLASS_FROM_DATABASE=SCSI storage controller
 
+pci:v*d*sv*sd*bc01sc00i00*
+ ID_PCI_INTERFACE_FROM_DATABASE=Vendor specific
+
+pci:v*d*sv*sd*bc01sc00i11*
+ ID_PCI_INTERFACE_FROM_DATABASE=SCSI storage device (SOP target port using PQI)
+
+pci:v*d*sv*sd*bc01sc00i12*
+ ID_PCI_INTERFACE_FROM_DATABASE=SCSI controller (SOP target port using PQI)
+
+pci:v*d*sv*sd*bc01sc00i13*
+ ID_PCI_INTERFACE_FROM_DATABASE=SCSI storage device & controller (SOP target port using PQI)
+
+pci:v*d*sv*sd*bc01sc00i21*
+ ID_PCI_INTERFACE_FROM_DATABASE=SCSI storage device (SOP target port using NVMe)
+
 pci:v*d*sv*sd*bc01sc01*
  ID_PCI_SUBCLASS_FROM_DATABASE=IDE interface
 
@@ -55,6 +70,9 @@ pci:v*d*sv*sd*bc01sc03*
 
 pci:v*d*sv*sd*bc01sc04*
  ID_PCI_SUBCLASS_FROM_DATABASE=RAID bus controller
+
+pci:v*d*sv*sd*bc01sc04i00*
+ ID_PCI_INTERFACE_FROM_DATABASE=Vendor specific
 
 pci:v*d*sv*sd*bc01sc05*
  ID_PCI_SUBCLASS_FROM_DATABASE=ATA controller
@@ -92,6 +110,9 @@ pci:v*d*sv*sd*bc01sc08i01*
 pci:v*d*sv*sd*bc01sc08i02*
  ID_PCI_INTERFACE_FROM_DATABASE=NVM Express
 
+pci:v*d*sv*sd*bc01sc08i03*
+ ID_PCI_INTERFACE_FROM_DATABASE=NVM Express administrative controller
+
 pci:v*d*sv*sd*bc01sc09*
  ID_PCI_SUBCLASS_FROM_DATABASE=Universal Flash Storage controller
 
@@ -109,6 +130,9 @@ pci:v*d*sv*sd*bc02*
 
 pci:v*d*sv*sd*bc02sc00*
  ID_PCI_SUBCLASS_FROM_DATABASE=Ethernet controller
+
+pci:v*d*sv*sd*bc02sc00i01*
+ ID_PCI_INTERFACE_FROM_DATABASE=Ethernet Controller with IDPF Compliant Interface
 
 pci:v*d*sv*sd*bc02sc01*
  ID_PCI_SUBCLASS_FROM_DATABASE=Token ring network controller
@@ -173,6 +197,12 @@ pci:v*d*sv*sd*bc04sc02*
 pci:v*d*sv*sd*bc04sc03*
  ID_PCI_SUBCLASS_FROM_DATABASE=Audio device
 
+pci:v*d*sv*sd*bc04sc03i00*
+ ID_PCI_INTERFACE_FROM_DATABASE=HDA compatible
+
+pci:v*d*sv*sd*bc04sc03i80*
+ ID_PCI_INTERFACE_FROM_DATABASE=HDA compatible with vendor specific extensions
+
 pci:v*d*sv*sd*bc04sc80*
  ID_PCI_SUBCLASS_FROM_DATABASE=Multimedia controller
 
@@ -192,7 +222,7 @@ pci:v*d*sv*sd*bc05sc02i00*
  ID_PCI_INTERFACE_FROM_DATABASE=CXL Memory Device - vendor specific
 
 pci:v*d*sv*sd*bc05sc02i10*
- ID_PCI_INTERFACE_FROM_DATABASE=CXL Memory Device (CXL 2.x)
+ ID_PCI_INTERFACE_FROM_DATABASE=CXL Memory Device (CXL 2.0 or later)
 
 pci:v*d*sv*sd*bc05sc80*
  ID_PCI_SUBCLASS_FROM_DATABASE=Memory controller
@@ -536,6 +566,9 @@ pci:v*d*sv*sd*bc0Csc08*
 pci:v*d*sv*sd*bc0Csc09*
  ID_PCI_SUBCLASS_FROM_DATABASE=CANBUS
 
+pci:v*d*sv*sd*bc0Csc0A*
+ ID_PCI_SUBCLASS_FROM_DATABASE=MIPI I3C
+
 pci:v*d*sv*sd*bc0Csc80*
  ID_PCI_SUBCLASS_FROM_DATABASE=Serial bus controller
 
@@ -558,10 +591,16 @@ pci:v*d*sv*sd*bc0Dsc12*
  ID_PCI_SUBCLASS_FROM_DATABASE=Broadband
 
 pci:v*d*sv*sd*bc0Dsc20*
- ID_PCI_SUBCLASS_FROM_DATABASE=802.1a controller
+ ID_PCI_SUBCLASS_FROM_DATABASE=802.11a 5 GHz controller
 
 pci:v*d*sv*sd*bc0Dsc21*
- ID_PCI_SUBCLASS_FROM_DATABASE=802.1b controller
+ ID_PCI_SUBCLASS_FROM_DATABASE=802.11b 2.4 GHz controller
+
+pci:v*d*sv*sd*bc0Dsc40*
+ ID_PCI_SUBCLASS_FROM_DATABASE=Cellular controller/modem
+
+pci:v*d*sv*sd*bc0Dsc41*
+ ID_PCI_SUBCLASS_FROM_DATABASE=Cellular controller/modem plus Ethernet (802.11)
 
 pci:v*d*sv*sd*bc0Dsc80*
  ID_PCI_SUBCLASS_FROM_DATABASE=Wireless controller

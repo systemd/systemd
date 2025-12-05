@@ -103,6 +103,9 @@ sensor:modalias:acpi:SMO8500:*:dmi:*Acer*:pnOneS1002:*
 sensor:modalias:acpi:KIOX0009*:dmi:*:svnAcer:pnOneS1003:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnAcer:pnSwitchOneSW1-011:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnAcer*:pnSwitchSW312-31:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
@@ -601,6 +604,10 @@ sensor:modalias:acpi:MXC6655*:dmi:*:svnGPD:pnG1628-04:*
 sensor:modalias:acpi:BMI0160*:dmi:*:svnGPD:pnG1619*:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
+# GPD MicroPC 2
+sensor:modalias:acpi:MXC6655*:dmi:*:svnGPD:pnG1688-*:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
+
 #########################################
 # Hometech
 ########################################
@@ -748,10 +755,6 @@ sensor:modalias:acpi:BMA250E*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-1030:*
 # Miix3-830
 sensor:modalias:acpi:SMO8500*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-830:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
-
-# IdeaPad D330-10IGM (both 81H3 and 81MD product names)
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
 # IdeaPad Miix 300
 sensor:modalias:acpi:SMO8500*:dmi:bvnLENOVO:*:pvrMIIX300-*:*
