@@ -80,6 +80,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
+#include "coredumpctl.args.inc"
+
 static int add_match(sd_journal *j, const char *match) {
         _cleanup_free_ char *p = NULL;
         const char *field;
@@ -175,7 +177,7 @@ static int acquire_journal(sd_journal **ret, char **matches) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -191,27 +193,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "  dump [MATCHES...]  Print first matching coredump to stdout\n"
                "  debug [MATCHES...] Start a debugger for the first matching coredump\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help                    Show this help\n"
-               "     --version                 Print version string\n"
-               "     --no-pager                Do not pipe output into a pager\n"
-               "     --no-legend               Do not print the column headers\n"
-               "     --json=pretty|short|off   Generate JSON output\n"
-               "     --debugger=DEBUGGER       Use the given debugger\n"
-               "  -A --debugger-arguments=ARGS Pass the given arguments to the debugger\n"
-               "  -n INT                       Show maximum number of rows\n"
-               "  -1                           Show information about most recent entry only\n"
-               "  -S --since=DATE              Only print coredumps since the date\n"
-               "  -U --until=DATE              Only print coredumps until the date\n"
-               "  -r --reverse                 Show the newest entries first\n"
-               "  -F --field=FIELD             List all values a certain field takes\n"
-               "  -o --output=FILE             Write output to FILE\n"
-               "     --file=PATH               Use journal file\n"
-               "  -D --directory=DIR           Use journal files from directory\n\n"
-               "  -q --quiet                   Do not show info messages and privilege warning\n"
-               "     --all                     Look at all journal files instead of local ones\n"
-               "     --root=PATH               Operate on an alternate filesystem root\n"
-               "     --image=PATH              Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY     Specify disk image dissection policy\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -224,173 +206,11 @@ static int verb_help(int argc, char **argv, void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_JSON,
-                ARG_DEBUGGER,
-                ARG_FILE,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_ALL,
-        };
+        int r;
 
-        int c, r;
-
-        static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'              },
-                { "version" ,           no_argument,       NULL, ARG_VERSION      },
-                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER     },
-                { "no-legend",          no_argument,       NULL, ARG_NO_LEGEND    },
-                { "debugger",           required_argument, NULL, ARG_DEBUGGER     },
-                { "debugger-arguments", required_argument, NULL, 'A'              },
-                { "output",             required_argument, NULL, 'o'              },
-                { "field",              required_argument, NULL, 'F'              },
-                { "file",               required_argument, NULL, ARG_FILE         },
-                { "directory",          required_argument, NULL, 'D'              },
-                { "reverse",            no_argument,       NULL, 'r'              },
-                { "since",              required_argument, NULL, 'S'              },
-                { "until",              required_argument, NULL, 'U'              },
-                { "quiet",              no_argument,       NULL, 'q'              },
-                { "json",               required_argument, NULL, ARG_JSON         },
-                { "root",               required_argument, NULL, ARG_ROOT         },
-                { "image",              required_argument, NULL, ARG_IMAGE        },
-                { "image-policy",       required_argument, NULL, ARG_IMAGE_POLICY },
-                { "all",                no_argument,       NULL, ARG_ALL          },
-                {}
-        };
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hA:o:F:1D:rS:U:qn:", options, NULL)) >= 0)
-                switch (c) {
-                case 'h':
-                        return verb_help(0, NULL, NULL);
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case ARG_DEBUGGER:
-                        arg_debugger = optarg;
-                        break;
-
-                case 'A': {
-                        _cleanup_strv_free_ char **l = NULL;
-                        r = strv_split_full(&l, optarg, WHITESPACE, EXTRACT_UNQUOTE);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", optarg);
-                        strv_free_and_replace(arg_debugger_args, l);
-                        break;
-                }
-
-                case ARG_FILE:
-                        r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add paths: %m");
-                        break;
-
-                case 'o':
-                        if (arg_output)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot set output more than once.");
-
-                        arg_output = optarg;
-                        break;
-
-                case 'S':
-                        r = parse_timestamp(optarg, &arg_since);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse timestamp '%s': %m", optarg);
-                        break;
-
-                case 'U':
-                        r = parse_timestamp(optarg, &arg_until);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse timestamp '%s': %m", optarg);
-                        break;
-
-                case 'F':
-                        if (arg_field)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use --field/-F more than once.");
-                        arg_field = optarg;
-                        break;
-
-                case '1':
-                        arg_rows_max = 1;
-                        arg_reverse = true;
-                        break;
-
-                case 'n': {
-                        unsigned n;
-
-                        r = safe_atou(optarg, &n);
-                        if (r < 0 || n < 1)
-                                return log_error_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid numeric parameter to -n: %s", optarg);
-
-                        arg_rows_max = n;
-                        break;
-                }
-
-                case 'D':
-                        arg_directory = optarg;
-                        break;
-
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, false, &arg_root);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, false, &arg_image);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'r':
-                        arg_reverse = true;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case ARG_ALL:
-                        arg_all = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (arg_since != USEC_INFINITY && arg_until != USEC_INFINITY &&
             arg_since > arg_until)
@@ -398,7 +218,8 @@ static int parse_argv(int argc, char *argv[]) {
                                        "--since= must be before --until=.");
 
         if ((!!arg_directory + !!arg_image + !!arg_root) > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root=, --image= or -D/--directory=, the combination of these options is not supported.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Please specify either --root=, --image= or -D/--directory=, the combination of these options is not supported.");
 
         return 1;
 }
