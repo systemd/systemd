@@ -3,23 +3,23 @@
 # Czech translation for systemd.
 #
 # Daniel Rusek <mail@asciiwolf.com>, 2022, 2023.
-# Pavel Borecki <pavel.borecki@gmail.com>, 2023, 2024.
+# Pavel Borecki <pavel.borecki@gmail.com>, 2023, 2024, 2025.
 # Jan Kalabza <jan.kalabza@gmail.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-02-10 02:01+0000\n"
-"Last-Translator: Jan Kalabza <jan.kalabza@gmail.com>\n"
+"PO-Revision-Date: 2025-12-05 12:01+0000\n"
+"Last-Translator: Pavel Borecki <pavel.borecki@gmail.com>\n"
 "Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
 "main/cs/>\n"
 "Language: cs\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
-"|| n%100>=20) ? 1 : 2);\n"
-"X-Generator: Weblate 5.9.2\n"
+"Plural-Forms: nplurals=3; plural="
+"(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -150,13 +150,12 @@ msgstr "K aktivaci domovského adresáře uživatele je nutné ověření."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Spravovat klíče pro podepisování domovské složky"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
-"Pro správu systémových služeb nebo dalších jednotek je vyžadováno ověření."
+"Pro správu klíčů pro podepisování domovských složek je vyžadováno ověření."
 
 #: src/home/pam_systemd_home.c:333
 #, c-format
@@ -882,16 +881,15 @@ msgstr ""
 "K vytvoření místního virtuálního počítače nebo kontejneru je nutné ověření."
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
 msgid "Register a local virtual machine or container"
-msgstr "Vytvoření místního virtuálního počítače nebo kontejneru"
+msgstr "Zaregistrovat lokální virtuální stroj nebo kontejner"
 
 #: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
-"K vytvoření místního virtuálního počítače nebo kontejneru je nutné ověření."
+"K zaregistrování lokálního virtuálního stroje nebo kontejneru je nutné "
+"ověření."
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
@@ -1115,12 +1113,11 @@ msgstr "Pro přihlášení k odběru výsledků dotazu je vyžadováno ověřen�
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "Přihlásit se k odběru nastavení DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "Pro přihlášení k odběru výsledků dotazu je vyžadováno ověření."
+msgstr "Pro přihlášení k odběru nastavení DNS je vyžadováno ověření."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1259,11 +1256,12 @@ msgid ""
 msgstr "Pro odeslání UNIX signálu procesům „$(unit)” je vyžadováno ověření."
 
 #: src/core/dbus-unit.c:620
-#, fuzzy
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "Pro odeslání UNIX signálu procesům „$(unit)” je vyžadováno ověření."
+msgstr ""
+"Pro odeslání UNIX signálu procesům nebo podskupině „$(unit)” je vyžadováno "
+"ověření."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
