@@ -183,6 +183,10 @@ typedef uint64_t EFI_PHYSICAL_ADDRESS;
 #define EFI_PAGE_SIZE 4096U
 #define EFI_SIZE_TO_PAGES(s) (((s) + 0xFFFU) >> 12U)
 
+#define CAPSULE_FLAGS_PERSIST_ACROSS_RESET    0x00010000
+#define CAPSULE_FLAGS_POPULATE_SYSTEM_TABLE   0x00020000
+#define CAPSULE_FLAGS_INITIATE_RESET          0x00040000
+
 /* These are common enough to warrant forward declaration. We also give them a
  * shorter name for convenience. */
 typedef struct EFI_FILE_PROTOCOL EFI_FILE;
@@ -250,6 +254,21 @@ typedef struct {
         uint32_t CRC32;
         uint32_t Reserved;
 } EFI_TABLE_HEADER;
+
+typedef struct {
+        EFI_GUID CapsuleGuid;
+        uint32_t HeaderSize;
+        uint32_t Flags;
+        uint32_t CapsuleImageSize;
+} EFI_CAPSULE_HEADER;
+
+typedef struct {
+        uint64_t Length;
+        union {
+                EFI_PHYSICAL_ADDRESS DataBlock;
+                EFI_PHYSICAL_ADDRESS ContinuationPointer;
+        };
+} EFI_CAPSULE_BLOCK_DESCRIPTOR;
 
 typedef struct {
         EFI_TABLE_HEADER Hdr;
@@ -406,7 +425,10 @@ typedef struct {
                         uint32_t *Attributes,
                         size_t *DataSize,
                         void *Data);
-        void *GetNextVariableName;
+        EFI_STATUS (EFIAPI *GetNextVariableName)(
+                        size_t *VariableNameSize,
+                        char16_t *VariableName,
+                        EFI_GUID *VendorGuid);
         EFI_STATUS (EFIAPI *SetVariable)(
                         char16_t *VariableName,
                         EFI_GUID *VendorGuid,
@@ -419,8 +441,15 @@ typedef struct {
                         EFI_STATUS ResetStatus,
                         size_t DataSize,
                         void *ResetData);
-        void *UpdateCapsule;
-        void *QueryCapsuleCapabilities;
+        EFI_STATUS (EFIAPI *UpdateCapsule)(
+                        EFI_CAPSULE_HEADER **CapsuleHeaderArray,
+                        size_t CapsuleCount,
+                        EFI_PHYSICAL_ADDRESS ScatterGatherList);
+        EFI_STATUS (EFIAPI *QueryCapsuleCapabilities)(
+                        EFI_CAPSULE_HEADER **CapsuleHeaderArray,
+                        size_t CapsuleCount,
+                        uint64_t *MaximumCapsuleSize,
+                        EFI_RESET_TYPE *ResetType);
         void *QueryVariableInfo;
 } EFI_RUNTIME_SERVICES;
 
