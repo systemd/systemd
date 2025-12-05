@@ -25,6 +25,8 @@
 
 static bool arg_doit = true;
 
+#include "battery-check.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -35,8 +37,7 @@ static int help(void) {
 
         printf("%s\n\n"
                "%sCheck battery level to see whether there's enough charge.%s\n\n"
-               "   -h --help            Show this help\n"
-               "      --version         Show package version\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -70,47 +71,6 @@ static int plymouth_send_message(const char *mode, const char *message) {
         return 0;
 }
 
-static int parse_argv(int argc, char * argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-        };
-
-        static const struct option options[] = {
-                { "help",    no_argument, NULL, 'h'         },
-                { "version", no_argument, NULL, ARG_VERSION },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s takes no argument.",
-                                       program_invocation_short_name);
-        return 1;
-}
-
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *plymouth_message = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -118,9 +78,14 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s takes no argument.",
+                                       program_invocation_short_name);
 
         r = proc_cmdline_get_bool("systemd.battery_check", PROC_CMDLINE_STRIP_RD_PREFIX|PROC_CMDLINE_TRUE_WHEN_MISSING, &arg_doit);
         if (r < 0)
