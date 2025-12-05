@@ -214,6 +214,7 @@ executables += [
                 'name' : 'systemd-executor',
                 'public' : true,
                 'sources' : systemd_executor_sources,
+                'arg_parser' : files('executor.args'),
                 'link_with' : executor_libs,
                 'dependencies' : [
                         libapparmor_cflags,
