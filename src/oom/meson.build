@@ -20,6 +20,7 @@ executables += [
                 'dbus' : true,
                 'sources' : systemd_oomd_sources,
                 'extract' : systemd_oomd_extract_sources,
+                'arg_parser' : files('oomd.args'),
                 'dependencies' : libatomic,
         },
         executable_template + {
