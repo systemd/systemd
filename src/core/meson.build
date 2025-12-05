@@ -201,6 +201,7 @@ executables += [
                 'dependencies' : [
                         libapparmor_cflags,
                         libkmod_cflags,
+                        libmount_cflags,
                         libseccomp_cflags,
                         libselinux_cflags,
                 ],
