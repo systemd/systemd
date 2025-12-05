@@ -636,11 +636,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LIST_DEVICES:
-                        r = blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_REQUIRE_LUKS, /* ret_devices= */ NULL, /* ret_n_devices= */ NULL);
-                        if (r < 0)
-                                return r;
-
-                        return 0;
+                        return blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_REQUIRE_LUKS,
+                                             /* ret_devices= */ NULL,
+                                             /* ret_n_devices= */ NULL);
 
                 case '?':
                         return -EINVAL;
