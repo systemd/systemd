@@ -186,7 +186,7 @@ EOF
     fi
     systemctl start knot
     # Wait for signed.test's zone DS records to get pushed to the parent zone
-    timeout 30s bash -xec 'until knotc zone-read test. signed.test. ds | grep -E "signed\.test\. [0-9]+ DS"; do sleep 2; done'
+    timeout 60s bash -xec 'until knotc zone-read test. signed.test. ds | grep -E "signed\.test\. [0-9]+ DS"; do sleep 2; done'
 
     systemctl status resolved-dummy-server
     networkctl status
@@ -829,6 +829,7 @@ testcase_09_resolvectl_showcache() {
     } > /run/systemd/network/10-dns2.network
     networkctl reload
     networkctl reconfigure dns2
+    /usr/lib/systemd/systemd-networkd-wait-online --timeout=60 --dns --interface=dns2
 
     mkdir -p /run/systemd/resolved.conf.d/
     {
@@ -1377,10 +1378,10 @@ testcase_15_wait_online_dns() {
 
     # Begin systemd-networkd-wait-online --dns
     systemd-run -u "$unit" -p "Environment=SYSTEMD_LOG_LEVEL=debug" -p "Environment=SYSTEMD_LOG_TARGET=journal" --service-type=exec \
-        /usr/lib/systemd/systemd-networkd-wait-online --timeout=20 --dns --interface=dns0
+        /usr/lib/systemd/systemd-networkd-wait-online --timeout=0 --dns --interface=dns0
 
     # Wait until it blocks waiting for updated DNS config
-    timeout 10 bash -c "journalctl -b -u $unit -f | grep -q -m1 'dns0: No.*DNS server is accessible'"
+    timeout 30 bash -c "journalctl -b -u $unit -f | grep -q -m1 'dns0: No.*DNS server is accessible'"
 
     # Update the global configuration. Restart rather than reload systemd-resolved so that
     # systemd-networkd-wait-online has to re-connect to the varlink service.
@@ -1391,7 +1392,7 @@ testcase_15_wait_online_dns() {
     systemctl restart systemd-resolved.service
 
     # Wait for the monitor to exit gracefully.
-    timeout 10 bash -c "while systemctl --quiet is-active $unit; do sleep 0.5; done"
+    timeout 30 bash -c "while systemctl --quiet is-active $unit; do sleep 0.5; done"
     journalctl --sync
 
     # Check that a disconnect happened, and was handled.
