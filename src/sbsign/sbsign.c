@@ -45,7 +45,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_signed_data, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_signed_data_signature, freep);
 
-static int help(int argc, char *argv[], void *userdata) {
+#include "sbsign.args.inc"
+
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -58,20 +60,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%3$sCommands:%4$s\n"
                "  sign EXEFILE           Sign the given binary for EFI Secure Boot\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
-               "     --version           Print version\n"
-               "     --output            Where to write the signed PE binary\n"
-               "     --certificate=PATH|URI\n"
-               "                         PEM certificate to use for signing, or a provider\n"
-               "                         specific designation if --certificate-source= is used\n"
-               "     --certificate-source=file|provider:PROVIDER\n"
-               "                         Specify how to interpret the certificate from\n"
-               "                         --certificate=. Allows the certificate to be loaded\n"
-               "                         from an OpenSSL provider\n"
-               "     --private-key=KEY   Private key (PEM) to sign with\n"
-               "     --private-key-source=file|provider:PROVIDER|engine:ENGINE\n"
-               "                         Specify how to use KEY for --private-key=. Allows\n"
-               "                         an OpenSSL engine/provider to be used for signing\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -84,110 +73,11 @@ static int help(int argc, char *argv[], void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_OUTPUT,
-                ARG_CERTIFICATE,
-                ARG_CERTIFICATE_SOURCE,
-                ARG_PRIVATE_KEY,
-                ARG_PRIVATE_KEY_SOURCE,
-                ARG_PREPARE_OFFLINE_SIGNING,
-                ARG_SIGNED_DATA,
-                ARG_SIGNED_DATA_SIGNATURE,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "help",                    no_argument,       NULL, 'h'                         },
-                { "version",                 no_argument,       NULL, ARG_VERSION                 },
-                { "output",                  required_argument, NULL, ARG_OUTPUT                  },
-                { "certificate",             required_argument, NULL, ARG_CERTIFICATE             },
-                { "certificate-source",      required_argument, NULL, ARG_CERTIFICATE_SOURCE      },
-                { "private-key",             required_argument, NULL, ARG_PRIVATE_KEY             },
-                { "private-key-source",      required_argument, NULL, ARG_PRIVATE_KEY_SOURCE      },
-                { "prepare-offline-signing", no_argument,       NULL, ARG_PREPARE_OFFLINE_SIGNING },
-                { "signed-data",             required_argument, NULL, ARG_SIGNED_DATA             },
-                { "signed-data-signature",   required_argument, NULL, ARG_SIGNED_DATA_SIGNATURE   },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_OUTPUT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_output);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_CERTIFICATE:
-                        r = free_and_strdup_warn(&arg_certificate, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_CERTIFICATE_SOURCE:
-                        r = parse_openssl_certificate_source_argument(
-                                        optarg,
-                                        &arg_certificate_source,
-                                        &arg_certificate_source_type);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_PRIVATE_KEY:
-                        r = free_and_strdup_warn(&arg_private_key, optarg);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_PRIVATE_KEY_SOURCE:
-                        r = parse_openssl_key_source_argument(
-                                        optarg,
-                                        &arg_private_key_source,
-                                        &arg_private_key_source_type);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_PREPARE_OFFLINE_SIGNING:
-                        arg_prepare_offline_signing = true;
-                        break;
-
-                case ARG_SIGNED_DATA:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_signed_data);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_SIGNED_DATA_SIGNATURE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_signed_data_signature);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (arg_private_key_source && !arg_certificate)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "When using --private-key-source=, --certificate= must be specified.");
@@ -739,7 +629,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",         VERB_ANY, VERB_ANY, 0,    help              },
+                { "help",         VERB_ANY, VERB_ANY, 0,    verb_help         },
                 { "sign",         2,        2,        0,    verb_sign         },
                 {}
         };
