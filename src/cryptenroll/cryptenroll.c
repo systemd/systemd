@@ -66,6 +66,10 @@ static int arg_fido2_cred_alg = COSE_ES256;
 static int arg_fido2_cred_alg = 0;
 #endif
 
+/* Only used when parsing options */
+static bool arg_auto_public_key_pcr_mask = true;
+static bool arg_auto_pcrlock = true;
+
 assert_cc(sizeof(arg_wipe_slots_mask) * 8 >= _ENROLL_TYPE_MAX);
 
 STATIC_DESTRUCTOR_REGISTER(arg_unlock_keyfile, freep);
@@ -221,6 +225,8 @@ static int parse_wipe_slot(const char *arg) {
         }
 }
 
+#include "cryptenroll.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -233,57 +239,11 @@ static int help(void) {
 
         printf("%1$s [OPTIONS...] [BLOCK-DEVICE]\n\n"
                "%5$sEnroll a security token or authentication credential to a LUKS volume.%6$s\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "     --no-pager        Do not spawn a pager\n"
-               "     --list-devices    List candidate block devices to operate on\n"
-               "     --wipe-slot=SLOT1,SLOT2,…\n"
-               "                       Wipe specified slots\n"
+               OPTION_HELP_GENERATED
                "\n%3$sUnlocking:%4$s\n"
-               "     --unlock-key-file=PATH\n"
-               "                       Use a file to unlock the volume\n"
-               "     --unlock-fido2-device=PATH\n"
-               "                       Use a FIDO2 device to unlock the volume\n"
-               "     --unlock-tpm2-device=PATH\n"
-               "                       Use a TPM2 device to unlock the volume\n"
+               OPTION_HELP_GENERATED_UNLOCKING
                "\n%3$sEnrollment:%4$s\n"
-               "     --password        Enroll a user-supplied password\n"
-               "     --recovery-key    Enroll a recovery key\n"
-               "     --pkcs11-token-uri=URI|auto|list\n"
-               "                       Enroll a PKCS#11 security token or list them\n"
-               "     --fido2-device=PATH|auto|list\n"
-               "                       Enroll a FIDO2-HMAC security token or list them\n"
-               "     --fido2-salt-file=PATH\n"
-               "                       Use salt from a file instead of generating one\n"
-               "     --fido2-parameters-in-header=BOOL\n"
-               "                       Whether to store FIDO2 parameters in the LUKS2 header\n"
-               "     --fido2-credential-algorithm=STRING\n"
-               "                       Specify COSE algorithm for FIDO2 credential\n"
-               "     --fido2-with-client-pin=BOOL\n"
-               "                       Whether to require entering a PIN to unlock the volume\n"
-               "     --fido2-with-user-presence=BOOL\n"
-               "                       Whether to require user presence to unlock the volume\n"
-               "     --fido2-with-user-verification=BOOL\n"
-               "                       Whether to require user verification to unlock the volume\n"
-               "     --tpm2-device=PATH|auto|list\n"
-               "                       Enroll a TPM2 device or list them\n"
-               "     --tpm2-device-key=PATH\n"
-               "                       Enroll a TPM2 device using its public key\n"
-               "     --tpm2-seal-key-handle=HANDLE\n"
-               "                       Specify handle of key to use for sealing\n"
-               "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
-               "                       Specify TPM2 PCRs to seal against\n"
-               "     --tpm2-public-key=PATH\n"
-               "                       Enroll signed TPM2 PCR policy against PEM public key\n"
-               "     --tpm2-public-key-pcrs=PCR1+PCR2+PCR3+…\n"
-               "                       Enroll signed TPM2 PCR policy for specified TPM2 PCRs\n"
-               "     --tpm2-signature=PATH\n"
-               "                       Validate public key enrollment works with JSON signature\n"
-               "                       file\n"
-               "     --tpm2-pcrlock=PATH\n"
-               "                       Specify pcrlock policy to lock against\n"
-               "     --tpm2-with-pin=BOOL\n"
-               "                       Whether to require entering a PIN to unlock the volume\n"
+               OPTION_HELP_GENERATED_ENROLLMENT
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -296,356 +256,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_PASSWORD,
-                ARG_RECOVERY_KEY,
-                ARG_UNLOCK_KEYFILE,
-                ARG_UNLOCK_FIDO2_DEVICE,
-                ARG_UNLOCK_TPM2_DEVICE,
-                ARG_PKCS11_TOKEN_URI,
-                ARG_FIDO2_DEVICE,
-                ARG_FIDO2_SALT_FILE,
-                ARG_FIDO2_PARAMETERS_IN_HEADER,
-                ARG_TPM2_DEVICE,
-                ARG_TPM2_DEVICE_KEY,
-                ARG_TPM2_SEAL_KEY_HANDLE,
-                ARG_TPM2_PCRS,
-                ARG_TPM2_PUBLIC_KEY,
-                ARG_TPM2_PUBLIC_KEY_PCRS,
-                ARG_TPM2_SIGNATURE,
-                ARG_TPM2_PCRLOCK,
-                ARG_TPM2_WITH_PIN,
-                ARG_WIPE_SLOT,
-                ARG_FIDO2_WITH_PIN,
-                ARG_FIDO2_WITH_UP,
-                ARG_FIDO2_WITH_UV,
-                ARG_FIDO2_CRED_ALG,
-                ARG_LIST_DEVICES,
-        };
-
-        static const struct option options[] = {
-                { "help",                          no_argument,       NULL, 'h'                            },
-                { "version",                       no_argument,       NULL, ARG_VERSION                    },
-                { "no-pager",                      no_argument,       NULL, ARG_NO_PAGER                   },
-                { "password",                      no_argument,       NULL, ARG_PASSWORD                   },
-                { "recovery-key",                  no_argument,       NULL, ARG_RECOVERY_KEY               },
-                { "unlock-key-file",               required_argument, NULL, ARG_UNLOCK_KEYFILE             },
-                { "unlock-fido2-device",           required_argument, NULL, ARG_UNLOCK_FIDO2_DEVICE        },
-                { "unlock-tpm2-device",            required_argument, NULL, ARG_UNLOCK_TPM2_DEVICE         },
-                { "pkcs11-token-uri",              required_argument, NULL, ARG_PKCS11_TOKEN_URI           },
-                { "fido2-credential-algorithm",    required_argument, NULL, ARG_FIDO2_CRED_ALG             },
-                { "fido2-device",                  required_argument, NULL, ARG_FIDO2_DEVICE               },
-                { "fido2-salt-file",               required_argument, NULL, ARG_FIDO2_SALT_FILE            },
-                { "fido2-parameters-in-header",    required_argument, NULL, ARG_FIDO2_PARAMETERS_IN_HEADER },
-                { "fido2-with-client-pin",         required_argument, NULL, ARG_FIDO2_WITH_PIN             },
-                { "fido2-with-user-presence",      required_argument, NULL, ARG_FIDO2_WITH_UP              },
-                { "fido2-with-user-verification",  required_argument, NULL, ARG_FIDO2_WITH_UV              },
-                { "tpm2-device",                   required_argument, NULL, ARG_TPM2_DEVICE                },
-                { "tpm2-device-key",               required_argument, NULL, ARG_TPM2_DEVICE_KEY            },
-                { "tpm2-seal-key-handle",          required_argument, NULL, ARG_TPM2_SEAL_KEY_HANDLE       },
-                { "tpm2-pcrs",                     required_argument, NULL, ARG_TPM2_PCRS                  },
-                { "tpm2-public-key",               required_argument, NULL, ARG_TPM2_PUBLIC_KEY            },
-                { "tpm2-public-key-pcrs",          required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS       },
-                { "tpm2-signature",                required_argument, NULL, ARG_TPM2_SIGNATURE             },
-                { "tpm2-pcrlock",                  required_argument, NULL, ARG_TPM2_PCRLOCK               },
-                { "tpm2-with-pin",                 required_argument, NULL, ARG_TPM2_WITH_PIN              },
-                { "wipe-slot",                     required_argument, NULL, ARG_WIPE_SLOT                  },
-                { "list-devices",                  no_argument,       NULL, ARG_LIST_DEVICES               },
-                {}
-        };
-
-        bool auto_public_key_pcr_mask = true, auto_pcrlock = true;
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_FIDO2_WITH_PIN:
-                        r = parse_boolean_argument("--fido2-with-client-pin=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_PIN, r);
-                        break;
-
-                case ARG_FIDO2_WITH_UP:
-                        r = parse_boolean_argument("--fido2-with-user-presence=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, r);
-                        break;
-
-                case ARG_FIDO2_WITH_UV:
-                        r = parse_boolean_argument("--fido2-with-user-verification=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, r);
-                        break;
-
-                case ARG_PASSWORD:
-                        if (arg_enroll_type >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple operations specified at once, refusing.");
-
-                        arg_enroll_type = ENROLL_PASSWORD;
-                        break;
-
-                case ARG_RECOVERY_KEY:
-                        if (arg_enroll_type >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple operations specified at once, refusing.");
-
-                        arg_enroll_type = ENROLL_RECOVERY;
-                        break;
-
-                case ARG_UNLOCK_KEYFILE:
-                        if (arg_unlock_type != UNLOCK_PASSWORD)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple unlock methods specified at once, refusing.");
-
-                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_unlock_keyfile);
-                        if (r < 0)
-                                return r;
-
-                        arg_unlock_type = UNLOCK_KEYFILE;
-                        break;
-
-                case ARG_UNLOCK_FIDO2_DEVICE: {
-                        _cleanup_free_ char *device = NULL;
-
-                        if (arg_unlock_type != UNLOCK_PASSWORD)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple unlock methods specified at once, refusing.");
-
-                        assert(!arg_unlock_fido2_device);
-
-                        if (!streq(optarg, "auto")) {
-                                device = strdup(optarg);
-                                if (!device)
-                                        return log_oom();
-                        }
-
-                        arg_unlock_type = UNLOCK_FIDO2;
-                        arg_unlock_fido2_device = TAKE_PTR(device);
-                        break;
-                }
-
-                case ARG_UNLOCK_TPM2_DEVICE: {
-                        _cleanup_free_ char *device = NULL;
-
-                        if (arg_unlock_type != UNLOCK_PASSWORD)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple unlock methods specified at once, refusing.");
-
-                        assert(!arg_unlock_tpm2_device);
-
-                        if (!streq(optarg, "auto")) {
-                                device = strdup(optarg);
-                                if (!device)
-                                        return log_oom();
-                        }
-
-                        arg_unlock_type = UNLOCK_TPM2;
-                        arg_unlock_tpm2_device = TAKE_PTR(device);
-                        break;
-                }
-
-                case ARG_PKCS11_TOKEN_URI: {
-                        _cleanup_free_ char *uri = NULL;
-
-                        if (streq(optarg, "list"))
-                                return pkcs11_list_tokens();
-
-                        if (arg_enroll_type >= 0 || arg_pkcs11_token_uri)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple operations specified at once, refusing.");
-
-                        if (streq(optarg, "auto")) {
-                                r = pkcs11_find_token_auto(&uri);
-                                if (r < 0)
-                                        return r;
-                        } else {
-                                if (!pkcs11_uri_valid(optarg))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid PKCS#11 URI: %s", optarg);
-
-                                uri = strdup(optarg);
-                                if (!uri)
-                                        return log_oom();
-                        }
-
-                        arg_enroll_type = ENROLL_PKCS11;
-                        arg_pkcs11_token_uri = TAKE_PTR(uri);
-                        break;
-                }
-
-                case ARG_FIDO2_CRED_ALG:
-                        r = parse_fido2_algorithm(optarg, &arg_fido2_cred_alg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse COSE algorithm: %s", optarg);
-                        break;
-
-                case ARG_FIDO2_DEVICE: {
-                        _cleanup_free_ char *device = NULL;
-
-                        if (streq(optarg, "list"))
-                                return fido2_list_devices();
-
-                        if (arg_enroll_type >= 0 || arg_fido2_device)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple operations specified at once, refusing.");
-
-                        if (!streq(optarg, "auto")) {
-                                device = strdup(optarg);
-                                if (!device)
-                                        return log_oom();
-                        }
-
-                        arg_enroll_type = ENROLL_FIDO2;
-                        arg_fido2_device = TAKE_PTR(device);
-                        break;
-                }
-
-                case ARG_FIDO2_SALT_FILE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_fido2_salt_file);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_FIDO2_PARAMETERS_IN_HEADER:
-                        r = parse_boolean_argument("--fido2-parameters-in-header=", optarg, &arg_fido2_parameters_in_header);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_TPM2_DEVICE: {
-                        _cleanup_free_ char *device = NULL;
-
-                        if (streq(optarg, "list"))
-                                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
-
-                        if (arg_enroll_type >= 0 || arg_tpm2_device)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple operations specified at once, refusing.");
-
-                        if (!streq(optarg, "auto")) {
-                                device = strdup(optarg);
-                                if (!device)
-                                        return log_oom();
-                        }
-
-                        arg_enroll_type = ENROLL_TPM2;
-                        arg_tpm2_device = TAKE_PTR(device);
-                        break;
-                }
-
-                case ARG_TPM2_DEVICE_KEY:
-                        if (arg_enroll_type >= 0 || arg_tpm2_device_key)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Multiple operations specified at once, refusing.");
-
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_device_key);
-                        if (r < 0)
-                                return r;
-
-                        arg_enroll_type = ENROLL_TPM2;
-                        break;
-
-                case ARG_TPM2_SEAL_KEY_HANDLE:
-                        r = safe_atou32_full(optarg, 16, &arg_tpm2_seal_key_handle);
-                        if (r < 0)
-                                return log_error_errno(r, "Could not parse TPM2 seal key handle index '%s': %m", optarg);
-
-                        break;
-
-                case ARG_TPM2_PCRS:
-                        r = tpm2_parse_pcr_argument_append(optarg, &arg_tpm2_hash_pcr_values, &arg_tpm2_n_hash_pcr_values);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_TPM2_PUBLIC_KEY:
-                        /* an empty argument disables loading a public key */
-                        if (isempty(optarg)) {
-                                arg_tpm2_load_public_key = false;
-                                arg_tpm2_public_key = mfree(arg_tpm2_public_key);
-                                break;
-                        }
-
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_public_key);
-                        if (r < 0)
-                                return r;
-                        arg_tpm2_load_public_key = true;
-
-                        break;
-
-                case ARG_TPM2_PUBLIC_KEY_PCRS:
-                        auto_public_key_pcr_mask = false;
-                        r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_tpm2_public_key_pcr_mask);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_TPM2_SIGNATURE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_signature);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_TPM2_PCRLOCK:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_pcrlock);
-                        if (r < 0)
-                                return r;
-
-                        auto_pcrlock = false;
-                        break;
-
-                case ARG_TPM2_WITH_PIN:
-                        r = parse_boolean_argument("--tpm2-with-pin=", optarg, &arg_tpm2_pin);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_WIPE_SLOT:
-                        r = parse_wipe_slot(optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_LIST_DEVICES:
-                        return blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_REQUIRE_LUKS,
-                                             /* ret_devices= */ NULL,
-                                             /* ret_n_devices= */ NULL);
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        int r;
+
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (argc > optind+1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -684,7 +299,7 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (arg_enroll_type == ENROLL_TPM2) {
-                if (auto_pcrlock) {
+                if (arg_auto_pcrlock) {
                         assert(!arg_tpm2_pcrlock);
 
                         r = tpm2_pcrlock_search_file(NULL, NULL, &arg_tpm2_pcrlock);
@@ -695,7 +310,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 log_info("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
                 }
 
-                if (auto_public_key_pcr_mask) {
+                if (arg_auto_public_key_pcr_mask) {
                         assert(arg_tpm2_public_key_pcr_mask == 0);
                         arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
                 }
