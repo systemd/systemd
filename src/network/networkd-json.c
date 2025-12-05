@@ -35,45 +35,19 @@
 
 static int address_append_json(Address *address, bool serializing, sd_json_variant **array) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_free_ char *address_str = NULL, *peer_str = NULL, *provider_str = NULL, *broadcast_str = NULL;
         int r;
 
         assert(address);
         assert(array);
 
-        r = in_addr_to_string(address->family, &address->in_addr, &address_str);
-        if (r < 0)
-                return r;
-
-        if (in_addr_is_set(address->family, &address->in_addr_peer)) {
-                r = in_addr_to_string(address->family, &address->in_addr_peer, &peer_str);
-                if (r < 0)
-                        return r;
-        }
-
-        if (in_addr_is_set(address->family, &address->provider)) {
-                r = in_addr_to_string(address->family, &address->provider, &provider_str);
-                if (r < 0)
-                        return r;
-        }
-
-        if (in4_addr_is_set(&address->broadcast)) {
-                r = in_addr_to_string(AF_INET, (union in_addr_union*) &address->broadcast, &broadcast_str);
-                if (r < 0)
-                        return r;
-        }
-
         r = sd_json_buildo(
                         &v,
                         SD_JSON_BUILD_PAIR_INTEGER("Family", address->family),
-                        JSON_BUILD_PAIR_IN_ADDR("Address", &address->in_addr, address->family),
-                        SD_JSON_BUILD_PAIR_STRING("AddressString", address_str),
-                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Peer", &address->in_addr_peer, address->family),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("PeerString", peer_str),
+                        JSON_BUILD_PAIR_IN_ADDR_WITH_STRING("Address", &address->in_addr, address->family),
+                        JSON_BUILD_PAIR_IN_ADDR_WITH_STRING("Peer", &address->in_addr_peer, address->family),
                         SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength", address->prefixlen),
                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(address->source)),
-                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", &address->provider, address->family),
-                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ConfigProviderString", provider_str));
+                        JSON_BUILD_PAIR_IN_ADDR_WITH_STRING("ConfigProvider", &address->provider, address->family));
         if (r < 0)
                 return r;
 
@@ -94,8 +68,7 @@ static int address_append_json(Address *address, bool serializing, sd_json_varia
 
                 r = sd_json_variant_merge_objectbo(
                                 &v,
-                                JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Broadcast", &address->broadcast),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("BroadcastString", broadcast_str),
+                                JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING("Broadcast", &address->broadcast),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("Scope", address->scope),
                                 SD_JSON_BUILD_PAIR_STRING("ScopeString", scope),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("Flags", address->flags),
@@ -140,7 +113,7 @@ int addresses_append_json(Link *link, bool serializing, sd_json_variant **v) {
 }
 
 static int neighbor_append_json(Neighbor *n, sd_json_variant **array) {
-        _cleanup_free_ char *state = NULL, *destination_str = NULL;
+        _cleanup_free_ char *state = NULL;
         int r;
 
         assert(n);
@@ -150,15 +123,10 @@ static int neighbor_append_json(Neighbor *n, sd_json_variant **array) {
         if (r < 0)
                 return r;
 
-        r = in_addr_to_string(n->dst_addr.family, &n->dst_addr.address, &destination_str);
-        if (r < 0)
-                return r;
-
         return sd_json_variant_append_arraybo(
                         array,
                         SD_JSON_BUILD_PAIR_INTEGER("Family", n->dst_addr.family),
-                        JSON_BUILD_PAIR_IN_ADDR("Destination", &n->dst_addr.address, n->dst_addr.family),
-                        SD_JSON_BUILD_PAIR_STRING("DestinationString", destination_str),
+                        JSON_BUILD_PAIR_IN_ADDR_WITH_STRING("Destination", &n->dst_addr.address, n->dst_addr.family),
                         JSON_BUILD_PAIR_HW_ADDR("LinkLayerAddress", &n->ll_addr),
                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(n->source)),
                         SD_JSON_BUILD_PAIR_STRING("ConfigState", state));
