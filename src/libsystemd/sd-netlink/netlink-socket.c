@@ -222,6 +222,16 @@ static int netlink_queue_received_message(sd_netlink *nl, sd_netlink_message *m)
         assert(nl);
         assert(m);
 
+        serial = message_get_serial(m);
+        if (serial != 0) {
+                NetlinkIgnoredSerial *s = hashmap_remove(nl->ignored_serials, UINT32_TO_PTR(serial));
+                if (s) {
+                        /* We are not interested in the message anymore. */
+                        free(s);
+                        return 0;
+                }
+        }
+
         if (ordered_set_size(nl->rqueue) >= NETLINK_RQUEUE_MAX)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
                                        "sd-netlink: exhausted the read queue size (%d)", NETLINK_RQUEUE_MAX);
@@ -235,7 +245,6 @@ static int netlink_queue_received_message(sd_netlink *nl, sd_netlink_message *m)
         if (sd_netlink_message_is_broadcast(m))
                 return 0;
 
-        serial = message_get_serial(m);
         if (serial == 0)
                 return 0;
 
