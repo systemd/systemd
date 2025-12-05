@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option     --suffix=SUFFIX
+help Unit suffix to append to escaped strings
+scope
+        UnitType t = unit_type_from_string(optarg);
+        if (t < 0)
+                return log_error_errno(t, "Invalid unit suffix type \"%s\".", optarg);
+
+        arg_suffix = optarg;
+
+option     --template=TEMPLATE
+help Insert strings as instance into template
+        if (!unit_name_is_valid(optarg, UNIT_NAME_TEMPLATE))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Template name %s is not valid.", optarg);
+
+        arg_template = optarg;
+
+option     --instance
+help With --unescape, show just the instance part
+        arg_instance = true;
+
+option  -u --unescape
+help Unescape strings
+        arg_action = ACTION_UNESCAPE;
+
+option  -m --mangle
+help Mangle strings
+        arg_action = ACTION_MANGLE;
+
+option  -p --path
+help When escaping/unescaping assume the string is a path
+        arg_path = true;
