@@ -26,6 +26,7 @@ executables += [
                 'name' : 'oomctl',
                 'public' : true,
                 'sources' : files('oomctl.c'),
+                'arg_parser' : files('oomctl.args'),
         },
         test_template + {
                 'sources' : files('test-oomd-util.c'),
