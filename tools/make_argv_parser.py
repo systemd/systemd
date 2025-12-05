@@ -219,9 +219,22 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
         widths = [len(option.help_key() or '') for option in options]
         help_key_width = max(w for w in widths if w < globals.target_help_key_width)
 
-    # line is 'SP SP -s SP --long SP REST'.
-    # '-s SP --long' is covered by 'key'
-    help_expl_width = globals.target_line_width - help_key_width - 2 - 1
+        # initial value of help_expl_width
+        help_expl_width = globals.target_line_width - help_key_width - 2 - 1
+        maxwidth = 0
+        for option in options:
+            if option.help_key():
+                widths = [len(line)
+                          for line in textwrap.wrap(option.help, help_expl_width, break_on_hyphens=False)]
+                maxwidth = max(maxwidth, *widths)
+
+        # add an extra column if the space is not needed for the explanations
+        if maxwidth < help_expl_width:
+            help_key_width += 1
+    else:
+        # line is 'SP SP -s SP --long SP REST'.
+        # '-s SP --long' is covered by 'key'
+        help_expl_width = globals.target_line_width - help_key_width - 2 - 1
 
     groups = set(option.group for option in options)
     for group in groups:
