@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --dry-run
+help Only print destructive actions instead of doing them
+        arg_dry_run = true;
+
+option --bus-introspect=PATH
+help Write D-Bus XML introspection data
+        return bus_introspect_implementations(
+                        stdout,
+                        optarg,
+                        BUS_IMPLEMENTATIONS(&manager_object,
+                                            &log_control_object));
