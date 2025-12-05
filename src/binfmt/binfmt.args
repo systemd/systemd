@@ -13,8 +13,6 @@ help Show non-comment parts of configuration
         arg_cat_flags = CAT_TLDR;
 
 option --no-pager
-help Do not pipe output into a pager
-        arg_pager_flags |= PAGER_DISABLE;
 
 option --unregister
 help Unregister all existing entries
