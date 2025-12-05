@@ -49,6 +49,8 @@ from typing import Generator
 @dataclass
 class Globals:
     target_line_width: int = 80
+    target_help_key_width: int = 25
+
     help_key_width: int|None = None
     optstring_prefix: str = ''
     parser_options: list[str] = field(default_factory=list)
@@ -213,7 +215,9 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
 
     # 1. Generate help string
     if (help_key_width := globals.help_key_width) is None:
-        help_key_width = max(len(option.help_key() or '') for option in options)
+        # We assume keys which are above globals.target_help_key_width chars always get a linebreak.
+        widths = [len(option.help_key() or '') for option in options]
+        help_key_width = max(w for w in widths if w < globals.target_help_key_width)
 
     # line is 'SP SP -s SP --long SP REST'.
     # '-s SP --long' is covered by 'key'
