@@ -3311,8 +3311,9 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        /* Building without libmount is allowed, but if it is compiled in, then we must be able to load it */
         r = dlopen_libmount();
-        if (r < 0) {
+        if (r < 0 && r != -EOPNOTSUPP) {
                 error_message = "Failed to load libmount.so";
                 goto finish;
         }
