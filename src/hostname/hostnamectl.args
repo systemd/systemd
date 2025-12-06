@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --no-ask-password
+help Do not prompt for password
+        arg_ask_password = false;
+
+option -H= --host=[USER@]HOST
+help Operate on remote host
+        arg_transport = BUS_TRANSPORT_REMOTE;
+        arg_host = optarg;
+
+option -M= --machine=CONTAINER
+help Operate on local container
+        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+        if (r < 0)
+                return r;
+
+option --transient
+help Only set transient hostname
+        arg_transient = true;
+
+option --static
+help Only set static hostname
+        arg_static = true;
+
+option --pretty
+help Only set pretty hostname
+        arg_pretty = true;
+
+option --json=pretty|short|off
+help Generate JSON output
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+option -j
+help Same as --json=pretty on tty, --json=short otherwise
+        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;

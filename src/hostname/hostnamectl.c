@@ -40,6 +40,8 @@ static bool arg_pretty = false;
 static bool arg_static = false;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
+#include "hostnamectl.args.inc"
+
 typedef struct StatusInfo {
         const char *hostname;
         const char *static_hostname;
@@ -730,17 +732,7 @@ static int help(void) {
                "  deployment [NAME]      Get/set deployment environment for host\n"
                "  location [NAME]        Get/set location for host\n"
                "\n%4$sOptions:%5$s\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --no-ask-password   Do not prompt for password\n"
-               "  -H --host=[USER@]HOST  Operate on remote host\n"
-               "  -M --machine=CONTAINER Operate on local container\n"
-               "     --transient         Only set transient hostname\n"
-               "     --static            Only set static hostname\n"
-               "     --pretty            Only set pretty hostname\n"
-               "     --json=pretty|short|off\n"
-               "                         Generate JSON output\n"
-               "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
+               OPTION_HELP_GENERATED
                "\nSee the %6$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -752,99 +744,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
-        return help();
-}
-
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_ASK_PASSWORD,
-                ARG_TRANSIENT,
-                ARG_STATIC,
-                ARG_PRETTY,
-                ARG_JSON,
-        };
-
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "transient",       no_argument,       NULL, ARG_TRANSIENT       },
-                { "static",          no_argument,       NULL, ARG_STATIC          },
-                { "pretty",          no_argument,       NULL, ARG_PRETTY          },
-                { "host",            required_argument, NULL, 'H'                 },
-                { "machine",         required_argument, NULL, 'M'                 },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { "json",            required_argument, NULL, ARG_JSON            },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hH:M:j", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_TRANSIENT:
-                        arg_transient = true;
-                        break;
-
-                case ARG_PRETTY:
-                        arg_pretty = true;
-                        break;
-
-                case ARG_STATIC:
-                        arg_static = true;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case 'j':
-                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1;
-}
-
 static int hostnamectl_main(sd_bus *bus, int argc, char *argv[]) {
-
         static const Verb verbs[] = {
                 { "status",         VERB_ANY, 1,        VERB_DEFAULT, show_status           },
                 { "hostname",       VERB_ANY, 2,        0,            get_or_set_hostname   },
@@ -871,7 +771,7 @@ static int run(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 
