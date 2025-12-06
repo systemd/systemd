@@ -56,21 +56,26 @@ int fd_add_uid_acl_permission(int fd, uid_t uid, unsigned mask);
 
 int fd_acl_make_read_only(int fd);
 
-/* acl_free() takes multiple argument types. Multiple cleanup functions are necessary. */
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(acl_t, sym_acl_free, acl_freep, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(char*, sym_acl_free, acl_free_charpp, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(uid_t*, sym_acl_free, acl_free_uid_tpp, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(gid_t*, sym_acl_free, acl_free_gid_tpp, NULL);
-
 static inline int acl_set_perm(acl_permset_t ps, acl_perm_t p, bool b) {
         return (b ? sym_acl_add_perm : sym_acl_delete_perm)(ps, p);
 }
 
 #else
 
+typedef void *acl_t;
+typedef unsigned acl_type_t;
+
 #define ACL_READ    0x04
 #define ACL_WRITE   0x02
 #define ACL_EXECUTE 0x01
+
+#define ACL_TYPE_ACCESS  (0x8000)
+#define ACL_TYPE_DEFAULT (0x4000)
+
+static inline int sym_acl_free(void *p) {
+        assert(!p);
+        return 0;
+}
 
 static inline int dlopen_libacl(void) {
         return -EOPNOTSUPP;
@@ -88,5 +93,11 @@ static inline int fd_acl_make_read_only(int fd) {
         return fd_acl_make_read_only_fallback(fd);
 }
 #endif
+
+/* acl_free() takes multiple argument types. Multiple cleanup functions are necessary. */
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(acl_t, sym_acl_free, acl_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(char*, sym_acl_free, acl_free_charpp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(uid_t*, sym_acl_free, acl_free_uid_tpp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(gid_t*, sym_acl_free, acl_free_gid_tpp, NULL);
 
 int inode_type_can_acl(mode_t mode);
