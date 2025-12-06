@@ -22,83 +22,24 @@ static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static bool arg_quiet = false;
 
+#include "stdio-bridge.args.inc"
+
 static int help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Forward messages between a pipe or socket and a D-Bus bus.\n\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "  -p --bus-path=PATH     Path to the bus address (default: %s)\n"
-               "     --system            Connect to system bus\n"
-               "     --user              Connect to user bus\n"
-               "  -M --machine=CONTAINER Name of local container to connect to\n"
-               "  -q --quiet             Fail silently instead of logging errors\n",
-               program_invocation_short_name, DEFAULT_SYSTEM_BUS_ADDRESS);
+               OPTION_HELP_GENERATED,
+               program_invocation_short_name,
+               DEFAULT_SYSTEM_BUS_ADDRESS);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_USER,
-                ARG_SYSTEM,
-        };
-
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'         },
-                { "version",         no_argument,       NULL, ARG_VERSION },
-                { "bus-path",        required_argument, NULL, 'p'         },
-                { "user",            no_argument,       NULL, ARG_USER    },
-                { "system",          no_argument,       NULL, ARG_SYSTEM  },
-                { "machine",         required_argument, NULL, 'M'         },
-                { "quiet",           no_argument,       NULL, 'q'         },
-                {},
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hp:M:", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-                        break;
-
-                case 'p':
-                        arg_bus_path = optarg;
-                        break;
-
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_bus_path, &arg_transport);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (argc > optind)
                 return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_ERR, SYNTHETIC_ERRNO(EINVAL),
