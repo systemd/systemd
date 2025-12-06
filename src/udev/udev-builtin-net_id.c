@@ -1307,7 +1307,7 @@ static int get_ifname_prefix(sd_device *dev, const char **ret) {
         if (r < 0)
                 return r;
 
-        /* handle only ARPHRD_ETHER, ARPHRD_SLIP and ARPHRD_INFINIBAND devices */
+        /* handle only ARPHRD_ETHER, ARPHRD_SLIP, ARPHRD_INFINIBAND, and ARPHDR_MCTP devices */
         switch (iftype) {
         case ARPHRD_ETHER: {
                 if (device_is_devtype(dev, "wlan") > 0)
@@ -1327,6 +1327,13 @@ static int get_ifname_prefix(sd_device *dev, const char **ret) {
 
         case ARPHRD_SLIP:
                 *ret = "sl";
+                return 0;
+
+        case ARPHRD_MCTP:
+                if (!naming_scheme_has(NAMING_MCTP))
+                        return -EOPNOTSUPP;
+
+                *ret = "mc";
                 return 0;
 
         default:
