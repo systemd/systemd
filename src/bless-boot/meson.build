@@ -33,5 +33,6 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-boot-check-no-failures',
                 'sources' : files('boot-check-no-failures.c'),
+                'arg_parser' : files('boot-check-no-failures.args'),
         },
 ]

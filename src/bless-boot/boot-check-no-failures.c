@@ -12,6 +12,8 @@
 #include "main-func.h"
 #include "pretty-print.h"
 
+#include "boot-check-no-failures.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -22,8 +24,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...]\n"
                "\n%sVerify system operational state.%s\n\n"
-               "  -h --help          Show this help\n"
-               "     --version       Print version\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -31,43 +32,6 @@ static int help(void) {
                link);
 
         return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_PATH = 0x100,
-                ARG_VERSION,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        help();
-                        return 0;
-
-                case ARG_VERSION:
-                        return version();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1;
 }
 
 static int run(int argc, char *argv[]) {
@@ -78,7 +42,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 
