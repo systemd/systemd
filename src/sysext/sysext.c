@@ -185,6 +185,8 @@ static int parse_mutable_mode(const char *p) {
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_mutable_mode, mutable_mode, MutableMode);
 
+#include "sysext.args.inc"
+
 static int parse_config_file(ImageClass image_class) {
         _cleanup_(image_policy_freep) ImagePolicy *config_image_policy = NULL;
         MutableMode config_mutable = MUTABLE_NO;
@@ -2797,7 +2799,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         return sd_varlink_error(link, "io.systemd.sysext.NoImagesFound", NULL);
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -2813,23 +2815,9 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "  unmerge                 Unmerge extensions from relevant hierarchies\n"
                "  refresh                 Unmerge/merge extensions again\n"
                "  list                    List installed extensions\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
+               OPTION_HELP_GENERATED_COMMANDS
                "\n%3$sOptions:%4$s\n"
-               "     --mutable=yes|no|auto|import|ephemeral|ephemeral-import|help\n"
-               "                          Specify a mutability mode of the merged hierarchy\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "     --root=PATH          Operate relative to root path\n"
-               "     --json=pretty|short|off\n"
-               "                          Generate JSON output\n"
-               "     --force              Ignore version incompatibilities\n"
-               "     --no-reload          Do not reload the service manager\n"
-               "     --always-refresh=yes|no\n"
-               "                          Do not skip refresh when no changes were found\n"
-               "     --image-policy=POLICY\n"
-               "                          Specify disk image dissection policy\n"
-               "     --noexec=BOOL        Whether to mount extension overlay with noexec\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -2843,127 +2831,11 @@ static int verb_help(int argc, char **argv, void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_ROOT,
-                ARG_JSON,
-                ARG_FORCE,
-                ARG_IMAGE_POLICY,
-                ARG_NOEXEC,
-                ARG_NO_RELOAD,
-                ARG_ALWAYS_REFRESH,
-                ARG_MUTABLE,
-        };
-
-        static const struct option options[] = {
-                { "help",           no_argument,       NULL, 'h'                },
-                { "version",        no_argument,       NULL, ARG_VERSION        },
-                { "no-pager",       no_argument,       NULL, ARG_NO_PAGER       },
-                { "no-legend",      no_argument,       NULL, ARG_NO_LEGEND      },
-                { "root",           required_argument, NULL, ARG_ROOT           },
-                { "json",           required_argument, NULL, ARG_JSON           },
-                { "force",          no_argument,       NULL, ARG_FORCE          },
-                { "image-policy",   required_argument, NULL, ARG_IMAGE_POLICY   },
-                { "noexec",         required_argument, NULL, ARG_NOEXEC         },
-                { "no-reload",      no_argument,       NULL, ARG_NO_RELOAD      },
-                { "always-refresh", required_argument, NULL, ARG_ALWAYS_REFRESH },
-                { "mutable",        required_argument, NULL, ARG_MUTABLE        },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return verb_help(argc, argv, NULL);
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, false, &arg_root);
-                        if (r < 0)
-                                return r;
-                        /* If --root= is provided, do not reload the service manager */
-                        arg_no_reload = true;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case ARG_FORCE:
-                        arg_force = true;
-                        break;
-
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
-                        if (r < 0)
-                                return r;
-                        /* When the CLI flag is given we initialize even if NULL
-                         * so that the config file entry won't overwrite it */
-                        arg_image_policy_set = true;
-                        break;
-
-                case ARG_NOEXEC:
-                        r = parse_boolean_argument("--noexec", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        arg_noexec = r;
-                        break;
-
-                case ARG_NO_RELOAD:
-                        arg_no_reload = true;
-                        break;
-
-                case ARG_ALWAYS_REFRESH:
-                        r = parse_boolean_argument("--always-refresh", optarg, &arg_always_refresh);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_MUTABLE:
-                        if (streq(optarg, "help")) {
-                                if (arg_legend)
-                                        puts("Known mutability modes:");
-
-                                return DUMP_STRING_TABLE(mutable_mode, MutableMode, _MUTABLE_MAX);
-                        }
-
-                        r = parse_mutable_mode(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);
-                        arg_mutable = r;
-                        arg_mutable_set = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)

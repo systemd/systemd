@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+group commands
+
+option --version
+group commands
+
+option --mutable=yes|no|auto|import|ephemeral|ephemeral-import|help
+help Specify a mutability mode of the merged hierarchy
+        if (streq(optarg, "help")) {
+                if (arg_legend)
+                        puts("Known mutability modes:");
+
+                return DUMP_STRING_TABLE(mutable_mode, MutableMode, _MUTABLE_MAX);
+        }
+
+        r = parse_mutable_mode(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);
+        arg_mutable = r;
+
+option --no-pager
+
+option --no-legend
+help Do not show the headers and footers
+        arg_legend = false;
+
+option --root=PATH
+help Operate relative to root path
+        r = parse_path_argument(optarg, false, &arg_root);
+        if (r < 0)
+                return r;
+        /* If --root= is provided, do not reload the service manager */
+        arg_no_reload = true;
+
+option --json=pretty|short|off
+help Generate JSON output
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+option --force
+help Ignore version incompatibilities
+        arg_force = true;
+
+option --no-reload
+help Do not reload the service manager
+        arg_no_reload = true;
+
+option --always-refresh=yes|no
+help Do not skip refresh when no changes were found
+        r = parse_boolean_argument("--always-refresh", optarg, &arg_always_refresh);
+        if (r < 0)
+                return r;
+
+option --image-policy=POLICY
+help Specify disk image dissection policy
+        r = parse_image_policy_argument(optarg, &arg_image_policy);
+        if (r < 0)
+                return r;
+
+option --noexec=BOOL
+help Whether to mount extension overlay with noexec
+        r = parse_boolean_argument("--noexec", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        arg_noexec = r;
