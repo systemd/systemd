@@ -145,7 +145,6 @@ typedef struct {
         secure_boot_enroll secure_boot_enroll;
         secure_boot_enroll_action secure_boot_enroll_action;
         uint64_t secure_boot_enroll_timeout_sec;
-        bool force_menu;
         bool use_saved_entry;
         bool use_saved_entry_efivar;
         bool beep;
@@ -1521,12 +1520,10 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 log_warning_status(err, "Error reading LoaderConfigTimeout EFI variable, ignoring: %m");
 
         err = efivar_get_timeout(u"LoaderConfigTimeoutOneShot", &config->timeout_sec);
-        if (err == EFI_SUCCESS) {
+        if (err == EFI_SUCCESS)
                 /* Unset variable now, after all it's "one shot". */
                 (void) efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeoutOneShot", EFI_VARIABLE_NON_VOLATILE);
-
-                config->force_menu = true; /* force the menu when this is set */
-        } else if (err != EFI_NOT_FOUND)
+        else if (err != EFI_NOT_FOUND)
                 log_warning_status(err, "Error reading LoaderConfigTimeoutOneShot EFI variable, ignoring: %m");
 
         uint64_t value;
@@ -3073,7 +3070,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 "No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
 
         /* select entry or show menu when key is pressed or timeout is set */
-        if (config.force_menu || !IN_SET(config.timeout_sec, TIMEOUT_MENU_HIDDEN, TIMEOUT_MENU_DISABLED))
+        if (!IN_SET(config.timeout_sec, TIMEOUT_MENU_HIDDEN, TIMEOUT_MENU_DISABLED))
                 menu = true;
         else if (config.timeout_sec != TIMEOUT_MENU_DISABLED) {
                 uint64_t key;
