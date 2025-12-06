@@ -80,6 +80,7 @@ executables += [
                 'name' : 'importctl',
                 'public' : true,
                 'sources' : files('importctl.c'),
+                'arg_parser' : files('importctl.args'),
         },
         generator_template + {
                 'name' : 'systemd-import-generator',
