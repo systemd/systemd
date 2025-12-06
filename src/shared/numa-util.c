@@ -184,4 +184,4 @@ static const char* const mpol_table[] = {
         [MPOL_LOCAL]      = "local",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(mpol, int);
+DEFINE_STRING_TABLE_LOOKUP(mpol, int, i);

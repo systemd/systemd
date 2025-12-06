@@ -28,7 +28,7 @@ static const char* const duplex_table[_DUP_MAX] = {
         [DUP_HALF] = "half"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(duplex, Duplex);
+DEFINE_STRING_TABLE_LOOKUP(duplex, Duplex, d);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_duplex, duplex, Duplex);
 
 static const struct {
@@ -77,7 +77,7 @@ static const char* const port_table[] = {
         [NET_DEV_PORT_BNC]    = "bnc",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(port, NetDevPort);
+DEFINE_STRING_TABLE_LOOKUP(port, NetDevPort, port);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_port, port, NetDevPort);
 
 static const char* const mdi_table[] = {
@@ -87,7 +87,7 @@ static const char* const mdi_table[] = {
         [ETH_TP_MDI_AUTO]     = "auto",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(mdi, int);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(mdi, int, mdi);
 
 static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
         [NET_DEV_FEAT_SG]                  = "tx-scatter-gather",
@@ -162,7 +162,7 @@ static const char* const ethtool_link_mode_bit_table[] = {
 /* Make sure the array is large enough to fit all bits */
 assert_cc((ELEMENTSOF(ethtool_link_mode_bit_table)-1) / 32 < N_ADVERTISE);
 
-DEFINE_STRING_TABLE_LOOKUP(ethtool_link_mode_bit, enum ethtool_link_mode_bit_indices);
+DEFINE_STRING_TABLE_LOOKUP(ethtool_link_mode_bit, enum ethtool_link_mode_bit_indices, val);
 
 static int ethtool_connect(int *ethtool_fd) {
         int fd;

@@ -18,7 +18,7 @@ static const char* const coredump_storage_table[_COREDUMP_STORAGE_MAX] = {
         [COREDUMP_STORAGE_JOURNAL]  = "journal",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(coredump_storage, CoredumpStorage);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(coredump_storage, CoredumpStorage, i);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_storage, coredump_storage, CoredumpStorage);
 
 int coredump_parse_config(CoredumpConfig *config) {

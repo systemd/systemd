@@ -419,7 +419,7 @@ static const char* const handle_action_verb_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_SECURE_ATTENTION_KEY]   = "handle the secure attention key",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(handle_action_verb, HandleAction);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(handle_action_verb, HandleAction, h);
 
 /* These strings are sent out by PrepareForShutdownWithMetadata signals as metadata, so the values cannot
  * change as they are public APIs. */
@@ -440,7 +440,7 @@ static const char* const handle_action_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_SECURE_ATTENTION_KEY]   = "secure-attention-key",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(handle_action, HandleAction);
+DEFINE_STRING_TABLE_LOOKUP(handle_action, HandleAction, h);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_handle_action, handle_action, HandleAction);
 
 int config_parse_handle_action_sleep(

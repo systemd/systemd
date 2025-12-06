@@ -562,9 +562,8 @@ static int manager_do_rotate(
                 if (*f)
                         return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
                                                          "Failed to rotate %s: %m", (*f)->path);
-                else
-                        return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
-                                                         "Failed to create new %s journal: %m", name);
+                return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                 "Failed to create new %s journal: %m", name);
         }
 
         manager_add_acls(*f, uid);

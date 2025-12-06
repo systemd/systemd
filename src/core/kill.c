@@ -45,7 +45,7 @@ static const char* const kill_mode_table[_KILL_MODE_MAX] = {
         [KILL_NONE]          = "none",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(kill_mode, KillMode);
+DEFINE_STRING_TABLE_LOOKUP(kill_mode, KillMode, k);
 
 static const char* const kill_whom_table[_KILL_WHOM_MAX] = {
         [KILL_MAIN]         = "main",
@@ -58,4 +58,4 @@ static const char* const kill_whom_table[_KILL_WHOM_MAX] = {
         [KILL_CGROUP_FAIL]  = "cgroup-fail",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);
+DEFINE_STRING_TABLE_LOOKUP(kill_whom, KillWhom, k);

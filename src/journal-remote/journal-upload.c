@@ -374,7 +374,8 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
                 }
                 assert(compressed_size <= size * nmemb);
                 return compressed_size;
-        } else if (n < 0) {
+        }
+        if (n < 0) {
                 log_error_errno(errno, "Aborting transfer after read error on input: %m.");
                 return CURL_READFUNC_ABORT;
         }

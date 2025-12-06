@@ -233,66 +233,74 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         } else  /* Legacy for pre-44 */
                                 log_unit_warning(u, "Update from too old systemd versions are unsupported, cannot deserialize job: %s", v);
                         continue;
-                } else if (streq(l, "state-change-timestamp")) {
+                } if (streq(l, "state-change-timestamp")) {
                         (void) deserialize_dual_timestamp(v, &u->state_change_timestamp);
                         continue;
-                } else if (streq(l, "inactive-exit-timestamp")) {
+                }
+
+                if (streq(l, "inactive-exit-timestamp")) {
                         (void) deserialize_dual_timestamp(v, &u->inactive_exit_timestamp);
                         continue;
-                } else if (streq(l, "active-enter-timestamp")) {
+                }
+
+                if (streq(l, "active-enter-timestamp")) {
                         (void) deserialize_dual_timestamp(v, &u->active_enter_timestamp);
                         continue;
-                } else if (streq(l, "active-exit-timestamp")) {
+                }
+
+                if (streq(l, "active-exit-timestamp")) {
                         (void) deserialize_dual_timestamp(v, &u->active_exit_timestamp);
                         continue;
-                } else if (streq(l, "inactive-enter-timestamp")) {
+                }
+
+                if (streq(l, "inactive-enter-timestamp")) {
                         (void) deserialize_dual_timestamp(v, &u->inactive_enter_timestamp);
                         continue;
-                } else if (streq(l, "condition-timestamp")) {
+                }
+
+                if (streq(l, "condition-timestamp")) {
                         (void) deserialize_dual_timestamp(v, &u->condition_timestamp);
                         continue;
-                } else if (streq(l, "assert-timestamp")) {
+                }
+
+                if (streq(l, "assert-timestamp")) {
                         (void) deserialize_dual_timestamp(v, &u->assert_timestamp);
                         continue;
+                }
 
-                } else if (streq(l, "start-ratelimit")) {
+                if (streq(l, "start-ratelimit")) {
                         deserialize_ratelimit(&u->start_ratelimit, l, v);
                         continue;
-                } else if (streq(l, "auto-start-stop-ratelimit")) {
+                }
+
+                if (streq(l, "auto-start-stop-ratelimit")) {
                         deserialize_ratelimit(&u->auto_start_stop_ratelimit, l, v);
                         continue;
 
-                } else if (MATCH_DESERIALIZE("condition-result", l, v, parse_boolean, u->condition_result))
+                }
+
+                if (MATCH_DESERIALIZE("condition-result", l, v, parse_boolean, u->condition_result))
+                        continue;
+                if (MATCH_DESERIALIZE("assert-result", l, v, parse_boolean, u->assert_result))
+                        continue;
+                if (MATCH_DESERIALIZE("transient", l, v, parse_boolean, u->transient))
+                        continue;
+                if (MATCH_DESERIALIZE("in-audit", l, v, parse_boolean, u->in_audit))
+                        continue;
+                if (MATCH_DESERIALIZE("debug-invocation", l, v, parse_boolean, u->debug_invocation))
+                        continue;
+                if (MATCH_DESERIALIZE("exported-invocation-id", l, v, parse_boolean, u->exported_invocation_id))
+                        continue;
+                if (MATCH_DESERIALIZE("exported-log-level-max", l, v, parse_boolean, u->exported_log_level_max))
+                        continue;
+                if (MATCH_DESERIALIZE("exported-log-extra-fields", l, v, parse_boolean, u->exported_log_extra_fields))
+                        continue;
+                if (MATCH_DESERIALIZE("exported-log-rate-limit-interval", l, v, parse_boolean, u->exported_log_ratelimit_interval))
+                        continue;
+                if (MATCH_DESERIALIZE("exported-log-rate-limit-burst", l, v, parse_boolean, u->exported_log_ratelimit_burst))
                         continue;
 
-                else if (MATCH_DESERIALIZE("assert-result", l, v, parse_boolean, u->assert_result))
-                        continue;
-
-                else if (MATCH_DESERIALIZE("transient", l, v, parse_boolean, u->transient))
-                        continue;
-
-                else if (MATCH_DESERIALIZE("in-audit", l, v, parse_boolean, u->in_audit))
-                        continue;
-
-                else if (MATCH_DESERIALIZE("debug-invocation", l, v, parse_boolean, u->debug_invocation))
-                        continue;
-
-                else if (MATCH_DESERIALIZE("exported-invocation-id", l, v, parse_boolean, u->exported_invocation_id))
-                        continue;
-
-                else if (MATCH_DESERIALIZE("exported-log-level-max", l, v, parse_boolean, u->exported_log_level_max))
-                        continue;
-
-                else if (MATCH_DESERIALIZE("exported-log-extra-fields", l, v, parse_boolean, u->exported_log_extra_fields))
-                        continue;
-
-                else if (MATCH_DESERIALIZE("exported-log-rate-limit-interval", l, v, parse_boolean, u->exported_log_ratelimit_interval))
-                        continue;
-
-                else if (MATCH_DESERIALIZE("exported-log-rate-limit-burst", l, v, parse_boolean, u->exported_log_ratelimit_burst))
-                        continue;
-
-                else if (streq(l, "ref-uid")) {
+                if (streq(l, "ref-uid")) {
                         uid_t uid;
 
                         r = parse_uid(v, &uid);
@@ -302,7 +310,9 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                                 unit_ref_uid_gid(u, uid, GID_INVALID);
                         continue;
 
-                } else if (streq(l, "ref-gid")) {
+                }
+
+                if (streq(l, "ref-gid")) {
                         gid_t gid;
 
                         r = parse_gid(v, &gid);
@@ -311,14 +321,16 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         else
                                 unit_ref_uid_gid(u, UID_INVALID, gid);
                         continue;
+                }
 
-                } else if (streq(l, "ref")) {
+                if (streq(l, "ref")) {
                         r = strv_extend(&u->deserialized_refs, v);
                         if (r < 0)
                                 return log_oom();
                         continue;
+                }
 
-                } else if (streq(l, "invocation-id")) {
+                if (streq(l, "invocation-id")) {
                         sd_id128_t id;
 
                         r = sd_id128_from_string(v, &id);
@@ -331,11 +343,12 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         }
 
                         continue;
+                }
 
-                } else if (MATCH_DESERIALIZE("freezer-state", l, v, freezer_state_from_string, u->freezer_state))
+                if (MATCH_DESERIALIZE("freezer-state", l, v, freezer_state_from_string, u->freezer_state))
                         continue;
 
-                else if (streq(l, "markers")) {
+                if (streq(l, "markers")) {
                         r = deserialize_markers(u, v);
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to deserialize \"%s=%s\", ignoring: %m", l, v);
@@ -346,7 +359,8 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 if (r < 0) {
                         log_unit_warning(u, "Failed to deserialize runtime parameter '%s', ignoring.", l);
                         continue;
-                } else if (r > 0)
+                }
+                if (r > 0)
                         /* Returns positive if key was handled by the call */
                         continue;
 
@@ -354,7 +368,8 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 if (r < 0) {
                         log_unit_warning(u, "Failed to deserialize cgroup runtime parameter '%s, ignoring.", l);
                         continue;
-                } else if (r > 0)
+                }
+                if (r > 0)
                         continue; /* was handled */
 
                 if (UNIT_VTABLE(u)->deserialize_item) {

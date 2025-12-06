@@ -78,8 +78,7 @@ static int specifier_filename(char specifier, const void *data, const char *root
 
         if (u->instance)
                 return unit_name_path_unescape(u->instance, ret);
-        else
-                return unit_name_to_path(u->id, ret);
+        return unit_name_to_path(u->id, ret);
 }
 
 static void bad_specifier(const Unit *u, char specifier) {

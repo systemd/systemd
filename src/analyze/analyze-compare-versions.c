@@ -33,19 +33,20 @@ int verb_compare_versions(int argc, char *argv[], void *userdata) {
                  * We don't use named values because 11 and 12 don't have names. */
                 return r < 0 ? 12 : r > 0 ? 11 : 0;
 
-        } else {
-                const char *op = ASSERT_PTR(argv[2]);
-                CompareOperator operator;
-                assert(argc == 4);
-
-                operator = parse_compare_operator(&op, COMPARE_ALLOW_TEXTUAL);
-                if (operator < 0 || !isempty(op))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown operator \"%s\".", op);
-
-                r = version_or_fnmatch_compare(operator, v1, v2);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to compare versions: %m");
-
-                return r ? EXIT_SUCCESS : EXIT_FAILURE;
         }
+
+        const char *op = ASSERT_PTR(argv[2]);
+        CompareOperator operator;
+        assert(argc == 4);
+
+        operator = parse_compare_operator(&op, COMPARE_ALLOW_TEXTUAL);
+        if (operator < 0 || !isempty(op))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown operator \"%s\".", op);
+
+        r = version_or_fnmatch_compare(operator, v1, v2);
+        if (r < 0)
+                return log_error_errno(r, "Failed to compare versions: %m");
+
+        return r ? EXIT_SUCCESS : EXIT_FAILURE;
+
 }

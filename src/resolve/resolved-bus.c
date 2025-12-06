@@ -1401,14 +1401,14 @@ int bus_dns_server_append(
                 if (with_ifindex) {
                         if (extended)
                                 return sd_bus_message_append(reply, "(iiayqs)", 0, AF_UNSPEC, 0, 0, NULL);
-                        else
-                                return sd_bus_message_append(reply, "(iiay)", 0, AF_UNSPEC, 0);
-                } else {
-                        if (extended)
-                                return sd_bus_message_append(reply, "(iayqs)", AF_UNSPEC, 0, 0, NULL);
-                        else
-                                return sd_bus_message_append(reply, "(iay)", AF_UNSPEC, 0);
+
+                        return sd_bus_message_append(reply, "(iiay)", 0, AF_UNSPEC, 0);
                 }
+
+                if (extended)
+                        return sd_bus_message_append(reply, "(iayqs)", AF_UNSPEC, 0, 0, NULL);
+
+                return sd_bus_message_append(reply, "(iay)", AF_UNSPEC, 0);
         }
 
         r = sd_bus_message_open_container(

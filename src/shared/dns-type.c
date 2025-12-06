@@ -240,7 +240,7 @@ int dns_class_from_string(const char *s) {
 
         if (strcaseeq(s, "IN"))
                 return DNS_CLASS_IN;
-        else if (strcaseeq(s, "ANY"))
+        if (strcaseeq(s, "ANY"))
                 return DNS_CLASS_ANY;
 
         return _DNS_CLASS_INVALID;

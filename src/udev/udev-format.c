@@ -403,7 +403,8 @@ size_t udev_event_apply_format(
                 if (r < 0) {
                         log_device_warning_errno(event->dev, r, "Invalid format string, ignoring: %s", src);
                         break;
-                } else if (r == 0) {
+                }
+                if (r == 0) {
                         if (size < 2) {
                                 /* need space for this char and the terminating NUL */
                                 truncated = true;
@@ -457,7 +458,8 @@ int udev_check_format(const char *value, size_t *offset, const char **hint) {
                         if (hint)
                                 *hint = "invalid substitution type";
                         return r;
-                } else if (r == 0) {
+                }
+                if (r == 0) {
                         s++;
                         continue;
                 }

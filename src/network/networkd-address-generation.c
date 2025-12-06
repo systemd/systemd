@@ -45,7 +45,7 @@ struct IPv6Token {
         sd_id128_t secret_key;
 };
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(IPv6Token, ipv6_token, mfree);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(IPv6Token, ipv6_token, token, mfree);
 DEFINE_TRIVIAL_CLEANUP_FUNC(IPv6Token*, ipv6_token_unref);
 
 static void ipv6_token_hash_func(const IPv6Token *p, struct siphash *state) {

@@ -325,5 +325,5 @@ static const char *secure_boot_enroll_action_table[_SECURE_BOOT_ENROLL_ACTION_MA
         [ENROLL_ACTION_SHUTDOWN] = "shutdown"
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(secure_boot_enroll, secure_boot_enroll);
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(secure_boot_enroll_action, secure_boot_enroll_action);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(secure_boot_enroll, secure_boot_enroll, e);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(secure_boot_enroll_action, secure_boot_enroll_action, e);

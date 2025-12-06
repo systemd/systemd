@@ -128,8 +128,8 @@ static const char* const compression_lowercase_table[_COMPRESSION_MAX] = {
         [COMPRESSION_ZSTD] = "zstd",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(compression, Compression);
-DEFINE_STRING_TABLE_LOOKUP(compression_lowercase, Compression);
+DEFINE_STRING_TABLE_LOOKUP(compression, Compression, c);
+DEFINE_STRING_TABLE_LOOKUP(compression_lowercase, Compression, c);
 
 bool compression_supported(Compression c) {
         static const unsigned supported =

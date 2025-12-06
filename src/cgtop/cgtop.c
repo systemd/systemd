@@ -882,10 +882,9 @@ static int parse_argv(int argc, char *argv[]) {
 static const char* counting_what(void) {
         if (arg_count == COUNT_PIDS)
                 return "tasks";
-        else if (arg_count == COUNT_ALL_PROCESSES)
+        if (arg_count == COUNT_ALL_PROCESSES)
                 return "all processes (incl. kernel)";
-        else
-                return "userspace processes (excl. kernel)";
+        return "userspace processes (excl. kernel)";
 }
 
 static int loop(const char *root) {

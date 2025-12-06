@@ -324,5 +324,5 @@ static const char* const use_domains_table[_USE_DOMAINS_MAX] = {
         [USE_DOMAINS_YES]   = "yes",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(use_domains, UseDomains, USE_DOMAINS_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(use_domains, UseDomains, p, USE_DOMAINS_YES);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_use_domains, use_domains, UseDomains);

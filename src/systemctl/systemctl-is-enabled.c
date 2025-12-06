@@ -91,10 +91,11 @@ int verb_is_enabled(int argc, char *argv[], void *userdata) {
                                 if (!arg_quiet)
                                         puts("not-found");
                                 continue;
-                        } else if (r < 0)
+                        }
+                        if (r < 0)
                                 return log_error_errno(r, "Failed to get unit file state for %s: %m", *name);
-                        else
-                                not_found = false;
+
+                        not_found = false;
 
                         if (IN_SET(state,
                                    UNIT_FILE_ENABLED,
@@ -133,13 +134,14 @@ int verb_is_enabled(int argc, char *argv[], void *userdata) {
                                 if (!arg_quiet)
                                         puts("not-found");
                                 continue;
-                        } else if (r < 0)
+                        }
+                        if (r < 0)
                                 return log_error_errno(r,
                                                        "Failed to get unit file state for %s: %s",
                                                        *name,
                                                        bus_error_message(&error, r));
-                        else
-                                not_found = false;
+
+                        not_found = false;
 
                         r = sd_bus_message_read(reply, "s", &s);
                         if (r < 0)

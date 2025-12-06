@@ -1500,7 +1500,7 @@ static const char *const log_target_table[_LOG_TARGET_MAX] = {
         [LOG_TARGET_NULL]             = "null",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);
+DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget, target);
 
 void log_received_signal(int level, const struct signalfd_siginfo *si) {
         assert(si);
@@ -1573,17 +1573,19 @@ int log_syntax_internal(
                                         LOG_MESSAGE("%s:%u: %s", config_file, config_line, buffer),
                                         unit_fmt, unit,
                                         NULL);
-                else
-                        return log_struct_internal(
-                                        level,
-                                        error,
-                                        file, line, func,
-                                        LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
-                                        LOG_ITEM("CONFIG_FILE=%s", config_file),
-                                        LOG_MESSAGE("%s: %s", config_file, buffer),
-                                        unit_fmt, unit,
-                                        NULL);
-        } else if (unit)
+
+                return log_struct_internal(
+                                level,
+                                error,
+                                file, line, func,
+                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
+                                LOG_ITEM("CONFIG_FILE=%s", config_file),
+                                LOG_MESSAGE("%s: %s", config_file, buffer),
+                                unit_fmt, unit,
+                                NULL);
+        }
+
+        if (unit)
                 return log_struct_internal(
                                 level,
                                 error,
@@ -1592,14 +1594,14 @@ int log_syntax_internal(
                                 LOG_MESSAGE("%s: %s", unit, buffer),
                                 unit_fmt, unit,
                                 NULL);
-        else
-                return log_struct_internal(
-                                level,
-                                error,
-                                file, line, func,
-                                LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
-                                LOG_MESSAGE("%s", buffer),
-                                NULL);
+
+        return log_struct_internal(
+                        level,
+                        error,
+                        file, line, func,
+                        LOG_MESSAGE_ID(SD_MESSAGE_INVALID_CONFIGURATION_STR),
+                        LOG_MESSAGE("%s", buffer),
+                        NULL);
 }
 
 int log_syntax_invalid_utf8_internal(

@@ -383,7 +383,7 @@ static const char * const ntp_leap_table[4] = {
 };
 
 DISABLE_WARNING_TYPE_LIMITS;
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(ntp_leap, uint32_t);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(ntp_leap, uint32_t, i);
 REENABLE_WARNING;
 
 static int print_ntp_status_info(NTPStatusInfo *i) {

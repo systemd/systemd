@@ -205,7 +205,8 @@ int import_mangle_os_tree_fd(int tree_fd, int userns_fd, ImportFlags flags) {
         if (dent) {
                 log_debug("Directory '%s' does not look like an OS tree, and has multiple children, leaving as it is.", path);
                 return 0;
-        } else if (errno != 0)
+        }
+        if (errno != 0)
                 return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
 
         _cleanup_close_ int child_fd = openat(dirfd(d), child, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW|O_NONBLOCK);

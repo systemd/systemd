@@ -36,7 +36,7 @@ Feature *feature_new(void) {
         return f;
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(Feature, feature, feature_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Feature, feature, f, feature_free);
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(feature_hash_ops,
                                       char, string_hash_func, string_compare_func,

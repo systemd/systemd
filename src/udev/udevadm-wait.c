@@ -42,7 +42,7 @@ static const char * const wait_until_table[_WAIT_UNTIL_MAX] = {
         [WAIT_UNTIL_REMOVED]     = "removed",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(wait_until, WaitUntil);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(wait_until, WaitUntil, i);
 
 static int check_device(const char *path) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;

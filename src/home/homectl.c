@@ -142,7 +142,7 @@ static const char *export_format_table[_EXPORT_FORMAT_MAX] = {
         [EXPORT_FORMAT_MINIMAL]  = "minimal",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(export_format, ExportFormat);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(export_format, ExportFormat, i);
 
 static bool identity_properties_specified(void) {
         return
@@ -457,11 +457,11 @@ static int handle_generic_user_record_error(
                 return log_error_errno(SYNTHETIC_ERRNO(EREMOTE),
                                        "Home of user %s is currently absent, please plug in the necessary storage device or backing file system.", user_name);
 
-        else if (sd_bus_error_has_name(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT))
+        if (sd_bus_error_has_name(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT))
                 return log_error_errno(SYNTHETIC_ERRNO(ETOOMANYREFS),
                                        "Too frequent login attempts for user %s, try again later.", user_name);
 
-        else if (sd_bus_error_has_name(error, BUS_ERROR_BAD_PASSWORD)) {
+        if (sd_bus_error_has_name(error, BUS_ERROR_BAD_PASSWORD)) {
 
                 if (!strv_isempty(hr->password))
                         log_notice("Password incorrect or not sufficient, please try again.");
@@ -790,13 +790,13 @@ static int inspect_homes(int argc, char *argv[], void *userdata) {
                 STRV_FOREACH(arg, args)
                         RET_GATHER(r, inspect_home(bus, *arg));
                 return r;
-        } else {
-                _cleanup_free_ char *myself = getusername_malloc();
-                if (!myself)
-                        return log_oom();
-
-                return inspect_home(bus, myself);
         }
+
+        _cleanup_free_ char *myself = getusername_malloc();
+        if (!myself)
+                return log_oom();
+
+        return inspect_home(bus, myself);
 }
 
 static int authenticate_home(sd_bus *bus, const char *name) {
@@ -849,13 +849,13 @@ static int authenticate_homes(int argc, char *argv[], void *userdata) {
                         RET_GATHER(r, authenticate_home(bus, *arg));
 
                 return r;
-        } else {
-                _cleanup_free_ char *myself = getusername_malloc();
-                if (!myself)
-                        return log_oom();
-
-                return authenticate_home(bus, myself);
         }
+
+        _cleanup_free_ char *myself = getusername_malloc();
+        if (!myself)
+                return log_oom();
+
+        return authenticate_home(bus, myself);
 }
 
 static int update_last_change(sd_json_variant **v, bool with_password, bool override) {

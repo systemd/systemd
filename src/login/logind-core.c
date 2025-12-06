@@ -578,7 +578,7 @@ int manager_spawn_autovt(Manager *m, unsigned vtnr) {
                 r = vt_is_busy(vtnr);
                 if (r < 0)
                         return r;
-                else if (r > 0)
+                if (r > 0)
                         return -EBUSY;
         }
 

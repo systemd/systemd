@@ -138,8 +138,9 @@ static int exec_list(
                         if (!ignore)
                                 RET_GATHER(ret, r);
                         continue;
-                } else
-                        log_device_debug(d, "Triggered device with action '%s'.", action_str);
+                }
+
+                log_device_debug(d, "Triggered device with action '%s'.", action_str);
 
                 /* If the user asked for it, write event UUID to stdout */
                 if (arg_uuid)

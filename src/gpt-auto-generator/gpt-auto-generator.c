@@ -432,9 +432,10 @@ static int path_is_busy(const char *where) {
         if (r == -ENOTDIR) {
                 log_debug("\"%s\" is not a directory, ignoring.", where);
                 return true;
-        } else if (r < 0)
+        }
+        if (r < 0)
                 return log_warning_errno(r, "Cannot check if \"%s\" is empty: %m", where);
-        else if (r == 0) {
+        if (r == 0) {
                 log_debug("\"%s\" already populated, ignoring.", where);
                 return true;
         }

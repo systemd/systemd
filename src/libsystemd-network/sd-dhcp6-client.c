@@ -1134,9 +1134,8 @@ static int log_invalid_message_type(sd_dhcp6_client *client, const DHCP6Message 
         if (type_str)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                               "Received unexpected %s message, ignoring.", type_str);
-        else
-                return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
-                                              "Received unsupported message type %u, ignoring.", message->type);
+        return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
+                                      "Received unsupported message type %u, ignoring.", message->type);
 }
 
 static int client_process_information(
@@ -1563,7 +1562,7 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
         return mfree(client);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_client, sd_dhcp6_client, dhcp6_client_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_client, sd_dhcp6_client, client, dhcp6_client_free);
 
 int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;

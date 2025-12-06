@@ -237,7 +237,9 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                          "Job for %s finished.", d->name);
 
                 return 0;
-        } else if (streq(d->result, "skipped")) {
+        }
+
+        if (streq(d->result, "skipped")) {
                 log_full(FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS) ? LOG_INFO : LOG_DEBUG,
                          "Job for %s was skipped.", d->name);
 
@@ -281,21 +283,21 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
 
         if (STR_IN_SET(d->result, "canceled", "collected"))
                 return -ECANCELED;
-        else if (streq(d->result, "timeout"))
+        if (streq(d->result, "timeout"))
                 return -ETIME;
-        else if (streq(d->result, "dependency"))
+        if (streq(d->result, "dependency"))
                 return -EIO;
-        else if (streq(d->result, "invalid"))
+        if (streq(d->result, "invalid"))
                 return -ENOEXEC;
-        else if (streq(d->result, "assert"))
+        if (streq(d->result, "assert"))
                 return -EPROTO;
-        else if (streq(d->result, "unsupported"))
+        if (streq(d->result, "unsupported"))
                 return -EOPNOTSUPP;
-        else if (streq(d->result, "once"))
+        if (streq(d->result, "once"))
                 return -ESTALE;
-        else if (streq(d->result, "frozen"))
+        if (streq(d->result, "frozen"))
                 return -EDEADLK;
-        else if (streq(d->result, "concurrency"))
+        if (streq(d->result, "concurrency"))
                 return -ETOOMANYREFS;
 
         return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),

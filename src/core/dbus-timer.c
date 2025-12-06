@@ -279,8 +279,9 @@ static int bus_timer_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "TimersCalendar")) {
+        if (streq(name, "TimersCalendar")) {
                 const char *base_name, *str;
                 bool empty = true;
 
@@ -315,8 +316,9 @@ static int bus_timer_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name,
+        if (STR_IN_SET(name,
                        "OnActiveSec",
                        "OnBootSec",
                        "OnStartupSec",
@@ -337,8 +339,9 @@ static int bus_timer_set_transient_property(
                         return r;
 
                 return timer_add_one_monotonic_spec(t, name, b, flags, usec, reterr_error);
+        }
 
-        } else if (streq(name, "OnCalendar")) {
+        if (streq(name, "OnCalendar")) {
 
                 const char *str;
 

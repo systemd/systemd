@@ -151,7 +151,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         return mfree(server);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server, sd_dhcp_server, dhcp_server_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server, sd_dhcp_server, server, dhcp_server_free);
 
 int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
@@ -415,16 +415,14 @@ static int dhcp_server_send(
                 return dhcp_server_send_udp(server, destination,
                                             destination_port, &packet->dhcp,
                                             sizeof(DHCPMessage) + optoffset);
-        else if (l2_broadcast)
+        if (l2_broadcast)
                 return dhcp_server_send_udp(server, INADDR_BROADCAST,
                                             destination_port, &packet->dhcp,
                                             sizeof(DHCPMessage) + optoffset);
-        else
-                /* we cannot send UDP packet to specific MAC address when the
-                   address is not yet configured, so must fall back to raw
-                   packets */
-                return dhcp_server_send_unicast_raw(server, hlen, chaddr, packet,
-                                                    sizeof(DHCPPacket) + optoffset);
+        /* we cannot send UDP packet to specific MAC address when the
+         * address is not yet configured, so must fall back to raw
+         * packets */
+        return dhcp_server_send_unicast_raw(server, hlen, chaddr, packet, sizeof(DHCPPacket) + optoffset);
 }
 
 int dhcp_server_send_packet(sd_dhcp_server *server,
@@ -1022,7 +1020,9 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
                 }
 
                 return dhcp_server_send_udp(server, server->relay_target.s_addr, DHCP_PORT_SERVER, message, sizeof(DHCPMessage) + opt_length);
-        } else if (message->op == BOOTREPLY) {
+        }
+
+        if (message->op == BOOTREPLY) {
                 log_dhcp_server(server, "(relay agent) BOOTREPLY (0x%x)", be32toh(message->xid));
                 if (message->giaddr != server->address)
                         return log_dhcp_server_errno(server, SYNTHETIC_ERRNO(EBADMSG),
@@ -1045,6 +1045,7 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
                 const be32_t destination = message_type == DHCP_NAK ? INADDR_ANY : message->ciaddr;
                 return dhcp_server_send(server, message->hlen, message->chaddr, destination, DHCP_PORT_CLIENT, packet, opt_length, l2_broadcast);
         }
+
         return -EBADMSG;
 }
 

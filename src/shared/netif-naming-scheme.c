@@ -99,7 +99,7 @@ static const char* const name_policy_table[_NAMEPOLICY_MAX] = {
         [NAMEPOLICY_MAC]      = "mac",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);
+DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy, p);
 
 static const char* const alternative_names_policy_table[_NAMEPOLICY_MAX] = {
         [NAMEPOLICY_DATABASE] = "database",
@@ -109,7 +109,7 @@ static const char* const alternative_names_policy_table[_NAMEPOLICY_MAX] = {
         [NAMEPOLICY_MAC]      = "mac",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(alternative_names_policy, NamePolicy);
+DEFINE_STRING_TABLE_LOOKUP(alternative_names_policy, NamePolicy, p);
 
 static int naming_sysattr_allowed_by_default(sd_device *dev) {
         int r;

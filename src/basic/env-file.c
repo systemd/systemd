@@ -481,8 +481,8 @@ static int load_env_file_push_pairs(
                 if (streq(t[0], key)) {
                         if (value)
                                 return free_and_replace(t[1], value);
-                        else
-                                return free_and_strdup(t+1, "");
+
+                        return free_and_strdup(t+1, "");
                 }
 
         r = strv_extend(m, key);
@@ -491,8 +491,8 @@ static int load_env_file_push_pairs(
 
         if (value)
                 return strv_push(m, value);
-        else
-                return strv_extend(m, "");
+
+        return strv_extend(m, "");
 }
 
 int load_env_file_pairs(FILE *f, const char *fname, char ***ret) {

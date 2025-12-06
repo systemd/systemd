@@ -34,7 +34,7 @@ static const char *const fr_act_type_table[__FR_ACT_MAX] = {
 };
 
 assert_cc(__FR_ACT_MAX <= UINT8_MAX);
-DEFINE_STRING_TABLE_LOOKUP(fr_act_type, int);
+DEFINE_STRING_TABLE_LOOKUP(fr_act_type, int, t);
 
 static RoutingPolicyRule* routing_policy_rule_detach_impl(RoutingPolicyRule *rule) {
         assert(rule);
@@ -74,7 +74,7 @@ static RoutingPolicyRule* routing_policy_rule_free(RoutingPolicyRule *rule) {
         return mfree(rule);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(RoutingPolicyRule, routing_policy_rule, routing_policy_rule_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(RoutingPolicyRule, routing_policy_rule, rule, routing_policy_rule_free);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 routing_policy_rule_section_hash_ops,
@@ -1068,7 +1068,9 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
                 return 0;
-        } else if (!IN_SET(type, RTM_NEWRULE, RTM_DELRULE)) {
+        }
+
+        if (!IN_SET(type, RTM_NEWRULE, RTM_DELRULE)) {
                 log_warning("rtnl: received unexpected message type %u when processing rule, ignoring.", type);
                 return 0;
         }
@@ -1084,7 +1086,9 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get rule family, ignoring: %m");
                 return 0;
-        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
+        }
+
+        if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
                 log_debug("rtnl: received rule message with invalid family %d, ignoring.", tmp->family);
                 return 0;
         }
@@ -1093,7 +1097,8 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
                 return 0;
-        } else if (r >= 0) {
+        }
+        if (r >= 0) {
                 r = sd_rtnl_message_routing_policy_rule_get_src_prefixlen(message, &tmp->from.prefixlen);
                 if (r < 0) {
                         log_warning_errno(r, "rtnl: received rule message without valid source prefix length, ignoring: %m");
@@ -1105,7 +1110,8 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
                 return 0;
-        } else if (r >= 0) {
+        }
+        if (r >= 0) {
                 r = sd_rtnl_message_routing_policy_rule_get_dst_prefixlen(message, &tmp->to.prefixlen);
                 if (r < 0) {
                         log_warning_errno(r, "rtnl: received rule message without valid destination prefix length, ignoring: %m");

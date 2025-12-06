@@ -122,7 +122,7 @@ static const char * const sr_iov_attribute_table[_SR_IOV_ATTRIBUTE_MAX] = {
         [SR_IOV_VF_VLAN_LIST]    = "vlan list",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(sr_iov_attribute, SRIOVAttribute);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(sr_iov_attribute, SRIOVAttribute, a);
 
 bool sr_iov_has_config(SRIOV *sr_iov, SRIOVAttribute attr) {
         assert(sr_iov);

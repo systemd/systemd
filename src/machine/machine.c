@@ -1615,7 +1615,7 @@ static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {
         [MACHINE_HOST]      = "host",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(machine_class, MachineClass);
+DEFINE_STRING_TABLE_LOOKUP(machine_class, MachineClass, t);
 
 static const char* const machine_state_table[_MACHINE_STATE_MAX] = {
         [MACHINE_OPENING] = "opening",
@@ -1623,7 +1623,7 @@ static const char* const machine_state_table[_MACHINE_STATE_MAX] = {
         [MACHINE_CLOSING] = "closing"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(machine_state, MachineState);
+DEFINE_STRING_TABLE_LOOKUP(machine_state, MachineState, t);
 
 static const char* const kill_whom_table[_KILL_WHOM_MAX] = {
         [KILL_LEADER]     = "leader",
@@ -1631,7 +1631,7 @@ static const char* const kill_whom_table[_KILL_WHOM_MAX] = {
         [KILL_ALL]        = "all",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);
+DEFINE_STRING_TABLE_LOOKUP(kill_whom, KillWhom, k);
 
 static const char* const acquire_metadata_table[_ACQUIRE_METADATA_MAX] = {
         [ACQUIRE_METADATA_NO]       = "no",
@@ -1639,4 +1639,4 @@ static const char* const acquire_metadata_table[_ACQUIRE_METADATA_MAX] = {
         [ACQUIRE_METADATA_GRACEFUL] = "graceful"
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(acquire_metadata, AcquireMetadata, ACQUIRE_METADATA_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(acquire_metadata, AcquireMetadata, am, ACQUIRE_METADATA_YES);

@@ -13,7 +13,7 @@ static const char* const bond_mode_table[_NETDEV_BOND_MODE_MAX] = {
         [NETDEV_BOND_MODE_BALANCE_ALB] = "balance-alb",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(bond_mode, BondMode);
+DEFINE_STRING_TABLE_LOOKUP(bond_mode, BondMode, d);
 
 static const char* const bond_xmit_hash_policy_table[_NETDEV_BOND_XMIT_HASH_POLICY_MAX] = {
         [NETDEV_BOND_XMIT_HASH_POLICY_LAYER2] = "layer2",
@@ -23,14 +23,14 @@ static const char* const bond_xmit_hash_policy_table[_NETDEV_BOND_XMIT_HASH_POLI
         [NETDEV_BOND_XMIT_HASH_POLICY_ENCAP34] = "encap3+4",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(bond_xmit_hash_policy, BondXmitHashPolicy);
+DEFINE_STRING_TABLE_LOOKUP(bond_xmit_hash_policy, BondXmitHashPolicy, d);
 
 static const char* const bond_lacp_rate_table[_NETDEV_BOND_LACP_RATE_MAX] = {
         [NETDEV_BOND_LACP_RATE_SLOW] = "slow",
         [NETDEV_BOND_LACP_RATE_FAST] = "fast",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(bond_lacp_rate, BondLacpRate);
+DEFINE_STRING_TABLE_LOOKUP(bond_lacp_rate, BondLacpRate, d);
 
 static const char* const bond_ad_select_table[_NETDEV_BOND_AD_SELECT_MAX] = {
         [NETDEV_BOND_AD_SELECT_STABLE] = "stable",
@@ -38,7 +38,7 @@ static const char* const bond_ad_select_table[_NETDEV_BOND_AD_SELECT_MAX] = {
         [NETDEV_BOND_AD_SELECT_COUNT] = "count",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(bond_ad_select, BondAdSelect);
+DEFINE_STRING_TABLE_LOOKUP(bond_ad_select, BondAdSelect, d);
 
 static const char* const bond_fail_over_mac_table[_NETDEV_BOND_FAIL_OVER_MAC_MAX] = {
         [NETDEV_BOND_FAIL_OVER_MAC_NONE] = "none",
@@ -46,7 +46,7 @@ static const char* const bond_fail_over_mac_table[_NETDEV_BOND_FAIL_OVER_MAC_MAX
         [NETDEV_BOND_FAIL_OVER_MAC_FOLLOW] = "follow",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(bond_fail_over_mac, BondFailOverMac);
+DEFINE_STRING_TABLE_LOOKUP(bond_fail_over_mac, BondFailOverMac, d);
 
 static const char *const bond_arp_validate_table[_NETDEV_BOND_ARP_VALIDATE_MAX] = {
         [NETDEV_BOND_ARP_VALIDATE_NONE] = "none",
@@ -55,14 +55,14 @@ static const char *const bond_arp_validate_table[_NETDEV_BOND_ARP_VALIDATE_MAX] 
         [NETDEV_BOND_ARP_VALIDATE_ALL]= "all",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(bond_arp_validate, BondArpValidate);
+DEFINE_STRING_TABLE_LOOKUP(bond_arp_validate, BondArpValidate, d);
 
 static const char *const bond_arp_all_targets_table[_NETDEV_BOND_ARP_ALL_TARGETS_MAX] = {
         [NETDEV_BOND_ARP_ALL_TARGETS_ANY] = "any",
         [NETDEV_BOND_ARP_ALL_TARGETS_ALL] = "all",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(bond_arp_all_targets, BondArpAllTargets);
+DEFINE_STRING_TABLE_LOOKUP(bond_arp_all_targets, BondArpAllTargets, d);
 
 static const char *const bond_primary_reselect_table[_NETDEV_BOND_PRIMARY_RESELECT_MAX] = {
         [NETDEV_BOND_PRIMARY_RESELECT_ALWAYS] = "always",
@@ -70,4 +70,4 @@ static const char *const bond_primary_reselect_table[_NETDEV_BOND_PRIMARY_RESELE
         [NETDEV_BOND_PRIMARY_RESELECT_FAILURE]= "failure",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(bond_primary_reselect, BondPrimaryReselect);
+DEFINE_STRING_TABLE_LOOKUP(bond_primary_reselect, BondPrimaryReselect, d);

@@ -79,7 +79,7 @@ static const char *const log_facility_unshifted_table[LOG_NFACILITIES] = {
         [LOG_FAC(LOG_LOCAL7)]   = "local7",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(log_facility_unshifted, int, LOG_FAC(~0));
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(log_facility_unshifted, int, i, LOG_FAC(~0));
 
 bool log_facility_unshifted_is_valid(int facility) {
         return facility >= 0 && facility <= LOG_FAC(~0);
@@ -96,7 +96,7 @@ static const char *const log_level_table[] = {
         [LOG_DEBUG]   = "debug",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(log_level, int, LOG_DEBUG);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(log_level, int, i, LOG_DEBUG);
 
 bool log_level_is_valid(int level) {
         return level >= 0 && level <= LOG_DEBUG;

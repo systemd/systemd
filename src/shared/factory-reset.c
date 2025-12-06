@@ -126,4 +126,4 @@ static const char* const factory_reset_mode_table[_FACTORY_RESET_MODE_MAX] = {
         [FACTORY_RESET_PENDING]     = "pending",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(factory_reset_mode, FactoryResetMode);
+DEFINE_STRING_TABLE_LOOKUP(factory_reset_mode, FactoryResetMode, m);

@@ -258,7 +258,9 @@ static size_t ansi_sequence_length(const char *s, size_t len) {
                         return i + 1;
                 return 0;  /* Bad sequence */
 
-        } else if (s[1] >= 0x40 && s[1] <= 0x5F) /* other non-CSI Fe sequence */
+        }
+
+        if (s[1] >= 0x40 && s[1] <= 0x5F) /* other non-CSI Fe sequence */
                 return 2;
 
         return 0;  /* Bad escape? */
@@ -694,7 +696,9 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                         if (*i == '\r') {
                                 n_carriage_returns++;
                                 break;
-                        } else if (*i == '\n')
+                        }
+
+                        if (*i == '\n')
                                 /* Ignore carriage returns before new line */
                                 n_carriage_returns = 0;
                         for (; n_carriage_returns > 0; n_carriage_returns--)
@@ -717,7 +721,9 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                                 fputc('\x1B', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 1);
                                 break;
-                        } else if (*i == '[') { /* ANSI CSI */
+                        }
+
+                        if (*i == '[') { /* ANSI CSI */
                                 state = STATE_CSI;
                                 begin = i + 1;
                         } else if (*i == ']') { /* ANSI OSC */
@@ -1072,16 +1078,16 @@ int strdup_to_full(char **ret, const char *src) {
                         *ret = NULL;
 
                 return 0;
-        } else {
-                if (ret) {
-                        char *t = strdup(src);
-                        if (!t)
-                                return -ENOMEM;
-                        *ret = t;
-                }
-
-                return 1;
         }
+
+        if (ret) {
+                char *t = strdup(src);
+                if (!t)
+                        return -ENOMEM;
+                *ret = t;
+        }
+
+        return 1;
 };
 
 bool string_is_safe(const char *p) {
@@ -1207,9 +1213,10 @@ int string_extract_line(const char *s, size_t i, char **ret) {
 
                                 *ret = m;
                                 return !isempty(q + 1); /* More coming? */
-                        } else
-                                /* Tell the caller to use the input string if equal */
-                                return strdup_to(ret, p != s ? p : NULL);
+                        }
+
+                        /* Tell the caller to use the input string if equal */
+                        return strdup_to(ret, p != s ? p : NULL);
                 }
 
                 if (!q)

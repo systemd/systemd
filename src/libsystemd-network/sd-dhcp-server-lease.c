@@ -34,7 +34,7 @@ static sd_dhcp_server_lease* dhcp_server_lease_free(sd_dhcp_server_lease *lease)
         return mfree(lease);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server_lease, sd_dhcp_server_lease, dhcp_server_lease_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server_lease, sd_dhcp_server_lease, lease, dhcp_server_lease_free);
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         dhcp_server_lease_hash_ops,

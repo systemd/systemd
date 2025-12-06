@@ -147,7 +147,7 @@ static const char* const target_class_table[_TARGET_CLASS_MAX] = {
         [TARGET_HOST]      = "host",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(target_class, TargetClass);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(target_class, TargetClass, i);
 
 static const char* const job_type_table[_JOB_TYPE_MAX] = {
         [JOB_LIST]             = "list",
@@ -158,7 +158,7 @@ static const char* const job_type_table[_JOB_TYPE_MAX] = {
         [JOB_DESCRIBE_FEATURE] = "describe-feature",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(job_type, JobType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(job_type, JobType, i);
 
 static Job *job_free(Job *j) {
         if (!j)

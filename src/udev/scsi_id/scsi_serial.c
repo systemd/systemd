@@ -111,7 +111,7 @@ static int sg_err_category_new(int scsi_status, int msg_status, int
 
                         if (sense_key == RECOVERED_ERROR)
                                 return SG_ERR_CAT_RECOVERED;
-                        else if (sense_key == UNIT_ATTENTION) {
+                        if (sense_key == UNIT_ATTENTION) {
                                 if (0x28 == asc)
                                         return SG_ERR_CAT_MEDIA_CHANGED;
                                 if (0x29 == asc)
@@ -240,8 +240,7 @@ static int scsi_dump(struct scsi_id_device *dev_scsi, struct sg_io_hdr *io) {
                   dev_scsi->kernel, io->driver_status, io->host_status, io->msg_status, io->status);
         if (io->status == SCSI_CHECK_CONDITION)
                 return scsi_dump_sense(dev_scsi, io->sbp, io->sb_len_wr);
-        else
-                return -1;
+        return -1;
 }
 
 static int scsi_dump_v4(struct scsi_id_device *dev_scsi, struct sg_io_v4 *io) {
@@ -259,8 +258,7 @@ static int scsi_dump_v4(struct scsi_id_device *dev_scsi, struct sg_io_v4 *io) {
         if (io->device_status == SCSI_CHECK_CONDITION)
                 return scsi_dump_sense(dev_scsi, (unsigned char *)(uintptr_t)io->response,
                                        io->response_len);
-        else
-                return -1;
+        return -1;
 }
 
 static int scsi_inquiry(struct scsi_id_device *dev_scsi, int fd,
@@ -618,7 +616,7 @@ static int do_scsi_page83_inquiry(struct scsi_id_device *dev_scsi, int fd,
                                                     tgpt_group);
                         if (!retval)
                                 return retval;
-                        else if (retval < 0)
+                        if (retval < 0)
                                 return retval;
                 }
         }

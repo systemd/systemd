@@ -21,7 +21,7 @@ bool network_is_online(void) {
 
         if (state >= LINK_ONLINE_STATE_PARTIAL)
                 return true;
-        else if (state < 0) {
+        if (state < 0) {
                 _cleanup_free_ char *carrier_state = NULL, *addr_state = NULL;
 
                 r = sd_network_get_carrier_state(&carrier_state);
@@ -53,7 +53,7 @@ static const char* const link_operstate_table[_LINK_OPERSTATE_MAX] = {
         [LINK_OPERSTATE_ROUTABLE]         = "routable",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(link_operstate, LinkOperationalState);
+DEFINE_STRING_TABLE_LOOKUP(link_operstate, LinkOperationalState, s);
 
 static const char* const link_carrier_state_table[_LINK_CARRIER_STATE_MAX] = {
         [LINK_CARRIER_STATE_OFF]              = "off",
@@ -64,7 +64,7 @@ static const char* const link_carrier_state_table[_LINK_CARRIER_STATE_MAX] = {
         [LINK_CARRIER_STATE_ENSLAVED]         = "enslaved",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(link_carrier_state, LinkCarrierState);
+DEFINE_STRING_TABLE_LOOKUP(link_carrier_state, LinkCarrierState, s);
 
 static const char* const link_required_address_family_table[_ADDRESS_FAMILY_MAX] = {
         [ADDRESS_FAMILY_NO]   = "any",
@@ -73,7 +73,7 @@ static const char* const link_required_address_family_table[_ADDRESS_FAMILY_MAX]
         [ADDRESS_FAMILY_YES]  = "both",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(link_required_address_family, AddressFamily);
+DEFINE_STRING_TABLE_LOOKUP(link_required_address_family, AddressFamily, s);
 
 static const char* const link_address_state_table[_LINK_ADDRESS_STATE_MAX] = {
         [LINK_ADDRESS_STATE_OFF]      = "off",
@@ -81,7 +81,7 @@ static const char* const link_address_state_table[_LINK_ADDRESS_STATE_MAX] = {
         [LINK_ADDRESS_STATE_ROUTABLE] = "routable",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(link_address_state, LinkAddressState);
+DEFINE_STRING_TABLE_LOOKUP(link_address_state, LinkAddressState, s);
 
 static const char *const link_online_state_table[_LINK_ONLINE_STATE_MAX] = {
         [LINK_ONLINE_STATE_OFFLINE] = "offline",
@@ -89,7 +89,7 @@ static const char *const link_online_state_table[_LINK_ONLINE_STATE_MAX] = {
         [LINK_ONLINE_STATE_ONLINE]  = "online",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(link_online_state, LinkOnlineState);
+DEFINE_STRING_TABLE_LOOKUP(link_online_state, LinkOnlineState, s);
 
 int parse_operational_state_range(const char *s, LinkOperationalStateRange *ret) {
         LinkOperationalStateRange range = LINK_OPERSTATE_RANGE_INVALID;

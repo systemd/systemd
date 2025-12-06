@@ -1179,7 +1179,7 @@ static const char *const nfproto_table[] = {
         [NFPROTO_NETDEV] = "netdev",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(nfproto, int);
+DEFINE_STRING_TABLE_LOOKUP(nfproto, int, i);
 
 static const char *const nft_set_source_table[] = {
         [NFT_SET_SOURCE_ADDRESS] = "address",
@@ -1190,7 +1190,7 @@ static const char *const nft_set_source_table[] = {
         [NFT_SET_SOURCE_GROUP]   = "group",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(nft_set_source, int);
+DEFINE_STRING_TABLE_LOOKUP(nft_set_source, int, i);
 
 void nft_set_context_clear(NFTSetContext *s) {
         assert(s);

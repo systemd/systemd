@@ -3776,7 +3776,7 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
         [DNS_TRANSACTION_NO_SOURCE]            = "no-source",
         [DNS_TRANSACTION_STUB_LOOP]            = "stub-loop",
 };
-DEFINE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
+DEFINE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState, p);
 
 static const char* const dns_transaction_source_table[_DNS_TRANSACTION_SOURCE_MAX] = {
         [DNS_TRANSACTION_NETWORK]      = "network",
@@ -3784,4 +3784,4 @@ static const char* const dns_transaction_source_table[_DNS_TRANSACTION_SOURCE_MA
         [DNS_TRANSACTION_ZONE]         = "zone",
         [DNS_TRANSACTION_TRUST_ANCHOR] = "trust-anchor",
 };
-DEFINE_STRING_TABLE_LOOKUP(dns_transaction_source, DnsTransactionSource);
+DEFINE_STRING_TABLE_LOOKUP(dns_transaction_source, DnsTransactionSource, p);

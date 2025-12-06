@@ -1234,7 +1234,7 @@ static int add_user(Context *c, Item *i) {
                                 r = uid_is_ok(c, candidate, i->name, true);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
-                                else if (r > 0) {
+                                if (r > 0) {
                                         i->uid = candidate;
                                         i->uid_set = true;
                                 } else
@@ -1266,7 +1266,7 @@ static int add_user(Context *c, Item *i) {
                         r = uid_is_ok(c, c->search_uid, i->name, true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to verify UID " UID_FMT ": %m", i->uid);
-                        else if (r > 0)
+                        if (r > 0)
                                 break;
                 }
 
@@ -1437,7 +1437,7 @@ static int add_group(Context *c, Item *i) {
                                 r = gid_is_ok(c, candidate, i->name, true);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
-                                else if (r > 0) {
+                                if (r > 0) {
                                         i->gid = candidate;
                                         i->gid_set = true;
                                 } else
@@ -1459,7 +1459,7 @@ static int add_group(Context *c, Item *i) {
                         r = gid_is_ok(c, c->search_uid, i->name, true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to verify GID " GID_FMT ": %m", i->gid);
-                        else if (r > 0)
+                        if (r > 0)
                                 break;
                 }
 

@@ -86,7 +86,7 @@ static int udev_queue_is_empty(void) {
  *
  * Returns: #NULL
  **/
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_queue, udev_queue, udev_queue_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_queue, udev_queue, udev_queue, udev_queue_free);
 
 /**
  * udev_queue_get_udev:

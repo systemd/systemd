@@ -14,10 +14,9 @@ int string_table_lookup_to_string_fallback(const char * const *table, size_t len
 ssize_t string_table_lookup_from_string_fallback(const char * const *table, size_t len, const char *s, size_t max);
 
 /* For basic lookup tables with strictly enumerated entries */
-#define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, scope)                                        \
-        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */                      \
-        scope const char* name##_to_string(type i) {                                                    \
-                return string_table_lookup_to_string(name##_table, ELEMENTSOF(name##_table), i);        \
+#define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, arg, scope)                                   \
+        scope const char* name##_to_string(type arg) {                                                  \
+                return string_table_lookup_to_string(name##_table, ELEMENTSOF(name##_table), arg);      \
         }
 
 #define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name, type, scope) \
@@ -30,10 +29,9 @@ ssize_t string_table_lookup_from_string_fallback(const char * const *table, size
                 return (type) string_table_lookup_from_string_with_boolean(name##_table, ELEMENTSOF(name##_table), s, yes); \
         }
 
-#define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name, type, max, scope)                          \
-        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */                      \
-        scope int name##_to_string_alloc(type i, char **ret) {                                          \
-                return string_table_lookup_to_string_fallback(name##_table, ELEMENTSOF(name##_table), i, max, ret); \
+#define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name, type, arg, max, scope)                     \
+        scope int name##_to_string_alloc(type arg, char **ret) {                                        \
+                return string_table_lookup_to_string_fallback(name##_table, ELEMENTSOF(name##_table), arg, max, ret); \
         }
 
 #define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name, type, max, scope) \
@@ -41,34 +39,34 @@ ssize_t string_table_lookup_from_string_fallback(const char * const *table, size
                 return (type) string_table_lookup_from_string_fallback(name##_table, ELEMENTSOF(name##_table), s, max); \
         }
 
-#define _DEFINE_STRING_TABLE_LOOKUP(name, type, scope)                    \
-        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, scope)          \
+#define _DEFINE_STRING_TABLE_LOOKUP(name, type, arg, scope)                    \
+        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, arg, scope)          \
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name, type, scope)
 
-#define _DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name, type, yes, scope)  \
-        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, scope)          \
+#define _DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name, type, arg, yes, scope)  \
+        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, arg, scope)          \
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(name, type, yes, scope)
 
-#define DEFINE_STRING_TABLE_LOOKUP(name, type) _DEFINE_STRING_TABLE_LOOKUP(name, type,)
-#define DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type) _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type,)
+#define DEFINE_STRING_TABLE_LOOKUP(name, type, arg) _DEFINE_STRING_TABLE_LOOKUP(name, type, arg,)
+#define DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, arg) _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, arg,)
 #define DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name, type) _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name, type,)
-#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP(name, type) _DEFINE_STRING_TABLE_LOOKUP(name, type, static)
-#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(name, type) _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, static)
+#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP(name, type, arg) _DEFINE_STRING_TABLE_LOOKUP(name, type, arg, static)
+#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(name, type, arg) _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, arg, static)
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(name, type) _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name, type, static)
 
-#define DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name, type, yes) _DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name, type, yes,)
-#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name, type, yes) _DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name, type, yes, static)
+#define DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name, type, arg, yes) _DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name, type, arg, yes,)
+#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name, type, arg, yes) _DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name, type, arg, yes, static)
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(name, type, yes) \
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(name, type, yes, static)
 
 /* For string conversions where numbers are also acceptable */
-#define DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(name, type, max)         \
-        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name, type, max,)  \
+#define DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(name, type, arg, max)         \
+        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name, type, arg, max,)  \
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name, type, max,)
 #define DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(name, type, max) _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name, type, max,)
 
-#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name, type, max) \
-        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name, type, max, static)
+#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name, type, arg, max) \
+        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name, type, arg, max, static)
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name, type, max) \
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name, type, max, static)
 

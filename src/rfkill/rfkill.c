@@ -61,7 +61,7 @@ static const char* const rfkill_type_table[NUM_RFKILL_TYPES] = {
         [RFKILL_TYPE_NFC] = "nfc",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(rfkill_type, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(rfkill_type, int, i);
 
 static int find_device(
                 const struct rfkill_event *event,
