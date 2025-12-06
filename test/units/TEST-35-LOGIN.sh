@@ -8,6 +8,12 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+RUN_OUT="$(mktemp)"
+
+run() {
+    "$@" |& tee "$RUN_OUT"
+}
+
 cleanup_test_user() (
     set +ex
 
@@ -761,28 +767,34 @@ EOF
     systemd-sysusers --inline "u lightuser"
 
     systemd-run -u "$TRANSIENTUNIT3" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_TYPE=unspecified" -p Type=exec -p User=lightuser sleep infinity
-    loginctl | grep lightuser | grep -q background-light
+    run loginctl
+    grep 'lightuser .* background-light ' "$RUN_OUT"
     systemctl stop "$TRANSIENTUNIT3"
 
     systemd-run -u "$TRANSIENTUNIT4" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_TYPE=tty" -p Type=exec -p User=lightuser sleep infinity
-    loginctl | grep lightuser | grep -q user-light
+    run loginctl
+    grep 'lightuser .* user-light ' "$RUN_OUT"
     systemctl stop "$TRANSIENTUNIT4"
 
     # Now check that run0's session class control works
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT0" sleep infinity
-    loginctl | grep lightuser | grep -qw background-light
+    run loginctl
+    grep 'lightuser .* background-light ' "$RUN_OUT"
     systemctl stop "$RUN0UNIT0"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT1" --lightweight=yes sleep infinity
-    loginctl | grep lightuser | grep -qw background-light
+    run loginctl
+    grep 'lightuser .* background-light ' "$RUN_OUT"
     systemctl stop "$RUN0UNIT1"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT2" --lightweight=no sleep infinity
-    loginctl | grep lightuser | grep -qw background
+    run loginctl
+    grep 'lightuser .* background ' "$RUN_OUT"
     systemctl stop "$RUN0UNIT2"
 
     systemd-run --service-type=notify run0 -u root --unit="$RUN0UNIT3" sleep infinity
-    loginctl | grep root | grep -qw background-light
+    run loginctl
+    grep 'root .* background-light ' "$RUN_OUT"
     systemctl stop "$RUN0UNIT3"
 }
 
@@ -802,10 +814,11 @@ testcase_restart() {
 
     systemctl restart systemd-logind
 
+    run loginctl
     for c in $classes; do
         unit="user-sleeper-$c.service"
         systemctl --quiet is-active "$unit"
-        loginctl | grep logind-test-user | grep -qw "$c"
+        grep 'logind-test-user .* '"$c"' ' "$RUN_OUT"
         systemctl kill "$unit"
     done
 }

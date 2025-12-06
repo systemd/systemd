@@ -18,6 +18,12 @@ else
     bootctl=
 fi
 
+RUN_OUT="$(mktemp)"
+
+run() {
+    "$@" |& tee "$RUN_OUT"
+}
+
 D="$(mktemp --tmpdir --directory "test-kernel-install.XXXXXXXXXX")"
 
 # shellcheck disable=SC2064
@@ -149,17 +155,19 @@ EOF
     test -f "$uki"
 
     if [ -x "$bootctl" ]; then
-        "$bootctl" kernel-inspect "$uki" | grep -qE 'Kernel Type: +uki$'
-        "$bootctl" kernel-inspect "$uki" | grep -qE 'Version: +1\.1\.3$'
-        "$bootctl" kernel-inspect "$uki" | grep -qE 'Cmdline: +opt1 opt2$'
+        run "$bootctl" kernel-inspect "$uki"
+        grep -qE 'Kernel Type: +uki$' "$RUN_OUT"
+        grep -qE 'Version: +1\.1\.3$' "$RUN_OUT"
+        grep -qE 'Cmdline: +opt1 opt2$' "$RUN_OUT"
     fi
 
-    "$ukify" inspect "$uki" | grep -qE '^.sbat'
-    "$ukify" inspect "$uki" | grep -qE '^.cmdline'
-    "$ukify" inspect "$uki" | grep -qE '^.uname'
-    "$ukify" inspect "$uki" | grep -qE '^.initrd'
-    "$ukify" inspect "$uki" | grep -qE '^.linux'
-    "$ukify" inspect "$uki" | grep -qE '^.dtb'
+    run "$ukify" inspect "$uki"
+    grep -qE '^.sbat' "$RUN_OUT"
+    grep -qE '^.cmdline' "$RUN_OUT"
+    grep -qE '^.uname' "$RUN_OUT"
+    grep -qE '^.initrd' "$RUN_OUT"
+    grep -qE '^.linux' "$RUN_OUT"
+    grep -qE '^.dtb' "$RUN_OUT"
 
     rm "$D/sources/install.conf.d/override.conf"
 fi
