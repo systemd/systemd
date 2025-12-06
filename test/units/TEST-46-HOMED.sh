@@ -33,7 +33,7 @@ wait_for_exist() {
 }
 
 wait_for_state() {
-    timeout 2m bash -c "until homectl inspect '${1:?}' | grep -qF 'State: $2'; do sleep 2; done"
+    timeout 2m bash -c "until homectl inspect '${1:?}' | grep -F 'State: $2' >/dev/null; do sleep 2; done"
 }
 
 FSTYPE="$(stat --file-system --format "%T" /)"
@@ -660,7 +660,7 @@ homectl remove aliastest
 
 NEWPASSWORD=quux homectl create tmpfsquota --storage=subvolume --dev-shm-limit=50K --tmp-limit=50K -P
 for p in /dev/shm /tmp; do
-    if findmnt -n -o options "$p" | grep -q usrquota; then
+    if findmnt -n -o options "$p" | grep usrquota >/dev/null; then
         # Check if we can display the quotas. If we cannot, than it's likely
         # that PID1 was also not able to set the limits and we should not fail
         # in the tests below.
@@ -738,8 +738,8 @@ wait_for_state subareatest inactive
 homectl remove subareatest
 
 # Test signing key logic
-homectl list-signing-keys | grep -q local.public
-(! (homectl list-signing-keys | grep -q signtest.public))
+homectl list-signing-keys | grep local.public >/dev/null
+(! (homectl list-signing-keys | grep signtest.public)) >/dev/null
 
 IDENTITY='{"userName":"signtest","storage":"directory","disposition":"regular","privileged":{"hashedPassword":["$y$j9T$I5Wxfm.fyg.RRWlgWw.rI1$gnQqGtbpPexqxZJkWMq8FxQi5Swc.CWeKtM8LwvEUB6"]},"enforcePasswordPolicy":false,"lastChangeUSec":1740677608017608,"lastPasswordChangeUSec":1740677608017608,"signature":[{"data":"Gl4wtc0sMjVnsH6FQwG/0M+x0nLI5cvvdtSSCttUu1gNtXqYn0UI4wZi/7zX35ERht6XHWDlP4d6V8HiAst4Dg==","key":"-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA6uvVaP1vh7O6nIbiOcvyIHRl4ihYSs0R7ctxtz2Zu7E=\n-----END PUBLIC KEY-----\n"}],"secret":{"password":["test"]}}'
 
@@ -762,8 +762,8 @@ EOF
 # Let's now add the signing key
 print_public_key | homectl add-signing-key --key-name=signtest.public
 homectl get-signing-key signtest.public | cmp - <(print_public_key)
-homectl list-signing-keys | grep -q local.public
-homectl list-signing-keys | grep -q signtest.public
+homectl list-signing-keys | grep local.public >/dev/null
+homectl list-signing-keys | grep signtest.public >/dev/null
 
 # Now create the account with this, it should work now
 echo "$IDENTITY" | homectl create -P --identity=- --seize=no
@@ -778,8 +778,8 @@ wait_for_state signtest inactive
 (! PASSWORD="test" homectl with signtest true)
 
 # Verify key is really gone
-homectl list-signing-keys | grep -q local.public
-(! (homectl list-signing-keys | grep -q signtest.public))
+homectl list-signing-keys | grep local.public >/dev/null
+(! (homectl list-signing-keys | grep signtest.public)) >/dev/null
 
 # Test unregister + adopt
 mkdir /home/elsewhere
@@ -806,9 +806,9 @@ PASSWORD="test" homectl with signtest true
 # add signing key via credential
 wait_for_state signtest inactive
 homectl remove-signing-key signtest.public
-(! (homectl list-signing-keys | grep -q signtest.public))
+(! (homectl list-signing-keys | grep signtest.public)) >/dev/null
 systemd-run --wait -p "SetCredential=home.add-signing-key.signtest.public:$(print_public_key)" homectl firstboot
-homectl list-signing-keys | grep -q signtest.public
+homectl list-signing-keys | grep signtest.public >/dev/null
 
 # register user via credential
 mkdir /home/elsewhere2

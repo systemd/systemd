@@ -203,7 +203,7 @@ can_do_rootless_nspawn() {
     # Need to have bpf-lsm
     grep -q bpf /sys/kernel/security/lsm &&
     # ...and libbpf installed
-    find /usr/lib* -name "libbpf.so.*" 2>/dev/null | grep -q . &&
+    find /usr/lib* -name "libbpf.so.*" 2>/dev/null | grep . >/dev/null &&
 
     # Ensure mountfsd/nsresourced are listening
     systemctl start systemd-mountfsd.socket systemd-nsresourced.socket &&
