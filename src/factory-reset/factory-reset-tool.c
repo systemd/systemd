@@ -26,6 +26,8 @@ static bool arg_retrigger = false;
 static bool arg_quiet = false;
 static bool arg_varlink = false;
 
+#include "factory-reset-tool.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -42,10 +44,7 @@ static int help(void) {
                "  cancel             Cancel a prior factory reset request for next boot\n"
                "  complete           Mark a factory reset as complete\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help          Show this help\n"
-               "     --version       Print version\n"
-               "     --retrigger     Retrigger block devices\n"
-               "  -q --quiet         Suppress output\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -58,47 +57,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_RETRIGGER,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "help",      no_argument, NULL, 'h'           },
-                { "version",   no_argument, NULL, ARG_VERSION   },
-                { "retrigger", no_argument, NULL, ARG_RETRIGGER },
-                { "quiet",     no_argument, NULL, 'q'           },
-                {}
-        };
-
-        int r, c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hq", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_RETRIGGER:
-                        arg_retrigger = true;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
