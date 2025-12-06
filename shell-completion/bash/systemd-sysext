@@ -32,6 +32,7 @@ _systemd-sysext() {
                      --no-pager
                      --no-legend
                      --no-reload
+                     --always-refresh
                      --force'
         [ARG]='--root
                --json
