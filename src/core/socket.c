@@ -2116,7 +2116,7 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
 static void socket_enter_dead(Socket *s, SocketResult f) {
         assert(s);
 
-        if (s->result == SOCKET_SUCCESS)
+        if (s->result == SOCKET_SUCCESS || IN_SET(f, SOCKET_FAILURE_SERVICE_START_LIMIT_HIT, SOCKET_FAILURE_START_LIMIT_HIT))
                 s->result = f;
 
         if (s->result == SOCKET_SUCCESS)
