@@ -35,6 +35,7 @@ static enum {
         ACTION_BOOTED,
         ACTION_FORK,
 } arg_action = ACTION_NOTIFY;
+static bool arg_do_exec = false;
 static bool arg_ready = false;
 static bool arg_reloading = false;
 static bool arg_stopping = false;
@@ -46,6 +47,7 @@ static bool arg_no_block = false;
 static char **arg_env = NULL;
 static char **arg_exec = NULL;
 static FDSet *arg_fds = NULL;
+static FDSet *arg_fds_passed = NULL;
 static char *arg_fdname = NULL;
 static bool arg_quiet = false;
 
@@ -53,7 +55,12 @@ STATIC_DESTRUCTOR_REGISTER(arg_pid, pidref_done);
 STATIC_DESTRUCTOR_REGISTER(arg_env, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_exec, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fds, fdset_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_fds_passed, fdset_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fdname, freep);
+
+static int pidref_parent_if_applicable(PidRef *ret);
+
+#include "notify.args.inc"
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -67,22 +74,7 @@ static int help(void) {
                "%s [OPTIONS...] --exec [VARIABLE=VALUE...] ; -- CMDLINE...\n"
                "%s [OPTIONS...] --fork -- CMDLINE...\n"
                "\n%sNotify the init system about service status updates.%s\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "     --ready           Inform the service manager about service start-up/reload\n"
-               "                       completion\n"
-               "     --reloading       Inform the service manager about configuration reloading\n"
-               "     --stopping        Inform the service manager about service shutdown\n"
-               "     --pid[=PID]       Set main PID of daemon\n"
-               "     --uid=USER        Set user to send from\n"
-               "     --status=TEXT     Set status text\n"
-               "     --booted          Check if the system was booted up with systemd\n"
-               "     --no-block        Do not wait until operation finished\n"
-               "     --exec            Execute command line separated by ';' once done\n"
-               "     --fd=FD           Pass specified file descriptor with along with message\n"
-               "     --fdname=NAME     Name to assign to passed file descriptor(s)\n"
-               "     --fork            Receive notifications from child rather than sending them\n"
-               "  -q --quiet           Do not show PID of child when forking\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                program_invocation_short_name,
@@ -162,178 +154,11 @@ from_self:
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_READY = 0x100,
-                ARG_RELOADING,
-                ARG_STOPPING,
-                ARG_VERSION,
-                ARG_PID,
-                ARG_STATUS,
-                ARG_BOOTED,
-                ARG_UID,
-                ARG_NO_BLOCK,
-                ARG_EXEC,
-                ARG_FD,
-                ARG_FDNAME,
-                ARG_FORK,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "ready",     no_argument,       NULL, ARG_READY     },
-                { "reloading", no_argument,       NULL, ARG_RELOADING },
-                { "stopping",  no_argument,       NULL, ARG_STOPPING  },
-                { "pid",       optional_argument, NULL, ARG_PID       },
-                { "status",    required_argument, NULL, ARG_STATUS    },
-                { "booted",    no_argument,       NULL, ARG_BOOTED    },
-                { "uid",       required_argument, NULL, ARG_UID       },
-                { "no-block",  no_argument,       NULL, ARG_NO_BLOCK  },
-                { "exec",      no_argument,       NULL, ARG_EXEC      },
-                { "fd",        required_argument, NULL, ARG_FD        },
-                { "fdname",    required_argument, NULL, ARG_FDNAME    },
-                { "fork",      no_argument,       NULL, ARG_FORK      },
-                { "quiet",     no_argument,       NULL, 'q'           },
-                {}
-        };
-
-        _cleanup_fdset_free_ FDSet *passed = NULL;
-        bool do_exec = false;
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hq", options, NULL)) >= 0) {
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_READY:
-                        arg_ready = true;
-                        break;
-
-                case ARG_RELOADING:
-                        arg_reloading = true;
-                        break;
-
-                case ARG_STOPPING:
-                        arg_stopping = true;
-                        break;
-
-                case ARG_PID:
-                        pidref_done(&arg_pid);
-
-                        if (isempty(optarg) || streq(optarg, "auto"))
-                                r = pidref_parent_if_applicable(&arg_pid);
-                        else if (streq(optarg, "parent"))
-                                r = pidref_set_parent(&arg_pid);
-                        else if (streq(optarg, "self"))
-                                r = pidref_set_self(&arg_pid);
-                        else
-                                r = pidref_set_pidstr(&arg_pid, optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to refer to --pid='%s': %m", optarg);
-
-                        break;
-
-                case ARG_STATUS:
-                        arg_status = optarg;
-                        break;
-
-                case ARG_BOOTED:
-                        arg_action = ACTION_BOOTED;
-                        break;
-
-                case ARG_UID: {
-                        const char *u = optarg;
-
-                        r = get_user_creds(&u, &arg_uid, &arg_gid, NULL, NULL, 0);
-                        if (r == -ESRCH) /* If the user doesn't exist, then accept it anyway as numeric */
-                                r = parse_uid(u, &arg_uid);
-                        if (r < 0)
-                                return log_error_errno(r, "Can't resolve user %s: %m", optarg);
-
-                        break;
-                }
-
-                case ARG_NO_BLOCK:
-                        arg_no_block = true;
-                        break;
-
-                case ARG_EXEC:
-                        do_exec = true;
-                        break;
-
-                case ARG_FD: {
-                        _cleanup_close_ int owned_fd = -EBADF;
-                        int fdnr;
-
-                        fdnr = parse_fd(optarg);
-                        if (fdnr < 0)
-                                return log_error_errno(fdnr, "Failed to parse file descriptor: %s", optarg);
-
-                        if (!passed) {
-                                /* Take possession of all passed fds */
-                                r = fdset_new_fill(/* filter_cloexec= */ 0, &passed);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to take possession of passed file descriptors: %m");
-                        }
-
-                        if (fdnr < 3) {
-                                /* For stdin/stdout/stderr we want to keep the fd, too, hence make a copy */
-                                owned_fd = fcntl(fdnr, F_DUPFD_CLOEXEC, 3);
-                                if (owned_fd < 0)
-                                        return log_error_errno(errno, "Failed to duplicate file descriptor: %m");
-                        } else {
-                                /* Otherwise, move the fd over */
-                                owned_fd = fdset_remove(passed, fdnr);
-                                if (owned_fd < 0)
-                                        return log_error_errno(owned_fd, "Specified file descriptor '%i' not passed or specified more than once: %m", fdnr);
-                        }
-
-                        if (!arg_fds) {
-                                arg_fds = fdset_new();
-                                if (!arg_fds)
-                                        return log_oom();
-                        }
-
-                        r = fdset_consume(arg_fds, TAKE_FD(owned_fd));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add file descriptor to set: %m");
-                        break;
-                }
-
-                case ARG_FDNAME:
-                        if (!fdname_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File descriptor name invalid: %s", optarg);
-
-                        if (free_and_strdup(&arg_fdname, optarg) < 0)
-                                return log_oom();
-
-                        break;
-
-                case ARG_FORK:
-                        arg_action = ACTION_FORK;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-        }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || pidref_is_set(&arg_pid) || !fdset_isempty(arg_fds);
 
@@ -345,7 +170,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 size_t n_arg_env;
 
-                if (do_exec) {
+                if (arg_do_exec) {
                         int i;
 
                         for (i = optind; i < argc; i++)
@@ -367,7 +192,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 have_env = have_env || n_arg_env > 0;
                 if (!have_env) {
-                        if (do_exec)
+                        if (arg_do_exec)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No notify message specified while --exec, refusing.");
 
                         /* No argument at all? */
@@ -381,8 +206,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                 }
 
-                if (!fdset_isempty(passed))
-                        log_warning("Warning: %u more file descriptors passed than referenced with --fd=.", fdset_size(passed));
+                if (!fdset_isempty(arg_fds_passed))
+                        log_warning("Warning: %u more file descriptors passed than referenced with --fd=.",
+                                    fdset_size(arg_fds_passed));
 
                 break;
         }
