@@ -49,6 +49,7 @@ executables += [
                 'name' : 'updatectl',
                 'public' : true,
                 'sources' : systemd_updatectl_sources,
+                'arg_parser' : files('updatectl.args'),
                 'objects' : ['systemd-sysupdate'],
                 'conditions' : ['ENABLE_SYSUPDATED'],
         },
