@@ -14,7 +14,6 @@
 #include "image-varlink.h"
 #include "io-util.h"
 #include "json-util.h"
-#include "machine-pool.h"
 #include "machined.h"
 #include "operation.h"
 #include "process-util.h"
@@ -280,7 +279,11 @@ int vl_method_set_pool_limit(sd_varlink *link, sd_json_variant *parameters, sd_v
         }
 
         /* Set up the machine directory if necessary */
-        r = setup_machine_directory(/* error = */ NULL, /* use_btrfs_subvol= */ true, /* use_btrfs_quota= */ true);
+        r = image_setup_pool(
+                        manager->runtime_scope,
+                        IMAGE_MACHINE,
+                        /* use_btrfs_subvol= */ true,
+                        /* use_btrfs_quota= */ true);
         if (r < 0)
                 return r;
 
