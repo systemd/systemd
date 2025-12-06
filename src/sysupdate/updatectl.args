@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+group commands
+
+option --version
+group commands
+
+option --reboot
+help Reboot after updating to newer version
+        arg_reboot = true;
+
+option --offline
+help Do not fetch metadata from the network
+        arg_offline = true;
+
+option --now
+help Download/delete resources immediately
+        arg_now = true;
+
+option -H= --host=[USER@]HOST
+help Operate on remote host
+        arg_transport = BUS_TRANSPORT_REMOTE;
+        arg_host = optarg;
+
+option --no-pager
+help Do not pipe output into a pager
+        arg_pager_flags |= PAGER_DISABLE;
+
+option --no-legend
+help Do not show the headers and footers
+        arg_legend = false;
