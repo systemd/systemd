@@ -17,6 +17,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-tpm2-clear',
                 'sources' : files('tpm2-clear.c'),
+                'arg_parser' : files('tpm2-clear.args'),
                 'conditions' : [
                         'ENABLE_BOOTLOADER',
                         'HAVE_OPENSSL',
