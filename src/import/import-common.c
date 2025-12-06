@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
+#include <unistd.h>
 #include <sys/prctl.h>
 
 #include "sd-event.h"
