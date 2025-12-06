@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "assert-fundamental.h"
 #include "macro-fundamental.h" /* IWYU pragma: export */
 
 #if !defined(HAS_FEATURE_MEMORY_SANITIZER)
@@ -116,6 +117,15 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 /* Maximum buffer size needed for formatting an unsigned integer type as hex, including space for '0x'
  * prefix and trailing NUL suffix. */
 #define HEXADECIMAL_STR_MAX(type) (2 + sizeof(type) * 2 + 1)
+
+#define BUFFER_APPEND(buf, len, fmt, ...)                                 \
+        ({                                                                \
+                int _r_ = snprintf((buf), (len), (fmt), ##__VA_ARGS__);   \
+                assert(_r_ >= 0);                                         \
+                assert(_r_ < (len));                                      \
+                (buf) += _r_;                                             \
+                (len) -= _r_;                                             \
+        })
 
 /* Returns the number of chars needed to format variables of the specified type as a decimal string. Adds in
  * extra space for a negative '-' prefix for signed types. Includes space for the trailing NUL. */
