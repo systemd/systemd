@@ -9,6 +9,7 @@ libcore_sources = files(
         'bpf-restrict-fs.c',
         'bpf-restrict-ifaces.c',
         'bpf-socket-bind.c',
+        'bpf-vrf-bind.c',
         'cgroup.c',
         'dbus-automount.c',
         'dbus-cgroup.c',
@@ -74,12 +75,14 @@ libcore_sources = files(
 subdir('bpf/socket-bind')
 subdir('bpf/restrict-fs')
 subdir('bpf/restrict-ifaces')
+subdir('bpf/vrf-bind')
 
 if conf.get('BPF_FRAMEWORK') == 1
         libcore_sources += [
                 socket_bind_skel_h,
                 restrict_fs_skel_h,
-                restrict_ifaces_skel_h]
+                restrict_ifaces_skel_h,
+                vrf_bind_skel_h]
 endif
 
 sources += libcore_sources

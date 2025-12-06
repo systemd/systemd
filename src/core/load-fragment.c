@@ -5999,6 +5999,32 @@ int config_parse_concurrency_max(
         return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
 
+int config_parse_vrf_bind(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupContext *c = ASSERT_PTR(data);
+        UnitType t;
+
+        t = unit_name_to_type(unit);
+        assert(t >= 0);
+
+        if (isempty(rvalue)) {
+                c->vrf_bind_interface = mfree(c->vrf_bind_interface);
+                return 0;
+        }
+
+        return free_and_strdup_warn(&c->vrf_bind_interface, rvalue);
+}
+
 static int merge_by_names(Unit *u, Set *names, const char *id) {
         char *k;
         int r;
