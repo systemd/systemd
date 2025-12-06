@@ -86,7 +86,7 @@ EOF
 }
 
 testcase_multiple_features() {
-    unsquashfs -no-xattrs -d /tmp/TEST-07-PID1-private-pids-root /usr/share/minimal_0.raw
+    unsquashfs -force -no-xattrs -d /tmp/TEST-07-PID1-private-pids-root /usr/share/minimal_0.raw
 
     systemd-run \
         -p PrivatePIDs=yes \

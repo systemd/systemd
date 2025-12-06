@@ -117,7 +117,7 @@ if sysctl kernel.dmesg_restrict=0; then
         dmesg)
 fi
 
-unsquashfs -no-xattrs -d /tmp/img /usr/share/minimal_0.raw
+unsquashfs -force -no-xattrs -d /tmp/img /usr/share/minimal_0.raw
 runas testuser systemd-run --wait --user --unit=test-root-dir \
     -p RootDirectory=/tmp/img \
     grep MARKER=1 /etc/os-release
@@ -132,7 +132,7 @@ umount /tmp/img_bind
 # Unprivileged overlayfs was added to Linux 5.11, so try to detect it first
 mkdir -p /tmp/a /tmp/b /tmp/c
 if unshare --mount --user --map-root-user mount -t overlay overlay /tmp/c -o lowerdir=/tmp/a:/tmp/b; then
-    unsquashfs -no-xattrs -d /tmp/app2 /tmp/app1.raw
+    unsquashfs -force -no-xattrs -d /tmp/app2 /tmp/app1.raw
     runas testuser systemd-run --wait --user --unit=test-extension-dir \
         -p ExtensionDirectories=/tmp/app2 \
         -p TemporaryFileSystem=/run -p RootDirectory=/tmp/img \

@@ -70,7 +70,7 @@ testcase_user_manager() {
 }
 
 testcase_multiple_features() {
-    unsquashfs -no-xattrs -d /tmp/TEST-07-PID1-delegate-namespaces-root /usr/share/minimal_0.raw
+    unsquashfs -force -no-xattrs -d /tmp/TEST-07-PID1-delegate-namespaces-root /usr/share/minimal_0.raw
 
     systemd-run \
         -p PrivatePIDs=yes \

@@ -679,7 +679,7 @@ grep -q -F "MARKER=1" /tmp/markers/50i
 systemctl stop testservice-50i.service
 rm -f /run/systemd/system/testservice-50i.service
 
-unsquashfs -no-xattrs -d /tmp/vpickminimg "$MINIMAL_IMAGE.raw"
+unsquashfs -force -no-xattrs -d /tmp/vpickminimg "$MINIMAL_IMAGE.raw"
 cat >/run/systemd/system/testservice-50j.service <<EOF
 [Service]
 Type=notify-reload
@@ -878,7 +878,7 @@ systemd-confext status
 systemd-confext unmerge
 rm -rf /run/confexts/
 
-unsquashfs -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
+unsquashfs -force -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
 systemd-run --unit=test-root-ephemeral \
     -p RootDirectory=/tmp/img \
     -p RootEphemeral=yes \
@@ -907,7 +907,7 @@ echo "ARCHITECTURE=_any" >>testkit/usr/lib/extension-release.d/extension-release
 echo "MARKER_SYSEXT_123" >testkit/usr/lib/testfile
 mksquashfs testkit/ testkit.raw -noappend
 cp testkit.raw /run/extensions/
-unsquashfs -l /run/extensions/testkit.raw
+unsquashfs -force -l /run/extensions/testkit.raw
 systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext for portable service'
 systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext for system'
 systemd-sysext merge
@@ -923,7 +923,7 @@ echo "ARCHITECTURE=_any" >>testjob/etc/extension-release.d/extension-release.tes
 echo "MARKER_CONFEXT_123" >testjob/etc/testfile
 mksquashfs testjob/ testjob.raw -noappend
 cp testjob.raw /run/confexts/
-unsquashfs -l /run/confexts/testjob.raw
+unsquashfs -force -l /run/confexts/testjob.raw
 systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext for system'
 systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext for portable service'
 systemd-confext merge
