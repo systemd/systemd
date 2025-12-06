@@ -37,7 +37,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 #define TPM2_SRK_TPM2B_PUBLIC_PERSISTENT_PATH "/var/lib/systemd/tpm2-srk-public-key.tpm2b_public"
 #define TPM2_SRK_TPM2B_PUBLIC_RUNTIME_PATH "/run/systemd/tpm2-srk-public-key.tpm2b_public"
 
-static int help(int argc, char *argv[], void *userdata) {
+#include "tpm2-setup.args.inc"
+
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -48,12 +50,7 @@ static int help(int argc, char *argv[], void *userdata) {
         printf("%1$s [OPTIONS...]\n"
                "\n%5$sSet up the TPM2 Storage Root Key (SRK), and initialize NvPCRs.%6$s\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --tpm2-device=PATH\n"
-               "                          Pick TPM2 device\n"
-               "     --early=BOOL         Store SRK public key in /run/ rather than /var/lib/\n"
-               "     --graceful           Exit gracefully if no TPM2 device is found\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -63,71 +60,6 @@ static int help(int argc, char *argv[], void *userdata) {
                ansi_normal());
 
         return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_TPM2_DEVICE,
-                ARG_EARLY,
-                ARG_GRACEFUL,
-        };
-
-        static const struct option options[] = {
-                { "help",        no_argument,       NULL, 'h'             },
-                { "version",     no_argument,       NULL, ARG_VERSION     },
-                { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
-                { "early",       required_argument, NULL, ARG_EARLY       },
-                { "graceful",    no_argument,       NULL, ARG_GRACEFUL    },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return help(0, NULL, NULL);
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_TPM2_DEVICE:
-                        if (streq(optarg, "list"))
-                                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
-
-                        if (free_and_strdup(&arg_tpm2_device, streq(optarg, "auto") ? NULL : optarg) < 0)
-                                return log_oom();
-
-                        break;
-
-                case ARG_EARLY:
-                        r = parse_boolean(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --early= argument: %s", optarg);
-
-                        arg_early = r;
-                        break;
-
-                case ARG_GRACEFUL:
-                        arg_graceful = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        if (optind != argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program expects no argument.");
-
-        return 1;
 }
 
 struct public_key_data {
@@ -489,9 +421,12 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (optind != argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program expects no argument.");
 
         if (arg_graceful && !tpm2_is_fully_supported()) {
                 log_notice("No complete TPM2 support detected, exiting gracefully.");

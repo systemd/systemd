@@ -4,6 +4,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-tpm2-setup',
                 'sources' : files('tpm2-setup.c'),
+                'arg_parser' : files('tpm2-setup.args'),
                 'conditions' : [
                         'ENABLE_BOOTLOADER',
                         'HAVE_OPENSSL',
