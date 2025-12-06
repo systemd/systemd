@@ -117,6 +117,7 @@ typedef struct Session {
         TTYValidity tty_validity;
 
         bool remote;
+        bool remote_access;
         char *remote_user;
         char *remote_host;
         char *service;
