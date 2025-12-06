@@ -493,9 +493,45 @@ NONEXISTENT_VDIR="/tmp/$VBASE-nonexistent.v"
 mkdir "$VDIR" "$EMPTY_VDIR"
 
 ln -s /tmp/app0.raw "$VDIR/${VBASE}_0.raw"
+ln -s /tmp/app0.verity "$VDIR/${VBASE}_0.verity"
+ln -s /tmp/app0.roothash "$VDIR/${VBASE}_0.roothash"
 ln -s /tmp/app1.raw "$VDIR/${VBASE}_1.raw"
 
 systemd-run -P -p ExtensionImages="$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR" bash -o pipefail -c '/opt/script1.sh | grep ID'
+
+# Check dissect shortcut for verity images
+# No verity for the second img (previous test benefits from variations), remove it for the next one
+rm -f "$VDIR/${VBASE}_1.raw"
+cat >/run/systemd/system/testservice-50e-vpick.service <<EOF
+[Service]
+Type=notify
+NotifyAccess=all
+MountAPIVFS=yes
+TemporaryFileSystem=/run /var/lib
+StateDirectory=app-vpick
+RootImage=$MINIMAL_IMAGE.raw
+RootImagePolicy=root=squashfs
+ExtensionImages=$VDIR:x-systemd.relax-extension-release-check -$EMPTY_VDIR -$NONEXISTENT_VDIR
+ExtensionImagePolicy=root=squashfs
+# Relevant only for sanitizer runs
+UnsetEnvironment=LD_PRELOAD
+ExecStartPre=bash -c '/opt/script0.sh | grep ID'
+ExecStart=sh -c 'echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; sleep infinity'
+EOF
+systemctl start testservice-50e-vpick.service
+systemctl is-active testservice-50e-vpick.service
+SYSTEMD_VERITY_SHARING=1 systemd-dissect -M "$MINIMAL_IMAGE.raw" /tmp/img
+SYSTEMD_VERITY_SHARING=1 systemd-dissect -M "$VDIR/${VBASE}_0.raw" /tmp/ext
+journalctl --sync
+since="$(date '+%H:%M:%S')"
+systemctl restart testservice-50e-vpick.service
+systemctl is-active testservice-50e-vpick.service
+journalctl --sync
+timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 2 -q -F 'Reusing pre-existing verity-protected root image'
+timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 2 -q -F 'Reusing pre-existing verity-protected image'
+systemctl stop testservice-50e-vpick.service
+umount -R /tmp/img
+umount -R /tmp/ext
 
 rm -rf "$VDIR" "$EMPTY_VDIR"
 
@@ -696,7 +732,7 @@ grep -q -F "MARKER=1" /tmp/markers/50i
 systemctl stop testservice-50i.service
 rm -f /run/systemd/system/testservice-50i.service
 
-unsquashfs -no-xattrs -d /tmp/vpickminimg "$MINIMAL_IMAGE.raw"
+unsquashfs -force -no-xattrs -d /tmp/vpickminimg "$MINIMAL_IMAGE.raw"
 cat >/run/systemd/system/testservice-50j.service <<EOF
 [Service]
 Type=notify-reload
@@ -772,6 +808,41 @@ rm -f /run/systemd/system/testservice-50k.service
 
 systemctl daemon-reload
 rm -rf "$VDIR" "$VDIR2" /tmp/vpickminimg /tmp/markers/
+
+# Check dissect shortcut for verity images
+cat >/run/systemd/system/testservice-50m.service <<EOF
+[Service]
+Type=notify
+NotifyAccess=all
+TemporaryFileSystem=/run /var/lib
+StateDirectory=app0
+RootImage=$MINIMAL_IMAGE.raw
+RootImagePolicy=root=squashfs
+ExtensionImages=/tmp/app0.raw /tmp/app1.raw
+ExtensionImagePolicy=root=squashfs
+MountImages=/tmp/app0.raw:/var/lib/app
+MountImagePolicy=root=squashfs
+# Relevant only for sanitizer runs
+UnsetEnvironment=LD_PRELOAD
+ExecStartPre=bash -o pipefail -c '/opt/script0.sh | grep ID'
+ExecStartPre=bash -o pipefail -c '/opt/script1.sh | grep ID'
+ExecStartPre=test -e "/dev/mapper/$(</tmp/app0.roothash)-verity"
+ExecStart=sh -c 'echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; sleep infinity'
+EOF
+systemctl start testservice-50m.service
+systemctl is-active testservice-50m.service
+SYSTEMD_VERITY_SHARING=1 systemd-dissect -M "$MINIMAL_IMAGE.raw" /tmp/img
+SYSTEMD_VERITY_SHARING=1 systemd-dissect -M /tmp/app0.raw /tmp/ext
+journalctl --sync
+since="$(date '+%H:%M:%S')"
+systemctl restart testservice-50m.service
+systemctl is-active testservice-50m.service
+journalctl --sync
+timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 4 -q -F 'Reusing pre-existing verity-protected root image'
+timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 8 -q -F 'Reusing pre-existing verity-protected image'
+systemctl stop testservice-50m.service
+umount -R /tmp/img
+umount -R /tmp/ext
 
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
@@ -895,7 +966,7 @@ systemd-confext status
 systemd-confext unmerge
 rm -rf /run/confexts/
 
-unsquashfs -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
+unsquashfs -force -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
 systemd-run --unit=test-root-ephemeral \
     -p RootDirectory=/tmp/img \
     -p RootEphemeral=yes \
@@ -927,7 +998,7 @@ echo "ARCHITECTURE=_any" >>testkit/usr/lib/extension-release.d/extension-release
 echo "MARKER_SYSEXT_123" >testkit/usr/lib/testfile
 mksquashfs testkit/ testkit.raw -noappend
 cp testkit.raw /run/extensions/
-unsquashfs -l /run/extensions/testkit.raw
+unsquashfs -force -l /run/extensions/testkit.raw
 systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext for portable service'
 systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext for system'
 systemd-sysext merge
@@ -943,7 +1014,7 @@ echo "ARCHITECTURE=_any" >>testjob/etc/extension-release.d/extension-release.tes
 echo "MARKER_CONFEXT_123" >testjob/etc/testfile
 mksquashfs testjob/ testjob.raw -noappend
 cp testjob.raw /run/confexts/
-unsquashfs -l /run/confexts/testjob.raw
+unsquashfs -force -l /run/confexts/testjob.raw
 systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext for system'
 systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext for portable service'
 systemd-confext merge
