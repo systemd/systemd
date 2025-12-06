@@ -3028,8 +3028,12 @@ if conf.get('ENABLE_HWDB') == 1
         alias_target('hwdb', auto_suspend_rules, executables_by_name.get('systemd-hwdb'), hwdb_units)
 endif
 
-alt_time_epoch = run_command('date', '-Is', '-u', '-d', f'@@time_epoch@',
-                             check : true).stdout().strip()
+alt_time_epoch = run_command('date', '-Is', '-u', '-d', f'@@time_epoch@', check : false)
+if alt_time_epoch.returncode() != 0
+        # If the above fails, maybe the date(1) uses BSD-style syntax
+        alt_time_epoch = run_command('date', '-Iseconds', '-u', '-r', f'@time_epoch@', check : true)
+endif
+alt_time_epoch = alt_time_epoch.stdout().strip()
 
 summary({
         'split bin-sbin'                            : split_bin,
