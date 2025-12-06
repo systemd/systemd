@@ -166,7 +166,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         case ACTION_NOTIFY: {
                 if (arg_fdname && fdset_isempty(arg_fds))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed, but --fdname= set, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "No file descriptors passed, but --fdname= set, refusing.");
 
                 size_t n_arg_env;
 
@@ -178,9 +179,11 @@ static int parse_argv(int argc, char *argv[]) {
                                         break;
 
                         if (i >= argc)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "If --exec is used argument list must contain ';' separator, refusing.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "If --exec is used argument list must contain ';' separator, refusing.");
                         if (i+1 == argc)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty command line specified after ';' separator, refusing.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Empty command line specified after ';' separator, refusing.");
 
                         arg_exec = strv_copy_n(argv + i + 1, argc - i - 1);
                         if (!arg_exec)
@@ -193,7 +196,8 @@ static int parse_argv(int argc, char *argv[]) {
                 have_env = have_env || n_arg_env > 0;
                 if (!have_env) {
                         if (arg_do_exec)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No notify message specified while --exec, refusing.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "No notify message specified while --exec, refusing.");
 
                         /* No argument at all? */
                         help();
@@ -215,13 +219,15 @@ static int parse_argv(int argc, char *argv[]) {
 
         case ACTION_BOOTED:
                 if (argc > optind)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--booted takes no parameters, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Positional parameters now allowed with --booted.");
 
                 break;
 
         case ACTION_FORK:
                 if (optind >= argc)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--fork requires a command to be specified, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--fork requires a command to be specified, refusing.");
 
                 break;
 
@@ -230,7 +236,9 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (have_env && arg_action != ACTION_NOTIFY)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--ready, --reloading, --stopping, --pid=, --status=, --fd= may not be combined with --fork or --booted, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--ready, --reloading, --stopping, --pid=, --status=, --fd="
+                                       " may not be combined with --fork or --booted, refusing.");
 
         return 1;
 }

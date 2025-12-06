@@ -5,7 +5,7 @@ option -h --help
 option --version
 
 option --ready
-help Inform the service manager about service start-up/reload completion
+help Inform the service manager about completion of service start/reload
         arg_ready = true;
 
 option --reloading
@@ -32,7 +32,7 @@ help Set main PID of daemon
                 return log_error_errno(r, "Failed to refer to --pid='%s': %m", optarg);
 
 option --uid=USER
-help Set user to send from
+help Set user to send as
 scope
         const char *u = optarg;
 
@@ -47,11 +47,11 @@ help Set status text
         arg_status = optarg;
 
 option --booted
-help Check if the system was booted up with systemd
+help Check if the system was booted with systemd
         arg_action = ACTION_BOOTED;
 
 option --no-block
-help Do not wait until operation finished
+help Do not wait for operation to finish
         arg_no_block = true;
 
 option --exec
@@ -59,7 +59,7 @@ help Execute command line separated by ';' once done
         arg_do_exec = true;
 
 option --fd=FD
-help Pass specified file descriptor with along with message
+help Pass specified file descriptor along with the message
         _cleanup_close_ int owned_fd = -EBADF;
 
         int fd = parse_fd(optarg);
@@ -97,7 +97,7 @@ help Pass specified file descriptor with along with message
                 return log_error_errno(r, "Failed to add file descriptor to set: %m");
 
 option --fdname=NAME
-help Name to assign to passed file descriptor(s)
+help Name to assign to passed file descriptors
         if (!fdname_is_valid(optarg))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "File descriptor name invalid: %s", optarg);
