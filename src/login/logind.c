@@ -236,7 +236,7 @@ static int manager_enumerate_buttons(Manager *m) {
         FOREACH_DEVICE(e, d) {
                 if (device_is_processed(d) <= 0)
                         continue;
-                RET_GATHER(r, manager_process_button_device(m, d));
+                RET_GATHER(r, manager_process_button_device(m, d, /* ret_button= */ NULL));
         }
 
         return r;
@@ -739,10 +739,14 @@ static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *dev
 
 static int manager_dispatch_button_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        Button *b;
+        int r;
 
         assert(device);
 
-        manager_process_button_device(m, device);
+        if (manager_process_button_device(m, device, &b) > 0)
+                (void) button_check_switches(b);
+
         return 0;
 }
 
