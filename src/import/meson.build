@@ -72,6 +72,7 @@ executables += [
                         'export-tar.c',
                         'export-raw.c',
                 ),
+                'arg_parser' : files('export.args'),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
         },
