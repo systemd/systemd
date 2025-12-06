@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option -p= --bus-path=PATH
+help Path to the bus address (default: %s)
+        arg_bus_path = optarg;
+
+option --system
+help Connect to system bus
+        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+
+option --user
+help Connect to user bus
+        arg_runtime_scope = RUNTIME_SCOPE_USER;
+
+option -M= --machine=CONTAINER
+help Name of local container to connect to
+        r = parse_machine_argument(optarg, &arg_bus_path, &arg_transport);
+        if (r < 0)
+                return r;
+
+option -q --quiet
+help Fail silently instead of logging errors
+        arg_quiet = true;
