@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-notify',
                 'public' : true,
                 'sources' : files('notify.c'),
+                'arg_parser' : files('notify.args'),
         },
 ]
