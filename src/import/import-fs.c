@@ -41,6 +41,8 @@ static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image_root, freep);
 
+#include "import-fs.args.inc"
+
 typedef struct ProgressInfo {
         RateLimit limit;
         char *path;
@@ -263,28 +265,13 @@ static int import_fs(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
-
+static int help(void) {
         printf("%1$s [OPTIONS...] {COMMAND} ...\n"
                "\n%4$sImport container images from a file system directories.%5$s\n"
                "\n%2$sCommands:%3$s\n"
                "  run DIRECTORY [NAME]        Import a directory\n"
                "\n%2$sOptions:%3$s\n"
-               "  -h --help                   Show this help\n"
-               "     --version                Show package version\n"
-               "     --force                  Force creation of image\n"
-               "     --image-root=PATH        Image root directory\n"
-               "     --read-only              Create a read-only image\n"
-               "     --direct                 Import directly to specified directory\n"
-               "     --btrfs-subvol=BOOL      Controls whether to create a btrfs subvolume\n"
-               "                              instead of a directory\n"
-               "     --btrfs-quota=BOOL       Controls whether to set up quota for btrfs\n"
-               "                              subvolume\n"
-               "     --sync=BOOL              Controls whether to sync() before completing\n"
-               "     --class=CLASS            Select image class (machine, sysext, confext,\n"
-               "                              portable)\n"
-               "     --system                 Operate in per-system mode\n"
-               "     --user                   Operate in per-user mode\n",
+               OPTION_HELP_GENERATED,
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -295,113 +282,11 @@ static int help(int argc, char *argv[], void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_FORCE,
-                ARG_IMAGE_ROOT,
-                ARG_READ_ONLY,
-                ARG_DIRECT,
-                ARG_BTRFS_SUBVOL,
-                ARG_BTRFS_QUOTA,
-                ARG_SYNC,
-                ARG_CLASS,
-                ARG_SYSTEM,
-                ARG_USER,
-        };
-
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "force",           no_argument,       NULL, ARG_FORCE           },
-                { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
-                { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
-                { "direct",          no_argument,       NULL, ARG_DIRECT          },
-                { "btrfs-subvol",    required_argument, NULL, ARG_BTRFS_SUBVOL    },
-                { "btrfs-quota",     required_argument, NULL, ARG_BTRFS_QUOTA     },
-                { "sync",            required_argument, NULL, ARG_SYNC            },
-                { "class",           required_argument, NULL, ARG_CLASS           },
-                { "system",          no_argument,       NULL, ARG_SYSTEM          },
-                { "user",            no_argument,       NULL, ARG_USER            },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help(0, NULL, NULL);
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_FORCE:
-                        arg_force = true;
-                        break;
-
-                case ARG_IMAGE_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image_root);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_READ_ONLY:
-                        arg_read_only = true;
-                        break;
-
-                case ARG_DIRECT:
-                        arg_direct = true;
-                        break;
-
-                case ARG_BTRFS_SUBVOL:
-                        r = parse_boolean_argument("--btrfs-subvol=", optarg, &arg_btrfs_subvol);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_BTRFS_QUOTA:
-                        r = parse_boolean_argument("--btrfs-quota=", optarg, &arg_btrfs_quota);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_SYNC:
-                        r = parse_boolean_argument("--sync=", optarg, &arg_sync);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_CLASS:
-                        arg_class = image_class_from_string(optarg);
-                        if (arg_class < 0)
-                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", optarg);
-
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-                        break;
-
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (!arg_image_root) {
                 r = image_root_pick(arg_runtime_scope < 0 ? RUNTIME_SCOPE_SYSTEM : arg_runtime_scope, arg_class, /* runtime= */ false, &arg_image_root);
@@ -413,9 +298,8 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int import_fs_main(int argc, char *argv[]) {
-
         static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, help      },
+                { "help", VERB_ANY, VERB_ANY, 0, verb_help },
                 { "run",  2,        3,        0, import_fs },
                 {}
         };
