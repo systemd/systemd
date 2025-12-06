@@ -244,11 +244,14 @@ int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret) {
 
 int manager_add_button(Manager *m, const char *name, Button **ret_button) {
         Button *b;
+        bool is_new;
 
         assert(m);
         assert(name);
 
         b = hashmap_get(m->buttons, name);
+        is_new = !b;
+
         if (!b) {
                 b = button_new(m, name);
                 if (!b)
@@ -258,7 +261,7 @@ int manager_add_button(Manager *m, const char *name, Button **ret_button) {
         if (ret_button)
                 *ret_button = b;
 
-        return 0;
+        return is_new;
 }
 
 int manager_process_seat_device(Manager *m, sd_device *d) {
@@ -331,6 +334,7 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
 int manager_process_button_device(Manager *m, sd_device *d, Button **ret_button) {
         const char *sysname, *sn;
         Button *b;
+        bool is_new;
         int r;
 
         assert(m);
@@ -346,13 +350,11 @@ int manager_process_button_device(Manager *m, sd_device *d, Button **ret_button)
                 goto no_match;
         }
 
-        b = hashmap_get(m->buttons, sysname);
-        if (b)
-                goto no_match;
-
         r = manager_add_button(m, sysname, &b);
         if (r < 0)
                 return r;
+
+        is_new = r > 0;
 
         r = device_get_seat(d, &sn);
         if (r < 0)
@@ -360,18 +362,18 @@ int manager_process_button_device(Manager *m, sd_device *d, Button **ret_button)
 
         button_set_seat(b, sn);
 
-        r = button_open(b);
-        if (r < 0) {
-                /* event device doesn't have any keys or switches relevant to us? (or any other error
-                 * opening the device?) let's close the button again. */
-                button_free(b);
-                goto no_match;
+        if (is_new) {
+                r = button_open(b);
+                if (r < 0) {
+                        button_free(b);
+                        goto no_match;
+                }
         }
 
         if (ret_button)
                 *ret_button = b;
 
-        return 1;
+        return is_new;
 
 no_match:
         if (ret_button)

@@ -744,11 +744,7 @@ static int manager_dispatch_button_udev(sd_device_monitor *monitor, sd_device *d
 
         assert(device);
 
-        r = manager_process_button_device(m, device, &b);
-        if (r < 0)
-                return 0;
-
-        if (r > 0)
+        if (manager_process_button_device(m, device, &b) > 0)
                 (void) button_check_switches(b);
 
         return 0;
