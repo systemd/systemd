@@ -6,5 +6,5 @@ Description=Test merging RestrictNamespaces= with AND
 RestrictNamespaces=mnt pid
 RestrictNamespaces=~mnt usr
 ExecStart=unshare -p -f
-ExecStart=sh -c '! unshare -m -u -i -n'
+ExecStart=bash -c '! unshare -m -u -i -n'
 Type=oneshot

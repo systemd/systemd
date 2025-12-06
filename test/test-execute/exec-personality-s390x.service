@@ -3,6 +3,6 @@
 Description=Test for Personality=s390x
 
 [Service]
-ExecStart=sh -x -c 'c=$$(uname -m); test "$$c" = "s390x"'
+ExecStart=bash -x -c 'c=$$(uname -m); test "$$c" = "s390x"'
 Type=oneshot
 Personality=s390x

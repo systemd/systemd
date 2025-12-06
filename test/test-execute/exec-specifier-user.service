@@ -4,8 +4,8 @@ Description=Test for specifiers
 
 [Service]
 Type=oneshot
-ExecStart=sh -c 'test %t = $$XDG_RUNTIME_DIR'
-ExecStart=sh -c 'test %S = %h/.local/state'
-ExecStart=sh -c 'test %C = %h/.cache'
-ExecStart=sh -c 'test %L = %h/.local/state/log'
-ExecStart=sh -c 'test %E = %h/.config'
+ExecStart=bash -c 'test %t = $$XDG_RUNTIME_DIR'
+ExecStart=bash -c 'test %S = %h/.local/state'
+ExecStart=bash -c 'test %C = %h/.cache'
+ExecStart=bash -c 'test %L = %h/.local/state/log'
+ExecStart=bash -c 'test %E = %h/.config'

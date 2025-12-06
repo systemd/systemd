@@ -129,11 +129,11 @@ testcase_delegate_subgroup_control() {
             -p PrivateMounts=yes \
             -p Delegate=yes \
             -p DelegateSubgroup=supervisor \
-            -p ExecStartPost='sh -c "cat /proc/self/cgroup; kill $MAINPID"' \
+            -p ExecStartPost='bash -c "cat /proc/self/cgroup; kill $MAINPID"' \
             --unit delegate-subgroup-control \
             --wait \
             --pipe \
-            sh -c 'echo +pids >/sys/fs/cgroup/cgroup.subtree_control; systemd-notify --ready; sleep infinity'
+            bash -c 'echo +pids >/sys/fs/cgroup/cgroup.subtree_control; systemd-notify --ready; sleep infinity'
     )" "0::/"
 }
 
@@ -150,7 +150,7 @@ testcase_delegate_subgroup_pam() {
         --unit delegate-subgroup-pam \
         --wait \
         --pipe \
-        sh -c 'echo +pids >/sys/fs/cgroup/cgroup.subtree_control'
+        bash -c 'echo +pids >/sys/fs/cgroup/cgroup.subtree_control'
 }
 
 run_testcases

@@ -24,7 +24,7 @@ cat >/run/systemd/system/issue-3171@.service <<EOF
 Description=Test service
 [Service]
 StandardInput=socket
-ExecStart=sh -x -c cat
+ExecStart=bash -x -c cat
 EOF
 
 systemctl start issue-3171.socket

@@ -611,7 +611,10 @@ TEST(memory_deny_write_execute_shmat) {
                 void *p;
 
                 p = shmat(shmid, NULL, 0);
-                assert_se(p != MAP_FAILED);
+                if (p == MAP_FAILED) {
+                        log_tests_skipped_errno(errno, "shmat() is already disabled");
+                        _exit(EXIT_SUCCESS);
+                }
                 assert_se(shmdt(p) == 0);
 
                 p = shmat(shmid, NULL, SHM_EXEC);

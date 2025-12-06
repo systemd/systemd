@@ -84,12 +84,12 @@ runas testuser systemd-run --wait --user --unit=test-caps \
 
 runas testuser systemd-run --wait --user --unit=test-devices \
     -p PrivateDevices=yes -p PrivateIPC=yes \
-    sh -c "ls -1 /dev/ | wc -l | grep -q -F 18"
+    bash -c "ls -1 /dev/ | wc -l | grep -q -F 18"
 
 # Same check as test/test-execute/exec-privatenetwork-yes.service
 runas testuser systemd-run --wait --user --unit=test-network \
     -p PrivateNetwork=yes \
-    sh -x -c '! ip link | grep -E "^[0-9]+: " | grep -Ev ": (lo|(erspan|gre|gretap|ip_vti|ip6_vti|ip6gre|ip6tnl|sit|tunl)0@.*):"'
+    bash -x -c '! ip link | grep -E "^[0-9]+: " | grep -Ev ": (lo|(erspan|gre|gretap|ip_vti|ip6_vti|ip6gre|ip6tnl|sit|tunl)0@.*):"'
 
 (! runas testuser systemd-run --wait --user --unit=test-hostname \
     -p ProtectHostname=yes \
@@ -101,11 +101,11 @@ runas testuser systemd-run --wait --user --unit=test-network \
 
 (! runas testuser systemd-run --wait --user --unit=test-kernel-tunable \
     -p ProtectKernelTunables=yes \
-    sh -c "echo 0 >/proc/sys/user/max_user_namespaces")
+    bash -c "echo 0 >/proc/sys/user/max_user_namespaces")
 
 (! runas testuser systemd-run --wait --user --unit=test-kernel-mod \
     -p ProtectKernelModules=yes \
-    sh -c "modprobe -r overlay && modprobe overlay")
+    bash -c "modprobe -r overlay && modprobe overlay")
 
 if sysctl kernel.dmesg_restrict=0; then
     (! runas testuser systemd-run --wait --user --unit=test-kernel-log \

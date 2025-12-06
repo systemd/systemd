@@ -5,7 +5,7 @@ After=multi-user.target
 
 [Service]
 ExecStart=/usr/lib/systemd/tests/testdata/TEST-52-HONORFIRSTSHUTDOWN.units/%N.sh
-ExecStop=sh -c 'kill -KILL $MAINPID'
+ExecStop=bash -c 'kill -KILL $MAINPID'
 FailureAction=reboot
 
 [Install]

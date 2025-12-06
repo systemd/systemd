@@ -4,4 +4,4 @@ Description=This unit should not remain active once the shell process exits
 
 [Service]
 Type=oneshot
-ExecStart=sh -c 'sleep infinity & exit 0'
+ExecStart=bash -c 'sleep infinity & exit 0'
