@@ -50,7 +50,11 @@ testcase_basic() {
     systemd-run -p PrivatePIDs=yes --remain-after-exit --unit TEST-07-PID1-private-pid sleep infinity
     # Wait for ExecMainPID to be correctly populated as there might be a race between spawning service
     # and actual exec child process
-    timeout 10s bash -xec 'until [[ "$(cat /proc/$(systemctl show TEST-07-PID1-private-pid.service -p ExecMainPID --value)/comm)" == sleep ]]; do sleep .5; done'
+    # Note, Alpine/postmarketOS build coreutils with --enable-single-binary=symlinks. In that case, coreutils
+    # calls prctl(PR_SET_NAME, argv[0]), hence the comm will be the path to the symlink. If the sleep file is
+    # a dedicated binary (like most other distributions do), the comm will be the filename, i.e. "sleep". So,
+    # here we need to cut the directory part.
+    timeout 10s bash -xec 'until [[ "$(cat /proc/$(systemctl show TEST-07-PID1-private-pid.service -p ExecMainPID --value)/comm | sed -e "s|.*/||")" == sleep ]]; do sleep .5; done'
     pid=$(systemctl show TEST-07-PID1-private-pid.service -p ExecMainPID --value)
     kill -9 "$pid"
     timeout 10s bash -xec 'while [[ "$(systemctl show -P SubState TEST-07-PID1-private-pid.service)" != "failed" ]]; do sleep .5; done'

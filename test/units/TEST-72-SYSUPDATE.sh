@@ -41,6 +41,12 @@ Environment=SYSTEMD_XBOOTLDR_PATH=${SYSTEMD_XBOOTLDR_PATH}
 EOF
 systemctl daemon-reload
 
+RUN_OUT="$(mktemp)"
+
+run() {
+    "$@" |& tee "$RUN_OUT"
+}
+
 at_exit() {
     set +e
 
@@ -299,21 +305,27 @@ EOF
     # sure that sysupdate still recognizes the installation and can complete it
     # in place
     rm -r "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d"
-    "$SYSUPDATE" --offline list v5 | grep -q "incomplete"
+    run "$SYSUPDATE" --offline list v5
+    grep -q "incomplete" "$RUN_OUT"
     update_now
-    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    run "$SYSUPDATE" --offline list v5
+    grep -qv "incomplete" "$RUN_OUT"
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
 
     # Now let's try enabling an optional feature
-    "$SYSUPDATE" features | grep "optional"
-    "$SYSUPDATE" features optional | grep "99-optional"
+    run "$SYSUPDATE" features
+    grep "optional" "$RUN_OUT"
+    run "$SYSUPDATE" features optional
+    grep "99-optional" "$RUN_OUT"
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
     mkdir "$CONFIGDIR/optional.feature.d"
     echo -e "[Feature]\nEnabled=true" > "$CONFIGDIR/optional.feature.d/enable.conf"
-    "$SYSUPDATE" --offline list v5 | grep -q "incomplete"
+    run "$SYSUPDATE" --offline list v5
+    grep -q "incomplete" "$RUN_OUT"
     update_now
-    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    run "$SYSUPDATE" --offline list v5
+    grep -qv "incomplete" "$RUN_OUT"
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
     test -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
@@ -322,7 +334,8 @@ EOF
     rm -r "$CONFIGDIR/optional.feature.d"
     (! "$SYSUPDATE" --verify=no check-new)
     "$SYSUPDATE" vacuum
-    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    run "$SYSUPDATE" --offline list v5
+    grep -qv "incomplete" "$RUN_OUT"
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
