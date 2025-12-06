@@ -370,9 +370,10 @@ int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
 
                 tzset();
 
-                if (!isempty(tzname[c->dst])) {
+                const char *z = get_tzname(c->dst);
+                if (z) {
                         fputc(' ', f);
-                        fputs(tzname[c->dst], f);
+                        fputs(z, f);
                 }
         }
 
@@ -897,10 +898,11 @@ int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
 
                 /* Check if the local timezone was specified? */
                 for (j = 0; j <= 1; j++) {
-                        if (isempty(tzname[j]))
+                        const char *z = get_tzname(j);
+                        if (!z)
                                 continue;
 
-                        e = endswith_no_case(p, tzname[j]);
+                        e = endswith_no_case(p, z);
                         if (!e)
                                 continue;
                         if (e == p)

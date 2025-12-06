@@ -46,7 +46,7 @@ int sethostname_idempotent(const char *s) {
 int shorten_overlong(const char *s, char **ret) {
         _cleanup_free_ char *h = NULL;
 
-        /* Shorten an overlong name to HOST_NAME_MAX or to the first dot,
+        /* Shorten an overlong name to LINUX_HOST_NAME_MAX or to the first dot,
          * whatever comes earlier. */
 
         assert(s);
@@ -65,7 +65,7 @@ int shorten_overlong(const char *s, char **ret) {
         if (p)
                 *p = 0;
 
-        strshorten(h, HOST_NAME_MAX);
+        strshorten(h, LINUX_HOST_NAME_MAX);
 
         if (!hostname_is_valid(h, /* flags= */ 0))
                 return -EDOM;
