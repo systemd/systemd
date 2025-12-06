@@ -2803,7 +2803,7 @@ static char* dm_deferred_remove_clean(char *name) {
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
 
-static int validate_signature_userspace(const VeritySettings *verity, DissectImageFlags flags) {
+static int validate_signature_userspace(const VeritySettings *verity, const char *root, DissectImageFlags flags) {
         int r;
 
         /* Returns > 0 if signature checks out, == 0 if not, < 0 on unexpected errors */
@@ -2848,7 +2848,7 @@ static int validate_signature_userspace(const VeritySettings *verity, DissectIma
         /* Because installing a signature certificate into the kernel chain is so messy, let's optionally do
          * userspace validation. */
 
-        r = conf_files_list_nulstr(&certs, ".crt", NULL, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, CONF_PATHS_NULSTR("verity.d"));
+        r = conf_files_list_nulstr(&certs, ".crt", root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, CONF_PATHS_NULSTR("verity.d"));
         if (r < 0)
                 return log_debug_errno(r, "Failed to enumerate certificates: %m");
         if (strv_isempty(certs)) {
@@ -2910,6 +2910,7 @@ static int validate_signature_userspace(const VeritySettings *verity, DissectIma
 
 static int do_crypt_activate_verity(
                 struct crypt_device *cd,
+                const char *root,
                 const char *name,
                 const VeritySettings *verity,
                 DissectImageFlags flags,
@@ -2959,7 +2960,7 @@ static int do_crypt_activate_verity(
 
                 /* Preferably propagate the original kernel error, so that the fallback logic can work,
                  * as the device-mapper is finicky around concurrent activations of the same volume */
-                k = validate_signature_userspace(verity, flags);
+                k = validate_signature_userspace(verity, root, flags);
                 if (k < 0)
                         return k;
                 if (k == 0) {
@@ -3019,6 +3020,7 @@ static int verity_partition(
                 PartitionDesignator designator,
                 DissectedPartition *m, /* data partition */
                 DissectedPartition *v, /* verity partition */
+                const char *root, /* The root to get user verity certs from (for a sysext) */
                 const VeritySettings *verity,
                 DissectImageFlags flags,
                 PartitionPolicyFlags policy_flags,
@@ -3104,7 +3106,7 @@ static int verity_partition(
                         goto check; /* The device already exists. Let's check it. */
 
                 /* The symlink to the device node does not exist yet. Assume not activated, and let's activate it. */
-                r = do_crypt_activate_verity(cd, name, verity, flags, policy_flags);
+                r = do_crypt_activate_verity(cd, root, name, verity, flags, policy_flags);
                 if (r >= 0)
                         goto try_open; /* The device is activated. Let's open it. */
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
@@ -3198,7 +3200,7 @@ static int verity_partition(
                  */
                 sym_crypt_free(cd);
                 cd = NULL;
-                return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, policy_flags, d);
+                return verity_partition(designator, m, v, root, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, policy_flags, d);
         }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "All attempts to activate verity device %s failed.", name);
@@ -3218,6 +3220,7 @@ success:
 
 int dissected_image_decrypt(
                 DissectedImage *m,
+                const char *root, /* The root to get user verity certs from (for a sysext) */
                 const char *passphrase,
                 const VeritySettings *verity,
                 const ImagePolicy *policy,
@@ -3274,7 +3277,7 @@ int dissected_image_decrypt(
 
                 k = partition_verity_hash_of(i);
                 if (k >= 0) {
-                        r = verity_partition(i, p, m->partitions + k, verity, flags, fl, d);
+                        r = verity_partition(i, p, m->partitions + k, root, verity, flags, fl, d);
                         if (r < 0)
                                 return r;
                 }
@@ -3307,7 +3310,7 @@ int dissected_image_decrypt_interactively(
                 n--;
 
         for (;;) {
-                r = dissected_image_decrypt(m, passphrase, verity, image_policy, flags);
+                r = dissected_image_decrypt(m, NULL, passphrase, verity, image_policy, flags);
                 if (r >= 0)
                         return r;
                 if (r == -EKEYREJECTED)
@@ -4557,6 +4560,7 @@ int verity_dissect_and_mount(
 
                 r = dissected_image_decrypt(
                                 dissected_image,
+                                NULL,
                                 NULL,
                                 verity,
                                 image_policy,

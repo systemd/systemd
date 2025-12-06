@@ -2589,6 +2589,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         r = dissected_image_decrypt(
                                         dissected_image,
                                         NULL,
+                                        NULL,
                                         p->verity,
                                         p->root_image_policy,
                                         dissect_image_flags);
