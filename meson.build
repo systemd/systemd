@@ -2236,9 +2236,9 @@ endif
 runtest_env = custom_target(
         output : 'systemd-runtest.env',
         command : ['printf',
-                   'SYSTEMD_TEST_DATA=%q\nSYSTEMD_CATALOG_DIR=%q\n',
-                   meson.project_source_root() / 'test',
-                   meson.project_build_root() / 'catalog'],
+                   'SYSTEMD_TEST_DATA=\'%s\'\nSYSTEMD_CATALOG_DIR=\'%s\'\n',
+                   (meson.project_source_root() / 'test').replace('\'', '\'"\'"\''),
+                   (meson.project_build_root() / 'catalog').replace('\'', '\'"\'"\'')],
         capture: true,
         depends : catalogs,
         build_by_default : true)
