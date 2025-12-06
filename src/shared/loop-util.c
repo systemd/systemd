@@ -664,6 +664,38 @@ int loop_device_make(
         assert(fd >= 0);
         assert(ret);
 
+        loop_flags = loop_flags_mangle(loop_flags);
+
+        /* Let's open with O_DIRECT if we can. But not all file systems support that, hence fall back to
+         * non-O_DIRECT mode automatically, if it fails. */
+
+        int basic_flags = O_CLOEXEC|O_NONBLOCK|O_NOCTTY;
+        int direct_flags = FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0;
+        int rdwr_flags = open_flags >= 0 ? open_flags : O_RDWR;
+
+        _cleanup_close_ int reopened_fd = -EBADF;
+
+        /* Convert O_PATH into real fd */
+        fd = fd_reopen_condition(fd, basic_flags|direct_flags|rdwr_flags, O_PATH, &reopened_fd);
+        if (fd < 0 && direct_flags != 0)
+                fd = fd_reopen_condition(fd, basic_flags|rdwr_flags, O_PATH, &reopened_fd);
+        if (open_flags < 0) {
+                if (fd < 0) {
+                        /* If open_flags are negative and we failed, retry in read-only mode */
+                        if (!ERRNO_IS_NEG_FS_WRITE_REFUSED(fd))
+                                return fd;
+
+                        fd = fd_reopen_condition(fd, basic_flags|direct_flags|O_RDONLY, O_PATH, &reopened_fd);
+                        if (fd < 0 && direct_flags != 0)
+                                fd = fd_reopen_condition(fd, basic_flags|O_RDONLY, O_PATH, &reopened_fd);
+
+                        open_flags = O_RDONLY;
+                } else
+                        open_flags = O_RDWR;
+        }
+        if (fd < 0)
+                return fd;
+
         return loop_device_make_internal(
                         NULL,
                         fd,

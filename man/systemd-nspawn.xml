@@ -371,6 +371,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--mstack=</option></term>
+
+        <listitem><para>Mount stack to mount the root directory for the container from. Takes a path to a
+        directory implementing
+        <citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry>. This
+        may be used to run a container of an <literal>overlayfs</literal> assembled from a number of layers,
+        possibly writable and augmented with additional bind mounts.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--oci-bundle=</option></term>
 
         <listitem><para>Takes the path to an OCI runtime bundle to invoke, as specified in the <ulink
@@ -2038,6 +2050,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-mountfsd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs.html'>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>

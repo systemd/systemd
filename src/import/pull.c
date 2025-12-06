@@ -18,9 +18,11 @@
 #include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "oci-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pull-oci.h"
 #include "pull-raw.h"
 #include "pull-tar.h"
 #include "runtime-scope.h"
@@ -244,6 +246,71 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         return -r;
 }
 
+static void on_oci_finished(OciPull *pull, int error, void *userdata) {
+        sd_event *event = userdata;
+        assert(pull);
+
+        if (error == 0)
+                log_info("Operation completed successfully.");
+
+        sd_event_exit(event, ABS(error));
+}
+
+static int pull_oci(int argc, char *argv[], void *userdata) {
+        int r;
+
+        const char *ref = argv[1];
+
+        _cleanup_free_ char *image = NULL;
+        r = oci_ref_parse(ref, /* ret_registry= */ NULL, &image, /* ret_tag= */ NULL);
+        if (r == -EINVAL)
+                return log_error_errno(r, "OCI ref '%s' is invalid.", ref);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check of OCI ref '%s' is valid: %m", ref);
+
+        _cleanup_free_ char *l = NULL;
+        const char *local;
+        if (argc >= 3)
+                local = empty_or_dash_to_null(argv[2]);
+        else {
+                r = path_extract_filename(image, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get extract final component of '%s': %m", image);
+
+                local = l;
+        }
+
+        _cleanup_free_ char *normalized = NULL;
+        r = normalize_local(local, ref, &normalized);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        r = import_allocate_event_with_signals(&event);
+        if (r < 0)
+                return r;
+
+        _cleanup_(oci_pull_unrefp) OciPull *pull = NULL;
+        r = oci_pull_new(&pull, event, arg_image_root, on_oci_finished, event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate puller: %m");
+
+        r = oci_pull_start(
+                        pull,
+                        ref,
+                        normalized,
+                        arg_import_flags & IMPORT_PULL_FLAGS_MASK_OCI);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pull image: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        log_info("Exiting.");
+        return -r;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%1$s [OPTIONS...] {COMMAND} ...\n"
@@ -251,6 +318,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%2$sCommands:%3$s\n"
                "  tar URL [NAME]              Download a TAR image\n"
                "  raw URL [NAME]              Download a RAW image\n"
+               "  oci REF [NAME]              Download an OCI image\n"
                "\n%2$sOptions:%3$s\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
@@ -595,6 +663,7 @@ static int pull_main(int argc, char *argv[]) {
                 { "help", VERB_ANY, VERB_ANY, 0, help     },
                 { "tar",  2,        3,        0, pull_tar },
                 { "raw",  2,        3,        0, pull_raw },
+                { "oci",  2,        3,        0, pull_oci },
                 {}
         };
 

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -77,11 +78,20 @@ int main(int argc, char *argv[]) {
         else
                 log_info("Not chrooted");
 
+        _cleanup_(pinned_resource_done) PinnedResource pr = PINNED_RESOURCE_NULL;
+
+        if (root_directory) {
+                pr.directory_fd = open(root_directory, O_PATH|O_CLOEXEC|O_DIRECTORY);
+                assert_se(pr.directory_fd >= 0);
+
+                pr.directory = strdup(root_directory);
+                assert_se(pr.directory);
+        }
+
         NamespaceParameters p = {
                 .runtime_scope = RUNTIME_SCOPE_SYSTEM,
 
-                .root_directory = root_directory,
-                .root_directory_fd = -EBADF,
+                .rootfs = &pr,
 
                 .read_write_paths = (char**) writable,
                 .read_only_paths = (char**) readonly,

@@ -57,8 +57,25 @@ static int make_pid_name(char **ret) {
         return 0;
 }
 
-int nsresource_allocate_userns(const char *name, uint64_t size) {
+int nsresource_connect(sd_varlink **ret) {
+        int r;
+
+        assert(ret);
+
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to connect to namespace resource manager: %m");
+
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
+
+        *ret = TAKE_PTR(vl);
+        return 0;
+}
+
+int nsresource_allocate_userns(sd_varlink *vl, const char *name, uint64_t size) {
         _cleanup_close_ int userns_fd = -EBADF;
         _cleanup_free_ char *_name = NULL;
         const char *error_id;
@@ -77,13 +94,14 @@ int nsresource_allocate_userns(const char *name, uint64_t size) {
         if (size <= 0 || size > UINT64_C(0x100000000)) /* Note: the server actually only allows allocating 1 or 64K right now */
                 return -EINVAL;
 
-        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
-        if (r < 0)
-                return log_debug_errno(r, "Failed to connect to namespace resource manager: %m");
+        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        if (!vl) {
+                r = nsresource_connect(&_vl);
+                if (r < 0)
+                        return r;
 
-        r = sd_varlink_set_allow_fd_passing_output(vl, true);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
+                vl = _vl;
+        }
 
         userns_fd = userns_acquire_empty();
         if (userns_fd < 0)
@@ -113,8 +131,7 @@ int nsresource_allocate_userns(const char *name, uint64_t size) {
         return TAKE_FD(userns_fd);
 }
 
-int nsresource_register_userns(const char *name, int userns_fd) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+int nsresource_register_userns(sd_varlink *vl, const char *name, int userns_fd) {
         _cleanup_close_ int _userns_fd = -EBADF;
         _cleanup_free_ char *_name = NULL;
         const char *error_id;
@@ -138,13 +155,14 @@ int nsresource_register_userns(const char *name, int userns_fd) {
                 userns_fd = _userns_fd;
         }
 
-        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
-        if (r < 0)
-                return log_debug_errno(r, "Failed to connect to namespace resource manager: %m");
+        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        if (!vl) {
+                r = nsresource_connect(&_vl);
+                if (r < 0)
+                        return r;
 
-        r = sd_varlink_set_allow_fd_passing_output(vl, true);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
+                vl = _vl;
+        }
 
         userns_fd_idx = sd_varlink_push_dup_fd(vl, userns_fd);
         if (userns_fd_idx < 0)
@@ -169,8 +187,7 @@ int nsresource_register_userns(const char *name, int userns_fd) {
         return 0;
 }
 
-int nsresource_add_mount(int userns_fd, int mount_fd) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+int nsresource_add_mount(sd_varlink *vl, int userns_fd, int mount_fd) {
         _cleanup_close_ int _userns_fd = -EBADF;
         int r, userns_fd_idx, mount_fd_idx;
         const char *error_id;
@@ -185,13 +202,14 @@ int nsresource_add_mount(int userns_fd, int mount_fd) {
                 userns_fd = _userns_fd;
         }
 
-        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to namespace resource manager: %m");
+        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        if (!vl) {
+                r = nsresource_connect(&_vl);
+                if (r < 0)
+                        return r;
 
-        r = sd_varlink_set_allow_fd_passing_output(vl, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
+                vl = _vl;
+        }
 
         userns_fd_idx = sd_varlink_push_dup_fd(vl, userns_fd);
         if (userns_fd_idx < 0)
@@ -221,8 +239,7 @@ int nsresource_add_mount(int userns_fd, int mount_fd) {
         return 1;
 }
 
-int nsresource_add_cgroup(int userns_fd, int cgroup_fd) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+int nsresource_add_cgroup(sd_varlink *vl, int userns_fd, int cgroup_fd) {
         _cleanup_close_ int _userns_fd = -EBADF;
         int r, userns_fd_idx, cgroup_fd_idx;
         const char *error_id;
@@ -237,13 +254,14 @@ int nsresource_add_cgroup(int userns_fd, int cgroup_fd) {
                 userns_fd = _userns_fd;
         }
 
-        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
-        if (r < 0)
-                return log_debug_errno(r, "Failed to connect to namespace resource manager: %m");
+        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        if (!vl) {
+                r = nsresource_connect(&_vl);
+                if (r < 0)
+                        return r;
 
-        r = sd_varlink_set_allow_fd_passing_output(vl, true);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
+                vl = _vl;
+        }
 
         userns_fd_idx = sd_varlink_push_dup_fd(vl, userns_fd);
         if (userns_fd_idx < 0)
@@ -287,6 +305,7 @@ static void interface_params_done(InterfaceParams *p) {
 }
 
 int nsresource_add_netif_veth(
+                sd_varlink *vl,
                 int userns_fd,
                 int netns_fd,
                 const char *namespace_ifname,
@@ -294,7 +313,6 @@ int nsresource_add_netif_veth(
                 char **ret_namespace_ifname) {
 
         _cleanup_close_ int _userns_fd = -EBADF, _netns_fd = -EBADF;
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r, userns_fd_idx, netns_fd_idx;
         const char *error_id;
 
@@ -314,13 +332,14 @@ int nsresource_add_netif_veth(
                 netns_fd = _netns_fd;
         }
 
-        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
-        if (r < 0)
-                return log_debug_errno(r, "Failed to connect to namespace resource manager: %m");
+        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        if (!vl) {
+                r = nsresource_connect(&_vl);
+                if (r < 0)
+                        return r;
 
-        r = sd_varlink_set_allow_fd_passing_output(vl, true);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
+                vl = _vl;
+        }
 
         userns_fd_idx = sd_varlink_push_dup_fd(vl, userns_fd);
         if (userns_fd_idx < 0)
@@ -368,11 +387,11 @@ int nsresource_add_netif_veth(
 }
 
 int nsresource_add_netif_tap(
+                sd_varlink *vl,
                 int userns_fd,
                 char **ret_host_ifname) {
 
         _cleanup_close_ int _userns_fd = -EBADF;
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r, userns_fd_idx;
         const char *error_id;
 
@@ -384,13 +403,14 @@ int nsresource_add_netif_tap(
                 userns_fd = _userns_fd;
         }
 
-        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
-        if (r < 0)
-                return log_debug_errno(r, "Failed to connect to namespace resource manager: %m");
+        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        if (!vl) {
+                r = nsresource_connect(&_vl);
+                if (r < 0)
+                        return r;
 
-        r = sd_varlink_set_allow_fd_passing_output(vl, true);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
+                vl = _vl;
+        }
 
         r = sd_varlink_set_allow_fd_passing_input(vl, true);
         if (r < 0)
