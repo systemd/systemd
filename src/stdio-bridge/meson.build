@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-stdio-bridge',
                 'public' : true,
                 'sources' : files('stdio-bridge.c'),
+                'arg_parser' : files('stdio-bridge.args'),
         },
 ]
