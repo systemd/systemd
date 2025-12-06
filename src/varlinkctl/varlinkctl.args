@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --no-pager
+
+option --no-ask-password
+help Do not attempt interactive authorization
+        arg_ask_password = false;
+
+option --system
+help Enumerate system registry
+        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+
+option --user
+help Enumerate user registry
+        arg_runtime_scope = RUNTIME_SCOPE_USER;
+
+option -E
+help Same as --more --timeout=infinity
+        arg_timeout = USEC_INFINITY;
+        _fallthrough_;
+
+option --more
+help Request multiple responses
+        arg_method_flags = (arg_method_flags & ~SD_VARLINK_METHOD_ONEWAY) | SD_VARLINK_METHOD_MORE;
+
+option --oneway
+help Do not request response
+        arg_method_flags = (arg_method_flags & ~SD_VARLINK_METHOD_MORE) | SD_VARLINK_METHOD_ONEWAY;
+
+option --collect
+help Collect multiple responses in a JSON array
+        arg_collect = true;
+
+option --json=MODE
+help Output as JSON
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+option -j
+help Same as --json=pretty on tty, --json=short otherwise
+        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+
+option -q --quiet
+help Do not output method reply
+        arg_quiet = true;
+
+option --graceful=ERROR
+help Treat specified Varlink error as success
+        r = varlink_idl_qualified_symbol_name_is_valid(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to validate Varlink error name '%s': %m", optarg);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid Varlink error name: %s", optarg);
+
+        if (strv_extend(&arg_graceful, optarg) < 0)
+                return log_oom();
+
+option --timeout=SECS
+help Maximum time to wait for method call completion
+        if (isempty(optarg)) {
+                arg_timeout = USEC_INFINITY;
+                break;
+        }
+
+        r = parse_sec(optarg, &arg_timeout);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", optarg);
+
+        if (arg_timeout == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Timeout cannot be zero.");
+
+option --push-fd=FD
+help Pass the specified fd along with method call
+        if (!GREEDY_REALLOC(arg_push_fds.fds, arg_push_fds.n_fds + 1))
+                return log_oom();
+
+        int add_fd;
+        if (STARTSWITH_SET(optarg, "/", "./")) {
+                /* We usually expect a numeric fd spec, but as an extension let's treat this
+                 * as a path to open in read-only mode in case this is clearly an absolute or
+                 * relative path */
+                add_fd = open(optarg, O_CLOEXEC|O_RDONLY|O_NOCTTY);
+                if (add_fd < 0)
+                        return log_error_errno(errno, "Failed to open '%s': %m", optarg);
+        } else {
+                int parsed_fd = parse_fd(optarg);
+                if (parsed_fd < 0)
+                        return log_error_errno(parsed_fd, "Failed to parse --push-fd= parameter: %s", optarg);
+
+                /* Make a copy, so that the same fd could be used multiple times in a reasonable
+                 * way. This also validates the fd early */
+                add_fd = fcntl(parsed_fd, F_DUPFD_CLOEXEC, 3);
+                if (add_fd < 0)
+                        return log_error_errno(errno, "Failed to duplicate file descriptor: %m");
+        }
+
+        arg_push_fds.fds[arg_push_fds.n_fds++] = add_fd;
+
+# Invoke a command to process the varlink reply
+option --exec
+help skip
+        arg_exec = true;
