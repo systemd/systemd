@@ -308,7 +308,6 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
 
 static int fixup_input(
                 const ExecContext *context,
-                int socket_fd,
                 bool apply_tty_stdin) {
 
         ExecInput std_input;
@@ -320,21 +319,10 @@ static int fixup_input(
         if (exec_input_is_terminal(std_input) && !apply_tty_stdin)
                 return EXEC_INPUT_NULL;
 
-        if (std_input == EXEC_INPUT_SOCKET && socket_fd < 0)
-                return EXEC_INPUT_NULL;
-
         if (std_input == EXEC_INPUT_DATA && context->stdin_data_size == 0)
                 return EXEC_INPUT_NULL;
 
         return std_input;
-}
-
-static int fixup_output(ExecOutput output, int socket_fd) {
-
-        if (output == EXEC_OUTPUT_SOCKET && socket_fd < 0)
-                return EXEC_OUTPUT_INHERIT;
-
-        return output;
 }
 
 static int setup_input(
@@ -361,7 +349,7 @@ static int setup_input(
                 return STDIN_FILENO;
         }
 
-        i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
+        i = fixup_input(context, params->flags & EXEC_APPLY_TTY_STDIN);
 
         switch (i) {
 
@@ -430,8 +418,8 @@ static int setup_input(
 
                 assert(context->stdio_file[STDIN_FILENO]);
 
-                rw = (context->std_output == EXEC_OUTPUT_FILE && streq_ptr(context->stdio_file[STDIN_FILENO], context->stdio_file[STDOUT_FILENO])) ||
-                        (context->std_error == EXEC_OUTPUT_FILE && streq_ptr(context->stdio_file[STDIN_FILENO], context->stdio_file[STDERR_FILENO]));
+                rw = (context->std_output == EXEC_OUTPUT_FILE && path_equal(context->stdio_file[STDIN_FILENO], context->stdio_file[STDOUT_FILENO])) ||
+                        (context->std_error == EXEC_OUTPUT_FILE && path_equal(context->stdio_file[STDIN_FILENO], context->stdio_file[STDERR_FILENO]));
 
                 fd = acquire_path(context->stdio_file[STDIN_FILENO], rw ? O_RDWR : O_RDONLY, 0666 & ~context->umask);
                 if (fd < 0)
@@ -445,28 +433,66 @@ static int setup_input(
         }
 }
 
-static bool can_inherit_stderr_from_stdout(
-                const ExecContext *context,
-                ExecOutput o,
-                ExecOutput e) {
+static bool can_inherit_stderr_from_stdout(const ExecContext *context) {
+        ExecOutput o, e;
 
         assert(context);
 
         /* Returns true, if given the specified STDERR and STDOUT output we can directly dup() the stdout fd to the
          * stderr fd */
 
+        o = context->std_output;
+        e = context->std_error;
+
         if (e == EXEC_OUTPUT_INHERIT)
                 return true;
         if (e != o)
                 return false;
 
+        /* Let's not shortcut named fds here, even though we in theory can by comparing fd names, since
+         * we have the named_iofds array readily available, and the inherit practice would simply be duplicative. */
         if (e == EXEC_OUTPUT_NAMED_FD)
-                return streq_ptr(context->stdio_fdname[STDOUT_FILENO], context->stdio_fdname[STDERR_FILENO]);
+                return false;
 
         if (IN_SET(e, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND, EXEC_OUTPUT_FILE_TRUNCATE))
-                return streq_ptr(context->stdio_file[STDOUT_FILENO], context->stdio_file[STDERR_FILENO]);
+                return path_equal(context->stdio_file[STDOUT_FILENO], context->stdio_file[STDERR_FILENO]);
 
         return true;
+}
+
+static int maybe_inherit_stdout_from_stdin(const ExecContext *context, ExecInput i) {
+        int r;
+
+        assert(context);
+
+        if (context->std_output != EXEC_OUTPUT_INHERIT)
+                return 0;
+
+        /* If input got downgraded, inherit the original value */
+        if (i == EXEC_INPUT_NULL && exec_input_is_terminal(context->std_input))
+                return open_terminal_as(exec_context_tty_path(context), O_WRONLY, STDOUT_FILENO);
+
+        if (!exec_input_is_inheritable(i))
+                goto fallback;
+
+        r = fd_is_writable(STDIN_FILENO);
+        if (r <= 0) {
+                if (r < 0)
+                        log_warning_errno(r, "Failed to check if inherited stdin is writable for stdout, using fallback: %m");
+                else
+                        log_warning("Inherited stdin is not writable for stdout, using fallback: %m");
+                goto fallback;
+        }
+
+        return RET_NERRNO(dup2(STDIN_FILENO, STDOUT_FILENO));
+
+fallback:
+        /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
+        if (getppid() != 1)
+                return STDOUT_FILENO;
+
+        /* We need to open /dev/null here anew, to get the right access mode. */
+        return open_null_as(O_WRONLY, STDOUT_FILENO);
 }
 
 static int setup_output(
@@ -506,65 +532,33 @@ static int setup_output(
                 return STDERR_FILENO;
         }
 
-        i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
-        o = fixup_output(context->std_output, socket_fd);
+        i = fixup_input(context, params->flags & EXEC_APPLY_TTY_STDIN);
 
         if (fileno == STDERR_FILENO) {
-                ExecOutput e;
-                e = fixup_output(context->std_error, socket_fd);
-
                 /* This expects the input and output are already set up */
 
                 /* Don't change the stderr file descriptor if we inherit all
                  * the way and are not on a tty */
-                if (e == EXEC_OUTPUT_INHERIT &&
-                    o == EXEC_OUTPUT_INHERIT &&
-                    i == EXEC_INPUT_NULL &&
-                    !exec_input_is_terminal(context->std_input) &&
+                if (context->std_error == EXEC_OUTPUT_INHERIT &&
+                    context->std_output == EXEC_OUTPUT_INHERIT &&
+                    i == EXEC_INPUT_NULL && !exec_input_is_terminal(context->std_input) &&
                     getppid() != 1)
                         return fileno;
 
                 /* Duplicate from stdout if possible */
-                if (can_inherit_stderr_from_stdout(context, o, e)) {
-                        r = fd_is_writable(STDOUT_FILENO);
-                        if (r <= 0) {
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to check if inherited stdout is writable for stderr, falling back to /dev/null.");
-                                else
-                                        log_warning("Inherited stdout is not writable for stderr, falling back to /dev/null.");
-                                return open_null_as(O_WRONLY, fileno);
-                        }
+                if (can_inherit_stderr_from_stdout(context))
                         return RET_NERRNO(dup2(STDOUT_FILENO, fileno));
-                }
 
-                o = e;
+                o = context->std_error;
 
-        } else if (o == EXEC_OUTPUT_INHERIT) {
-                /* If input got downgraded, inherit the original value */
-                if (i == EXEC_INPUT_NULL && exec_input_is_terminal(context->std_input))
-                        return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
+        } else {
+                assert(fileno == STDOUT_FILENO);
 
-                /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
-                if (!IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA)) {
-                        r = fd_is_writable(STDIN_FILENO);
-                        if (r <= 0) {
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to check if inherited stdin is writable for %s, falling back to /dev/null.",
-                                                          fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                else
-                                        log_warning("Inherited stdin is not writable for %s, falling back to /dev/null.",
-                                                    fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                return open_null_as(O_WRONLY, fileno);
-                        }
-                        return RET_NERRNO(dup2(STDIN_FILENO, fileno));
-                }
+                r = maybe_inherit_stdout_from_stdin(context, i);
+                if (r != 0)
+                        return r;
 
-                /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
-                if (getppid() != 1)
-                        return fileno;
-
-                /* We need to open /dev/null here anew, to get the right access mode. */
-                return open_null_as(O_WRONLY, fileno);
+                o = context->std_output;
         }
 
         switch (o) {
@@ -630,15 +624,14 @@ static int setup_output(
         case EXEC_OUTPUT_FILE:
         case EXEC_OUTPUT_FILE_APPEND:
         case EXEC_OUTPUT_FILE_TRUNCATE: {
-                bool rw;
                 int fd, flags;
 
                 assert(context->stdio_file[fileno]);
 
-                rw = context->std_input == EXEC_INPUT_FILE &&
-                        streq_ptr(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]);
-
-                if (rw)
+                /* stdin points to the same file hence setup_input() opened it as rw already?
+                 * Then just duplicate it. */
+                if (context->std_input == EXEC_INPUT_FILE &&
+                    path_equal(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]))
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
                 flags = O_WRONLY;
@@ -4794,28 +4787,34 @@ static int exec_context_named_iofds(
 
         /* Note that socket fds are always placed at the beginning of the fds array, no need for extra
          * manipulation. */
-        for (size_t i = 0; i < p->n_socket_fds && targets > 0; i++)
+        for (size_t i = 0; i < p->n_socket_fds && targets > 0; i++) {
                 if (named_iofds[STDIN_FILENO] < 0 &&
                     c->std_input == EXEC_INPUT_NAMED_FD &&
                     streq(p->fd_names[i], stdio_fdname[STDIN_FILENO])) {
 
                         named_iofds[STDIN_FILENO] = p->fds[i];
                         targets--;
+                        continue;
+                }
 
-                } else if (named_iofds[STDOUT_FILENO] < 0 &&
-                           c->std_output == EXEC_OUTPUT_NAMED_FD &&
-                           streq(p->fd_names[i], stdio_fdname[STDOUT_FILENO])) {
+                /* Allow stdout and stderr to use the same named fd */
+
+                if (named_iofds[STDOUT_FILENO] < 0 &&
+                    c->std_output == EXEC_OUTPUT_NAMED_FD &&
+                    streq(p->fd_names[i], stdio_fdname[STDOUT_FILENO])) {
 
                         named_iofds[STDOUT_FILENO] = p->fds[i];
                         targets--;
+                }
 
-                } else if (named_iofds[STDERR_FILENO] < 0 &&
-                           c->std_error == EXEC_OUTPUT_NAMED_FD &&
-                           streq(p->fd_names[i], stdio_fdname[STDERR_FILENO])) {
+                if (named_iofds[STDERR_FILENO] < 0 &&
+                    c->std_error == EXEC_OUTPUT_NAMED_FD &&
+                    streq(p->fd_names[i], stdio_fdname[STDERR_FILENO])) {
 
                         named_iofds[STDERR_FILENO] = p->fds[i];
                         targets--;
                 }
+        }
 
         return targets == 0 ? 0 : -ENOENT;
 }

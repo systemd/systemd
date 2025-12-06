@@ -1539,48 +1539,6 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
         return 0;
 }
 
-static int serialize_std_out_err(const ExecContext *c, FILE *f, int fileno) {
-        char *key, *value;
-        const char *type;
-
-        assert(c);
-        assert(f);
-        assert(IN_SET(fileno, STDOUT_FILENO, STDERR_FILENO));
-
-        type = fileno == STDOUT_FILENO ? "output" : "error";
-
-        switch (fileno == STDOUT_FILENO ? c->std_output : c->std_error) {
-        case EXEC_OUTPUT_NAMED_FD:
-                key = strjoina("exec-context-std-", type, "-fd-name");
-                value = c->stdio_fdname[fileno];
-
-                break;
-
-        case EXEC_OUTPUT_FILE:
-                key = strjoina("exec-context-std-", type, "-file");
-                value = c->stdio_file[fileno];
-
-                break;
-
-        case EXEC_OUTPUT_FILE_APPEND:
-                key = strjoina("exec-context-std-", type, "-file-append");
-                value = c->stdio_file[fileno];
-
-                break;
-
-        case EXEC_OUTPUT_FILE_TRUNCATE:
-                key = strjoina("exec-context-std-", type, "-file-truncate");
-                value = c->stdio_file[fileno];
-
-                break;
-
-        default:
-                return 0;
-        }
-
-        return serialize_item(f, key, value);
-}
-
 static int exec_context_serialize(const ExecContext *c, FILE *f) {
         int r;
 
@@ -2004,6 +1962,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         return r;
         }
 
+        r = serialize_bool_elide(f, "exec-context-root-directory-as-fd", c->root_directory_as_fd);
+        if (r < 0)
+                return r;
+
         r = serialize_item(f, "exec-context-std-input", exec_input_to_string(c->std_input));
         if (r < 0)
                 return r;
@@ -2020,36 +1982,60 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_bool_elide(f, "exec-context-root-directory-as-fd", c->root_directory_as_fd);
-        if (r < 0)
-                return r;
-
         switch (c->std_input) {
+
         case EXEC_INPUT_NAMED_FD:
                 r = serialize_item(f, "exec-context-std-input-fd-name", c->stdio_fdname[STDIN_FILENO]);
-                if (r < 0)
-                        return r;
                 break;
 
         case EXEC_INPUT_FILE:
-                r = serialize_item(f, "exec-context-std-input-file", c->stdio_file[STDIN_FILENO]);
-                if (r < 0)
-                        return r;
+                r = serialize_item_escaped(f, "exec-context-std-input-file", c->stdio_file[STDIN_FILENO]);
+                break;
+
+        case EXEC_INPUT_DATA:
+                r = serialize_item_base64mem(f, "exec-context-std-input-data", c->stdin_data, c->stdin_data_size);
                 break;
 
         default:
-                ;
+                r = 0;
         }
-
-        r = serialize_std_out_err(c, f, STDOUT_FILENO);
         if (r < 0)
                 return r;
 
-        r = serialize_std_out_err(c, f, STDERR_FILENO);
+        switch (c->std_output) {
+
+        case EXEC_OUTPUT_NAMED_FD:
+                r = serialize_item(f, "exec-context-std-output-fd-name", c->stdio_fdname[STDOUT_FILENO]);
+                break;
+
+        case EXEC_OUTPUT_FILE:
+        case EXEC_OUTPUT_FILE_APPEND:
+        case EXEC_OUTPUT_FILE_TRUNCATE:
+                r = serialize_item_escaped(f, "exec-context-std-output-file", c->stdio_file[STDOUT_FILENO]);
+                break;
+
+        default:
+                r = 0;
+        }
         if (r < 0)
                 return r;
 
-        r = serialize_item_base64mem(f, "exec-context-stdin-data", c->stdin_data, c->stdin_data_size);
+
+        switch (c->std_error) {
+
+        case EXEC_OUTPUT_NAMED_FD:
+                r = serialize_item(f, "exec-context-std-error-fd-name", c->stdio_fdname[STDERR_FILENO]);
+                break;
+
+        case EXEC_OUTPUT_FILE:
+        case EXEC_OUTPUT_FILE_APPEND:
+        case EXEC_OUTPUT_FILE_TRUNCATE:
+                r = serialize_item_escaped(f, "exec-context-std-error-file", c->stdio_file[STDERR_FILENO]);
+                break;
+
+        default:
+                r = 0;
+        }
         if (r < 0)
                 return r;
 
@@ -3017,6 +3003,11 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = deserialize_usec(val, (usec_t *)&c->timer_slack_nsec);
                         if (r < 0)
                                 return r;
+                } else if ((val = startswith(l, "exec-context-root-directory-as-fd="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->root_directory_as_fd = r;
                 } else if ((val = startswith(l, "exec-context-std-input="))) {
                         c->std_input = exec_input_from_string(val);
                         if (c->std_input < 0)
@@ -3034,11 +3025,13 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->stdio_as_fds = r;
-                } else if ((val = startswith(l, "exec-context-root-directory-as-fd="))) {
-                        r = parse_boolean(val);
+                } else if ((val = startswith(l, "exec-context-std-input-data="))) {
+                        if (c->stdin_data)
+                                return -EINVAL; /* duplicated */
+
+                        r = unbase64mem(val, &c->stdin_data, &c->stdin_data_size);
                         if (r < 0)
                                 return r;
-                        c->root_directory_as_fd = r;
                 } else if ((val = startswith(l, "exec-context-std-input-fd-name="))) {
                         r = free_and_strdup(&c->stdio_fdname[STDIN_FILENO], val);
                         if (r < 0)
@@ -3052,40 +3045,35 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-std-input-file="))) {
-                        r = free_and_strdup(&c->stdio_file[STDIN_FILENO], val);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-context-std-output-file="))) {
-                        r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], val);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-context-std-output-file-append="))) {
-                        r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], val);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-context-std-output-file-truncate="))) {
-                        r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], val);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-context-std-error-file="))) {
-                        r = free_and_strdup(&c->stdio_file[STDERR_FILENO], val);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-context-std-error-file-append="))) {
-                        r = free_and_strdup(&c->stdio_file[STDERR_FILENO], val);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-context-std-error-file-truncate="))) {
-                        r = free_and_strdup(&c->stdio_file[STDERR_FILENO], val);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-context-stdin-data="))) {
-                        if (c->stdin_data)
-                                return -EINVAL; /* duplicated */
+                        ssize_t k;
+                        char *p;
 
-                        r = unbase64mem(val, &c->stdin_data, &c->stdin_data_size);
-                        if (r < 0)
-                                return r;
+                        k = cunescape(val, 0, &p);
+                        if (k < 0)
+                                return k;
+
+                        free_and_replace(c->stdio_file[STDIN_FILENO], p);
+
+                } else if ((val = startswith(l, "exec-context-std-output-file="))) {
+                        ssize_t k;
+                        char *p;
+
+                        k = cunescape(val, 0, &p);
+                        if (k < 0)
+                                return k;
+
+                        free_and_replace(c->stdio_file[STDOUT_FILENO], p);
+
+                } else if ((val = startswith(l, "exec-context-std-error-file="))) {
+                        ssize_t k;
+                        char *p;
+
+                        k = cunescape(val, 0, &p);
+                        if (k < 0)
+                                return k;
+
+                        free_and_replace(c->stdio_file[STDERR_FILENO], p);
+
                 } else if ((val = startswith(l, "exec-context-tty-path="))) {
                         r = free_and_strdup(&c->tty_path, val);
                         if (r < 0)
