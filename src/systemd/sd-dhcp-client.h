@@ -160,6 +160,10 @@ int sd_dhcp_client_send_decline(sd_dhcp_client *client);
 int sd_dhcp_client_send_renew(sd_dhcp_client *client);
 int sd_dhcp_client_set_ipv6_connectivity(sd_dhcp_client *client, int have);
 int sd_dhcp_client_interrupt_ipv6_only_mode(sd_dhcp_client *client);
+int sd_dhcp_client_set_lease_file(sd_dhcp_client *client, int dir_fd, const char *path);
+int sd_dhcp_client_update_lease_lifetime(sd_dhcp_client *client, sd_dhcp_lease *lease, uint64_t lifetime);
+int sd_dhcp_client_set_keep_expired_lease(sd_dhcp_client *client, int keep);
+int sd_dhcp_client_enter_bound_with_lease(sd_dhcp_client *client);
 
 sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client);
 sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client);

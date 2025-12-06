@@ -665,6 +665,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 return -ENOMEM;
 
         *m = (Manager) {
+                .dhcp_client_persist_leases = _DHCP_CLIENT_PERSIST_LEASES_INVALID,
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
                 .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
                 .test_mode = test_mode,
