@@ -91,7 +91,7 @@ _portablectl() {
     elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
         comps=''
     elif __contains_word "$verb" ${VERBS[IMAGE]}; then
-        if [[ $n == 1 ]]; then
+        if [[ $n == 1 ]] || [[ "$prev" = -* ]] || __contains_word "${COMP_WORDS[COMP_CWORD-2]}" ${OPTS[ARG]}; then
             comps=$( compgen -A file -- "$cur" )
             compopt -o filenames
         else
@@ -101,10 +101,10 @@ _portablectl() {
         comps=$( compgen -A file -- "$cur" )
         compopt -o filenames
     elif __contains_word "$verb" ${VERBS[IMAGE_WITH_BOOL]}; then
-        if [[ $n == 1 ]]; then
+        if [[ $n == 1 ]] || [[ "$prev" = -* ]] || __contains_word "${COMP_WORDS[COMP_CWORD-2]}" ${OPTS[ARG]}; then
             comps=$( compgen -A file -- "$cur" )
             compopt -o filenames
-        elif [[ $n == 2 ]]; then
+        elif ! __contains_word "$prev" "yes" "no" && { [[ $n == 2 ]] || [[ "$prev" != -* ]]; }; then
             comps='yes no'
         else
             comps=''
