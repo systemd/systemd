@@ -17,3 +17,7 @@
 #ifndef PR_SET_MEMORY_MERGE
 #define PR_SET_MEMORY_MERGE  67
 #endif
+
+#ifndef PR_THP_DISABLE_EXCEPT_ADVISED
+#define PR_THP_DISABLE_EXCEPT_ADVISED	(1 << 1)
+#endif
