@@ -512,6 +512,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .ipoib_mode = _IP_OVER_INFINIBAND_MODE_INVALID,
                 .ipoib_umcast = -1,
+
+                .mm_use_gateway = -1,
         };
 
         r = config_parse_many(
@@ -573,7 +575,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "StochasticFairBlue\0"
                         "StochasticFairnessQueueing\0"
                         "TokenBucketFilter\0"
-                        "TrivialLinkEqualizer\0",
+                        "TrivialLinkEqualizer\0"
+                        "ModemManager\0",
                         config_item_perf_lookup, network_network_gperf_lookup,
                         CONFIG_PARSE_WARN,
                         network,
@@ -841,6 +844,9 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->sr_iov_by_section);
         hashmap_free(network->qdiscs_by_section);
         hashmap_free(network->tclasses_by_section);
+
+        /* ModemManager */
+        strv_free(network->mm_simple_connect_props);
 
         return mfree(network);
 }
