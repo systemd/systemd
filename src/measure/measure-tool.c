@@ -63,7 +63,22 @@ static void free_sections(char*(*sections)[_UNIFIED_SECTION_MAX]) {
 
 STATIC_DESTRUCTOR_REGISTER(arg_sections, free_sections);
 
-static int help(int argc, char *argv[], void *userdata) {
+static char *normalize_phase(const char *s) {
+        /* Let's normalize phase expressions. We split the series of colon-separated words up, then remove
+         * all empty ones, and glue them back together again. In other words we remove duplicate ":", as well
+         * as leading and trailing ones. */
+
+        _cleanup_strv_free_ char **l = strv_split(s, ":"); /* Split series of words */
+        if (!l)
+                return NULL;
+
+        /* Remove all empty words and glue things back together */
+        return strv_join(strv_remove(l, ""), ":");
+}
+
+#include "measure-tool.args.inc"
+
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -79,42 +94,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  sign                   Calculate and sign expected PCR values\n"
                "  policy-digest          Calculate expected TPM2 policy digests\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
-               "     --version           Print version\n"
-               "     --no-pager          Do not pipe output into a pager\n"
-               "  -c --current           Use current PCR values\n"
-               "     --phase=PHASE       Specify a boot phase to sign for\n"
-               "     --bank=DIGEST       Select TPM bank (SHA1, SHA256, SHA384, SHA512)\n"
-               "     --tpm2-device=PATH  Use specified TPM2 device\n"
-               "     --private-key=KEY   Private key (PEM) to sign with\n"
-               "     --private-key-source=file|provider:PROVIDER|engine:ENGINE\n"
-               "                         Specify how to use KEY for --private-key=. Allows\n"
-               "                         an OpenSSL engine/provider to be used for signing\n"
-               "     --public-key=KEY    Public key (PEM) to validate against\n"
-               "     --certificate=PATH|URI\n"
-               "                         PEM certificate to use for signing, or a provider\n"
-               "                         specific designation if --certificate-source= is used\n"
-               "     --certificate-source=file|provider:PROVIDER\n"
-               "                         Specify how to interpret the certificate from\n"
-               "                         --certificate=. Allows the certificate to be loaded\n"
-               "                         from an OpenSSL provider\n"
-               "     --json=MODE         Output as JSON\n"
-               "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
-               "     --append=PATH       Load specified JSON signature, and append new signature to it\n"
-               "\n%3$sUKI PE Section Options:%4$s                                         %3$sUKI PE Section%4$s\n"
-               "     --linux=PATH        Path to Linux kernel image file            %7$s .linux\n"
-               "     --osrel=PATH        Path to os-release file                    %7$s .osrel\n"
-               "     --cmdline=PATH      Path to file with kernel command line      %7$s .cmdline\n"
-               "     --initrd=PATH       Path to initrd image file                  %7$s .initrd\n"
-               "     --ucode=PATH        Path to microcode image file               %7$s .ucode\n"
-               "     --splash=PATH       Path to splash bitmap file                 %7$s .splash\n"
-               "     --dtb=PATH          Path to DeviceTree file                    %7$s .dtb\n"
-               "     --dtbauto=PATH      Path to DeviceTree file for auto selection %7$s .dtbauto\n"
-               "     --uname=PATH        Path to 'uname -r' file                    %7$s .uname\n"
-               "     --sbat=PATH         Path to SBAT file                          %7$s .sbat\n"
-               "     --pcrpkey=PATH      Path to public key for PCR signatures      %7$s .pcrpkey\n"
-               "     --profile=PATH      Path to profile file                       %7$s .profile\n"
-               "     --hwids=PATH        Path to HWIDs file                         %7$s .hwids\n"
+               OPTION_HELP_GENERATED
+               "\n%3$sUKI PE Section Options:%4$s                                     %3$sUKI PE Section%4$s\n"
+               OPTION_HELP_GENERATED_SECTIONS
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -127,226 +109,14 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static char *normalize_phase(const char *s) {
-        _cleanup_strv_free_ char **l = NULL;
-
-        /* Let's normalize phase expressions. We split the series of colon-separated words up, then remove
-         * all empty ones, and glue them back together again. In other words we remove duplicate ":", as well
-         * as leading and trailing ones. */
-
-        l = strv_split(s, ":"); /* Split series of words */
-        if (!l)
-                return NULL;
-
-        /* Remove all empty words and glue things back together */
-        return strv_join(strv_remove(l, ""), ":");
-}
-
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                _ARG_SECTION_FIRST,
-                ARG_LINUX = _ARG_SECTION_FIRST,
-                ARG_OSREL,
-                ARG_CMDLINE,
-                ARG_INITRD,
-                ARG_UCODE,
-                ARG_SPLASH,
-                ARG_DTB,
-                ARG_UNAME,
-                ARG_SBAT,
-                _ARG_PCRSIG, /* the .pcrsig section is not input for signing, hence not actually an argument here */
-                ARG_PCRPKEY,
-                ARG_PROFILE,
-                ARG_DTBAUTO,
-                ARG_HWIDS,
-                _ARG_SECTION_LAST,
-                ARG_EFIFW = _ARG_SECTION_LAST,
-                ARG_BANK,
-                ARG_PRIVATE_KEY,
-                ARG_PRIVATE_KEY_SOURCE,
-                ARG_PUBLIC_KEY,
-                ARG_CERTIFICATE,
-                ARG_CERTIFICATE_SOURCE,
-                ARG_TPM2_DEVICE,
-                ARG_JSON,
-                ARG_PHASE,
-                ARG_APPEND,
-        };
 
-        static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'                    },
-                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER           },
-                { "version",            no_argument,       NULL, ARG_VERSION            },
-                { "linux",              required_argument, NULL, ARG_LINUX              },
-                { "osrel",              required_argument, NULL, ARG_OSREL              },
-                { "cmdline",            required_argument, NULL, ARG_CMDLINE            },
-                { "initrd",             required_argument, NULL, ARG_INITRD             },
-                { "ucode",              required_argument, NULL, ARG_UCODE              },
-                { "splash",             required_argument, NULL, ARG_SPLASH             },
-                { "dtb",                required_argument, NULL, ARG_DTB                },
-                { "dtbauto",            required_argument, NULL, ARG_DTBAUTO            },
-                { "uname",              required_argument, NULL, ARG_UNAME              },
-                { "sbat",               required_argument, NULL, ARG_SBAT               },
-                { "pcrpkey",            required_argument, NULL, ARG_PCRPKEY            },
-                { "profile",            required_argument, NULL, ARG_PROFILE            },
-                { "hwids",              required_argument, NULL, ARG_HWIDS              },
-                { "current",            no_argument,       NULL, 'c'                    },
-                { "bank",               required_argument, NULL, ARG_BANK               },
-                { "tpm2-device",        required_argument, NULL, ARG_TPM2_DEVICE        },
-                { "private-key",        required_argument, NULL, ARG_PRIVATE_KEY        },
-                { "private-key-source", required_argument, NULL, ARG_PRIVATE_KEY_SOURCE },
-                { "public-key",         required_argument, NULL, ARG_PUBLIC_KEY         },
-                { "certificate",        required_argument, NULL, ARG_CERTIFICATE        },
-                { "certificate-source", required_argument, NULL, ARG_CERTIFICATE_SOURCE },
-                { "json",               required_argument, NULL, ARG_JSON               },
-                { "phase",              required_argument, NULL, ARG_PHASE              },
-                { "append",             required_argument, NULL, ARG_APPEND             },
-                {}
-        };
 
-        int c, r;
+        int r;
 
-        assert(argc >= 0);
-        assert(argv);
-
-        /* Make sure the arguments list and the section list, stays in sync */
-        assert_cc(_ARG_SECTION_FIRST + _UNIFIED_SECTION_MAX == _ARG_SECTION_LAST + 1);
-
-        while ((c = getopt_long(argc, argv, "hjc", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case _ARG_SECTION_FIRST..._ARG_SECTION_LAST: {
-                        UnifiedSection section = c - _ARG_SECTION_FIRST;
-
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, arg_sections + section);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
-                case 'c':
-                        arg_current = true;
-                        break;
-
-                case ARG_BANK: {
-                        const EVP_MD *implementation;
-
-                        implementation = EVP_get_digestbyname(optarg);
-                        if (!implementation)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", optarg);
-
-                        if (strv_extend(&arg_banks, EVP_MD_name(implementation)) < 0)
-                                return log_oom();
-
-                        break;
-                }
-
-                case ARG_PRIVATE_KEY:
-                        r = free_and_strdup_warn(&arg_private_key, optarg);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_PRIVATE_KEY_SOURCE:
-                        r = parse_openssl_key_source_argument(
-                                        optarg,
-                                        &arg_private_key_source,
-                                        &arg_private_key_source_type);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_PUBLIC_KEY:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_public_key);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_CERTIFICATE:
-                        r = free_and_strdup_warn(&arg_certificate, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_CERTIFICATE_SOURCE:
-                        r = parse_openssl_certificate_source_argument(
-                                        optarg,
-                                        &arg_certificate_source,
-                                        &arg_certificate_source_type);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_TPM2_DEVICE: {
-                        _cleanup_free_ char *device = NULL;
-
-                        if (streq(optarg, "list"))
-                                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
-
-                        if (!streq(optarg, "auto")) {
-                                device = strdup(optarg);
-                                if (!device)
-                                        return log_oom();
-                        }
-
-                        free_and_replace(arg_tpm2_device, device);
-                        break;
-                }
-
-                case 'j':
-                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case ARG_PHASE: {
-                        char *n;
-
-                        n = normalize_phase(optarg);
-                        if (!n)
-                                return log_oom();
-
-                        r = strv_consume(&arg_phase, TAKE_PTR(n));
-                        if (r < 0)
-                                return r;
-
-                        break;
-                }
-
-                case ARG_APPEND:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_append);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (arg_public_key && arg_certificate)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Both --public-key= and --certificate= specified, refusing.");
@@ -1147,7 +917,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
 static int measure_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",          VERB_ANY, VERB_ANY, 0,            help               },
+                { "help",          VERB_ANY, VERB_ANY, 0,            verb_help          },
                 { "status",        VERB_ANY, 1,        VERB_DEFAULT, verb_status        },
                 { "calculate",     VERB_ANY, 1,        0,            verb_calculate     },
                 { "policy-digest", VERB_ANY, 1,        0,            verb_policy_digest },
