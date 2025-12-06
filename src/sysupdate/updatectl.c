@@ -48,6 +48,8 @@ typedef struct Version {
         char *contents_json;
 } Version;
 
+#include "updatectl.args.inc"
+
 static void version_done(Version *v) {
         assert(v);
 
@@ -1492,96 +1494,16 @@ static int help(void) {
                "  features [FEATURE]            List and inspect optional features on host OS\n"
                "  enable FEATURE...             Enable optional feature on host OS\n"
                "  disable FEATURE...            Disable optional feature on host OS\n"
-               "  -h --help                     Show this help\n"
-               "     --version                  Show package version\n"
+               OPTION_HELP_GENERATED_COMMANDS
                "\n%3$sOptions:%4$s\n"
-               "     --reboot             Reboot after updating to newer version\n"
-               "     --offline            Do not fetch metadata from the network\n"
-               "     --now                Download/delete resources immediately\n"
-               "  -H --host=[USER@]HOST   Operate on remote host\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-               , ansi_underline(), ansi_normal()
-               , ansi_highlight(), ansi_normal()
-        );
+               OPTION_HELP_GENERATED
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               ansi_underline(), ansi_normal(),
+               ansi_highlight(), ansi_normal());
 
         return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_REBOOT,
-                ARG_OFFLINE,
-                ARG_NOW,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'             },
-                { "version",   no_argument,       NULL, ARG_VERSION     },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER    },
-                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND   },
-                { "host",      required_argument, NULL, 'H'             },
-                { "reboot",    no_argument,       NULL, ARG_REBOOT      },
-                { "offline",   no_argument,       NULL, ARG_OFFLINE     },
-                { "now",       no_argument,       NULL, ARG_NOW         },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hH:", options, NULL)) >= 0) {
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case ARG_REBOOT:
-                        arg_reboot = true;
-                        break;
-
-                case ARG_OFFLINE:
-                        arg_offline = true;
-                        break;
-
-                case ARG_NOW:
-                        arg_now = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-        }
-
-        return 1;
 }
 
 static int run(int argc, char *argv[]) {
@@ -1604,7 +1526,7 @@ static int run(int argc, char *argv[]) {
 
         (void) signal(SIGWINCH, columns_lines_cache_reset);
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 
