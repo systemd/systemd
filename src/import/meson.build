@@ -37,6 +37,7 @@ executables += [
                         'pull-common.c',
                         'curl-util.c',
                 ),
+                'arg_parser' : files('pull.args'),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps + [
                         libopenssl,
