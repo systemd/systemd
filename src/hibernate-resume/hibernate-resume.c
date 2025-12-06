@@ -20,6 +20,8 @@ static bool arg_clear = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_info, hibernate_info_done);
 
+#include "hibernate-resume.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -30,9 +32,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [DEVICE [OFFSET]]\n"
                "\n%sInitiate resume from hibernation.%s\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "     --clear           Clear hibernation storage information from EFI and exit\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -43,44 +43,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_CLEAR,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "clear",     no_argument,       NULL, ARG_CLEAR     },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_CLEAR:
-                        arg_clear = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (argc > optind && arg_clear)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

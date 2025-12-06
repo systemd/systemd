@@ -9,6 +9,7 @@ executables += [
                 'name' : 'systemd-hibernate-resume',
                 'sources' : files('hibernate-resume.c'),
                 'extract' : files('hibernate-resume-config.c'),
+                'arg_parser' : files('hibernate-resume.args'),
         },
         generator_template + {
                 'name' : 'systemd-hibernate-resume-generator',
