@@ -54,6 +54,7 @@ typedef struct TarPull {
         void *userdata;
 
         char *local;
+        int local_fd;
 
         PidRef tar_pid;
 
@@ -483,7 +484,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
         if (p->flags & IMPORT_DIRECT) {
                 assert(!p->settings_job);
-                assert(p->local);
+                assert(p->local || p->local_fd >= 0);
                 assert(!p->temp_path);
 
                 tar_pull_report_progress(p, TAR_FINALIZING);
@@ -492,6 +493,8 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 if (r < 0)
                         goto finish;
 
+                if (!p->local) //FIXME
+                        goto finish;
                 r = install_file(
                                 AT_FDCWD, p->local,
                                 AT_FDCWD, NULL,
@@ -586,57 +589,60 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
         assert(!pidref_is_set(&p->tar_pid));
         assert(p->tree_fd < 0);
 
-        if (p->flags & IMPORT_DIRECT)
-                where = p->local;
-        else {
-                if (!p->temp_path) {
-                        r = tempfn_random_child(p->image_root, "tar", &p->temp_path);
+        if (p->local_fd < 0) {
+                if (p->flags & IMPORT_DIRECT)
+                        where = p->local;
+                else {
+                        if (!p->temp_path) {
+                                r = tempfn_random_child(p->image_root, "tar", &p->temp_path);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
+                        where = p->temp_path;
+                }
+
+                (void) mkdir_parents_label(where, 0700);
+
+                if (FLAGS_SET(p->flags, IMPORT_DIRECT|IMPORT_FORCE))
+                        (void) rm_rf(where, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+
+                if (FLAGS_SET(p->flags, IMPORT_FOREIGN_UID)) {
+                        r = import_make_foreign_userns(&p->userns_fd);
                         if (r < 0)
-                                return log_oom();
+                                return r;
+
+                        _cleanup_close_ int directory_fd = -EBADF;
+                        r = mountfsd_make_directory(where, /* flags= */ 0, &directory_fd);
+                        if (r < 0)
+                                return r;
+
+                        r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &p->tree_fd);
+                        if (r < 0)
+                                return r;
+                } else {
+                        if (p->flags & IMPORT_BTRFS_SUBVOL)
+                                r = btrfs_subvol_make_fallback(AT_FDCWD, where, 0755);
+                        else
+                                r = RET_NERRNO(mkdir(where, 0755));
+                        if (r == -EEXIST && (p->flags & IMPORT_DIRECT)) /* EEXIST is OK if in direct mode, but not otherwise,
+                                                                         * because in that case our temporary path collided */
+                                r = 0;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create directory/subvolume %s: %m", where);
+
+                        if (r > 0 && (p->flags & IMPORT_BTRFS_QUOTA)) { /* actually btrfs subvol */
+                                if (!(p->flags & IMPORT_DIRECT))
+                                        (void) import_assign_pool_quota_and_warn(p->image_root);
+                                (void) import_assign_pool_quota_and_warn(where);
+                        }
+
+                        p->tree_fd = open(where, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                        if (p->tree_fd < 0)
+                                return log_error_errno(errno, "Failed to open '%s': %m", where);
                 }
-
-                where = p->temp_path;
-        }
-
-        (void) mkdir_parents_label(where, 0700);
-
-        if (FLAGS_SET(p->flags, IMPORT_DIRECT|IMPORT_FORCE))
-                (void) rm_rf(where, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
-
-        if (FLAGS_SET(p->flags, IMPORT_FOREIGN_UID)) {
-                r = import_make_foreign_userns(&p->userns_fd);
-                if (r < 0)
-                        return r;
-
-                _cleanup_close_ int directory_fd = -EBADF;
-                r = mountfsd_make_directory(where, /* flags= */ 0, &directory_fd);
-                if (r < 0)
-                        return r;
-
-                r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &p->tree_fd);
-                if (r < 0)
-                        return r;
-        } else {
-                if (p->flags & IMPORT_BTRFS_SUBVOL)
-                        r = btrfs_subvol_make_fallback(AT_FDCWD, where, 0755);
-                else
-                        r = RET_NERRNO(mkdir(where, 0755));
-                if (r == -EEXIST && (p->flags & IMPORT_DIRECT)) /* EEXIST is OK if in direct mode, but not otherwise,
-                                                                 * because in that case our temporary path collided */
-                        r = 0;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create directory/subvolume %s: %m", where);
-
-                if (r > 0 && (p->flags & IMPORT_BTRFS_QUOTA)) { /* actually btrfs subvol */
-                        if (!(p->flags & IMPORT_DIRECT))
-                                (void) import_assign_pool_quota_and_warn(p->image_root);
-                        (void) import_assign_pool_quota_and_warn(where);
-                }
-
-                p->tree_fd = open(where, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-                if (p->tree_fd < 0)
-                        return log_error_errno(errno, "Failed to open '%s': %m", where);
-        }
+        } else
+                p->tree_fd = p->local_fd;
 
         j->disk_fd = import_fork_tar_x(p->tree_fd, p->userns_fd, &p->tar_pid);
         if (j->disk_fd < 0)
@@ -685,6 +691,7 @@ int tar_pull_start(
                 TarPull *p,
                 const char *url,
                 const char *local,
+                int local_fd,
                 ImportFlags flags,
                 ImportVerify verify,
                 const struct iovec *checksum) {
@@ -711,6 +718,7 @@ int tar_pull_start(
         r = free_and_strdup(&p->local, local);
         if (r < 0)
                 return r;
+        p->local_fd = local_fd;
 
         p->flags = flags;
         p->verify = verify;

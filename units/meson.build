@@ -652,6 +652,15 @@ units = [
           'conditions' : ['ENABLE_PSTORE'],
         },
         {
+          'file' : 'systemd-pull.socket',
+          'conditions' : ['ENABLE_IMPORTD'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-pull@.service',
+          'conditions' : ['ENABLE_IMPORTD'],
+        },
+        {
           'file' : 'systemd-quotacheck@.service.in',
           'conditions' : ['ENABLE_QUOTACHECK'],
         },
