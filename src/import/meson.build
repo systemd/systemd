@@ -60,6 +60,7 @@ executables += [
                 'sources' : files(
                         'import-fs.c',
                 ),
+                'arg_parser' : files('import-fs.args'),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
         },
