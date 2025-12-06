@@ -1780,6 +1780,33 @@ int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
 
         return 0;
 }
+
+int openssl_extract_certificate(X509 *cert, X509 **ret) {
+        int r;
+
+        assert(cert);
+        assert(ret);
+
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *tf = memstream_init(&m);
+        if (!tf)
+                return log_oom();
+
+        if (i2d_X509_fp(tf, cert) != 1)
+                return -EIO;
+
+        _cleanup_free_ char *buf = NULL;
+        size_t len;
+        r = memstream_finalize(&m, &buf, &len);
+        if (r < 0)
+                return r;
+
+        const unsigned char *t = (unsigned char*) buf;
+        if (!d2i_X509(ret, &t, len))
+                return -EIO;
+
+        return 0;
+}
 #endif
 
 int parse_openssl_certificate_source_argument(
