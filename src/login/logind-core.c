@@ -244,11 +244,14 @@ int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret) {
 
 int manager_add_button(Manager *m, const char *name, Button **ret_button) {
         Button *b;
+        bool is_new;
 
         assert(m);
         assert(name);
 
         b = hashmap_get(m->buttons, name);
+        is_new = !b;
+
         if (!b) {
                 b = button_new(m, name);
                 if (!b)
@@ -258,7 +261,7 @@ int manager_add_button(Manager *m, const char *name, Button **ret_button) {
         if (ret_button)
                 *ret_button = b;
 
-        return 0;
+        return is_new;
 }
 
 int manager_process_seat_device(Manager *m, sd_device *d) {
@@ -328,9 +331,10 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
         return 0;
 }
 
-int manager_process_button_device(Manager *m, sd_device *d) {
-        const char *sysname;
+int manager_process_button_device(Manager *m, sd_device *d, Button **ret_button) {
+        const char *sysname, *sn;
         Button *b;
+        bool is_new;
         int r;
 
         assert(m);
@@ -340,28 +344,40 @@ int manager_process_button_device(Manager *m, sd_device *d) {
                 return r;
 
         if (device_for_action(d, SD_DEVICE_REMOVE) ||
-            sd_device_has_current_tag(d, "power-switch") <= 0)
+            sd_device_has_current_tag(d, "power-switch") <= 0) {
 
                 button_free(hashmap_get(m->buttons, sysname));
-
-        else {
-                const char *sn;
-
-                r = manager_add_button(m, sysname, &b);
-                if (r < 0)
-                        return r;
-
-                r = device_get_seat(d, &sn);
-                if (r < 0)
-                        return r;
-
-                button_set_seat(b, sn);
-
-                r = button_open(b);
-                if (r < 0) /* event device doesn't have any keys or switches relevant to us? (or any other error
-                            * opening the device?) let's close the button again. */
-                        button_free(b);
+                goto no_match;
         }
+
+        r = manager_add_button(m, sysname, &b);
+        if (r < 0)
+                return r;
+
+        is_new = r > 0;
+
+        r = device_get_seat(d, &sn);
+        if (r < 0)
+                return r;
+
+        button_set_seat(b, sn);
+
+        if (is_new) {
+                r = button_open(b);
+                if (r < 0) {
+                        button_free(b);
+                        goto no_match;
+                }
+        }
+
+        if (ret_button)
+                *ret_button = b;
+
+        return is_new;
+
+no_match:
+        if (ret_button)
+                *ret_button = NULL;
 
         return 0;
 }
