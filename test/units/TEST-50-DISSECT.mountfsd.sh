@@ -55,7 +55,7 @@ if (SYSTEMD_LOG_TARGET=console varlinkctl call \
         /run/systemd/userdb/io.systemd.NamespaceResource \
         io.systemd.NamespaceResource.AllocateUserRange \
         '{"name":"test-supported","size":65536,"userNamespaceFileDescriptor":0}' 2>&1 || true) |
-            grep -q "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"; then
+            grep "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported" >/dev/null; then
     echo "User namespace interface not supported, skipping mountfsd/nsresourced tests"
     exit 0
 fi
