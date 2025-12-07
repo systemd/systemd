@@ -4896,6 +4896,188 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING: {
+                        const union in_addr_union *a;
+                        const char *n;
+                        int f;
+                        _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        a = va_arg(ap, const union in_addr_union *);
+                        f = va_arg(ap, int);
+
+                        if (a && in_addr_is_set(f, a) && current->n_suppress == 0) {
+                                r = in_addr_to_string(f, a, &addr_str);
+                                if (r < 0)
+                                        goto finish;
+
+                                /* Create string key name using asprintf to avoid stack allocation in loop */
+                                r = asprintf(&string_key_name, "%sString", n);
+                                if (r < 0)
+                                        goto finish;
+
+                                sd_json_variant *string_key = NULL;
+                                /* Add binary format key */
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                /* Add binary format value */
+                                r = sd_json_variant_new_array_bytes(&add_more, a->bytes, FAMILY_ADDRESS_SIZE(f));
+                                if (r < 0)
+                                        goto finish;
+
+                                /* Create string key */
+                                r = sd_json_variant_new_string(&string_key, string_key_name);
+                                if (r < 0)
+                                        goto finish;
+
+                                /* We need to append string key and value after the binary pair
+                                   The way to do this is to queue them in add_more */
+                                sd_json_variant *combined = NULL;
+                                r = sd_json_variant_append_array(&add_more, string_key);
+                                sd_json_variant_unref(string_key);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_new_string(&combined, addr_str);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_append_array(&add_more, combined);
+                                sd_json_variant_unref(combined);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 4; /* we generated four items: key, value, key, value */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_IN6_ADDR_WITH_STRING: {
+                        const struct in6_addr *a;
+                        const char *n;
+                        _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        a = va_arg(ap, const struct in6_addr *);
+
+                        if (a && in6_addr_is_set(a) && current->n_suppress == 0) {
+                                r = in6_addr_to_string(a, &addr_str);
+                                if (r < 0)
+                                        goto finish;
+
+                                /* Create string key name using asprintf to avoid stack allocation in loop */
+                                r = asprintf(&string_key_name, "%sString", n);
+                                if (r < 0)
+                                        goto finish;
+
+                                sd_json_variant *string_key = NULL;
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_new_array_bytes(&add_more, a, sizeof(struct in6_addr));
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_new_string(&string_key, string_key_name);
+                                if (r < 0)
+                                        goto finish;
+
+                                sd_json_variant *combined = NULL;
+                                r = sd_json_variant_append_array(&add_more, string_key);
+                                sd_json_variant_unref(string_key);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_new_string(&combined, addr_str);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_append_array(&add_more, combined);
+                                sd_json_variant_unref(combined);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 4; /* we generated four items */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING: {
+                        const struct in_addr *a;
+                        const char *n;
+                        _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        a = va_arg(ap, const struct in_addr *);
+
+                        if (a && !in4_addr_is_null(a) && current->n_suppress == 0) {
+                                union in_addr_union addr_union = { .in = *a };
+                                r = in_addr_to_string(AF_INET, &addr_union, &addr_str);
+                                if (r < 0)
+                                        goto finish;
+
+                                /* Create string key name using asprintf to avoid stack allocation in loop */
+                                r = asprintf(&string_key_name, "%sString", n);
+                                if (r < 0)
+                                        goto finish;
+
+                                sd_json_variant *string_key = NULL;
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_new_array_bytes(&add_more, a, sizeof(struct in_addr));
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_new_string(&string_key, string_key_name);
+                                if (r < 0)
+                                        goto finish;
+
+                                sd_json_variant *combined = NULL;
+                                r = sd_json_variant_append_array(&add_more, string_key);
+                                sd_json_variant_unref(string_key);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_new_string(&combined, addr_str);
+                                if (r < 0)
+                                        goto finish;
+
+                                r = sd_json_variant_append_array(&add_more, combined);
+                                sd_json_variant_unref(combined);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 4; /* we generated four items */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
                 case _JSON_BUILD_PAIR_CALLBACK_NON_NULL: {
                         sd_json_build_callback_t cb;
                         void *userdata;
