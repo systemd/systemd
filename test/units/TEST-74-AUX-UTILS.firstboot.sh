@@ -77,7 +77,7 @@ systemd-firstboot --root="$ROOT" --keymap=foo
 grep -q "KEYMAP=foo" "$ROOT/etc/vconsole.conf"
 
 systemd-firstboot --root="$ROOT" --timezone=Europe/Berlin
-readlink "$ROOT/etc/localtime" | grep -q "Europe/Berlin"
+readlink "$ROOT/etc/localtime" | grep "Europe/Berlin" >/dev/null
 
 systemd-firstboot --root="$ROOT" --hostname "foobar"
 grep -q "foobar" "$ROOT/etc/hostname"
@@ -145,7 +145,7 @@ systemd-firstboot --root="$ROOT" \
 grep -q "LANG=foo" "$ROOT$LOCALE_PATH"
 grep -q "LC_MESSAGES=bar" "$ROOT$LOCALE_PATH"
 grep -q "KEYMAP=foo" "$ROOT/etc/vconsole.conf"
-readlink "$ROOT/etc/localtime" | grep -q "Europe/Berlin$"
+readlink "$ROOT/etc/localtime" | grep "Europe/Berlin$" >/dev/null
 grep -q "foobar" "$ROOT/etc/hostname"
 grep -q "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "$ROOT/etc/machine-id"
 grep -q "^root:x:0:0:.*:/bin/fooshell$" "$ROOT/etc/passwd"
@@ -166,7 +166,7 @@ systemd-firstboot --root="$ROOT" --force \
 grep -q "LANG=locale-overwrite" "$ROOT$LOCALE_PATH"
 grep -q "LC_MESSAGES=messages-overwrite" "$ROOT$LOCALE_PATH"
 grep -q "KEYMAP=keymap-overwrite" "$ROOT/etc/vconsole.conf"
-readlink "$ROOT/etc/localtime" | grep -q "/Europe/Berlin$"
+readlink "$ROOT/etc/localtime" | grep "/Europe/Berlin$" >/dev/null
 grep -q "hostname-overwrite" "$ROOT/etc/hostname"
 grep -q "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" "$ROOT/etc/machine-id"
 grep -q "^root:x:0:0:.*:/bin/barshell$" "$ROOT/etc/passwd"
@@ -227,7 +227,7 @@ if [ -d "/usr/share/keymaps/" ] || [ -d "/usr/share/kbd/keymaps/" ] || [ -d "/us
    systemd-firstboot --root="$ROOT" --prompt-keymap-auto >/dev/null
 fi
 echo -ne "Europe/Berlin\n" | systemd-firstboot --root="$ROOT" --prompt-timezone
-readlink "$ROOT/etc/localtime" | grep -q "Europe/Berlin$"
+readlink "$ROOT/etc/localtime" | grep "Europe/Berlin$" >/dev/null
 echo -ne "foobar\n" | systemd-firstboot --root="$ROOT" --prompt-hostname
 grep -q "foobar" "$ROOT/etc/hostname"
 # With no root password provided, a locked account should be created.
@@ -270,7 +270,7 @@ systemd-run --wait --pipe --service-type=exec \
 grep -q "LANG=foo" "$ROOT$LOCALE_PATH"
 grep -q "LC_MESSAGES=bar" "$ROOT$LOCALE_PATH"
 grep -q "KEYMAP=foo" "$ROOT/etc/vconsole.conf"
-readlink "$ROOT/etc/localtime" | grep -q "Europe/Berlin$"
+readlink "$ROOT/etc/localtime" | grep "Europe/Berlin$" >/dev/null
 grep -q "^root:x:0:0:.*:/bin/fooshell$" "$ROOT/etc/passwd"
 grep -q "^root:$ROOT_HASHED_PASSWORD1:" "$ROOT/etc/shadow"
 
