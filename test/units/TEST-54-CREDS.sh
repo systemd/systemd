@@ -54,7 +54,7 @@ EOF
     # Verify mount succeeds
     systemctl daemon-reload
     systemctl start "$unit"
-    systemctl --no-pager show -p SubState --value "$unit" | grep -q mounted
+    systemctl --no-pager show -p SubState --value "$unit" | grep mounted >/dev/null
 
     # Verify mount fails with different credential file content
     echo bar >"$credfile"
@@ -408,7 +408,7 @@ systemd-run -p "ImportCredentialEx=test.creds.first" \
 cmp /tmp/ts54-concat <(echo -n aaa)
 
 # Now test encrypted credentials (only supported when built with OpenSSL though)
-if systemctl --version | grep -q -- +OPENSSL ; then
+if systemctl --version | grep -- +OPENSSL  >/dev/null; then
     echo -n $RANDOM >/tmp/test-54-plaintext
     systemd-creds encrypt --name=test-54 /tmp/test-54-plaintext /tmp/test-54-ciphertext
     systemd-creds decrypt --name=test-54 /tmp/test-54-ciphertext | cmp /tmp/test-54-plaintext
@@ -484,7 +484,7 @@ if ! systemd-detect-virt -q -c ; then
     grep -q /injected /proc/self/mountinfo
 
     # Make sure the getty generator processed the credentials properly
-    systemctl -P Wants show getty.target | grep -q container-getty@idontexist.service
+    systemctl -P Wants show getty.target | grep container-getty@idontexist.service >/dev/null
 fi
 
 # Decrypt/encrypt via varlink

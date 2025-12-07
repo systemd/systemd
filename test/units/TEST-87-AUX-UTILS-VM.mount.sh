@@ -72,23 +72,23 @@ systemd-mount --umount "$LOOP"
 # Discover additional metadata (unit description should now contain filesystem label)
 systemd-mount --no-ask-password --discover "$LOOP" "$WORK_DIR/mnt"
 test -e "$WORK_DIR/mnt/foo.bar"
-systemctl show -P Description "$WORK_DIR/mnt" | grep -q sd-mount-test
+systemctl show -P Description "$WORK_DIR/mnt" | grep sd-mount-test >/dev/null
 systemd-umount "$WORK_DIR/mnt"
 # Set a unit description
 systemd-mount --description="Very Important Unit" "$LOOP" "$WORK_DIR/mnt"
 test -e "$WORK_DIR/mnt/foo.bar"
-systemctl show -P Description "$WORK_DIR/mnt" | grep -q "Very Important Unit"
+systemctl show -P Description "$WORK_DIR/mnt" | grep "Very Important Unit" >/dev/null
 systemd-umount "$WORK_DIR/mnt"
 # Set a property
 systemd-mount --property="Description=Foo Bar" "$LOOP" "$WORK_DIR/mnt"
 test -e "$WORK_DIR/mnt/foo.bar"
-systemctl show -P Description "$WORK_DIR/mnt" | grep -q "Foo Bar"
+systemctl show -P Description "$WORK_DIR/mnt" | grep "Foo Bar" >/dev/null
 systemd-umount "$WORK_DIR/mnt"
 # Set mount options
 systemd-mount --options=ro,x-foo-bar "$LOOP" "$WORK_DIR/mnt"
 test -e "$WORK_DIR/mnt/foo.bar"
-systemctl show -P Options "$WORK_DIR/mnt" | grep -Eq "(^ro|,ro)"
-systemctl show -P Options "$WORK_DIR/mnt" | grep -q "x-foo-bar"
+systemctl show -P Options "$WORK_DIR/mnt" | grep -E "(^ro|,ro)" >/dev/null
+systemctl show -P Options "$WORK_DIR/mnt" | grep "x-foo-bar" >/dev/null
 systemd-umount "$WORK_DIR/mnt"
 
 # Mount with only source set
@@ -108,7 +108,7 @@ systemctl status "$WORK_DIR/mnt"
 systemd-umount "$WORK_DIR/mnt"
 # Automount + automount-specific property
 systemd-mount -A --automount-property="Description=Bar Baz" "$LOOP" "$WORK_DIR/mnt"
-systemctl show -P Description "$(systemd-escape --path "$WORK_DIR/mnt").automount" | grep -q "Bar Baz"
+systemctl show -P Description "$(systemd-escape --path "$WORK_DIR/mnt").automount" | grep "Bar Baz" >/dev/null
 test -e "$WORK_DIR/mnt/foo.bar"
 # Call --umount via --machine=, first with a relative path (bad) and then with
 # an absolute one (good)
@@ -185,5 +185,5 @@ systemd-umount LABEL=owner-vfat
 GRACEFULTEST="/tmp/graceful/$RANDOM"
 systemd-mount --tmpfs --options="x-systemd.graceful-option=idefinitelydontexist,x-systemd.graceful-option=nr_inodes=4711,x-systemd.graceful-option=idonexisteither" "$GRACEFULTEST"
 findmnt -n -o options "$GRACEFULTEST"
-findmnt -n -o options "$GRACEFULTEST" | grep -q nr_inodes=4711
+findmnt -n -o options "$GRACEFULTEST" | grep nr_inodes=4711 >/dev/null
 umount "$GRACEFULTEST"
