@@ -659,10 +659,6 @@ foreach prog : progs
         conf.set_quoted(name, path)
 endforeach
 
-if run_command(ln, '--relative', '--help', check : false).returncode() != 0
-        error('ln does not support --relative (added in coreutils 8.16)')
-endif
-
 #####################################################################
 
 gperf_test_format = '''
@@ -779,7 +775,12 @@ if time_epoch <= 0
         if time_epoch == ''
                 NEWS = files('NEWS')
                 time_epoch = run_command(stat, '-c', '%Y', NEWS,
-                                         check : true).stdout()
+                                         check : false)
+                if time_epoch.returncode() != 0
+                        time_epoch = run_command(stat, '-f', '%m', NEWS,
+                                                 check : true)
+                endif
+                time_epoch = time_epoch.stdout()
         endif
         time_epoch = time_epoch.strip().to_int()
 endif
@@ -3026,8 +3027,11 @@ if conf.get('ENABLE_HWDB') == 1
         alias_target('hwdb', auto_suspend_rules, executables_by_name.get('systemd-hwdb'), hwdb_units)
 endif
 
-alt_time_epoch = run_command('date', '-Is', '-u', '-d', f'@@time_epoch@',
-                             check : true).stdout().strip()
+alt_time_epoch = run_command('date', '-Is', '-u', '-d', f'@@time_epoch@', check : false)
+if alt_time_epoch.returncode() != 0
+        alt_time_epoch = run_command('date', '-Iseconds', '-u', '-r', f'@time_epoch@', check : true)
+endif
+alt_time_epoch = alt_time_epoch.stdout().strip()
 
 summary({
         'split bin-sbin'                            : split_bin,
