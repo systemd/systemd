@@ -25,6 +25,17 @@ setup_test_user() {
     trap cleanup_test_user EXIT
 }
 
+session_bus_path() {
+    local session
+
+    session=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
+    if ! [[ "${session?}" =~ c[0-9]* ]]; then
+        # When numeric, bus path is prefixed with '_3'
+        session="_3${session}"
+    fi
+    echo "/org/freedesktop/login1/session/${session}"
+}
+
 test_write_dropin() {
     systemctl edit --runtime --stdin systemd-logind.service --drop-in=debug.conf <<EOF
 [Service]
@@ -268,6 +279,7 @@ cleanup_session() (
     loginctl terminate-user logind-test-user
 
     if ! timeout 30 bash -c "while loginctl --no-legend | grep -q logind-test-user; do sleep 1; done"; then
+        loginctl
         echo "WARNING: session for logind-test-user still active, ignoring."
     fi
 
@@ -556,12 +568,11 @@ testcase_session_properties() {
     trap cleanup_session RETURN
     create_session
 
-    s=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
-    /usr/lib/systemd/tests/unit-tests/manual/test-session-properties "/org/freedesktop/login1/session/_3${s?}" /dev/tty2
+    /usr/lib/systemd/tests/unit-tests/manual/test-session-properties "$(session_bus_path)" /dev/tty2
 }
 
 testcase_list_users_sessions_seats() {
-    local session seat
+    local path seat
 
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
@@ -574,11 +585,11 @@ testcase_list_users_sessions_seats() {
     # Activate the session
     loginctl activate "$(loginctl --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')"
 
-    session=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
+    path=$(session_bus_path)
     : check that we got a valid session id
-    busctl get-property org.freedesktop.login1 "/org/freedesktop/login1/session/_3${session?}" org.freedesktop.login1.Session Id
-    busctl get-property org.freedesktop.login1 "/org/freedesktop/login1/session/_3${session?}" org.freedesktop.login1.Session CanIdle
-    busctl get-property org.freedesktop.login1 "/org/freedesktop/login1/session/_3${session?}" org.freedesktop.login1.Session CanLock
+    busctl get-property org.freedesktop.login1 "$path" org.freedesktop.login1.Session Id
+    busctl get-property org.freedesktop.login1 "$path" org.freedesktop.login1.Session CanIdle
+    busctl get-property org.freedesktop.login1 "$path" org.freedesktop.login1.Session CanLock
     assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $2 }')" "$(id -ru logind-test-user)"
     seat=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $4 }')
     assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $6 }')" user

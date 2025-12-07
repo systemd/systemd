@@ -3,11 +3,21 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 if ! systemd-detect-virt -qc && [[ "${TEST_CMDLINE_NEWLINE:-}" != bar ]]; then
     cat /proc/cmdline
     echo >&2 "Expected TEST_CMDLINE_NEWLINE=bar from the kernel command line"
     exit 1
 fi
+
+if built_with_musl; then
+    SYSTEMD_LIBC=musl
+else
+    SYSTEMD_LIBC=glibc
+fi
+export SYSTEMD_LIBC
 
 if [[ -z "${TEST_MATCH_SUBTEST:-}" ]]; then
     # If we're running with TEST_PREFER_NSPAWN=1 limit the set of tests we run
@@ -66,6 +76,7 @@ run_test() {
         --property Delegate=1 \
         --property EnvironmentFile=-/usr/lib/systemd/systemd-asan-env \
         --property "Environment=$environment" \
+        --setenv SYSTEMD_LIBC \
         --unit="$name" \
         --wait "$test" && ret=0 || ret=$?
 

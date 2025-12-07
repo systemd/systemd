@@ -79,8 +79,12 @@ systemd-analyze dump "*.socket" "*.service" aaaaaaa ... >/dev/null
 systemd-analyze dump systemd-journald.service >/dev/null
 (! systemd-analyze dump "")
 (! systemd-analyze dump --global systemd-journald.service)
-# malloc
-systemd-analyze malloc >/dev/null
+# malloc (supported only when built with glibc)
+if built_with_musl; then
+    (! systemd-analyze malloc)
+else
+    systemd-analyze malloc >/dev/null
+fi
 (! systemd-analyze malloc --global)
 # unit-files
 systemd-analyze unit-files >/dev/null
@@ -1146,7 +1150,7 @@ Description=Test unit for systemd-analyze unit-shell
 [Service]
 Type=notify
 NotifyAccess=all
-ExecStart=sh -c "echo 'Hello from test unit' >/tmp/testfile; systemd-notify --ready; sleep infinity"
+ExecStart=bash -c "echo 'Hello from test unit' >/tmp/testfile; systemd-notify --ready; sleep infinity"
 PrivateTmp=disconnected
 EOF
 # Start the service
