@@ -8581,8 +8581,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online('veth-peer:carrier')
         masq = lambda bs: ':'.join(f'{b:02x}' for b in bs)
-        start_dnsmasq('--dhcp-option=114,' + masq(b'http://\x00invalid/url'),
-                      '--dhcp-option=option6:103,' + masq(b'http://\x00/invalid/url'))
+        start_dnsmasq('--dhcp-option=114,http://|invalid/url',
+                      '--dhcp-option=option6:103,http://|invalid/url')
 
         check(self, True, True)
         check(self, True, False)
