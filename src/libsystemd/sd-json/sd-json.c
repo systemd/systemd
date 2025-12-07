@@ -4900,7 +4900,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         const union in_addr_union *a;
                         const char *n;
                         int f;
-                        _cleanup_free_ char *addr_str = NULL;
+                        _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
                                 r = -EINVAL;
@@ -4916,6 +4916,11 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
+                                /* Create string key name using asprintf to avoid stack allocation in loop */
+                                r = asprintf(&string_key_name, "%sString", n);
+                                if (r < 0)
+                                        goto finish;
+
                                 sd_json_variant *string_key = NULL;
                                 /* Add binary format key */
                                 r = sd_json_variant_new_string(&add, n);
@@ -4928,7 +4933,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
 
                                 /* Create string key */
-                                r = sd_json_variant_new_string(&string_key, strjoina(n, "String"));
+                                r = sd_json_variant_new_string(&string_key, string_key_name);
                                 if (r < 0)
                                         goto finish;
 
@@ -4959,7 +4964,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                 case _JSON_BUILD_PAIR_IN6_ADDR_WITH_STRING: {
                         const struct in6_addr *a;
                         const char *n;
-                        _cleanup_free_ char *addr_str = NULL;
+                        _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
                                 r = -EINVAL;
@@ -4974,6 +4979,11 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
+                                /* Create string key name using asprintf to avoid stack allocation in loop */
+                                r = asprintf(&string_key_name, "%sString", n);
+                                if (r < 0)
+                                        goto finish;
+
                                 sd_json_variant *string_key = NULL;
                                 r = sd_json_variant_new_string(&add, n);
                                 if (r < 0)
@@ -4983,7 +4993,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_string(&string_key, strjoina(n, "String"));
+                                r = sd_json_variant_new_string(&string_key, string_key_name);
                                 if (r < 0)
                                         goto finish;
 
@@ -5012,7 +5022,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                 case _JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING: {
                         const struct in_addr *a;
                         const char *n;
-                        _cleanup_free_ char *addr_str = NULL;
+                        _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
                                 r = -EINVAL;
@@ -5028,6 +5038,11 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
+                                /* Create string key name using asprintf to avoid stack allocation in loop */
+                                r = asprintf(&string_key_name, "%sString", n);
+                                if (r < 0)
+                                        goto finish;
+
                                 sd_json_variant *string_key = NULL;
                                 r = sd_json_variant_new_string(&add, n);
                                 if (r < 0)
@@ -5037,7 +5052,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_string(&string_key, strjoina(n, "String"));
+                                r = sd_json_variant_new_string(&string_key, string_key_name);
                                 if (r < 0)
                                         goto finish;
 
