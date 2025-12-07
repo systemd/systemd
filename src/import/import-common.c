@@ -2,6 +2,7 @@
 
 #include <sched.h>
 #include <sys/prctl.h>
+#include <unistd.h>
 
 #include "sd-event.h"
 
