@@ -1216,28 +1216,12 @@ static int pref64_append_json(Link *link, sd_json_variant **v) {
                 return 0;
 
         SET_FOREACH(i, link->ndisc_pref64) {
-                _cleanup_free_ char *prefix_str = NULL, *router_str = NULL;
-
-                if (in6_addr_is_set(&i->prefix)) {
-                        r = in6_addr_to_string(&i->prefix, &prefix_str);
-                        if (r < 0)
-                                return r;
-                }
-
-                if (in6_addr_is_set(&i->router)) {
-                        r = in6_addr_to_string(&i->router, &router_str);
-                        if (r < 0)
-                                return r;
-                }
-
                 r = sd_json_variant_append_arraybo(
                                 &array,
-                                JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("Prefix", &i->prefix),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("PrefixString", prefix_str),
+                                JSON_BUILD_PAIR_IN6_ADDR_WITH_STRING("Prefix", &i->prefix),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("PrefixLength", i->prefix_len),
                                 JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", i->lifetime_usec),
-                                JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("ConfigProvider", &i->router),
-                                JSON_BUILD_PAIR_STRING_NON_EMPTY("ConfigProviderString", router_str));
+                                JSON_BUILD_PAIR_IN6_ADDR_WITH_STRING("ConfigProvider", &i->router));
                 if (r < 0)
                         return r;
         }
