@@ -10,9 +10,6 @@
 /* strerror(3) says that glibc uses a maximum length of 1024 bytes. */
 #define ERRNO_BUF_LEN           1024
 
-/* The header string.h overrides strerror_r with strerror_r_gnu, hence we need to undef it here. */
-#undef strerror_r
-
 char* strerror_r_gnu(int errnum, char *buf, size_t buflen) {
         /* musl provides spurious catchall error message "No error information" for unknown errno
          * (including errno == 0). Let's patch it to glibc style. */
@@ -26,11 +23,13 @@ char* strerror_r_gnu(int errnum, char *buf, size_t buflen) {
         if (errnum < 0 || errnum > ERRNO_MAX)
                 goto fallback;
 
-        if (strerror_r(errnum, buf, buflen) != 0)
+        /* The header string.h overrides strerror_r() with strerror_r_gnu(). Here, we need to call the
+         * original strerror_r(), hence the symbol needs to be wrapped with (). */
+        if ((strerror_r)(errnum, buf, buflen) != 0)
                 goto fallback;
 
         char buf_0[ERRNO_BUF_LEN];
-        if (strerror_r(0, buf_0, sizeof buf_0) != 0) /* Wut?? */
+        if ((strerror_r)(0, buf_0, sizeof buf_0) != 0) /* Wut?? */
                 goto fallback;
 
         /* strerror_r() may truncate the result. In that case, let's not compare the trailing NUL. */
