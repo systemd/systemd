@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+global optstring_prefix -
+
+option -h --help
+
+option --version
+
+option --no-pager
+
+option -a --all
+help Show all groups, including empty
+        arg_output_flags |= OUTPUT_SHOW_ALL;
+
+option -u= --unit=UNIT
+help Show the subtrees of specified system units
+        if (arg_show_unit == SHOW_UNIT_USER)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "Cannot combine --unit with --user-unit.");
+
+        arg_show_unit = SHOW_UNIT_SYSTEM;
+        if (strv_push(&arg_names, optarg) < 0) /* push optarg if not empty */
+                return log_oom();
+
+option --user-unit=UNIT
+help Show the subtrees of specified user units
+        if (arg_show_unit == SHOW_UNIT_SYSTEM)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "Cannot combine --user-unit with --unit.");
+
+        arg_show_unit = SHOW_UNIT_USER;
+        if (strv_push(&arg_names, optarg) < 0) /* push optarg if not empty */
+                return log_oom();
+
+option -x= --xattr=yes|no
+help Show cgroup extended attributes
+        if (optarg) {
+                r = parse_boolean(optarg);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse --xattr= value: %s", optarg);
+        } else
+                r = true;
+
+        SET_FLAG(arg_output_flags, OUTPUT_CGROUP_XATTRS, r);
+
+option -c= --cgroup-id=yes|no
+help Show cgroup ID
+        if (optarg) {
+                r = parse_boolean(optarg);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse --cgroup-id= value: %s", optarg);
+        } else
+                r = true;
+
+        SET_FLAG(arg_output_flags, OUTPUT_CGROUP_ID, r);
+
+option -l --full
+help Do not ellipsize output
+        arg_full = true;
+
+option -k
+help Include kernel threads in output
+        arg_output_flags |= OUTPUT_KERNEL_THREADS;
+
+option -M= --machine=NAME
+help Show container NAME
+        arg_machine = optarg;
+
+option positional
+        /* positional argument */
+        if (strv_push(&arg_names, optarg) < 0)
+                return log_oom();
