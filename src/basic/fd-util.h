@@ -174,10 +174,10 @@ static inline int path_is_root(const char *path) {
         return path_is_root_at(AT_FDCWD, path);
 }
 static inline int dir_fd_is_root(int dir_fd) {
-        return path_is_root_at(dir_fd, NULL);
+        return dir_fd == XAT_FDROOT ? true : path_is_root_at(dir_fd, NULL);
 }
 static inline int dir_fd_is_root_or_cwd(int dir_fd) {
-        return dir_fd == AT_FDCWD ? true : path_is_root_at(dir_fd, NULL);
+        return IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT) ? true : path_is_root_at(dir_fd, NULL);
 }
 
 int fds_are_same_mount(int fd1, int fd2);
