@@ -351,7 +351,7 @@ static int verify_esp(
         dev_t devid = 0;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(path);
 
         /* This logs about all errors, except:
@@ -461,13 +461,13 @@ int find_esp_and_warn_at(
         VerifyESPFlags flags;
         int r;
 
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+
         /* This logs about all errors except:
          *
          *    -ENOKEY → when we can't find the partition
          *   -EACCESS → when unprivileged_mode is true, and we can't access something
          */
-
-        assert(rfd >= 0 || rfd == AT_FDCWD);
 
         flags = verify_esp_flags_init(unprivileged_mode, "SYSTEMD_RELAX_ESP_CHECKS");
 
@@ -546,9 +546,13 @@ int find_esp_and_warn(
         dev_t devid;
         int r;
 
-        rfd = open(empty_to_root(root), O_PATH|O_DIRECTORY|O_CLOEXEC);
-        if (rfd < 0)
-                return -errno;
+        if (empty_or_root(root))
+                rfd = XAT_FDROOT;
+        else {
+                rfd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                if (rfd < 0)
+                        return -errno;
+        }
 
         r = find_esp_and_warn_at(
                         rfd,
@@ -756,7 +760,7 @@ static int verify_xbootldr(
         dev_t devid = 0;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(path);
 
         r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_TRIGGER_AUTOFS, &p, &pfd);
@@ -819,7 +823,7 @@ int find_xbootldr_and_warn_at(
 
         /* Similar to find_esp_and_warn(), but finds the XBOOTLDR partition. Returns the same errors. */
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
 
         flags = verify_esp_flags_init(unprivileged_mode, "SYSTEMD_RELAX_XBOOTLDR_CHECKS");
 
@@ -881,9 +885,13 @@ int find_xbootldr_and_warn(
         dev_t devid;
         int r;
 
-        rfd = open(empty_to_root(root), O_PATH|O_DIRECTORY|O_CLOEXEC);
-        if (rfd < 0)
-                return -errno;
+        if (empty_or_root(root))
+                rfd = XAT_FDROOT;
+        else {
+                rfd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                if (rfd < 0)
+                        return -errno;
+        }
 
         r = find_xbootldr_and_warn_at(
                         rfd,
