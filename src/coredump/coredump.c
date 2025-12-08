@@ -3,6 +3,7 @@
 #include "sd-daemon.h"
 
 #include "coredump-backtrace.h"
+#include "coredump-container.h"
 #include "coredump-kernel-helper.h"
 #include "coredump-receive.h"
 #include "coredump-register.h"
@@ -18,6 +19,9 @@ static int run(int argc, char *argv[]) {
          * from the command, and unexpectedly passed file descriptors can be silently ignored. */
         if (streq_ptr(argv[1], "--backtrace"))
                 return coredump_backtrace(argc, argv);
+
+        if (streq_ptr(argv[1], "--container"))
+                return coredump_container(argc, argv);
 
         if (streq_ptr(argv[1], "--register"))
                 return coredump_register(argc, argv);
