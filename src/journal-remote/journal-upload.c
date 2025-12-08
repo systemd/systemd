@@ -81,6 +81,8 @@ static void close_fd_input(Uploader *u);
 
 #define STATE_FILE "/var/lib/systemd/journal-upload/state"
 
+#include "journal-upload.args.inc"
+
 #define easy_setopt(curl, opt, value, level, cmd)                       \
         do {                                                            \
                 code = curl_easy_setopt(curl, opt, value);              \
@@ -705,186 +707,21 @@ static int help(void) {
 
         printf("%s -u URL {FILE|-}...\n\n"
                "Upload journal events to a remote server.\n\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "  -u --url=URL              Upload to this address (default port "
-                                            STRINGIFY(DEFAULT_PORT) ")\n"
-               "     --key=FILENAME         Specify key in PEM format (default:\n"
-               "                            \"" PRIV_KEY_FILE "\")\n"
-               "     --cert=FILENAME        Specify certificate in PEM format (default:\n"
-               "                            \"" CERT_FILE "\")\n"
-               "     --trust=FILENAME|all   Specify CA certificate or disable checking (default:\n"
-               "                            \"" TRUST_FILE "\")\n"
-               "     --system               Use the system journal\n"
-               "     --user                 Use the user journal for the current user\n"
-               "  -m --merge                Use  all available journals\n"
-               "  -M --machine=CONTAINER    Operate on local container\n"
-               "     --namespace=NAMESPACE  Use journal files from namespace\n"
-               "  -D --directory=PATH       Use journal files from directory\n"
-               "     --file=PATH            Use this journal file\n"
-               "     --cursor=CURSOR        Start at the specified cursor\n"
-               "     --after-cursor=CURSOR  Start after the specified cursor\n"
-               "     --follow[=BOOL]        Do [not] wait for input\n"
-               "     --save-state[=FILE]    Save uploaded cursors (default \n"
-               "                            " STATE_FILE ")\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
+               DEFAULT_PORT,
                link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_KEY,
-                ARG_CERT,
-                ARG_TRUST,
-                ARG_USER,
-                ARG_SYSTEM,
-                ARG_FILE,
-                ARG_CURSOR,
-                ARG_AFTER_CURSOR,
-                ARG_FOLLOW,
-                ARG_SAVE_STATE,
-                ARG_NAMESPACE,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'                },
-                { "version",      no_argument,       NULL, ARG_VERSION        },
-                { "url",          required_argument, NULL, 'u'                },
-                { "key",          required_argument, NULL, ARG_KEY            },
-                { "cert",         required_argument, NULL, ARG_CERT           },
-                { "trust",        required_argument, NULL, ARG_TRUST          },
-                { "system",       no_argument,       NULL, ARG_SYSTEM         },
-                { "user",         no_argument,       NULL, ARG_USER           },
-                { "merge",        no_argument,       NULL, 'm'                },
-                { "machine",      required_argument, NULL, 'M'                },
-                { "namespace",    required_argument, NULL, ARG_NAMESPACE      },
-                { "directory",    required_argument, NULL, 'D'                },
-                { "file",         required_argument, NULL, ARG_FILE           },
-                { "cursor",       required_argument, NULL, ARG_CURSOR         },
-                { "after-cursor", required_argument, NULL, ARG_AFTER_CURSOR   },
-                { "follow",       optional_argument, NULL, ARG_FOLLOW         },
-                { "save-state",   optional_argument, NULL, ARG_SAVE_STATE     },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hu:mM:D:", options, NULL)) >= 0)
-                switch (c) {
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case 'u':
-                        r = free_and_strdup_warn(&arg_url, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_KEY:
-                        r = free_and_strdup_warn(&arg_key, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_CERT:
-                        r = free_and_strdup_warn(&arg_cert, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_TRUST:
-                        r = free_and_strdup_warn(&arg_trust, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_journal_type |= SD_JOURNAL_SYSTEM;
-                        break;
-
-                case ARG_USER:
-                        arg_journal_type |= SD_JOURNAL_CURRENT_USER;
-                        break;
-
-                case 'm':
-                        arg_merge = true;
-                        break;
-
-                case 'M':
-                        r = free_and_strdup_warn(&arg_machine, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_NAMESPACE:
-                        if (streq(optarg, "*")) {
-                                arg_namespace_flags = SD_JOURNAL_ALL_NAMESPACES;
-                                arg_namespace = mfree(arg_namespace);
-                                r = 0;
-                        } else if (startswith(optarg, "+")) {
-                                arg_namespace_flags = SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE;
-                                r = free_and_strdup_warn(&arg_namespace, optarg + 1);
-                        } else if (isempty(optarg)) {
-                                arg_namespace_flags = 0;
-                                arg_namespace = mfree(arg_namespace);
-                                r = 0;
-                        } else {
-                                arg_namespace_flags = 0;
-                                r = free_and_strdup_warn(&arg_namespace, optarg);
-                        }
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'D':
-                        r = free_and_strdup_warn(&arg_directory, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_FILE:
-                        r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add paths: %m");
-                        break;
-
-                case ARG_CURSOR:
-                case ARG_AFTER_CURSOR:
-                        r = free_and_strdup_warn(&arg_cursor, optarg);
-                        if (r < 0)
-                                return r;
-                        arg_after_cursor = c == ARG_AFTER_CURSOR;
-                        break;
-
-                case ARG_FOLLOW:
-                        r = parse_boolean_argument("--follow", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        arg_follow = r;
-                        break;
-
-                case ARG_SAVE_STATE:
-                        r = free_and_strdup_warn(&arg_save_state, optarg ?: STATE_FILE);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (!arg_url)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

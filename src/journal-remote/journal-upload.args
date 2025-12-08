@@ -1,0 +1,103 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option -u= --url=URL
+help Upload to this address (default port: %i)
+        r = free_and_strdup_warn(&arg_url, optarg);
+        if (r < 0)
+                return r;
+
+option --key=FILENAME
+help Specify key in PEM format (default: '"PRIV_KEY_FILE"')
+        r = free_and_strdup_warn(&arg_key, optarg);
+        if (r < 0)
+                return r;
+
+option --cert=FILENAME
+help Specify certificate in PEM format (default: '"CERT_FILE"')
+        r = free_and_strdup_warn(&arg_cert, optarg);
+        if (r < 0)
+                return r;
+
+option --trust=FILENAME|all
+help Specify CA certificate or disable checking (default: '"TRUST_FILE"')
+        r = free_and_strdup_warn(&arg_trust, optarg);
+        if (r < 0)
+                return r;
+
+option --system
+help Use the system journal
+        arg_journal_type |= SD_JOURNAL_SYSTEM;
+
+option --user
+help Use the user journal for the current user
+        arg_journal_type |= SD_JOURNAL_CURRENT_USER;
+
+option -m --merge
+help Use  all available journals
+        arg_merge = true;
+
+option -M= --machine=CONTAINER
+help Operate on local container
+        r = free_and_strdup_warn(&arg_machine, optarg);
+        if (r < 0)
+                return r;
+
+option --namespace=NAMESPACE
+help Use journal files from namespace
+        if (streq(optarg, "*")) {
+                arg_namespace_flags = SD_JOURNAL_ALL_NAMESPACES;
+                arg_namespace = mfree(arg_namespace);
+                r = 0;
+        } else if (startswith(optarg, "+")) {
+                arg_namespace_flags = SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE;
+                r = free_and_strdup_warn(&arg_namespace, optarg + 1);
+        } else if (isempty(optarg)) {
+                arg_namespace_flags = 0;
+                arg_namespace = mfree(arg_namespace);
+                r = 0;
+        } else {
+                arg_namespace_flags = 0;
+                r = free_and_strdup_warn(&arg_namespace, optarg);
+        }
+        if (r < 0)
+                return r;
+
+option -D= --directory=PATH
+help Use journal files from directory
+        r = free_and_strdup_warn(&arg_directory, optarg);
+        if (r < 0)
+                return r;
+
+option --file=PATH
+help Use this journal file
+        r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add paths: %m");
+
+option --cursor=CURSOR
+help Start at the specified cursor
+        _fallthrough_;
+
+option --after-cursor=CURSOR
+help Start after the specified cursor
+        r = free_and_strdup_warn(&arg_cursor, optarg);
+        if (r < 0)
+                return r;
+        arg_after_cursor = c == ARG_AFTER_CURSOR;
+
+option --follow[=yes|no]
+help Do [not] wait for input
+        r = parse_boolean_argument("--follow", optarg, NULL);
+        if (r < 0)
+                return r;
+        arg_follow = r;
+
+option --save-state[=FILE]
+help Save uploaded cursors (default:          '"STATE_FILE"')
+        r = free_and_strdup_warn(&arg_save_state, optarg ?: STATE_FILE);
+        if (r < 0)
+                return r;
