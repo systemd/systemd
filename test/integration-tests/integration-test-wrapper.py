@@ -622,6 +622,10 @@ def main() -> None:
         if args.vm and result.returncode == 247 and args.exit_code != 247:
             if journal_file:
                 journal_file.unlink(missing_ok=True)
+            print(
+                f'Test {args.name} failed due to QEMU crash (error 247), retrying...',
+                file=sys.stderr,
+            )
             result = subprocess.run(cmd)
             if args.vm and result.returncode == 247 and args.exit_code != 247:
                 print(
@@ -629,6 +633,10 @@ def main() -> None:
                     file=sys.stderr,
                 )
                 exit(77)
+            print(
+                f'Test {args.name} worked on re-run after QEMU crash (error 247)',
+                file=sys.stderr,
+            )
     except KeyboardInterrupt:
         result = subprocess.CompletedProcess(args=cmd, returncode=-signal.SIGINT)
 
