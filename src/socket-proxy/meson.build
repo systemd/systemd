@@ -5,6 +5,7 @@ executables += [
                 'name' : 'systemd-socket-proxyd',
                 'public' : true,
                 'sources' : files('socket-proxyd.c'),
+                'arg_parser' : files('socket-proxyd.args'),
                 'dependencies' : threads,
         },
 ]
