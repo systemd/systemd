@@ -3048,6 +3048,76 @@ static int drop_from_identity(const char *field) {
         return 0;
 }
 
+static int parse_ssh_authorized_keys(sd_json_variant **identity, const char *field, const char *arg) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_strv_free_ char **l = NULL, **add = NULL;
+        int r;
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        if (arg[0] == '@') {
+                /* If prefixed with '@', read from a file */
+
+                _cleanup_fclose_ FILE *f = fopen(arg + 1, "re");
+                if (!f)
+                        return log_error_errno(errno, "Failed to open '%s': %m", arg + 1);
+
+                for (;;) {
+                        _cleanup_free_ char *line = NULL;
+
+                        r = read_line(f, LONG_LINE_MAX, &line);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read from '%s': %m", arg + 1);
+                        if (r == 0)
+                                break;
+
+                        if (isempty(line) || line[0] == '#')
+                                continue;
+
+                        r = strv_consume(&add, TAKE_PTR(line));
+                        if (r < 0)
+                                return log_oom();
+                }
+        } else {
+                /* Otherwise, assume it's a literal key. Let's do some superficial checks
+                 * before accepting it though. */
+
+                if (string_has_cc(arg, NULL))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Authorized key contains control characters, refusing.");
+                if (arg[0] == '#')
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified key is a comment?");
+
+                add = strv_new(arg);
+                if (!add)
+                        return log_oom();
+        }
+
+        v = sd_json_variant_ref(sd_json_variant_by_key(*identity, field));
+        if (v) {
+                r = sd_json_variant_strv(v, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s list: %m", field);
+        }
+
+        r = strv_extend_strv_consume(&l, TAKE_PTR(add), /* filter_duplicates = */ true);
+        if (r < 0)
+                return log_oom();
+
+        v = sd_json_variant_unref(v);
+
+        r = sd_json_variant_new_array_strv(&v, l);
+        if (r < 0)
+                return log_oom();
+
+        r = sd_json_variant_set_field(identity, field, v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -3484,7 +3554,8 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        /* Eventually we should probably turn this into a proper --dry-run option, but as long as it is not hooked up everywhere let's make it an environment variable only. */
+        /* Eventually we should probably turn this into a proper --dry-run option, but as long as it is not
+         * hooked up everywhere let's make it an environment variable only. */
         r = getenv_bool("SYSTEMD_HOME_DRY_RUN");
         if (r >= 0)
                 arg_dry_run = r;
@@ -4212,83 +4283,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_SSH_AUTHORIZED_KEYS: {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-                        _cleanup_strv_free_ char **l = NULL, **add = NULL;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("sshAuthorizedKeys");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        if (optarg[0] == '@') {
-                                _cleanup_fclose_ FILE *f = NULL;
-
-                                /* If prefixed with '@' read from a file */
-
-                                f = fopen(optarg+1, "re");
-                                if (!f)
-                                        return log_error_errno(errno, "Failed to open '%s': %m", optarg+1);
-
-                                for (;;) {
-                                        _cleanup_free_ char *line = NULL;
-
-                                        r = read_line(f, LONG_LINE_MAX, &line);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to read from '%s': %m", optarg+1);
-                                        if (r == 0)
-                                                break;
-
-                                        if (isempty(line))
-                                                continue;
-
-                                        if (line[0] == '#')
-                                                continue;
-
-                                        r = strv_consume(&add, TAKE_PTR(line));
-                                        if (r < 0)
-                                                return log_oom();
-                                }
-                        } else {
-                                /* Otherwise, assume it's a literal key. Let's do some superficial checks
-                                 * before accept it though. */
-
-                                if (string_has_cc(optarg, NULL))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Authorized key contains control characters, refusing.");
-                                if (optarg[0] == '#')
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified key is a comment?");
-
-                                add = strv_new(optarg);
-                                if (!add)
-                                        return log_oom();
-                        }
-
-                        v = sd_json_variant_ref(sd_json_variant_by_key(arg_identity_extra_privileged, "sshAuthorizedKeys"));
-                        if (v) {
-                                r = sd_json_variant_strv(v, &l);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse SSH authorized keys list: %m");
-                        }
-
-                        r = strv_extend_strv_consume(&l, TAKE_PTR(add), /* filter_duplicates = */ true);
+                case ARG_SSH_AUTHORIZED_KEYS:
+                        r = parse_ssh_authorized_keys(&arg_identity_extra_privileged, "sshAuthorizedKeys", optarg);
                         if (r < 0)
-                                return log_oom();
-
-                        v = sd_json_variant_unref(v);
-
-                        r = sd_json_variant_new_array_strv(&v, l);
-                        if (r < 0)
-                                return log_oom();
-
-                        r = sd_json_variant_set_field(&arg_identity_extra_privileged, "sshAuthorizedKeys", v);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set authorized keys: %m");
+                                return r;
 
                         break;
-                }
 
                 case ARG_NOT_BEFORE:
                 case ARG_NOT_AFTER:
