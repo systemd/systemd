@@ -395,20 +395,25 @@ int journal_remote_handle_raw_source(
                 remove_source(s, source->importer.fd);
                 log_debug("%zu active sources remaining", s->active);
                 return 0;
-        } else if (r == -E2BIG) {
+        }
+        if (r == -E2BIG) {
                 log_notice("Entry with too many fields, skipped");
                 return 1;
-        } else if (r == -ENOBUFS) {
+        }
+        if (r == -ENOBUFS) {
                 log_notice("Entry too big, skipped");
                 return 1;
-        } else if (r == -EAGAIN) {
+        }
+        if (r == -EAGAIN) {
                 return 0;
-        } else if (r < 0) {
+        }
+        if (r < 0) {
                 log_debug_errno(r, "Closing connection: %m");
                 remove_source(s, fd);
                 return 0;
-        } else
-                return 1;
+        }
+
+        return 1;
 }
 
 static int dispatch_raw_source_until_block(sd_event_source *event,

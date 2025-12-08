@@ -39,7 +39,7 @@ static const char* const boot_entry_type_description_table[_BOOT_ENTRY_TYPE_MAX]
         [BOOT_ENTRY_AUTO]   = "Automatic",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type_description, BootEntryType);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type_description, BootEntryType, t);
 
 static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
         [BOOT_ENTRY_TYPE1]  = "type1",
@@ -48,21 +48,21 @@ static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
         [BOOT_ENTRY_AUTO]   = "auto",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(boot_entry_type, BootEntryType);
+DEFINE_STRING_TABLE_LOOKUP(boot_entry_type, BootEntryType, t);
 
 static const char* const boot_entry_source_description_table[_BOOT_ENTRY_SOURCE_MAX] = {
         [BOOT_ENTRY_ESP]      = "EFI System Partition",
         [BOOT_ENTRY_XBOOTLDR] = "Extended Boot Loader Partition",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source_description, BootEntrySource);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source_description, BootEntrySource, s);
 
 static const char* const boot_entry_source_table[_BOOT_ENTRY_SOURCE_MAX] = {
         [BOOT_ENTRY_ESP]      = "esp",
         [BOOT_ENTRY_XBOOTLDR] = "xbootldr",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source, BootEntrySource);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source, BootEntrySource, s);
 
 static void boot_entry_addons_done(BootEntryAddons *addons) {
         assert(addons);
@@ -2024,19 +2024,20 @@ int show_boot_entries(const BootConfig *config, sd_json_format_flags_t json_form
                 }
 
                 return sd_json_variant_dump(array, json_format | SD_JSON_FORMAT_EMPTY_ARRAY, NULL, NULL);
-        } else
-                for (size_t n = 0; n < config->n_entries; n++) {
-                        r = show_boot_entry(
-                                        config->entries + n,
-                                        /* show_as_default= */  n == (size_t) config->default_entry,
-                                        /* show_as_selected= */ n == (size_t) config->selected_entry,
-                                        /* show_reported= */  true);
-                        if (r < 0)
-                                return r;
+        }
 
-                        if (n+1 < config->n_entries)
-                                putchar('\n');
-                }
+        for (size_t n = 0; n < config->n_entries; n++) {
+                r = show_boot_entry(
+                                config->entries + n,
+                                /* show_as_default= */  n == (size_t) config->default_entry,
+                                /* show_as_selected= */ n == (size_t) config->selected_entry,
+                                /* show_reported= */  true);
+                if (r < 0)
+                        return r;
+
+                if (n+1 < config->n_entries)
+                        putchar('\n');
+        }
 
         return 0;
 }

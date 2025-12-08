@@ -79,23 +79,23 @@ def process_source_file(file: IO[str]) -> None:
             continue
 
         # Functions defined through a macro
-        m = re.search(r'^DEFINE_PUBLIC_TRIVIAL_REF_FUNC\([^,]+,\s*(\w+)\s*\)', line)
+        m = re.search(r'^DEFINE_PUBLIC_TRIVIAL_REF_FUNC\([^,]+,\s*(\w+)\s*,[^)]+\)', line)
         if m:
             print(f'        {{ "{m[1]}_ref", {m[1]}_ref }},')
             continue
 
-        m = re.search(r'^DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC\([^,]+,\s*(\w+)\s*,', line)
+        m = re.search(r'^DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC\([^,]+,\s*(\w+)\s*,[^)]+\)', line)
         if m:
             print(f'        {{ "{m[1]}_unref", {m[1]}_unref }},')
             continue
 
-        m = re.search(r'^DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC\([^,]+,\s*(\w+)\s*,', line)
+        m = re.search(r'^DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC\([^,]+,\s*(\w+)\s*,[^)]+\)', line)
         if m:
             print(f'        {{ "{m[1]}_ref", {m[1]}_ref }},')
             print(f'        {{ "{m[1]}_unref", {m[1]}_unref }},')
             continue
 
-        m = re.search(r'^_DEFINE_STRING_TABLE_LOOKUP\((\w+),\s*\w+,\s*_public_\s*\)', line)
+        m = re.search(r'^_DEFINE_STRING_TABLE_LOOKUP\((\w+),\s*\w+,\s*\w+,\s*_public_\s*\)', line)
         if m:
             print(f'        {{ "{m[1]}_from_string", {m[1]}_from_string }},')
             print(f'        {{ "{m[1]}_to_string", {m[1]}_to_string }},')

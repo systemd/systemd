@@ -432,4 +432,4 @@ static const char* const resolv_conf_mode_table[_RESOLV_CONF_MODE_MAX] = {
         [RESOLV_CONF_MISSING] = "missing",
         [RESOLV_CONF_FOREIGN] = "foreign",
 };
-DEFINE_STRING_TABLE_LOOKUP(resolv_conf_mode, ResolvConfMode);
+DEFINE_STRING_TABLE_LOOKUP(resolv_conf_mode, ResolvConfMode, m);

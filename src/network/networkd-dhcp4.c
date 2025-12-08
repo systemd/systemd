@@ -135,7 +135,8 @@ static int dhcp4_get_classless_static_or_static_routes(Link *link, sd_dhcp_route
                 if (ret_num)
                         *ret_num = r;
                 return 1; /* classless */
-        } else if (r != -ENODATA)
+        }
+        if (r != -ENODATA)
                 return r;
 
         r = sd_dhcp_lease_get_static_routes(link->dhcp_lease, &routes);

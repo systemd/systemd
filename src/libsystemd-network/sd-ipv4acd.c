@@ -108,7 +108,7 @@ static const char * const ipv4acd_state_table[_IPV4ACD_STATE_MAX] = {
         [IPV4ACD_STATE_RUNNING]          = "running",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(ipv4acd_state, IPv4ACDState);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(ipv4acd_state, IPv4ACDState, i);
 
 static void ipv4acd_set_state(sd_ipv4acd *acd, IPv4ACDState st, bool reset_counter) {
         assert(acd);
@@ -146,7 +146,7 @@ static sd_ipv4acd *ipv4acd_free(sd_ipv4acd *acd) {
         return mfree(acd);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_ipv4acd, sd_ipv4acd, ipv4acd_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_ipv4acd, sd_ipv4acd, acd, ipv4acd_free);
 
 int sd_ipv4acd_new(sd_ipv4acd **ret) {
         _cleanup_(sd_ipv4acd_unrefp) sd_ipv4acd *acd = NULL;

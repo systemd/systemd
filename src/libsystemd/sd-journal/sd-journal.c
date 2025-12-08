@@ -695,9 +695,9 @@ static int next_for_match(
                         return r;
 
                 return journal_file_move_to_entry_by_offset_for_data(f, d, after_offset, direction, ret, ret_offset);
+        }
 
-        } else if (m->type == MATCH_OR_TERM) {
-
+        if (m->type == MATCH_OR_TERM) {
                 /* Find the earliest match beyond after_offset */
 
                 LIST_FOREACH(matches, i, m->matches) {
@@ -706,7 +706,7 @@ static int next_for_match(
                         r = next_for_match(j, i, f, after_offset, direction, NULL, &cp);
                         if (r < 0)
                                 return r;
-                        else if (r > 0) {
+                        if (r > 0) {
                                 if (np == 0 || (direction == DIRECTION_DOWN ? cp < np : cp > np))
                                         np = cp;
                         }
@@ -863,8 +863,9 @@ static int find_location_for_match(
                         return move_by_boot_for_data(j, f, direction, j->current_location.boot_id, dp, ret, ret_offset);
 
                 return journal_file_move_to_entry_for_data(f, d, direction, ret, ret_offset);
+        }
 
-        } else if (m->type == MATCH_OR_TERM) {
+        if (m->type == MATCH_OR_TERM) {
                 uint64_t np = 0;
 
                 /* Find the earliest match */
@@ -875,7 +876,7 @@ static int find_location_for_match(
                         r = find_location_for_match(j, i, f, direction, NULL, &cp);
                         if (r < 0)
                                 return r;
-                        else if (r > 0) {
+                        if (r > 0) {
                                 if (np == 0 || (direction == DIRECTION_DOWN ? np > cp : np < cp))
                                         np = cp;
                         }
@@ -894,31 +895,30 @@ static int find_location_for_match(
                         *ret_offset = np;
 
                 return 1;
-
-        } else {
-                uint64_t np = 0;
-
-                assert(m->type == MATCH_AND_TERM);
-
-                /* First jump to the last match, and then find the
-                 * next one where all matches match */
-
-                if (!m->matches)
-                        return 0;
-
-                LIST_FOREACH(matches, i, m->matches) {
-                        uint64_t cp;
-
-                        r = find_location_for_match(j, i, f, direction, NULL, &cp);
-                        if (r <= 0)
-                                return r;
-
-                        if (np == 0 || (direction == DIRECTION_DOWN ? cp > np : cp < np))
-                                np = cp;
-                }
-
-                return next_for_match(j, m, f, np, direction, ret, ret_offset);
         }
+
+        uint64_t np = 0;
+
+        assert(m->type == MATCH_AND_TERM);
+
+        /* First jump to the last match, and then find the
+        * next one where all matches match */
+
+        if (!m->matches)
+                return 0;
+
+        LIST_FOREACH(matches, i, m->matches) {
+                uint64_t cp;
+
+                r = find_location_for_match(j, i, f, direction, NULL, &cp);
+                if (r <= 0)
+                        return r;
+
+                if (np == 0 || (direction == DIRECTION_DOWN ? cp > np : cp < np))
+                        np = cp;
+        }
+
+        return next_for_match(j, m, f, np, direction, ret, ret_offset);
 }
 
 static int find_location_with_matches(
@@ -1144,7 +1144,8 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                         log_debug_errno(r, "Can't iterate through %s, ignoring: %m", f->path);
                         remove_file_real(j, f);
                         continue;
-                } else if (r == 0) {
+                }
+                if (r == 0) {
                         f->location_type = direction == DIRECTION_DOWN ? LOCATION_TAIL : LOCATION_HEAD;
                         continue;
                 }
@@ -1232,7 +1233,7 @@ _public_ int sd_journal_previous_skip(sd_journal *j, uint64_t skip) {
         return real_journal_next_skip(j, DIRECTION_UP, skip);
 }
 
-_public_ int sd_journal_get_cursor(sd_journal *j, char **ret_cursor) {
+_public_ int sd_journal_get_cursor(sd_journal *j, char **ret) {
         Object *o;
         int r;
 
@@ -1246,10 +1247,10 @@ _public_ int sd_journal_get_cursor(sd_journal *j, char **ret_cursor) {
         if (r < 0)
                 return r;
 
-        if (!ret_cursor)
+        if (!ret)
                 return 0;
 
-        if (asprintf(ret_cursor,
+        if (asprintf(ret,
                      "s=%s;i=%"PRIx64";b=%s;m=%"PRIx64";t=%"PRIx64";x=%"PRIx64,
                      SD_ID128_TO_STRING(j->current_file->header->seqnum_id), le64toh(o->entry.seqnum),
                      SD_ID128_TO_STRING(o->entry.boot_id), le64toh(o->entry.monotonic),
@@ -2813,7 +2814,7 @@ static bool field_is_valid(const char *field) {
         return true;
 }
 
-_public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **data, size_t *length) {
+_public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **ret_data, size_t *ret_size) {
         JournalFile *f;
         size_t field_length;
         Object *o;
@@ -2822,8 +2823,8 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
         assert_return(field, -EINVAL);
-        assert_return(data, -EINVAL);
-        assert_return(length, -EINVAL);
+        assert_return(ret_data, -EINVAL);
+        assert_return(ret_size, -EINVAL);
         assert_return(field_is_valid(field), -EINVAL);
 
         f = j->current_file;
@@ -2856,8 +2857,8 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 if (r < 0)
                         return r;
 
-                *data = d;
-                *length = l;
+                *ret_data = d;
+                *ret_size = l;
 
                 return 0;
         }
@@ -2865,15 +2866,15 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         return -ENOENT;
 }
 
-_public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *length) {
+_public_ int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, size_t *ret_size) {
         JournalFile *f;
         Object *o;
         int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
-        assert_return(data, -EINVAL);
-        assert_return(length, -EINVAL);
+        assert_return(ret_data, -EINVAL);
+        assert_return(ret_size, -EINVAL);
 
         f = j->current_file;
         if (!f)
@@ -2901,8 +2902,8 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
                         return r;
                 assert(r > 0);
 
-                *data = d;
-                *length = l;
+                *ret_data = d;
+                *ret_size = l;
 
                 j->current_field++;
 
@@ -2912,11 +2913,11 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
         return 0;
 }
 
-_public_ int sd_journal_enumerate_available_data(sd_journal *j, const void **data, size_t *length) {
+_public_ int sd_journal_enumerate_available_data(sd_journal *j, const void **ret_data, size_t *ret_size) {
         for (;;) {
                 int r;
 
-                r = sd_journal_enumerate_data(j, data, length);
+                r = sd_journal_enumerate_data(j, ret_data, ret_size);
                 if (r >= 0)
                         return r;
                 if (!JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(r))
@@ -3469,11 +3470,11 @@ _public_ int sd_journal_enumerate_unique(
         }
 }
 
-_public_ int sd_journal_enumerate_available_unique(sd_journal *j, const void **data, size_t *size) {
+_public_ int sd_journal_enumerate_available_unique(sd_journal *j, const void **ret_data, size_t *ret_size) {
         for (;;) {
                 int r;
 
-                r = sd_journal_enumerate_unique(j, data, size);
+                r = sd_journal_enumerate_unique(j, ret_data, ret_size);
                 if (r >= 0)
                         return r;
                 if (!JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(r))
@@ -3492,12 +3493,12 @@ _public_ void sd_journal_restart_unique(sd_journal *j) {
         j->unique_file_lost = false;
 }
 
-_public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
+_public_ int sd_journal_enumerate_fields(sd_journal *j, const char **ret) {
         int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
-        assert_return(field, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         if (!j->fields_file) {
                 if (j->fields_file_lost)
@@ -3549,7 +3550,7 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
                                 /* Proceed with next file */
                                 j->fields_file = ordered_hashmap_next(j->files, f->path);
                                 if (!j->fields_file) {
-                                        *field = NULL;
+                                        *ret = NULL;
                                         return 0;
                                 }
 
@@ -3629,7 +3630,7 @@ _public_ int sd_journal_enumerate_fields(sd_journal *j, const char **field) {
                 if (!field_is_valid(j->fields_buffer))
                         return -EBADMSG;
 
-                *field = j->fields_buffer;
+                *ret = j->fields_buffer;
                 return 1;
         }
 }

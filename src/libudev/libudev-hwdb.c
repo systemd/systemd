@@ -85,7 +85,7 @@ static struct udev_hwdb* udev_hwdb_free(struct udev_hwdb *hwdb) {
  *
  * Returns: #NULL
  **/
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_hwdb, udev_hwdb, udev_hwdb_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_hwdb, udev_hwdb, hwdb, udev_hwdb_free);
 
 /**
  * udev_hwdb_get_properties_list_entry:

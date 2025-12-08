@@ -994,7 +994,7 @@ static const char* const path_type_table[_PATH_TYPE_MAX] = {
         [PATH_MODIFIED]            = "PathModified",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(path_type, PathType);
+DEFINE_STRING_TABLE_LOOKUP(path_type, PathType, i);
 
 static const char* const path_result_table[_PATH_RESULT_MAX] = {
         [PATH_SUCCESS]                      = "success",
@@ -1004,7 +1004,7 @@ static const char* const path_result_table[_PATH_RESULT_MAX] = {
         [PATH_FAILURE_TRIGGER_LIMIT_HIT]    = "trigger-limit-hit",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(path_result, PathResult);
+DEFINE_STRING_TABLE_LOOKUP(path_result, PathResult, i);
 
 const UnitVTable path_vtable = {
         .object_size = sizeof(Path),

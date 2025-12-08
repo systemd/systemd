@@ -158,7 +158,7 @@ static struct udev_monitor* udev_monitor_free(struct udev_monitor *udev_monitor)
  *
  * Returns: #NULL
  **/
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_monitor, udev_monitor, udev_monitor_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_monitor, udev_monitor, udev_monitor, udev_monitor_free);
 
 /**
  * udev_monitor_get_udev:

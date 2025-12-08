@@ -2530,7 +2530,7 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
         return mfree(client);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_client, sd_dhcp_client, dhcp_client_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_client, sd_dhcp_client, client, dhcp_client_free);
 
 int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
         const uint8_t *opts;
@@ -2588,4 +2588,4 @@ static const char* const dhcp_state_table[_DHCP_STATE_MAX] = {
         [DHCP_STATE_REBINDING]            = "rebinding",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState, s);

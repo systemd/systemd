@@ -122,7 +122,7 @@ static UdevCtrl *udev_ctrl_free(UdevCtrl *uctrl) {
         return mfree(uctrl);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(UdevCtrl, udev_ctrl, udev_ctrl_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(UdevCtrl, udev_ctrl, uctrl, udev_ctrl_free);
 
 int udev_ctrl_attach_event(UdevCtrl *uctrl, sd_event *event) {
         int r;

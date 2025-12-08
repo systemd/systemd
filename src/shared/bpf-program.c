@@ -43,7 +43,7 @@ static const char *const bpf_cgroup_attach_type_table[__MAX_BPF_ATTACH_TYPE] = {
         [BPF_CGROUP_SETSOCKOPT] =       "setsockopt",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(bpf_cgroup_attach_type, int);
+DEFINE_STRING_TABLE_LOOKUP(bpf_cgroup_attach_type, int, attach_type);
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(bpf_program_hash_ops, void, trivial_hash_func, trivial_compare_func, bpf_program_free);
 

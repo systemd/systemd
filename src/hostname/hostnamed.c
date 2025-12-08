@@ -1369,7 +1369,7 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
         r = context_update_kernel_hostname(c, name);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %m");
-        else if (r > 0)
+        if (r > 0)
                 (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
                                                       "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
                                                       "Hostname", "HostnameSource", NULL);

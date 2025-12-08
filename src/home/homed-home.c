@@ -3369,4 +3369,4 @@ static const char* const home_state_table[_HOME_STATE_MAX] = {
         [HOME_AUTHENTICATING_FOR_ACQUIRE]  = "authenticating-for-acquire",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(home_state, HomeState);
+DEFINE_STRING_TABLE_LOOKUP(home_state, HomeState, state);

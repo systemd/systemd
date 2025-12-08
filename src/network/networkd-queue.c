@@ -48,7 +48,7 @@ static Request *request_free(Request *req) {
         return mfree(req);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(Request, request, request_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Request, request, req, request_free);
 
 static void request_destroy_callback(Request *req) {
         assert(req);
@@ -400,7 +400,7 @@ static const char *const request_type_table[_REQUEST_TYPE_MAX] = {
         [REQUEST_TYPE_UP_DOWN]                          = "bring link up or down",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(request_type, RequestType);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(request_type, RequestType, t);
 
 static RemoveRequest* remove_request_free(RemoveRequest *req) {
         if (!req)

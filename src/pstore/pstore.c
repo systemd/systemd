@@ -40,7 +40,7 @@ static const char* const pstore_storage_table[_PSTORE_STORAGE_MAX] = {
         [PSTORE_STORAGE_JOURNAL]  = "journal",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(pstore_storage, PStoreStorage);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(pstore_storage, PStoreStorage, i);
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_pstore_storage, pstore_storage, PStoreStorage);
 
 static PStoreStorage arg_storage = PSTORE_STORAGE_EXTERNAL;

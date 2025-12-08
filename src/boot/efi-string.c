@@ -149,7 +149,9 @@ static unsigned utf8_to_unichar(const char *utf8, size_t n, char32_t *c) {
         if (!(utf8[0] & 0x80)) {
                 *c = utf8[0];
                 return 1;
-        } else if ((utf8[0] & 0xe0) == 0xc0) {
+        }
+
+        if ((utf8[0] & 0xe0) == 0xc0) {
                 len = 2;
                 unichar = utf8[0] & 0x1f;
         } else if ((utf8[0] & 0xf0) == 0xe0) {

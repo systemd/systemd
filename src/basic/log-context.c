@@ -142,7 +142,7 @@ static LogContext* log_context_free(LogContext *c) {
         return mfree(c);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(LogContext, log_context, log_context_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(LogContext, log_context, c, log_context_free);
 
 LogContext* log_context_new_strv_consume(char **fields) {
         LogContext *c = log_context_new_strv(fields, /*owned=*/ true);

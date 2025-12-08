@@ -1751,7 +1751,7 @@ static const char* const cgroup_io_limit_type_table[_CGROUP_IO_LIMIT_TYPE_MAX] =
         [CGROUP_IO_WIOPS_MAX] = "IOWriteIOPSMax",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(cgroup_io_limit_type, CGroupIOLimitType);
+DEFINE_STRING_TABLE_LOOKUP(cgroup_io_limit_type, CGroupIOLimitType, t);
 
 void cgroup_io_limits_list(void) {
         DUMP_STRING_TABLE(cgroup_io_limit_type, CGroupIOLimitType, _CGROUP_IO_LIMIT_TYPE_MAX);
@@ -1773,14 +1773,14 @@ static const char *const cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
         [CGROUP_CONTROLLER_BPF_RESTRICT_NETWORK_INTERFACES] = "bpf-restrict-network-interfaces",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(cgroup_controller, CGroupController);
+DEFINE_STRING_TABLE_LOOKUP(cgroup_controller, CGroupController, c);
 
 static const char* const managed_oom_mode_table[_MANAGED_OOM_MODE_MAX] = {
         [MANAGED_OOM_AUTO] = "auto",
         [MANAGED_OOM_KILL] = "kill",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(managed_oom_mode, ManagedOOMMode);
+DEFINE_STRING_TABLE_LOOKUP(managed_oom_mode, ManagedOOMMode, m);
 
 static const char* const managed_oom_preference_table[_MANAGED_OOM_PREFERENCE_MAX] = {
         [MANAGED_OOM_PREFERENCE_NONE] = "none",
@@ -1788,4 +1788,4 @@ static const char* const managed_oom_preference_table[_MANAGED_OOM_PREFERENCE_MA
         [MANAGED_OOM_PREFERENCE_OMIT] = "omit",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(managed_oom_preference, ManagedOOMPreference);
+DEFINE_STRING_TABLE_LOOKUP(managed_oom_preference, ManagedOOMPreference, p);

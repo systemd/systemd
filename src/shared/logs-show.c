@@ -1948,7 +1948,7 @@ static const char* const log_id_type_table[_LOG_ID_TYPE_MAX] = {
         [LOG_USER_UNIT_INVOCATION_ID]   = "user unit invocation ID",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(log_id_type, LogIdType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(log_id_type, LogIdType, i);
 
 static int set_matches_for_discover_id(
                 sd_journal *j,

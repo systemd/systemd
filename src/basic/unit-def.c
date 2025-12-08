@@ -84,7 +84,7 @@ static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_SCOPE]     = "scope",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);
+DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType, i);
 
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB]        = "stub",
@@ -96,7 +96,7 @@ static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_MASKED]      = "masked",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
+DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState, i);
 
 /* Keep in sync with man/unit-states.xml */
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
@@ -110,7 +110,7 @@ static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_REFRESHING]   = "refreshing",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);
+DEFINE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState, i);
 
 static const char* const freezer_state_table[_FREEZER_STATE_MAX] = {
         [FREEZER_RUNNING]            = "running",
@@ -121,7 +121,7 @@ static const char* const freezer_state_table[_FREEZER_STATE_MAX] = {
         [FREEZER_THAWING]            = "thawing",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(freezer_state, FreezerState);
+DEFINE_STRING_TABLE_LOOKUP(freezer_state, FreezerState, i);
 
 /* Maps in-progress freezer states to the corresponding finished state */
 static const FreezerState freezer_state_finish_table[_FREEZER_STATE_MAX] = {
@@ -157,7 +157,7 @@ static const char* const unit_marker_table[_UNIT_MARKER_MAX] = {
         [UNIT_MARKER_NEEDS_RESTART] = "needs-restart",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(unit_marker, UnitMarker);
+DEFINE_STRING_TABLE_LOOKUP(unit_marker, UnitMarker, m);
 
 static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD]    = "dead",
@@ -166,7 +166,7 @@ static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_FAILED]  = "failed",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
+DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState, i);
 
 static const char* const device_state_table[_DEVICE_STATE_MAX] = {
         [DEVICE_DEAD]      = "dead",
@@ -174,7 +174,7 @@ static const char* const device_state_table[_DEVICE_STATE_MAX] = {
         [DEVICE_PLUGGED]   = "plugged",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(device_state, DeviceState);
+DEFINE_STRING_TABLE_LOOKUP(device_state, DeviceState, i);
 
 static const char* const mount_state_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD]               = "dead",
@@ -191,7 +191,7 @@ static const char* const mount_state_table[_MOUNT_STATE_MAX] = {
         [MOUNT_CLEANING]           = "cleaning",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(mount_state, MountState);
+DEFINE_STRING_TABLE_LOOKUP(mount_state, MountState, i);
 
 static const char* const path_state_table[_PATH_STATE_MAX] = {
         [PATH_DEAD]    = "dead",
@@ -200,7 +200,7 @@ static const char* const path_state_table[_PATH_STATE_MAX] = {
         [PATH_FAILED]  = "failed",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(path_state, PathState);
+DEFINE_STRING_TABLE_LOOKUP(path_state, PathState, i);
 
 static const char* const scope_state_table[_SCOPE_STATE_MAX] = {
         [SCOPE_DEAD]         = "dead",
@@ -212,7 +212,7 @@ static const char* const scope_state_table[_SCOPE_STATE_MAX] = {
         [SCOPE_FAILED]       = "failed",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(scope_state, ScopeState);
+DEFINE_STRING_TABLE_LOOKUP(scope_state, ScopeState, i);
 
 static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD]                       = "dead",
@@ -245,14 +245,14 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_MOUNTING]                   = "mounting",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);
+DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState, i);
 
 static const char* const slice_state_table[_SLICE_STATE_MAX] = {
         [SLICE_DEAD]   = "dead",
         [SLICE_ACTIVE] = "active",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(slice_state, SliceState);
+DEFINE_STRING_TABLE_LOOKUP(slice_state, SliceState, i);
 
 static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD]             = "dead",
@@ -273,7 +273,7 @@ static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_CLEANING]         = "cleaning",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(socket_state, SocketState);
+DEFINE_STRING_TABLE_LOOKUP(socket_state, SocketState, i);
 
 static const char* const swap_state_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD]                 = "dead",
@@ -287,14 +287,14 @@ static const char* const swap_state_table[_SWAP_STATE_MAX] = {
         [SWAP_CLEANING]             = "cleaning",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(swap_state, SwapState);
+DEFINE_STRING_TABLE_LOOKUP(swap_state, SwapState, i);
 
 static const char* const target_state_table[_TARGET_STATE_MAX] = {
         [TARGET_DEAD]   = "dead",
         [TARGET_ACTIVE] = "active",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(target_state, TargetState);
+DEFINE_STRING_TABLE_LOOKUP(target_state, TargetState, i);
 
 static const char* const timer_state_table[_TIMER_STATE_MAX] = {
         [TIMER_DEAD]    = "dead",
@@ -304,7 +304,7 @@ static const char* const timer_state_table[_TIMER_STATE_MAX] = {
         [TIMER_FAILED]  = "failed",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(timer_state, TimerState);
+DEFINE_STRING_TABLE_LOOKUP(timer_state, TimerState, i);
 
 static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_REQUIRES]               = "Requires",
@@ -340,7 +340,7 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_SLICE_OF]               = "SliceOf",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
+DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency, i);
 
 void unit_types_list(void) {
         DUMP_STRING_TABLE(unit_dependency, UnitDependency, _UNIT_DEPENDENCY_MAX);
@@ -353,7 +353,7 @@ static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
         [NOTIFY_ALL]  = "all",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
+DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess, i);
 
 static const char* const job_mode_table[_JOB_MODE_MAX] = {
         [JOB_FAIL]                 = "fail",
@@ -368,7 +368,7 @@ static const char* const job_mode_table[_JOB_MODE_MAX] = {
         [JOB_RESTART_DEPENDENCIES] = "restart-dependencies",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode);
+DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode, t);
 
 /* This table maps ExecDirectoryType to the setting it is configured with in the unit */
 static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
@@ -379,7 +379,7 @@ static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
         [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectory",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
+DEFINE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType, i);
 
 Glyph unit_active_state_to_glyph(UnitActiveState state) {
         static const Glyph map[_UNIT_ACTIVE_STATE_MAX] = {

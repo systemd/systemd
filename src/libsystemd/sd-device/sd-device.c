@@ -79,7 +79,7 @@ static sd_device* device_free(sd_device *device) {
         return mfree(device);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device, sd_device, device_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device, sd_device, device, device_free);
 
 int device_add_property_aux(sd_device *device, const char *key, const char *value, bool db) {
         OrderedHashmap **properties;

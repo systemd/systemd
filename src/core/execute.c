@@ -2302,7 +2302,7 @@ static ExecSharedRuntime* exec_shared_runtime_free(ExecSharedRuntime *rt) {
         return mfree(rt);
 }
 
-DEFINE_TRIVIAL_UNREF_FUNC(ExecSharedRuntime, exec_shared_runtime, exec_shared_runtime_free);
+DEFINE_TRIVIAL_UNREF_FUNC(ExecSharedRuntime, exec_shared_runtime, r, exec_shared_runtime_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSharedRuntime*, exec_shared_runtime_free);
 
 ExecSharedRuntime* exec_shared_runtime_destroy(ExecSharedRuntime *rt) {
@@ -3048,7 +3048,7 @@ static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
         [EXEC_INPUT_FILE]      = "file",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
+DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput, i);
 
 static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_INHERIT]             = "inherit",
@@ -3065,7 +3065,7 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_FILE_TRUNCATE]       = "truncate",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
+DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput, i);
 
 static const char* const exec_utmp_mode_table[_EXEC_UTMP_MODE_MAX] = {
         [EXEC_UTMP_INIT]  = "init",
@@ -3073,7 +3073,7 @@ static const char* const exec_utmp_mode_table[_EXEC_UTMP_MODE_MAX] = {
         [EXEC_UTMP_USER]  = "user",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(exec_utmp_mode, ExecUtmpMode);
+DEFINE_STRING_TABLE_LOOKUP(exec_utmp_mode, ExecUtmpMode, i);
 
 static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
         [EXEC_PRESERVE_NO]      = "no",
@@ -3081,7 +3081,7 @@ static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
         [EXEC_PRESERVE_RESTART] = "restart",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EXEC_PRESERVE_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, i, EXEC_PRESERVE_YES);
 
 /* This table maps ExecDirectoryType to the symlink setting it is configured with in the unit */
 static const char* const exec_directory_type_symlink_table[_EXEC_DIRECTORY_TYPE_MAX] = {
@@ -3092,7 +3092,7 @@ static const char* const exec_directory_type_symlink_table[_EXEC_DIRECTORY_TYPE_
         [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectorySymlink",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_symlink, ExecDirectoryType);
+DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_symlink, ExecDirectoryType, i);
 
 static const char* const exec_directory_type_mode_table[_EXEC_DIRECTORY_TYPE_MAX] = {
         [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectoryMode",
@@ -3102,7 +3102,7 @@ static const char* const exec_directory_type_mode_table[_EXEC_DIRECTORY_TYPE_MAX
         [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectoryMode",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_mode, ExecDirectoryType);
+DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_mode, ExecDirectoryType, i);
 
 /* And this table maps ExecDirectoryType too, but to a generic term identifying the type of resource. This
  * one is supposed to be generic enough to be used for unit types that don't use ExecContext and per-unit
@@ -3115,7 +3115,7 @@ static const char* const exec_resource_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
         [EXEC_DIRECTORY_CONFIGURATION] = "configuration",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(exec_resource_type, ExecDirectoryType);
+DEFINE_STRING_TABLE_LOOKUP(exec_resource_type, ExecDirectoryType, i);
 
 static const char* const exec_keyring_mode_table[_EXEC_KEYRING_MODE_MAX] = {
         [EXEC_KEYRING_INHERIT] = "inherit",
@@ -3123,4 +3123,4 @@ static const char* const exec_keyring_mode_table[_EXEC_KEYRING_MODE_MAX] = {
         [EXEC_KEYRING_SHARED]  = "shared",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode);
+DEFINE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode, i);

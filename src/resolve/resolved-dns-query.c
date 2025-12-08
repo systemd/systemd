@@ -122,7 +122,7 @@ static DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c) {
         return mfree(c);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(DnsQueryCandidate, dns_query_candidate, dns_query_candidate_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(DnsQueryCandidate, dns_query_candidate, c, dns_query_candidate_free);
 
 static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
         DnsSearchDomain *next;

@@ -84,7 +84,8 @@ static const char *integrity_algorithm_select(const void *key_file_buf) {
                 if (streq(arg_integrity_algorithm, "phmac-sha512"))
                         return DM_PHMAC_512;
                 return arg_integrity_algorithm;
-        } else if (key_file_buf)
+        }
+        if (key_file_buf)
                 return DM_HMAC_256;
         return "crc32c";
 }

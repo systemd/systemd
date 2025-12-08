@@ -9,4 +9,4 @@ static const char* const geneve_df_table[_NETDEV_GENEVE_DF_MAX] = {
         [NETDEV_GENEVE_DF_INHERIT] = "inherit",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(geneve_df, GeneveDF);
+DEFINE_STRING_TABLE_LOOKUP(geneve_df, GeneveDF, d);

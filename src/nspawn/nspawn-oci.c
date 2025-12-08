@@ -2089,8 +2089,8 @@ int oci_load(FILE *f, const char *bundle, Settings **ret) {
         if (r < 0) {
                 if (line != 0 && column != 0)
                         return log_error_errno(r, "Failed to parse '%s' at %u:%u: %m", path, line, column);
-                else
-                        return log_error_errno(r, "Failed to parse '%s': %m", path);
+
+                return log_error_errno(r, "Failed to parse '%s': %m", path);
         }
 
         v = sd_json_variant_by_key(oci, "ociVersion");

@@ -104,7 +104,7 @@ static const char* image_class_suffix_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_CONFEXT] = ".confext",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_class_suffix, ImageClass);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_class_suffix, ImageClass, i);
 
 static const char *const image_root_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE]  = "/var/lib/machines",
@@ -113,7 +113,7 @@ static const char *const image_root_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_CONFEXT]  = "/var/lib/confexts",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_root, ImageClass);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_root, ImageClass, i);
 
 static const char *const image_root_runtime_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE]  = "/run/machines",
@@ -122,7 +122,7 @@ static const char *const image_root_runtime_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_CONFEXT]  = "/run/confexts",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_root_runtime, ImageClass);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_root_runtime, ImageClass, i);
 
 static const char *const image_dirname_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE]  = "machines",
@@ -131,7 +131,7 @@ static const char *const image_dirname_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_CONFEXT]  = "confexts",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_dirname, ImageClass);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_dirname, ImageClass, i);
 
 static Image* image_free(Image *i) {
         assert(i);
@@ -148,7 +148,7 @@ static Image* image_free(Image *i) {
         return mfree(i);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(Image, image, image_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Image, image, i, image_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(image_hash_ops, char, string_hash_func, string_compare_func,
                                       Image, image_unref);
 
@@ -511,8 +511,9 @@ static int image_make(
 
                 (*ret)->foreign_uid_owned = uid_is_foreign(st->st_uid);
                 return 0;
+        }
 
-        } else if (S_ISREG(st->st_mode) && endswith(filename, ".raw")) {
+        if (S_ISREG(st->st_mode) && endswith(filename, ".raw")) {
                 usec_t crtime = 0;
 
                 /* It's a RAW disk image */
@@ -551,8 +552,9 @@ static int image_make(
                 (*ret)->limit = (*ret)->limit_exclusive = st->st_size;
 
                 return 0;
+        }
 
-        } else if (S_ISBLK(st->st_mode)) {
+        if (S_ISBLK(st->st_mode)) {
                 uint64_t size = UINT64_MAX;
 
                 /* A block device */
@@ -2319,7 +2321,7 @@ static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
         [IMAGE_BLOCK]     = "block",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType);
+DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType, t);
 
 int image_root_pick(
                 RuntimeScope scope,

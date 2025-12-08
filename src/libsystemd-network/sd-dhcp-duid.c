@@ -25,7 +25,7 @@ static const char * const duid_type_table[_DUID_TYPE_MAX] = {
         [DUID_TYPE_UUID] = "UUID",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(duid_type, DUIDType);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(duid_type, DUIDType, t);
 
 int sd_dhcp_duid_clear(sd_dhcp_duid *duid) {
         assert_return(duid, -EINVAL);

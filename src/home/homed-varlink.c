@@ -318,7 +318,9 @@ int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_
                                 SD_JSON_BUILD_PAIR_STRING("userName", h->user_name),
                                 SD_JSON_BUILD_PAIR_STRING("groupName", h->user_name));
 
-        } else if (p.group_name) {
+        }
+
+        if (p.group_name) {
                 const char *last = NULL;
 
                 HASHMAP_FOREACH(h, m->homes_by_uid) {

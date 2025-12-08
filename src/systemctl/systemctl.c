@@ -1104,16 +1104,19 @@ int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
         if (invoked_as(argv, "halt")) {
                 arg_action = ACTION_HALT;
                 return halt_parse_argv(argc, argv);
+        }
 
-        } else if (invoked_as(argv, "poweroff")) {
+        if (invoked_as(argv, "poweroff")) {
                 arg_action = ACTION_POWEROFF;
                 return halt_parse_argv(argc, argv);
+        }
 
-        } else if (invoked_as(argv, "reboot")) {
+        if (invoked_as(argv, "reboot")) {
                 arg_action = ACTION_REBOOT;
                 return halt_parse_argv(argc, argv);
+        }
 
-        } else if (invoked_as(argv, "shutdown")) {
+        if (invoked_as(argv, "shutdown")) {
                 arg_action = ACTION_POWEROFF;
                 return shutdown_parse_argv(argc, argv);
         }

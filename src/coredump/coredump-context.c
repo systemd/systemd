@@ -38,7 +38,7 @@ static const char * const metadata_field_table[_META_MAX] = {
         [META_PROC_AUXV]      = "COREDUMP_PROC_AUXV=",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(metadata_field, MetadataField);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(metadata_field, MetadataField, i);
 
 void coredump_context_done(CoredumpContext *context) {
         assert(context);

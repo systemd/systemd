@@ -38,7 +38,7 @@ static DnsQuestion *dns_question_free(DnsQuestion *q) {
         return mfree(q);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsQuestion, dns_question, dns_question_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsQuestion, dns_question, q, dns_question_free);
 
 int dns_question_add_raw(DnsQuestion *q, DnsResourceKey *key, DnsQuestionFlags flags) {
         /* Insert without checking for duplicates. */

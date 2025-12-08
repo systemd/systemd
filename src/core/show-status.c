@@ -20,7 +20,7 @@ static const char* const show_status_table[_SHOW_STATUS_MAX] = {
         [SHOW_STATUS_YES]       = "yes",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(show_status, ShowStatus, SHOW_STATUS_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(show_status, ShowStatus, s, SHOW_STATUS_YES);
 
 int parse_show_status(const char *s, ShowStatus *ret) {
         ShowStatus status;
@@ -137,4 +137,4 @@ static const char* const status_unit_format_table[_STATUS_UNIT_FORMAT_MAX] = {
         [STATUS_UNIT_FORMAT_COMBINED]    = "combined",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(status_unit_format, StatusUnitFormat);
+DEFINE_STRING_TABLE_LOOKUP(status_unit_format, StatusUnitFormat, s);

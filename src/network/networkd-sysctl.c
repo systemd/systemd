@@ -772,7 +772,7 @@ static const char* const ipv6_privacy_extensions_table[_IPV6_PRIVACY_EXTENSIONS_
         [IPV6_PRIVACY_EXTENSIONS_KERNEL]        = "kernel",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(ipv6_privacy_extensions, IPv6PrivacyExtensions,
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(ipv6_privacy_extensions, IPv6PrivacyExtensions, i,
                                         IPV6_PRIVACY_EXTENSIONS_YES);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_privacy_extensions, ipv6_privacy_extensions, IPv6PrivacyExtensions);
 
@@ -782,7 +782,7 @@ static const char* const ip_reverse_path_filter_table[_IP_REVERSE_PATH_FILTER_MA
         [IP_REVERSE_PATH_FILTER_LOOSE]  = "loose",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(ip_reverse_path_filter, IPReversePathFilter);
+DEFINE_STRING_TABLE_LOOKUP(ip_reverse_path_filter, IPReversePathFilter, i);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ip_reverse_path_filter, ip_reverse_path_filter, IPReversePathFilter);
 
 int config_parse_ip_forward_deprecated(
@@ -813,5 +813,5 @@ static const char* const ipv4_force_igmp_version_table[_IPV4_FORCE_IGMP_VERSION_
         [IPV4_FORCE_IGMP_VERSION_3]  = "v3",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(ipv4_force_igmp_version, IPv4ForceIgmpVersion);
+DEFINE_STRING_TABLE_LOOKUP(ipv4_force_igmp_version, IPv4ForceIgmpVersion, i);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv4_force_igmp_version, ipv4_force_igmp_version, IPv4ForceIgmpVersion);

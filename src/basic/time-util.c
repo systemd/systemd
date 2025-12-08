@@ -96,14 +96,15 @@ usec_t map_clock_usec_raw(usec_t from, usec_t from_base, usec_t to_base) {
 
                 return to_base + delta;
 
-        } else { /* In the past */
-                usec_t delta = from_base - from;
-
-                if (to_base <= delta) /* underflow? */
-                        return 0;
-
-                return to_base - delta;
         }
+
+        /* In the past */
+        usec_t delta = from_base - from;
+
+        if (to_base <= delta) /* underflow? */
+                return 0;
+
+        return to_base - delta;
 }
 
 usec_t map_clock_usec(usec_t from, clockid_t from_clock, clockid_t to_clock) {
@@ -1781,9 +1782,9 @@ usec_t usec_shift_clock(usec_t x, clockid_t from, clockid_t to) {
         if (x > a)
                 /* x lies in the future */
                 return usec_add(b, usec_sub_unsigned(x, a));
-        else
-                /* x lies in the past */
-                return usec_sub_unsigned(b, usec_sub_unsigned(a, x));
+
+        /* x lies in the past */
+        return usec_sub_unsigned(b, usec_sub_unsigned(a, x));
 }
 
 bool in_utc_timezone(void) {
@@ -1844,7 +1845,7 @@ static const char* const timestamp_style_table[_TIMESTAMP_STYLE_MAX] = {
 };
 
 /* Use the macro for enum → string to allow for aliases */
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(timestamp_style, TimestampStyle);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(timestamp_style, TimestampStyle, t);
 
 /* For the string → enum mapping we use the generic implementation, but also support two aliases */
 TimestampStyle timestamp_style_from_string(const char *s) {

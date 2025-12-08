@@ -716,7 +716,9 @@ static int luks_validate(
                 *ret_size = UINT64_MAX; /* full disk */
                 *ret_partition_uuid = SD_ID128_NULL;
                 return 0;
-        } else if (fstype)
+        }
+
+        if (fstype)
                 return -ENOPKG;
 
         (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);

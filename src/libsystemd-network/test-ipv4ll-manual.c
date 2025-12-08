@@ -94,18 +94,17 @@ int main(int argc, char *argv[]) {
 
         if (argc == 2)
                 return test_ll(argv[1], NULL, NULL);
-        else if (argc == 3) {
+        if (argc == 3) {
                 int r;
                 union in_addr_union a;
 
                 r = in_addr_from_string(AF_INET, argv[2], &a);
                 if (r < 0)
                         return test_ll(argv[1], argv[2], NULL);
-                else
-                        return test_ll(argv[1], NULL, &a.in);
-        } else {
-                log_error("This program takes one or two arguments.\n"
-                          "\t %s <ifname> [<seed>|<start_address>]", program_invocation_short_name);
-                return EXIT_FAILURE;
+                return test_ll(argv[1], NULL, &a.in);
         }
+
+        log_error("This program takes one or two arguments.\n"
+                  "\t %s <ifname> [<seed>|<start_address>]", program_invocation_short_name);
+        return EXIT_FAILURE;
 }

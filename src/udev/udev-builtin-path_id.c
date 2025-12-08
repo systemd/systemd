@@ -432,7 +432,7 @@ static sd_device* handle_scsi(sd_device *parent, char **path, char **compat_path
 
         if (strstr(name, "/vmbus_"))
                 return handle_scsi_hyperv(parent, path, 37);
-        else if (strstr(name, "/VMBUS"))
+        if (strstr(name, "/VMBUS"))
                 return handle_scsi_hyperv(parent, path, 38);
 
         return handle_scsi_default(parent, path);

@@ -22,7 +22,7 @@ static sd_ndisc_router_solicit* ndisc_router_solicit_free(sd_ndisc_router_solici
         return mfree(rs);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router_solicit, sd_ndisc_router_solicit, ndisc_router_solicit_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router_solicit, sd_ndisc_router_solicit, rs, ndisc_router_solicit_free);
 
 sd_ndisc_router_solicit* ndisc_router_solicit_new(ICMP6Packet *packet) {
         sd_ndisc_router_solicit *rs;

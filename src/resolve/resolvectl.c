@@ -121,7 +121,7 @@ static const char* const status_mode_json_field_table[_STATUS_MAX] = {
         [STATUS_NTA]           = "negativeTrustAnchors",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(status_mode_json_field, StatusMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(status_mode_json_field, StatusMode, i);
 
 typedef struct InterfaceInfo {
         int index;
@@ -1026,10 +1026,9 @@ static int verb_service(int argc, char **argv, void *userdata) {
 
         if (argc == 2)
                 return resolve_service(bus, NULL, NULL, argv[1]);
-        else if (argc == 3)
+        if (argc == 3)
                 return resolve_service(bus, NULL, argv[1], argv[2]);
-        else
-                return resolve_service(bus, argv[1], argv[2], argv[3]);
+        return resolve_service(bus, argv[1], argv[2], argv[3]);
 }
 
 #if HAVE_OPENSSL

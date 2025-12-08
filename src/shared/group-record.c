@@ -46,7 +46,7 @@ static GroupRecord *group_record_free(GroupRecord *g) {
         return mfree(g);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(GroupRecord, group_record, group_record_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(GroupRecord, group_record, g, group_record_free);
 
 static int dispatch_privileged(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
 

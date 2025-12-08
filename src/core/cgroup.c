@@ -1054,26 +1054,24 @@ uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state) {
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_cpu_weight != CGROUP_WEIGHT_INVALID)
                 return c->startup_cpu_weight;
-        else if (c->cpu_weight != CGROUP_WEIGHT_INVALID)
+        if (c->cpu_weight != CGROUP_WEIGHT_INVALID)
                 return c->cpu_weight;
-        else
-                return CGROUP_WEIGHT_DEFAULT;
+
+        return CGROUP_WEIGHT_DEFAULT;
 }
 
 static CPUSet *cgroup_context_allowed_cpus(CGroupContext *c, ManagerState state) {
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_cpuset_cpus.set)
                 return &c->startup_cpuset_cpus;
-        else
-                return &c->cpuset_cpus;
+                        return &c->cpuset_cpus;
 }
 
 static CPUSet *cgroup_context_allowed_mems(CGroupContext *c, ManagerState state) {
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_cpuset_mems.set)
                 return &c->startup_cpuset_mems;
-        else
-                return &c->cpuset_mems;
+                        return &c->cpuset_mems;
 }
 
 usec_t cgroup_cpu_adjust_period(usec_t period, usec_t quota, usec_t resolution, usec_t max_period) {
@@ -4210,7 +4208,7 @@ static const char* const ip_accounting_metric_field_table[_CGROUP_IP_ACCOUNTING_
         [CGROUP_IP_EGRESS_PACKETS]  = "ip-accounting-egress-packets",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(ip_accounting_metric_field, CGroupIPAccountingMetric);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(ip_accounting_metric_field, CGroupIPAccountingMetric, i);
 
 static const char* const io_accounting_metric_field_base_table[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
         [CGROUP_IO_READ_BYTES]       = "io-accounting-read-bytes-base",
@@ -4219,7 +4217,7 @@ static const char* const io_accounting_metric_field_base_table[_CGROUP_IO_ACCOUN
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-base",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(io_accounting_metric_field_base, CGroupIOAccountingMetric);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(io_accounting_metric_field_base, CGroupIOAccountingMetric, i);
 
 static const char* const io_accounting_metric_field_last_table[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
         [CGROUP_IO_READ_BYTES]       = "io-accounting-read-bytes-last",
@@ -4228,14 +4226,14 @@ static const char* const io_accounting_metric_field_last_table[_CGROUP_IO_ACCOUN
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-last",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(io_accounting_metric_field_last, CGroupIOAccountingMetric);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(io_accounting_metric_field_last, CGroupIOAccountingMetric, i);
 
 static const char* const memory_accounting_metric_field_last_table[_CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST + 1] = {
         [CGROUP_MEMORY_PEAK]      = "memory-accounting-peak",
         [CGROUP_MEMORY_SWAP_PEAK] = "memory-accounting-swap-peak",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(memory_accounting_metric_field_last, CGroupMemoryAccountingMetric);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(memory_accounting_metric_field_last, CGroupMemoryAccountingMetric, i);
 
 static int serialize_cgroup_mask(FILE *f, const char *key, CGroupMask mask) {
         _cleanup_free_ char *s = NULL;
@@ -4546,7 +4544,7 @@ static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] =
         [CGROUP_DEVICE_POLICY_STRICT] = "strict",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(cgroup_device_policy, CGroupDevicePolicy);
+DEFINE_STRING_TABLE_LOOKUP(cgroup_device_policy, CGroupDevicePolicy, i);
 
 static const char* const cgroup_pressure_watch_table[_CGROUP_PRESSURE_WATCH_MAX] = {
         [CGROUP_PRESSURE_WATCH_NO]   = "no",
@@ -4555,7 +4553,7 @@ static const char* const cgroup_pressure_watch_table[_CGROUP_PRESSURE_WATCH_MAX]
         [CGROUP_PRESSURE_WATCH_SKIP] = "skip",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(cgroup_pressure_watch, CGroupPressureWatch, CGROUP_PRESSURE_WATCH_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(cgroup_pressure_watch, CGroupPressureWatch, a, CGROUP_PRESSURE_WATCH_YES);
 
 static const char* const cgroup_ip_accounting_metric_table[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
         [CGROUP_IP_INGRESS_BYTES]   = "IPIngressBytes",
@@ -4564,7 +4562,7 @@ static const char* const cgroup_ip_accounting_metric_table[_CGROUP_IP_ACCOUNTING
         [CGROUP_IP_EGRESS_PACKETS]  = "IPEgressPackets",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(cgroup_ip_accounting_metric, CGroupIPAccountingMetric);
+DEFINE_STRING_TABLE_LOOKUP(cgroup_ip_accounting_metric, CGroupIPAccountingMetric, m);
 
 static const char* const cgroup_io_accounting_metric_table[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
         [CGROUP_IO_READ_BYTES]       = "IOReadBytes",
@@ -4573,7 +4571,7 @@ static const char* const cgroup_io_accounting_metric_table[_CGROUP_IO_ACCOUNTING
         [CGROUP_IO_WRITE_OPERATIONS] = "IOWriteOperations",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(cgroup_io_accounting_metric, CGroupIOAccountingMetric);
+DEFINE_STRING_TABLE_LOOKUP(cgroup_io_accounting_metric, CGroupIOAccountingMetric, m);
 
 static const char* const cgroup_memory_accounting_metric_table[_CGROUP_MEMORY_ACCOUNTING_METRIC_MAX] = {
         [CGROUP_MEMORY_CURRENT]       = "MemoryCurrent",
@@ -4583,7 +4581,7 @@ static const char* const cgroup_memory_accounting_metric_table[_CGROUP_MEMORY_AC
         [CGROUP_MEMORY_ZSWAP_CURRENT] = "MemoryZSwapCurrent",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(cgroup_memory_accounting_metric, CGroupMemoryAccountingMetric);
+DEFINE_STRING_TABLE_LOOKUP(cgroup_memory_accounting_metric, CGroupMemoryAccountingMetric, m);
 
 static const char *const cgroup_effective_limit_type_table[_CGROUP_LIMIT_TYPE_MAX] = {
         [CGROUP_LIMIT_MEMORY_MAX]  = "EffectiveMemoryMax",
@@ -4591,4 +4589,4 @@ static const char *const cgroup_effective_limit_type_table[_CGROUP_LIMIT_TYPE_MA
         [CGROUP_LIMIT_TASKS_MAX]   = "EffectiveTasksMax",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(cgroup_effective_limit_type, CGroupLimitType);
+DEFINE_STRING_TABLE_LOOKUP(cgroup_effective_limit_type, CGroupLimitType, m);

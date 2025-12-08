@@ -285,10 +285,12 @@ static int apply_tmpfs_quota(
                 if (r == -ESRCH) {
                         log_debug_errno(r, "Not setting UID quota on %s since UID quota is not supported: %m", *p);
                         continue;
-                } else if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                }
+                if (ERRNO_IS_NEG_PRIVILEGE(r)) {
                         log_debug_errno(r, "Lacking privileges to set UID quota on %s, skipping: %m", *p);
                         continue;
-                } else if (r < 0) {
+                }
+                if (r < 0) {
                         log_warning_errno(r, "Failed to set disk quota limit to %s on %s for UID " UID_FMT ", ignoring: %m",
                                           FORMAT_BYTES(v * QIF_DQBLKSIZE), *p, uid);
                         continue;

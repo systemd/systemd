@@ -1028,7 +1028,8 @@ static int fd_copy_fifo(
                                  strempty(from),
                                  isempty(from) ? "" : "'");
                 return 0;
-        } else if (r < 0)
+        }
+        if (r < 0)
                 return r;
 
         if (fchownat(dt, to,
@@ -1081,7 +1082,8 @@ static int fd_copy_node(
                                  strempty(from),
                                  isempty(from) ? "" : "'");
                 return 0;
-        } else if (r < 0)
+        }
+        if (r < 0)
                 return r;
 
         if (fchownat(dt, to,
@@ -1362,7 +1364,8 @@ static int fd_copy_tree_generic(
         if (t == DENY_INODE) {
                 log_debug("%s is in the denylist, ignoring", from ?: "file to copy");
                 return 0;
-        } else if (t == DENY_CONTENTS)
+        }
+        if (t == DENY_CONTENTS)
                 log_debug("%s is configured to have its contents excluded, but is not a directory", from ?: "file to copy");
 
         r = fd_copy_leaf(df, from, st, dt, to, override_uid, override_gid, copy_flags, hardlink_context, display_path, progress_bytes, userdata);

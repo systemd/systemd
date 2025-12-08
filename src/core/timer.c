@@ -1024,7 +1024,7 @@ static const char* const timer_base_table[_TIMER_BASE_MAX] = {
         [TIMER_CALENDAR]      = "OnCalendar",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);
+DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase, i);
 
 char* timer_base_to_usec_string(TimerBase i) {
         _cleanup_free_ char *buf = NULL;
@@ -1057,7 +1057,7 @@ static const char* const timer_result_table[_TIMER_RESULT_MAX] = {
         [TIMER_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(timer_result, TimerResult);
+DEFINE_STRING_TABLE_LOOKUP(timer_result, TimerResult, i);
 
 const UnitVTable timer_vtable = {
         .object_size = sizeof(Timer),

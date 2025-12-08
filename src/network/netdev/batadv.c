@@ -48,7 +48,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_batadv_gateway_mode, batadv_gateway_mode, 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(batadv_routing_algorithm, BatadvRoutingAlgorithm);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_batadv_routing_algorithm, batadv_routing_algorithm, BatadvRoutingAlgorithm);
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(batadv_routing_algorithm_kernel, BatadvRoutingAlgorithm);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(batadv_routing_algorithm_kernel, BatadvRoutingAlgorithm, i);
 
 int config_parse_badadv_bandwidth (
                 const char *unit,

@@ -229,7 +229,9 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
                         if (*p == '/') {
                                 ++p;
                                 continue;
-                        } else if (*p == '\0')
+                        }
+
+                        if (*p == '\0')
                                 goto retry;
                         else
                                 goto nope;

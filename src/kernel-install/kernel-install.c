@@ -82,7 +82,7 @@ static const char * const layout_table[_LAYOUT_MAX] = {
         [LAYOUT_OTHER] = "other",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(layout, Layout);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(layout, Layout, i);
 
 typedef struct Context {
         int rfd;
@@ -782,7 +782,8 @@ static int context_ensure_layout(Context *c) {
 
                 log_debug("%s with '%s' found, using layout=%s.", srel_path, srel, layout_to_string(c->layout));
                 return 0;
-        } else if (r != -ENOENT)
+        }
+        if (r != -ENOENT)
                 return log_error_errno(r, "Failed to read %s: %m", srel_path);
 
         _cleanup_free_ char *entry_token_path = path_join(c->boot_root, c->entry_token);

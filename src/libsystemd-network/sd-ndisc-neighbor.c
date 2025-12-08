@@ -21,7 +21,7 @@ static sd_ndisc_neighbor* ndisc_neighbor_free(sd_ndisc_neighbor *na) {
         return mfree(na);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_neighbor, sd_ndisc_neighbor, ndisc_neighbor_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_neighbor, sd_ndisc_neighbor, na, ndisc_neighbor_free);
 
 sd_ndisc_neighbor* ndisc_neighbor_new(ICMP6Packet *packet) {
         sd_ndisc_neighbor *na;

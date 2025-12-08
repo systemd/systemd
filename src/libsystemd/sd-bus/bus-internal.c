@@ -280,14 +280,13 @@ int bus_message_type_from_string(const char *s, uint8_t *u) {
 const char* bus_message_type_to_string(uint8_t u) {
         if (u == SD_BUS_MESSAGE_SIGNAL)
                 return "signal";
-        else if (u == SD_BUS_MESSAGE_METHOD_CALL)
+        if (u == SD_BUS_MESSAGE_METHOD_CALL)
                 return "method_call";
-        else if (u == SD_BUS_MESSAGE_METHOD_ERROR)
+        if (u == SD_BUS_MESSAGE_METHOD_ERROR)
                 return "error";
-        else if (u == SD_BUS_MESSAGE_METHOD_RETURN)
+        if (u == SD_BUS_MESSAGE_METHOD_RETURN)
                  return "method_return";
-        else
-                return NULL;
+        return NULL;
 }
 
 char* bus_address_escape(const char *v) {
