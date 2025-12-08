@@ -143,6 +143,9 @@ Features:
   integrity tags are stored by the device (inline), interleaved with data (data),
   and on a separate device (meta).
 
+* homed/pam_systemd: allow authentication by ssh-agent, so that run0/polkit can
+  be allowed if caller comes with the right ssh-agent keys.
+
 * networkd/machined: implement reverse name lookups in the resolved hook
 
 * networkd's resolved hook: optionally map all lease IP addresses handed out to
@@ -212,10 +215,6 @@ Features:
 
 * similar: add a plugin for factory reset logic that erases certain parts of
   the ESP, but leaves others in place.
-
-* systemd-repart: add --defer-partitions-factory-reset or so, as a flavour of
-  --defer-partitions= that picks all partitions that are marked for factory
-  reset. for an installer this is usually the partitions not to copy, too.
 
 * flush_fd() should probably try to be smart and stop reading once we know that
   all further queued data was enqueued after flush_fd() was originally
@@ -847,8 +846,6 @@ Features:
   early on, but provide opt-out via kernel cmdline.
 
 * systemd-pcrextend:
-  - support measuring to nvindex with PCR update semantics ("fake PCRs")
-  - add api for "allocating" such an nvindex
   - once we have that start measuring every sysext we apply, every confext,
     every RootImage= we apply, every nspawn and so on. All in separate fake
     PCRs.
@@ -862,8 +859,6 @@ Features:
   - support for "real" networking via "-n" and --network-bridge=
   - translate SIGTERM to clean ACPI shutdown event
   - implement hotkeys ^]^]r and ^]^]p like nspawn
-
-* systemd-pcrmachine should probably also measure the SMBIOS system UUID.
 
 * storagetm:
   - add USB mass storage device logic, so that all local disks are also exposed
@@ -1268,10 +1263,6 @@ Features:
   from the UKI with all parameters baked in to a Type #1 .conf file with manual
   parametrization, if needed. This matches our usual rule that admin config
   should win over vendor defaults.
-
-* write a "search path" spec, that documents the prefixes to search in
-  (i.e. the usual /etc/, /run/, /usr/lib/ dance, potentially /usr/etc/), how to
-  sort found entries, how masking works and overriding.
 
 * automatic boot assessment: add one more default success check that just waits
   for a bit after boot, and blesses the boot if the system stayed up that long.
@@ -1688,10 +1679,6 @@ Features:
   key). That way, we nicely distinguish resources supplied by the OS vendor
   (i.e. sysext, root verity) from those inherently local (i.e. encryption key),
   which is useful if they shall be signed separately.
-
-* in uefi stub: query firmware regarding which PCR banks are being used, store
-  that in EFI var. then use this when enrolling TPM2 in cryptsetup to verify
-  that the selected PCRs actually are used by firmware.
 
 * rework recursive read-only remount to use new mount API
 
@@ -2280,7 +2267,6 @@ Features:
   - allow Type=simple with PIDFile=
     https://bugzilla.redhat.com/show_bug.cgi?id=723942
   - allow writing multiple conditions in unit files on one line
-  - introduce Type=pid-file
   - add a concept of RemainAfterExit= to scope units
   - Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
   - add verification of [Install] section to systemd-analyze verify
