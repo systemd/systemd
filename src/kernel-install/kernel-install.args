@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option -v --verbose
+help Increase verbosity
+        log_set_max_level(LOG_DEBUG);
+        arg_verbose = true;
+
+option --esp-path=PATH
+help Path to the EFI System Partition (ESP)
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_esp_path);
+        if (r < 0)
+                return log_oom();
+
+option --boot-path=PATH
+help Path to the $BOOT partition
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_xbootldr_path);
+        if (r < 0)
+                return log_oom();
+
+option --make-entry-directory=yes|no|auto
+help Create $BOOT/ENTRY-TOKEN/ directory
+        if (streq(optarg, "auto"))
+                arg_make_entry_directory = -1;
+        else {
+                r = parse_boolean_argument("--make-entry-directory=", optarg, NULL);
+                if (r < 0)
+                        return r;
+
+                arg_make_entry_directory = r;
+        }
+
+option --entry-type=type1|type2|all
+help Operate only on the specified bootloader entry type
+
+        if (isempty(optarg) || streq(optarg, "all"))
+                arg_boot_entry_type = _BOOT_ENTRY_TYPE_INVALID;
+        else {
+                BootEntryType e = boot_entry_type_from_string(optarg);
+                if (e < 0)
+                        return log_error_errno(e, "Invalid entry type: %s", optarg);
+                arg_boot_entry_type = e;
+        }
+
+option --entry-token=machine-id|os-id|os-image-id|auto|literal:…
+help Entry token to be used for this installation
+        r = parse_boot_entry_token_type(optarg, &arg_entry_token_type, &arg_entry_token);
+        if (r < 0)
+                return r;
+
+option --json=pretty|short|off
+help Generate JSON output
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r < 0)
+                return r;
+
+option --no-pager
+
+option --no-legend
+help Do not show the headers and footers
+        arg_legend = false;
+
+option --root=PATH
+help Operate on an alternate filesystem root
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
+        if (r < 0)
+                return r;
+
+option --image=PATH
+help Operate on disk image as filesystem root
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
+        if (r < 0)
+                return r;
+
+option --image-policy=POLICY
+help Specify disk image dissection policy
+        r = parse_image_policy_argument(optarg, &arg_image_policy);
+        if (r < 0)
+                return r;
