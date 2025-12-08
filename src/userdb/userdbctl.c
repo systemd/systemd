@@ -1133,14 +1133,9 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "No chain command line specified, refusing.");
 
-                /* Make similar restrictions on the chain command as OpenSSH itself makes on the primary command. */
-                if (!path_is_absolute(argv[2]))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Chain invocation of ssh-authorized-keys commands requires an absolute binary path argument.");
-
                 if (!path_is_normalized(argv[2]))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Chain invocation of ssh-authorized-keys commands requires an normalized binary path argument.");
+                                               "Chain invocation of ssh-authorized-keys commands requires a normalized path.");
 
                 chain_invocation = argv + 2;
         } else {
