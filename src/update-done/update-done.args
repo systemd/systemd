@@ -2,6 +2,8 @@
 
 option -h --help
 
+option --version
+
 option --root=PATH
 help Operate on root directory PATH
         r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
