@@ -121,6 +121,8 @@ int mount_image_in_namespace(
 int make_mount_point(const char *path);
 int fd_make_mount_point(int fd);
 
+int mount_fd_clone(int mount_fd, bool recursive, int *replacement_fd);
+
 typedef enum RemountIdmapping {
         REMOUNT_IDMAPPING_NONE,
         /* Include a mapping from UID_MAPPED_ROOT (i.e. UID 2^31-2) on the backing fs to UID 0 on the
