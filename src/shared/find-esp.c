@@ -291,7 +291,7 @@ static int verify_fsroot_dir(
 
         r = path_extract_filename(path, &f);
         if (r < 0 && r != -EADDRNOTAVAIL)
-                return log_error_errno(r, "Failed to extract filename of %s: %m", path);
+                return log_error_errno(r, "Failed to extract filename of \"%s\": %m", path);
 
         if (statx(dir_fd, strempty(f),
                   AT_SYMLINK_NOFOLLOW|(isempty(f) ? AT_EMPTY_PATH : 0),
@@ -384,13 +384,13 @@ static int verify_esp(
 
                 r = path_extract_filename(p, &f);
                 if (r < 0 && r != -EADDRNOTAVAIL)
-                        return log_error_errno(r, "Failed to extract filename of %s: %m", p);
+                        return log_error_errno(r, "Failed to extract filename of \"%s\": %m", p);
 
                 /* Trigger any automounts so that xstatfsat() operates on the mount instead of the mountpoint
                  * directory. */
                 r = trigger_automount_at(pfd, f);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to trigger automount at %s: %m", p);
+                        return log_error_errno(r, "Failed to trigger automount at \"%s\": %m", p);
 
                 r = xstatfsat(pfd, strempty(f), &sfs);
                 if (r < 0)
@@ -490,12 +490,12 @@ int find_esp_and_warn_at(
 
                 if (!path_is_valid(path) || !path_is_absolute(path))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "$SYSTEMD_ESP_PATH does not refer to an absolute path, refusing to use it: %s",
+                                               "$SYSTEMD_ESP_PATH does not refer to an absolute path, refusing to use it: \"%s\"",
                                                path);
 
                 r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve path %s: %m", path);
+                        return log_error_errno(r, "Failed to resolve path \"%s\": %m", path);
 
                 /* Note: when the user explicitly configured things with an env var we won't validate the
                  * path beyond checking it refers to a directory. After all we want this to be useful for
@@ -842,12 +842,12 @@ int find_xbootldr_and_warn_at(
 
                 if (!path_is_valid(path) || !path_is_absolute(path))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "$SYSTEMD_XBOOTLDR_PATH does not refer to an absolute path, refusing to use it: %s",
+                                               "$SYSTEMD_XBOOTLDR_PATH does not refer to an absolute path, refusing to use it: \"%s\"",
                                                path);
 
                 r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve path %s: %m", p);
+                        return log_error_errno(r, "Failed to resolve path \"%s\": %m", p);
 
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", p);
