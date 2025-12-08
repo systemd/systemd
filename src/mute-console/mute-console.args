@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --kernel=yes|no
+help Mute kernel log output
+        r = parse_boolean_argument("--kernel=", optarg, &arg_mute_kernel);
+        if (r < 0)
+                return r;
+
+option --pid1=yes|no
+help Mute PID 1 status output
+        r = parse_boolean_argument("--pid1=", optarg, &arg_mute_pid1);
+        if (r < 0)
+                return r;

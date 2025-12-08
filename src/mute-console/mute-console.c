@@ -28,6 +28,8 @@ static bool arg_mute_pid1 = true;
 static bool arg_mute_kernel = true;
 static bool arg_varlink = false;
 
+#include "mute-console.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -38,10 +40,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...]\n"
                "\n%sMute status output to the console.%s\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "     --kernel=BOOL     Mute kernel log output\n"
-               "     --pid1=BOOL       Mute PID 1 status output\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -52,63 +51,16 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_KERNEL,
-                ARG_PID1,
-        };
-
-        static const struct option options[] = {
-                { "help",    no_argument,       NULL, 'h'           },
-                { "version", no_argument,       NULL, ARG_VERSION   },
-                { "kernel",  required_argument, NULL, ARG_KERNEL    },
-                { "pid1",    required_argument, NULL, ARG_PID1      },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_PID1:
-                        r = parse_boolean_argument("--pid1=", optarg, &arg_mute_pid1);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_KERNEL:
-                        r = parse_boolean_argument("--kernel=", optarg, &arg_mute_kernel);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-        }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
-        if (r > 0)
-                arg_varlink = true;
+        arg_varlink = r;
 
         return 1;
 }
