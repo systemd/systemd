@@ -2100,10 +2100,6 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
-        return help();
-}
-
 static int parse_argv(int argc, char *argv[]) {
         int r;
 

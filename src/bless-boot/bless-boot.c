@@ -280,10 +280,6 @@ static int make_bad(const char *prefix, uint64_t done, const char *suffix, char 
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
-        return help();
-}
-
 static int verb_status(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
         uint64_t left, done;
