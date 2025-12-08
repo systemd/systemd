@@ -42,7 +42,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_nvpcr_name, freep);
 
 #define EXTENSION_STRING_SAFE_LIMIT 1024
 
-static int help(int argc, char *argv[], void *userdata) {
+#include "pcrextend.args.inc"
+
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -51,23 +53,12 @@ static int help(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         printf("%1$s  [OPTIONS...] WORD\n"
-               "%1$s  [OPTIONS...] --file-system=PATH\n"
                "%1$s  [OPTIONS...] --machine-id\n"
                "%1$s  [OPTIONS...] --product-id\n"
+               "%1$s  [OPTIONS...] --file-system=PATH\n"
                "\n%5$sExtend a TPM2 PCR with boot phase, machine ID, or file system ID.%6$s\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
-               "     --version           Print version\n"
-               "     --bank=DIGEST       Select TPM PCR bank (SHA1, SHA256)\n"
-               "     --pcr=INDEX         Select TPM PCR index (0…23)\n"
-               "     --nvpcr=NAME        Select TPM PCR mode nvindex name\n"
-               "     --tpm2-device=PATH  Use specified TPM2 device\n"
-               "     --graceful          Exit gracefully if no TPM2 device is found\n"
-               "     --file-system=PATH  Measure UUID/labels of file system into PCR 15\n"
-               "     --machine-id        Measure machine ID into PCR 15\n"
-               "     --product-id        Measure SMBIOS product ID into NvPCR 'hardware'\n"
-               "     --early             Run in early boot mode, without access to /var/\n"
-               "     --event-type=TYPE   Event type to include in the event log\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -80,135 +71,11 @@ static int help(int argc, char *argv[], void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_BANK,
-                ARG_PCR,
-                ARG_NVPCR,
-                ARG_TPM2_DEVICE,
-                ARG_GRACEFUL,
-                ARG_FILE_SYSTEM,
-                ARG_MACHINE_ID,
-                ARG_PRODUCT_ID,
-                ARG_EARLY,
-                ARG_EVENT_TYPE,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "help",        no_argument,       NULL, 'h'             },
-                { "version",     no_argument,       NULL, ARG_VERSION     },
-                { "bank",        required_argument, NULL, ARG_BANK        },
-                { "pcr",         required_argument, NULL, ARG_PCR         },
-                { "nvpcr",       required_argument, NULL, ARG_NVPCR       },
-                { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
-                { "graceful",    no_argument,       NULL, ARG_GRACEFUL    },
-                { "file-system", required_argument, NULL, ARG_FILE_SYSTEM },
-                { "machine-id",  no_argument,       NULL, ARG_MACHINE_ID  },
-                { "product-id",  no_argument,       NULL, ARG_PRODUCT_ID  },
-                { "early",       no_argument,       NULL, ARG_EARLY       },
-                { "event-type",  required_argument, NULL, ARG_EVENT_TYPE  },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_BANK: {
-                        const EVP_MD *implementation;
-
-                        implementation = EVP_get_digestbyname(optarg);
-                        if (!implementation)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", optarg);
-
-                        if (strv_extend(&arg_banks, EVP_MD_name(implementation)) < 0)
-                                return log_oom();
-
-                        break;
-                }
-
-                case ARG_PCR:
-                        r = tpm2_pcr_index_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse PCR index: %s", optarg);
-
-                        arg_pcr_index = r;
-                        break;
-
-                case ARG_NVPCR:
-                        if (!tpm2_nvpcr_name_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NvPCR name is not valid: %s", optarg);
-
-                        r = free_and_strdup_warn(&arg_nvpcr_name, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_TPM2_DEVICE: {
-                        _cleanup_free_ char *device = NULL;
-
-                        if (streq(optarg, "list"))
-                                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
-
-                        if (!streq(optarg, "auto")) {
-                                device = strdup(optarg);
-                                if (!device)
-                                        return log_oom();
-                        }
-
-                        free_and_replace(arg_tpm2_device, device);
-                        break;
-                }
-
-                case ARG_GRACEFUL:
-                        arg_graceful = true;
-                        break;
-
-                case ARG_FILE_SYSTEM:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_file_system);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_MACHINE_ID:
-                        arg_machine_id = true;
-                        break;
-
-                case ARG_PRODUCT_ID:
-                        arg_product_id = true;
-                        break;
-
-                case ARG_EARLY:
-                        arg_early = true;
-                        break;
-
-                case ARG_EVENT_TYPE:
-                        if (streq(optarg, "help"))
-                                return DUMP_STRING_TABLE(tpm2_userspace_event_type, Tpm2UserspaceEventType, _TPM2_USERSPACE_EVENT_TYPE_MAX);
-
-                        arg_event_type = tpm2_userspace_event_type_from_string(optarg);
-                        if (arg_event_type < 0)
-                                return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", optarg);
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (!!arg_file_system + arg_machine_id + arg_product_id > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system=, --machine-id, --product-id may not be combined.");
