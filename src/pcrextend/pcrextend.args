@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --bank=DIGEST
+help Select TPM PCR bank (SHA1, SHA256)
+        const EVP_MD *implementation;
+
+        implementation = EVP_get_digestbyname(optarg);
+        if (!implementation)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", optarg);
+
+        if (strv_extend(&arg_banks, EVP_MD_name(implementation)) < 0)
+                return log_oom();
+
+option --pcr=INDEX
+help Select TPM PCR index (0…23)
+        r = tpm2_pcr_index_from_string(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse PCR index: %s", optarg);
+
+        arg_pcr_index = r;
+
+option --nvpcr=NAME
+help Select TPM PCR mode nvindex name
+        if (!tpm2_nvpcr_name_is_valid(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NvPCR name is not valid: %s", optarg);
+
+        r = free_and_strdup_warn(&arg_nvpcr_name, optarg);
+        if (r < 0)
+                return r;
+
+option --tpm2-device=PATH
+help Use specified TPM2 device
+        _cleanup_free_ char *device = NULL;
+
+        if (streq(optarg, "list"))
+                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
+
+        if (!streq(optarg, "auto")) {
+                device = strdup(optarg);
+                if (!device)
+                        return log_oom();
+        }
+
+        free_and_replace(arg_tpm2_device, device);
+
+option --graceful
+help Exit gracefully if no TPM2 device is found
+        arg_graceful = true;
+
+option --file-system=PATH
+help Measure UUID/labels of file system into PCR 15
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_file_system);
+        if (r < 0)
+                return r;
+
+option --machine-id
+help Measure machine ID into PCR 15
+        arg_machine_id = true;
+
+option --product-id
+help Measure SMBIOS product ID into NvPCR 'hardware'
+        arg_product_id = true;
+
+option --early
+help Run in early boot mode, without access to /var/
+        arg_early = true;
+
+option --event-type=TYPE
+help Event type to include in the event log
+        if (streq(optarg, "help"))
+                return DUMP_STRING_TABLE(tpm2_userspace_event_type,
+                                         Tpm2UserspaceEventType,
+                                         _TPM2_USERSPACE_EVENT_TYPE_MAX);
+
+        arg_event_type = tpm2_userspace_event_type_from_string(optarg);
+        if (arg_event_type < 0)
+                return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", optarg);
