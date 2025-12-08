@@ -52,6 +52,7 @@ executables += [
                 # Instead, we make sure we don't install it when the remote feature is disabled.
                 'install' : conf.get('ENABLE_REMOTE') == 1,
                 'sources' : systemd_journal_remote_sources,
+                'arg_parser' : files('journal-remote.args'),
                 'extract' : systemd_journal_remote_extract_sources,
                 'objects' : conf.get('HAVE_MICROHTTPD') == 1 ? ['systemd-journal-gatewayd'] : [],
                 'dependencies' : common_deps + [libmicrohttpd],
