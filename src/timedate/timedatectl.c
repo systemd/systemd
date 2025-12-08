@@ -928,10 +928,6 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
-        return help();
-}
-
 static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "status",          VERB_ANY, 1,        VERB_DEFAULT, show_status          },

@@ -160,8 +160,13 @@ class Option:
 
 
 def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
-    # 0. Generate forward declaration
+    # 0. Generate forward declarations and defines
     yield 'static int help(void);'
+    yield ''
+    yield 'static int _unused_ verb_help(int argc, char *argv[], void *userdata) {'
+    yield '\treturn help();'
+    yield '}'
+    yield ''
 
     # 1. Generate help string
     if (help_key_width := globals.help_key_width) is None:
