@@ -36,6 +36,9 @@
 #   optstring_prefix c — add 'c' before the option string. Useful with '-' or '+'.
 #   parser_option x y — add ', x y' into the signature of parse_argv_generated().
 #
+# An 'intro' and an 'outro' block can be used to specify additional lines to
+# place near the beginning and end of the generated function.
+#
 # Lines with # at the beginning of the line are discarded.
 # Normal C comments with /* */ or // are propagated.
 
@@ -54,6 +57,8 @@ class Globals:
     help_key_width: int|None = None
     optstring_prefix: str = ''
     parser_options: list[str] = field(default_factory=list)
+    intro: list[str] = field(default_factory=list)
+    outro: list[str] = field(default_factory=list)
 
     def set(self, name: str, value: str) -> None:
         # A consumer for the 'global foo bar' settings.
@@ -307,6 +312,11 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
     yield '\tint c, _unused_ r;'
     yield ''
 
+    if globals.intro:
+        for line in globals.intro:
+            yield f'\t{line}'
+        yield ''
+
     if optstring.startswith('+'):
         yield "\t/* Resetting to 0 forces the invocation of an internal initialization routine of"
         yield "\t * getopt_long() that checks for GNU extensions in optstring ('-' or '+' at the beginning)."
@@ -337,6 +347,11 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
     yield '\t\t}'
 
     # 4. Close the function
+    if globals.outro:
+        yield ''
+        for line in globals.outro:
+            yield f'\t{line}'
+
     yield ''
     yield '\treturn 1;'
     yield '}'
@@ -364,7 +379,7 @@ def parse_option_line(desc: str) -> tuple[list[str], ArgType, str | None]:
     argtype = None
     metavar = None
 
-    if desc == 'positional':
+    if split == ['positional']:
         # handle positional args when '-' is the first character of the option string
         return [desc], ArgType.positional, None
 
@@ -432,11 +447,15 @@ def parse_input(lines: list[str]) -> tuple[list[Option], Globals]:
                     n += 1
                     continue
 
-                m = re.match(r'option (?P<options>.+)$', line)
+                m = re.match(r'(?P<block>intro$|outro$|option\b)(?P<config>.*)', line)
                 if not m:
                     raise ValueError(f'unexpected line {n+1}: {line!r}')
 
-                names, argtype, metavar = parse_option_line(m.group('options'))
+                block, config = m.groups()
+                if block == 'option':
+                    names, argtype, metavar = parse_option_line(config)
+                else:
+                    names, argtype, metavar = [], ArgType.no_argument, None
 
                 state = InputState.directives
                 help = []
@@ -475,8 +494,11 @@ def parse_input(lines: list[str]) -> tuple[list[Option], Globals]:
                     body += [line]
                     n += 1
 
-                if not body_part or n >= len(lines):
-                    # end of body
+                    if n < len(lines):
+                        continue
+
+                # end of body
+                if block == 'option':
                     assert names
 
                     scope = scope or any(l.startswith(('_cleanup_', 'const')) for l in body)
@@ -491,8 +513,15 @@ def parse_input(lines: list[str]) -> tuple[list[Option], Globals]:
                         scope=scope,
                     )
                     options += [opt]
+                elif block in ('intro', 'outro'):
+                    assert not names
+                    assert not help
+                    old = globals.intro if block == 'intro' else globals.outro
+                    if old:
+                        raise ValueError(f'block {block} duplicated')
+                    old += body
 
-                    state = InputState.init
+                state = InputState.init
 
     return options, globals
 
