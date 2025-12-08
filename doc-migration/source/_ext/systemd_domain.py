@@ -268,7 +268,6 @@ class SystemdDomain(Domain):
     label = 'Systemd'
 
     initial_data: Dict[str, Any] = {
-        # objects[(kind, normalized_name)] = List[ {docname, anchor, group, name} ]
         'objects': {},
     }
 
@@ -617,68 +616,16 @@ def on_env_updated(app: Sphinx, env) -> None:
         pass
 
 
-class LegacyDirectiveDomain(Domain):
-    """
-    Minimal compat domain that accepts any role name '<group-id>:<type>' and
-    defers resolution to DirectiveCompatRole (which consults the systemd domain).
-    """
-    name = 'directive'
-    label = 'Directive (compat)'
-    roles: Dict[str, Any] = {}  # dynamic via get_role
-
-    def get_role(self, name: str):
-        return DirectiveCompatRole()
-
-    def merge_domaindata(self, docnames, otherdata):
-        """Merge parallel build data produced by workers."""
-        my_objects = self.data.setdefault('objects', {})
-        worker_objects = otherdata.get('objects', {})
-
-        for key, entries in worker_objects.items():
-            if key not in my_objects:
-                # Just take the whole list of objects from the worker
-                my_objects[key] = list(entries)
-            else:
-                # Append objects from the worker
-                # (Sphinx ensures no duplicates across workers)
-                my_objects[key].extend(entries)
-
-
-def on_config_inited(app: Sphinx, config) -> None:
-    """Register legacy compat roles :directive:<group-id>:<type> dynamically from config."""
-    try:
-        ids = [d.get('id') for d in (config.directives_data or []) if isinstance(d, dict)]
-    except Exception:
-        ids = []
-    types = (config.role_types or ['var', 'option', 'constant']) if hasattr(config, 'role_types') else ['var', 'option', 'constant']
-
-    count = 0
-    for gid in ids:
-        if not gid:
-            continue
-        for typ in types:
-            rolename = f"directive:{gid}:{typ}"
-            try:
-                app.add_role(rolename, DirectiveCompatRole())
-                count += 1
-            except Exception:
-                # ignore duplicates or registration issues
-                pass
-    logger.info("systemd: registered %d legacy directive:*:* compat roles", count)
-
-
 def setup(app: Sphinx) -> ExtensionMetadata:
     # Ensure our config values exist with sensible defaults
     app.add_config_value('directives_data', [], 'env')
     app.add_config_value('role_types', ['var', 'option', 'constant'], 'env')
 
     app.add_domain(SystemdDomain)
-    # Register compat 'directive' domain so :directive:<group-id>:<type>:`...` resolves
-    app.add_domain(LegacyDirectiveDomain)
+
     app.add_directive('systemd:directiveindex', SystemdDirectiveIndex)
     app.connect('doctree-resolved', process_systemd_directive_index)
     app.connect('env-updated', on_env_updated)
-    app.connect('config-inited', on_config_inited)
 
     logger.info("Systemd domain extension loaded")
     return {

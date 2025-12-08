@@ -1,5 +1,7 @@
 :orphan:
 
+.. _systemd.directives(7):
+
 Directives
 ##########
 
