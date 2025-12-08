@@ -1,0 +1,108 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --no-pager
+
+option --no-legend
+help Do not show the headers and footers
+        arg_legend = false;
+
+option --no-ask-password
+help Don't prompt for password
+        arg_ask_password = false;
+
+option -H= --host=[USER@]HOST
+help Operate on remote host
+        arg_transport = BUS_TRANSPORT_REMOTE;
+        arg_host = optarg;
+
+option -M= --machine=CONTAINER
+help Operate on local container
+        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+        if (r < 0)
+                return r;
+
+option -P=NAME
+help Same as --value --property=NAME
+        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
+        _fallthrough_;
+
+option -p= --property=NAME
+help Show only properties by this name
+        r = strv_extend(&arg_property, optarg);
+        if (r < 0)
+                return log_oom();
+
+        /* If the user asked for a particular property, show it to them,
+         * even if it is empty. */
+        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
+
+option -a --all
+help Show all properties, including empty ones
+        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
+
+option --value
+help When showing properties, only print the value
+        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
+
+option -l --full
+help Do not ellipsize output
+        arg_full = true;
+
+option --kill-whom=WHOM
+help Whom to send signal to
+        arg_kill_whom = optarg;
+
+option -s= --signal=SIGNAL
+help Which signal to send
+        r = parse_signal_argument(optarg, &arg_signal);
+        if (r <= 0)
+                return r;
+
+option -n= --lines=INTEGER
+help Number of journal entries to show
+        if (safe_atou(optarg, &arg_lines) < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to parse lines '%s'", optarg);
+
+option --json=pretty|short|off|help
+help Generate JSON output for list-sessions/users/seats
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+        if (sd_json_format_enabled(arg_json_format_flags))
+                arg_legend = false;
+
+option -j
+help Same as --json=pretty on tty, --json=short otherwise
+        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+        arg_legend = false;
+
+option -o= --output=MODE
+help Change journal output mode. One of:
+help short,
+help short-precise,
+help short-iso,
+help short-iso-precise,
+help short-full,
+help short-monotonic,,
+help short-unix,
+help short-delta,
+help json,
+help json-pretty,
+help json-sse,
+help json-seq,
+help cat,
+help verbose,
+help export,
+help with-unit
+        if (streq(optarg, "help"))
+                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
+
+        arg_output = output_mode_from_string(optarg);
+        if (arg_output < 0)
+                return log_error_errno(arg_output, "Unknown output '%s'.", optarg);
