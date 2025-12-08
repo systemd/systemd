@@ -1,0 +1,283 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+intro
+        bool system_scope_requested = false, user_scope_requested = false;
+outro
+        if (system_scope_requested || user_scope_requested)
+                arg_runtime_scope = system_scope_requested && user_scope_requested ? _RUNTIME_SCOPE_INVALID :
+                        system_scope_requested ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
+
+option -h --help
+group commands
+
+option --version
+group commands
+
+option -m --mount
+help Mount the image to the specified directory
+group commands
+        arg_action = ACTION_MOUNT;
+
+option -M
+help Shortcut for --mount --mkdir
+group commands
+        arg_action = ACTION_MOUNT;
+        arg_flags |= DISSECT_IMAGE_MKDIR;
+
+option -u --umount
+help Unmount the image from the specified directory
+group commands
+        arg_action = ACTION_UMOUNT;
+
+option -U
+help Shortcut for --umount --rmdir
+group commands
+        arg_action = ACTION_UMOUNT;
+        arg_rmdir = true;
+
+option --attach
+help Attach the disk image to a loopback block device
+group commands
+        arg_action = ACTION_ATTACH;
+
+option --detach
+help Detach a loopback block device again
+group commands
+        arg_action = ACTION_DETACH;
+
+option -l --list
+help List all the files and directories of the specified OS image
+group commands
+        arg_action = ACTION_LIST;
+        arg_flags |= DISSECT_IMAGE_READ_ONLY;
+
+option --mtree
+help Show BSD mtree manifest of OS image
+group commands
+        arg_action = ACTION_MTREE;
+        arg_flags |= DISSECT_IMAGE_READ_ONLY;
+
+option --with
+help Mount, run command, unmount
+group commands
+        arg_action = ACTION_WITH;
+
+option -x --copy-from
+help Copy files from image to host
+group commands
+        arg_action = ACTION_COPY_FROM;
+        arg_flags |= DISSECT_IMAGE_READ_ONLY;
+
+option -a --copy-to
+help Copy files from host to image
+group commands
+        arg_action = ACTION_COPY_TO;
+
+option --make-archive
+help Convert the DDI to an archive file
+group commands
+        r = dlopen_libarchive();
+        if (r < 0)
+                return log_error_errno(r, "Archive support not available (compiled without libarchive, or libarchive not installed?).");
+
+        arg_action = ACTION_MAKE_ARCHIVE;
+
+option --discover
+help Discover DDIs in well known directories
+group commands
+        arg_action = ACTION_DISCOVER;
+
+option --validate
+help Validate image and image policy
+group commands
+        arg_action = ACTION_VALIDATE;
+
+option --shift
+help Shift UID range to selected base
+group commands
+        arg_action = ACTION_SHIFT;
+
+option --no-pager
+
+option --no-legend
+help Do not show the headers and footers
+        arg_legend = false;
+
+option -r --read-only
+help Mount read-only
+        arg_flags |= DISSECT_IMAGE_READ_ONLY;
+
+option --fsck=BOOL
+help Run fsck before mounting
+        r = parse_boolean(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --fsck= parameter: %s", optarg);
+
+        SET_FLAG(arg_flags, DISSECT_IMAGE_FSCK, r);
+
+option --growfs=BOOL
+help Grow file system to partition size, if marked
+        r = parse_boolean(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --growfs= parameter: %s", optarg);
+
+        SET_FLAG(arg_flags, DISSECT_IMAGE_GROWFS, r);
+
+option --mkdir
+help Make mount directory before mounting, if missing
+        arg_flags |= DISSECT_IMAGE_MKDIR;
+
+option --rmdir
+help Remove mount directory after unmounting
+        arg_rmdir = true;
+
+option --discard=MODE
+help Choose 'discard' mode (disabled, loop, all, crypto)
+scope
+        DissectImageFlags flags;
+
+        if (streq(optarg, "list")) {
+                puts("disabled\n"
+                     "all\n"
+                     "crypt\n"
+                     "loop");
+                return 0;
+        }
+        if (streq(optarg, "disabled"))
+                flags = 0;
+        else if (streq(optarg, "loop"))
+                flags = DISSECT_IMAGE_DISCARD_ON_LOOP;
+        else if (streq(optarg, "all"))
+                flags = DISSECT_IMAGE_DISCARD_ON_LOOP | DISSECT_IMAGE_DISCARD;
+        else if (streq(optarg, "crypt"))
+                flags = DISSECT_IMAGE_DISCARD_ANY;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown --discard= parameter: %s", optarg);
+        arg_flags = (arg_flags & ~DISSECT_IMAGE_DISCARD_ANY) | flags;
+
+option --in-memory
+help Copy image into memory
+        arg_in_memory = true;
+
+option --root-hash=HASH
+help Verity hash for the root device
+        _fallthrough_;
+option --usr-hash=HASH
+help The same, but for the /usr device
+        _cleanup_(iovec_done) struct iovec roothash = {};
+
+        PartitionDesignator d = c == ARG_USR_HASH ? PARTITION_USR : PARTITION_ROOT;
+        if (arg_verity_settings.designator >= 0 &&
+            arg_verity_settings.designator != d)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
+
+        r = unhexmem(optarg, &roothash.iov_base, &roothash.iov_len);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse root hash '%s': %m", optarg);
+        if (roothash.iov_len < sizeof(sd_id128_t))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Root hash must be at least 128-bit long: %s", optarg);
+
+        iovec_done(&arg_verity_settings.root_hash);
+        arg_verity_settings.root_hash = TAKE_STRUCT(roothash);
+        arg_verity_settings.designator = d;
+
+
+option --root-hash-sig=PATH|base64:HASH
+help DER-encoded PKCS7 signature for verify for root device.
+help PATH or an ASCII base64-encoded string prefixed by 'base64:'
+        _fallthrough_;
+option --usr-hash-sig=PATH|base64:HASH
+help The same, but for the /usr device
+        char *value;
+        _cleanup_(iovec_done) struct iovec sig = {};
+
+        PartitionDesignator d = c == ARG_USR_HASH_SIG ? PARTITION_USR : PARTITION_ROOT;
+        if (arg_verity_settings.designator >= 0 &&
+            arg_verity_settings.designator != d)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
+
+        if ((value = startswith(optarg, "base64:"))) {
+                r = unbase64mem(value, &sig.iov_base, &sig.iov_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
+        } else {
+                r = read_full_file(optarg, (char**) &sig.iov_base, &sig.iov_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read root hash signature file '%s': %m", optarg);
+        }
+
+        iovec_done(&arg_verity_settings.root_hash_sig);
+        arg_verity_settings.root_hash_sig = TAKE_STRUCT(sig);
+        arg_verity_settings.designator = d;
+
+option --verity-data=PATH
+help Data file with hash tree for verity if it is not embedded in IMAGE
+        r = parse_path_argument(optarg, false, &arg_verity_settings.data_path);
+        if (r < 0)
+                return r;
+
+option --image-policy=POLICY
+help Image dissection policy
+        r = parse_image_policy_argument(optarg, &arg_image_policy);
+        if (r < 0)
+                return r;
+
+option --image-filter=FILTER
+help Image dissection filter
+        _cleanup_(image_filter_freep) ImageFilter *f = NULL;
+        r = image_filter_parse(optarg, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse image filter expression: %s", optarg);
+
+        image_filter_free(arg_image_filter);
+        arg_image_filter = TAKE_PTR(f);
+
+option --json=pretty|short|off
+help Generate JSON output
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+option --loop-ref=NAME
+help Set reference string for loopback device
+        if (!isempty(optarg) &&
+            strlen(optarg) >= sizeof_field(struct loop_info64, lo_file_name))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Loop device ref string '%s' is too long.", optarg);
+
+        r = free_and_strdup_warn(&arg_loop_ref, empty_to_null(optarg));
+        if (r < 0)
+                return r;
+
+        arg_loop_ref_auto = false;
+
+option --loop-ref-auto
+help Derive reference string from image file name
+        arg_loop_ref = mfree(arg_loop_ref);
+        arg_loop_ref_auto = true;
+
+option --mtree-hash=BOOL
+help Whether to include SHA256 hash in the mtree output
+        r = parse_boolean_argument("--mtree-hash=", optarg, &arg_mtree_hash);
+        if (r < 0)
+                return r;
+
+option --system
+help Discover system images
+        system_scope_requested = true;
+
+option --user
+help Discover user images
+        user_scope_requested = true;
+
+option --all
+help Show hidden images too
+        arg_all = true;
+
+option -q --quiet
+help Suppress output of chosen loopback block device
+        arg_quiet = true;
