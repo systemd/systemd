@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# Note: optstring is changed in --chain below
-
 option -h --help
 
 option --version
@@ -93,9 +91,7 @@ help Control whether to use the multiplexer
 
 option --chain
 help Chain another command
-        assert(streq(optstring, OPTSTRING));
         arg_chain = true;
-        optstring = "+" OPTSTRING;
 
 option --uid-min=ID
 help Filter by minimum UID/GID (default 0)
