@@ -25,7 +25,9 @@ OnFailureJobMode=replace-irreversibly
 # below. It can't be part of the initial transaction, because non-oneshot units
 # use Conflicts=initrd-cleanup.service to be terminated before we switch root.
 # Effectively, initrd-parse-etc.service acts as a synchronization point after
-# which cleanup of the initrd processes starts.
+# which cleanup of the initrd processes starts. If systemd-sysext-sysroot.service
+# or systemd-confext-sysroot.service run, they will also trigger cleanup, but
+# this ensures cleanup happens even if those services don't run due to conditions.
 OnSuccess=initrd-cleanup.service
 
 [Service]
