@@ -9,8 +9,9 @@
 
 import sys
 import os
-import json
 from pathlib import Path
+from docutils import nodes
+
 project = 'systemd'
 copyright = '2024, systemd'
 author = 'systemd'
@@ -66,56 +67,89 @@ html_theme_options = {
         "color-brand-visited": "#b3efcd"
     }
 }
+# Global alias map to be used by the patched ref role
+alias_map = {}
 
 def extract_manpage_metadata(text: str):
-    """
-    Extract :title:, :summary:, and :manvolnum: from the first 10 lines of an RST file.
-    Returns a dict with keys 'title', 'summary', 'manvolnum' or None if any is missing.
-    """
-    title = summary = manvol = None
+    title = summary = manvol = aliases = None
     for line in text.splitlines()[:10]:
         stripped = line.strip()
         if not stripped:
             continue
-        # Skip comment lines, e.g. '.. something', but allow '.. :field:' just in case
-        if stripped.startswith("..") and not (
-            stripped.startswith(".. :title:")
-            or stripped.startswith(".. :summary:")
-            or stripped.startswith(".. :manvolnum:")
-        ):
+        if stripped.startswith("..") and not stripped.startswith(".. :"):
             continue
+
         if stripped.startswith(":title:"):
             title = stripped[len(":title:"):].strip()
-            continue
-        if stripped.startswith(":summary:"):
+        elif stripped.startswith(":summary:"):
             summary = stripped[len(":summary:"):].strip()
-            continue
-        if stripped.startswith(":manvolnum:"):
+        elif stripped.startswith(":manvolnum:"):
             manvol = stripped[len(":manvolnum:"):].strip()
-            continue
-        # Stop when we reach real content
-        if not stripped.startswith(":"):
+        elif stripped.startswith(":aliases:"):
+            aliases = [
+                a.strip() for a in stripped[len(":aliases:"):].split(",")
+                if a.strip()
+            ]
+        elif not stripped.startswith(":"):
             break
+
     if title and summary and manvol:
-        return {"title": title, "summary": summary, "manvolnum": manvol}
+        meta = {"title": title, "summary": summary, "manvolnum": manvol}
+        if aliases:
+            meta["aliases"] = aliases
+        return meta
     return None
 
-# Find all RST files for the man page list
 def generate_man_pages():
-    result = []
-    for root, dirs, files in os.walk("."):
+    man_pages = []
+    for root, _, files in os.walk("."):
         for f in files:
             if f.endswith(".rst") and f not in ("index.rst",):
                 path = os.path.join(root, f)
-                docname = path[:-4]  # strip ".rst"
+                docname = path[:-4]
                 name = os.path.basename(docname)
-                with open(path, "r", encoding="utf-8") as file_content:
-                    meta = extract_manpage_metadata(file_content.read())
-                    if meta is not None:
-                        result.append((f"docs/{name}", meta['title'], meta['summary'], [], meta['manvolnum']))
-    result.append(('index', 'systemd.index', 'List all manpages from the systemd project', None, 7))
-    result.append(('directives', 'systemd.directives', 'Index of configuration directives', None, 7))
-    return result
+
+                with open(path, encoding="utf-8") as fd:
+                    meta = extract_manpage_metadata(fd.read())
+
+                if meta is None:
+                    continue
+
+                # canonical_name = f"docs/{name}"
+                canonical_name = f"{name}({meta["manvolnum"]})"
+
+                man_pages.append((canonical_name, meta["title"], meta["summary"], [], meta["manvolnum"]))
+
+                if "aliases" in meta:
+                    for alias in meta["aliases"]:
+                        alias_map[f"{alias}({meta["manvolnum"]})"] = canonical_name
+                        man_pages.append((alias, alias, meta["summary"], [], meta["manvolnum"]))
+
+    man_pages.append(('index', 'systemd.index', 'List all manpages from the systemd project', None, 7))
+    man_pages.append(('directives', 'systemd.directives', 'Index of configuration directives', None, 7))
+    return man_pages
+
+def setup_alias_rewriter(app):
+    from sphinx.addnodes import pending_xref
+
+    def rewrite_aliases(app, doctree):
+        for node in doctree.traverse(pending_xref):
+            target = node.get('reftarget')
+            if target in alias_map:
+                original_label = ''.join(child.astext() for child in node.children)
+                new_target = alias_map[target]
+
+                node['reftarget'] = new_target
+                # tell Sphinx not to auto-generate the label
+                node['refexplicit'] = True
+
+                # replace children with our preserved label
+                node.children = [nodes.Text(original_label)]
+
+    app.connect("doctree-read", rewrite_aliases)
+
+def setup(app):
+    setup_alias_rewriter(app)
 
 def needs_regen(cache_file, docs_dir):
     if not cache_file.exists():
@@ -123,14 +157,7 @@ def needs_regen(cache_file, docs_dir):
     cached_mtime = os.path.getmtime(cache_file)
     return any(f.stat().st_mtime > cached_mtime for f in docs_dir.glob("*.rst"))
 
-if needs_regen(cache_file, docs_dir):
-    man_pages = generate_man_pages()
-    with open(cache_file, "w", encoding="utf-8") as f:
-        json.dump(man_pages, f)
-else:
-    with open(cache_file, "r", encoding="utf-8") as f:
-        man_pages = json.load(f)
-
+man_pages = generate_man_pages()
 
 # The function at the start generates version number substitutions, eg.
 # {'v183': '183', 'v184': '184', etc…}
