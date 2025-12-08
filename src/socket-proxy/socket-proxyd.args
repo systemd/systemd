@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option -c= --connections-max=INT
+help Set the maximum number of connections to be accepted
+        r = safe_atou(optarg, &arg_connections_max);
+        if (r < 0) {
+                log_error("Failed to parse --connections-max= argument: %s", optarg);
+                return r;
+        }
+
+        if (arg_connections_max < 1)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                       "Connection limit is too low.");
+
+option --exit-idle-time=SEC
+help Exit when without a connection for this duration.
+help See the %4$s for time span format
+        r = parse_sec(optarg, &arg_exit_idle_time);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", optarg);
