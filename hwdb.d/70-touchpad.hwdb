@@ -43,6 +43,7 @@ touchpad:bluetooth:*
 # Magic Trackpad (1 and 2)
 touchpad:usb:v05acp030e:*
 touchpad:usb:v05acp0265:*
+touchpad:usb:v05acp0324:*
  ID_INPUT_TOUCHPAD_INTEGRATION=external
 
 ###########################################################
