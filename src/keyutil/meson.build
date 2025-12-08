@@ -7,6 +7,7 @@ executables += [
                         'HAVE_OPENSSL',
                 ],
                 'sources' : files('keyutil.c'),
+                'arg_parser' : files('keyutil.args'),
                 'dependencies' : libopenssl,
         },
 ]
