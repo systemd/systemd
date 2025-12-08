@@ -617,7 +617,9 @@ def main() -> None:
 
     # XXX: debug for https://github.com/systemd/systemd/issues/38240
     if vm:
-        cmd += ['--qemu-args=-d cpu_reset,guest_errors -D /dev/stderr']
+        cmd += [
+            '--qemu-args=-d cpu_reset,guest_errors,trace:qemu_system_\*_request -D /dev/stderr'  # noqa: E501
+        ]
 
     try:
         result = subprocess.run(cmd)
