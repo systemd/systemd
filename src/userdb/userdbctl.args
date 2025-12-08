@@ -1,0 +1,184 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# Note: optstring is changed in --chain below
+
+option -h --help
+
+option --version
+
+option --no-pager
+
+option --no-legend
+help Do not show the headers and footers
+        arg_legend = false;
+
+option --output=MODE
+help Select output mode (classic, friendly, table, json)
+        if (streq(optarg, "help"))
+                return DUMP_STRING_TABLE(output, Output, _OUTPUT_MAX);
+
+        arg_output = output_from_string(optarg);
+        if (arg_output < 0)
+                return log_error_errno(arg_output, "Invalid --output= mode: %s", optarg);
+
+        arg_json_format_flags = arg_output == OUTPUT_JSON ? SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO : SD_JSON_FORMAT_OFF;
+
+option --json=pretty|short
+help JSON output mode
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+        arg_output = sd_json_format_enabled(arg_json_format_flags) ? OUTPUT_JSON : _OUTPUT_INVALID;
+
+option -j
+help Equivalent to --output=json
+        arg_json_format_flags = SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO;
+        arg_output = OUTPUT_JSON;
+
+option -s= --service=SERVICE[:SERVICE…]
+help Query the specified service
+        if (isempty(optarg))
+                arg_services = strv_free(arg_services);
+        else {
+                r = strv_split_and_extend(&arg_services, optarg, ":", /* filter_duplicates= */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse -s/--service= argument: %m");
+        }
+
+option --with-nss=yes|no
+help Control whether to include glibc NSS data
+        r = parse_boolean_argument("--with-nss=", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_NSS, !r);
+
+option -N
+help Do not synthesize or include glibc NSS data.
+help Same as --synthesize=no --with-nss=no
+        arg_userdb_flags |= USERDB_EXCLUDE_NSS|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN;
+
+option --synthesize=yes|no
+help Synthesize root/nobody user
+        r = parse_boolean_argument("--synthesize=", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        SET_FLAG(arg_userdb_flags, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, !r);
+
+option --with-dropin=yes|no
+help Control whether to include drop-in records
+        r = parse_boolean_argument("--with-dropin=", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_DROPIN, !r);
+
+option --with-varlink=yes|no
+help Control whether to talk to services at all
+        r = parse_boolean_argument("--with-varlink=", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_VARLINK, !r);
+
+option --multiplexer=yes|no
+help Control whether to use the multiplexer
+        r = parse_boolean_argument("--multiplexer=", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        SET_FLAG(arg_userdb_flags, USERDB_AVOID_MULTIPLEXER, !r);
+
+option --chain
+help Chain another command
+        assert(streq(optstring, OPTSTRING));
+        arg_chain = true;
+        optstring = "+" OPTSTRING;
+
+option --uid-min=ID
+help Filter by minimum UID/GID (default 0)
+        r = parse_uid(optarg, &arg_uid_min);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --uid-min= value: %s", optarg);
+
+option --uid-max=ID
+help Filter by maximum UID/GID (default 4294967294)
+        r = parse_uid(optarg, &arg_uid_max);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --uid-max= value: %s", optarg);
+
+option --uuid=UUID
+        r = sd_id128_from_string(optarg, &arg_uuid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --uuid= value: %s", optarg);
+
+option -z --fuzzy
+help Do a fuzzy name search
+        arg_fuzzy = true;
+
+option    --disposition=VALUE
+help Filter by disposition
+        UserDisposition d = user_disposition_from_string(optarg);
+        if (d < 0)
+                return log_error_errno(d, "Unknown user disposition: %s", optarg);
+
+        if (arg_disposition_mask == UINT64_MAX)
+                arg_disposition_mask = 0;
+
+        arg_disposition_mask |= UINT64_C(1) << d;
+
+option -I
+help Equivalent to --disposition=intrinsic
+        if (arg_disposition_mask == UINT64_MAX)
+                arg_disposition_mask = 0;
+
+        arg_disposition_mask |= UINT64_C(1) << USER_INTRINSIC;
+
+option -S
+help Equivalent to --disposition=system
+        if (arg_disposition_mask == UINT64_MAX)
+                arg_disposition_mask = 0;
+
+        arg_disposition_mask |= UINT64_C(1) << USER_SYSTEM;
+
+option -R
+help Equivalent to --disposition=regular
+        if (arg_disposition_mask == UINT64_MAX)
+                arg_disposition_mask = 0;
+
+        arg_disposition_mask |= UINT64_C(1) << USER_REGULAR;
+
+option --boundaries=yes|no
+help Show/hide UID/GID range boundaries in output
+        r = parse_boolean_argument("boundaries", optarg, &arg_boundaries);
+        if (r < 0)
+                return r;
+
+option -B
+help Same as --boundaries=no
+        arg_boundaries = false;
+
+option -F= --from-file=PATH
+help Read JSON record from file
+        if (isempty(optarg)) {
+                arg_from_file = sd_json_variant_unref(arg_from_file);
+                break;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        const char *fn = streq(optarg, "-") ? NULL : optarg;
+        unsigned line = 0;
+        r = sd_json_parse_file(
+                fn ? NULL : stdin,
+                fn ?: "<stdin>",
+                SD_JSON_PARSE_SENSITIVE,
+                &v,
+                &line,
+                /* reterr_column= */ NULL);
+        if (r < 0)
+                return log_syntax(/* unit= */ NULL, LOG_ERR, fn ?: "<stdin>", line, r, "JSON parse failure.");
+
+        sd_json_variant_unref(arg_from_file);
+        arg_from_file = TAKE_PTR(v);
