@@ -615,6 +615,10 @@ def main() -> None:
         *(['--', '--capability=CAP_BPF'] if not vm else []),
     ]  # fmt: skip
 
+    # XXX: debug for https://github.com/systemd/systemd/issues/38240
+    if vm:
+        cmd += ['--qemu-args=-d cpu_reset,guest_errors -D /dev/stderr']
+
     try:
         result = subprocess.run(cmd)
 
@@ -622,6 +626,10 @@ def main() -> None:
         if args.vm and result.returncode == 247 and args.exit_code != 247:
             if journal_file:
                 journal_file.unlink(missing_ok=True)
+            print(
+                f'Test {args.name} failed due to QEMU crash (error 247), retrying...',
+                file=sys.stderr,
+            )
             result = subprocess.run(cmd)
             if args.vm and result.returncode == 247 and args.exit_code != 247:
                 print(
@@ -629,6 +637,10 @@ def main() -> None:
                     file=sys.stderr,
                 )
                 exit(77)
+            print(
+                f'Test {args.name} worked on re-run after QEMU crash (error 247)',
+                file=sys.stderr,
+            )
     except KeyboardInterrupt:
         result = subprocess.CompletedProcess(args=cmd, returncode=-signal.SIGINT)
 
