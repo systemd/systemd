@@ -962,9 +962,6 @@ def ulink(el):
     else:
         return "`%s <%s>`_" % (text, url)
 
-# TODO: other elements are ignored
-
-
 def xref(el):
     _has_no_text(el)
     id = el.get("linkend")
@@ -1144,9 +1141,16 @@ def citerefentry(el):
             url = refentry.get("url")
             return f"`{refentrytitle}({manvolnum}) <{url}>`_"
         else:
-            # default to 'man-pages', this seems to be the general intent when the
-            # `project` attribute is omitted
-            return extlink_formats['man-pages']
+            # Some citrefs have no project and are intended as external
+            # links to man, some are intended as internal links.
+            # TODO: The only way
+            # to tell the difference would be to match the
+            # refentrytitle against all available man/xml filenames
+            if refentrytitle.lower().startswith(("sd-", "sd_", "systemd")):
+                return f":ref:`{refentrytitle}({manvolnum})`"
+            else:
+                # default to 'man-pages', this seems to be the general intent when the `project` attribute is omitted and it’s not an internal link
+                return extlink_formats['man-pages']
 
 
 
@@ -1160,6 +1164,13 @@ def refmeta(el):
     for sibling in el.itersiblings("refnamediv"):
         purpose = sibling.find('refpurpose').text
         meta_title = f"{meta_title}\n:summary: {purpose}"
+        name_elements = sibling.findall('refname')
+        names = [_concat(name_element) for name_element in name_elements]
+        if refentrytitle in names:
+            names.remove(refentrytitle)
+        if len(names) > 0:
+            aliases = ", ".join(names)
+            meta_title += f"\n:aliases: {aliases}"
 
 
 
