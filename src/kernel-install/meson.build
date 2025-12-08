@@ -8,6 +8,7 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_KERNEL_INSTALL'],
                 'sources' : files('kernel-install.c'),
+                'arg_parser' : files('kernel-install.args'),
         },
 ]
 
