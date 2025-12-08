@@ -34,6 +34,7 @@
 #   help_key_width NN — how many columns should be used for the '-o --option'
 #                       part of the --help string.
 #   optstring_prefix c — add 'c' before the option string. Useful with '-' or '+'.
+#   parser_option x y — add ', x y' into the signature of parse_argv_generated().
 #
 # Lines with # at the beginning of the line are discarded.
 # Normal C comments with /* */ or // are propagated.
@@ -41,7 +42,7 @@
 import sys
 import textwrap
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Generator
 
@@ -50,6 +51,7 @@ class Globals:
     target_line_width: int = 80
     help_key_width: int|None = None
     optstring_prefix: str = ''
+    parser_options: list[str] = field(default_factory=list)
 
     def set(self, name: str, value: str) -> None:
         # A consumer for the 'global foo bar' settings.
@@ -57,6 +59,8 @@ class Globals:
             self.help_key_width = int(value)
         elif name == 'optstring_prefix':
             self.optstring_prefix = value
+        elif name == 'parser_option':
+            self.parser_options += [value]
         else:
             raise ValueError(f'Uknown global setting {name!r}')
 
@@ -204,7 +208,9 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
 
     # 2. Generate function header
     yield '';
-    yield 'static int parse_argv_generated(int argc, char *argv[]) {'
+
+    argstring = ', '.join(('int argc', 'char* argv[]', *globals.parser_options))
+    yield f'static int parse_argv_generated({argstring}) {{'
 
     # 3. Walk over options and generate enum values for all options
     #    that don't have a single-leter param.
