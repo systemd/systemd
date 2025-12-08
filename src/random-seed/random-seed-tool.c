@@ -43,6 +43,8 @@ typedef enum CreditEntropy {
 
 static SeedAction arg_action = _ACTION_INVALID;
 
+#include "random-seed-tool.args.inc"
+
 static CreditEntropy may_credit(int seed_fd) {
         const char *e;
         int r;
@@ -296,7 +298,7 @@ static int save_seed_file(
         return 0;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -310,8 +312,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  load                Load a random seed saved on disk into the kernel entropy pool\n"
                "  save                Save a new random seed on disk\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help           Show this help\n"
-               "     --version        Show package version\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -331,33 +332,11 @@ static const char* const seed_action_table[_ACTION_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(seed_action, SeedAction);
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "help",    no_argument, NULL, 'h'         },
-                { "version", no_argument, NULL, ARG_VERSION },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-                case 'h':
-                        return help(0, NULL, NULL);
-                case ARG_VERSION:
-                        return version();
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (optind + 1 != argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires one argument.");
