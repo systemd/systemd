@@ -41,6 +41,8 @@ typedef struct Context {
         Set *connections;
 } Context;
 
+#include "socket-proxyd.args.inc"
+
 typedef struct Connection {
         Context *context;
 
@@ -562,11 +564,7 @@ static int help(void) {
         printf("%1$s [HOST:PORT]\n"
                "%1$s [SOCKET]\n\n"
                "%2$sBidirectionally proxy local sockets to another (possibly remote) socket.%3$s\n\n"
-               "  -c --connections-max=  Set the maximum number of connections to be accepted\n"
-               "     --exit-idle-time=   Exit when without a connection for this duration. See\n"
-               "                         the %4$s for time span format\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
+               OPTION_HELP_GENERATED
                "\nSee the %5$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -578,61 +576,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_EXIT_IDLE,
-                ARG_IGNORE_ENV
-        };
-
-        static const struct option options[] = {
-                { "connections-max", required_argument, NULL, 'c'           },
-                { "exit-idle-time",  required_argument, NULL, ARG_EXIT_IDLE },
-                { "help",            no_argument,       NULL, 'h'           },
-                { "version",         no_argument,       NULL, ARG_VERSION   },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "c:h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case 'c':
-                        r = safe_atou(optarg, &arg_connections_max);
-                        if (r < 0) {
-                                log_error("Failed to parse --connections-max= argument: %s", optarg);
-                                return r;
-                        }
-
-                        if (arg_connections_max < 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Connection limit is too low.");
-
-                        break;
-
-                case ARG_EXIT_IDLE:
-                        r = parse_sec(optarg, &arg_exit_idle_time);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", optarg);
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (optind >= argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
