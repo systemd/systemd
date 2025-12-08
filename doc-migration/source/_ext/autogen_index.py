@@ -97,7 +97,7 @@ systemd — System and Service Manager
 """
         current_index_letter = ''
         for file in sorted(find_files(root_dir),
-                           key=lambda x: (len(x.split('/')), x)):
+                           key=lambda x: (os.path.basename(x).lower(), x)):
             if file not in FILES_USED_ONLY_FOR_INCLUDES:
                 filename = os.path.basename(file)
                 first_letter = filename[0].upper()
@@ -126,7 +126,7 @@ systemd — System and Service Manager
                     html_output += f"      {meta['title']}({meta['manvolnum']}) — {meta['summary']} <{file}>\n"
                     man_output += f"   * **{meta['title']}**\({meta['manvolnum']}) — {meta['summary']}\n"
                 else:
-                    html_output += f"   {display_name}\n"
+                    html_output += f"      {display_name}\n"
                     man_output += f"   * {display_name}\n"
         index_file.write(html_output + "\n\n" + man_output)
 
