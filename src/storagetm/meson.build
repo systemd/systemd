@@ -7,5 +7,6 @@ executables += [
                         'ENABLE_STORAGETM',
                 ],
                 'sources' : files('storagetm.c'),
+                'arg_parser' : files('storagetm.args'),
         },
 ]
