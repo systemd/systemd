@@ -228,35 +228,38 @@ A full list of these roles can be found in [external_man_links](source/_ext/exte
 
 2. Block Includes
 
-  There are a few xml files were sections of these files are reused in multiple other files. While it trivial to include an `rst` file in another one, only including parts of other files is slightly more involved, since `rst` has no easily adressable elements. Mapping to the rst `.. include::` directive’s `start-after` and `end-before`options, we use corresponding marker comments to define includable sections in these source files. These markers are: `.. inclusion-marker-do-not-remove {xpointer-id}` and `.. inclusion-end-marker-do-not-remove {xpointer-id}`, for example:
+  There are a few xml files were sections of these files are reused in multiple other files. While it trivial to include an `rst` file in another one, only including parts of other files is slightly more involved, since `rst` has no easily adressable elements. Mapping to the rst `.. include::` directive’s `start-after` and `end-before`options, we use corresponding marker comments to define includable sections in these source files. These markers are: `.. inclusion-marker-do-not-remove {xpointer-id}|` and `.. inclusion-end-marker-do-not-remove {xpointer-id}|`, for example:
 
   This directive is enclosed by inclusion markers generated from `<varlistentry id='no-pager'>`:
 
   ```rst
-  .. inclusion-marker-do-not-remove no-pager
+  .. inclusion-marker-do-not-remove no-pager|
 
-  .. systemd:option:: --no-pager
+     .. systemd:option:: --no-pager
 
-    Do not pipe output into a pager.
+       Do not pipe output into a pager.
 
-  .. inclusion-end-marker-do-not-remove no-pager
+  .. inclusion-end-marker-do-not-remove no-pager|
   ```
 
-  The syntax to include this section was converted from `<xi:include href="standard-options.xml" xpointer="no-pager" />` to:
+  > [!IMPORTANT]
+  > Note the pipe `|` used to delimit the marker’s end. This is crucial, as markers with the same prefix are often nested, and omitting a delimiter causes problems, since the include can then run too short or too long. We STRONGLY encourage always delimiting include ids this way.
+
+  Below is the syntax to include a section, converted from `<xi:include href="standard-options.xml" xpointer="no-pager" />` to:
 
   ```rst
   .. include:: ./standard-options.rst
-    :start-after: .. inclusion-marker-do-not-remove no-pager
-    :end-before: .. inclusion-end-marker-do-not-remove no-pager
+    :start-after: .. inclusion-marker-do-not-remove no-pager|
+    :end-before: .. inclusion-end-marker-do-not-remove no-pager|
   ```
 
   Since rst does not support all inclusion scenarios that occur within the systemd docs, we have added a second inclusion syntax that is handled in a Sphinx preprocessor extension (see the file `_ext/preprocessor.py`). The syntax is similar:
 
   ```
-  %% include="standard-specifiers.rst" id="a" %%
+  %% include="standard-specifiers.rst" id="a|" %%
   ```
 
-  This essentially does the same thing as the longer `.. include::` declaration above, but works inside tables and other block elements within which `rst` doesn’t allow includes. So `%% include` can also be used as a shorthand for `.. include::`.
+  This essentially does the same thing as the longer `.. include::` declaration above, but works inside tables and other block elements within which `rst` doesn’t allow includes. So `%% include` can also be used as a shorthand for `.. include::`. Note the `|` pipe delimiter inside the id here too.
 
 ## Todo
 
@@ -266,9 +269,6 @@ An incomplete list.
 - [ ] Generate alias files from all entries in the `name`
   - [ ] <citerefentry><refentrytitle>systemd-sysusers.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>-style citrefs should be converted to internal links and not man
 - [ ] Clean up literal include file copying, there are currently pointless files in /includes
-- [ ] Custom Link transformations:
-  - [ ] `custom-man.xsl`
-  - [x] `custom-html.xsl`
 - [ ] HTML improvements:
   - [ ] Render directive headlines so furo picks them up in the sidebar (probably an issue with the content replacement when `.. systemd:directiveindex::` is parsed in `systemd_domain.py`)
   - [ ] Extremely optional: Make higher order headlines foldable?
