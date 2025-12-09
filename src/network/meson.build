@@ -218,6 +218,7 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_NETWORKD'],
                 'sources' : networkctl_sources,
+                'arg_parser' : files('networkctl.args'),
                 'include_directories' : libsystemd_network_includes,
                 'link_with' : [
                         libsystemd_network,
