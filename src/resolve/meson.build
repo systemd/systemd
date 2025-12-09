@@ -95,6 +95,7 @@ executables += [
                 'arg_parser' : files(
                         'resolvectl.args',
                         'resolvectl-compat.args',
+                        'resolvconf-compat.args',
                 ),
                 'objects' : ['systemd-resolved'],
         },
