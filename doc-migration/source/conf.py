@@ -133,8 +133,6 @@ def generate_man_pages():
                         # Side effect 2: register http redirects for aliases
                         redirects[f"docs/{alias}"] = f"{name}.html"
 
-    print(redirects)
-
     man_pages.append(('index', 'systemd.index', 'List all manpages from the systemd project', None, 7))
     man_pages.append(('directives', 'systemd.directives', 'Index of configuration directives', None, 7))
     return man_pages
