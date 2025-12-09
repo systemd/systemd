@@ -198,18 +198,16 @@ static int manager_deserialize_one_unit(Manager *m, const char *name, FILE *f, F
         int r;
 
         r = manager_load_unit(m, name, NULL, NULL, &u);
-        if (r < 0) {
-                if (r == -ENOMEM)
-                        return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
                 return log_notice_errno(r, "Failed to load unit \"%s\", skipping deserialization: %m", name);
-        }
 
         r = unit_deserialize_state(u, f, fds);
-        if (r < 0) {
-                if (r == -ENOMEM)
-                        return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
                 return log_notice_errno(r, "Failed to deserialize unit \"%s\", skipping: %m", name);
-        }
 
         return 0;
 }

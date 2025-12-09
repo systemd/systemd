@@ -810,12 +810,10 @@ static int report_credentials_per_func(const char *title, int (*get_directory_fu
         assert(get_directory_func);
 
         r = get_directory_func(&d);
-        if (r < 0) {
-                if (r == -ENXIO) /* Env var not set */
-                        return 0;
-
+        if (r == -ENXIO) /* Env var not set */
+                return 0;
+        if (r < 0)
                 return log_warning_errno(r, "Failed to determine %s directory: %m", title);
-        }
 
         r = readdir_all_at(AT_FDCWD, d, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
         if (r < 0)

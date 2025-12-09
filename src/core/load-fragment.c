@@ -5573,16 +5573,13 @@ int config_parse_emergency_action(
                 runtime_scope = ltype; /* otherwise, assume the scope is passed in via ltype */
 
         r = parse_emergency_action(rvalue, runtime_scope, x);
-        if (r < 0) {
-                if (r == -EOPNOTSUPP)
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "%s= specified as %s mode action, ignoring: %s",
-                                   lvalue, runtime_scope_to_string(runtime_scope), rvalue);
-                else
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r == -EOPNOTSUPP)
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                "%s= specified as %s mode action, ignoring: %s",
+                                lvalue, runtime_scope_to_string(runtime_scope), rvalue);
+        else if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
 
         return 0;
 }

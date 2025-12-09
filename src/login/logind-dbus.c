@@ -2820,15 +2820,13 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         if (elapse == USEC_INFINITY) {
                 if (m->maintenance_time) {
                         r = calendar_spec_next_usec(m->maintenance_time, now(CLOCK_REALTIME), &elapse);
-                        if (r < 0) {
-                                if (r == -ENOENT)
-                                        return sd_bus_error_set(error,
-                                                                BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED,
-                                                                "No upcoming maintenance window scheduled");
-
+                        if (r == -ENOENT)
+                                return sd_bus_error_set(error,
+                                                        BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED,
+                                                        "No upcoming maintenance window scheduled");
+                        if (r < 0)
                                 return sd_bus_error_set_errnof(error, r,
                                                                "Failed to determine next maintenance window: %m");
-                        }
 
                         log_info("Scheduled %s at maintenance window %s", type, FORMAT_TIMESTAMP(elapse));
                 } else
