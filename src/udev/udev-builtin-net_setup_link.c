@@ -51,14 +51,12 @@ static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv) {
                 return log_device_warning_errno(dev, r, "Failed to get link information: %m");
 
         r = link_get_config(ctx, link);
-        if (r < 0) {
-                if (r == -ENOENT) {
-                        log_device_debug_errno(dev, r, "No matching link configuration found, ignoring device.");
-                        return 0;
-                }
-
-                return log_device_error_errno(dev, r, "Failed to get link config: %m");
+        if (r == -ENOENT) {
+                log_device_debug_errno(dev, r, "No matching link configuration found, ignoring device.");
+                return 0;
         }
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get link config: %m");
 
         r = link_apply_config(ctx, link);
         if (r == -ENODEV)
