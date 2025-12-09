@@ -51,3 +51,12 @@ section {
 .std.option {
   margin-left: 2rem;
 }
+
+/* Fix indent on kbd inside systemd directive */
+
+.sig kbd:not(.compound) {
+  text-indent: 0;
+}
+.sig kbd span.pre {
+  text-indent: unset;
+}
