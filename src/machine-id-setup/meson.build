@@ -4,5 +4,6 @@ executables += [
         executable_template + {
                 'name' : 'systemd-machine-id-setup',
                 'sources' : files('machine-id-setup.c'),
+                'arg_parser' : files('machine-id-setup.args'),
         },
 ]
