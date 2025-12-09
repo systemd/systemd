@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+global namespace resolvconf
+
+option -h --help
+        return help_resolvconf();
+
+option --version
+
+# -a and -d is what everybody can agree on
+option -a
+help Register per-interface DNS server and domain data
+        arg_mode = MODE_SET_LINK;
+
+option -d
+help Unregister per-interface DNS server and domain data
+        arg_mode = MODE_REVERT_LINK;
+
+# The exclusive/private/force stuff is an openresolv invention, we support in some skewed way
+option -p
+help Do not use this interface as default route
+        arg_lookup_type = LOOKUP_TYPE_PRIVATE;
+
+option -f
+help Ignore if specified interface does not exist
+        arg_ifindex_permissive = true;
+
+option -x
+help Send DNS traffic preferably over this interface
+        arg_lookup_type = LOOKUP_TYPE_EXCLUSIVE;
+
+# The following are specific to Debian's original resolvconf
+option --enable-updates
+help skip
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                               "Switch --enable-updates not supported.");
+
+option --disable-updates
+help skip
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                               "Switch --disable-updates not supported.");
+
+option --updates-are-enabled
+help skip
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                               "Switch --updates-are-enabled not supported.");
+
+# The metrics stuff is an openresolv invention we ignore (and don't really need)
+option -m=…
+help skip
+        log_debug("Switch -%c ignored.", c);
+
+# -u supposedly should "update all subscribers". We have no subscribers, hence
+# let's make this a NOP, and exit immediately, cleanly.
+option -u
+help skip
+        log_info("Switch -%c ignored.", c);
+        return 0;
+
+# The following options are openresolv inventions we don't support
+option -I
+help skip
+        _fallthrough_;
+option -i=…
+help skip
+        _fallthrough_;
+option -l=…
+help skip
+        _fallthrough_;
+option -R
+help skip
+        _fallthrough_;
+option -r=…
+help skip
+        _fallthrough_;
+option -v
+help skip
+        _fallthrough_;
+option -V
+help skip
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                               "Switch -%c not supported.", c);
+
+intro
+        /* openresolv checks these environment variables */
+        if (getenv("IF_EXCLUSIVE"))
+                arg_lookup_type = LOOKUP_TYPE_EXCLUSIVE;
+        if (getenv("IF_PRIVATE"))
+                arg_lookup_type = LOOKUP_TYPE_PRIVATE;
+
+        arg_mode = _MODE_INVALID;
+
+outro
+        if (arg_mode == _MODE_INVALID)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Expected either -a or -d on the command line.");
+
+        if (optind + 1 != argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Expected interface name as argument.");
+
+        r = ifname_resolvconf_mangle(argv[optind]);
+        if (r <= 0)
+                return r;
+        optind++;
