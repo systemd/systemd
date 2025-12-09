@@ -116,7 +116,7 @@ def generate_man_pages():
                 if meta is None:
                     continue
 
-                canonical_name = f"{name}({meta["manvolnum"]})"
+                canonical_name = f"docs/{name}"
 
                 man_pages.append((canonical_name, meta["title"], meta["summary"], [], meta["manvolnum"]))
 
