@@ -51,7 +51,7 @@
     <variablelist>
       <varlistentry>
         <term><option>--make-vsock</option></term>
-        <listitem><para>Generates the issue file. This command has no effect if called on systems lacking
+        <listitem><para>Generate the issue file. This command has no effect if called on systems lacking
         <constant>AF_VSOCK</constant> support.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
@@ -59,14 +59,14 @@
 
       <varlistentry>
         <term><option>--rm-vsock</option></term>
-        <listitem><para>Removes the issue file if it exists.</para>
+        <listitem><para>Remove the issue file if it exists.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>--issue-path=</option></term>
-        <listitem><para>Changes the path to the issue file to write to/remove. If not specified, defaults to
+        <term><option>--issue-path=<replaceable>PATH</replaceable></option></term>
+        <listitem><para>The path to the issue file to create or remove. If not specified, defaults to
         <filename>/run/issue.d/50-ssh-vsock.issue</filename>. If specified as empty string or
         <literal>-</literal> writes the issue file contents to standard output.</para>
 

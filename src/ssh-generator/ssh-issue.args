@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --make-vsock
+help Generate the issue file
+        arg_action = ACTION_MAKE_VSOCK;
+
+option --rm-vsock
+help Remove the issue file
+        arg_action = ACTION_RM_VSOCK;
+
+option --issue-path=PATH
+help Path to the issue file (default: "DEFAULT_ISSUE_PATH")
+        const char *arg = empty_or_dash_to_null(optarg);
+        if (arg) {
+                r = parse_path_argument(arg, /* suppress_root= */ false, &arg_issue_path);
+                if (r < 0)
+                        return r;
+        }
+        arg_issue_stdout = !arg;
