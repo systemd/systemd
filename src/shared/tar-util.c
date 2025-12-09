@@ -473,10 +473,6 @@ static int archive_entry_read_acl(
 
                 assert(rtype == type);
 
-                acl_entry_t e;
-                if (sym_acl_create_entry(&a, &e) < 0)
-                        return log_error_errno(errno, "Failed to create ACL entry: %m");
-
                 static const struct {
                         int libarchive;
                         acl_tag_t libacl;
@@ -498,9 +494,7 @@ static int archive_entry_read_acl(
                 if (ntag == ACL_UNDEFINED_TAG)
                         continue;
 
-                if (sym_acl_set_tag_type(e, ntag) < 0)
-                        return log_error_errno(errno, "Failed to set ACL entry tag: %m");
-
+                acl_entry_t e;
                 if (IN_SET(ntag, ACL_USER, ACL_GROUP)) {
                         id_t id = qual;
                         /* Suppress ACL entries for invalid  UIDs/GIDS */
@@ -511,8 +505,20 @@ static int archive_entry_read_acl(
                         if (FLAGS_SET(flags, TAR_SQUASH_UIDS_ABOVE_64K) && id >= NSRESOURCE_UIDS_64K)
                                 continue;
 
+                        if (sym_acl_create_entry(&a, &e) < 0)
+                                return log_error_errno(errno, "Failed to create ACL entry: %m");
+
+                        if (sym_acl_set_tag_type(e, ntag) < 0)
+                                return log_error_errno(errno, "Failed to set ACL entry tag: %m");
+
                         if (sym_acl_set_qualifier(e, &id) < 0)
                                 return log_error_errno(errno, "Failed to set ACL entry qualifier: %m");
+                } else {
+                        if (sym_acl_create_entry(&a, &e) < 0)
+                                return log_error_errno(errno, "Failed to create ACL entry: %m");
+
+                        if (sym_acl_set_tag_type(e, ntag) < 0)
+                                return log_error_errno(errno, "Failed to set ACL entry tag: %m");
                 }
 
                 acl_permset_t p;
