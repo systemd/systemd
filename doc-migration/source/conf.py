@@ -24,12 +24,10 @@ cache_file = src_dir / "_man_pages_cache.json"
 
 sys.path.append(os.path.abspath("./_ext"))
 
-
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-# extensions = ['sphinxcontrib.globalsubs', 'directive_roles', 'external_man_links', 'autogen_index']
-extensions = ['systemd_domain', 'external_man_links', 'autogen_index', "preprocessor"]
+extensions = ['systemd_domain', 'external_man_links', 'autogen_index', 'preprocessor', 'sphinx_reredirects']
 
 templates_path = ['_templates']
 include_patterns = ['index.rst', 'directives.rst', 'docs/*.rst']
@@ -67,6 +65,9 @@ html_theme_options = {
         "color-brand-visited": "#b3efcd"
     }
 }
+
+redirects = {}
+
 # Global alias map to be used by the patched ref role
 alias_map = {}
 
@@ -115,15 +116,24 @@ def generate_man_pages():
                 if meta is None:
                     continue
 
-                # canonical_name = f"docs/{name}"
                 canonical_name = f"{name}({meta["manvolnum"]})"
 
                 man_pages.append((canonical_name, meta["title"], meta["summary"], [], meta["manvolnum"]))
 
                 if "aliases" in meta:
                     for alias in meta["aliases"]:
+                        # Side effect 1: record aliases for use in :ref:
                         alias_map[f"{alias}({meta["manvolnum"]})"] = canonical_name
-                        man_pages.append((alias, alias, meta["summary"], [], meta["manvolnum"]))
+                        # TODO: Actually, the aliases can't be in man_pages,
+                        # than only takes real pages. This might be fixable
+                        # with an extension, but the intent needs to be
+                        # clarified first.
+                        # man_pages.append((alias, alias, meta["summary"], [], meta["manvolnum"]))
+
+                        # Side effect 2: register http redirects for aliases
+                        redirects[f"docs/{alias}"] = f"{name}.html"
+
+    print(redirects)
 
     man_pages.append(('index', 'systemd.index', 'List all manpages from the systemd project', None, 7))
     man_pages.append(('directives', 'systemd.directives', 'Index of configuration directives', None, 7))
