@@ -109,13 +109,15 @@
       <varlistentry>
         <term><option>--list</option></term>
 
-        <listitem><para>Lists all active inhibition locks instead of
-        acquiring one.</para></listitem>
+        <listitem><para>Lists all active inhibition locks instead of acquiring one. It can be filtered using
+        <option>--what=</option>, <option>--who=</option>, <option>--why=</option>, or
+        <option>--mode=</option>.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
