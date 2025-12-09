@@ -11,6 +11,7 @@ executables += [
                         'pcrlock.c',
                         'pcrlock-firmware.c',
                 ),
+                'arg_parser' : files('pcrlock.args'),
                 'dependencies' : [
                         libm,
                         libopenssl,
