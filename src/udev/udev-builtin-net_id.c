@@ -941,14 +941,14 @@ static int get_usb_specifier(sd_device *dev, char **ret) {
 
         ports = strdupa_safe(s + 1);
         char *t = strchr(ports, ':');
-        if (!s)
+        if (!t)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "sysname \"%s\" does not have ':' in the expected place.", sysname);
 
         *t = '\0';
         config = t + 1;
-        s = strchr(config, '.');
-        if (!s)
+        t = strchr(config, '.');
+        if (!t)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "sysname \"%s\" does not have '.' in the expected place.", sysname);
 
