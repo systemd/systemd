@@ -3147,7 +3147,7 @@ static int verb_show_server_state(int argc, char *argv[], void *userdata) {
         return sd_json_variant_dump(d, arg_json_format_flags, NULL, NULL);
 }
 
-static void help_protocol_types(void) {
+static int help_protocol_types(void) {
         if (arg_legend)
                 puts("Known protocol types:");
         puts("dns\n"
@@ -3157,23 +3157,28 @@ static void help_protocol_types(void) {
              "mdns\n"
              "mdns-ipv4\n"
              "mdns-ipv6");
+
+        return 0;
 }
 
-static void help_dns_types(void) {
+static int help_dns_types(void) {
         if (arg_legend)
                 puts("Known DNS RR types:");
 
-        DUMP_STRING_TABLE(dns_type, int, _DNS_TYPE_MAX);
+        return DUMP_STRING_TABLE(dns_type, int, _DNS_TYPE_MAX);
 }
 
-static void help_dns_classes(void) {
+static int help_dns_classes(void) {
         if (arg_legend)
                 puts("Known DNS RR classes:");
 
-        DUMP_STRING_TABLE(dns_class, int, _DNS_CLASS_MAX);
+        return DUMP_STRING_TABLE(dns_class, int, _DNS_CLASS_MAX);
 }
 
-static int compat_help(void) {
+#include "resolvectl.args.inc"
+#include "resolvectl-compat.args.inc"
+
+static int help_compat(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -3190,39 +3195,7 @@ static int compat_help(void) {
                "%1$s [OPTIONS...] --reset-statistics\n"
                "\n"
                "%2$sResolve domain names, IPv4 and IPv6 addresses, DNS records, and services.%3$s\n\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "     --no-pager             Do not pipe output into a pager\n"
-               "  -4                        Resolve IPv4 addresses\n"
-               "  -6                        Resolve IPv6 addresses\n"
-               "  -i --interface=INTERFACE  Look on interface\n"
-               "  -p --protocol=PROTO|help  Look via protocol\n"
-               "  -t --type=TYPE|help       Query RR with DNS type\n"
-               "  -c --class=CLASS|help     Query RR with DNS class\n"
-               "     --service              Resolve service (SRV)\n"
-               "     --service-address=BOOL Resolve address for services (default: yes)\n"
-               "     --service-txt=BOOL     Resolve TXT records for services (default: yes)\n"
-               "     --openpgp              Query OpenPGP public key\n"
-               "     --tlsa                 Query TLS public key\n"
-               "     --cname=BOOL           Follow CNAME redirects (default: yes)\n"
-               "     --search=BOOL          Use search domains for single-label names\n"
-               "                                                              (default: yes)\n"
-               "     --raw[=payload|packet] Dump the answer as binary data\n"
-               "     --legend=BOOL          Print headers and additional info (default: yes)\n"
-               "     --statistics           Show resolver statistics\n"
-               "     --reset-statistics     Reset resolver statistics\n"
-               "     --status               Show link and server status\n"
-               "     --flush-caches         Flush all local DNS caches\n"
-               "     --reset-server-features\n"
-               "                            Forget learnt DNS server feature levels\n"
-               "     --set-dns=SERVER       Set per-interface DNS server address\n"
-               "     --set-domain=DOMAIN    Set per-interface search domain\n"
-               "     --set-llmnr=MODE       Set per-interface LLMNR mode\n"
-               "     --set-mdns=MODE        Set per-interface MulticastDNS mode\n"
-               "     --set-dnsovertls=MODE  Set per-interface DNS-over-TLS mode\n"
-               "     --set-dnssec=MODE      Set per-interface DNSSEC mode\n"
-               "     --set-nta=DOMAIN       Set per-interface DNSSEC NTA\n"
-               "     --revert               Revert per-interface configuration\n"
+               OPTION_HELP_GENERATED_COMPAT
                "\nSee the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -3232,7 +3205,7 @@ static int compat_help(void) {
         return 0;
 }
 
-static int native_help(void) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -3270,36 +3243,7 @@ static int native_help(void) {
                "  revert LINK                  Revert per-interface configuration\n"
                "  log-level [LEVEL]            Get/set logging threshold for systemd-resolved\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help                    Show this help\n"
-               "     --version                 Show package version\n"
-               "     --no-pager                Do not pipe output into a pager\n"
-               "     --no-ask-password         Do not prompt for password\n"
-               "  -4                           Resolve IPv4 addresses\n"
-               "  -6                           Resolve IPv6 addresses\n"
-               "  -i --interface=INTERFACE     Look on interface\n"
-               "  -p --protocol=PROTO|help     Look via protocol\n"
-               "  -t --type=TYPE|help          Query RR with DNS type\n"
-               "  -c --class=CLASS|help        Query RR with DNS class\n"
-               "     --service-address=BOOL    Resolve address for services (default: yes)\n"
-               "     --service-txt=BOOL        Resolve TXT records for services (default: yes)\n"
-               "     --cname=BOOL              Follow CNAME redirects (default: yes)\n"
-               "     --validate=BOOL           Allow DNSSEC validation (default: yes)\n"
-               "     --synthesize=BOOL         Allow synthetic response (default: yes)\n"
-               "     --cache=BOOL              Allow response from cache (default: yes)\n"
-               "     --stale-data=BOOL         Allow response from cache with stale data (default: yes)\n"
-               "     --relax-single-label=BOOL Allow single label lookups to go upstream (default: no)\n"
-               "     --zone=BOOL               Allow response from locally registered mDNS/LLMNR\n"
-               "                               records (default: yes)\n"
-               "     --trust-anchor=BOOL       Allow response from local trust anchor (default:\n"
-               "                               yes)\n"
-               "     --network=BOOL            Allow response from network (default: yes)\n"
-               "     --search=BOOL             Use search domains for single-label names (default:\n"
-               "                               yes)\n"
-               "     --raw[=payload|packet]    Dump the answer as binary data\n"
-               "     --legend=BOOL             Print headers and additional info (default: yes)\n"
-               "     --json=MODE               Output as JSON\n"
-               "  -j                           Same as --json=pretty on tty, --json=short\n"
-               "                               otherwise\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -3309,603 +3253,6 @@ static int native_help(void) {
                ansi_normal());
 
         return 0;
-}
-
-static int verb_help(int argc, char **argv, void *userdata) {
-        return native_help();
-}
-
-static int compat_parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_LEGEND,
-                ARG_SERVICE,
-                ARG_CNAME,
-                ARG_SERVICE_ADDRESS,
-                ARG_SERVICE_TXT,
-                ARG_OPENPGP,
-                ARG_TLSA,
-                ARG_RAW,
-                ARG_SEARCH,
-                ARG_STATISTICS,
-                ARG_RESET_STATISTICS,
-                ARG_STATUS,
-                ARG_FLUSH_CACHES,
-                ARG_RESET_SERVER_FEATURES,
-                ARG_NO_PAGER,
-                ARG_SET_DNS,
-                ARG_SET_DOMAIN,
-                ARG_SET_LLMNR,
-                ARG_SET_MDNS,
-                ARG_SET_DNS_OVER_TLS,
-                ARG_SET_DNSSEC,
-                ARG_SET_NTA,
-                ARG_REVERT_LINK,
-        };
-
-        static const struct option options[] = {
-                { "help",                  no_argument,       NULL, 'h'                       },
-                { "version",               no_argument,       NULL, ARG_VERSION               },
-                { "type",                  required_argument, NULL, 't'                       },
-                { "class",                 required_argument, NULL, 'c'                       },
-                { "legend",                required_argument, NULL, ARG_LEGEND                },
-                { "interface",             required_argument, NULL, 'i'                       },
-                { "protocol",              required_argument, NULL, 'p'                       },
-                { "cname",                 required_argument, NULL, ARG_CNAME                 },
-                { "service",               no_argument,       NULL, ARG_SERVICE               },
-                { "service-address",       required_argument, NULL, ARG_SERVICE_ADDRESS       },
-                { "service-txt",           required_argument, NULL, ARG_SERVICE_TXT           },
-                { "openpgp",               no_argument,       NULL, ARG_OPENPGP               },
-                { "tlsa",                  optional_argument, NULL, ARG_TLSA                  },
-                { "raw",                   optional_argument, NULL, ARG_RAW                   },
-                { "search",                required_argument, NULL, ARG_SEARCH                },
-                { "statistics",            no_argument,       NULL, ARG_STATISTICS,           },
-                { "reset-statistics",      no_argument,       NULL, ARG_RESET_STATISTICS      },
-                { "status",                no_argument,       NULL, ARG_STATUS                },
-                { "flush-caches",          no_argument,       NULL, ARG_FLUSH_CACHES          },
-                { "reset-server-features", no_argument,       NULL, ARG_RESET_SERVER_FEATURES },
-                { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
-                { "set-dns",               required_argument, NULL, ARG_SET_DNS               },
-                { "set-domain",            required_argument, NULL, ARG_SET_DOMAIN            },
-                { "set-llmnr",             required_argument, NULL, ARG_SET_LLMNR             },
-                { "set-mdns",              required_argument, NULL, ARG_SET_MDNS              },
-                { "set-dnsovertls",        required_argument, NULL, ARG_SET_DNS_OVER_TLS      },
-                { "set-dnssec",            required_argument, NULL, ARG_SET_DNSSEC            },
-                { "set-nta",               required_argument, NULL, ARG_SET_NTA               },
-                { "revert",                no_argument,       NULL, ARG_REVERT_LINK           },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h46i:t:c:p:", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return compat_help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case '4':
-                        arg_family = AF_INET;
-                        break;
-
-                case '6':
-                        arg_family = AF_INET6;
-                        break;
-
-                case 'i':
-                        r = ifname_mangle(optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 't':
-                        if (streq(optarg, "help")) {
-                                help_dns_types();
-                                return 0;
-                        }
-
-                        r = dns_type_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse RR record type %s: %m", optarg);
-
-                        arg_type = (uint16_t) r;
-                        assert((int) arg_type == r);
-
-                        arg_mode = MODE_RESOLVE_RECORD;
-                        break;
-
-                case 'c':
-                        if (streq(optarg, "help")) {
-                                help_dns_classes();
-                                return 0;
-                        }
-
-                        r = dns_class_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse RR record class %s: %m", optarg);
-
-                        arg_class = (uint16_t) r;
-                        assert((int) arg_class == r);
-
-                        break;
-
-                case ARG_LEGEND:
-                        r = parse_boolean_argument("--legend=", optarg, &arg_legend);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'p':
-                        if (streq(optarg, "help")) {
-                                help_protocol_types();
-                                return 0;
-                        } else if (streq(optarg, "dns"))
-                                arg_flags |= SD_RESOLVED_DNS;
-                        else if (streq(optarg, "llmnr"))
-                                arg_flags |= SD_RESOLVED_LLMNR;
-                        else if (streq(optarg, "llmnr-ipv4"))
-                                arg_flags |= SD_RESOLVED_LLMNR_IPV4;
-                        else if (streq(optarg, "llmnr-ipv6"))
-                                arg_flags |= SD_RESOLVED_LLMNR_IPV6;
-                        else if (streq(optarg, "mdns"))
-                                arg_flags |= SD_RESOLVED_MDNS;
-                        else if (streq(optarg, "mdns-ipv4"))
-                                arg_flags |= SD_RESOLVED_MDNS_IPV4;
-                        else if (streq(optarg, "mdns-ipv6"))
-                                arg_flags |= SD_RESOLVED_MDNS_IPV6;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown protocol specifier: %s", optarg);
-
-                        break;
-
-                case ARG_SERVICE:
-                        arg_mode = MODE_RESOLVE_SERVICE;
-                        break;
-
-                case ARG_OPENPGP:
-                        arg_mode = MODE_RESOLVE_OPENPGP;
-                        break;
-
-                case ARG_TLSA:
-                        arg_mode = MODE_RESOLVE_TLSA;
-                        if (!optarg || service_family_is_valid(optarg))
-                                arg_service_family = optarg;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown service family \"%s\".", optarg);
-                        break;
-
-                case ARG_RAW:
-                        if (on_tty())
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
-                                                       "Refusing to write binary data to tty.");
-
-                        if (optarg == NULL || streq(optarg, "payload"))
-                                arg_raw = RAW_PAYLOAD;
-                        else if (streq(optarg, "packet"))
-                                arg_raw = RAW_PACKET;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown --raw specifier \"%s\".",
-                                                       optarg);
-
-                        arg_legend = false;
-                        break;
-
-                case ARG_CNAME:
-                        r = parse_boolean_argument("--cname=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_CNAME, r == 0);
-                        break;
-
-                case ARG_SERVICE_ADDRESS:
-                        r = parse_boolean_argument("--service-address=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_ADDRESS, r == 0);
-                        break;
-
-                case ARG_SERVICE_TXT:
-                        r = parse_boolean_argument("--service-txt=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
-                        break;
-
-                case ARG_SEARCH:
-                        r = parse_boolean_argument("--search=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_SEARCH, r == 0);
-                        break;
-
-                case ARG_STATISTICS:
-                        arg_mode = MODE_STATISTICS;
-                        break;
-
-                case ARG_RESET_STATISTICS:
-                        arg_mode = MODE_RESET_STATISTICS;
-                        break;
-
-                case ARG_FLUSH_CACHES:
-                        arg_mode = MODE_FLUSH_CACHES;
-                        break;
-
-                case ARG_RESET_SERVER_FEATURES:
-                        arg_mode = MODE_RESET_SERVER_FEATURES;
-                        break;
-
-                case ARG_STATUS:
-                        arg_mode = MODE_STATUS;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_SET_DNS:
-                        r = strv_extend(&arg_set_dns, optarg);
-                        if (r < 0)
-                                return log_oom();
-
-                        arg_mode = MODE_SET_LINK;
-                        break;
-
-                case ARG_SET_DOMAIN:
-                        r = strv_extend(&arg_set_domain, optarg);
-                        if (r < 0)
-                                return log_oom();
-
-                        arg_mode = MODE_SET_LINK;
-                        break;
-
-                case ARG_SET_LLMNR:
-                        arg_set_llmnr = optarg;
-                        arg_mode = MODE_SET_LINK;
-                        break;
-
-                case ARG_SET_MDNS:
-                        arg_set_mdns = optarg;
-                        arg_mode = MODE_SET_LINK;
-                        break;
-
-                case ARG_SET_DNS_OVER_TLS:
-                        arg_set_dns_over_tls = optarg;
-                        arg_mode = MODE_SET_LINK;
-                        break;
-
-                case ARG_SET_DNSSEC:
-                        arg_set_dnssec = optarg;
-                        arg_mode = MODE_SET_LINK;
-                        break;
-
-                case ARG_SET_NTA:
-                        r = strv_extend(&arg_set_nta, optarg);
-                        if (r < 0)
-                                return log_oom();
-
-                        arg_mode = MODE_SET_LINK;
-                        break;
-
-                case ARG_REVERT_LINK:
-                        arg_mode = MODE_REVERT_LINK;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        if (arg_type == 0 && arg_class != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--class= may only be used in conjunction with --type=.");
-
-        if (arg_type != 0 && arg_mode == MODE_RESOLVE_SERVICE)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--service and --type= may not be combined.");
-
-        if (arg_type != 0 && arg_class == 0)
-                arg_class = DNS_CLASS_IN;
-
-        if (arg_class != 0 && arg_type == 0)
-                arg_type = DNS_TYPE_A;
-
-        if (IN_SET(arg_mode, MODE_SET_LINK, MODE_REVERT_LINK)) {
-
-                if (arg_ifindex <= 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--set-dns=, --set-domain=, --set-llmnr=, --set-mdns=, --set-dnsovertls=, --set-dnssec=, --set-nta= and --revert require --interface=.");
-        }
-
-        return 1 /* work to do */;
-}
-
-static int native_parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_LEGEND,
-                ARG_CNAME,
-                ARG_VALIDATE,
-                ARG_SYNTHESIZE,
-                ARG_CACHE,
-                ARG_ZONE,
-                ARG_TRUST_ANCHOR,
-                ARG_NETWORK,
-                ARG_SERVICE_ADDRESS,
-                ARG_SERVICE_TXT,
-                ARG_RAW,
-                ARG_SEARCH,
-                ARG_NO_PAGER,
-                ARG_NO_ASK_PASSWORD,
-                ARG_JSON,
-                ARG_STALE_DATA,
-                ARG_RELAX_SINGLE_LABEL,
-        };
-
-        static const struct option options[] = {
-                { "help",                  no_argument,       NULL, 'h'                       },
-                { "version",               no_argument,       NULL, ARG_VERSION               },
-                { "type",                  required_argument, NULL, 't'                       },
-                { "class",                 required_argument, NULL, 'c'                       },
-                { "legend",                required_argument, NULL, ARG_LEGEND                },
-                { "interface",             required_argument, NULL, 'i'                       },
-                { "protocol",              required_argument, NULL, 'p'                       },
-                { "cname",                 required_argument, NULL, ARG_CNAME                 },
-                { "validate",              required_argument, NULL, ARG_VALIDATE              },
-                { "synthesize",            required_argument, NULL, ARG_SYNTHESIZE            },
-                { "cache",                 required_argument, NULL, ARG_CACHE                 },
-                { "zone",                  required_argument, NULL, ARG_ZONE                  },
-                { "trust-anchor",          required_argument, NULL, ARG_TRUST_ANCHOR          },
-                { "network",               required_argument, NULL, ARG_NETWORK               },
-                { "service-address",       required_argument, NULL, ARG_SERVICE_ADDRESS       },
-                { "service-txt",           required_argument, NULL, ARG_SERVICE_TXT           },
-                { "raw",                   optional_argument, NULL, ARG_RAW                   },
-                { "search",                required_argument, NULL, ARG_SEARCH                },
-                { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
-                { "no-ask-password",       no_argument,       NULL, ARG_NO_ASK_PASSWORD       },
-                { "json",                  required_argument, NULL, ARG_JSON                  },
-                { "stale-data",            required_argument, NULL, ARG_STALE_DATA            },
-                { "relax-single-label",    required_argument, NULL, ARG_RELAX_SINGLE_LABEL    },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h46i:t:c:p:j", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return native_help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case '4':
-                        arg_family = AF_INET;
-                        break;
-
-                case '6':
-                        arg_family = AF_INET6;
-                        break;
-
-                case 'i':
-                        r = ifname_mangle(optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 't':
-                        if (streq(optarg, "help")) {
-                                help_dns_types();
-                                return 0;
-                        }
-
-                        r = dns_type_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse RR record type %s: %m", optarg);
-
-                        arg_type = (uint16_t) r;
-                        assert((int) arg_type == r);
-
-                        break;
-
-                case 'c':
-                        if (streq(optarg, "help")) {
-                                help_dns_classes();
-                                return 0;
-                        }
-
-                        r = dns_class_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse RR record class %s: %m", optarg);
-
-                        arg_class = (uint16_t) r;
-                        assert((int) arg_class == r);
-
-                        break;
-
-                case ARG_LEGEND:
-                        r = parse_boolean_argument("--legend=", optarg, &arg_legend);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'p':
-                        if (streq(optarg, "help")) {
-                                help_protocol_types();
-                                return 0;
-                        } else if (streq(optarg, "dns"))
-                                arg_flags |= SD_RESOLVED_DNS;
-                        else if (streq(optarg, "llmnr"))
-                                arg_flags |= SD_RESOLVED_LLMNR;
-                        else if (streq(optarg, "llmnr-ipv4"))
-                                arg_flags |= SD_RESOLVED_LLMNR_IPV4;
-                        else if (streq(optarg, "llmnr-ipv6"))
-                                arg_flags |= SD_RESOLVED_LLMNR_IPV6;
-                        else if (streq(optarg, "mdns"))
-                                arg_flags |= SD_RESOLVED_MDNS;
-                        else if (streq(optarg, "mdns-ipv4"))
-                                arg_flags |= SD_RESOLVED_MDNS_IPV4;
-                        else if (streq(optarg, "mdns-ipv6"))
-                                arg_flags |= SD_RESOLVED_MDNS_IPV6;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown protocol specifier: %s",
-                                                       optarg);
-
-                        break;
-
-                case ARG_RAW:
-                        if (on_tty())
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
-                                                       "Refusing to write binary data to tty.");
-
-                        if (optarg == NULL || streq(optarg, "payload"))
-                                arg_raw = RAW_PAYLOAD;
-                        else if (streq(optarg, "packet"))
-                                arg_raw = RAW_PACKET;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown --raw specifier \"%s\".",
-                                                       optarg);
-
-                        arg_legend = false;
-                        break;
-
-                case ARG_CNAME:
-                        r = parse_boolean_argument("--cname=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_CNAME, r == 0);
-                        break;
-
-                case ARG_VALIDATE:
-                        r = parse_boolean_argument("--validate=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_VALIDATE, r == 0);
-                        break;
-
-                case ARG_SYNTHESIZE:
-                        r = parse_boolean_argument("--synthesize=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_SYNTHESIZE, r == 0);
-                        break;
-
-                case ARG_CACHE:
-                        r = parse_boolean_argument("--cache=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_CACHE, r == 0);
-                        break;
-
-                case ARG_STALE_DATA:
-                        r = parse_boolean_argument("--stale-data=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_STALE, r == 0);
-                        break;
-
-                case ARG_ZONE:
-                        r = parse_boolean_argument("--zone=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_ZONE, r == 0);
-                        break;
-
-                case ARG_TRUST_ANCHOR:
-                        r = parse_boolean_argument("--trust-anchor=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_TRUST_ANCHOR, r == 0);
-                        break;
-
-                case ARG_NETWORK:
-                        r = parse_boolean_argument("--network=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_NETWORK, r == 0);
-                        break;
-
-                case ARG_SERVICE_ADDRESS:
-                        r = parse_boolean_argument("--service-address=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_ADDRESS, r == 0);
-                        break;
-
-                case ARG_SERVICE_TXT:
-                        r = parse_boolean_argument("--service-txt=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
-                        break;
-
-                case ARG_SEARCH:
-                        r = parse_boolean_argument("--search=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_NO_SEARCH, r == 0);
-                        break;
-
-                case ARG_RELAX_SINGLE_LABEL:
-                        r = parse_boolean_argument("--relax-single-label=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        SET_FLAG(arg_flags, SD_RESOLVED_RELAX_SINGLE_LABEL, r > 0);
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case 'j':
-                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        if (arg_type == 0 && arg_class != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--class= may only be used in conjunction with --type=.");
-
-        if (arg_type != 0 && arg_class == 0)
-                arg_class = DNS_CLASS_IN;
-
-        if (arg_class != 0 && arg_type == 0)
-                arg_type = DNS_TYPE_A;
-
-        return 1 /* work to do */;
 }
 
 static int native_main(int argc, char *argv[]) {
@@ -4069,9 +3416,9 @@ static int run(int argc, char **argv) {
                 r = resolvconf_parse_argv(argc, argv);
         } else if (invoked_as(argv, "systemd-resolve")) {
                 compat = true;
-                r = compat_parse_argv(argc, argv);
+                r = parse_argv_generated_compat(argc, argv);
         } else
-                r = native_parse_argv(argc, argv);
+                r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 
