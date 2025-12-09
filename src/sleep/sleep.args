@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+outro
+        if (argc - optind != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Usage: %s COMMAND",
+                                       program_invocation_short_name);
+
+        arg_operation = sleep_operation_from_string(argv[optind]);
+        if (arg_operation < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command '%s'.", argv[optind]);
