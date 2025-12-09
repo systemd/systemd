@@ -29,6 +29,7 @@
 #include "io-util.h"
 #include "main-func.h"
 #include "mkdir-label.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -52,6 +53,7 @@ static enum {
 static bool arg_plymouth = false;
 static bool arg_console = false;
 static char *arg_device = NULL;
+static pid_t arg_query_pid = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_device, freep);
 
@@ -209,6 +211,13 @@ static int process_one_password_file(const char *filename, FILE *f) {
         if (not_after > 0 && now(CLOCK_MONOTONIC) > not_after)
                 return 0;
 
+        if (arg_query_pid != 0 && pid != arg_query_pid) {
+                if (arg_action == ACTION_QUERY)
+                        log_info("Not querying '%s' (PID " PID_FMT "), ignored by query 'pid=" PID_FMT "'.", strna(message), pid, arg_query_pid);
+
+                return 0;
+        }
+        
         if (pid > 0 && pid_is_alive(pid) <= 0)
                 return 0;
 
@@ -453,6 +462,7 @@ static int help(void) {
                "     --version           Show package version\n"
                "     --list              Show pending password requests\n"
                "     --query             Process pending password requests\n"
+               "     --from-pid=<PID>    Filter only the requests from process with id=PID\n"
                "     --watch             Continuously process password requests\n"
                "     --wall              Continuously forward password requests to wall\n"
                "     --plymouth          Ask question with Plymouth instead of on TTY\n"
@@ -472,6 +482,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_LIST = 0x100,
                 ARG_QUERY,
+                ARG_FILTER,
                 ARG_WATCH,
                 ARG_WALL,
                 ARG_PLYMOUTH,
@@ -484,6 +495,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",  no_argument,       NULL, ARG_VERSION  },
                 { "list",     no_argument,       NULL, ARG_LIST     },
                 { "query",    no_argument,       NULL, ARG_QUERY    },
+                { "from-pid", required_argument, NULL, ARG_FILTER   },
                 { "watch",    no_argument,       NULL, ARG_WATCH    },
                 { "wall",     no_argument,       NULL, ARG_WALL     },
                 { "plymouth", no_argument,       NULL, ARG_PLYMOUTH },
@@ -512,6 +524,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_QUERY:
                         arg_action = ACTION_QUERY;
+                        break;
+
+                case ARG_FILTER:
+                        r = parse_pid(optarg, &arg_query_pid);
+
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to refer to --filter-pid='%s': %m", optarg);
+
                         break;
 
                 case ARG_WATCH:
