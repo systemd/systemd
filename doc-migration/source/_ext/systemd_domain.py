@@ -141,9 +141,27 @@ class SystemdObject(ObjectDescription[str]):
         return names
 
     def handle_signature(self, sig: str, signode: addnodes.desc_signature) -> str:
-        # Render the visible name for the signature line
-        signode += addnodes.desc_name(text=sig)
-        return sig  # returned value is passed to add_target_and_index as "name"
+        # Literal render of the visible name for the signature line. Left as a fallback in case there are issues with the more ambitious code below
+        # signode += addnodes.desc_name(text=sig)
+        # return sig  # returned value is passed to add_target_and_index as "name"
+
+        # Render inline styles like :kbd: inside systemd role lines
+        # Create a temporary container to parse roles
+        vl = ViewList()
+        vl.append(sig, '<signature>')
+        temp_container = nodes.inline()
+        nested_parse_with_titles(self.state, vl, temp_container)
+
+        # Flatten paragraphs to inline nodes
+        name_node = addnodes.desc_name()
+        for child in temp_container:
+            if isinstance(child, nodes.paragraph):
+                name_node += child.children
+            else:
+                name_node += child
+
+        signode += name_node
+        return sig
 
     def add_target_and_index(self, name: str, sig: str, signode: addnodes.desc_signature) -> None:
         # Register target/anchor and domain object entry with de-duplication
