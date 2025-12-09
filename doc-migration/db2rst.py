@@ -338,7 +338,7 @@ def _includes(el):
     # If th above standard-conf.xml include happens, also include the footnote # from that file to the footnotes section
     if file_path_pathlib.match("standard-conf.xml"):
         _add_standard_conf_footnote()
-        return f'\n\n%% include="{el.get('href').replace('xml', 'rst')}" id="{el.get('xpointer')}" %%'
+        return f'\n\n%% include="{el.get('href').replace('xml', 'rst')}" id="{el.get('xpointer')}|" %%'
     include_files = FILES_USED_FOR_INCLUDES
     if file_extension == '.xml':
         if el.get('href') == 'version-info.xml':
@@ -356,8 +356,8 @@ def _includes(el):
             return f".. include:: {el.get('href').replace('xml', 'rst')}"
         elif el.get('href') in include_files:
             return f""".. include:: {el.get('href').replace('xml', 'rst')}
-    :start-after: .. inclusion-marker-do-not-remove {el.get("xpointer")}
-    :end-before: .. inclusion-end-marker-do-not-remove {el.get("xpointer")}
+    :start-after: .. inclusion-marker-do-not-remove {el.get("xpointer")}|
+    :end-before: .. inclusion-end-marker-do-not-remove {el.get("xpointer")}|
 
 """
 
@@ -434,6 +434,13 @@ def _remove_indent_and_escape(s, tag):
                s)
     return s
 
+def _unindent(s: str, prefix: str) -> str:
+    "Unindent each line by prefix"
+    lines = s.splitlines(True)  # keep line endings
+    return "".join(
+        line.removeprefix(prefix) if line.startswith(prefix) else line
+        for line in lines
+    )
 
 def _concat(el, prefix=""):
     "concatate .text with children (_conv'ed to text) and their tails"
@@ -449,16 +456,11 @@ def _concat(el, prefix=""):
             if len(s) > 0 and not s[-1].isspace() and i.tail[0] in " \t":
                 s += i.tail[0]
             s += _remove_indent_and_escape(i.tail, el.tag)
-    # return s.strip()
     prefix = "   "
     result = s
+    depth = _get_listitem_depth(el)
     if el.tag in ["listitem"]:
-        # Indent all lines
-        if _get_listitem_depth(el) == 1:
-            if INDENT_FIRST_LISTITEM_LEVEL:
-                result = textwrap.indent(s, prefix, lambda line: True)
-        else:
-            result = textwrap.indent(s, prefix, lambda line: True)
+        result = textwrap.indent(s, prefix*depth, lambda line: True)
     return result
 
 
@@ -508,13 +510,13 @@ def _block_separated_with_blank_line(el, stripInnerLinebreaks = False):
     s = ""
     id = el.get("id")
     if id is not None:
-        s += f"\n\n.. inclusion-marker-do-not-remove {id}\n \n "
+        s += f"\n\n.. inclusion-marker-do-not-remove {id}|\n \n "
     if stripInnerLinebreaks:
         s += "\n\n" + _remove_line_breaks(_concat(el))
     else:
         s += "\n\n" + _concat(el)
     if id is not None:
-        s += f"\n \n.. inclusion-end-marker-do-not-remove {id}\n\n"
+        s += f"\n \n.. inclusion-end-marker-do-not-remove {id}|\n\n"
     return s
 
 
@@ -552,9 +554,6 @@ def _get_listitem_depth(el):
     depth = 0
     if el.tag == 'listitem':
         depth = 1
-    # If the parent is a varlistentry, always indent
-    # if _is_inside_of(el, 'varlistentry'):
-    #     depth = 1
     for ancestor in el.iterancestors():
         if ancestor.tag == 'listitem':
             depth += 1
@@ -562,19 +561,24 @@ def _get_listitem_depth(el):
 
 def _wrap_with_inclusion_markers_if_necessary(el, s):
     entry_id = el.get("id")
-    # Just in case we did this already
-    if f".. inclusion-marker-do-not-remove {entry_id}" in s:
-        return s
+    # This needs to be indentation-aware, for example if the include is
+    # _inside_ a varlistentry. However, the content of the include should then
+    # _not_ be indented a second time, so we unindent the content by
+    # the same amount
     if entry_id is not None:
-        return f"""
+        prefix = "   "
+        depth = _get_listitem_depth(el)
+        s = f"""
 
-.. inclusion-marker-do-not-remove {entry_id}
+.. inclusion-marker-do-not-remove {entry_id}|
 
-{s}
+{_unindent(s, prefix*depth)}
 
-.. inclusion-end-marker-do-not-remove {entry_id}
+.. inclusion-end-marker-do-not-remove {entry_id}|
 
 """
+        result = textwrap.indent(s, prefix*depth, lambda line: True)
+        return result
     else:
         return s
 
@@ -601,7 +605,7 @@ def TreeRoot(el):
             # preprocessor include, since rst also has trouble with
             # these block level includes inside footnotes.
             if footnote.get('href'):
-                output += f'\n\n%% include="{footnote.get('href').replace('xml', 'rst')}" id="{footnote.get('xpointer')}" %%'
+                output += f'\n\n%% include="{footnote.get('href').replace('xml', 'rst')}" id="{footnote.get('xpointer')}|" %%'
             else:
                 # output += f"\n\n.. [#] {_remove_line_breaks(_conv(footnote))}"
                 output += f"\n\n.. [#] {_conv(footnote)}"
@@ -634,13 +638,7 @@ def refentryinfo(el):
 
 
 def refnamediv(el):
-    # TODO: check man vs html, seems like this one is difficult to get right in both at the same time
-    # TODO: needs more work:
-    # - collect refnames and _join_children(el, ' —,')
-    # - append refpurpose, separated by an em-dash, and strip line breaks
-    #   beforehand with t.replace('\n', ' ').strip()
-    # return '**Name** \n\n' + _make_title(_join_children(el, ' — '), 2)
-    # return '.. only:: html\n\n' + _make_title(_join_children(el, ' — '), 2, 3)
+
     refnames = []
     for refname in el.iterchildren(tag='refname'):
         refnames.append(refname.text)
@@ -717,9 +715,9 @@ def footnote(el):
     # an entire footnote _block_ at the bottom of standard-conf.rst
     if id == "usr-local-footnote":
         output += "\n\n.. rubric:: Footnotes\n\n"
-        output += "\n\n.. inclusion-marker-do-not-remove %s\n\n" % id
+        output += "\n\n.. inclusion-marker-do-not-remove %s|\n\n" % id
         output += ".. [#usrlocalfootnote] " + _conv(el.getchildren()[0]).strip()
-        output += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % id
+        output += "\n\n.. inclusion-end-marker-do-not-remove %s|\n\n" % id
         return output
     _footnotes.append(el.getchildren()[0])
     return f" [#]_ "
@@ -1335,7 +1333,7 @@ def table(el):
         # that is only understood by the preprocessor script, eg.:
         # `%% include="standard-specifiers.rst" id="A" %%`
         if 'xi:include' in row:
-            row_line = "   "+ row.replace('<xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href=', '%% include=').replace('xpointer', 'id').replace('/>', ' %%').replace('.xml', '.rst')
+            row_line = "   "+ row.replace('<xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href=', '%% include=').replace('xpointer', 'id').replace('"/>', '|" %%').replace('.xml', '.rst')
         else:
             row_line = "   * - " + "\n     - ".join(row)
         rst_table.append(row_line)
@@ -1356,10 +1354,10 @@ def tbody(el):
         # Even though these are generally consumed by the preprocessor and not
         # Sphinx itself, we still use the same inclusion-marker directive
         # syntax, in case someone wants to include these snippets somewhere else.
-        output.append(f"\n \n.. inclusion-marker-do-not-remove {id}\n \n")
+        output.append(f"\n \n.. inclusion-marker-do-not-remove {id}|\n \n")
         row_line = "* - " + "\n  - ".join([_concat(entry) for entry in entries])
         output.append(row_line)
-        output.append(f"\n \n.. inclusion-end-marker-do-not-remove {id}\n \n")
+        output.append(f"\n \n.. inclusion-end-marker-do-not-remove {id}|\n \n")
     return '\n'.join(output)
 
 def userinput(el):

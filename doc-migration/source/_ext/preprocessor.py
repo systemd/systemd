@@ -54,8 +54,8 @@ INCLUDE_RE = re.compile(
     r'(?P<indent>[ \t]*)%%\s*include="(?P<file>[^"]+)"\s*id="(?P<id>[^"]+)"\s*%%'
 )
 
-START_RE = r"\.\. inclusion-marker-do-not-remove\s+{id}\b"
-END_RE   = r"\.\. inclusion-end-marker-do-not-remove\s+{id}\b"
+START_RE = r"\.\. inclusion-marker-do-not-remove\s+{id}(?=\s|$)"
+END_RE   = r"\.\. inclusion-end-marker-do-not-remove\s+{id}(?=\s|$)"
 
 
 def extract_snippet(include_path: Path, snippet_id: str) -> str:
