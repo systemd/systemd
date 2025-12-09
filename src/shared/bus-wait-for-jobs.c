@@ -275,7 +275,10 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                         log_debug_errno(r, "Failed to get Result property of unit %s, ignoring: %m",
                                         d->name);
 
-                log_job_error_with_service_result(d->name, result, priority, extra_args);
+                log_job_error_with_service_result(
+                                d->name, result,
+                                /* quiet= */ !FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR),
+                                extra_args);
         } else /* Otherwise we just show a generic message. */
                 log_full(priority, "Job failed. See \"journalctl -xe\" for details.");
 
