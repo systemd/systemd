@@ -1424,6 +1424,7 @@ static int method_activate_session_on_seat(sd_bus_message *message, void *userda
         Manager *m = ASSERT_PTR(userdata);
         Session *session;
         Seat *seat;
+        const char* none_id = "None";
         int r;
 
         assert(message);
@@ -1434,23 +1435,38 @@ static int method_activate_session_on_seat(sd_bus_message *message, void *userda
         if (r < 0)
                 return r;
 
-        r = manager_get_session_from_creds(m, message, session_name, error, &session);
-        if (r < 0)
-                return r;
+        if (streq(session_name, none_id)) {
+                r = manager_get_seat_from_creds(m, message, seat_name, error, &seat);
+                if (r < 0)
+                        return r;
 
-        r = manager_get_seat_from_creds(m, message, seat_name, error, &seat);
-        if (r < 0)
-                return r;
+                session = new(Session, 1);
+                if (!session)
+                        return -ENOMEM;
 
-        if (session->seat != seat)
-                return sd_bus_error_setf(error, BUS_ERROR_SESSION_NOT_ON_SEAT,
-                                         "Session %s not on seat %s", session_name, seat_name);
+                *session = (Session) {
+                        .id = strdup(none_id),
+                        .seat = seat,
+                };
+        } else {
+                r = manager_get_session_from_creds(m, message, session_name, error, &session);
+                if (r < 0)
+                        return r;
 
-        r = check_polkit_chvt(message, m, error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+                r = manager_get_seat_from_creds(m, message, seat_name, error, &seat);
+                if (r < 0)
+                        return r;
+
+                if (session->seat != seat)
+                        return sd_bus_error_setf(error, BUS_ERROR_SESSION_NOT_ON_SEAT,
+                                                 "Session %s not on seat %s", session_name, seat_name);
+
+                r = check_polkit_chvt(message, m, error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         r = session_activate(session);
         if (r < 0)
