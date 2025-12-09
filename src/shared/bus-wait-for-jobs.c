@@ -247,26 +247,26 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
         int priority = FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR) ? LOG_ERR : LOG_DEBUG;
 
         if (streq(d->result, "canceled"))
-                log_full(priority, "Job for %s canceled.", d->name);
-        else if (streq(d->result, "timeout"))
-                log_full(priority, "Job for %s timed out.", d->name);
-        else if (streq(d->result, "dependency"))
-                log_full(priority, "A dependency job for %s failed. See 'journalctl -xe' for details.", d->name);
-        else if (streq(d->result, "invalid"))
-                log_full(priority, "%s is not active, cannot reload.", d->name);
-        else if (streq(d->result, "assert"))
-                log_full(priority, "Assertion failed on job for %s.", d->name);
-        else if (streq(d->result, "unsupported"))
-                log_full(priority, "Operation on or unit type of %s not supported on this system.", d->name);
-        else if (streq(d->result, "collected"))
-                log_full(priority, "Queued job for %s was garbage collected.", d->name);
-        else if (streq(d->result, "once"))
-                log_full(priority, "Unit %s was started already once and can't be started again.", d->name);
-        else if (streq(d->result, "frozen"))
-                log_full(priority, "Cannot perform operation on frozen unit %s.", d->name);
-        else if (streq(d->result, "concurrency"))
-                log_full(priority, "Concurrency limit of a slice unit %s is contained in has been reached.", d->name);
-        else if (endswith(d->name, ".service")) {
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ECANCELED), "Job for %s canceled.", d->name);
+        if (streq(d->result, "timeout"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ETIME), "Job for %s timed out.", d->name);
+        if (streq(d->result, "dependency"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(EIO), "A dependency job for %s failed. See 'journalctl -xe' for details.", d->name);
+        if (streq(d->result, "invalid"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ENOEXEC), "%s is not active, cannot reload.", d->name);
+        if (streq(d->result, "assert"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(EPROTO), "Assertion failed on job for %s.", d->name);
+        if (streq(d->result, "unsupported"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(EOPNOTSUPP), "Operation on or unit type of %s not supported on this system.", d->name);
+        if (streq(d->result, "collected"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ECANCELED), "Queued job for %s was garbage collected.", d->name);
+        if (streq(d->result, "once"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ESTALE), "Unit %s was started already once and can't be started again.", d->name);
+        if (streq(d->result, "frozen"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(EDEADLK), "Cannot perform operation on frozen unit %s.", d->name);
+        if (streq(d->result, "concurrency"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ETOOMANYREFS), "Concurrency limit of a slice unit %s is contained in has been reached.", d->name);
+        if (endswith(d->name, ".service")) {
                 /* Job result is unknown. For services, let's also try Result property. */
                 _cleanup_free_ char *result = NULL;
 
@@ -281,25 +281,6 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                                 extra_args);
         } else /* Otherwise we just show a generic message. */
                 log_full(priority, "Job failed. See \"journalctl -xe\" for details.");
-
-        if (STR_IN_SET(d->result, "canceled", "collected"))
-                return -ECANCELED;
-        else if (streq(d->result, "timeout"))
-                return -ETIME;
-        else if (streq(d->result, "dependency"))
-                return -EIO;
-        else if (streq(d->result, "invalid"))
-                return -ENOEXEC;
-        else if (streq(d->result, "assert"))
-                return -EPROTO;
-        else if (streq(d->result, "unsupported"))
-                return -EOPNOTSUPP;
-        else if (streq(d->result, "once"))
-                return -ESTALE;
-        else if (streq(d->result, "frozen"))
-                return -EDEADLK;
-        else if (streq(d->result, "concurrency"))
-                return -ETOOMANYREFS;
 
         return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
                                "Unexpected job result '%s' for unit '%s', assuming server side newer than us.",
