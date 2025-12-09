@@ -266,25 +266,27 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                 return log_full_errno(priority, SYNTHETIC_ERRNO(EDEADLK), "Cannot perform operation on frozen unit %s.", d->name);
         if (streq(d->result, "concurrency"))
                 return log_full_errno(priority, SYNTHETIC_ERRNO(ETOOMANYREFS), "Concurrency limit of a slice unit %s is contained in has been reached.", d->name);
-        if (endswith(d->name, ".service")) {
-                /* Job result is unknown. For services, let's also try Result property. */
-                _cleanup_free_ char *result = NULL;
 
-                r = bus_job_get_service_result(d, &result);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to get Result property of unit %s, ignoring: %m",
-                                        d->name);
+        if (!streq(d->result, "failed"))
+                log_debug("Unexpected job result '%s' for unit '%s', assuming server side newer than us.",
+                          d->result, d->name);
 
-                log_job_error_with_service_result(
-                                d->name, result,
-                                /* quiet= */ !FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR),
-                                extra_args);
-        } else /* Otherwise we just show a generic message. */
-                log_full(priority, "Job failed. See \"journalctl -xe\" for details.");
+        /* Job is failed, or result is unknown. For non-service units, just show a generic message. */
+        if (!endswith(d->name, ".service"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ENOMEDIUM), "Job failed. See \"journalctl -xe\" for details.");
 
-        return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
-                               "Unexpected job result '%s' for unit '%s', assuming server side newer than us.",
-                               d->result, d->name);
+        /* For services, let's also try Result property. */
+        _cleanup_free_ char *result = NULL;
+        r = bus_job_get_service_result(d, &result);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get Result property of unit %s, ignoring: %m", d->name);
+
+        log_job_error_with_service_result(
+                        d->name, result,
+                        /* quiet= */ !FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR),
+                        extra_args);
+
+        return -ENOMEDIUM;
 }
 
 int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
