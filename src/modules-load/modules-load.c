@@ -33,6 +33,8 @@ static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");
 
 STATIC_DESTRUCTOR_REGISTER(arg_proc_cmdline_modules, strv_freep);
 
+#include "modules-load.args.inc"
+
 static int modules_list_append_suffix(OrderedSet **module_set, char *modp) {
         /* take possession of string no matter what */
         _cleanup_free_ char *mod = modp;
@@ -337,48 +339,12 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Loads statically configured kernel modules.\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
 
         return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1;
 }
 
 static int run(int argc, char *argv[]) {
@@ -395,7 +361,7 @@ static int run(int argc, char *argv[]) {
         char *module;
         int ret = 0, r;
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 
