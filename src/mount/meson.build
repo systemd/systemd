@@ -9,6 +9,7 @@ executables += [
                 'name' : 'systemd-mount',
                 'public' : true,
                 'sources' : files('mount-tool.c'),
+                'arg_parser' : files('mount-tool.args'),
                 'dependencies' : libmount_cflags,
         },
 ]
