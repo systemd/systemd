@@ -8,8 +8,9 @@
     - [2. `rst` to Sphinx html and man](#2-rst-to-sphinx-html-and-man)
       - [Notes on incremental builds](#notes-on-incremental-builds)
       - [Notes on `man_pages` generation](#notes-on-man_pages-generation)
+      - [Notes on aliases](#notes-on-aliases)
       - [Sphinx Options](#sphinx-options)
-      - [Sphinx Extensions](#sphinx-extensions)
+      - [Custom Sphinx Extensions](#custom-sphinx-extensions)
         - [systemd\_domain.py](#systemd_domainpy)
         - [preprocessor.py](#preprocessorpy)
         - [external\_man\_links.py](#external_man_linkspy)
@@ -29,7 +30,7 @@ Python dependencies for generating `html` and `man` pages from `rst`:
 
 To install these (see [Sphinx Docs](https://www.sphinx-doc.org/en/master/tutorial/getting-started.html#setting-up-your-project-and-development-environment)):
 
-`sudo dnf install python3-{lxml,furo,sphinx}'
+`sudo dnf install python3-{lxml,furo,sphinx,sphinx_reredirects}'
 
 ### Manual installation
 
@@ -40,6 +41,7 @@ $ source .venv/bin/activate
 # Install deps
 $ .venv/bin/pip install lxml
 $ .venv/bin/pip install sphinx
+$ .venv/bin/pip install sphinx_reredirects
 $ .venv/bin/pip install furo
 $ cd doc-migration && ./convert.sh
 ```
@@ -119,7 +121,21 @@ Sphinx supports parallel and incremental builds, but this only applies to `rst` 
 
 #### Notes on `man_pages` generation
 
-Sphinx requires the explicit listing of all man pages in the `man_pages` conf variable. We build this at runtime from the files themselves. The data is cached in a `doc-migration/source/_man_pages_cache.json` file (next to `conf.py`) and re-used. Delete it to force the `man_pages` list to be rebuilt.
+Sphinx requires the explicit listing of all man pages in the `man_pages` conf variable. We build this at runtime from the files themselves. Note that this process has a side-effect, see [Notes on aliases](#notes-on-aliases) below.
+
+#### Notes on aliases
+
+Systemd makes extensive use of alias pages (effectively redirects), where all the `name`s of a page should also be valid reference targets. To achieve this in Sphinx, a fair amount of hoop-jumping is necessary:
+
+1. All alias pages should be declared in each `rst` file’s metadata, e.g.:
+   ```rst
+    :title: os-release
+    :manvolnum: 5
+    :summary: Operating system identification
+    :aliases: initrd-release, extension-release
+   ```
+2. These aliases are parsed in `conf.py` as a side-effect of generating the `man_pages` config var and injected into Sphinx’s handling of the `:ref:` role. This allows authors to directly reference an alias which links to the real page while still displaying the alias’s page title without having to explicitly declare it, so ``:ref:`initrd-release` `` just works. It links to the `os-release` page, but displays `initrd-release` as the link text.
+3. To make direct navigation from outside possible, we also need to register http redirects for all aliases. These are handled by the `sphinx_reredirects` extension and also automatically configured in `conf.py`.
 
 #### Sphinx Options
 
@@ -132,9 +148,9 @@ For debugging etc:
 - `-a` -> Always rebuilds all files. If you have a caching issue, try this.
 - `-E` -> Fresh-Env, rebuilds the cross-reference environment.
 
-#### Sphinx Extensions
+#### Custom Sphinx Extensions
 
-We use the following Sphinx extensions to achieve parity with the old docs. These live in `/source/_ext` and are activated via the `extensions` variable in `conf.py`.
+We use the following custom Sphinx extensions to achieve parity with the old docs. These live in `/source/_ext` and are activated via the `extensions` variable in `conf.py`.
 
 ##### systemd_domain.py
 
@@ -189,12 +205,38 @@ You can also declare multiple directives at once by comma-separating them, and e
 To reference (link) to any directive, use the role syntax:
 
 ```rst
-:systemd:var:`SystemMaxUse=` and :systemd:var:`RuntimeMaxUse=` control how much disk space the journal may use up at most.
+:systemd:option:`SystemMaxUse=` and :systemd:option:`RuntimeMaxUse=` control how much disk space the journal may use up at most.
 ```
 
 ```rst
 :systemd:constant:`SYSTEMD_LOG_LEVEL=debug,console:info` specifies to log at debug level.
 ```
+
+Really, just throw the whole entry in there:
+
+```rst
+:systemd:option:`set-property SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT...`
+```
+
+If the same name is defined in multiple documents, you can qualify the reference with the document’s basename (without `.rst` or the manvolnum). For example: `OOMPolicy=` exists in both `systemd.scope(5)` and `systemd.service(5)`, to specify whoch one you want to reference/link to, prefix the doc name like this:
+
+```rst
+:systemd:option:`systemd.scope:OOMPolicy=`
+:systemd:option:`systemd.service:OOMPolicy=`
+```
+
+You may also use the full docname including the `docs/` prefix:
+
+```rst
+:systemd:option:`docs/systemd.unit:After=`
+```
+
+The qualifier is matched against:
+- full docname (e.g. `docs/systemd.unit`)
+- basename (e.g. `systemd.unit`)
+- slug form used in anchors (e.g. `systemd-unit`)
+
+When no qualifier is given, resolution prefers a definition in the same document, otherwise the first one found.
 
 To display the directives list (currently in `directives.rst`), simply use this custom Sphinx directive:
 
@@ -202,6 +244,13 @@ To display the directives list (currently in `directives.rst`), simply use this 
 .. systemd:directiveindex::
 ```
 
+To link to this directives page, use
+
+```rst
+:ref:`systemd.directives(7)`
+.. or
+:doc:`directives`
+```
 
 ##### preprocessor.py
 
@@ -266,8 +315,6 @@ A full list of these roles can be found in [external_man_links](source/_ext/exte
 An incomplete list.
 
 - [ ] The footnote in common-variables…
-- [ ] Generate alias files from all entries in the `name`
-  - [ ] <citerefentry><refentrytitle>systemd-sysusers.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>-style citrefs should be converted to internal links and not man
 - [ ] Clean up literal include file copying, there are currently pointless files in /includes
 - [ ] HTML improvements:
   - [ ] Render directive headlines so furo picks them up in the sidebar (probably an issue with the content replacement when `.. systemd:directiveindex::` is parsed in `systemd_domain.py`)

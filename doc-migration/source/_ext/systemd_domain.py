@@ -17,6 +17,8 @@ from sphinx.util.nodes import make_refnode
 from sphinx.util.typing import ExtensionMetadata
 from sphinx import addnodes
 from sphinx.directives import ObjectDescription
+from sphinx.util.nodes import nested_parse_with_titles
+from docutils.statemachine import ViewList
 
 logger = logging.getLogger(__name__)
 
@@ -329,8 +331,46 @@ class SystemdDomain(Domain):
                      typ: str, target: str, node: nodes.Element, contnode: nodes.Node) -> Optional[nodes.reference]:
         """
         Resolve :systemd:<kind>:`target` with same-doc-first; if none, try other kinds.
+        Supports optional doc qualifier in the form "docname:Target" for disambiguation.
         """
-        candidates = self._find_candidates(typ, target)
+        # Parse optional doc qualifier before ':'.
+        # For the 'option' role we treat the prefix before ':' as a doc qualifier unconditionally.
+        # For other roles we apply heuristics to avoid breaking targets that legitimately contain ':'.
+        doc_qual = None
+        name_target = target
+        if ':' in target:
+            q, rest = target.split(':', 1)
+            if q.strip() and rest.strip():
+                if typ == 'option':
+                    doc_qual = q.strip()
+                    name_target = rest.strip()
+                else:
+                    # Decide if q looks like a docname by matching against env.found_docs
+                    def _looks_like_doc_qual(qual: str) -> bool:
+                        try:
+                            found = getattr(env, 'found_docs', set()) or set()
+                        except Exception:
+                            found = set()
+                        base = (qual or '').strip()
+                        if found:
+                            for dn in found:
+                                if dn == base:
+                                    return True
+                                if dn.endswith('/' + base):
+                                    return True
+                                if '/' not in base and dn.split('/')[-1] == base:
+                                    return True
+                                try:
+                                    if _doc_slug(dn) == base:
+                                        return True
+                                except Exception:
+                                    pass
+                        # Fallback heuristics if env.found_docs is not available
+                        return base.startswith('docs/') or ('.' in base) or ('-' in base)
+                    if _looks_like_doc_qual(q.strip()):
+                        doc_qual = q.strip()
+                        name_target = rest.strip()
+        candidates = self._find_candidates(typ, name_target)
 
         # Cross-kind fallback if none found for requested typ
         if not candidates:
@@ -342,27 +382,149 @@ class SystemdDomain(Domain):
             for k in kinds:
                 if k == typ:
                     continue
-                candidates = self._find_candidates(k, target)
+                candidates = self._find_candidates(k, name_target)
                 if candidates:
                     break
 
+
         if not candidates:
-            logger.debug("systemd domain: no candidates for %s:%s", typ, target)
+            logger.debug("systemd domain: no candidates for %s:%s", typ, name_target)
             return None
 
-        # Same-doc-first selection
-        chosen = None
-        for c in candidates:
-            if c.get('docname') == fromdocname:
-                chosen = c
-                break
-        if not chosen:
-            chosen = candidates[0]
+        # If a doc qualifier was provided, prefer entries from that doc
+        def _docname_matches(docname: str, qual: str) -> bool:
+            base = (qual or '').strip()
+            if not base:
+                return True
+            if docname == base:
+                return True
+            if docname.endswith('/' + base):
+                return True
+            # Compare against basename only
+            if '/' not in base and docname.split('/')[-1] == base:
+                return True
+            # Allow matching on slug form (dots -> dashes)
+            try:
+                if _doc_slug(docname) == base:
+                    return True
+            except Exception:
+                pass
+            # Common prefix used in this project
+            if base.startswith('docs/') and docname == base:
+                return True
+            return False
 
-        refuri = builder.get_relative_uri(fromdocname, chosen['docname']) + '#' + chosen['anchor']
+        if doc_qual:
+            filtered = [e for e in candidates if _docname_matches(e.get('docname', ''), doc_qual)]
+            if filtered:
+                candidates = filtered
+
+        # Selection and destination calculation
+        chosen = None
+        dest_docname: Optional[str] = None
+        dest_anchor: Optional[str] = None
+
+        if doc_qual:
+            # Prefer an entry from the qualified document if any
+            try:
+                has_match = any(_docname_matches(e.get('docname', ''), doc_qual) for e in candidates)
+            except Exception:
+                has_match = False
+
+            if has_match:
+                for e in candidates:
+                    if _docname_matches(e.get('docname', ''), doc_qual):
+                        chosen = e
+                        break
+                dest_docname = chosen.get('docname')  # type: ignore[union-attr]
+                dest_anchor = chosen.get('anchor')    # type: ignore[union-attr]
+            else:
+                # No object defined in the qualified doc.
+                # Fallback: link to the qualified document itself (top of page), if it exists.
+                def _resolve_docname(qual: str) -> Optional[str]:
+                    base = (qual or '').strip()
+                    try:
+                        found = getattr(env, 'found_docs', set()) or set()
+                    except Exception:
+                        found = set()
+                    # If Sphinx provided found_docs, try to match against it
+                    if found:
+                        # Exact
+                        for dn in found:
+                            if dn == base:
+                                return dn
+                        # Suffix (…/basename)
+                        for dn in found:
+                            if dn.endswith('/' + base):
+                                return dn
+                        # Basename
+                        if '/' not in base:
+                            for dn in found:
+                                if dn.split('/')[-1] == base:
+                                    return dn
+                        # Slug (dots -> dashes)
+                        for dn in found:
+                            try:
+                                if _doc_slug(dn) == base:
+                                    return dn
+                            except Exception:
+                                pass
+                    # Fallback guesses when found_docs is empty or no match found
+                    guesses: List[str] = []
+                    if base.startswith('docs/'):
+                        guesses.append(base)
+                    else:
+                        guesses.append(f"docs/{base}")
+                        guesses.append(base)
+                        # slug-like "systemd-unit" -> "systemd.unit"
+                        if ('-' in base) and ('.' not in base):
+                            guesses.append(f"docs/{base.replace('-', '.')}")
+                            guesses.append(base.replace('-', '.'))
+                    # Prefer guesses that are known in metadata if available
+                    try:
+                        meta_keys = set(getattr(env, 'metadata', {}).keys())
+                    except Exception:
+                        meta_keys = set()
+                    for g in guesses:
+                        if not meta_keys or g in meta_keys:
+                            return g
+                    # As last resort return the first guess
+                    return guesses[0] if guesses else None
+
+                dest_docname = _resolve_docname(doc_qual)
+                if not dest_docname:
+                    # Ultimate fallback: use first available candidate
+                    chosen = candidates[0]
+                    dest_docname = chosen.get('docname')
+                    dest_anchor = chosen.get('anchor')
+                    logger.debug("systemd domain: doc-qualified target %s:%s not found; falling back to %s",
+                                 doc_qual, name_target, dest_docname)
+        else:
+            # Same-doc-first selection
+            for c in candidates:
+                if c.get('docname') == fromdocname:
+                    chosen = c
+                    break
+            if not chosen:
+                chosen = candidates[0]
+            dest_docname = chosen.get('docname')
+            dest_anchor = chosen.get('anchor')
+
+        # Build the final reference URI
+        refuri = builder.get_relative_uri(fromdocname, dest_docname or chosen.get('docname'))  # type: ignore[union-attr]
+        if dest_anchor:
+            refuri += '#' + dest_anchor
+
         refnode = nodes.reference('', '', internal=True)
         refnode['refuri'] = refuri
-        refnode.append(contnode or nodes.Text(target))
+        label = contnode
+        try:
+            if not node.get('refexplicit'):
+                label = nodes.literal(text=name_target)
+        except Exception:
+            if not label:
+                label = nodes.literal(text=name_target)
+        refnode.append(label)
         return refnode
 
     def get_objects(self):
