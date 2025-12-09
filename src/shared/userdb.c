@@ -35,9 +35,8 @@ typedef enum LookupWhat {
         _LOOKUP_WHAT_MAX,
 } LookupWhat;
 
-/* Global mutex to serialize event loop operations across all threads.
- * This prevents race conditions when multiple threads perform concurrent
- * NSS operations that would otherwise create competing event loops. */
+/* Global mutex to serialize event loop operations across all threads. This prevents race conditions when
+ * multiple threads perform concurrent NSS operations that would otherwise create competing event loops. */
 static pthread_mutex_t userdb_event_mutex = PTHREAD_MUTEX_INITIALIZER;
 static bool userdb_event_mutex_initialized = false;
 
