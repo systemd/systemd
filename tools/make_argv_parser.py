@@ -35,6 +35,7 @@
 #                       part of the --help string.
 #   optstring_prefix c — add 'c' before the option string. Useful with '-' or '+'.
 #   parser_option x y — add ', x y' into the signature of parse_argv_generated().
+#   namespace s — add '_s' or '_S' as appropriate to various names.
 #
 # An 'intro' and an 'outro' block can be used to specify additional lines to
 # place near the beginning and end of the generated function.
@@ -54,6 +55,7 @@ class Globals:
     target_line_width: int = 80
     target_help_key_width: int = 25
 
+    namespace: str|None = None
     help_key_width: int|None = None
     optstring_prefix: str = ''
     parser_options: list[str] = field(default_factory=list)
@@ -62,7 +64,9 @@ class Globals:
 
     def set(self, name: str, value: str) -> None:
         # A consumer for the 'global foo bar' settings.
-        if name == 'help_key_width':
+        if name == 'namespace':
+            self.namespace = value
+        elif name == 'help_key_width':
             self.help_key_width = int(value)
         elif name == 'optstring_prefix':
             self.optstring_prefix = value
@@ -193,6 +197,7 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
     opt_enums = []
     opt_comments = []
     optstring = globals.optstring_prefix
+    ns = f'_{globals.namespace}' if globals.namespace else ''
 
     for option in options:
         if option.skip_code:
@@ -212,12 +217,13 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
                 optstring += '::'
 
     # 0. Generate forward declarations and defines
-    yield f'#define OPTSTRING "{optstring}"'
+    opstring_name = 'OPTSTRING' + ns.upper()
+    yield f'#define {opstring_name} "{optstring}"'
     yield ''
-    yield 'static int help(void);'
+    yield f'static int help{ns}(void);'
     yield ''
-    yield 'static int _unused_ verb_help(int argc, char *argv[], void *userdata) {'
-    yield '\treturn help();'
+    yield f'static int _unused_ verb_help{ns}(int argc, char *argv[], void *userdata) {{'
+    yield f'\treturn help{ns}();'
     yield '}'
     yield ''
 
@@ -246,7 +252,7 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
 
     groups = set(option.group for option in options)
     for group in groups:
-        suffix = '_' + group.upper() if group else ''
+        suffix = ns.upper() + ('_' + group.upper() if group else '')
         yield f'#define OPTION_HELP_GENERATED{suffix} \\';
         for option in options:
             if option.group == group:
@@ -270,7 +276,7 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
     yield '';
 
     argstring = ', '.join(('int argc', 'char* argv[]', *globals.parser_options))
-    yield f'static int parse_argv_generated({argstring}) {{'
+    yield f'static int parse_argv_generated{ns}({argstring}) {{'
 
     # 3. Walk over options and generate enum values for all options
     #    that don't have a single-leter param.
@@ -308,7 +314,7 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
     yield '\tassert(argv);'
     yield ''
     # Define the optstring as a variable to allow it to be dynamically overridden.
-    yield '\tconst char *optstring = OPTSTRING;'
+    yield f'\tconst char *optstring = {opstring_name};'
     yield '\tint c, _unused_ r;'
     yield ''
 
