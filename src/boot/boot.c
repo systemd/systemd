@@ -2410,12 +2410,6 @@ static EFI_STATUS initrd_prepare(
         size_t size = 0, padded_size = 0;
 
         STRV_FOREACH(i, entry->initrd) {
-                _cleanup_free_ char16_t *o = options;
-                if (o)
-                        options = xasprintf("%ls initrd=%ls", o, *i);
-                else
-                        options = xasprintf("initrd=%ls", *i);
-
                 _cleanup_file_close_ EFI_FILE *handle = NULL;
                 err = root->Open(root, &handle, *i, EFI_FILE_MODE_READ, 0);
                 if (err != EFI_SUCCESS)
@@ -2426,11 +2420,28 @@ static EFI_STATUS initrd_prepare(
                 if (err != EFI_SUCCESS)
                         return err;
 
+                if (info->FileSize == 0) /* Automatically skip over empty files */
+                        continue;
+
+                _cleanup_free_ char16_t *o = options;
+                if (o)
+                        options = xasprintf("%ls initrd=%ls", o, *i);
+                else
+                        options = xasprintf("initrd=%ls", *i);
+
                 size_t inc = info->FileSize;
 
                 if (!INC_SAFE(&padded_size, ALIGN4(inc)))
                         return EFI_OUT_OF_RESOURCES;
                 assert_se(INC_SAFE(&size, *(i + 1) ? ALIGN4(inc) : inc));
+        }
+
+        /* Skip if no valid initrd files */
+        if (padded_size == 0) {
+                *ret_options = NULL;
+                *ret_initrd_pages = (Pages) {};
+                *ret_initrd_size = 0;
+                return EFI_SUCCESS;
         }
 
         _cleanup_pages_ Pages pages = xmalloc_initrd_pages(padded_size);
