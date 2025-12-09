@@ -10,7 +10,7 @@
 #include "image-policy.h"
 #include "log.h"
 #include "loop-util.h"
-#include "machine-id-setup.h"
+#include "machine-id-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "parse-argument.h"

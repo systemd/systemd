@@ -3,6 +3,6 @@
 executables += [
         executable_template + {
                 'name' : 'systemd-machine-id-setup',
-                'sources' : files('machine-id-setup-main.c'),
+                'sources' : files('machine-id-setup.c'),
         },
 ]
