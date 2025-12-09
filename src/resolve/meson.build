@@ -92,6 +92,10 @@ executables += [
                         'resolvconf-compat.c',
                         'resolvectl.c',
                 ),
+                'arg_parser' : files(
+                        'resolvectl.args',
+                        'resolvectl-compat.args',
+                ),
                 'objects' : ['systemd-resolved'],
         },
         resolve_test_template + {
