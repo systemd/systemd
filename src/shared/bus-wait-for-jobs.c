@@ -161,28 +161,31 @@ static int bus_job_get_service_result(BusWaitForJobs *d, char **ret) {
                                           ret);
 }
 
-static void log_job_error_with_service_result(
+static int log_job_error_with_service_result(
                 const char* service,
                 const char *result,
                 bool quiet,
                 const char* const* extra_args) {
 
         static const struct {
-                const char *result, *explanation;
+                const char *result;
+                int error;
+                const char *explanation;
         } explanations[] = {
-                { "resources",       "of unavailable resources or another system error"                      },
-                { "protocol",        "the service did not take the steps required by its unit configuration" },
-                { "timeout",         "a timeout was exceeded"                                                },
-                { "exit-code",       "the control process exited with error code"                            },
-                { "signal",          "a fatal signal was delivered to the control process"                   },
-                { "core-dump",       "a fatal signal was delivered causing the control process to dump core" },
-                { "watchdog",        "the service failed to send watchdog ping"                              },
-                { "start-limit-hit", "start of the service was attempted too often"                          },
-                { "oom-kill",        "of an out-of-memory (OOM) siutation"                                   },
+                { "resources",       EMFILE,          "of unavailable resources or another system error"                      },
+                { "protocol",        EPROTONOSUPPORT, "the service did not take the steps required by its unit configuration" },
+                { "timeout",         ETIMEDOUT,       "a timeout was exceeded"                                                },
+                { "exit-code",       EBADE,           "the control process exited with error code"                            },
+                { "signal",          ENOTRECOVERABLE, "a fatal signal was delivered to the control process"                   },
+                { "core-dump",       ECONNABORTED,    "a fatal signal was delivered causing the control process to dump core" },
+                { "watchdog",        ECONNRESET,      "the service failed to send watchdog ping"                              },
+                { "start-limit-hit", EBUSY,           "start of the service was attempted too often"                          },
+                { "oom-kill",        ENOMEM,          "of an out-of-memory (OOM) situation"                                   },
         };
 
         _cleanup_free_ char *service_shell_quoted = NULL;
         const char *systemctl = "systemctl", *journalctl = "journalctl";
+        int r;
 
         assert(service);
 
@@ -199,21 +202,23 @@ static void log_job_error_with_service_result(
         if (!isempty(result))
                 FOREACH_ELEMENT(i, explanations)
                         if (streq(result, i->result)) {
-                                log_full(quiet ? LOG_DEBUG : LOG_ERR,
-                                         "Job for %s failed because %s.\n"
-                                         "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
-                                         service, i->explanation,
-                                         systemctl, service_shell_quoted ?: "<service>",
-                                         journalctl, service_shell_quoted ?: "<service>");
+                                r = log_full_errno(quiet ? LOG_DEBUG : LOG_ERR,
+                                                   SYNTHETIC_ERRNO(i->error),
+                                                   "Job for %s failed because %s.\n"
+                                                   "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
+                                                   service, i->explanation,
+                                                   systemctl, service_shell_quoted ?: "<service>",
+                                                   journalctl, service_shell_quoted ?: "<service>");
                                 goto extra;
                         }
 
-        log_full(quiet ? LOG_DEBUG : LOG_ERR,
-                 "Job for %s failed.\n"
-                 "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
-                 service,
-                 systemctl, service_shell_quoted ?: "<service>",
-                 journalctl, service_shell_quoted ?: "<service>");
+        r = log_full_errno(quiet ? LOG_DEBUG : LOG_ERR,
+                           SYNTHETIC_ERRNO(ENOMEDIUM),
+                           "Job for %s failed.\n"
+                           "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
+                           service,
+                           systemctl, service_shell_quoted ?: "<service>",
+                           journalctl, service_shell_quoted ?: "<service>");
 
 extra:
         /* For some results maybe additional explanation is required */
@@ -223,6 +228,8 @@ extra:
                          "followed by \"%1$s start %2$s\" again.",
                          systemctl,
                          service_shell_quoted ?: "<service>");
+
+        return r;
 }
 
 static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
@@ -281,12 +288,10 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
         if (r < 0)
                 log_debug_errno(r, "Failed to get Result property of unit %s, ignoring: %m", d->name);
 
-        log_job_error_with_service_result(
+        return log_job_error_with_service_result(
                         d->name, result,
                         /* quiet= */ !FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR),
                         extra_args);
-
-        return -ENOMEDIUM;
 }
 
 int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
