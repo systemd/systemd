@@ -188,6 +188,16 @@ static uint64_t query_flags(void) {
                 query_flag("SYSTEMD_NSS_RESOLVE_NETWORK", 0, SD_RESOLVED_NO_NETWORK);
 }
 
+static uint64_t query_ifindex(void) {
+        int r;
+        uint64_t ifindex = 0;
+
+        r = secure_getenv_uint64("SYSTEMD_NSS_RESOLVE_IFINDEX", &ifindex);
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_NSS_RESOLVE_IFINDEX, ignoring: %m");
+        return ifindex;
+}
+
 enum nss_status _nss_resolve_gethostbyname4_r(
                 const char *name,
                 struct gaih_addrtuple **pat,
@@ -217,7 +227,8 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         r = sd_json_buildo(
                         &cparams,
                         SD_JSON_BUILD_PAIR_STRING("name", name),
-                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", query_flags()));
+                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", query_flags()),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("ifindex", query_ifindex()));
         if (r < 0)
                 goto fail;
 
@@ -386,7 +397,8 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                         &cparams,
                         SD_JSON_BUILD_PAIR_STRING("name", name),
                         SD_JSON_BUILD_PAIR_INTEGER("family", af),
-                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", query_flags()));
+                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", query_flags()),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("ifindex", query_ifindex()));
         if (r < 0)
                 goto fail;
 
@@ -606,7 +618,8 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                         &cparams,
                         SD_JSON_BUILD_PAIR_BYTE_ARRAY("address", addr, len),
                         SD_JSON_BUILD_PAIR_INTEGER("family", af),
-                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", query_flags()));
+                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", query_flags()),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("ifindex", query_ifindex()));
         if (r < 0)
                 goto fail;
 
