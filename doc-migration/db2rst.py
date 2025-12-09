@@ -1158,7 +1158,7 @@ def refmeta(el):
 
     # Add metadata to top of file
     meta_title = f":title: {refentrytitle}"
-    meta_manvolnum = f":manvolnum: {manvolnum}"
+    meta_title += f"\n:manvolnum: {manvolnum}"
     for sibling in el.itersiblings("refnamediv"):
         purpose = sibling.find('refpurpose').text
         meta_title = f"{meta_title}\n:summary: {purpose}"
@@ -1175,7 +1175,7 @@ def refmeta(el):
     doc_title = ".. _%s:" % _join_children(
         el, '') + '\n\n' + _make_title(_join_children(el, ''), 1)
 
-    return '\n\n'.join([meta_title, meta_manvolnum, doc_title])
+    return '\n\n'.join([meta_title, doc_title])
 
 
 def refentrytitle(el):
