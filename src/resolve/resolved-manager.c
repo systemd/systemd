@@ -641,6 +641,7 @@ static void manager_set_defaults(Manager *m) {
         m->cache_from_localhost = false;
         m->stale_retention_usec = 0;
         m->refuse_record_types = set_free(m->refuse_record_types);
+        m->resolv_conf_stat = (struct stat) {};
 }
 
 static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
