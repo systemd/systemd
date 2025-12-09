@@ -17,13 +17,16 @@ foreach dict : executables
                 name = fs.stem(dict.get('sources')[0])
         endif
 
+        args_inc = []
         args = dict['arg_parser']
-        args_inc = custom_target(
-                input : args,
-                output : fs.name(args) + '.inc',
-                command : [make_arg_parser_py, '@INPUT@'],
-                capture : true,
-        )
+        foreach arg: args
+                 args_inc += custom_target(
+                        input : arg,
+                        output : fs.name(arg) + '.inc',
+                        command : [make_arg_parser_py, '@INPUT@'],
+                        capture : true,
+                )
+        endforeach
 
         arg_parsers += { dict['name'] : args_inc }
         generated_sources += args_inc
