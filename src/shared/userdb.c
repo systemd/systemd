@@ -35,6 +35,11 @@ typedef enum LookupWhat {
         _LOOKUP_WHAT_MAX,
 } LookupWhat;
 
+/* Global mutex to serialize event loop operations across all threads. This prevents race conditions when
+ * multiple threads perform concurrent NSS operations that would otherwise create competing event loops. */
+static pthread_mutex_t userdb_event_mutex = PTHREAD_MUTEX_INITIALIZER;
+static bool userdb_event_mutex_initialized = false;
+
 struct UserDBIterator {
         LookupWhat what;
         UserDBFlags flags;
@@ -630,6 +635,13 @@ static int userdb_process(
         assert(iterator);
 
         for (;;) {
+                /* Initialize mutex on first use to avoid static initialization issues */
+                if (!userdb_event_mutex_initialized) {
+                        pthread_mutex_init(&userdb_event_mutex, NULL);
+                        userdb_event_mutex_initialized = true;
+                }
+
+                /* Check for completed operations first */
                 if (iterator->what == LOOKUP_USER && iterator->found_user) {
                         if (ret_user_record)
                                 *ret_user_record = TAKE_PTR(iterator->found_user);
@@ -691,7 +703,11 @@ static int userdb_process(
                 if (!iterator->event)
                         return -ESRCH;
 
+                /* Serialize event loop access to prevent race conditions */
+                pthread_mutex_lock(&userdb_event_mutex);
                 r = sd_event_run(iterator->event, UINT64_MAX);
+                pthread_mutex_unlock(&userdb_event_mutex);
+
                 if (r < 0)
                         return r;
         }
