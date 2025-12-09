@@ -48,6 +48,8 @@
 
 static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
+#include "sleep.args.inc"
+
 #if ENABLE_EFI
 static int determine_auto_swap(sd_device *device) {
         _cleanup_(sd_device_unrefp) sd_device *origin = NULL;
@@ -624,8 +626,7 @@ static int help(void) {
 
         printf("%s COMMAND\n\n"
                "Suspend the system, hibernate the system, or both.\n\n"
-               "  -h --help              Show this help and exit\n"
-               "  --version              Print version string and exit\n"
+               OPTION_HELP_GENERATED
                "\nCommands:\n"
                "  suspend                Suspend the system\n"
                "  hibernate              Hibernate the system\n"
@@ -640,52 +641,6 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'           },
-                { "version",      no_argument,       NULL, ARG_VERSION   },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-
-                }
-
-        if (argc - optind != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Usage: %s COMMAND",
-                                       program_invocation_short_name);
-
-        arg_operation = sleep_operation_from_string(argv[optind]);
-        if (arg_operation < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command '%s'.", argv[optind]);
-
-        return 1 /* work to do */;
-}
-
 static int run(int argc, char *argv[]) {
         _cleanup_(unit_freezer_freep) UnitFreezer *user_slice_freezer = NULL;
         _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
@@ -693,7 +648,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 
