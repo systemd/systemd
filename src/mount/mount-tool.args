@@ -1,0 +1,148 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+intro
+        if (invoked_as(argv, "systemd-umount"))
+                arg_action = ACTION_UMOUNT;
+
+option -h --help
+
+option --version
+
+option --no-pager
+
+option --no-block
+help Do not wait until operation finished
+        arg_no_block = true;
+
+option --no-legend
+help Do not show the headers
+        arg_legend = false;
+
+option -l --full
+help Do not ellipsize output
+        arg_full = true;
+
+option --no-ask-password
+help Do not prompt for password
+        arg_ask_password = false;
+
+option -q --quiet
+help Suppress information messages during runtime
+        arg_quiet = true;
+
+option --json=pretty|short|off
+help Generate JSON output
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+option --system
+help Run as system unit
+        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+
+option --user
+help Run as user unit
+        arg_runtime_scope = RUNTIME_SCOPE_USER;
+
+option -H= --host=[USER@]HOST
+help Operate on remote host
+        arg_transport = BUS_TRANSPORT_REMOTE;
+        arg_host = optarg;
+
+option -M= --machine=CONTAINER
+help Operate on local container
+        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+        if (r < 0)
+                return r;
+
+option --discover
+help Discover mount device metadata
+        arg_discover = true;
+
+option -t= --type=TYPE
+help File system type
+        r = free_and_strdup_warn(&arg_mount_type, optarg);
+        if (r < 0)
+                return r;
+
+option -o= --options=OPTIONS
+help Mount options
+        r = free_and_strdup_warn(&arg_mount_options, optarg);
+        if (r < 0)
+                return r;
+
+option --owner=USER
+help Add uid= and gid= options for USER
+        const char *user = optarg;
+        r = get_user_creds(&user, &arg_uid, &arg_gid, NULL, NULL, 0);
+        if (r < 0)
+                return log_error_errno(r,
+                                       r == -EBADMSG ? "UID or GID of user %s are invalid."
+                                                     : "Cannot use \"%s\" as owner: %m",
+                                       optarg);
+
+option --fsck=no
+help Don't run file system check before mount
+        r = parse_boolean_argument("--fsck=", optarg, &arg_fsck);
+        if (r < 0)
+                return r;
+
+option --description=TEXT
+help Description for unit
+        r = free_and_strdup_warn(&arg_description, optarg);
+        if (r < 0)
+                return r;
+
+option -p= --property=NAME=VALUE
+help Set mount unit property
+        if (strv_extend(&arg_property, optarg) < 0)
+                return log_oom();
+
+option --automount=yes|no
+help Create an automount point
+        r = parse_boolean_argument("--automount=", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        arg_action = r ? ACTION_AUTOMOUNT : ACTION_MOUNT;
+
+option -A
+help Same as --automount=yes
+        arg_action = ACTION_AUTOMOUNT;
+
+option --timeout-idle-sec=SEC
+help Specify automount idle timeout
+        r = parse_sec(optarg, &arg_timeout_idle);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse timeout: %s", optarg);
+
+option --automount-property=NAME=VALUE
+help Set automount unit property
+        if (strv_extend(&arg_automount_property, optarg) < 0)
+                return log_oom();
+
+option --bind-device
+help Bind automount unit to device
+        arg_bind_device = true;
+
+option --list
+help List mountable block devices
+        arg_action = ACTION_LIST;
+
+option -u --umount --unmount
+help Unmount mount points
+        arg_action = ACTION_UMOUNT;
+
+option -G --collect
+help Unload unit after it stopped, even when failed
+        arg_aggressive_gc = true;
+
+option -T --tmpfs
+help Create a new tmpfs on the mount point
+        arg_tmpfs = true;
+
+option --canonicalize=yes|no
+help Canonicalize path before operation
+        r = parse_boolean_argument("--canonicalize=", optarg, &arg_canonicalize);
+        if (r < 0)
+                return r;
