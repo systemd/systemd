@@ -199,7 +199,7 @@ varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Unit
 varlinkctl --more call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "multi-user.target"}'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"pid": {"pid": 1}}'
-(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' |& grep -q "called without 'more' flag")
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' |& grep "called without 'more' flag" >/dev/null)
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "init.scope", "pid": {"pid": 1}}'
 (! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": ""}')
 (! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "non-existent.service"}')
