@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option -q --quiet
+help Do not show status information
+        arg_quiet = true;
+
+option -i= --interface=INTERFACE[:MIN_OPERSTATE[:MAX_OPERSTATE]]
+help Require interface to reach specified state
+        r = parse_interface_with_operstate_range(optarg);
+        if (r < 0)
+                return r;
+
+option --ignore=INTERFACE
+help Don't take these interfaces into account (accepts globs)
+        if (strv_extend(&arg_ignore, optarg) < 0)
+                return log_oom();
+
+option -o= --operational-state=MIN_OPERSTATE[:MAX_OPERSTATE]
+help Require operational state
+        r = parse_operational_state_range(optarg, &arg_required_operstate);
+        if (r < 0)
+                return log_error_errno(r, "Invalid operational state range '%s'", optarg);
+
+option -4 --ipv4
+help Require at least one IPv4 address
+        arg_required_family |= ADDRESS_FAMILY_IPV4;
+
+option -6 --ipv6
+help Require at least one IPv6 address
+        arg_required_family |= ADDRESS_FAMILY_IPV6;
+
+option --any
+help Require at least one of the interfaces to be online
+        arg_any = true;
+
+option --dns
+help Require at least one DNS server to be accessible
+        r = parse_boolean_argument("--dns", optarg, &arg_requires_dns);
+        if (r < 0)
+                return r;
+
+option --timeout=SECS
+help Maximum time to wait for network connectivity
+        r = parse_sec(optarg, &arg_timeout);
+        if (r < 0)
+                return r;

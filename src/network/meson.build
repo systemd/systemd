@@ -211,6 +211,7 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_NETWORKD'],
                 'sources' : systemd_networkd_wait_online_sources,
+                'arg_parser' : files('wait-online/wait-online.args'),
                 'link_with' : networkd_link_with,
         },
         executable_template + {
