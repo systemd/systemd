@@ -88,7 +88,7 @@
         <term><option>-p</option></term>
 
         <listitem><para>Uses the PROXY protocol to communicate with the server. This allows
-        an approprietaly configured server to know the real client ip address.
+        an appropriately configured server to know the real client ip address.
         Takes the version of the PROXY protocol used, and only supports <literal>1</literal> for now.
         Default is not to use the PROXY protocol.</para>
 
