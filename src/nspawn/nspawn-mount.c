@@ -1499,21 +1499,21 @@ int wipe_fully_visible_api_fs(int mntns_fd) {
         if (orig_mntns_fd < 0)
                 return log_error_errno(orig_mntns_fd, "Failed to pin originating mount namespace: %m");
 
-        r = namespace_enter(/* pidns_fd = */ -EBADF,
+        r = namespace_enter(/* pidns_fd= */ -EBADF,
                             mntns_fd,
-                            /* netns_fd = */ -EBADF,
-                            /* userns_fd = */ -EBADF,
-                            /* root_fd = */ -EBADF);
+                            /* netns_fd= */ -EBADF,
+                            /* userns_fd= */ -EBADF,
+                            /* root_fd= */ -EBADF);
         if (r < 0)
                 return log_error_errno(r, "Failed to enter mount namespace: %m");
 
         rr = do_wipe_fully_visible_api_fs();
 
-        r = namespace_enter(/* pidns_fd = */ -EBADF,
+        r = namespace_enter(/* pidns_fd= */ -EBADF,
                             orig_mntns_fd,
-                            /* netns_fd = */ -EBADF,
-                            /* userns_fd = */ -EBADF,
-                            /* root_fd = */ -EBADF);
+                            /* netns_fd= */ -EBADF,
+                            /* userns_fd= */ -EBADF,
+                            /* root_fd= */ -EBADF);
         if (r < 0)
                 return log_error_errno(r, "Failed to enter original mount namespace: %m");
 

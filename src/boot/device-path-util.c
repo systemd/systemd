@@ -128,7 +128,7 @@ EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret) {
                 return EFI_SUCCESS;
         }
 
-        str = dp_to_text->ConvertDevicePathToText(dp, /* DisplayOnly=*/ false, /* AllowShortcuts= */ false);
+        str = dp_to_text->ConvertDevicePathToText(dp, /* DisplayOnly= */ false, /* AllowShortcuts= */ false);
         if (!str)
                 return EFI_OUT_OF_RESOURCES;
 

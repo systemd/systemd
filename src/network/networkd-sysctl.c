@@ -527,7 +527,7 @@ int link_set_ipv6_mtu(Link *link, int log_level) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
 
-        if (sd_event_source_get_enabled(link->ipv6_mtu_wait_synced_event_source, /* ret = */ NULL) > 0) {
+        if (sd_event_source_get_enabled(link->ipv6_mtu_wait_synced_event_source, /* ret= */ NULL) > 0) {
                 log_link_debug(link, "Waiting for IPv6 MTU is synced to link MTU, delaying to set IPv6 MTU.");
                 return 0;
         }
@@ -594,7 +594,7 @@ static int link_set_ipv6_mtu_async_impl(Link *link) {
                         link->manager->event, &link->ipv6_mtu_wait_synced_event_source,
                         CLOCK_BOOTTIME, 100 * USEC_PER_MSEC, 0,
                         ipv6_mtu_wait_synced_handler, link,
-                        /* priority = */ 0, "ipv6-mtu-wait-synced", /* force_reset = */ true);
+                        /* priority= */ 0, "ipv6-mtu-wait-synced", /* force_reset= */ true);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure timer event source for waiting for IPv6 MTU being synced: %m");
 

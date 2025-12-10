@@ -7015,7 +7015,7 @@ static int tpm2_nvpcr_write_anchor_secret_to_boot(const struct iovec *credential
                         /* root= */ NULL,
                         /* conf_root= */ NULL,
                         machine_id,
-                        /* machine_id_is_random = */ false,
+                        /* machine_id_is_random= */ false,
                         &entry_token_type,
                         &entry_token);
         if (r < 0)
@@ -8060,7 +8060,7 @@ int tpm2_pcrlock_policy_load(
         r = sd_json_parse_file(
                         f,
                         discovered_path,
-                        /* flags = */ 0,
+                        /* flags= */ 0,
                         &v,
                         /* reterr_line= */ NULL,
                         /* ret_column= */ NULL);

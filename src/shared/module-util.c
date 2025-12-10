@@ -59,7 +59,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = strv_split_and_extend(denylist, value, ",", /* filter_duplicates = */ true);
+                r = strv_split_and_extend(denylist, value, ",", /* filter_duplicates= */ true);
                 if (r < 0)
                         return r;
         }

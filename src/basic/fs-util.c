@@ -329,7 +329,7 @@ int futimens_opath(int fd, const struct timespec ts[2]) {
         /* Support for AT_EMPTY_PATH is added rather late (kernel 5.8), so fall back to going through /proc/
          * if unavailable. */
 
-        if (utimensat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), ts, /* flags = */ 0) < 0) {
+        if (utimensat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), ts, /* flags= */ 0) < 0) {
                 if (errno != ENOENT)
                         return -errno;
 
@@ -649,7 +649,7 @@ static int tmp_dir_internal(const char *def, const char **ret) {
                 return 0;
         }
 
-        k = is_dir(def, /* follow = */ true);
+        k = is_dir(def, /* follow= */ true);
         if (k == 0)
                 k = -ENOTDIR;
         if (k < 0)

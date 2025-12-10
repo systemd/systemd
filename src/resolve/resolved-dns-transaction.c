@@ -988,8 +988,8 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
         if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER &&
             t->scope->dnssec_mode == DNSSEC_YES) {
 
-                /*  We are not in automatic downgrade mode, and the server is bad. Let's try a different server, maybe
-                 *  that works. */
+                /* We are not in automatic downgrade mode, and the server is bad. Let's try a different server, maybe
+                 * that works. */
 
                 if (dns_transaction_limited_retry(t))
                         return;
@@ -1476,7 +1476,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                         assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &usec) >= 0);
                         dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
 
-                        dns_transaction_close_connection(t, /* use_graveyard = */ false);
+                        dns_transaction_close_connection(t, /* use_graveyard= */ false);
 
                         if (dns_transaction_limited_retry(t)) /* Try a different server */
                                 return 0;
@@ -2073,8 +2073,8 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         } else {
                 r = dns_packet_new_query(
                                 &p, t->scope->protocol,
-                                /* min_alloc_dsize = */ 0,
-                                /* dnssec_checking_disabled = */ !FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) &&
+                                /* min_alloc_dsize= */ 0,
+                                /* dnssec_checking_disabled= */ !FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) &&
                                                   t->scope->dnssec_mode != DNSSEC_NO);
                 if (r < 0)
                         return r;

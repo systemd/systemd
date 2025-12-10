@@ -474,9 +474,9 @@ static void tar_pull_job_on_finished(PullJob *j) {
                                 p->checksum_job,
                                 p->signature_job,
                                 p->settings_job,
-                                /* roothash_job = */ NULL,
-                                /* roothash_signature_job = */ NULL,
-                                /* verity_job = */ NULL);
+                                /* roothash_job= */ NULL,
+                                /* roothash_signature_job= */ NULL,
+                                /* verity_job= */ NULL);
                 if (r < 0)
                         goto finish;
         }
