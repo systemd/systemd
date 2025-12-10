@@ -221,7 +221,7 @@ static int setup_matches(sd_device_enumerator *e) {
         assert(e);
 
         STRV_FOREACH(d, arg_devices) {
-                r = add_device_match(e, *d, /* prefix = */ NULL);
+                r = add_device_match(e, *d, /* prefix= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -563,7 +563,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (arg_ping) {
-                r = udev_ping(arg_ping_timeout_usec, /* ignore_connection_failure = */ false);
+                r = udev_ping(arg_ping_timeout_usec, /* ignore_connection_failure= */ false);
                 if (r < 0)
                         return r;
                 assert(r > 0);

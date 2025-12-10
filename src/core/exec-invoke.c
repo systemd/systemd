@@ -915,7 +915,7 @@ static int get_fixed_group(
         assert(group_or_gid);
         assert(ret_groupname);
 
-        r = get_group_creds(&group_or_gid, ret_gid, /* flags = */ 0);
+        r = get_group_creds(&group_or_gid, ret_gid, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -993,7 +993,7 @@ static int get_supplementary_groups(
                         return -E2BIG;
 
                 const char *g = *i;
-                r = get_group_creds(&g, l_gids + k, /* flags = */ 0);
+                r = get_group_creds(&g, l_gids + k, /* flags= */ 0);
                 if (r < 0)
                         return r;
 
@@ -2114,7 +2114,7 @@ static int build_environment(
         if (!username && !c->dynamic_user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 assert(!c->user);
 
-                r = get_fixed_user("root", /* prefer_nss = */ false, &username, NULL, NULL, &home, &shell);
+                r = get_fixed_user("root", /* prefer_nss= */ false, &username, NULL, NULL, &home, &shell);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to determine credentials for user root: %s",
                                         STRERROR_USER(r));
@@ -2347,28 +2347,28 @@ static int bpffs_helper(const ExecContext *c, int socket_fd) {
         assert(c);
         assert(socket_fd >= 0);
 
-        _cleanup_close_ int fs_fd = receive_one_fd(socket_fd, /* flags = */ 0);
+        _cleanup_close_ int fs_fd = receive_one_fd(socket_fd, /* flags= */ 0);
         if (fs_fd < 0)
                 return log_debug_errno(fs_fd, "Failed to receive file descriptor from parent: %m");
 
         char number[STRLEN("0x") + sizeof(c->bpf_delegate_commands) * 2 + 1];
         xsprintf(number, "0x%"PRIx64, c->bpf_delegate_commands);
-        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, /* aux = */ 0) < 0)
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_cmds", number, /* aux= */ 0) < 0)
                 return log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
 
         xsprintf(number, "0x%"PRIx64, c->bpf_delegate_maps);
-        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", number, /* aux = */ 0) < 0)
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_maps", number, /* aux= */ 0) < 0)
                 return log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
 
         xsprintf(number, "0x%"PRIx64, c->bpf_delegate_programs);
-        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", number, /* aux = */ 0) < 0)
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_progs", number, /* aux= */ 0) < 0)
                 return log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
 
         xsprintf(number, "0x%"PRIx64, c->bpf_delegate_attachments);
-        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", number, /* aux = */ 0) < 0)
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "delegate_attachs", number, /* aux= */ 0) < 0)
                 return log_debug_errno(errno, "Failed to FSCONFIG_SET_STRING: %m");
 
-        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key = */ NULL, /* value = */ NULL, /* aux = */ 0) < 0)
+        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0)
                 return log_debug_errno(errno, "Failed to create bpffs superblock: %m");
 
         return 0;
@@ -2604,7 +2604,7 @@ static int can_mount_proc(void) {
         if (n != 0) /* on success we should have read 0 bytes */
                 return -EIO;
 
-        r = wait_for_terminate_and_check("(sd-proc-check)", TAKE_PID(pid), 0 /* flags= */);
+        r = wait_for_terminate_and_check("(sd-proc-check)", TAKE_PID(pid), 0 /* flags= */ );
         if (r < 0)
                 return log_debug_errno(r, "Failed to wait for (sd-proc-check) child process to terminate: %m");
         if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
@@ -2647,8 +2647,8 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
                                 p->pidref_transport_fd,
                                 pidref.fd,
                                 &IOVEC_MAKE(&pidref.pid, sizeof(pidref.pid)),
-                                /*iovlen=*/ 1,
-                                /*flags=*/ 0);
+                                /* iovlen= */ 1,
+                                /* flags= */ 0);
                 /* Send error code to child process. */
                 (void) write(errno_pipe[1], &q, sizeof(q));
                 /* Exit here so we only go through the destructors in exec_invoke only once - in the child - as
@@ -2725,7 +2725,7 @@ static int set_exec_storage_quota(int fd, uint32_t proj_id, const QuotaLimit *ql
                         return -errno;
 
                 uint32_t xattr_flags = 0;
-                r = read_fs_xattr_fd(fd_parent, &xattr_flags, /* ret_projid = */ NULL);
+                r = read_fs_xattr_fd(fd_parent, &xattr_flags, /* ret_projid= */ NULL);
                 if (r < 0)
                         return r;
                 /* Refuse if parent has FS_XFLAG_PROJINHERIT since this will mean the total number of blocks will not
@@ -2815,7 +2815,7 @@ static int apply_exec_quotas(
 
         /* Get the project ID of the current directory */
         uint32_t proj_id;
-        r = read_fs_xattr_fd(fd, /* ret_xflags = */ NULL, &proj_id);
+        r = read_fs_xattr_fd(fd, /* ret_xflags= */ NULL, &proj_id);
         if (ERRNO_IS_NEG_IOCTL_NOT_SUPPORTED(r)) {
                 log_debug_errno(r, "Not applying storage quotas. FS_IOC_FSGETXATTR not supported for %s: %m", target_dir);
                 return 0;
@@ -4988,7 +4988,7 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
                                 if (!key)
                                         return -ENOMEM;
 
-                                r = proc_cmdline_get_key(key, /* flags = */ 0, &cmdline);
+                                r = proc_cmdline_get_key(key, /* flags= */ 0, &cmdline);
                                 if (r > 0)
                                         return strv_env_assign(env, "TERM", cmdline);
                                 if (r < 0)
@@ -5292,7 +5292,7 @@ int exec_invoke(
                          * or PAM shall be invoked, let's consult NSS even for root, so that the user
                          * gets accurate $SHELL in session(-like) contexts. */
                         r = get_fixed_user(u,
-                                           /* prefer_nss = */ context->set_login_environment > 0 || context->pam_name,
+                                           /* prefer_nss= */ context->set_login_environment > 0 || context->pam_name,
                                            &username, &uid, &gid, &pwent_home, &shell);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;

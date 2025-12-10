@@ -216,7 +216,7 @@ static int manager_listen_fds(Manager *m, int *ret_rtnl_fd, int *ret_varlink_fd,
         assert(ret_varlink_fd);
         assert(ret_resolve_hook_fd);
 
-        n = sd_listen_fds_with_names(/* unset_environment = */ true, &names);
+        n = sd_listen_fds_with_names(/* unset_environment= */ true, &names);
         if (n < 0)
                 return n;
 
@@ -504,7 +504,7 @@ static int manager_stop(Manager *manager, ManagerState state) {
 
         Link *link;
         HASHMAP_FOREACH(link, manager->links_by_index)
-                (void) link_stop_engines(link, /* may_keep_dynamic = */ true);
+                (void) link_stop_engines(link, /* may_keep_dynamic= */ true);
 
         return 0;
 }
@@ -520,7 +520,7 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
 static int signal_reload_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-        (void) manager_reload(m, /* message = */ NULL);
+        (void) manager_reload(m, /* message= */ NULL);
 
         return 0;
 }
@@ -1258,8 +1258,8 @@ int manager_reload(Manager *m, sd_bus_message *message) {
         }
 
         HASHMAP_FOREACH(link, m->links_by_index)
-                (void) link_reconfigure_full(link, /* flags = */ 0, message,
-                                             /* counter = */ message ? &m->reloading : NULL);
+                (void) link_reconfigure_full(link, /* flags= */ 0, message,
+                                             /* counter= */ message ? &m->reloading : NULL);
 
         log_debug("Reloaded.");
         r = 0;

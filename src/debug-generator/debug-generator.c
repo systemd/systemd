@@ -347,7 +347,7 @@ static int process_unit_credentials(const char *credentials_dir) {
                                 continue;
                         }
 
-                        r = write_drop_in(arg_dest, dropin_unit, /* level = */ UINT_MAX, dropin_name, d);
+                        r = write_drop_in(arg_dest, dropin_unit, /* level= */ UINT_MAX, dropin_name, d);
                         if (r < 0) {
                                 log_warning_errno(r, "Failed to write drop-in '%s' for unit '%s' from credential '%s', ignoring: %m",
                                                   dropin_name, dropin_unit, de->d_name);

@@ -526,7 +526,7 @@ static int invoke_property_set(
                 return r;
         }
 
-        /*  Automatic handling if no callback is defined. */
+        /* Automatic handling if no callback is defined. */
 
         assert(signature_is_single(v->x.property.signature, false));
         assert(bus_type_is_basic(v->x.property.signature[0]));

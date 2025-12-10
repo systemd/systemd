@@ -391,7 +391,7 @@ void udev_event_execute_run(UdevEvent *event) {
 
                         log_device_debug(event->dev, "Running command \"%s\"", command);
 
-                        r = udev_event_spawn(event, /* accept_failure = */ false, command, NULL, 0, NULL);
+                        r = udev_event_spawn(event, /* accept_failure= */ false, command, NULL, 0, NULL);
                         if (r < 0)
                                 log_device_warning_errno(event->dev, r, "Failed to execute '%s', ignoring: %m", command);
                         else if (r > 0) /* returned value is positive when program fails */

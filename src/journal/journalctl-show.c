@@ -460,12 +460,12 @@ static int setup_event(Context *c, int fd) {
         (void) sd_event_add_signal(e, /* ret= */ NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_signal, c);
         (void) sd_event_add_signal(e, /* ret= */ NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_signal, c);
 
-        r = sd_event_add_io(e, /* ret = */ NULL, fd, EPOLLIN, &on_journal_event, c);
+        r = sd_event_add_io(e, /* ret= */ NULL, fd, EPOLLIN, &on_journal_event, c);
         if (r < 0)
                 return log_error_errno(r, "Failed to add io event source for journal: %m");
 
         /* Also keeps an eye on STDOUT, and exits as soon as we see a POLLHUP on that, i.e. when it is closed. */
-        r = sd_event_add_io(e, /* ret = */ NULL, STDOUT_FILENO, EPOLLHUP|EPOLLERR, /* callback = */ NULL, /* userdata = */ NULL);
+        r = sd_event_add_io(e, /* ret= */ NULL, STDOUT_FILENO, EPOLLHUP|EPOLLERR, /* callback= */ NULL, /* userdata= */ NULL);
         if (r == -EPERM)
                 /* Installing an epoll watch on a regular file doesn't work and fails with EPERM. Which is
                  * totally OK, handle it gracefully. epoll_ctl() documents EPERM as the error returned when

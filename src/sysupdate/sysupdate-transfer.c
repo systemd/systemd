@@ -683,7 +683,7 @@ int transfer_resolve_paths(
         if (r < 0)
                 return r;
 
-        r = resource_resolve_path(&t->target, root, /*relative_to_directory=*/ NULL, node);
+        r = resource_resolve_path(&t->target, root, /* relative_to_directory= */ NULL, node);
         if (r < 0)
                 return r;
 

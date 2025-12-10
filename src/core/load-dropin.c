@@ -126,11 +126,11 @@ int unit_load_dropin(Unit *u) {
                 return r;
 
         /* Load .conf dropins */
-        r = unit_find_dropin_paths(u, /* use_unit_path_cache = */ true, &l);
+        r = unit_find_dropin_paths(u, /* use_unit_path_cache= */ true, &l);
         if (r <= 0)
                 return 0;
 
-        r = strv_extend_strv_consume(&u->dropin_paths, TAKE_PTR(l), /* filter_duplicates = */ true);
+        r = strv_extend_strv_consume(&u->dropin_paths, TAKE_PTR(l), /* filter_duplicates= */ true);
         if (r < 0)
                 return log_oom();
 

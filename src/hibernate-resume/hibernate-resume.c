@@ -113,7 +113,7 @@ static int action_clear(void) {
         /* Let's insist that the system identifier is verified still. After all if things don't match,
          * the resume wouldn't get triggered in the first place. We should not erase the var if booted
          * from LiveCD/portable systems/... */
-        r = get_efi_hibernate_location(/* ret = */ NULL);
+        r = get_efi_hibernate_location(/* ret= */ NULL);
         if (r <= 0)
                 return r;
 
