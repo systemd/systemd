@@ -3180,6 +3180,23 @@ static int parse_boolean_field(sd_json_variant **identity, const char *field, co
         return 0;
 }
 
+static int parse_mode_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        mode_t mode;
+        r = parse_mode(arg, &mode);
+        if (r < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Access mode '%s' not valid.", arg);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, mode);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -4146,27 +4163,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_ACCESS_MODE: {
-                        mode_t mode;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("accessMode");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_mode(optarg, &mode);
+                case ARG_ACCESS_MODE:
+                        r = parse_mode_field(&arg_identity_extra, "accessMode", optarg);
                         if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Access mode '%s' not valid.", optarg);
-
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, "accessMode", mode);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set access mode field: %m");
-
+                                return r;
                         break;
-                }
 
                 case ARG_LUKS_DISCARD:
                 case ARG_LUKS_OFFLINE_DISCARD: {
@@ -4218,27 +4219,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_UMASK: {
-                        mode_t m;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("umask");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_mode(optarg, &m);
+                case ARG_UMASK:
+                        r = parse_mode_field(match_identity ?: &arg_identity_extra, "umask", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse umask: %m");
-
-                        r = sd_json_variant_set_field_integer(match_identity ?: &arg_identity_extra, "umask", m);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set umask field: %m");
-
+                                return r;
                         break;
-                }
 
                 case ARG_SSH_AUTHORIZED_KEYS:
                         r = parse_ssh_authorized_keys(&arg_identity_extra_privileged, "sshAuthorizedKeys", optarg);
