@@ -53,6 +53,8 @@ static int sysctl_event_handler(void *ctx, void *data, size_t data_sz) {
                                          "Unexpected sysctl event, disabling sysctl monitoring: %d", we->version);
 
         if (we->errorcode != 0) {
+                /* The log message is checked in test-network/systemd-networkd-tests.py. Please update the
+                 * test when the log message is changed. */
                 log_warning_errno(we->errorcode, "Sysctl monitor BPF returned error: %m");
                 return 0;
         }
@@ -69,6 +71,8 @@ static int sysctl_event_handler(void *ctx, void *data, size_t data_sz) {
                 return 0;
 
         if (!strneq(value, we->newvalue, sizeof(we->newvalue)))
+                /* The log message is checked in test-network/systemd-networkd-tests.py. Please update the
+                 * test when the log message is changed. */
                 log_struct(LOG_WARNING,
                            LOG_MESSAGE_ID(SD_MESSAGE_SYSCTL_CHANGED_STR),
                            LOG_ITEM("OBJECT_PID=" PID_FMT, we->pid),

@@ -9375,7 +9375,7 @@ class NetworkdSysctlTest(unittest.TestCase, Utilities):
         tear_down_common()
 
     @unittest.skipUnless(compare_kernel_version("6.12"), reason="On kernels <= 6.12, bpf_current_task_under_cgroup() isn't available for program types BPF_PROG_TYPE_CGROUP_SYSCTL")
-    def check_sysctl_watch(self):
+    def test_sysctl_monitor(self):
         copy_network_unit('12-dummy.network', '12-dummy.netdev', '12-dummy.link')
         start_networkd()
 
@@ -9398,6 +9398,7 @@ class NetworkdSysctlTest(unittest.TestCase, Utilities):
         self.assertRegex(log, r"Foreign process 'sysctl\[\d+\]' changed sysctl '/proc/sys/net/ipv6/conf/dummy98/proxy_ndp' from '0' to '1', conflicting with our setting to '0'")
         self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/hop_limit'", log)
         self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/max_addresses'", log)
+        self.assertNotIn("Sysctl monitor BPF returned error", log)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
