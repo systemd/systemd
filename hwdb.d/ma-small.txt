@@ -8111,17 +8111,29 @@ DC1000-DC1FFF     (base 16)		SEGRON Automation, s.r.o.
 				Oslo  Oslo  0504
 				NO
 
+8C-1F-64   (hex)		RESMED PTY LTD
+3C7000-3C7FFF     (base 16)		RESMED PTY LTD
+				1 Elizabeth Macarthur Drive, Bella Vista NSW 2153 Australia
+				NSW    2153
+				AT
+
 8C-1F-64   (hex)		Zengar Institute Inc
 710000-710FFF     (base 16)		Zengar Institute Inc
 				1007 Fort St, 4th FL
 				Victoria  BC  V8V 3K5
 				CA
 
-8C-1F-64   (hex)		RESMED PTY LTD
-3C7000-3C7FFF     (base 16)		RESMED PTY LTD
-				1 Elizabeth Macarthur Drive, Bella Vista NSW 2153 Australia
-				NSW    2153
-				AT
+8C-1F-64   (hex)		Creating Cloud Technology Co.,Ltd.,CT-CLOUD
+C9D000-C9DFFF     (base 16)		Creating Cloud Technology Co.,Ltd.,CT-CLOUD
+				Rm. 3, 16F., No. 925, Sec. 4, Taiwan Blvd., Xitun Dist.
+				Taichung City    407
+				TW
+
+8C-1F-64   (hex)		EDGX bv
+1C4000-1C4FFF     (base 16)		EDGX bv
+				Moutstraat 54
+				Gent  Oost-Vlaanderen  9000
+				BE
 
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
@@ -16301,11 +16313,53 @@ E91000-E91FFF     (base 16)		RADIC Technologies, Inc.
 				SAN JOSE    95126
 				US
 
+8C-1F-64   (hex)		DEUTA Werke GmbH
+02A000-02AFFF     (base 16)		DEUTA Werke GmbH
+				ET
+				Bergisch Gladbach  NRW  51465
+				DE
+
 8C-1F-64   (hex)		Fairwinds Technologies
 D55000-D55FFF     (base 16)		Fairwinds Technologies
 				6165 Guardian Gateway, Suites A-C 
 				Aberdeen Proving Ground  MD  21005
 				US
+
+8C-1F-64   (hex)		Microchip Technologies Inc
+BEA000-BEAFFF     (base 16)		Microchip Technologies Inc
+				2355 W Chandler Blvd
+				Chandler  AZ  85224-6199
+				US
+
+8C-1F-64   (hex)		Potter Electric Signal Co. LLC
+9AD000-9ADFFF     (base 16)		Potter Electric Signal Co. LLC
+				1609 Park 370 Place
+				Hazelwood  MO  63043
+				US
+
+8C-1F-64   (hex)		RC Systems
+1E9000-1E9FFF     (base 16)		RC Systems
+				13009 FM 1764
+				Santa Fe  TX  77510
+				US
+
+8C-1F-64   (hex)		LimeSoft Co., Ltd.
+3DF000-3DFFFF     (base 16)		LimeSoft Co., Ltd.
+				40 Imi-ro,  A-816
+				Uiwang-si  Gyeonggi-do  16006
+				KR
+
+8C-1F-64   (hex)		Gogo BA 
+6C1000-6C1FFF     (base 16)		Gogo BA 
+				105 Edgeview Drive
+				Broomfield  CO  80021
+				US
+
+8C-1F-64   (hex)		CDR SRL
+AAC000-AACFFF     (base 16)		CDR SRL
+				Via degli Artigiani, 6
+				Ginestra Fiorentina  Florence/Italy  50055
+				IT
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -24461,23 +24515,65 @@ F37000-F37FFF     (base 16)		Polarity Inc
 				RANCHO CORDOVA  CA  95742-6599
 				US
 
-8C-1F-64   (hex)		Attack do Brasil Ind Com Apar de Som LTDA
-178000-178FFF     (base 16)		Attack do Brasil Ind Com Apar de Som LTDA
-				AV AYRTON SENNA DA SILVA, 400 – PQ INDL ZONA OESTE
-				Apucarana  Parana  86803-570
-				BR
-
 8C-1F-64   (hex)		Infosoft Digital Design and Services P L
 EDC000-EDCFFF     (base 16)		Infosoft Digital Design and Services P L
 				484, SECTOR-8 ,IMT MANESER,GURGAONMANESER
 				GURGAON  Haryana  122050
 				IN
 
+8C-1F-64   (hex)		Attack do Brasil Ind Com Apar de Som LTDA
+178000-178FFF     (base 16)		Attack do Brasil Ind Com Apar de Som LTDA
+				AV AYRTON SENNA DA SILVA, 400 – PQ INDL ZONA OESTE
+				Apucarana  Parana  86803-570
+				BR
+
 8C-1F-64   (hex)		Guangzhou Beizeng Information Technology Co.,Ltd
 39F000-39FFFF     (base 16)		Guangzhou Beizeng Information Technology Co.,Ltd
 				Room 714, Building D3, No. 197, Shuixi Road, Huangpu District, Guangzhou City, China
 				Guangzhou    510530
 				CN
+
+8C-1F-64   (hex)		SHINETECH ELECTRONICS CO., LTD.
+09A000-09AFFF     (base 16)		SHINETECH ELECTRONICS CO., LTD.
+				No. 169, Anji St., Zuoying Dist., Kaohsiung City 81358, Taiwan
+				Kaohsiung City    81358
+				TW
+
+8C-1F-64   (hex)		Grinn Sp. z o.o.
+156000-156FFF     (base 16)		Grinn Sp. z o.o.
+				Strzegomska 140A
+				Wrocław    54-429
+				PL
+
+8C-1F-64   (hex)		ANADOLU TRAFİK KONTROL SİS.TAŞ.SAN.VE TİC. LTD.ŞTİ
+D14000-D14FFF     (base 16)		ANADOLU TRAFİK KONTROL SİS.TAŞ.SAN.VE TİC. LTD.ŞTİ
+				İVEDİKKÖY MAH. 1563.CAD NO:13/1
+				ANKARA  ANKARA  06180
+				TR
+
+8C-1F-64   (hex)		Unitron Systems b.v.
+1AC000-1ACFFF     (base 16)		Unitron Systems b.v.
+				SCHANSESTRAAT 7
+				IJzendijke    4515 RN
+				NL
+
+8C-1F-64   (hex)		Kinemetrics, Inc.
+B50000-B50FFF     (base 16)		Kinemetrics, Inc.
+				222 Vista Avenue
+				Pasadena  CA  91107
+				US
+
+8C-1F-64   (hex)		Tech Mobility Aps
+31D000-31DFFF     (base 16)		Tech Mobility Aps
+				Lille Frederikslund 2
+				Holte    2840
+				DK
+
+8C-1F-64   (hex)		Nine Fives LLC
+D22000-D22FFF     (base 16)		Nine Fives LLC
+				522 W RIVERSIDE AVE
+				Spokane  WA  99201
+				US
 
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
@@ -32570,11 +32666,41 @@ B31000-B31FFF     (base 16)		RSC
 				Cheektowaga  NY  14225
 				US
 
+8C-1F-64   (hex)		Asteelflash Design Solutions Hamburg GmbH
+1EA000-1EAFFF     (base 16)		Asteelflash Design Solutions Hamburg GmbH
+				Meiendorfer Straße 205c
+				Hamburg    22145
+				DE
+
+8C-1F-64   (hex)		Chengdu Xinyuandi Technology Co., Ltd.
+C34000-C34FFF     (base 16)		Chengdu Xinyuandi Technology Co., Ltd.
+				No. 7, Tianxianqiao North Road, Jinjiang District, Chengdu, Sichuan Province, China
+				Chengdu    610021
+				CN
+
 70-B3-D5   (hex)		AML Oceanographic
 0CD000-0CDFFF     (base 16)		AML Oceanographic
 				121 ILSLEY AVE UNIT 112
 				DARTMOUTH  NS   B3B 1S4
 				CA
+
+8C-1F-64   (hex)		Produkcija studio C.P.G d.o.o.
+A0C000-A0CFFF     (base 16)		Produkcija studio C.P.G d.o.o.
+				Svetice 23
+				Zagreb  Zagreb  10000
+				HR
+
+8C-1F-64   (hex)		ADETEC SAS
+835000-835FFF     (base 16)		ADETEC SAS
+				596 avenue Antoine Laurent Lavoisier ZA Laprade
+				Saint Germain Laprade    43700
+				FR
+
+8C-1F-64   (hex)		AvioNova (Chengdu) Technology Company Limited
+861000-861FFF     (base 16)		AvioNova (Chengdu) Technology Company Limited
+				Room 705, 7th Floor, Unit 1, Building 1, Intellectual Property Financial Tower, No. 20 Jitai Road, Hi-Tech Zone
+				Chengdu   SiChuan  610000
+				CN
 
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
@@ -40583,14 +40709,38 @@ DDD000-DDDFFF     (base 16)		Irmos Technologies AG
 				Singapore    569707
 				SG
 
+8C-1F-64   (hex)		Weigl GmbH & Co KG
+455000-455FFF     (base 16)		Weigl GmbH & Co KG
+				Weingartenstrasse 14/1/9-11
+				Ottensheim  Upper Austria  4100
+				AT
+
 70-B3-D5   (hex)		Weigl GmbH & Co KG
 01D000-01DFFF     (base 16)		Weigl GmbH & Co KG
 				Limberg 3
 				Gramastetten  Oberoesterreich  4201
 				AT
 
-8C-1F-64   (hex)		Weigl GmbH & Co KG
-455000-455FFF     (base 16)		Weigl GmbH & Co KG
-				Weingartenstrasse 14/1/9-11
-				Ottensheim  Upper Austria  4100
-				AT
+8C-1F-64   (hex)		Sicon srl
+CC8000-CC8FFF     (base 16)		Sicon srl
+				Via Sila 1/3
+				Isola Vicentina  Vicenza  36033
+				IT
+
+8C-1F-64   (hex)		MYIR Electronics Limited
+A1D000-A1DFFF     (base 16)		MYIR Electronics Limited
+				Room 04, 6th Floor, Building No.2, Fada Road, Yunli Smart Park,Bantian, Longgang District, Shenzhen, Guangdong, China
+				Shenzhen  Guangdong  518129
+				CN
+
+8C-1F-64   (hex)		Nortek(QingDao) Measuring Equipment Co., Ltd
+988000-988FFF     (base 16)		Nortek(QingDao) Measuring Equipment Co., Ltd
+				18A2, Yingdelong Buliding,No.15 Donghaixi Rd, Qingdao P.R.China
+				QingDao  ShanDong  266000
+				CN
+
+8C-1F-64   (hex)		BSTsecurity
+4F5000-4F5FFF     (base 16)		BSTsecurity
+				203- 970 Mnt de Liesse
+				Saint-Laurent  Quebec  H4T 1W7
+				CA

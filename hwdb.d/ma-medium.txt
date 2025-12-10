@@ -7469,6 +7469,30 @@ A00000-AFFFFF     (base 16)		Shenzhen Jooan Technology  Co., Ltd
 				Molenhoek  Limb  6584ah
 				NL
 
+5C-5C-75   (hex)		Bkeen International Corporated
+400000-4FFFFF     (base 16)		Bkeen International Corporated
+				No.11 xingyung street chungli dist taoyuan city 
+				Taoyuan    320
+				TW
+
+5C-5C-75   (hex)		Deuta America
+E00000-EFFFFF     (base 16)		Deuta America
+				5547 A1A S, Suite 111
+				St Augustine  FL  32080
+				US
+
+58-AD-08   (hex)		Mobileye Vision Technologies LTD
+800000-8FFFFF     (base 16)		Mobileye Vision Technologies LTD
+				7-9 Hacharutzim St.
+				Petach Tiqwa  Israel  4929909
+				IL
+
+58-AD-08   (hex)		Triton Sensors
+B00000-BFFFFF     (base 16)		Triton Sensors
+				922 N. Third Street 
+				Harrisburg  PA  17111
+				US
+
 B8-4C-87   (hex)		Shenzhen Link-all Technology Co., Ltd
 300000-3FFFFF     (base 16)		Shenzhen Link-all Technology Co., Ltd
 				Floor 5th, Block 9th, Sunny Industrial Zone, Xili Town, Nanshan District, Shenzhen, China 
@@ -14449,6 +14473,12 @@ D00000-DFFFFF     (base 16)		Hubcom Techno System LLP
 				Building NO:9273Al Shihabi Street3rd Industrial CityJeddah- KSA
 				jeddah    000
 				SA
+
+58-AD-08   (hex)		ACKSYS
+600000-6FFFFF     (base 16)		ACKSYS
+				10 rue des entrepreneurs
+				villepreux    78450
+				FR
 
 B8-4C-87   (hex)		Altronix , Corp
 A00000-AFFFFF     (base 16)		Altronix , Corp
@@ -21986,6 +22016,36 @@ B00000-BFFFFF     (base 16)		Rwaytech
 				Liberec    460 01
 				CZ
 
+5C-5C-75   (hex)		Shenzhen Jooan Technology  Co., Ltd
+D00000-DFFFFF     (base 16)		Shenzhen Jooan Technology  Co., Ltd
+				Area B, Floor 101-2, Floor 3, Floor 5 and Floor 6 of area B, Building No. 8, Guixiang Community Plaza Road, Guanlan Street, Longhua District, Shenzhen. 
+				Shenzhen  Guangdong  518000
+				CN
+
+5C-5C-75   (hex)		YingKeSong Pen Industry Technology R&D Center Shenzhen Co Ltd
+500000-5FFFFF     (base 16)		YingKeSong Pen Industry Technology R&D Center Shenzhen Co Ltd
+				R1605 Building 1 HengDaDuHui Plaza, BanTian LongGang
+				Shenzhen  Guangdong  518129
+				CN
+
+5C-5C-75   (hex)		UOI TECHNOLOGY CORPORATION
+700000-7FFFFF     (base 16)		UOI TECHNOLOGY CORPORATION
+				1F., No. 50, Ln. 148, Lide St.
+				Zhonghe Dist.  New Taipei City  23512
+				TW
+
+5C-5C-75   (hex)		Elite Link
+000000-0FFFFF     (base 16)		Elite Link
+				No.1226, F12,Chouyin Building-A, Rd188, Shangcheng Avenue, Financial Services District
+				Yiwu  Zhejiang  322000
+				CN
+
+5C-5C-75   (hex)		InoxSmart by Unison Hardware
+A00000-AFFFFF     (base 16)		InoxSmart by Unison Hardware
+				6 wayne ct.
+				sacramento  CA  95829
+				US
+
 D0-14-11   (hex)		P.B. Elettronica srl
 100000-1FFFFF     (base 16)		P.B. Elettronica srl
 				Via Santorelli, 8
@@ -29211,6 +29271,30 @@ A00000-AFFFFF     (base 16)		Industrial Connections & Solutions LLC
 300000-3FFFFF     (base 16)		O-cubes Shanghai Microelectronics Technology Co., Ltd
 				NO. 294 , Taiyuan Rd
 				shanghai    200031
+				CN
+
+58-AD-08   (hex)		Wuxi Qinghexiaobei Technology Co., Ltd.
+900000-9FFFFF     (base 16)		Wuxi Qinghexiaobei Technology Co., Ltd.
+				801C,Building E, Yingchuang Power, NO.1 Shangdi East Road, Haidian District, Beijing 
+				Beijing  Beijing  100085 
+				CN
+
+58-AD-08   (hex)		Also, Inc.
+C00000-CFFFFF     (base 16)		Also, Inc.
+				630 Hansen Way
+				Palo Alto  CA  94306
+				US
+
+5C-5C-75   (hex)		Anhui Haima Cloud Technology Co.,Ltd
+B00000-BFFFFF     (base 16)		Anhui Haima Cloud Technology Co.,Ltd
+				Wangjiang West Road 900# 
+				Hefei  Anhui  230009
+				CN
+
+58-AD-08   (hex)		Beijing ShiYan Technology Co., Ltd
+200000-2FFFFF     (base 16)		Beijing ShiYan Technology Co., Ltd
+				No.8 Xihuanzhong RD,BDA
+				Beijing  Beijing  100176
 				CN
 
 C8-5C-E2   (hex)		Fela Management AG 
@@ -36584,6 +36668,18 @@ C00000-CFFFFF     (base 16)		BOE Technology Group Co., Ltd.
 				Beijing  Beijing  100176
 				CN
 
+5C-5C-75   (hex)		youyeetoo
+200000-2FFFFF     (base 16)		youyeetoo
+				Room 601, Building 17, No. A3, Fourth Industrial Zone, HeWan Community, Matian Street, Guangming District
+				Shenzhen  Guangdong  518100
+				CN
+
+5C-5C-75   (hex)		TECTOY S.A
+100000-1FFFFF     (base 16)		TECTOY S.A
+				Avenida Ministro Mário Andreazza, nº 4120, CEP 69075 - 830 - Manaus / AM – Brasil, CNPJ: 22.770.366/0001-82
+				Manaus  Manaus  69075 - 830
+				BR
+
 58-76-07   (hex)		INP Technologies Ltd
 A00000-AFFFFF     (base 16)		INP Technologies Ltd
 				202 Grand Edifice, Akurli Road
@@ -36596,8 +36692,20 @@ E00000-EFFFFF     (base 16)		SHENZHEN GAGO ELECTRONICS CO.,LTD
 				SHENZHEN  GUANGDONG  518107
 				CN
 
-5C-5C-75   (hex)		youyeetoo
-200000-2FFFFF     (base 16)		youyeetoo
-				Room 601, Building 17, No. A3, Fourth Industrial Zone, HeWan Community, Matian Street, Guangming District
-				Shenzhen  Guangdong  518100
+5C-5C-75   (hex)		Siemens Sensors & Communication Ltd.
+C00000-CFFFFF     (base 16)		Siemens Sensors & Communication Ltd.
+				117, Guangxian Road, Qixian Ling, High-Tech Industrial Zone
+				Dalian  Liaoning  116023
 				CN
+
+5C-5C-75   (hex)		Ebet Systems
+600000-6FFFFF     (base 16)		Ebet Systems
+				150 George St
+				Parramatta  NSW  2150
+				AU
+
+58-AD-08   (hex)		Gateview Technologies
+A00000-AFFFFF     (base 16)		Gateview Technologies
+				 104 White St #201
+				Wake Forest    27587
+				US
