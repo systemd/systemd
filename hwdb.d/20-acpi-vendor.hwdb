@@ -246,6 +246,9 @@ acpi:JUMP*:
 acpi:KIOX*:
  ID_VENDOR_FROM_DATABASE=Kionix, Inc.
 
+acpi:KOMF*:
+ ID_VENDOR_FROM_DATABASE=Kontron France
+
 acpi:LNRO*:
  ID_VENDOR_FROM_DATABASE=Linaro, Ltd.
 
