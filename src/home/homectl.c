@@ -3606,6 +3606,34 @@ static int parse_alias_field(sd_json_variant **identity, const char *field, cons
                         return log_error_errno(r, "Failed to set %s field: %m", field);
         }
 }
+
+static int parse_capability_set_field(
+                sd_json_variant **identity,
+                uint64_t *capability_set,
+                const char *field,
+                const char *arg) {
+
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        r = parse_capability_set(arg, CAP_MASK_UNSET, capability_set);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capabilities in capability string '%s'.", arg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse capability string '%s': %m", arg);
+
+        if (*capability_set == CAP_MASK_UNSET)
+                return drop_from_identity(field);
+
+        if (capability_set_to_strv(*capability_set, &l) < 0)
+                return log_oom();
+
+        r = sd_json_variant_set_field_strv(identity, field, l);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -4682,43 +4710,20 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CAPABILITY_AMBIENT_SET:
-                case ARG_CAPABILITY_BOUNDING_SET: {
-                        _cleanup_strv_free_ char **l = NULL;
-                        uint64_t *which;
-                        const char *field;
-
-                        if (c == ARG_CAPABILITY_AMBIENT_SET) {
-                                which = &arg_capability_ambient_set;
-                                field = "capabilityAmbientSet";
-                        } else {
-                                assert(c == ARG_CAPABILITY_BOUNDING_SET);
-                                which = &arg_capability_bounding_set;
-                                field = "capabilityBoundingSet";
-                        }
-
-                        r = parse_capability_set(optarg, CAP_MASK_UNSET, which);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capabilities in capability string '%s'.", optarg);
+                        r = parse_capability_set_field(match_identity ?: &arg_identity_extra,
+                                                       &arg_capability_ambient_set,
+                                                       "capabilityAmbientSet", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse capability string '%s': %m", optarg);
-
-                        if (*which == CAP_MASK_UNSET) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        if (capability_set_to_strv(*which, &l) < 0)
-                                return log_oom();
-
-                        r = sd_json_variant_set_field_strv(match_identity ?: &arg_identity_extra, field, l);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
-                }
+
+                case ARG_CAPABILITY_BOUNDING_SET:
+                        r = parse_capability_set_field(match_identity ?: &arg_identity_extra,
+                                                       &arg_capability_bounding_set,
+                                                       "capabilityBoundingSet", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case ARG_PROMPT_NEW_USER:
                         arg_prompt_new_user = true;
