@@ -958,7 +958,8 @@ def ulink(el):
     elif not text:
         return "`<%s>`_" % (url)
     else:
-        return "`%s <%s>`_" % (text, url)
+        # Don’t parse children, just get their text. Can’t nest inline styles.
+        return "`%s <%s>`_" % (_no_markup(el).strip(), url)
 
 def xref(el):
     _has_no_text(el)
