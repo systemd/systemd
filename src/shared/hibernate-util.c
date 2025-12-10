@@ -56,11 +56,10 @@ int read_fiemap(int fd, struct fiemap **ret) {
         if (!result_fiemap)
                 return -ENOMEM;
 
-        /*  XFS filesystem has incorrect implementation of fiemap ioctl and
-         *  returns extents for only one block-group at a time, so we need
-         *  to handle it manually, starting the next fiemap call from the end
-         *  of the last extent
-         */
+        /* XFS filesystem has incorrect implementation of fiemap ioctl and
+         * returns extents for only one block-group at a time, so we need
+         * to handle it manually, starting the next fiemap call from the end
+         * of the last extent. */
         while (fiemap_start < fiemap_length) {
                 *fiemap = (struct fiemap) {
                         .fm_start = fiemap_start,
@@ -125,7 +124,7 @@ static int read_resume_config(dev_t *ret_devno, uint64_t *ret_offset) {
         assert(ret_devno);
         assert(ret_offset);
 
-        r = proc_cmdline_get_key("noresume", /* flags = */ 0, /* ret_value = */ NULL);
+        r = proc_cmdline_get_key("noresume", /* flags= */ 0, /* ret_value= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to check if 'noresume' kernel command line option is set: %m");
         if (r > 0)

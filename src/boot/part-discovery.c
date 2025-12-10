@@ -30,7 +30,7 @@ typedef struct {
 } _packed_ GptHeader;
 assert_cc(sizeof(GptHeader) == 512);
 
-static bool verify_gpt(/*const*/ GptHeader *h, EFI_LBA lba_expected) {
+static bool verify_gpt(/* const */ GptHeader *h, EFI_LBA lba_expected) {
         uint32_t crc32, crc32_saved;
         EFI_STATUS err;
 

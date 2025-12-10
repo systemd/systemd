@@ -1827,7 +1827,7 @@ static int maybe_compress_payload(
                 return 0;
         }
 
-        r = compress_blob(c, src, size, dst, size - 1, rsize, /* level = */ -1);
+        r = compress_blob(c, src, size, dst, size - 1, rsize, /* level= */ -1);
         if (r < 0)
                 return log_debug_errno(r, "Failed to compress data object using %s, ignoring: %m", compression_to_string(c));
 

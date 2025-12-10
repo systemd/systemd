@@ -847,8 +847,8 @@ int mount_exchange_graceful(int fsmount_fd, const char *dest, bool mount_beneath
          * this is not supported (minimum kernel v6.5), or if there is no mount on the mountpoint, we get
          * -EINVAL and then we fallback to normal mounting. */
 
-        r = RET_NERRNO(move_mount(fsmount_fd, /* from_path = */ "",
-                                  /* to_fd = */ -EBADF, dest,
+        r = RET_NERRNO(move_mount(fsmount_fd, /* from_path= */ "",
+                                  /* to_fd= */ -EBADF, dest,
                                   MOVE_MOUNT_F_EMPTY_PATH | (mount_beneath ? MOVE_MOUNT_BENEATH : 0)));
         if (mount_beneath) {
                 if (r >= 0) /* Mounting beneath worked! Now unmount the upper mount. */
@@ -858,7 +858,7 @@ int mount_exchange_graceful(int fsmount_fd, const char *dest, bool mount_beneath
                         log_debug_errno(r,
                                         "Cannot mount beneath '%s', falling back to overmount: %m",
                                         dest);
-                        return mount_exchange_graceful(fsmount_fd, dest, /* mount_beneath = */ false);
+                        return mount_exchange_graceful(fsmount_fd, dest, /* mount_beneath= */ false);
                 }
         }
 
@@ -1200,7 +1200,7 @@ static int mount_in_namespace(
         if (!pidref_is_set(target))
                 return -ESRCH;
 
-        r = pidref_namespace_open(target, &pidns_fd, &mntns_fd, /* ret_netns_fd = */ NULL, /* ret_userns_fd = */ NULL, &root_fd);
+        r = pidref_namespace_open(target, &pidns_fd, &mntns_fd, /* ret_netns_fd= */ NULL, /* ret_userns_fd= */ NULL, &root_fd);
         if (r < 0)
                 return log_debug_errno(r, "Failed to retrieve FDs of the target process' namespace: %m");
 
@@ -1359,8 +1359,8 @@ int bind_mount_in_namespace(
                                   src,
                                   dest,
                                   flags & ~MOUNT_IN_NAMESPACE_IS_IMAGE,
-                                  /* options = */ NULL,
-                                  /* image_policy = */ NULL);
+                                  /* options= */ NULL,
+                                  /* image_policy= */ NULL);
 }
 
 int mount_image_in_namespace(
@@ -1698,7 +1698,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
         assert(ret_mounts);
         assert(ret_n_mounts);
 
-        r = libmount_parse_mountinfo(/* source = */ NULL, &table, &iter);
+        r = libmount_parse_mountinfo(/* source= */ NULL, &table, &iter);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -1898,7 +1898,7 @@ int fsmount_credentials_fs(int *ret_fsfd) {
                 return -errno;
 
         int mfd = fsmount(fs_fd, FSMOUNT_CLOEXEC,
-                          ms_flags_to_mount_attr(credentials_fs_mount_flags(/* ro = */ false)));
+                          ms_flags_to_mount_attr(credentials_fs_mount_flags(/* ro= */ false)));
         if (mfd < 0)
                 return -errno;
 
@@ -1913,7 +1913,7 @@ int mount_credentials_fs(const char *path) {
 
         assert(path);
 
-        mfd = fsmount_credentials_fs(/* ret_fsfd = */ NULL);
+        mfd = fsmount_credentials_fs(/* ret_fsfd= */ NULL);
         if (mfd < 0)
                 return mfd;
 
@@ -2058,7 +2058,7 @@ int path_get_mount_info_at(
         if (ret_options)
                 r = libmount_parse_with_utab(&table, &iter);
         else
-                r = libmount_parse_mountinfo(/* source = */ NULL, &table, &iter);
+                r = libmount_parse_mountinfo(/* source= */ NULL, &table, &iter);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -2125,7 +2125,7 @@ int path_is_network_fs_harder_at(int dir_fd, const char *path) {
                 return r;
 
         _cleanup_free_ char *fstype = NULL, *options = NULL;
-        r = path_get_mount_info_at(fd, /* path = */ NULL, &fstype, &options, /* ret_source = */ NULL);
+        r = path_get_mount_info_at(fd, /* path= */ NULL, &fstype, &options, /* ret_source= */ NULL);
         if (r < 0)
                 return r;
 

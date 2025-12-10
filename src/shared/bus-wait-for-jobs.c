@@ -62,7 +62,7 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *re
 
         assert(m);
 
-        r = sd_bus_message_read(m, "uoss", /* id = */ NULL, &path, &unit, &result);
+        r = sd_bus_message_read(m, "uoss", /* id= */ NULL, &path, &unit, &result);
         if (r < 0) {
                 bus_log_parse_error(r);
                 return 0;

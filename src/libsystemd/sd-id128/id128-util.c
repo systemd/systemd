@@ -188,7 +188,7 @@ int id128_write_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t id) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
 
-        fd = xopenat_full(dir_fd, path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, /* xopen_flags = */ 0, 0444);
+        fd = xopenat_full(dir_fd, path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, /* xopen_flags= */ 0, 0444);
         if (fd < 0)
                 return fd;
 
@@ -289,7 +289,7 @@ int id128_get_boot_for_machine(const char *machine, sd_id128_t *ret) {
         if (r < 0)
                 return r;
 
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, /* ret_userns_fd = */ NULL, &rootfd);
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, /* ret_netns_fd= */ NULL, /* ret_userns_fd= */ NULL, &rootfd);
         if (r < 0)
                 return r;
 

@@ -925,7 +925,7 @@ int strv_extend_joined_with_size_sentinel(char ***l, size_t *n, ...) {
         va_list ap;
 
         va_start(ap, n);
-        char *x = strextendv_with_separator(/* x= */ NULL, /* separator=*/ NULL, ap);
+        char *x = strextendv_with_separator(/* x= */ NULL, /* separator= */ NULL, ap);
         va_end(ap);
         if (!x)
                 return -ENOMEM;

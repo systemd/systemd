@@ -41,7 +41,7 @@ int manager_serialize(Manager *manager) {
                 if (r < 0)
                         return r;
 
-                r = addresses_append_json(link, /* serializing = */ true, &e);
+                r = addresses_append_json(link, /* serializing= */ true, &e);
                 if (r < 0)
                         return r;
 
@@ -54,11 +54,11 @@ int manager_serialize(Manager *manager) {
         if (r < 0)
                 return r;
 
-        r = nexthops_append_json(manager, /* ifindex = */ -1, &v);
+        r = nexthops_append_json(manager, /* ifindex= */ -1, &v);
         if (r < 0)
                 return r;
 
-        r = routes_append_json(manager, /* ifindex = */ -1, &v);
+        r = routes_append_json(manager, /* ifindex= */ -1, &v);
         if (r < 0)
                 return r;
 
@@ -69,7 +69,7 @@ int manager_serialize(Manager *manager) {
         }
 
         _cleanup_free_ char *dump = NULL;
-        r = sd_json_variant_format(v, /* flags = */ 0, &dump);
+        r = sd_json_variant_format(v, /* flags= */ 0, &dump);
         if (r < 0)
                 return r;
 
@@ -450,8 +450,8 @@ int manager_deserialize(Manager *manager) {
         unsigned err_line = 0, err_column = 0;
         r = sd_json_parse_file(
                         f,
-                        /* path = */ NULL,
-                        /* flags = */ 0,
+                        /* path= */ NULL,
+                        /* flags= */ 0,
                         &v,
                         &err_line,
                         &err_column);

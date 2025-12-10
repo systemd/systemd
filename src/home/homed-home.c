@@ -1327,7 +1327,7 @@ static int home_start_work(
         if (r == 0) {
                 /* Child */
 
-                if (setenv("NOTIFY_SOCKET", h->manager->notify_socket_path, /* overwrite = */ true) < 0) {
+                if (setenv("NOTIFY_SOCKET", h->manager->notify_socket_path, /* overwrite= */ true) < 0) {
                         log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -2011,7 +2011,7 @@ int home_passwd(Home *h,
                  * data. This is useful as a way to propagate updated user records into the LUKS backends
                  * properly. */
 
-                r = user_record_make_hashed_password(c, new_secret->password, /* extend = */ false);
+                r = user_record_make_hashed_password(c, new_secret->password, /* extend= */ false);
                 if (r < 0)
                         return r;
 

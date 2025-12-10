@@ -317,7 +317,7 @@ static void manager_load_credentials(JournalConfig *c) {
 
         assert(c);
 
-        r = read_credential("journal.forward_to_socket", (void**) &data, /* ret_size = */ NULL);
+        r = read_credential("journal.forward_to_socket", (void**) &data, /* ret_size= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential 'journal.forward_to_socket', ignoring: %m");
         else {
@@ -328,7 +328,7 @@ static void manager_load_credentials(JournalConfig *c) {
 
         data = mfree(data);
 
-        r = read_credential("journal.storage", (void**) &data, /* ret_size = */ NULL);
+        r = read_credential("journal.storage", (void**) &data, /* ret_size= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential journal.storage, ignoring: %m");
         else {
@@ -384,7 +384,7 @@ int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_sig
         manager_reopen_journals(m, &old);
 
         log_info("Config file reloaded.");
-        (void) sd_notify(/* unset_environment = */ false, NOTIFY_READY_MESSAGE);
+        (void) sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
 
         return 0;
 }

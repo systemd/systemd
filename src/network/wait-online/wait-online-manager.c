@@ -212,7 +212,7 @@ bool manager_configured(Manager *m) {
                         continue;
                 }
 
-                range = get_state_range(m, l, /* from_cmdline = */ NULL);
+                range = get_state_range(m, l, /* from_cmdline= */ NULL);
 
                 r = manager_link_is_online(m, l, range);
                 /* Unlike the above loop, unmanaged interfaces are ignored here. Also, Configured but offline

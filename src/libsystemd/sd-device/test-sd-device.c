@@ -55,7 +55,7 @@ TEST(mdio_bus) {
                         { sd_device_get_sysname,          "Qualcomm Atheros AR8031/AR8033" },
                 };
 
-                ASSERT_OK_ERRNO(setenv("SYSTEMD_DEVICE_VERIFY_SYSFS", "0", /* overwrite = */ false));
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_DEVICE_VERIFY_SYSFS", "0", /* overwrite= */ false));
                 ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", "/sys/bus/", "tmpfs", 0, NULL));
                 r = mkdir_p(syspath, 0755);
                 if (ERRNO_IS_NEG_PRIVILEGE(r)) {

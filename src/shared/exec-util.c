@@ -324,7 +324,7 @@ int execute_directories(
                 return 0;
         }
 
-        return execute_strv(name, paths, /* root = */ NULL, timeout, callbacks, callback_args, argv, envp, flags);
+        return execute_strv(name, paths, /* root= */ NULL, timeout, callbacks, callback_args, argv, envp, flags);
 }
 
 static int gather_environment_generate(int fd, void *arg) {
@@ -361,7 +361,7 @@ static int gather_environment_generate(int fd, void *arg) {
                 if (r < 0)
                         return r;
 
-                if (setenv(*x, *y, /* overwrite = */ true) < 0)
+                if (setenv(*x, *y, /* overwrite= */ true) < 0)
                         return -errno;
         }
 

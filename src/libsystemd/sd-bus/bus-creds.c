@@ -949,7 +949,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
                                                         unsigned long g;
                                                         int n = 0;
 
-                                                        p = skip_leading_chars(p, /* bad = */ NULL);
+                                                        p = skip_leading_chars(p, /* bad= */ NULL);
                                                         if (*p == 0)
                                                                 break;
 

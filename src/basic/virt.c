@@ -816,7 +816,7 @@ int running_in_chroot(void) {
         if (getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
                 return 0;
 
-        r = inode_same("/proc/1/root", "/", /* flags = */ 0);
+        r = inode_same("/proc/1/root", "/", /* flags= */ 0);
         if (r == -ENOENT) {
                 r = proc_mounted();
                 if (r == 0) {
