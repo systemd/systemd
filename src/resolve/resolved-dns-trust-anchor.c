@@ -502,7 +502,7 @@ static int dns_trust_anchor_dump(DnsTrustAnchor *d) {
         else {
                 _cleanup_free_ char **l = NULL, *j = NULL;
 
-                if (set_dump_sorted(d->negative_by_name, (void***) &l, /* ret_n = */ NULL) < 0)
+                if (set_dump_sorted(d->negative_by_name, (void***) &l, /* ret_n= */ NULL) < 0)
                         return log_oom();
 
                 j = strv_join(l, " ");

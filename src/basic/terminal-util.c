@@ -377,7 +377,7 @@ int ask_string_full(
                                               /* n_columns= */ SIZE_MAX,
                                               /* column_width= */ SIZE_MAX,
                                               /* ellipsize_percentage= */ 0,
-                                              /* grey_prefix=*/ string,
+                                              /* grey_prefix= */ string,
                                               /* with_numbers= */ false);
                                 if (r < 0)
                                         goto fail;
@@ -730,7 +730,7 @@ int acquire_terminal(
                                                 .fd = notify,
                                                 .events = POLLIN,
                                         },
-                                        /* n_fds = */ 1,
+                                        /* n_fds= */ 1,
                                         left,
                                         &poll_ss);
                         if (r < 0)
@@ -1095,7 +1095,7 @@ bool tty_is_vc(const char *tty) {
          * about whether it's strictly valid, but only asking "does this fall into the vt category?", for which
          * "yes" seems to be a better answer. */
 
-        return vtnr_from_tty_raw(tty, /* ret = */ NULL) >= 0;
+        return vtnr_from_tty_raw(tty, /* ret= */ NULL) >= 0;
 }
 
 bool tty_is_console(const char *tty) {
@@ -1387,7 +1387,7 @@ int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_col
         if (!colskey)
                 return -ENOMEM;
 
-        r = proc_cmdline_get_key_many(/* flags = */ 0,
+        r = proc_cmdline_get_key_many(/* flags= */ 0,
                                       rowskey, &rowsvalue,
                                       colskey, &colsvalue);
         if (r < 0)
@@ -1655,7 +1655,7 @@ int openpt_allocate_in_namespace(
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
 
-        r = pidref_namespace_open(pidref, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, &usernsfd, &rootfd);
+        r = pidref_namespace_open(pidref, &pidnsfd, &mntnsfd, /* ret_netns_fd= */ NULL, &usernsfd, &rootfd);
         if (r < 0)
                 return r;
 

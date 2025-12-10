@@ -309,16 +309,16 @@ int parse_cpu_set(const char *s, CPUSet *ret) {
         assert(ret);
 
         r = config_parse_cpu_set(
-                        /* unit = */ NULL,
-                        /* filename = */ NULL,
-                        /* line = */ 0,
-                        /* section = */ NULL,
-                        /* section_line = */ 0,
-                        /* lvalue = */ NULL,
-                        /* ltype = */ 1,
-                        /* rvalue = */ s,
-                        /* data = */ &c,
-                        /* userdata = */ NULL);
+                        /* unit= */ NULL,
+                        /* filename= */ NULL,
+                        /* line= */ 0,
+                        /* section= */ NULL,
+                        /* section_line= */ 0,
+                        /* lvalue= */ NULL,
+                        /* ltype= */ 1,
+                        /* rvalue= */ s,
+                        /* data= */ &c,
+                        /* userdata= */ NULL);
         if (r < 0)
                 return r;
 

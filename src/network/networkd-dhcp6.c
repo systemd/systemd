@@ -46,7 +46,7 @@ static DHCP6ClientStartMode link_get_dhcp6_client_start_mode(Link *link) {
                 return link->network->dhcp6_client_start_mode;
 
         /* When this interface itself is an uplink interface, then start dhcp6 client in solicit mode. */
-        if (dhcp_pd_is_uplink(link, link, /* accept_auto = */ false))
+        if (dhcp_pd_is_uplink(link, link, /* accept_auto= */ false))
                 return DHCP6_CLIENT_START_MODE_SOLICIT;
 
         /* Otherwise, start dhcp6 client when RA is received. */
@@ -125,7 +125,7 @@ int dhcp6_check_ready(Link *link) {
         link->dhcp6_configured = true;
         log_link_debug(link, "DHCPv6 addresses and routes set.");
 
-        r = dhcp6_remove(link, /* only_marked = */ true);
+        r = dhcp6_remove(link, /* only_marked= */ true);
         if (r < 0)
                 return r;
 
@@ -335,7 +335,7 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         if (link->dhcp6_messages == 0) {
                 link->dhcp6_configured = true;
 
-                r = dhcp6_remove(link, /* only_marked = */ true);
+                r = dhcp6_remove(link, /* only_marked= */ true);
                 if (r < 0)
                         return r;
         } else
@@ -381,7 +381,7 @@ static int dhcp6_lease_lost(Link *link) {
 
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
 
-        r = dhcp6_remove(link, /* only_marked = */ false);
+        r = dhcp6_remove(link, /* only_marked= */ false);
         if (r < 0)
                 return r;
 
@@ -808,7 +808,7 @@ static int dhcp6_process_request(Request *req, Link *link, void *userdata) {
 
         assert(link);
 
-        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return 0;
 
         r = dhcp_configure_duid(link, link_get_dhcp6_duid(link));
@@ -865,7 +865,7 @@ int link_drop_dhcp6_config(Link *link, Network *network) {
                 ret = sd_dhcp6_client_stop(link->dhcp6_client);
 
                 /* Also explicitly drop DHCPv6 addresses and routes. See also link_drop_dhcp4_config(). */
-                RET_GATHER(ret, dhcp6_remove(link, /* only_marked = */ false));
+                RET_GATHER(ret, dhcp6_remove(link, /* only_marked= */ false));
         }
 
         /* Even if the client is currently enabled and also enabled in the new .network file, detailed

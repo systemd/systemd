@@ -12,7 +12,7 @@ static int intro(void) {
         if (bpffs_fd < 0)
                 return log_error_errno(errno, "Failed to open '/sys/fs/bpf': %m");
 
-        _cleanup_close_ int token_fd = bpf_token_create(bpffs_fd, /* opts = */ NULL);
+        _cleanup_close_ int token_fd = bpf_token_create(bpffs_fd, /* opts= */ NULL);
         if (token_fd < 0)
                 return log_error_errno(errno, "Failed to create bpf token: %m");
 

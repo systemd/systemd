@@ -827,7 +827,7 @@ static bool link_is_ready_to_create_stacked_netdev_one(Link *link, bool allow_un
 }
 
 static bool link_is_ready_to_create_stacked_netdev(Link *link) {
-        return check_ready_for_all_sr_iov_ports(link, /* allow_unmanaged = */ false,
+        return check_ready_for_all_sr_iov_ports(link, /* allow_unmanaged= */ false,
                                                 link_is_ready_to_create_stacked_netdev_one);
 }
 
@@ -1031,7 +1031,7 @@ int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
 
         dropin_dirname = strjoina(file_basename, ".d");
         r = config_parse_many(
-                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname, /* root = */ NULL,
+                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname, /* root= */ NULL,
                         NETDEV_COMMON_SECTIONS NETDEV_OTHER_SECTIONS,
                         config_item_perf_lookup, network_netdev_gperf_lookup,
                         CONFIG_PARSE_WARN,
@@ -1065,7 +1065,7 @@ int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
                 NETDEV_VTABLE(netdev)->init(netdev);
 
         r = config_parse_many(
-                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname, /* root = */ NULL,
+                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname, /* root= */ NULL,
                         NETDEV_VTABLE(netdev)->sections,
                         config_item_perf_lookup, network_netdev_gperf_lookup,
                         CONFIG_PARSE_WARN,
@@ -1086,7 +1086,7 @@ int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
         if (!netdev->filename)
                 return log_oom();
 
-        log_syntax(/* unit = */ NULL, LOG_DEBUG, filename, /* config_line = */ 0, /* error = */ 0, "Successfully loaded.");
+        log_syntax(/* unit= */ NULL, LOG_DEBUG, filename, /* config_line= */ 0, /* error= */ 0, "Successfully loaded.");
 
         *ret = TAKE_PTR(netdev);
         return 0;

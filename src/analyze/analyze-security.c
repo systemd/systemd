@@ -1884,7 +1884,7 @@ static int assess(const SecurityInfo *info,
                                 return log_error_errno(r, "Failed to set columns to display: %m");
                 }
 
-                r = table_print_with_pager(details_table, json_format_flags, pager_flags, /* show_header= */true);
+                r = table_print_with_pager(details_table, json_format_flags, pager_flags, /* show_header= */ true);
                 if (r < 0)
                         return r;
         }
@@ -2897,7 +2897,7 @@ static int analyze_security(sd_bus *bus,
                         fflush(stdout);
                 }
 
-                r = table_print_with_pager(overview_table, json_format_flags, pager_flags, /* show_header= */true);
+                r = table_print_with_pager(overview_table, json_format_flags, pager_flags, /* show_header= */ true);
                 if (r < 0)
                         return r;
         }
@@ -2919,19 +2919,19 @@ int verb_security(int argc, char *argv[], void *userdata) {
 
         unsigned line = 0, column = 0;
         if (arg_security_policy) {
-                r = sd_json_parse_file(/*f=*/ NULL, arg_security_policy, /*flags=*/ 0, &policy, &line, &column);
+                r = sd_json_parse_file(/* f= */ NULL, arg_security_policy, /* flags= */ 0, &policy, &line, &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse '%s' at %u:%u: %m", arg_security_policy, line, column);
         } else {
                 _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_free_ char *pp = NULL;
 
-                r = search_and_fopen_nulstr("systemd-analyze-security.policy", "re", /*root=*/ NULL, CONF_PATHS_NULSTR("systemd"), &f, &pp);
+                r = search_and_fopen_nulstr("systemd-analyze-security.policy", "re", /* root= */ NULL, CONF_PATHS_NULSTR("systemd"), &f, &pp);
                 if (r < 0 && r != -ENOENT)
                         return r;
 
                 if (f) {
-                        r = sd_json_parse_file(f, pp, /*flags=*/ 0, &policy, &line, &column);
+                        r = sd_json_parse_file(f, pp, /* flags= */ 0, &policy, &line, &column);
                         if (r < 0)
                                 return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON policy: %m", pp, line, column);
                 }
@@ -2950,5 +2950,5 @@ int verb_security(int argc, char *argv[], void *userdata) {
                         arg_profile,
                         arg_json_format_flags,
                         arg_pager_flags,
-                        /*flags=*/ 0);
+                        /* flags= */ 0);
 }

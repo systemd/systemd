@@ -5,14 +5,13 @@
 
 #define FWHEADERMAGIC (UINT32_C(0xfeeddead))
 
-/*  The structure of the efifw UKI blob is the following:
- *  ---------------------------------------------------------
- *  EfiFw header|fwid|payload| reserved for future attributes
- *  ---------------------------------------------------------
- *  The base header defines the length of full header, fwid and payload.
- *  The fwid is a NUL terminated string.
- *  The payload contains the actual efi firmware.
- */
+/* The structure of the efifw UKI blob is the following:
+ * ---------------------------------------------------------
+ * EfiFw header|fwid|payload| reserved for future attributes
+ * ---------------------------------------------------------
+ * The base header defines the length of full header, fwid and payload.
+ * The fwid is a NUL terminated string.
+ * The payload contains the actual efi firmware. */
 typedef struct EfiFwHeader {
         uint32_t magic; /* magic number that defines Efifw */
         uint32_t header_len; /* total length of header including all attributes */

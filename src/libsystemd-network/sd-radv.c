@@ -324,7 +324,7 @@ static int radv_setup_recv_event(sd_radv *ra) {
         assert(ra->ifindex > 0);
 
         _cleanup_close_ int fd = -EBADF;
-        fd = icmp6_bind(ra->ifindex, /* is_router = */ true);
+        fd = icmp6_bind(ra->ifindex, /* is_router= */ true);
         if (fd < 0)
                 return fd;
 

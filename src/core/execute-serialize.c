@@ -3701,7 +3701,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         _cleanup_free_ void *d = NULL;
                         size_t size;
 
-                        r = unbase64mem_full(data, SIZE_MAX, /* secure = */ true, &d, &size);
+                        r = unbase64mem_full(data, SIZE_MAX, /* secure= */ true, &d, &size);
                         if (r < 0)
                                 return r;
 

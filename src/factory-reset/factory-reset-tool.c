@@ -248,7 +248,7 @@ static int retrigger_block_devices(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable enumeration of uninitialized devices: %m");
 
-        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match = */ true);
+        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to filter device enumeration by 'block' subsystem: %m");
 

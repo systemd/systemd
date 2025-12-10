@@ -464,7 +464,7 @@ static int dns_stub_finish_reply_packet(
         assert(p);
 
         if (add_opt) {
-                r = dns_packet_append_opt(p, max_udp_size, edns0_do, /* include_rfc6975 = */ false, nsid ? nsid_string() : NULL, rcode, NULL);
+                r = dns_packet_append_opt(p, max_udp_size, edns0_do, /* include_rfc6975= */ false, nsid ? nsid_string() : NULL, rcode, NULL);
                 if (r == -EMSGSIZE) /* Hit the size limit? then indicate truncation */
                         tc = true;
                 else if (r < 0)
@@ -769,7 +769,7 @@ static void dns_stub_query_complete(DnsQuery *query) {
                         _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
 
                         r = dns_stub_patch_bypass_reply_packet(&reply, q->answer_full_packet, q->request_packet,
-                                        /* validated = */ !FLAGS_SET(q->flags, SD_RESOLVED_NO_VALIDATE),
+                                        /* validated= */ !FLAGS_SET(q->flags, SD_RESOLVED_NO_VALIDATE),
                                         FLAGS_SET(q->answer_query_flags, SD_RESOLVED_AUTHENTICATED));
                         if (r < 0)
                                 log_debug_errno(r, "Failed to patch bypass reply packet: %m");

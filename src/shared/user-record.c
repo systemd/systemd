@@ -629,7 +629,7 @@ int json_dispatch_user_group_list(const char *name, sd_json_variant *variant, sd
                         return json_log(e, flags, r, "Failed to append array element: %m");
         }
 
-        r = strv_extend_strv_consume(list, TAKE_PTR(l), /* filter_duplicates = */ true);
+        r = strv_extend_strv_consume(list, TAKE_PTR(l), /* filter_duplicates= */ true);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to merge user/group arrays: %m");
 

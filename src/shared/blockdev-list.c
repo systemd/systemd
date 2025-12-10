@@ -110,7 +110,7 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
         if (sd_device_enumerator_new(&e) < 0)
                 return log_oom();
 
-        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match = */ true);
+        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to add subsystem match: %m");
 

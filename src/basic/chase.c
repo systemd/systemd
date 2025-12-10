@@ -403,7 +403,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 }
 
                 /* Otherwise let's pin it by file descriptor, via O_PATH. */
-                child = r = openat_opath_with_automount(fd, first, /* automount = */ FLAGS_SET(flags, CHASE_TRIGGER_AUTOFS));
+                child = r = openat_opath_with_automount(fd, first, /* automount= */ FLAGS_SET(flags, CHASE_TRIGGER_AUTOFS));
                 if (r < 0) {
                         if (r != -ENOENT)
                                 return r;

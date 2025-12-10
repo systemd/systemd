@@ -301,7 +301,7 @@ static int s2h_supported(const SleepConfig *sleep_config, SleepSupport *ret_supp
         }
 
         FOREACH_ELEMENT(i, operations) {
-                r = sleep_supported_internal(sleep_config, *i, /* check_allowed = */ false, &support);
+                r = sleep_supported_internal(sleep_config, *i, /* check_allowed= */ false, &support);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -415,7 +415,7 @@ int sleep_supported_full(SleepOperation operation, SleepSupport *ret_support) {
         if (r < 0)
                 return r;
 
-        r = sleep_supported_internal(sleep_config, operation, /* check_allowed = */ true, &support);
+        r = sleep_supported_internal(sleep_config, operation, /* check_allowed= */ true, &support);
         if (r < 0)
                 return r;
 

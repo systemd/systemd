@@ -1858,7 +1858,8 @@ static int run_context_reconnect(RunContext *c) {
                                "org.freedesktop.systemd1.Unit",
                                "Ref",
                                &error,
-                               /* ret_reply = */ NULL, NULL);
+                               /* ret_reply= */ NULL,
+                               /* types= */ NULL);
         if (r < 0) {
                 /* Hmm, the service manager probably hasn't finished reexecution just yet? Try again later. */
                 if (bus_error_is_connection(&error) || bus_error_is_unknown_service(&error))
@@ -2932,7 +2933,7 @@ static int make_transient_trigger_unit(
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = transient_service_set_properties(m, /* pty_path = */ NULL, /* pty_fd = */ -EBADF);
+                r = transient_service_set_properties(m, /* pty_path= */ NULL, /* pty_fd= */ -EBADF);
                 if (r < 0)
                         return r;
 
