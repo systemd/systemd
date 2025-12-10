@@ -3458,6 +3458,30 @@ static int parse_sector_size_field(sd_json_variant **identity, const char *field
         return 0;
 }
 
+static int parse_weight_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        uint64_t u;
+        r = safe_atou64(arg, &u);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+
+        if (!CGROUP_WEIGHT_IS_OK(u))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Weight %" PRIu64 " is out of valid range for field %s.", u, field);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, u);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
 static int parse_environment_field(sd_json_variant **identity, const char *field, const char *arg) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ne = NULL;
@@ -4515,29 +4539,12 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CPU_WEIGHT:
                 case ARG_IO_WEIGHT: {
                         const char *field = c == ARG_CPU_WEIGHT ? "cpuWeight" :
-                                            c == ARG_IO_WEIGHT ? "ioWeight" : NULL;
-                        uint64_t u;
+                                             c == ARG_IO_WEIGHT ? "ioWeight" :
+                                                                  NULL;
 
-                        assert(field);
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        r = safe_atou64(optarg, &u);
+                        r = parse_weight_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --cpu-weight=/--io-weight= parameter: %s", optarg);
-
-                        if (!CGROUP_WEIGHT_IS_OK(u))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Weight %" PRIu64 " is out of valid weight range.", u);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, u);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
