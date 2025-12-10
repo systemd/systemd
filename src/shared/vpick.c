@@ -471,9 +471,9 @@ static int make_choice(
         if (!p)
                 return log_oom_debug();
 
-        object_fd = openat(dir_fd, best_filename, O_CLOEXEC|O_PATH);
+        object_fd = chase_and_openat(toplevel_fd, p, CHASE_AT_RESOLVE_IN_ROOT, O_PATH|O_CLOEXEC, NULL);
         if (object_fd < 0)
-                return log_debug_errno(errno, "Failed to open '%s/%s': %m",
+                return log_debug_errno(object_fd, "Failed to open '%s/%s': %m",
                                        empty_to_root(toplevel_path), skip_leading_slash(inode_path));
 
         return pin_choice(
