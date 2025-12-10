@@ -116,9 +116,9 @@ def generate_man_pages():
                 if meta is None:
                     continue
 
-                canonical_name = f"docs/{name}"
+                canonical_name = f"{name}({meta["manvolnum"]})"
 
-                man_pages.append((canonical_name, meta["title"], meta["summary"], [], meta["manvolnum"]))
+                man_pages.append((f"docs/{name}", meta["title"], meta["summary"], [], meta["manvolnum"]))
 
                 if "aliases" in meta:
                     for alias in meta["aliases"]:
@@ -146,7 +146,6 @@ def setup_alias_rewriter(app):
             if target in alias_map:
                 original_label = ''.join(child.astext() for child in node.children)
                 new_target = alias_map[target]
-
                 node['reftarget'] = new_target
                 # tell Sphinx not to auto-generate the label
                 node['refexplicit'] = True
