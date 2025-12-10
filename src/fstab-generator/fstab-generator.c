@@ -51,6 +51,7 @@ typedef enum MountPointFlags {
         MOUNT_PCRFS      = 1 << 6,
         MOUNT_QUOTA      = 1 << 7,
         MOUNT_VALIDATEFS = 1 << 8,
+        MOUNT_CLONE      = 1 << 9,
 } MountPointFlags;
 
 typedef struct Mount {
@@ -240,11 +241,12 @@ static int add_swap(
                 return true;
         }
 
-        log_debug("Found swap entry what=%s makefs=%s growfs=%s pcrfs=%s validatefs=%s noauto=%s nofail=%s",
+        log_debug("Found swap entry what=%s makefs=%s growfs=%s pcrfs=%s validatefs=%s noauto=%s nofail=%s clone=%s",
                   what,
                   yes_no(flags & MOUNT_MAKEFS), yes_no(flags & MOUNT_GROWFS),
                   yes_no(flags & MOUNT_PCRFS), yes_no(flags & MOUNT_VALIDATEFS),
-                  yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL));
+                  yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL),
+                  yes_no(flags & MOUNT_CLONE));
 
         r = unit_name_from_path(what, ".swap", &name);
         if (r < 0)
@@ -306,6 +308,8 @@ static int add_swap(
                         return r;
         }
 
+        if (flags & MOUNT_CLONE)
+                log_warning("%s: cloning swap devices is currently unsupported.", what);
         return true;
 }
 
@@ -700,6 +704,12 @@ static int add_mount(
                 }
         }
 
+        if (flags & MOUNT_CLONE) {
+                r = generator_hook_up_clone(dest, what, where, opts);
+                if (r < 0)
+                        return r;
+        }
+
         if (FLAGS_SET(flags, MOUNT_AUTOMOUNT)) {
                 r = unit_name_from_path(where, ".automount", &automount_name);
                 if (r < 0)
@@ -860,6 +870,8 @@ static MountPointFlags fstab_options_to_flags(const char *options, bool is_swap)
                                       "comment=systemd.automount\0"
                                       "x-systemd.automount\0"))
                         flags |= MOUNT_AUTOMOUNT;
+                if (fstab_test_yes_no_option(options, "x-systemd.mount-clone\0"))
+                        flags |= MOUNT_CLONE;
         }
 
         return flags;
@@ -974,11 +986,12 @@ static int parse_fstab_one(
                 free_and_replace(what, p);
         }
 
-        log_debug("Found entry what=%s where=%s type=%s makefs=%s growfs=%s pcrfs=%s validatefs=%s noauto=%s nofail=%s",
+        log_debug("Found entry what=%s where=%s type=%s makefs=%s growfs=%s pcrfs=%s validatefs=%s noauto=%s nofail=%s clone=%s",
                   what, where, strna(fstype),
                   yes_no(flags & MOUNT_MAKEFS), yes_no(flags & MOUNT_GROWFS),
                   yes_no(flags & MOUNT_PCRFS), yes_no(flags & MOUNT_VALIDATEFS),
-                  yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL));
+                  yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL),
+                  yes_no(flags & MOUNT_CLONE));
 
         bool is_sysroot = in_initrd() && path_equal(where, "/sysroot");
         /* See comment from add_sysroot_usr_mount() about the need for extra indirection in case /usr needs
