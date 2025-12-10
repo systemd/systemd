@@ -3284,6 +3284,31 @@ static int parse_time_field(sd_json_variant **identity, const char *field, const
         return 0;
 }
 
+static int parse_uid_field(sd_json_variant **identity, const char *field, const char *arg) {
+        uid_t uid;
+        int r;
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        r = parse_uid(arg, &uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse UID '%s'.", arg);
+
+        const char *bad_range =
+                uid_is_system(uid) ? "in system range" :
+                uid_is_greeter(uid) ? "in greeter range" :
+                uid_is_dynamic(uid) ? "in dynamic ragne" :
+                uid == UID_NOBODY ? "nobody UID" : NULL;
+        if (bad_range)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID "UID_FMT" is %s, refusing.", uid, bad_range);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
 static int parse_nice_field(sd_json_variant **identity, const char *field, const char *arg) {
         int nc, r;
 
@@ -4366,36 +4391,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case 'u': {
-                        uid_t uid;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("uid");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_uid(optarg, &uid);
+                case 'u':
+                        r = parse_uid_field(&arg_identity_extra, "uid", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse UID '%s'.", optarg);
-
-                        if (uid_is_system(uid))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in system range, refusing.", uid);
-                        if (uid_is_greeter(uid))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in greeter range, refusing.", uid);
-                        if (uid_is_dynamic(uid))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in dynamic range, refusing.", uid);
-                        if (uid == UID_NOBODY)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is nobody UID, refusing.", uid);
-
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, "uid", uid);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set realm field: %m");
-
+                                return r;
                         break;
-                }
 
                 case 'k':
                 case ARG_IMAGE_PATH: {
