@@ -3333,6 +3333,74 @@ static int parse_rlimit_field(const char *arg) {
         return 0;
 }
 
+static int parse_disk_size_field(sd_json_variant **identity, const char *arg) {
+        int r;
+
+        if (isempty(arg)) {
+                FOREACH_STRING(prop, "diskSize", "diskSizeRelative", "rebalanceWeight") {
+                        r = drop_from_identity(prop);
+                        if (r < 0)
+                                return r;
+                }
+
+                arg_disk_size = arg_disk_size_relative = UINT64_MAX;
+                return 0;
+        }
+
+        r = parse_permyriad(arg);
+        if (r < 0) {
+                r = parse_disk_size(arg, &arg_disk_size);
+                if (r < 0)
+                        return r;
+
+                r = drop_from_identity("diskSizeRelative");
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_set_field_unsigned(identity, "diskSize", arg_disk_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set %s field: %m", "diskSize");
+
+                arg_disk_size_relative = UINT64_MAX;
+        } else {
+                /* Normalize to UINT32_MAX == 100% */
+                arg_disk_size_relative = UINT32_SCALE_FROM_PERMYRIAD(r);
+
+                r = drop_from_identity("diskSize");
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_set_field_unsigned(identity, "diskSizeRelative", arg_disk_size_relative);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set %s field: %m", "diskSizeRelative");
+
+                arg_disk_size = UINT64_MAX;
+        }
+
+        /* Automatically turn off the rebalance logic if user configured a size explicitly */
+        r = sd_json_variant_set_field_unsigned(identity, "rebalanceWeight", REBALANCE_WEIGHT_OFF);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", "rebalanceWeight");
+        return 0;
+}
+
+static int parse_sector_size_field(sd_json_variant **identity, const char *field, const char *arg) {
+        uint64_t ss;
+        int r;
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        r = parse_sector_size(arg, &ss);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_set_field_unsigned(identity, field, ss);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
 static int parse_environment_field(sd_json_variant **identity, const char *field, const char *arg) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ne = NULL;
@@ -4126,52 +4194,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DISK_SIZE:
-                        if (isempty(optarg)) {
-                                FOREACH_STRING(prop, "diskSize", "diskSizeRelative", "rebalanceWeight") {
-                                        r = drop_from_identity(prop);
-                                        if (r < 0)
-                                                return r;
-                                }
-
-                                arg_disk_size = arg_disk_size_relative = UINT64_MAX;
-                                break;
-                        }
-
-                        r = parse_permyriad(optarg);
-                        if (r < 0) {
-                                r = parse_disk_size(optarg, &arg_disk_size);
-                                if (r < 0)
-                                        return r;
-
-                                r = drop_from_identity("diskSizeRelative");
-                                if (r < 0)
-                                        return r;
-
-                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, "diskSize", arg_disk_size);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to set diskSize field: %m");
-
-                                arg_disk_size_relative = UINT64_MAX;
-                        } else {
-                                /* Normalize to UINT32_MAX == 100% */
-                                arg_disk_size_relative = UINT32_SCALE_FROM_PERMYRIAD(r);
-
-                                r = drop_from_identity("diskSize");
-                                if (r < 0)
-                                        return r;
-
-                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, "diskSizeRelative", arg_disk_size_relative);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to set diskSizeRelative field: %m");
-
-                                arg_disk_size = UINT64_MAX;
-                        }
-
-                        /* Automatically turn off the rebalance logic if user configured a size explicitly */
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, "rebalanceWeight", REBALANCE_WEIGHT_OFF);
+                        r = parse_disk_size_field(match_identity ?: &arg_identity_extra_this_machine, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set rebalanceWeight field: %m");
-
+                                return r;
                         break;
 
                 case ARG_ACCESS_MODE:
@@ -4208,27 +4233,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_LUKS_SECTOR_SIZE: {
-                        uint64_t ss;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("luksSectorSize");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_sector_size(optarg, &ss);
+                case ARG_LUKS_SECTOR_SIZE:
+                        r = parse_sector_size_field(match_identity ?: &arg_identity_extra, "luksSectorSize", optarg);
                         if (r < 0)
                                 return r;
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, "luksSectorSize", ss);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set sector size field: %m");
-
                         break;
-                }
 
                 case ARG_UMASK:
                         r = parse_mode_field(match_identity ?: &arg_identity_extra, "umask", optarg);
