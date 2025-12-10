@@ -2551,6 +2551,7 @@ static const BusProperty execute_properties[] = {
         { "StateDirectoryAccounting",              bus_append_parse_boolean                      },
         { "CacheDirectoryAccounting",              bus_append_parse_boolean                      },
         { "LogsDirectoryAccounting",               bus_append_parse_boolean                      },
+        { "BindNetworkInterface",                  bus_append_string                             },
 
         { NULL, bus_try_append_resource_limit,     dump_resource_limits                          },
         {}
