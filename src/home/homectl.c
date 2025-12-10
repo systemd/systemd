@@ -3250,6 +3250,40 @@ static int parse_mode_field(sd_json_variant **identity, const char *field, const
         return 0;
 }
 
+static int parse_timestamp_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        usec_t n;
+        r = parse_timestamp(arg, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_time_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        usec_t n;
+        r = parse_sec(arg, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
 static int parse_nice_field(sd_json_variant **identity, const char *field, const char *arg) {
         int nc, r;
 
@@ -4277,33 +4311,11 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_NOT_BEFORE:
                 case ARG_NOT_AFTER:
                 case 'e': {
-                        const char *field;
-                        usec_t n;
+                        const char *field = c == ARG_NOT_BEFORE ? "notBeforeUSec" : "notAfterUSec";
 
-                        field =           c == ARG_NOT_BEFORE ? "notBeforeUSec" :
-                                IN_SET(c, ARG_NOT_AFTER, 'e') ? "notAfterUSec" : NULL;
-
-                        assert(field);
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        /* Note the minor discrepancy regarding -e parsing here: we support that for compat
-                         * reasons, and in the original useradd(8) implementation it accepts dates in the
-                         * format YYYY-MM-DD. Coincidentally, we accept dates formatted like that too, but
-                         * with greater precision. */
-                        r = parse_timestamp(optarg, &n);
+                        r = parse_timestamp_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s parameter: %m", field);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, n);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
+                                return r;
                         break;
                 }
 
@@ -4311,32 +4323,17 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_PASSWORD_CHANGE_MAX:
                 case ARG_PASSWORD_CHANGE_WARN:
                 case ARG_PASSWORD_CHANGE_INACTIVE: {
-                        const char *field;
-                        usec_t n;
-
-                        field =      c == ARG_PASSWORD_CHANGE_MIN ? "passwordChangeMinUSec" :
+                        const char *field =
+                                     c == ARG_PASSWORD_CHANGE_MIN ? "passwordChangeMinUSec" :
                                      c == ARG_PASSWORD_CHANGE_MAX ? "passwordChangeMaxUSec" :
                                     c == ARG_PASSWORD_CHANGE_WARN ? "passwordChangeWarnUSec" :
                                 c == ARG_PASSWORD_CHANGE_INACTIVE ? "passwordChangeInactiveUSec" :
                                                                     NULL;
-
                         assert(field);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_sec(optarg, &n);
+                        r = parse_time_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s parameter: %m", field);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, n);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
+                                return r;
                         break;
                 }
 
@@ -4379,26 +4376,11 @@ static int parse_argv(int argc, char *argv[]) {
                                  c == ARG_RATE_LIMIT_INTERVAL ? "rateLimitIntervalUSec" :
                                           c == ARG_STOP_DELAY ? "stopDelayUSec" :
                                                                 NULL;
-                        usec_t t;
-
                         assert(field);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_sec(optarg, &t);
+                        r = parse_time_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s field: %s", field, optarg);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, t);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
