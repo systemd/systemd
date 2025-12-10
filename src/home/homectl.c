@@ -3248,6 +3248,22 @@ static int parse_mode_field(sd_json_variant **identity, const char *field, const
         return 0;
 }
 
+static int parse_nice_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int nc, r;
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        r = parse_nice(arg, &nc);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse nice level '%s': %m", arg);
+
+        r = sd_json_variant_set_field_integer(identity, field, nc);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -3855,26 +3871,11 @@ static int parse_argv(int argc, char *argv[]) {
                         string_erase(optarg);
                         break;
 
-                case ARG_NICE: {
-                        int nc;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("niceLevel");
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        r = parse_nice(optarg, &nc);
+                case ARG_NICE:
+                        r = parse_nice_field(match_identity ?: &arg_identity_extra, "niceLevel", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse nice level: %s", optarg);
-
-                        r = sd_json_variant_set_field_integer(match_identity ?: &arg_identity_extra, "niceLevel", nc);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set niceLevel field: %m");
-
+                                return r;
                         break;
-                }
 
                 case ARG_RLIMIT: {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jcur = NULL, *jmax = NULL;
