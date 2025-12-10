@@ -3362,6 +3362,43 @@ static int parse_environment_field(sd_json_variant **identity, const char *field
         return 0;
 }
 
+static int parse_language_field(char ***languages, const char *arg) {
+        int r;
+
+        if (isempty(arg)) {
+                FOREACH_STRING(prop, "preferredLanguage", "additionalLanguages") {
+                        r = drop_from_identity(prop);
+                        if (r < 0)
+                                return r;
+                }
+
+                strv_freep(languages);
+                return 0;
+        }
+
+        for (const char *p = arg;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, ",:", 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse locale list: %m");
+                if (r == 0)
+                        return 0;
+
+                if (!locale_is_valid(word))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale '%s' is not valid.", word);
+
+                if (locale_is_installed(word) <= 0)
+                        log_warning("Locale '%s' is not installed, accepting anyway.", word);
+
+                r = strv_consume(languages, TAKE_PTR(word));
+                if (r < 0)
+                        return log_oom();
+
+                strv_uniq(*languages);
+        }
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -4048,46 +4085,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_LANGUAGE: {
-                        const char *p = optarg;
-
-                        if (isempty(p)) {
-                                r = drop_from_identity("preferredLanguage");
-                                if (r < 0)
-                                        return r;
-
-                                r = drop_from_identity("additionalLanguages");
-                                if (r < 0)
-                                        return r;
-
-                                arg_languages = strv_free(arg_languages);
-                                break;
-                        }
-
-                        for (;;) {
-                                _cleanup_free_ char *word = NULL;
-
-                                r = extract_first_word(&p, &word, ",:", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse locale list: %m");
-                                if (r == 0)
-                                        break;
-
-                                if (!locale_is_valid(word))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale '%s' is not valid.", word);
-
-                                if (locale_is_installed(word) <= 0)
-                                        log_warning("Locale '%s' is not installed, accepting anyway.", word);
-
-                                r = strv_consume(&arg_languages, TAKE_PTR(word));
-                                if (r < 0)
-                                        return log_oom();
-
-                                strv_uniq(arg_languages);
-                        }
-
+                case ARG_LANGUAGE:
+                        r = parse_language_field(&arg_languages, optarg);
+                        if (r < 0)
+                                return r;
                         break;
-                }
 
                 case ARG_NOSUID:
                 case ARG_NODEV:
