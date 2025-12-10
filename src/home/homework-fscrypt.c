@@ -71,12 +71,10 @@ static int fscrypt_unlink_key(UserRecord *h) {
                 char *d;
 
                 r = keyring_describe(*key, &description);
-                if (r < 0) {
-                        if (r == -ENOKEY) /* Something else deleted it already, that's ok. */
-                                continue;
-
+                if (r == -ENOKEY) /* Something else deleted it already, that's ok. */
+                        continue;
+                if (r < 0)
                         return log_error_errno(r, "Failed to describe key id %d: %m", *key);
-                }
 
                 /* The description is the final element as per manpage. */
                 d = strrchr(description, ';');

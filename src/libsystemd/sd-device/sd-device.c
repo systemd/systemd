@@ -1802,12 +1802,10 @@ int device_read_db_internal_filename(sd_device *device, const char *filename) {
         assert(filename);
 
         r = read_full_file(filename, &db, &db_len);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        return 0;
-
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to read db '%s': %m", filename);
-        }
 
         /* devices with a database entry are initialized */
         device->is_initialized = true;
