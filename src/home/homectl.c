@@ -3357,6 +3357,22 @@ static int parse_nice_field(sd_json_variant **identity, const char *field, const
         return 0;
 }
 
+static int parse_auto_resize_mode_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (!isempty(arg)) {
+                r = auto_resize_mode_from_string(arg);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+                arg = auto_resize_mode_to_string(r);
+        }
+
+        return parse_string_field(identity, field, arg);
+}
+
 static int parse_rlimit_field(sd_json_variant **identity, const char *field, const char *arg) {
         int r;
 
@@ -4614,22 +4630,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_AUTO_RESIZE_MODE:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("autoResizeMode");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = auto_resize_mode_from_string(optarg);
+                        r = parse_auto_resize_mode_field(match_identity ?: &arg_identity_extra,
+                                                         "autoResizeMode", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --auto-resize-mode= argument: %s", optarg);
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "autoResizeMode", auto_resize_mode_to_string(r));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set autoResizeMode field: %m");
-
+                                return r;
                         break;
 
                 case ARG_REBALANCE_WEIGHT: {
