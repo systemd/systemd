@@ -3298,6 +3298,46 @@ static int parse_nice_field(sd_json_variant **identity, const char *field, const
         return 0;
 }
 
+static int parse_auto_resize_mode_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        if (!isempty(arg)) {
+                r = auto_resize_mode_from_string(arg);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+                arg = auto_resize_mode_to_string(r);
+        }
+
+        return parse_string_field(identity, field, arg);
+}
+
+static int parse_rebalance_weight(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        uint64_t u;
+        if (streq(arg, "off"))
+                u = REBALANCE_WEIGHT_OFF;
+        else {
+                r = safe_atou64(arg, &u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse rebalance weight parameter: %s", arg);
+
+                if (u < REBALANCE_WEIGHT_MIN || u > REBALANCE_WEIGHT_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                               "Rebalancing weight out of valid range %" PRIu64 "%s%" PRIu64 ": %s",
+                                               REBALANCE_WEIGHT_MIN, glyph(GLYPH_ELLIPSIS), REBALANCE_WEIGHT_MAX,
+                                               arg);
+        }
+
+        r = sd_json_variant_set_field_unsigned(identity, field, u);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
 static int parse_rlimit_field(sd_json_variant **identity, const char *field, const char *arg) {
         int r;
 
@@ -4538,58 +4578,18 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_AUTO_RESIZE_MODE:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("autoResizeMode");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = auto_resize_mode_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --auto-resize-mode= argument: %s", optarg);
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "autoResizeMode", auto_resize_mode_to_string(r));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set autoResizeMode field: %m");
-
-                        break;
-
-                case ARG_REBALANCE_WEIGHT: {
-                        uint64_t u;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("rebalanceWeight");
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        if (streq(optarg, "off"))
-                                u = REBALANCE_WEIGHT_OFF;
-                        else {
-                                r = safe_atou64(optarg, &u);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --rebalance-weight= argument: %s", optarg);
-
-                                if (u < REBALANCE_WEIGHT_MIN || u > REBALANCE_WEIGHT_MAX)
-                                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Rebalancing weight out of valid range %" PRIu64 "%s%" PRIu64 ": %s",
-                                                               REBALANCE_WEIGHT_MIN, glyph(GLYPH_ELLIPSIS), REBALANCE_WEIGHT_MAX, optarg);
-                        }
-
-                        /* Drop from per machine stuff and everywhere */
-                        r = drop_from_identity("rebalanceWeight");
+                        r = parse_auto_resize_mode_field(match_identity ?: &arg_identity_extra,
+                                                         "autoResizeMode", optarg);
                         if (r < 0)
                                 return r;
-
-                        /* Add to main identity */
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, "rebalanceWeight", u);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set rebalanceWeight field: %m");
-
                         break;
-                }
+
+                case ARG_REBALANCE_WEIGHT:
+                        r = parse_rebalance_weight(match_identity ?: &arg_identity_extra,
+                                                   "rebalanceWeight", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case 'j':
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
