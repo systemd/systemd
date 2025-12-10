@@ -4837,18 +4837,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KEY_NAME:
-                        if (isempty(optarg)) {
-                                arg_key_name = mfree(arg_key_name);
-                                return 0;
-                        }
+                        if (!isempty(optarg) && !filename_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Parameter for --key-name= not a valid filename: %s", optarg);
 
-                        if (!filename_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified key name not valid: %s", optarg);
-
-                        r = free_and_strdup_warn(&arg_key_name, optarg);
+                        r = free_and_strdup_warn(&arg_key_name, empty_to_null(optarg));
                         if (r < 0)
                                 return r;
-
                         break;
 
                 case ARG_SEIZE:
