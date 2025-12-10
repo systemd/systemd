@@ -80,10 +80,10 @@ static inline size_t image_policy_n_entries(const ImagePolicy *policy) {
 PartitionPolicyFlags partition_policy_flags_extend(PartitionPolicyFlags flags);
 PartitionPolicyFlags partition_policy_flags_reduce(PartitionPolicyFlags flags);
 
-PartitionPolicyFlags partition_policy_flags_from_string(const char *s);
+PartitionPolicyFlags partition_policy_flags_from_string(const char *s, bool graceful);
 int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, char **ret);
 
-int image_policy_from_string(const char *s, ImagePolicy **ret);
+int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret);
 int image_policy_to_string(const ImagePolicy *policy, bool simplify, char **ret);
 
 /* Recognizes three special policies by equivalence */
