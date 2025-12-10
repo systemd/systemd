@@ -713,9 +713,14 @@ char* unlink_and_free(char *p) {
 }
 
 int access_fd(int fd, int mode) {
-        assert(fd >= 0);
-
         /* Like access() but operates on an already open fd */
+
+        if (fd == AT_FDCWD)
+                return RET_NERRNO(access(".", mode));
+        if (fd == XAT_FDROOT)
+                return RET_NERRNO(access("/", mode));
+
+        assert(fd >= 0);
 
         if (faccessat(fd, "", mode, AT_EMPTY_PATH) >= 0)
                 return 0;
@@ -1160,7 +1165,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
         bool made_dir = false, made_file = false;
         int r;
 
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
 
         /* An inode cannot be both a directory and a regular file at the same time. */
         assert(!(FLAGS_SET(open_flags, O_DIRECTORY) && FLAGS_SET(xopen_flags, XO_REGULAR)));
@@ -1179,7 +1184,22 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
          *   • if XO_REGULAR is specified will return an error if inode is not a regular file.
          *
          *   • If mode is specified as MODE_INVALID, we'll use 0755 for dirs, and 0644 for regular files.
+         *
+         *   • The dir fd can be passed as XAT_FDROOT, in which case any relative paths will be taken relative to the root fs.
          */
+
+        _cleanup_close_ int _dir_fd = -EBADF;
+        if (dir_fd == XAT_FDROOT) {
+                if (path_is_absolute(path))
+                        dir_fd = AT_FDCWD;
+                else {
+                        _dir_fd = open("/", O_CLOEXEC|O_DIRECTORY|O_RDONLY);
+                        if (_dir_fd < 0)
+                                return -errno;
+
+                        dir_fd = _dir_fd;
+                }
+        }
 
         if (mode == MODE_INVALID)
                 mode = (open_flags & O_DIRECTORY) ? 0755 : 0644;

@@ -57,6 +57,13 @@
 #define NR_OPEN_MINIMUM ((unsigned) (sizeof(long) * 8))
 #define NR_OPEN_MAXIMUM ((unsigned) (CONST_MIN((size_t) INT_MAX, SIZE_MAX / __SIZEOF_POINTER__) & ~(sizeof(long) * 8 - 1)))
 
+/* A special fd that can be passed in various helpers instead of an fd indicating the root dir. Inspired by,
+ * and an alternative to AT_FDCWD. We use specific negative value that is outside of the negative errno
+ * range, to avoid any potential ambiguities. */
+#define XAT_FDROOT -8192
+assert_cc(XAT_FDROOT != AT_FDCWD);
+assert_cc(XAT_FDROOT < -ERRNO_MAX);
+
 int close_nointr(int fd);
 int safe_close(int fd);
 void safe_close_pair(int p[static 2]);
@@ -167,10 +174,10 @@ static inline int path_is_root(const char *path) {
         return path_is_root_at(AT_FDCWD, path);
 }
 static inline int dir_fd_is_root(int dir_fd) {
-        return path_is_root_at(dir_fd, NULL);
+        return dir_fd == XAT_FDROOT ? true : path_is_root_at(dir_fd, NULL);
 }
 static inline int dir_fd_is_root_or_cwd(int dir_fd) {
-        return dir_fd == AT_FDCWD ? true : path_is_root_at(dir_fd, NULL);
+        return IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT) ? true : path_is_root_at(dir_fd, NULL);
 }
 
 int fds_are_same_mount(int fd1, int fd2);
