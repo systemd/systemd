@@ -429,6 +429,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("SocketBindAllow", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
         SD_BUS_PROPERTY("SocketBindDeny", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
         SD_BUS_PROPERTY("RestrictNetworkInterfaces", "(bas)", property_get_restrict_network_interfaces, 0, 0),
+        SD_BUS_PROPERTY("BindNetworkInterface", "s", NULL, offsetof(CGroupContext, bind_network_interface), 0),
         SD_BUS_PROPERTY("MemoryPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(CGroupContext, memory_pressure_watch), 0),
         SD_BUS_PROPERTY("MemoryPressureThresholdUSec", "t", bus_property_get_usec, offsetof(CGroupContext, memory_pressure_threshold_usec), 0),
         SD_BUS_PROPERTY("NFTSet", "a(iiss)", property_get_cgroup_nft_set, 0, 0),
@@ -1945,6 +1946,32 @@ int bus_cgroup_set_property(
                                 return -ENOMEM;
 
                         unit_write_settingf(u, flags, name, "%s=%s%s", name, is_allow_list ? "" : "~", joined);
+                }
+
+                return 1;
+        }
+
+        if (streq(name, "BindNetworkInterface")) {
+                const char *s;
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                if (!ifname_valid_full(s, IFNAME_VALID_ALTERNATIVE)) {
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface name: %s", s);;
+                }
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (isempty(s))
+                                c->bind_network_interface = mfree(c->bind_network_interface);
+                        else {
+                                r = free_and_strdup_warn(&c->bind_network_interface, s);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        unit_write_settingf(u, flags, name, "BindNetworkInterface=%s", s);
                 }
 
                 return 1;
