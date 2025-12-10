@@ -38,10 +38,12 @@
 
     <para>The file should contain a single newline-terminated hostname string. Comments (lines starting with
     a <literal>#</literal>) are ignored. The hostname should be composed of up to 64 7-bit ASCII lower-case
-    alphanumeric characters or hyphens forming a valid DNS domain name. It is recommended that this name
-    contains only a single label, i.e. without any dots. Invalid characters will be filtered out in an
-    attempt to make the name valid, but obviously it is recommended to use a valid name and not rely on this
-    filtering.</para>
+    alphanumeric characters or hyphens forming a valid DNS domain name. It is strongly recommended that this
+    name contains only a single DNS label, i.e does not contain any dots. This recommendation reflects both
+    usual expectations of applications, and the fact that the Linux kernel limits the length of the system
+    hostname to 64 (i.e. close to the maximum DNS label length of 63) rather than 255 (the maximum DNS domain
+    name length). When applied, invalid characters will be filtered out in an attempt to make the name valid,
+    but obviously it is recommended to use a valid name and not rely on this filtering.</para>
 
     <para id="question-mark-hostname-pattern">If the question mark character <literal>?</literal> appears in
     the hostname, it is automatically substituted by a hexadecimal character derived from the
