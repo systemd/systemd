@@ -2871,7 +2871,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Exit when the child exits */
         r = event_add_child_pidref(event, /* ret= */ NULL, &child_pidref, WEXITED, on_child_exit, /* userdata= */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to watch qemu process: &m");
+                return log_error_errno(r, "Failed to watch qemu process: %m");
 
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
