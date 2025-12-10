@@ -567,52 +567,102 @@ class SystemdDomain(Domain):
                 my_objects[key].extend(entries)
 
 
+class SystemdDirectiveIndexGroup(nodes.General, nodes.Element):
+    """Placeholder node inside each group section where the definition list will be inserted."""
+    pass
+
+
 class SystemdDirectiveIndex(SphinxDirective):
     """
     .. systemd:directiveindex::
 
-    Placeholder node that will be populated after all documents are read.
+    Create real section nodes immediately so they are registered in the section tree/TOC.
+    The contents are populated later at doctree-resolved,
+    once the domain has collected all objects.
     """
     has_content = False
 
     def run(self) -> List[nodes.Node]:
-        # Return a simple placeholder so late hooks can replace it with full content
-        container = nodes.container()
-        container['ids'] = ['systemd-directive-index']
-        return [container]
+        sections: List[nodes.Node] = []
+
+        # Groups configured in conf.py: directives_data = [{id, title, description}, ...]
+        try:
+            directives_data: List[Dict[str, Any]] = list(self.env.app.config.directives_data or [])
+        except Exception:
+            directives_data = []
+
+        # Emit one section per configured group
+        for g in directives_data:
+            gid = (g.get('id') or '').strip()
+            if not gid:
+                continue
+
+            section_id = f"systemd-group-{nodes.make_id(gid)}"
+            sec = nodes.section(ids=[section_id])
+
+            # Title and optional description paragraph
+            sec += nodes.title(text=g.get('title', gid))
+            desc = (g.get('description') or '').strip()
+            if desc:
+                sec += nodes.paragraph(text=desc)
+
+            # Placeholder where we will insert the definition list later
+            placeholder = SystemdDirectiveIndexGroup()
+            placeholder['group_id'] = gid
+            sec += placeholder
+
+            sections.append(sec)
+
+        # Always include a catch-all "Miscellaneous" section for unconfigured groups
+        misc_gid = 'miscellaneous'
+        section_id = f"systemd-group-{nodes.make_id(misc_gid)}"
+        sec = nodes.section(ids=[section_id])
+        sec += nodes.title(text='Miscellaneous')
+        placeholder = SystemdDirectiveIndexGroup()
+        placeholder['group_id'] = misc_gid
+        sec += placeholder
+        sections.append(sec)
+
+        return sections
 
 
 def process_systemd_directive_index(app: Sphinx, doctree, from_doc_name: str) -> None:
-    """Post-process directive index placeholders after all docs are read."""
-    # Collect domain data
-    domain: SystemdDomain = app.builder.env.get_domain('systemd')  # type: ignore
-    directives_data: List[Dict[str, Any]] = app.config.directives_data or []
-    lookup: Dict[str, Dict[str, Any]] = {d.get('id'): d for d in directives_data}
+    """
+    Populate dls inside pre-created group sections of the directive index.
 
-    # group_id -> ( (kind, norm_name) -> [entries] )
+    Sections are created early by the directive's run() to ensure TOC/section registration, otherwise the titles won’t show up in the HTML sidebar
+    Here we only fill the per-group contents with links.
+    """
+    try:
+        domain: SystemdDomain = app.builder.env.get_domain('systemd')  # type: ignore
+    except Exception:
+        return
+
+    directives_data: List[Dict[str, Any]] = app.config.directives_data or []
+    configured_groups = [d.get('id') for d in directives_data if d.get('id')]
+
+    # Build grouping: group_id -> ( (kind, norm_name) -> [entries] )
     grouped: Dict[str, Dict[Tuple[str, str], List[Dict[str, Any]]]] = {}
     for (kind, norm), entries in domain.objects.items():
         grp = entries[0].get('group') or 'miscellaneous'
         grouped.setdefault(grp, {}).setdefault((kind, norm), []).extend(entries)
 
-    sections: List[nodes.Node] = []
-    seen_groups = set()
+    # Helper to render one group's list
+    def make_group_dlist(group_id: str) -> Optional[nodes.definition_list]:
+        entries_by_obj: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
 
-    def render_group(group_id: str):
-        entries_by_obj = grouped.get(group_id, {})
-        meta = lookup.get(group_id, {'title': group_id, 'description': ''})
+        if group_id == 'miscellaneous':
+            # Put everything not in configured_groups into miscellaneous
+            extras = {gid: eb for gid, eb in grouped.items() if gid not in configured_groups}
+            for eb in extras.values():
+                for k, v in eb.items():
+                    entries_by_obj.setdefault(k, []).extend(v)
+        else:
+            entries_by_obj = grouped.get(group_id, {})
 
-        section_id = f"systemd-group-{nodes.make_id(group_id)}"
-        sec = nodes.section(ids=[section_id])
-        # Group heading (keep a real section title; add bold line for man as fallback)
-        sec += nodes.title(text=meta.get('title', group_id))
-        if getattr(getattr(app, 'builder', None), 'name', '') == 'man':
-            sec += nodes.paragraph('', '', nodes.strong(text=meta.get('title', group_id)))
-        desc = meta.get('description', '')
-        if desc:
-            sec += nodes.paragraph(text=desc)
+        if not entries_by_obj:
+            return None
 
-        # Sort by kind then name, render as definition list
         dlist = nodes.definition_list()
         for (kind, norm_name), entries in sorted(entries_by_obj.items(), key=lambda x: (x[0][0], x[0][1])):
             title_text = entries[0].get('name') or norm_name
@@ -624,13 +674,15 @@ def process_systemd_directive_index(app: Sphinx, doctree, from_doc_name: str) ->
             links_para = nodes.paragraph()
             linked_docs: List[str] = []
             for e in entries:
-                if e['docname'] in linked_docs:
+                dn = e['docname']
+                if dn in linked_docs:
                     continue
-                linked_docs.append(e['docname'])
-                ref = nodes.reference('', '')
-                ref['refuri'] = app.builder.get_relative_uri(from_doc_name, e['docname']) + '#' + e['anchor']
-                meta_title = app.builder.env.metadata.get(e['docname'], {}).get('title', 'Unknown Title')
-                meta_vol = app.builder.env.metadata.get(e['docname'], {}).get('manvolnum', 'Unknown Volume')
+                linked_docs.append(dn)
+                ref = nodes.reference('', '', internal=True)
+                ref['refuri'] = app.builder.get_relative_uri(from_doc_name, dn) + '#' + e['anchor']
+                meta = app.builder.env.metadata.get(dn, {})
+                meta_title = meta.get('title', 'Unknown Title')
+                meta_vol = meta.get('manvolnum', 'Unknown Volume')
                 ref.append(nodes.Text(f"{meta_title}({meta_vol})"))
                 if len(links_para):
                     links_para += nodes.Text(", ")
@@ -640,160 +692,17 @@ def process_systemd_directive_index(app: Sphinx, doctree, from_doc_name: str) ->
             dli = nodes.definition_list_item('', term, dd)
             dlist += dli
 
-        sec += dlist
+        return dlist
 
-        return sec
-
-    # Render groups in config order then extras
-    for g in directives_data:
-        gid = g.get('id')
-        if gid in grouped:
-            sections.append(render_group(gid))
-            seen_groups.add(gid)
-    for gid in sorted(set(grouped.keys()) - seen_groups):
-        sections.append(render_group(gid))
-
-    # If this is the directives document, force-replace its body now
-    if from_doc_name == 'directives':
-        try:
-            while doctree.children:
-                doctree.pop()
-        except Exception:
-            doctree.children = []
-        for s in sections:
-            doctree += s
-        logger.info("systemd: doctree-resolved: replaced body of 'directives' with generated index (sections direct)")
-        return
-
-    # Otherwise, replace placeholder in this doctree (if present) with the sections directly
-    replaced = False
-    for n in doctree.traverse(nodes.Element):
-        if getattr(n, 'ids', None) and 'systemd-directive-index' in n['ids']:
-            n.replace_self(sections)
-            replaced = True
-            break
+    # Replace placeholders with actual content
+    for placeholder in list(doctree.traverse(SystemdDirectiveIndexGroup)):  # type: ignore[name-defined]
+        gid = placeholder.get('group_id', 'miscellaneous')
+        dlist = make_group_dlist(gid)
+        placeholder.replace_self([dlist] if dlist is not None else [])
     # If not found, nothing to replace in this doctree
 
-def build_systemd_index_container(app: Sphinx, from_doc_name: str) -> nodes.container:
-    """Build the directive index container using the fully-populated domain data."""
-    domain: SystemdDomain = app.builder.env.get_domain('systemd')  # type: ignore
-    directives_data: List[Dict[str, Any]] = app.config.directives_data or []
-    lookup: Dict[str, Dict[str, Any]] = {d.get('id'): d for d in directives_data}
-
-    # group_id -> ( (kind, norm_name) -> [entries] )
-    grouped: Dict[str, Dict[Tuple[str, str], List[Dict[str, Any]]]] = {}
-    for (kind, norm), entries in domain.objects.items():
-        grp = entries[0].get('group') or 'miscellaneous'
-        grouped.setdefault(grp, {}).setdefault((kind, norm), []).extend(entries)
-
-    sections: List[nodes.Node] = []
-    seen_groups = set()
-
-    def render_group(group_id: str):
-        entries_by_obj = grouped.get(group_id, {})
-        meta = lookup.get(group_id, {'title': group_id, 'description': ''})
-
-        section_id = f"systemd-group-{nodes.make_id(group_id)}"
-        sec = nodes.section(ids=[section_id])
-        # Group heading (keep a real section title; add bold line for man as fallback)
-        sec += nodes.title(text=meta.get('title', group_id))
-        if getattr(getattr(app, 'builder', None), 'name', '') == 'man':
-            sec += nodes.paragraph('', '', nodes.strong(text=meta.get('title', group_id)))
-        desc = meta.get('description', '')
-        if desc:
-            sec += nodes.paragraph(text=desc)
-
-        # Sort by kind then name, render as definition list
-        dlist = nodes.definition_list()
-        for (kind, norm_name), entries in sorted(entries_by_obj.items(), key=lambda x: (x[0][0], x[0][1])):
-            title_text = entries[0].get('name') or norm_name
-
-            term = nodes.term()
-            term += nodes.Text(title_text)
-
-            dd = nodes.definition()
-            links_para = nodes.paragraph()
-            linked_docs: List[str] = []
-            for e in entries:
-                if e['docname'] in linked_docs:
-                    continue
-                linked_docs.append(e['docname'])
-                ref = nodes.reference('', '')
-                ref['refuri'] = app.builder.get_relative_uri(from_doc_name, e['docname']) + '#' + e['anchor']
-                meta_title = app.builder.env.metadata.get(e['docname'], {}).get('title', 'Unknown Title')
-                meta_vol = app.builder.env.metadata.get(e['docname'], {}).get('manvolnum', 'Unknown Volume')
-                ref.append(nodes.Text(f"{meta_title}({meta_vol})"))
-                if len(links_para):
-                    links_para += nodes.Text(", ")
-                links_para += ref
-            dd += links_para
-
-            dli = nodes.definition_list_item('', term, dd)
-            dlist += dli
-
-        sec += dlist
-
-        return sec
-
-    # Render groups in config order then extras
-    for g in directives_data:
-        gid = g.get('id')
-        if gid in grouped:
-            sections.append(render_group(gid))
-            seen_groups.add(gid)
-    for gid in sorted(set(grouped.keys()) - seen_groups):
-        sections.append(render_group(gid))
-
-    container = nodes.container()
-    container['ids'] = ['systemd-directive-index']
-    container.extend(sections)
-    return container
 
 
-def on_env_updated(app: Sphinx, env) -> None:
-    """Ensure the directives index page is populated after all docs are read."""
-    try:
-        docname = 'directives'
-        doctree = env.get_doctree(docname)
-    except Exception:
-        logger.info("systemd: env-updated: could not load doctree for 'directives'")
-        return
-    # Log how many objects we have now (should be complete)
-    try:
-        domain: SystemdDomain = env.get_domain('systemd')  # type: ignore
-        logger.info("systemd: env-updated: %d objects in registry",
-                    sum(len(v) for v in domain.objects.values()))
-    except Exception:
-        pass
-
-    container = build_systemd_index_container(app, docname)
-
-    # Replace placeholder in the directives doctree
-    replaced = False
-    for n in list(doctree.traverse(nodes.Element)):
-        if getattr(n, 'ids', None) and 'systemd-directive-index' in n['ids']:
-            n.replace_self(list(container.children))
-            replaced = True
-            break
-
-    # If no explicit placeholder was found (e.g. transforms removed it),
-    # replace the doc body with the generated container as a fallback.
-    if not replaced:
-        try:
-            while doctree.children:
-                doctree.pop()
-        except Exception:
-            doctree.children = []
-        for s in container.children:
-            doctree += s
-        logger.info("systemd: env-updated: placeholder not found; injected index sections into 'directives'")
-
-    # Persist doctree changes so the builder writes updated content
-    try:
-        env.write_doctree(docname, doctree)
-    except Exception:
-        # Writing doctree is best-effort; if unavailable, rely on doctree-resolved hook
-        pass
 
 
 def setup(app: Sphinx) -> ExtensionMetadata:
@@ -804,8 +713,10 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     app.add_domain(SystemdDomain)
 
     app.add_directive('systemd:directiveindex', SystemdDirectiveIndex)
+
+    # Populate the directive index contents late enough to resolve cross-doc links,
+    # but sections themselves are created in the directive's run().
     app.connect('doctree-resolved', process_systemd_directive_index)
-    app.connect('env-updated', on_env_updated)
 
     logger.info("Systemd domain extension loaded")
     return {

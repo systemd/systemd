@@ -255,12 +255,12 @@ directives_data = [
     },
     {
         "id": "fstab-options",
-        "title": 'fstab-options',
+        "title": '/etc/crypttab, /etc/veritytab and /etc/fstab options',
         "description": "Options which influence mounted filesystems and encrypted volumes."
     },
     {
         "id": "nspawn-directives",
-        "title": 'nspawn-directives',
+        "title": 'systemd.nspawn(5)-directives',
         "description": "Directives for configuring systemd-nspawn containers."
     },
     {
