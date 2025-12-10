@@ -3021,27 +3021,27 @@ static int verb_firstboot(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int drop_from_identity(const char *field) {
-        int r;
+#define drop_from_identity(...) _drop_from_identity(STRV_MAKE(__VA_ARGS__))
 
-        assert(field);
+static int _drop_from_identity(char **fields) {
+        int r;
 
         /* If we are called to update an identity record and drop some field, let's keep track of what to
          * remove from the old record */
-        r = strv_extend(&arg_identity_filter, field);
+        r = strv_extend_strv(&arg_identity_filter, fields, /* filter_duplicates= */ true);
         if (r < 0)
                 return log_oom();
 
         /* Let's also drop the field if it was previously set to a new value on the same command line */
-        r = sd_json_variant_filter(&arg_identity_extra, STRV_MAKE(field));
+        r = sd_json_variant_filter(&arg_identity_extra, fields);
         if (r < 0)
                 return log_error_errno(r, "Failed to filter JSON identity data: %m");
 
-        r = sd_json_variant_filter(&arg_identity_extra_this_machine, STRV_MAKE(field));
+        r = sd_json_variant_filter(&arg_identity_extra_this_machine, fields);
         if (r < 0)
                 return log_error_errno(r, "Failed to filter JSON identity data: %m");
 
-        r = sd_json_variant_filter(&arg_identity_extra_privileged, STRV_MAKE(field));
+        r = sd_json_variant_filter(&arg_identity_extra_privileged, fields);
         if (r < 0)
                 return log_error_errno(r, "Failed to filter JSON identity data: %m");
 
@@ -3510,11 +3510,9 @@ static int parse_disk_size_field(sd_json_variant **identity, const char *arg) {
         assert(identity);
 
         if (isempty(arg)) {
-                FOREACH_STRING(prop, "diskSize", "diskSizeRelative", "rebalanceWeight") {
-                        r = drop_from_identity(prop);
-                        if (r < 0)
-                                return r;
-                }
+                r = drop_from_identity("diskSize", "diskSizeRelative", "rebalanceWeight");
+                if (r < 0)
+                        return r;
 
                 arg_disk_size = arg_disk_size_relative = UINT64_MAX;
                 return 0;
@@ -3639,11 +3637,9 @@ static int parse_language_field(char ***languages, const char *arg) {
         int r;
 
         if (isempty(arg)) {
-                FOREACH_STRING(prop, "preferredLanguage", "additionalLanguages") {
-                        r = drop_from_identity(prop);
-                        if (r < 0)
-                                return r;
-                }
+                r = drop_from_identity("preferredLanguage", "additionalLanguages");
+                if (r < 0)
+                        return r;
 
                 strv_freep(languages);
                 return 0;
@@ -3765,14 +3761,8 @@ static int parse_tmpfs_limit_field(
         assert(field);
         assert(field_scale);
 
-        if (isempty(arg)) {
-                FOREACH_STRING(p, field, field_scale) {
-                        r = drop_from_identity(p);
-                        if (r < 0)
-                                return r;
-                }
-                return 0;
-        }
+        if (isempty(arg))
+                return drop_from_identity(field, field_scale);
 
         r = parse_permyriad(arg);
         if (r < 0) {
@@ -3805,11 +3795,9 @@ static int parse_pkcs11_token_uri_field(const char *arg) {
                 return pkcs11_list_tokens();
 
         /* If --pkcs11-token-uri= is specified we always drop everything old */
-        FOREACH_STRING(p, "pkcs11TokenUri", "pkcs11EncryptedKey") {
-                r = drop_from_identity(p);
-                if (r < 0)
-                        return r;
-        }
+        r = drop_from_identity("pkcs11TokenUri", "pkcs11EncryptedKey");
+        if (r < 0)
+                return r;
 
         if (isempty(arg)) {
                 arg_pkcs11_token_uri = strv_free(arg_pkcs11_token_uri);
@@ -3844,11 +3832,9 @@ static int parse_fido2_device_field(const char *arg) {
         if (streq(arg, "list"))
                 return fido2_list_devices();
 
-        FOREACH_STRING(p, "fido2HmacCredential", "fido2HmacSalt") {
-                r = drop_from_identity(p);
-                if (r < 0)
-                        return r;
-        }
+        r = drop_from_identity("fido2HmacCredential", "fido2HmacSalt");
+        if (r < 0)
+                return r;
 
         if (isempty(arg)) {
                 arg_fido2_device = strv_free(arg_fido2_device);
@@ -4751,15 +4737,11 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_boolean(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --recovery-key= argument: %s", optarg);
-
                         arg_recovery_key = r;
 
-                        FOREACH_STRING(p, "recoveryKey", "recoveryKeyType") {
-                                r = drop_from_identity(p);
-                                if (r < 0)
-                                        return r;
-                        }
-
+                        r = drop_from_identity("recoveryKey", "recoveryKeyType");
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_AUTO_RESIZE_MODE:
