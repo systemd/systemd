@@ -3130,6 +3130,40 @@ static int parse_string_field(sd_json_variant **identity, const char *fieldname,
         return 0;
 }
 
+static int parse_unsigned_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        unsigned n;
+        r = safe_atou(arg, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_u64_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        uint64_t n;
+        r = safe_atou64(arg, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -4179,25 +4213,13 @@ static int parse_argv(int argc, char *argv[]) {
                                        c == ARG_LUKS_VOLUME_KEY_SIZE ? "luksVolumeKeySize" :
                                 c == ARG_LUKS_PBKDF_FORCE_ITERATIONS ? "luksPbkdfForceIterations" :
                                 c == ARG_LUKS_PBKDF_PARALLEL_THREADS ? "luksPbkdfParallelThreads" :
-                                           c == ARG_RATE_LIMIT_BURST ? "rateLimitBurst" : NULL;
-                        unsigned n;
-
+                                           c == ARG_RATE_LIMIT_BURST ? "rateLimitBurst" :
+                                                                       NULL;
                         assert(field);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        r = safe_atou(optarg, &n);
+                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s parameter: %s", field, optarg);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, n);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
@@ -4430,26 +4452,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_TASKS_MAX: {
-                        uint64_t u;
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("tasksMax");
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        r = safe_atou64(optarg, &u);
+                case ARG_TASKS_MAX:
+                        r = parse_u64_field(match_identity ?: &arg_identity_extra, "tasksMax", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --tasks-max= parameter: %s", optarg);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, "tasksMax", u);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set tasksMax field: %m");
-
+                                return r;
                         break;
-                }
 
                 case ARG_MEMORY_MAX:
                 case ARG_MEMORY_HIGH:
@@ -4457,27 +4465,12 @@ static int parse_argv(int argc, char *argv[]) {
                         const char *field =
                                             c == ARG_MEMORY_MAX ? "memoryMax" :
                                            c == ARG_MEMORY_HIGH ? "memoryHigh" :
-                                c == ARG_LUKS_PBKDF_MEMORY_COST ? "luksPbkdfMemoryCost" : NULL;
+                                c == ARG_LUKS_PBKDF_MEMORY_COST ? "luksPbkdfMemoryCost"
+                                                                : NULL;
 
-                        uint64_t u;
-
-                        assert(field);
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        r = parse_size(optarg, 1024, &u);
+                        r = parse_u64_field(match_identity ?: &arg_identity_extra_this_machine, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s parameter: %s", field, optarg);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, field, u);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
