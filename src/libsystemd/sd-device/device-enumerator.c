@@ -172,7 +172,7 @@ _public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumer
         else
                 hashmap = &enumerator->nomatch_sysattr;
 
-        r = update_match_strv(hashmap, sysattr, value, /* clear_on_null = */ true);
+        r = update_match_strv(hashmap, sysattr, value, /* clear_on_null= */ true);
         if (r <= 0)
                 return r;
 
@@ -187,7 +187,7 @@ _public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enume
         assert_return(enumerator, -EINVAL);
         assert_return(property, -EINVAL);
 
-        r = update_match_strv(&enumerator->match_property, property, value, /* clear_on_null = */ false);
+        r = update_match_strv(&enumerator->match_property, property, value, /* clear_on_null= */ false);
         if (r <= 0)
                 return r;
 
@@ -202,7 +202,7 @@ _public_ int sd_device_enumerator_add_match_property_required(sd_device_enumerat
         assert_return(enumerator, -EINVAL);
         assert_return(property, -EINVAL);
 
-        r = update_match_strv(&enumerator->match_property_required, property, value, /* clear_on_null = */ false);
+        r = update_match_strv(&enumerator->match_property_required, property, value, /* clear_on_null= */ false);
         if (r <= 0)
                 return r;
 
@@ -645,10 +645,10 @@ static int test_matches(
                 if (r <= 0)
                         return r;
 
-                if (!match_property(enumerator->match_property, device, /* match_all = */ false))
+                if (!match_property(enumerator->match_property, device, /* match_all= */ false))
                         return false;
 
-                if (!match_property(enumerator->match_property_required, device, /* match_all = */ true))
+                if (!match_property(enumerator->match_property_required, device, /* match_all= */ true))
                         return false;
 
                 if (!device_match_sysattr(device, enumerator->match_sysattr, enumerator->nomatch_sysattr))

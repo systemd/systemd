@@ -450,7 +450,7 @@ static int verify_gpg(
                         "--no-auto-check-trustdb",
                         "--batch",
                         "--trust-model=always",
-                        NULL, /* --homedir=  */
+                        NULL, /* --homedir= */
                         NULL, /* --keyring= */
                         NULL, /* --verify */
                         NULL, /* signature file */

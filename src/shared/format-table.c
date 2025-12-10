@@ -1687,7 +1687,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 else
                         ret = format_timestamp_relative_full(p, FORMAT_TIMESTAMP_RELATIVE_MAX,
                                                              d->timestamp, CLOCK_REALTIME,
-                                                             /* implicit_left = */ d->type == TABLE_TIMESTAMP_LEFT);
+                                                             /* implicit_left= */ d->type == TABLE_TIMESTAMP_LEFT);
                 if (!ret)
                         return "-";
 

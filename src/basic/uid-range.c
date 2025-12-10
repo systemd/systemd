@@ -125,7 +125,7 @@ int uid_range_add_str(UIDRange **range, const char *s) {
         if (r < 0)
                 return r;
 
-        return uid_range_add_internal(range, start, end - start + 1, /* coalesce = */ true);
+        return uid_range_add_internal(range, start, end - start + 1, /* coalesce= */ true);
 }
 
 int uid_range_next_lower(const UIDRange *range, uid_t *uid) {
@@ -274,7 +274,7 @@ int uid_range_load_userns(const char *path, UIDRangeUsernsMode mode, UIDRange **
                                 &range,
                                 IN_SET(mode, UID_RANGE_USERNS_INSIDE, GID_RANGE_USERNS_INSIDE) ? uid_base : uid_shift,
                                 uid_range,
-                                /* coalesce = */ false);
+                                /* coalesce= */ false);
                 if (r < 0)
                         return r;
         }

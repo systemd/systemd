@@ -162,20 +162,20 @@ TEST(proc_cmdline_get_bool) {
 
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar bar-waldo=1 x_y-z=0 quux=miep\nda=yes\nthe=1") == 0);
 
-        assert_se(proc_cmdline_get_bool("", /* flags = */ 0, &value) == -EINVAL);
-        assert_se(proc_cmdline_get_bool("abc", /* flags = */ 0, &value) == 0 && value == false);
+        assert_se(proc_cmdline_get_bool("", /* flags= */ 0, &value) == -EINVAL);
+        assert_se(proc_cmdline_get_bool("abc", /* flags= */ 0, &value) == 0 && value == false);
         assert_se(proc_cmdline_get_bool("unspecified", PROC_CMDLINE_TRUE_WHEN_MISSING, &value) == 0 && value == true);
-        assert_se(proc_cmdline_get_bool("foo_bar", /* flags = */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("foo-bar", /* flags = */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("bar-waldo", /* flags = */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("bar_waldo", /* flags = */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("x_y-z", /* flags = */ 0, &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x-y-z", /* flags = */ 0, &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x-y_z", /* flags = */ 0, &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x_y_z", /* flags = */ 0, &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("quux", /* flags = */ 0, &value) == -EINVAL && value == false);
-        assert_se(proc_cmdline_get_bool("da", /* flags = */ 0, &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("the", /* flags = */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("foo_bar", /* flags= */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("foo-bar", /* flags= */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("bar-waldo", /* flags= */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("bar_waldo", /* flags= */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("x_y-z", /* flags= */ 0, &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("x-y-z", /* flags= */ 0, &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("x-y_z", /* flags= */ 0, &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("x_y_z", /* flags= */ 0, &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("quux", /* flags= */ 0, &value) == -EINVAL && value == false);
+        assert_se(proc_cmdline_get_bool("da", /* flags= */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("the", /* flags= */ 0, &value) > 0 && value == true);
 }
 
 TEST(proc_cmdline_get_key_many) {
@@ -237,7 +237,7 @@ TEST(proc_cmdline_key_startswith) {
                                                                         \
                 /* This emulates pid_get_cmdline_strv(). */         \
                 assert_se(a = strv_parse_nulstr_full(s, ELEMENTSOF(s),  \
-                                                     /* drop_trailing_nuls = */ true)); \
+                                                     /* drop_trailing_nuls= */ true)); \
                 assert_se(proc_cmdline_filter_pid1_args(a, &b) >= 0);   \
                 assert_se(strv_equal(b, expected));                     \
         })

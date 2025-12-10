@@ -13,7 +13,7 @@ bool bpf_can_link_program(struct bpf_program *prog) {
                 return false;
 
         /* Pass invalid cgroup fd intentionally. */
-        link = sym_bpf_program__attach_cgroup(prog, /*cgroup_fd=*/-1);
+        link = sym_bpf_program__attach_cgroup(prog, /* cgroup_fd= */ -1);
 
         /* EBADF indicates that bpf_link is supported by kernel. */
         return bpf_get_error_translated(link) == -EBADF;

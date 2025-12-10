@@ -230,7 +230,7 @@ static int manager_process_inotify(Manager *manager, const struct inotify_event 
         if (FLAGS_SET(e->mask, IN_IGNORED)) {
                 log_debug("Received inotify event about removal of watch handle %i.", e->wd);
 
-                r = udev_watch_clear_by_wd(/* dev = */ NULL, /* dirfd = */ -EBADF, e->wd);
+                r = udev_watch_clear_by_wd(/* dev= */ NULL, /* dirfd= */ -EBADF, e->wd);
                 if (r < 0)
                         log_warning_errno(r, "Failed to remove saved symlink(s) for watch handle %i, ignoring: %m", e->wd);
 
@@ -612,11 +612,11 @@ static int notify_and_wait_signal(UdevWorker *worker, sd_device *dev, const char
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(e, /* ret = */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, on_sigusr1, worker);
+        r = sd_event_add_signal(e, /* ret= */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, on_sigusr1, worker);
         if (r < 0)
                 return r;
 
-        r = sd_notify(/* unset_environment = */ false, msg);
+        r = sd_notify(/* unset_environment= */ false, msg);
         if (r <= 0)
                 return r;
 

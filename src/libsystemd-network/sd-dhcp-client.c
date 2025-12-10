@@ -357,7 +357,7 @@ static int dhcp_client_set_iaid_duid(
 
         if (!iaid_set) {
                 r = dhcp_identifier_set_iaid(client->dev, &client->hw_addr,
-                                             /* legacy_unstable_byteorder = */ true,
+                                             /* legacy_unstable_byteorder= */ true,
                                              &iaid);
                 if (r < 0)
                         return r;
@@ -1628,7 +1628,7 @@ static int bootp_option_parse_and_verify(
         assert(message);
         assert(lease);
 
-        r = dhcp_option_parse(message, len, dhcp_lease_parse_options, lease, /* ret_error_message = */ NULL);
+        r = dhcp_option_parse(message, len, dhcp_lease_parse_options, lease, /* ret_error_message= */ NULL);
         if (r == -ENOMSG)
                 r = DHCP_ACK; /* BOOTP messages don't have a DHCP message type option */
         else if (r < 0)
@@ -1741,7 +1741,7 @@ static int client_enter_requesting_now(sd_dhcp_client *client) {
                                 CLOCK_BOOTTIME, 0, 0,
                                 client_timeout_resend, client,
                                 client->event_priority, "dhcp4-resend-timer",
-                                /* force_reset = */ true);
+                                /* force_reset= */ true);
 }
 
 static int client_enter_requesting_delayed(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -1778,7 +1778,7 @@ static int client_enter_requesting(sd_dhcp_client *client) {
                                                  client->lease->ipv6_only_preferred_usec, 0,
                                                  client_enter_requesting_delayed, client,
                                                  client->event_priority, "dhcp4-ipv6-only-mode-timer",
-                                                 /* force_reset = */ true);
+                                                 /* force_reset= */ true);
         }
 
         return client_enter_requesting_now(client);
@@ -2031,7 +2031,7 @@ static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
                                                  client->lease->ipv6_only_preferred_usec, 0,
                                                  client_enter_bound_delayed, client,
                                                  client->event_priority, "dhcp4-ipv6-only-mode",
-                                                 /* force_reset = */ true);
+                                                 /* force_reset= */ true);
         }
 
         return client_enter_bound_now(client, notify_event);
@@ -2322,7 +2322,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
 
         /* If no client identifier exists, construct an RFC 4361-compliant one */
         if (!sd_dhcp_client_id_is_set(&client->client_id)) {
-                r = sd_dhcp_client_set_iaid_duid_en(client, /* iaid_set = */ false, /* iaid = */ 0);
+                r = sd_dhcp_client_set_iaid_duid_en(client, /* iaid_set= */ false, /* iaid= */ 0);
                 if (r < 0)
                         return r;
         }

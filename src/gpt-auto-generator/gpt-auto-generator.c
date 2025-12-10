@@ -94,7 +94,7 @@ static int add_cryptsetup(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        r = generator_open_unit_file(arg_dest_late, /* source = */ NULL, n, &f);
+        r = generator_open_unit_file(arg_dest_late, /* source= */ NULL, n, &f);
         if (r < 0)
                 return r;
 
@@ -141,7 +141,7 @@ static int add_cryptsetup(
         if (r < 0)
                 return log_error_errno(r, "Failed to write file %s: %m", n);
 
-        r = generator_write_device_timeout(arg_dest_late, what, mount_opts, /* filtered = */ NULL);
+        r = generator_write_device_timeout(arg_dest_late, what, mount_opts, /* filtered= */ NULL);
         if (r < 0)
                 return r;
 
@@ -313,7 +313,7 @@ static int add_mount(
         if (streq_ptr(fstype, "crypto_LUKS")) {
                 /* Mount options passed are determined by partition_pick_mount_options(), whose result
                  * is known to not contain timeout options. */
-                r = add_cryptsetup(id, what, /* mount_opts = */ NULL, flags, /* require= */ true, &crypto_what);
+                r = add_cryptsetup(id, what, /* mount_opts= */ NULL, flags, /* require= */ true, &crypto_what);
                 if (r < 0)
                         return r;
 
@@ -338,7 +338,7 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        r = generator_open_unit_file(arg_dest_late, /* source = */ NULL, unit, &f);
+        r = generator_open_unit_file(arg_dest_late, /* source= */ NULL, unit, &f);
         if (r < 0)
                 return r;
 
@@ -417,7 +417,7 @@ static int path_is_busy(const char *where) {
         assert(where);
 
         /* already a mountpoint; generators run during reload */
-        r = path_is_mount_point_full(where, /* root = */ NULL, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point_full(where, /* root= */ NULL, AT_SYMLINK_FOLLOW);
         if (r > 0)
                 return false;
         /* The directory will be created by the mount or automount unit when it is started. */
@@ -504,7 +504,7 @@ static int add_partition_swap(DissectedPartition *p) {
         }
 
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
-                r = add_cryptsetup("swap", p->node, /* mount_opts = */ NULL, MOUNT_RW, /* require= */ true, &crypto_what);
+                r = add_cryptsetup("swap", p->node, /* mount_opts= */ NULL, MOUNT_RW, /* require= */ true, &crypto_what);
                 if (r < 0)
                         return r;
                 what = crypto_what;
@@ -517,7 +517,7 @@ static int add_partition_swap(DissectedPartition *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        r = generator_open_unit_file(arg_dest_late, /* source = */ NULL, name, &f);
+        r = generator_open_unit_file(arg_dest_late, /* source= */ NULL, name, &f);
         if (r < 0)
                 return r;
 
@@ -576,7 +576,7 @@ static int add_automount(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        r = generator_open_unit_file(arg_dest_late, /* source = */ NULL, unit, &f);
+        r = generator_open_unit_file(arg_dest_late, /* source= */ NULL, unit, &f);
         if (r < 0)
                 return r;
 
@@ -976,7 +976,7 @@ static int add_usr_mount(void) {
                       "/dev/disk/by-designator/usr",
                       in_initrd() ? "/sysusr/usr" : "/usr",
                       arg_usr_fstype,
-                      /* flags = */ 0,
+                      /* flags= */ 0,
                       options,
                       "/usr/ Partition",
                       in_initrd() ? SPECIAL_INITRD_USR_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
