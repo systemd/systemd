@@ -3331,6 +3331,37 @@ static int parse_rlimit_field(sd_json_variant **identity, const char *field, con
         return 0;
 }
 
+static int parse_environment_field(sd_json_variant **identity, const char *field, const char *arg) {
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ne = NULL;
+        int r;
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        sd_json_variant *e = sd_json_variant_by_key(*identity, field);
+        if (e) {
+                r = sd_json_variant_strv(e, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse JSON environment field: %m");
+        }
+
+        r = strv_env_replace_strdup_passthrough(&l, arg);
+        if (r < 0)
+                return log_error_errno(r, "Cannot assign environment variable %s: %m", arg);
+
+        strv_sort(l);
+
+        r = sd_json_variant_new_array_strv(&ne, l);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate json list: %m");
+
+        r = sd_json_variant_set_field(identity, field, ne);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -4001,42 +4032,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_SETENV: {
-                        _cleanup_strv_free_ char **l = NULL;
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ne = NULL;
-                        sd_json_variant *e;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("environment");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        e = sd_json_variant_by_key(match_identity ? *match_identity: arg_identity_extra, "environment");
-                        if (e) {
-                                r = sd_json_variant_strv(e, &l);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse JSON environment field: %m");
-                        }
-
-                        r = strv_env_replace_strdup_passthrough(&l, optarg);
+                case ARG_SETENV:
+                        r = parse_environment_field(match_identity ?: &arg_identity_extra, "environment", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
-
-                        strv_sort(l);
-
-                        r = sd_json_variant_new_array_strv(&ne, l);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to allocate environment list JSON: %m");
-
-                        r = sd_json_variant_set_field(match_identity ?: &arg_identity_extra, "environment", ne);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set environment list: %m");
-
+                                return r;
                         break;
-                }
 
                 case ARG_TIMEZONE:
                         if (!isempty(optarg) && !timezone_is_valid(optarg, LOG_DEBUG))
