@@ -504,7 +504,7 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
         if (FAMILY_ADDRESS_SIZE(p.family) != p.address.iov_len)
                 return sd_varlink_error(link, "io.systemd.Resolve.BadAddressSize", NULL);
 
-        if (validate_and_mangle_query_flags(m, &p.flags, /* name = */ NULL, /* ok = */ 0) < 0)
+        if (validate_and_mangle_query_flags(m, &p.flags, /* name= */ NULL, /* ok= */ 0) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
         union in_addr_union a = IN_ADDR_NULL;
@@ -1225,7 +1225,7 @@ static int vl_method_browse_services(sd_varlink* link, sd_json_variant* paramete
         if (r != 0)
                 return r;
 
-        if (validate_and_mangle_query_flags(m, &p.flags, /* name = */ NULL, /* ok = */ 0))
+        if (validate_and_mangle_query_flags(m, &p.flags, /* name= */ NULL, /* ok= */ 0))
                 return sd_varlink_error_invalid_parameter_name(link, "flags");
 
         r = dns_subscribe_browse_service(m, link, p.domain, p.type, p.ifindex, p.flags);

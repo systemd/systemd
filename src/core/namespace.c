@@ -1474,7 +1474,7 @@ static int mount_private_apivfs(
                 /* We lack permissions to mount a new instance, and it is not already mounted. But we can
                  * access the host's, so as a final fallback bind-mount it to the destination, as most likely
                  * we are inside a user manager in an unprivileged user namespace. */
-                r = mount_nofollow_verbose(LOG_DEBUG, bind_source, entry_path, /* fstype = */ NULL, MS_BIND|MS_REC, /* options = */ NULL);
+                r = mount_nofollow_verbose(LOG_DEBUG, bind_source, entry_path, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1484,12 +1484,12 @@ static int mount_private_apivfs(
                 return r;
 
         /* OK. We have a new mount instance. Let's clear an existing mount and its submounts. */
-        r = umount_recursive(entry_path, /* flags = */ 0);
+        r = umount_recursive(entry_path, /* flags= */ 0);
         if (r < 0)
                 log_debug_errno(r, "Failed to unmount directories below '%s', ignoring: %m", entry_path);
 
         /* Then, move the new mount instance. */
-        r = mount_nofollow_verbose(LOG_DEBUG, temporary_mount, entry_path, /* fstype = */ NULL, MS_MOVE, /* options = */ NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, temporary_mount, entry_path, /* fstype= */ NULL, MS_MOVE, /* options= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1502,13 +1502,13 @@ static int mount_private_apivfs(
 static int mount_private_sysfs(const MountEntry *m, const NamespaceParameters *p) {
         assert(m);
         assert(p);
-        return mount_private_apivfs("sysfs", mount_entry_path(m), "/sys", /* opts = */ NULL, p->runtime_scope);
+        return mount_private_apivfs("sysfs", mount_entry_path(m), "/sys", /* opts= */ NULL, p->runtime_scope);
 }
 
 static int mount_private_cgroup2fs(const MountEntry *m, const NamespaceParameters *p) {
         assert(m);
         assert(p);
-        return mount_private_apivfs("cgroup2", mount_entry_path(m), "/sys/fs/cgroup", /* opts = */ NULL, p->runtime_scope);
+        return mount_private_apivfs("cgroup2", mount_entry_path(m), "/sys/fs/cgroup", /* opts= */ NULL, p->runtime_scope);
 }
 
 static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
@@ -1743,11 +1743,11 @@ static int mount_bpffs(const MountEntry *m, PidRef *pidref, int socket_fd, int e
         if (fs_fd < 0)
                 return log_debug_errno(errno, "Failed to fsopen: %m");
 
-        r = send_one_fd(socket_fd, fs_fd, /* flags = */ 0);
+        r = send_one_fd(socket_fd, fs_fd, /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to send bpffs fd to child: %m");
 
-        r = pidref_wait_for_terminate_and_check("(sd-bpffs)", pidref, /* flags = */ 0);
+        r = pidref_wait_for_terminate_and_check("(sd-bpffs)", pidref, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -1763,7 +1763,7 @@ static int mount_bpffs(const MountEntry *m, PidRef *pidref, int socket_fd, int e
 
         pidref_done(pidref);
 
-        _cleanup_close_ int mnt_fd = fsmount(fs_fd, /* flags = */ 0, /* mount_attrs = */ 0);
+        _cleanup_close_ int mnt_fd = fsmount(fs_fd, /* flags= */ 0, /* mount_attrs= */ 0);
         if (mnt_fd < 0)
                 return log_debug_errno(errno, "Failed to fsmount bpffs: %m");
 
@@ -1886,7 +1886,7 @@ static int apply_one_mount(
         case MOUNT_READ_WRITE_IMPLICIT:
         case MOUNT_EXEC:
         case MOUNT_NOEXEC:
-                r = path_is_mount_point_full(mount_entry_path(m), root_directory, /* flags = */ 0);
+                r = path_is_mount_point_full(mount_entry_path(m), root_directory, /* flags= */ 0);
                 if (r == -ENOENT && m->ignore)
                         return 0;
                 if (r < 0)
@@ -1952,7 +1952,7 @@ static int apply_one_mount(
                                 host_os_release_id_like,
                                 host_os_release_version_id,
                                 host_os_release_level,
-                                /* host_extension_scope = */ NULL, /* Leave empty, we need to accept both system and portable */
+                                /* host_extension_scope= */ NULL, /* Leave empty, we need to accept both system and portable */
                                 extension_release,
                                 class);
                 if (r < 0)
@@ -2751,7 +2751,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (r < 0)
                 return r;
 
-        r = append_private_bpf(&ml, p->private_bpf, p->protect_kernel_tunables, /* ignore_protect = */ false, p);
+        r = append_private_bpf(&ml, p->private_bpf, p->protect_kernel_tunables, /* ignore_protect= */ false, p);
         if (r < 0)
                 return r;
 
@@ -2995,7 +2995,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         } else if (p->root_directory) {
 
                 /* A root directory is specified. Turn its directory into bind mount, if it isn't one yet. */
-                r = path_is_mount_point_full(root, /* root = */ NULL, AT_SYMLINK_FOLLOW);
+                r = path_is_mount_point_full(root, /* root= */ NULL, AT_SYMLINK_FOLLOW);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to detect that %s is a mount point or not: %m", root);
                 if (r == 0) {
@@ -3021,7 +3021,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 return r;
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
-        r = mount_switch_root(root, /* mount_propagation_flag = */ 0);
+        r = mount_switch_root(root, /* mount_propagation_flag= */ 0);
         if (r == -EINVAL && p->root_directory) {
                 /* If we are using root_directory and we don't have privileges (ie: user manager in a user
                  * namespace) and the root_directory is already a mount point in the parent namespace,
@@ -3031,7 +3031,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 r = mount_nofollow_verbose(LOG_DEBUG, root, root, NULL, MS_BIND|MS_REC, NULL);
                 if (r < 0)
                         return r;
-                r = mount_switch_root(root, /* mount_propagation_flag = */ 0);
+                r = mount_switch_root(root, /* mount_propagation_flag= */ 0);
         }
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount root with MS_MOVE: %m");
@@ -4063,7 +4063,7 @@ int bpf_delegate_from_string(const char *s, uint64_t *ret, uint64_t (*parser)(co
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&s, &word, ",", /* flags = */ 0);
+                r = extract_first_word(&s, &word, ",", /* flags= */ 0);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse delegate options \"%s\": %m", s);
                 if (r == 0)

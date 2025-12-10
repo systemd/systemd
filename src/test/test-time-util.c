@@ -13,7 +13,7 @@
 #define TRIAL 100u
 
 static void set_timezone(const char *tz) {
-        ASSERT_OK(set_unset_env("TZ", tz, /* overwrite = */ true));
+        ASSERT_OK(set_unset_env("TZ", tz, /* overwrite= */ true));
         tzset();
         log_info("TZ=%s, tzname[0]=%s, tzname[1]=%s", strna(getenv("TZ")), strempty(get_tzname(/* dst= */ false)), strempty(get_tzname(/* dst= */ true)));
 }
@@ -431,7 +431,7 @@ static void test_format_timestamp_impl(usec_t x) {
         usec_t y_sec = y / USEC_PER_SEC;
 
         if (x_sec == y_sec && streq(xx, yy))
-                return; /* Yay!*/
+                return; /* Yay! */
 
         /* When the timezone is built with rearguard being enabled (e.g. old Ubuntu and RHEL), the following
          * timezone may provide time shifted 1 hour from the original. See

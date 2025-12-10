@@ -617,7 +617,7 @@ TEST(signed_integers) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
         ASSERT_OK(table_to_json(t, &a));
 
-        table_print_json(t, /*f=*/ NULL, SD_JSON_FORMAT_NEWLINE);
+        table_print_json(t, /* f= */ NULL, SD_JSON_FORMAT_NEWLINE);
 
         ASSERT_OK(sd_json_build(&b,
                                 SD_JSON_BUILD_ARRAY(
@@ -679,7 +679,7 @@ TEST(unsigned_integers) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
         ASSERT_OK(table_to_json(t, &a));
 
-        table_print_json(t, /*f=*/ NULL, SD_JSON_FORMAT_NEWLINE);
+        table_print_json(t, /* f= */ NULL, SD_JSON_FORMAT_NEWLINE);
 
         ASSERT_OK(sd_json_build(&b,
                                 SD_JSON_BUILD_ARRAY(

@@ -79,7 +79,7 @@ static int run(int argc, char *argv[]) {
                         log_warning_errno(r, "Could not create directory '%s': %m", p);
         }
 
-        r = manager_new(&m, /* test_mode = */ false);
+        r = manager_new(&m, /* test_mode= */ false);
         if (r < 0)
                 return log_error_errno(r, "Could not create manager: %m");
 

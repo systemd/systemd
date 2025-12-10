@@ -138,7 +138,7 @@ int bus_test_polkit(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *request = NULL, *reply = NULL;
         int authorized = false, challenge = false;
 
-        r = bus_message_new_polkit_auth_call_for_bus(call, action, details, /* flags = */ 0, &request);
+        r = bus_message_new_polkit_auth_call_for_bus(call, action, details, /* flags= */ 0, &request);
         if (r < 0)
                 return r;
 

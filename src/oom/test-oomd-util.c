@@ -43,7 +43,7 @@ static int fork_and_sleep(unsigned sleep_min) {
         pid_t pid;
         int r;
 
-        ASSERT_OK(r = safe_fork("(test-oom-child)", /* flags = */ 0, &pid));
+        ASSERT_OK(r = safe_fork("(test-oom-child)", /* flags= */ 0, &pid));
         if (r == 0) {
                 usec_t timeout = usec_add(now(CLOCK_MONOTONIC), sleep_min * USEC_PER_MINUTE);
                 for (;;) {

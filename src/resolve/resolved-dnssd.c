@@ -125,7 +125,7 @@ static int dnssd_registered_service_load(Manager *manager, const char *path) {
                 return log_oom();
 
         r = config_parse_many(
-                        STRV_MAKE_CONST(path), DNSSD_SERVICE_DIRS, dropin_dirname, /* root = */ NULL,
+                        STRV_MAKE_CONST(path), DNSSD_SERVICE_DIRS, dropin_dirname, /* root= */ NULL,
                         "Service\0",
                         config_item_perf_lookup, resolved_dnssd_gperf_lookup,
                         CONFIG_PARSE_WARN,

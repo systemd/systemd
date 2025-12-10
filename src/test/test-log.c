@@ -96,7 +96,7 @@ static void test_log_format_iovec_sentinel(
 
         va_start(ap, format);
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        ASSERT_OK(log_format_iovec(iovec, iovec_len, &n, /* newline_separator = */ false, ENOANO, format, ap));
+        ASSERT_OK(log_format_iovec(iovec, iovec_len, &n, /* newline_separator= */ false, ENOANO, format, ap));
         REENABLE_WARNING;
         va_end(ap);
 
@@ -114,7 +114,7 @@ static void test_log_format_iovec_sentinel(
 
         va_start(ap, format);
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        ASSERT_OK(log_format_iovec(iovec, iovec_len, &n, /* newline_separator = */ true, ENOANO, format, ap));
+        ASSERT_OK(log_format_iovec(iovec, iovec_len, &n, /* newline_separator= */ true, ENOANO, format, ap));
         REENABLE_WARNING;
         va_end(ap);
 
@@ -234,7 +234,7 @@ static void test_log_context(void) {
                 _cleanup_(log_context_unrefp) LogContext *ctx = NULL;
 
                 char **strv = STRV_MAKE("SIXTH=ijn", "SEVENTH=PRP");
-                ASSERT_NOT_NULL(ctx = log_context_new_strv(strv, /*owned=*/ false));
+                ASSERT_NOT_NULL(ctx = log_context_new_strv(strv, /* owned= */ false));
 
                 ASSERT_EQ(log_context_num_contexts(), 1U);
                 ASSERT_EQ(log_context_num_fields(), 2U);

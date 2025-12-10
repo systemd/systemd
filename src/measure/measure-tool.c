@@ -297,7 +297,7 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_free_ char *device = NULL;
 
                         if (streq(optarg, "list"))
-                                return tpm2_list_devices(/* legend = */ true, /* quiet = */ false);
+                                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
                         if (!streq(optarg, "auto")) {
                                 device = strdup(optarg);
@@ -832,7 +832,7 @@ static int build_policy_digest(bool sign) {
         /* This must be done before openssl_load_private_key() otherwise it will get stuck */
         if (arg_certificate) {
                 if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                        r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                         if (r < 0)
                                 return r;
                 }

@@ -1985,10 +1985,10 @@ static int set_matches_for_discover_id(
                 return add_matches_for_invocation_id(j, id);
 
         if (type == LOG_SYSTEM_UNIT_INVOCATION_ID)
-                return add_matches_for_unit_full(j, /* flags = */ 0, unit);
+                return add_matches_for_unit_full(j, /* flags= */ 0, unit);
 
         if (type == LOG_USER_UNIT_INVOCATION_ID)
-                return add_matches_for_user_unit_full(j, /* flags = */ 0, unit);
+                return add_matches_for_user_unit_full(j, /* flags= */ 0, unit);
 
         return -EINVAL;
 }
