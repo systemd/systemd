@@ -3118,6 +3118,18 @@ static int parse_ssh_authorized_keys(sd_json_variant **identity, const char *fie
         return 0;
 }
 
+static int parse_string_field(sd_json_variant **identity, const char *fieldname, const char *arg) {
+        int r;
+
+        if (isempty(arg))
+                return drop_from_identity(fieldname);
+
+        r = sd_json_variant_set_field_string(identity, fieldname, arg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", fieldname);
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -3609,21 +3621,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'c':
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("realName");
-                                if (r < 0)
-                                        return r;
+                        if (!isempty(optarg) && !valid_gecos(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid GECOS field '%s'.", optarg);
 
-                                break;
-                        }
-
-                        if (!valid_gecos(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Real name '%s' not a valid GECOS field.", optarg);
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "realName", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "realName", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set realName field: %m");
-
+                                return r;
                         break;
 
                 case ARG_ALIAS: {
@@ -3727,7 +3731,6 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LUKS_EXTRA_MOUNT_OPTIONS:
                 case ARG_SESSION_LAUNCHER:
                 case ARG_SESSION_TYPE: {
-
                         const char *field =
                                            c == ARG_EMAIL_ADDRESS ? "emailAddress" :
                                                 c == ARG_LOCATION ? "location" :
@@ -3739,55 +3742,30 @@ static int parse_argv(int argc, char *argv[]) {
                                         c == ARG_SESSION_LAUNCHER ? "preferredSessionLauncher" :
                                             c == ARG_SESSION_TYPE ? "preferredSessionType" :
                                                                     NULL;
-
                         assert(field);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, field, optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
                 case ARG_CIFS_SERVICE:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("cifsService");
+                        if (!isempty(optarg)) {
+                                r = parse_cifs_service(optarg, NULL, NULL, NULL);
                                 if (r < 0)
-                                        return r;
-
-                                break;
+                                        return log_error_errno(r, "Failed to validate CIFS service name: %s", optarg);
                         }
 
-                        r = parse_cifs_service(optarg, NULL, NULL, NULL);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsService", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to validate CIFS service name: %s", optarg);
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "cifsService", optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set cifsService field: %m");
-
+                                return r;
                         break;
 
                 case ARG_PASSWORD_HINT:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("passwordHint");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = sd_json_variant_set_field_string(&arg_identity_extra_privileged, "passwordHint", optarg);
+                        r = parse_string_field(&arg_identity_extra_privileged, "passwordHint", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set passwordHint field: %m");
+                                return r;
 
                         string_erase(optarg);
                         break;
@@ -3940,21 +3918,13 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case 's':
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("shell");
-                                if (r < 0)
-                                        return r;
+                        if (!isempty(optarg) && !valid_shell(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Shell '%s' not valid.", optarg);
 
-                                break;
-                        }
-
-                        if (!valid_shell(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Shell '%s' not valid.", optarg);
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "shell", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "shell", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set shell field: %m");
-
+                                return r;
                         break;
 
                 case ARG_SETENV: {
@@ -3995,21 +3965,13 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TIMEZONE:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("timeZone");
-                                if (r < 0)
-                                        return r;
+                        if (!isempty(optarg) && !timezone_is_valid(optarg, LOG_DEBUG))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Timezone '%s' is not valid.", optarg);
 
-                                break;
-                        }
-
-                        if (!timezone_is_valid(optarg, LOG_DEBUG))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Timezone '%s' is not valid.", optarg);
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "timeZone", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "timeZone", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set timezone field: %m");
-
+                                return r;
                         break;
 
                 case ARG_LANGUAGE: {
@@ -4362,35 +4324,28 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LUKS_CIPHER_MODE:
                 case ARG_LUKS_PBKDF_TYPE:
                 case ARG_LUKS_PBKDF_HASH_ALGORITHM: {
-
                         const char *field =
                                                   c == ARG_STORAGE ? "storage" :
                                                   c == ARG_FS_TYPE ? "fileSystemType" :
                                               c == ARG_LUKS_CIPHER ? "luksCipher" :
                                          c == ARG_LUKS_CIPHER_MODE ? "luksCipherMode" :
                                           c == ARG_LUKS_PBKDF_TYPE ? "luksPbkdfType" :
-                                c == ARG_LUKS_PBKDF_HASH_ALGORITHM ? "luksPbkdfHashAlgorithm" : NULL;
-
+                                c == ARG_LUKS_PBKDF_HASH_ALGORITHM ? "luksPbkdfHashAlgorithm" :
+                                                                     NULL;
                         assert(field);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
+                        sd_json_variant **identity =
+                                match_identity ?:
+                                IN_SET(c, ARG_STORAGE, ARG_FS_TYPE) ?
+                                &arg_identity_extra_this_machine : &arg_identity_extra;
 
-                                break;
-                        }
+                        if (!isempty(optarg) && !string_is_safe(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Parameter for field %s not valid: %s", field, optarg);
 
-                        if (!string_is_safe(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parameter for %s field not valid: %s", field, optarg);
-
-                        r = sd_json_variant_set_field_string(
-                                        match_identity ?: (IN_SET(c, ARG_STORAGE, ARG_FS_TYPE) ?
-                                                           &arg_identity_extra_this_machine :
-                                                           &arg_identity_extra), field, optarg);
+                        r = parse_string_field(identity, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
