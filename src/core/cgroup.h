@@ -185,6 +185,8 @@ typedef struct CGroupContext {
         LIST_HEAD(CGroupSocketBindItem, socket_bind_allow);
         LIST_HEAD(CGroupSocketBindItem, socket_bind_deny);
 
+        char *bind_network_interface;
+
         /* Common */
         CGroupTasksMax tasks_max;
 
@@ -332,6 +334,12 @@ typedef struct CGroupRuntime {
         bool warned_clamping_cpu_quota_period:1;
 
         int deserialized_cgroup_realized; /* tristate, for backwards compat */
+
+#if BPF_FRAMEWORK
+        /* BPF link to BPF programs attached to cgroup/sock_create hooks and
+         * responsible for binding created sockets to a given VRF interface. */
+        struct bpf_link *bpf_bind_network_interface_link;
+#endif
 } CGroupRuntime;
 
 uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state);
