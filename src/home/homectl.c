@@ -3196,6 +3196,25 @@ static int parse_size_field(sd_json_variant **identity, const char *field, const
         return 0;
 }
 
+static int parse_boolean_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+ 
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+ 
+        r = parse_boolean(arg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse boolean parameter %s: %s", field, arg);
+ 
+        r = sd_json_variant_set_field_boolean(identity, field, r > 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -4099,33 +4118,18 @@ static int parse_argv(int argc, char *argv[]) {
                                              c == ARG_AUTO_LOGIN ? "autoLogin" :
                                     c == ARG_PASSWORD_CHANGE_NOW ? "passwordChangeNow" :
                                                                    NULL;
-
                         assert(field);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s boolean: %m", field);
-
-                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, field, r > 0);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
                 case 'P':
                         r = sd_json_variant_set_field_boolean(&arg_identity_extra, "enforcePasswordPolicy", false);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set enforcePasswordPolicy field: %m");
-
+                                return log_error_errno(r, "Failed to set %s field: %m", "enforcePasswordPolicy");
                         break;
 
                 case ARG_DISK_SIZE:
@@ -4200,42 +4204,14 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_LUKS_DISCARD:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("luksDiscard");
-                                if (r < 0)
-                                        return r;
+                case ARG_LUKS_OFFLINE_DISCARD: {
+                        const char *field = c == ARG_LUKS_DISCARD ? "luksDiscard" : "luksOfflineDiscard";
 
-                                break;
-                        }
-
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --luks-discard= parameter: %s", optarg);
-
-                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, "luksDiscard", r);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set discard field: %m");
-
+                                return r;
                         break;
-
-                case ARG_LUKS_OFFLINE_DISCARD:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("luksOfflineDiscard");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_boolean(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --luks-offline-discard= parameter: %s", optarg);
-
-                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, "luksOfflineDiscard", r);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set offline discard field: %m");
-
-                        break;
+                }
 
                 case ARG_LUKS_VOLUME_KEY_SIZE:
                 case ARG_LUKS_PBKDF_FORCE_ITERATIONS:
@@ -4742,24 +4718,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_and_change_password = true;
                         break;
 
-                case ARG_DROP_CACHES: {
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("dropCaches");
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        r = parse_boolean_argument("--drop-caches=", optarg, NULL);
+                case ARG_DROP_CACHES:
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "dropCaches", optarg);
                         if (r < 0)
                                 return r;
-
-                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, "dropCaches", r);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set drop caches field: %m");
-
                         break;
-                }
 
                 case ARG_CAPABILITY_AMBIENT_SET:
                 case ARG_CAPABILITY_BOUNDING_SET: {
