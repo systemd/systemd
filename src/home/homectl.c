@@ -3553,6 +3553,56 @@ static int parse_language_field(char ***languages, const char *arg) {
         }
 }
 
+static int parse_group_field(
+                sd_json_variant *source_identity,
+                sd_json_variant **identity,
+                const char *field,
+                const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        for (const char *p = arg;;) {
+                _cleanup_free_ char *word = NULL;
+                _cleanup_strv_free_ char **list = NULL;
+
+                r = extract_first_word(&p, &word, ",", 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse group list: %m");
+                if (r == 0)
+                        return 0;
+
+                if (!valid_user_group_name(word, 0))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid group name %s.", word);
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo =
+                        sd_json_variant_ref(sd_json_variant_by_key(source_identity, field));
+
+                r = sd_json_variant_strv(mo, &list);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse group list: %m");
+
+                r = strv_extend(&list, word);
+                if (r < 0)
+                        return log_oom();
+
+                strv_sort_uniq(list);
+
+                mo = sd_json_variant_unref(mo);
+                r = sd_json_variant_new_array_strv(&mo, list);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate json list: %m");
+
+                r = sd_json_variant_set_field(identity, field, mo);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set %s field: %m", field);
+        }
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -4053,52 +4103,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_ALIAS: {
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("aliases");
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        for (const char *p = optarg;;) {
-                                _cleanup_free_ char *word = NULL;
-
-                                r = extract_first_word(&p, &word, ",", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse alias list: %m");
-                                if (r == 0)
-                                        break;
-
-                                if (!valid_user_group_name(word, 0))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid alias user name %s.", word);
-
-                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *av =
-                                        sd_json_variant_ref(sd_json_variant_by_key(arg_identity_extra, "aliases"));
-
-                                _cleanup_strv_free_ char **list = NULL;
-                                r = sd_json_variant_strv(av, &list);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse group list: %m");
-
-                                r = strv_extend(&list, word);
-                                if (r < 0)
-                                        return log_oom();
-
-                                strv_sort_uniq(list);
-
-                                av = sd_json_variant_unref(av);
-                                r = sd_json_variant_new_array_strv(&av, list);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to create alias list JSON: %m");
-
-                                r = sd_json_variant_set_field(&arg_identity_extra, "aliases", av);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to update alias list: %m");
-                        }
-
+                case ARG_ALIAS:
+                        r = parse_group_field(arg_identity_extra, &arg_identity_extra, "aliases", optarg);
+                        if (r < 0)
+                                return r;
                         break;
-                }
 
                 case 'd':
                         r = parse_home_directory_field(&arg_identity_extra, "homeDirectory", optarg);
@@ -4464,56 +4473,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case 'G': {
-                        const char *p = optarg;
-
-                        if (isempty(p)) {
-                                r = drop_from_identity("memberOf");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        for (;;) {
-                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo = NULL;
-                                _cleanup_strv_free_ char **list = NULL;
-                                _cleanup_free_ char *word = NULL;
-
-                                r = extract_first_word(&p, &word, ",", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse group list: %m");
-                                if (r == 0)
-                                        break;
-
-                                if (!valid_user_group_name(word, 0))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid group name %s.", word);
-
-                                mo = sd_json_variant_ref(sd_json_variant_by_key(arg_identity_extra, "memberOf"));
-
-                                r = sd_json_variant_strv(mo, &list);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse group list: %m");
-
-                                r = strv_extend(&list, word);
-                                if (r < 0)
-                                        return log_oom();
-
-                                strv_sort_uniq(list);
-
-                                mo = sd_json_variant_unref(mo);
-                                r = sd_json_variant_new_array_strv(&mo, list);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to create group list JSON: %m");
-
-                                r = sd_json_variant_set_field(match_identity ?: &arg_identity_extra, "memberOf", mo);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to update group list: %m");
-                        }
-
+                case 'G':
+                        r = parse_group_field(arg_identity_extra,
+                                              match_identity ?: &arg_identity_extra,
+                                              "memberOf", optarg);
+                        if (r < 0)
+                                return r;
                         break;
-                }
-
 
                 case ARG_TASKS_MAX:
                         r = parse_u64_field(match_identity ?: &arg_identity_extra, "tasksMax", optarg);
