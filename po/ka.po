@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-07-24 14:54+0000\n"
+"PO-Revision-Date: 2025-12-10 14:52+0000\n"
 "Last-Translator: Temuri Doghonadze <temuri.doghonadze@gmail.com>\n"
 "Language-Team: Georgian <https://translate.fedoraproject.org/projects/"
 "systemd/main/ka/>\n"
@@ -14,7 +14,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.12.2\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -614,14 +614,14 @@ msgstr "სისტემის გადატვირთვას ავთ�
 
 #: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
-msgstr "სისტემის გამორთვა, როცა სხვა მომხმარებლებიც არიან შესული"
+msgstr "სისტემის გადატვირთვა, როცა სხვა მომხმარებლებიც არიან შესული"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
 msgstr ""
-"სისტემის გამორთვას, როცა სხვა მომხმარებლებიც არიან შესული, ავთენტიკაცია "
+"სისტემის გადატვირთვას, როცა სხვა მომხმარებლებიც არიან შესული, ავთენტიკაცია "
 "სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:224
@@ -1002,7 +1002,7 @@ msgstr "NTP პარამეტრების დაბრუნების�
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
-msgstr "DNS პარამეტრების დაბრუნება"
+msgstr "DNS-ის პარამეტრების დაბრუნება"
 
 #: src/network/org.freedesktop.network1.policy:133
 msgid "Authentication is required to reset DNS settings."
