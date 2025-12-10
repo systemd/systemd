@@ -92,6 +92,10 @@ TEST_RET(test_image_policy_to_string) {
         test_policy_string("swap=open:root=signed+read-only-on+growfs-off:=absent");
         test_policy_string("=-");
         test_policy_string("=");
+        test_policy_string("root=ext4+squashfs+verity");
+        test_policy_string("usr=encrypted+erofs+read-only-off");
+        test_policy_string("home=unprotected+btrfs");
+        test_policy_string("=vfat+erofs");
 
         test_policy_equiv("", image_policy_equiv_ignore);
         test_policy_equiv("-", image_policy_equiv_ignore);
