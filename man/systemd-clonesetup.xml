@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-clonesetup" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-clonesetup</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-clonesetup</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-clonesetup</refname>
+    <refname>systemd-clonesetup@.service</refname>
+    <refpurpose>Set up and tear down dm-clone devices</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-clonesetup</command>
+      <arg choice="plain">add</arg>
+      <arg choice="plain">NAME</arg>
+      <arg choice="plain">SOURCE-DEVICE</arg>
+      <arg choice="plain">DEST-DEVICE</arg>
+      <arg choice="plain">META-DEVICE</arg>
+      <arg choice="opt">OPTIONS</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-clonesetup</command>
+      <arg choice="plain">remove</arg>
+      <arg choice="plain">NAME</arg>
+    </cmdsynopsis>
+
+    <para><filename>systemd-clonesetup@.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-clonesetup</command> is used to set up (with <command>add</command>) and tear down
+    (with <command>remove</command>) dm-clone devices. It is primarily used via
+    <filename>systemd-clonesetup@.service</filename> units generated from
+    <filename>/etc/clonetab</filename> by
+    <citerefentry><refentrytitle>systemd-clonesetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
+
+    <para>The positional arguments <parameter>NAME</parameter>, <parameter>SOURCE-DEVICE</parameter>,
+    <parameter>DEST-DEVICE</parameter>, <parameter>META-DEVICE</parameter>, and <parameter>OPTIONS</parameter>
+    have the same meaning as the fields in
+    <citerefentry><refentrytitle>clonetab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>Currently, the supported option in <parameter>OPTIONS</parameter> is
+    <varname>region_size=</varname><replaceable>BYTES</replaceable>, where
+    <replaceable>BYTES</replaceable> is measured in bytes (standard suffixes like
+    <literal>K</literal>, <literal>M</literal>, <literal>G</literal> are supported).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>clonetab</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-clonesetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>dmsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
