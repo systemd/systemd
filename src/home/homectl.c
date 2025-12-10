@@ -3726,6 +3726,48 @@ static int parse_capability_set_field(
         return 0;
 }
 
+static int parse_tmpfs_limit_field(
+                sd_json_variant **identity,
+                const char *field,
+                const char *field_scale,
+                const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+        assert(field_scale);
+
+        if (isempty(arg)) {
+                FOREACH_STRING(p, field, field_scale) {
+                        r = drop_from_identity(p);
+                        if (r < 0)
+                                return r;
+                }
+                return 0;
+        }
+
+        r = parse_permyriad(arg);
+        if (r < 0) {
+                uint64_t u;
+
+                r = parse_size(arg, 1024, &u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s/%s parameter: %s", field, field_scale, arg);
+
+                r = sd_json_variant_set_field_unsigned(identity, field, u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set %s field: %m", field);
+
+                return drop_from_identity(field_scale);
+        }
+
+        r = sd_json_variant_set_field_unsigned(identity, field_scale, UINT32_SCALE_FROM_PERMYRIAD(r));
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field_scale);
+
+        return drop_from_identity(field);
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -4862,41 +4904,10 @@ static int parse_argv(int argc, char *argv[]) {
                         assert(field);
                         assert(field_scale);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-                                r = drop_from_identity(field_scale);
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        r = parse_permyriad(optarg);
-                        if (r < 0) {
-                                uint64_t u;
-
-                                r = parse_size(optarg, 1024, &u);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse %s/%s parameter: %s", field, field_scale, optarg);
-
-                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, u);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to set %s field: %m", field);
-
-                                r = drop_from_identity(field_scale);
-                                if (r < 0)
-                                        return r;
-                        } else {
-                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field_scale, UINT32_SCALE_FROM_PERMYRIAD(r));
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to set %s field: %m", field_scale);
-
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-                        }
-
+                        r = parse_tmpfs_limit_field(match_identity ?: &arg_identity_extra,
+                                                    field, field_scale, optarg);
+                        if (r < 0)
+                                return r;
                         break;
                 }
 
