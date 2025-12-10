@@ -3672,6 +3672,75 @@ static int parse_tmpfs_limit_field(
         }
 }
 
+static int parse_pkcs11_token_uri_field(const char *arg) {
+        int r;
+
+        if (streq(arg, "list"))
+                return pkcs11_list_tokens();
+
+        /* If --pkcs11-token-uri= is specified we always drop everything old */
+        FOREACH_STRING(p, "pkcs11TokenUri", "pkcs11EncryptedKey") {
+                r = drop_from_identity(p);
+                if (r < 0)
+                        return r;
+        }
+
+        if (isempty(arg)) {
+                arg_pkcs11_token_uri = strv_free(arg_pkcs11_token_uri);
+                return 1;
+        }
+
+        if (streq(arg, "auto")) {
+                char *found;
+                r = pkcs11_find_token_auto(&found);
+                if (r < 0)
+                        return r;
+                r = strv_consume(&arg_pkcs11_token_uri, found);
+        } else {
+                if (!pkcs11_uri_valid(arg))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid PKCS#11 URI: %s", arg);
+
+                r = strv_extend(&arg_pkcs11_token_uri, arg);
+        }
+        if (r < 0)
+                return r;
+
+        strv_uniq(arg_pkcs11_token_uri);
+        return 1;
+}
+
+static int parse_fido2_device_field(const char *arg) {
+        int r;
+
+        if (streq(arg, "list"))
+                return fido2_list_devices();
+
+        FOREACH_STRING(p, "fido2HmacCredential", "fido2HmacSalt") {
+                r = drop_from_identity(p);
+                if (r < 0)
+                        return r;
+        }
+
+        if (isempty(arg)) {
+                arg_fido2_device = strv_free(arg_fido2_device);
+                return 1;
+        }
+
+        if (streq(arg, "auto")) {
+                char *found;
+                r = fido2_find_device_auto(&found);
+                if (r < 0)
+                        return r;
+                r = strv_consume(&arg_fido2_device, found);
+        } else
+                r = strv_extend(&arg_fido2_device, arg);
+        if (r < 0)
+                return r;
+
+        strv_uniq(arg_fido2_device);
+        return 1;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -4532,38 +4601,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_PKCS11_TOKEN_URI:
-                        if (streq(optarg, "list"))
-                                return pkcs11_list_tokens();
-
-                        /* If --pkcs11-token-uri= is specified we always drop everything old */
-                        FOREACH_STRING(p, "pkcs11TokenUri", "pkcs11EncryptedKey") {
-                                r = drop_from_identity(p);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        if (isempty(optarg)) {
-                                arg_pkcs11_token_uri = strv_free(arg_pkcs11_token_uri);
-                                break;
-                        }
-
-                        if (streq(optarg, "auto")) {
-                                _cleanup_free_ char *found = NULL;
-
-                                r = pkcs11_find_token_auto(&found);
-                                if (r < 0)
-                                        return r;
-                                r = strv_consume(&arg_pkcs11_token_uri, TAKE_PTR(found));
-                        } else {
-                                if (!pkcs11_uri_valid(optarg))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid PKCS#11 URI: %s", optarg);
-
-                                r = strv_extend(&arg_pkcs11_token_uri, optarg);
-                        }
-                        if (r < 0)
+                        r = parse_pkcs11_token_uri_field(optarg);
+                        if (r <= 0)
                                 return r;
-
-                        strv_uniq(arg_pkcs11_token_uri);
                         break;
 
                 case ARG_FIDO2_CRED_ALG:
@@ -4573,34 +4613,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FIDO2_DEVICE:
-                        if (streq(optarg, "list"))
-                                return fido2_list_devices();
-
-                        FOREACH_STRING(p, "fido2HmacCredential", "fido2HmacSalt") {
-                                r = drop_from_identity(p);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        if (isempty(optarg)) {
-                                arg_fido2_device = strv_free(arg_fido2_device);
-                                break;
-                        }
-
-                        if (streq(optarg, "auto")) {
-                                _cleanup_free_ char *found = NULL;
-
-                                r = fido2_find_device_auto(&found);
-                                if (r < 0)
-                                        return r;
-
-                                r = strv_consume(&arg_fido2_device, TAKE_PTR(found));
-                        } else
-                                r = strv_extend(&arg_fido2_device, optarg);
-                        if (r < 0)
+                        r = parse_fido2_device_field(optarg);
+                        if (r <= 0)
                                 return r;
-
-                        strv_uniq(arg_fido2_device);
                         break;
 
                 case ARG_FIDO2_WITH_PIN:
