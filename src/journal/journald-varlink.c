@@ -20,7 +20,7 @@ void sync_req_varlink_reply(SyncReq *req) {
          * anymore. */
 
         if (req->offline)
-                manager_full_sync(req->manager, /* wait = */ true);
+                manager_full_sync(req->manager, /* wait= */ true);
 
         log_debug("Client request to sync journal (%s offlining) completed.", req->offline ? "with" : "without");
 
@@ -88,7 +88,7 @@ static int vl_method_rotate(sd_varlink *link, sd_json_variant *parameters, sd_va
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -109,7 +109,7 @@ static int vl_method_flush_to_var(sd_varlink *link, sd_json_variant *parameters,
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -133,7 +133,7 @@ static int vl_method_relinquish_var(sd_varlink *link, sd_json_variant *parameter
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 

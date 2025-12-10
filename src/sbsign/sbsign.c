@@ -126,7 +126,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_OUTPUT:
-                        r = parse_path_argument(optarg, /*suppress_root=*/ false, &arg_output);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_output);
                         if (r < 0)
                                 return r;
 
@@ -257,7 +257,7 @@ static int spc_indirect_data_content_new(const void *digest, size_t digestsz, ui
         if (!idc->data->value->value.sequence)
                 return log_oom();
 
-        idc->data->type = OBJ_txt2obj(SPC_PE_IMAGE_DATA_OBJID, /*no_name=*/ 1);
+        idc->data->type = OBJ_txt2obj(SPC_PE_IMAGE_DATA_OBJID, /* no_name= */ 1);
         if (!idc->data->type)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get SpcPeImageData object: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
@@ -465,7 +465,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No output specified, use --output=");
 
         if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                 if (r < 0)
                         return r;
         }

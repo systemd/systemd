@@ -113,7 +113,7 @@ int create_subcgroup(
                         return log_error_errno(r, "Failed to add cgroup %s to userns: %m", payload);
         } else {
                 _cleanup_free_ char *fs = NULL;
-                r = cg_get_path(payload, /* suffix = */ NULL, &fs);
+                r = cg_get_path(payload, /* suffix= */ NULL, &fs);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get file system path for container cgroup: %m");
 
@@ -147,14 +147,14 @@ int mount_cgroups(const char *dest, bool accept_existing) {
         if (r < 0)
                 return log_error_errno(r, "Failed to chase %s/sys/fs/cgroup: %m", strempty(dest));
 
-        r = is_mount_point_at(fd, /* filename = */ NULL, /* flags = */ 0);
+        r = is_mount_point_at(fd, /* filename= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if %s is mounted already: %m", p);
         if (r > 0) {
                 if (!accept_existing)
                         return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Refusing existing cgroupfs mount: %s", p);
 
-                if (faccessat(fd, "cgroup.procs", F_OK, /* flags = */ 0) >= 0)
+                if (faccessat(fd, "cgroup.procs", F_OK, /* flags= */ 0) >= 0)
                         return 0;
                 if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to determine if mount point %s contains the unified cgroup hierarchy: %m", p);

@@ -1609,7 +1609,7 @@ static void cgroup_context_apply(
         if (apply_mask & CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES)
                 cgroup_apply_restrict_network_interfaces(u);
 
-        unit_modify_nft_set(u, /* add = */ true);
+        unit_modify_nft_set(u, /* add= */ true);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1931,7 +1931,7 @@ static int unit_set_cgroup_path(Unit *u, const char *path) {
         if (crt && streq_ptr(crt->cgroup_path, path))
                 return 0;
 
-        unit_release_cgroup(u, /* drop_cgroup_runtime = */ true);
+        unit_release_cgroup(u, /* drop_cgroup_runtime= */ true);
 
         crt = unit_setup_cgroup_runtime(u);
         if (!crt)
@@ -2101,7 +2101,7 @@ static int unit_update_cgroup(
         CGroupRuntime *crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
 
         uint64_t cgroup_id = 0;
-        r = cg_get_path(crt->cgroup_path, /* suffix = */ NULL, &cgroup_full_path);
+        r = cg_get_path(crt->cgroup_path, /* suffix= */ NULL, &cgroup_full_path);
         if (r == 0) {
                 r = cg_path_get_cgroupid(cgroup_full_path, &cgroup_id);
                 if (r < 0)
@@ -2735,7 +2735,7 @@ static bool unit_maybe_release_cgroup(Unit *u) {
                 /* Do not free CGroupRuntime when called from unit_prune_cgroup. Various accounting data
                  * we should keep, especially CPU usage and *_peak ones which would be shown even after
                  * the unit stops. */
-                unit_release_cgroup(u, /* drop_cgroup_runtime = */ false);
+                unit_release_cgroup(u, /* drop_cgroup_runtime= */ false);
                 return true;
         }
 
@@ -2793,13 +2793,13 @@ void unit_prune_cgroup(Unit *u) {
                 return;
 
         /* Cache the last resource usage values before we destroy the cgroup */
-        (void) unit_get_cpu_usage(u, /* ret = */ NULL);
+        (void) unit_get_cpu_usage(u, /* ret= */ NULL);
 
         for (CGroupMemoryAccountingMetric metric = 0; metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST; metric++)
-                (void) unit_get_memory_accounting(u, metric, /* ret = */ NULL);
+                (void) unit_get_memory_accounting(u, metric, /* ret= */ NULL);
 
         /* All IO metrics are read at once from the underlying cgroup, so issue just a single call */
-        (void) unit_get_io_accounting(u, _CGROUP_IO_ACCOUNTING_METRIC_INVALID, /* ret = */ NULL);
+        (void) unit_get_io_accounting(u, _CGROUP_IO_ACCOUNTING_METRIC_INVALID, /* ret= */ NULL);
 
         /* We do not cache IP metrics here because the firewall objects are not freed with cgroups */
 
@@ -2807,7 +2807,7 @@ void unit_prune_cgroup(Unit *u) {
         (void) bpf_restrict_fs_cleanup(u); /* Remove cgroup from the global LSM BPF map */
 #endif
 
-        unit_modify_nft_set(u, /* add = */ false);
+        unit_modify_nft_set(u, /* add= */ false);
 
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 
@@ -3316,7 +3316,7 @@ int manager_setup_cgroup(Manager *m) {
 
         /* 5. Make sure we are in the special "init.scope" unit in the root slice. */
         const char *scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
-        r = cg_create_and_attach(scope_path, /* pid = */ 0);
+        r = cg_create_and_attach(scope_path, /* pid= */ 0);
         if (r >= 0) {
                 /* Also, move all other userspace processes remaining in the root cgroup into that scope. */
                 r = cg_migrate(m->cgroup_root, scope_path, 0);
@@ -4169,8 +4169,8 @@ CGroupRuntime* cgroup_runtime_new(void) {
                 .deserialized_cgroup_realized = -1,
         };
 
-        unit_reset_cpu_accounting(/* unit = */ NULL, crt);
-        unit_reset_io_accounting(/* unit = */ NULL, crt);
+        unit_reset_cpu_accounting(/* unit= */ NULL, crt);
+        unit_reset_io_accounting(/* unit= */ NULL, crt);
         cgroup_runtime_reset_memory_accounting_last(crt);
         assert_se(cgroup_runtime_reset_ip_accounting(crt) >= 0);
 

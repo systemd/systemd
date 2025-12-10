@@ -68,13 +68,13 @@ static int run(int argc, char *argv[]) {
         return make_filesystem(device,
                                fstype,
                                label,
-                               /* root = */ NULL,
+                               /* root= */ NULL,
                                uuid,
                                MKFS_DISCARD | MKFS_QUIET,
-                               /* sector_size = */ 0,
-                               /* compression = */ NULL,
-                               /* compression_level = */ NULL,
-                               /* extra_mkfs_options = */ NULL);
+                               /* sector_size= */ 0,
+                               /* compression= */ NULL,
+                               /* compression_level= */ NULL,
+                               /* extra_mkfs_options= */ NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);

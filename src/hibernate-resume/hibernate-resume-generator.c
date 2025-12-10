@@ -69,11 +69,11 @@ static int add_dissected_swap_cryptsetup(void) {
          * resume from hibernation can be automatically initiated there. This mostly follows what gpt-auto does,
          * but operates in initrd. */
 
-        r = generator_open_unit_file(arg_dest_late, /* source = */ NULL, "systemd-cryptsetup@swap.service", &f);
+        r = generator_open_unit_file(arg_dest_late, /* source= */ NULL, "systemd-cryptsetup@swap.service", &f);
         if (r < 0)
                 return r;
 
-        r = generator_write_cryptsetup_unit_section(f, /* source = */ NULL);
+        r = generator_write_cryptsetup_unit_section(f, /* source= */ NULL);
         if (r < 0)
                 return r;
 
@@ -85,7 +85,7 @@ static int add_dissected_swap_cryptsetup(void) {
 
         r = generator_write_cryptsetup_service_section(
                         f, "swap", DISSECTED_SWAP_LUKS_DEVICE,
-                        /* key_file = */ NULL,
+                        /* key_file= */ NULL,
                         efi_measured_uki(LOG_DEBUG) > 0 ? "tpm2-device=auto" : NULL);
         if (r < 0)
                 return r;
@@ -96,7 +96,7 @@ static int add_dissected_swap_cryptsetup(void) {
 
         r = generator_write_device_timeout(arg_dest_late,
                                            DISSECTED_SWAP_LUKS_DEVICE,
-                                           arg_resume_options ?: arg_root_options, /* filtered = */ NULL);
+                                           arg_resume_options ?: arg_root_options, /* filtered= */ NULL);
         if (r < 0)
                 return r;
 

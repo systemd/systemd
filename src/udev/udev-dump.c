@@ -293,7 +293,7 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
         if (r < 0)
                 return r;
 
-        return sd_json_variant_dump(v, flags, f, /* prefix = */ NULL);
+        return sd_json_variant_dump(v, flags, f, /* prefix= */ NULL);
 }
 
 int dump_event(UdevEvent *event, sd_json_format_flags_t flags, FILE *f) {

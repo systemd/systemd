@@ -1320,7 +1320,7 @@ ssize_t flush_mqueue(int fd) {
                                 return -ENOMEM;
                 }
 
-                l = mq_receive(fd, buf, attr.mq_msgsize, /* msg_prio = */ NULL);
+                l = mq_receive(fd, buf, attr.mq_msgsize, /* msg_prio= */ NULL);
                 if (l < 0) {
                         if (errno == EINTR)
                                 continue;

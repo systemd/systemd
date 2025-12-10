@@ -1201,7 +1201,7 @@ int manager_setup_save_time_event(Manager *m) {
                         m,
                         SD_EVENT_PRIORITY_NORMAL,
                         "save-time",
-                        /* force_reset = */ false);
+                        /* force_reset= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset event source for saving time: %m");
 
@@ -1217,7 +1217,7 @@ static int manager_save_time_and_rearm(Manager *m, usec_t t) {
          * clock, but otherwise uses the specified timestamp. Note that whenever we acquire an NTP sync the
          * specified timestamp value might be more accurate than the system clock, since the latter is
          * subject to slow adjustments. */
-        r = touch_file(TIMESYNCD_CLOCK_FILE, /* parents = */ false, t, UID_INVALID, GID_INVALID, MODE_INVALID);
+        r = touch_file(TIMESYNCD_CLOCK_FILE, /* parents= */ false, t, UID_INVALID, GID_INVALID, MODE_INVALID);
         if (r < 0)
                 log_debug_errno(r, "Failed to update "TIMESYNCD_CLOCK_FILE", ignoring: %m");
 

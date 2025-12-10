@@ -1516,7 +1516,7 @@ static int crypt_activate_by_token_pin_ask_password(
         _cleanup_strv_free_erase_ char **pins = NULL;
         int r;
 
-        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin=*/ NULL, /* pin_size= */ 0, userdata, activation_flags);
+        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin= */ NULL, /* pin_size= */ 0, userdata, activation_flags);
         if (r > 0) /* returns unlocked keyslot id on success */
                 return 0;
         if (r == -EEXIST) /* volume is already active */

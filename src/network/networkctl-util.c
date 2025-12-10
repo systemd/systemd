@@ -94,7 +94,7 @@ int acquire_bus(sd_bus **ret) {
         (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         if (networkd_is_running()) {
-                r = varlink_connect_networkd(/* ret_varlink = */ NULL);
+                r = varlink_connect_networkd(/* ret_varlink= */ NULL);
                 if (r < 0)
                         return r;
         } else

@@ -605,12 +605,12 @@ static int property_get_log_filter_patterns(
                 return r;
 
         r = sd_bus_message_append_log_filter_patterns(reply, c->log_filter_allowed_patterns,
-                                                      /* is_allowlist = */ true);
+                                                      /* is_allowlist= */ true);
         if (r < 0)
                 return r;
 
         r = sd_bus_message_append_log_filter_patterns(reply, c->log_filter_denied_patterns,
-                                                      /* is_allowlist = */ false);
+                                                      /* is_allowlist= */ false);
         if (r < 0)
                 return r;
 
@@ -2248,7 +2248,7 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!isempty(h) && !hostname_is_valid(h, /* flags = */ 0))
+                if (!isempty(h) && !hostname_is_valid(h, /* flags= */ 0))
                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname in %s setting: %s", name, h);
 
                 ProtectHostname t = protect_hostname_from_string(s);
