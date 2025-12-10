@@ -3136,6 +3136,69 @@ static int parse_string_field(sd_json_variant **identity, const char *field, con
         return 0;
 }
 
+static int parse_home_directory_field(sd_json_variant **identity, const char *field, const char *arg) {
+        _cleanup_free_ char *hd = NULL;
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (!isempty(arg)) {
+                r = parse_path_argument(arg, false, &hd);
+                if (r < 0)
+                        return r;
+
+                if (!valid_home(hd))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Home directory '%s' not valid.", hd);
+        }
+
+        return parse_string_field(identity, field, hd);
+}
+
+static int parse_realm_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (!isempty(arg)) {
+                r = dns_name_is_valid(arg);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether realm '%s' is a valid DNS domain: %m", arg);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Realm '%s' is not a valid DNS domain.", arg);
+        }
+
+        return parse_string_field(identity, field, arg);
+}
+
+static int parse_path_field(sd_json_variant **identity, const char *field, const char *arg) {
+        _cleanup_free_ char *v = NULL;
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (!isempty(arg)) {
+                r = parse_path_argument(arg, false, &v);
+                if (r < 0)
+                        return r;
+        }
+
+        return parse_string_field(identity, field, v);
+}
+
+static int parse_filename_field(sd_json_variant **identity, const char *field, const char *arg) {
+        assert(identity);
+        assert(field);
+
+        if (!isempty(arg) && !filename_is_valid(arg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Parameter for %s field not a valid filename: %s", field, arg);
+
+        return parse_string_field(identity, field, arg);
+}
+
 static int parse_unsigned_field(sd_json_variant **identity, const char *field, const char *arg) {
         int r;
 
@@ -3782,49 +3845,16 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case 'd': {
-                        _cleanup_free_ char *hd = NULL;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("homeDirectory");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_path_argument(optarg, false, &hd);
+                case 'd':
+                        r = parse_home_directory_field(&arg_identity_extra, "homeDirectory", optarg);
                         if (r < 0)
                                 return r;
-
-                        if (!valid_home(hd))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Home directory '%s' not valid.", hd);
-
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "homeDirectory", hd);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set homeDirectory field: %m");
-
                         break;
-                }
 
                 case ARG_REALM:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("realm");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = dns_name_is_valid(optarg);
+                        r = parse_realm_field(&arg_identity_extra, "realm", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to determine whether realm '%s' is a valid DNS domain: %m", optarg);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Realm '%s' is not a valid DNS domain.", optarg);
-
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "realm", optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set realm field: %m");
+                                return r;
                         break;
 
                 case ARG_EMAIL_ADDRESS:
@@ -4001,24 +4031,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'k':
                 case ARG_IMAGE_PATH: {
                         const char *field = c == 'k' ? "skeletonDirectory" : "imagePath";
-                        _cleanup_free_ char *v = NULL;
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_path_argument(optarg, false, &v);
+                        r = parse_path_field(match_identity ?: &arg_identity_extra_this_machine, field, optarg);
                         if (r < 0)
                                 return r;
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra_this_machine, field, v);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", v);
-
                         break;
                 }
 
@@ -4878,21 +4894,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_DEFAULT_AREA:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("defaultArea");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        if (!filename_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parameter for default area field not valid: %s", optarg);
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "defaultArea", optarg);
+                        r = parse_filename_field(match_identity ?: &arg_identity_extra, "defaultArea", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set default area field: %m");
-
+                                return r;
                         break;
 
                 case ARG_KEY_NAME:
