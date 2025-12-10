@@ -175,7 +175,7 @@ if ! systemd-detect-virt -cq; then
     systemd-run --wait --pipe --unit "$SERVICE_NAME" "${ARGUMENTS[@]}" \
         bash -xec "test -r /dev/null; test ! -w /dev/null; test ! -r $LODEV; test -w $LODEV; test ! -r /dev/tty; test ! -w /dev/tty"
 
-    if ! systemctl --version | grep -qF -- "-BPF_FRAMEWORK"; then
+    if ! systemctl --version | grep -F -- "-BPF_FRAMEWORK" >/dev/null; then
         # SocketBind*=
         ARGUMENTS=(
             -p SocketBindAllow=

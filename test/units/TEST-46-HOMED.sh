@@ -37,7 +37,7 @@ wait_for_exist() {
 }
 
 wait_for_state() {
-    timeout 2m bash -c "until homectl inspect '${1:?}' | grep -qF 'State: $2'; do sleep 2; done"
+    timeout 2m bash -c "until homectl inspect '${1:?}' | grep -F 'State: $2' >/dev/null; do sleep 2; done"
 }
 
 FSTYPE="$(stat --file-system --format "%T" /)"
@@ -721,7 +721,7 @@ testcase_quota() {
 
     NEWPASSWORD=quux homectl create tmpfsquota --storage=subvolume --dev-shm-limit=50K --tmp-limit=50K -P
     for p in /dev/shm /tmp; do
-        if findmnt -n -o options "$p" | grep -q usrquota; then
+        if findmnt -n -o options "$p" | grep usrquota >/dev/null; then
             # Check if we can display the quotas. If we cannot, than it's likely
             # that PID1 was also not able to set the limits and we should not fail
             # in the tests below.
@@ -808,8 +808,8 @@ EOF
 
 testcase_sign() {
     # Test signing key logic
-    homectl list-signing-keys | grep -q local.public
-    (! (homectl list-signing-keys | grep -q signtest.public))
+    homectl list-signing-keys | grep local.public >/dev/null
+    (! (homectl list-signing-keys | grep signtest.public >/dev/null))
 
     if built_with_musl; then
         # FIXME: musl does not support yescrypt. Use SHA512 and update signature.
@@ -864,8 +864,8 @@ EOF
     # Let's now add the signing key
     print_public_key | homectl add-signing-key --key-name=signtest.public
     homectl get-signing-key signtest.public | cmp - <(print_public_key)
-    homectl list-signing-keys | grep -q local.public
-    homectl list-signing-keys | grep -q signtest.public
+    homectl list-signing-keys | grep local.public >/dev/null
+    homectl list-signing-keys | grep signtest.public >/dev/null
 
     # Now create the account with this, it should work now
     print_identity | homectl create -P --identity=- --seize=no
@@ -880,8 +880,8 @@ EOF
     (! PASSWORD="test" homectl with signtest true)
 
     # Verify key is really gone
-    homectl list-signing-keys | grep -q local.public
-    (! (homectl list-signing-keys | grep -q signtest.public))
+    homectl list-signing-keys | grep local.public >/dev/null
+    (! (homectl list-signing-keys | grep signtest.public >/dev/null))
 
     # Test unregister + adopt
     mkdir /home/elsewhere
@@ -908,9 +908,9 @@ EOF
     # add signing key via credential
     wait_for_state signtest inactive
     homectl remove-signing-key signtest.public
-    (! (homectl list-signing-keys | grep -q signtest.public))
+    (! (homectl list-signing-keys | grep signtest.public >/dev/null))
     systemd-run --wait -p "SetCredential=home.add-signing-key.signtest.public:$(print_public_key)" homectl firstboot
-    homectl list-signing-keys | grep -q signtest.public
+    homectl list-signing-keys | grep signtest.public >/dev/null
 
     # register user via credential
     mkdir /home/elsewhere2

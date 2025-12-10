@@ -47,11 +47,11 @@ export SYSTEMD_DISSECT_VERITY_TIMEOUT_SEC=30
 
 # Quick smoke tests
 
-systemd-dissect --no-pager /usr/share/minimal_0.raw | grep -q '✓ portable service'
-systemd-dissect --no-pager /usr/share/minimal_1.raw | grep -q '✓ portable service'
-systemd-dissect --no-pager /tmp/app0.raw | grep -q '✓ sysext for portable service'
-systemd-dissect --no-pager /tmp/app1.raw | grep -q '✓ sysext for portable service'
-systemd-dissect --no-pager /tmp/conf0.raw | grep -q '✓ confext for portable service'
+systemd-dissect --no-pager /usr/share/minimal_0.raw | grep '✓ portable service' >/dev/null
+systemd-dissect --no-pager /usr/share/minimal_1.raw | grep '✓ portable service' >/dev/null
+systemd-dissect --no-pager /tmp/app0.raw | grep '✓ sysext for portable service' >/dev/null
+systemd-dissect --no-pager /tmp/app1.raw | grep '✓ sysext for portable service' >/dev/null
+systemd-dissect --no-pager /tmp/conf0.raw | grep '✓ confext for portable service' >/dev/null
 
 # Lack of ID field in os-release should be rejected, but it caused a crash in the past instead
 mkdir -p /tmp/emptyroot/usr/lib

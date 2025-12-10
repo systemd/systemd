@@ -120,7 +120,7 @@ systemd-run -u "$MYUNIT" -p Type=notify -p FileDescriptorStoreMax=7 "$MYSCRIPT"
 
 test "$(systemd-analyze fdstore "$MYUNIT" | wc -l)" -eq 2
 systemd-analyze fdstore "$MYUNIT" --json=short
-systemd-analyze fdstore "$MYUNIT" --json=short | grep -P -q '\[{"fdname":"quux","type":.*,"devno":\[.*\],"inode":.*,"rdevno":null,"path":"/tmp/.*","flags":"ro"}\]'
+systemd-analyze fdstore "$MYUNIT" --json=short | grep -P '\[{"fdname":"quux","type":.*,"devno":\[.*\],"inode":.*,"rdevno":null,"path":"/tmp/.*","flags":"ro"}\]' >/dev/null
 
 systemctl stop "$MYUNIT"
 rm "$MYSCRIPT"

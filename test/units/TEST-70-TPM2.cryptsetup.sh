@@ -12,7 +12,7 @@ cryptsetup_has_token_plugin_support() {
     local plugin_path
 
     plugin_path="$(cryptsetup --help | sed -nr 's/.*LUKS2 external token plugin path: (.*)\./\1/p')/libcryptsetup-token-systemd-tpm2.so)"
-    cryptsetup --help | grep -q 'LUKS2 external token plugin support is compiled-in' && [[ -f "$plugin_path" ]]
+    cryptsetup --help | grep 'LUKS2 external token plugin support is compiled-in' >/dev/null && [[ -f "$plugin_path" ]]
 }
 
 tpm_check_failure_with_wrong_pin() {
