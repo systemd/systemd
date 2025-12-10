@@ -39,7 +39,7 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
                 return log_device_error_errno(dev, r, "Failed to get seat: %m");
 
         uid_t uid;
-        r = sd_seat_get_active(seat, /* ret_session = */ NULL, &uid);
+        r = sd_seat_get_active(seat, /* ret_session= */ NULL, &uid);
         if (r < 0) {
                 if (IN_SET(r, -ENXIO, -ENODATA))
                         /* No active session on this seat */
@@ -60,7 +60,7 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
 
 reset:
         /* Better be safe than sorry and reset ACL */
-        k = devnode_acl(fd, /* uid = */ 0);
+        k = devnode_acl(fd, /* uid= */ 0);
         if (k < 0)
                 RET_GATHER(r, log_device_full_errno(dev, k == -ENOENT ? LOG_DEBUG : LOG_ERR, k, "Failed to flush ACLs: %m"));
 

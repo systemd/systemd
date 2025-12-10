@@ -19,11 +19,11 @@ static int dump_manager_description(sd_varlink *vl) {
 
         assert(vl);
 
-        r = varlink_call_and_log(vl, "io.systemd.Network.Describe", /* parameters = */ NULL, &v);
+        r = varlink_call_and_log(vl, "io.systemd.Network.Describe", /* parameters= */ NULL, &v);
         if (r < 0)
                 return r;
 
-        r = sd_json_variant_dump(v, arg_json_format_flags, /* f = */ NULL, /* prefix = */ NULL);
+        r = sd_json_variant_dump(v, arg_json_format_flags, /* f= */ NULL, /* prefix= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to dump json object: %m");
         return 0;
@@ -38,7 +38,7 @@ static int dump_link_description(sd_varlink *vl, char * const *patterns) {
         assert(vl);
         assert(patterns);
 
-        r = varlink_call_and_log(vl, "io.systemd.Network.Describe", /* parameters = */ NULL, &v);
+        r = varlink_call_and_log(vl, "io.systemd.Network.Describe", /* parameters= */ NULL, &v);
         if (r < 0)
                 return r;
 

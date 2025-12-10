@@ -273,16 +273,16 @@ static int send_control_commands(void) {
                 return log_error_errno(r, "Failed to connect to udev via varlink: %m");
 
         if (arg_exit)
-                return varlink_call_and_log(link, "io.systemd.Udev.Exit", /* parameters = */ NULL, /* reply = */ NULL);
+                return varlink_call_and_log(link, "io.systemd.Udev.Exit", /* parameters= */ NULL, /* reply= */ NULL);
 
         if (arg_revert) {
-                r = varlink_call_and_log(link, "io.systemd.Udev.Revert", /* parameters = */ NULL, /* reply = */ NULL);
+                r = varlink_call_and_log(link, "io.systemd.Udev.Revert", /* parameters= */ NULL, /* reply= */ NULL);
                 if (r < 0)
                         return r;
         }
 
         if (arg_log_level >= 0) {
-                r = varlink_callbo_and_log(link, "io.systemd.service.SetLogLevel", /* reply = */ NULL,
+                r = varlink_callbo_and_log(link, "io.systemd.service.SetLogLevel", /* reply= */ NULL,
                                            SD_JSON_BUILD_PAIR_INTEGER("level", arg_log_level));
                 if (r < 0)
                         return r;
@@ -290,39 +290,39 @@ static int send_control_commands(void) {
 
         if (arg_start_exec_queue >= 0) {
                 r = varlink_call_and_log(link, arg_start_exec_queue ? "io.systemd.Udev.StartExecQueue" : "io.systemd.Udev.StopExecQueue",
-                                         /* parameters = */ NULL, /* reply = */ NULL);
+                                         /* parameters= */ NULL, /* reply= */ NULL);
                 if (r < 0)
                         return r;
         }
 
         if (arg_reload) {
-                r = varlink_call_and_log(link, "io.systemd.service.Reload", /* parameters = */ NULL, /* reply = */ NULL);
+                r = varlink_call_and_log(link, "io.systemd.service.Reload", /* parameters= */ NULL, /* reply= */ NULL);
                 if (r < 0)
                         return r;
         }
 
         if (!strv_isempty(arg_env)) {
-                r = varlink_callbo_and_log(link, "io.systemd.Udev.SetEnvironment", /* reply = */ NULL,
+                r = varlink_callbo_and_log(link, "io.systemd.Udev.SetEnvironment", /* reply= */ NULL,
                                            SD_JSON_BUILD_PAIR_STRV("assignments", arg_env));
                 if (r < 0)
                         return r;
         }
 
         if (arg_max_children >= 0) {
-                r = varlink_callbo_and_log(link, "io.systemd.Udev.SetChildrenMax", /* reply = */ NULL,
+                r = varlink_callbo_and_log(link, "io.systemd.Udev.SetChildrenMax", /* reply= */ NULL,
                                            SD_JSON_BUILD_PAIR_UNSIGNED("number", arg_max_children));
                 if (r < 0)
                         return r;
         }
 
         if (arg_ping) {
-                r = varlink_call_and_log(link, "io.systemd.service.Ping", /* parameters = */ NULL, /* reply = */ NULL);
+                r = varlink_call_and_log(link, "io.systemd.service.Ping", /* parameters= */ NULL, /* reply= */ NULL);
                 if (r < 0)
                         return r;
         }
 
         if (arg_trace >= 0) {
-                r = varlink_callbo_and_log(link, "io.systemd.Udev.SetTrace", /* reply = */ NULL,
+                r = varlink_callbo_and_log(link, "io.systemd.Udev.SetTrace", /* reply= */ NULL,
                                            SD_JSON_BUILD_PAIR_BOOLEAN("enable", arg_trace));
                 if (r < 0)
                         return r;

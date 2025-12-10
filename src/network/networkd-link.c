@@ -412,7 +412,7 @@ int link_stop_engines(Link *link, bool may_keep_dynamic) {
                 if (r < 0)
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
 
-                r = dhcp_pd_remove(link, /* only_marked = */ false);
+                r = dhcp_pd_remove(link, /* only_marked= */ false);
                 if (r < 0)
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Could not remove DHCPv6 PD addresses and routes: %m"));
 
@@ -466,7 +466,7 @@ void link_enter_failed(Link *link) {
                 return;
 
 stop:
-        (void) link_stop_engines(link, /* may_keep_dynamic = */ false);
+        (void) link_stop_engines(link, /* may_keep_dynamic= */ false);
 }
 
 void link_check_ready(Link *link) {
@@ -577,7 +577,7 @@ void link_check_ready(Link *link) {
                  link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_NDISC));
 
         /* If the uplink for PD is self, then request the corresponding DHCP protocol is also ready. */
-        if (dhcp_pd_is_uplink(link, link, /* accept_auto = */ false)) {
+        if (dhcp_pd_is_uplink(link, link, /* accept_auto= */ false)) {
                 if (link_dhcp4_enabled(link) && link->network->dhcp_use_6rd &&
                     sd_dhcp_lease_has_6rd(link->dhcp_lease)) {
                         if (!link->dhcp4_configured)
@@ -832,9 +832,9 @@ int link_handle_bound_to_list(Link *link) {
                 }
 
         if (!required_up && link_is_up)
-                return link_request_to_bring_up_or_down(link, /* up = */ false);
+                return link_request_to_bring_up_or_down(link, /* up= */ false);
         if (required_up && !link_is_up)
-                return link_request_to_bring_up_or_down(link, /* up = */ true);
+                return link_request_to_bring_up_or_down(link, /* up= */ true);
 
         return 0;
 }
@@ -1213,7 +1213,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_request_to_set_mac(link, /* allow_retry = */ true);
+        r = link_request_to_set_mac(link, /* allow_retry= */ true);
         if (r < 0)
                 return r;
 
@@ -1364,7 +1364,7 @@ static void link_enter_unmanaged(Link *link) {
         log_link_full(link, link->state == LINK_STATE_INITIALIZED ? LOG_DEBUG : LOG_INFO,
                       "Unmanaging interface.");
 
-        (void) link_stop_engines(link, /* may_keep_dynamic = */ false);
+        (void) link_stop_engines(link, /* may_keep_dynamic= */ false);
         (void) link_drop_requests(link);
         (void) link_drop_static_config(link);
 
@@ -1479,7 +1479,7 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
         } else {
                 /* Otherwise, stop DHCP client and friends unconditionally, and drop all dynamic
                  * configurations like DHCP address and routes. */
-                r = link_stop_engines(link, /* may_keep_dynamic = */ false);
+                r = link_stop_engines(link, /* may_keep_dynamic= */ false);
                 if (r < 0)
                         return r;
 
@@ -1637,7 +1637,7 @@ static int link_initialized_and_synced(Link *link) {
                         return r;
         }
 
-        return link_reconfigure_impl(link, /* flags = */ 0);
+        return link_reconfigure_impl(link, /* flags= */ 0);
 }
 
 static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -1685,7 +1685,7 @@ static int link_initialized(Link *link, sd_device *device) {
                 log_link_warning_errno(link, r, "Failed to manage SR-IOV PF and VF ports, ignoring: %m");
 
         if (link->state != LINK_STATE_PENDING)
-                return link_reconfigure(link, /* flags = */ 0);
+                return link_reconfigure(link, /* flags= */ 0);
 
         log_link_debug(link, "udev initialized link");
 
@@ -1861,7 +1861,7 @@ static int link_carrier_lost_impl(Link *link) {
         if (!link->network)
                 return ret;
 
-        RET_GATHER(ret, link_stop_engines(link, /* may_keep_dynamic = */ false));
+        RET_GATHER(ret, link_stop_engines(link, /* may_keep_dynamic= */ false));
         RET_GATHER(ret, link_drop_static_config(link));
 
         return ret;
@@ -1948,7 +1948,7 @@ static int link_admin_state_up(Link *link) {
 
         if (link->activated && link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_DOWN) {
                 log_link_info(link, "Activation policy is \"always-down\", forcing link down.");
-                return link_request_to_bring_up_or_down(link, /* up = */ false);
+                return link_request_to_bring_up_or_down(link, /* up= */ false);
         }
 
         /* We set the ipv6 mtu after the device mtu, but the kernel resets
@@ -1971,7 +1971,7 @@ static int link_admin_state_down(Link *link) {
 
         if (link->activated && link->network->activation_policy == ACTIVATION_POLICY_ALWAYS_UP) {
                 log_link_info(link, "Activation policy is \"always-up\", forcing link up.");
-                return link_request_to_bring_up_or_down(link, /* up = */ true);
+                return link_request_to_bring_up_or_down(link, /* up= */ true);
         }
 
         return 0;
@@ -2936,7 +2936,7 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
                         if (manager->enumerating)
                                 return 0;
 
-                        r = link_reconfigure_impl(link, /* flags = */ 0);
+                        r = link_reconfigure_impl(link, /* flags= */ 0);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
                                 link_enter_failed(link);

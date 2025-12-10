@@ -182,9 +182,9 @@ static int parse_config_file(ImageClass image_class) {
                         image_class == IMAGE_SYSEXT ? "SysExt\0" : "ConfExt\0",
                         config_item_table_lookup, items,
                         CONFIG_PARSE_WARN,
-                        /* userdata = */ NULL,
-                        /* ret_stats_by_path = */ NULL,
-                        /* ret_dropin_files = */ NULL);
+                        /* userdata= */ NULL,
+                        /* ret_stats_by_path= */ NULL,
+                        /* ret_dropin_files= */ NULL);
         if (r < 0)
                 return r;
 
@@ -297,7 +297,7 @@ static int need_reload(
                         const char *extension_reload_manager = NULL;
                         int b;
 
-                        r = load_extension_release_pairs(arg_root, image_class, *extension, /* relax_extension_release_check = */ true, &extension_release);
+                        r = load_extension_release_pairs(arg_root, image_class, *extension, /* relax_extension_release_check= */ true, &extension_release);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to parse extension-release metadata of %s, ignoring: %m", *extension);
                                 continue;

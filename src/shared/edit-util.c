@@ -475,7 +475,7 @@ int do_edit_files_and_install(EditFileContext *context) {
                         return log_error_errno(r, "Failed to read stdin: %m");
         } else {
                 FOREACH_ARRAY(editfile, context->files, context->n_files) {
-                        r = create_edit_temp_file(editfile, /* contents = */ NULL, /* contents_size = */ 0);
+                        r = create_edit_temp_file(editfile, /* contents= */ NULL, /* contents_size= */ 0);
                         if (r < 0)
                                 return r;
                 }

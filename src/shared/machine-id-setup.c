@@ -260,7 +260,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
                 WITH_UMASK(0022) {
                         r = id128_write_at(run_fd, "machine-id", ID128_FORMAT_PLAIN, machine_id);
                         if (r < 0) {
-                                (void) unlinkat(run_fd, "machine-id", /* flags = */ 0);
+                                (void) unlinkat(run_fd, "machine-id", /* flags= */ 0);
                                 return log_error_errno(r, "Cannot write '%s': %m", run_machine_id);
                         }
                 }
@@ -276,7 +276,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
         r = mount_follow_verbose(LOG_ERR, run_machine_id, FORMAT_PROC_FD_PATH(fd), /* fstype= */ NULL, MS_BIND, /* options= */ NULL);
         if (r < 0) {
                 if (unlink_run_machine_id)
-                        (void) unlinkat(ASSERT_FD(run_fd), "machine-id", /* flags = */ 0);
+                        (void) unlinkat(ASSERT_FD(run_fd), "machine-id", /* flags= */ 0);
                 return r;
         }
 
@@ -384,11 +384,11 @@ int machine_id_commit(const char *root) {
         etc_fd_again = safe_close(etc_fd_again);
 
         /* Return to initial namespace and proceed a lazy tmpfs unmount */
-        r = namespace_enter(/* pidns_fd = */ -EBADF,
+        r = namespace_enter(/* pidns_fd= */ -EBADF,
                             initial_mntns_fd,
-                            /* netns_fd = */ -EBADF,
-                            /* userns_fd = */ -EBADF,
-                            /* root_fd = */ -EBADF);
+                            /* netns_fd= */ -EBADF,
+                            /* userns_fd= */ -EBADF,
+                            /* root_fd= */ -EBADF);
         if (r < 0)
                 return log_warning_errno(r,
                                          "Failed to switch back to initial mount namespace: %m.\n"

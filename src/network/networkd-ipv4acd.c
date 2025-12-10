@@ -162,7 +162,7 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         switch (event) {
         case SD_IPV4ACD_EVENT_STOP:
                 if (address->source == NETWORK_CONFIG_SOURCE_STATIC) {
-                        r = static_ipv4acd_address_remove(link, address, /* on_conflict = */ false);
+                        r = static_ipv4acd_address_remove(link, address, /* on_conflict= */ false);
                         if (r < 0)
                                 link_enter_failed(link);
                 }
@@ -179,7 +179,7 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
                 log_link_warning(link, "Dropping address %s, as an address conflict was detected.", IN4_ADDR_TO_STRING(&address->in_addr.in));
 
                 if (address->source == NETWORK_CONFIG_SOURCE_STATIC)
-                        r = static_ipv4acd_address_remove(link, address, /* on_conflict = */ true);
+                        r = static_ipv4acd_address_remove(link, address, /* on_conflict= */ true);
                 else
                         r = dhcp4_address_on_conflict(link);
                 if (r < 0)
@@ -215,7 +215,7 @@ static int ipv4acd_start_one(Link *link, sd_ipv4acd *acd) {
         if (!link_has_carrier(link))
                 return 0;
 
-        return sd_ipv4acd_start(acd, /* reset_conflicts = */ true);
+        return sd_ipv4acd_start(acd, /* reset_conflicts= */ true);
 }
 
 int ipv4acd_configure(Link *link, const Address *address) {

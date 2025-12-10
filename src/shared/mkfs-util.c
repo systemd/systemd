@@ -113,7 +113,7 @@ static int do_mcopy(const char *node, const char *root) {
         assert(root);
 
         /* Return early if there's nothing to copy. */
-        if (dir_is_empty(root, /*ignore_hidden_or_backup=*/ false))
+        if (dir_is_empty(root, /* ignore_hidden_or_backup= */ false))
                 return 0;
 
         r = find_executable("mcopy", &mcopy);
@@ -686,17 +686,17 @@ int make_filesystem(
         r = safe_fork_full(
                         "(mkfs)",
                         stdio_fds,
-                        /*except_fds=*/ NULL,
-                        /*n_except_fds=*/ 0,
+                        /* except_fds= */ NULL,
+                        /* n_except_fds= */ 0,
                         fork_flags,
-                        /*ret_pid=*/ NULL);
+                        /* ret_pid= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
 
                 STRV_FOREACH_PAIR(k, v, env)
-                        if (setenv(*k, *v, /* replace = */ true) < 0) {
+                        if (setenv(*k, *v, /* replace= */ true) < 0) {
                                 log_error_errno(r, "Failed to set %s=%s environment variable: %m", *k, *v);
                                 _exit(EXIT_FAILURE);
                         }

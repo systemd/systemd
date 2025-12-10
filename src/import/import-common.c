@@ -423,7 +423,7 @@ int import_copy_foreign(
 
                 r = copy_tree_at(
                                 source_fd, /* from= */ NULL,
-                                target_fd, /* to = */ NULL,
+                                target_fd, /* to= */ NULL,
                                 /* override_uid= */ UID_INVALID,
                                 /* override_gid= */ GID_INVALID,
                                 COPY_REFLINK|COPY_HARDLINKS|COPY_MERGE_EMPTY|COPY_MERGE_APPLY_STAT|COPY_SAME_MOUNT|COPY_ALL_XATTRS,

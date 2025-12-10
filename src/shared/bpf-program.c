@@ -61,7 +61,7 @@ int bpf_program_supported(void) {
          * As our baseline on the kernel is v5.4, it is enough to check if one BPF program can be created and loaded. */
 
         _cleanup_(bpf_program_freep) BPFProgram *program = NULL;
-        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, /* prog_name = */ NULL, &program);
+        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, /* prog_name= */ NULL, &program);
         if (r < 0)
                 return cached = log_debug_errno(r, "Can't allocate CGROUP SKB BPF program, assuming BPF is not supported: %m");
 
@@ -73,7 +73,7 @@ int bpf_program_supported(void) {
         if (r < 0)
                 return cached = log_debug_errno(r, "Can't add trivial instructions to CGROUP SKB BPF program, assuming BPF is not supported: %m");
 
-        r = bpf_program_load_kernel(program, /* log_buf = */ NULL, /* log_size = */ 0);
+        r = bpf_program_load_kernel(program, /* log_buf= */ NULL, /* log_size= */ 0);
         if (r < 0)
                 return cached = log_debug_errno(r, "Can't load kernel CGROUP SKB BPF program, assuming BPF is not supported: %m");
 

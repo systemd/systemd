@@ -109,7 +109,7 @@ int fork_notify(char * const *argv, PidRef *ret_pidref) {
                         SD_EVENT_PRIORITY_NORMAL-10, /* We want the notification message from the child before the SIGCHLD */
                         on_child_notify,
                         &child,
-                        /* accept_fds = */ false,
+                        /* accept_fds= */ false,
                         &addr_string,
                         &notify_event_source);
         if (r < 0)

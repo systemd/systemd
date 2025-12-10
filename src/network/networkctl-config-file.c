@@ -106,7 +106,7 @@ static int get_config_files_by_name(
                 if (!dropin_dirname)
                         return -ENOMEM;
 
-                r = conf_files_list_dropins(ret_dropins, dropin_dirname, /* root = */ NULL, NETWORK_DIRS);
+                r = conf_files_list_dropins(ret_dropins, dropin_dirname, /* root= */ NULL, NETWORK_DIRS);
                 if (r < 0)
                         return r;
         }
@@ -381,7 +381,7 @@ static int add_config_to_edit(
         if (!comment_paths)
                 return log_oom();
 
-        r = strv_extend_strv(&comment_paths, dropins, /* filter_duplicates = */ false);
+        r = strv_extend_strv(&comment_paths, dropins, /* filter_duplicates= */ false);
         if (r < 0)
                 return log_oom();
 
@@ -416,7 +416,7 @@ static int udevd_reload(sd_bus *bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, job_path, /* flags = */ 0, NULL);
+        r = bus_wait_for_jobs_one(w, job_path, /* flags= */ 0, NULL);
         if (r == -ENOEXEC) {
                 log_debug("systemd-udevd is not running, skipping reload.");
                 return 0;
@@ -505,7 +505,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                                                        "Config type 'all' cannot be used with 'edit'.");
 
                         r = get_config_files_by_link_config(ifname, type,
-                                                            /* ignore_missing = */ false,
+                                                            /* ignore_missing= */ false,
                                                             &rtnl,
                                                             &path, &dropins);
                         if (r < 0)
@@ -530,7 +530,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Network config of unknown type: %s", *name);
 
-                r = get_config_files_by_name(*name, /* allow_masked = */ false, &path, &dropins);
+                r = get_config_files_by_name(*name, /* allow_masked= */ false, &path, &dropins);
                 if (r == -ERFKILL)
                         return log_error_errno(r, "Network config '%s' is masked.", *name);
                 if (r == -ENOENT) {
@@ -588,7 +588,7 @@ static int cat_files_by_link_one(
         if (!*first)
                 putchar('\n');
 
-        r = cat_files(path, dropins, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
+        r = cat_files(path, dropins, /* flags= */ CAT_FORMAT_HAS_SECTIONS);
         if (r < 0)
                 return r;
 
@@ -612,7 +612,7 @@ static int cat_files_by_link_config(const char *link_config, sd_netlink **rtnl, 
 
         if (type == _CONFIG_MAX) {
                 for (LinkConfigType i = 0; i < _CONFIG_MAX; i++) {
-                        r = cat_files_by_link_one(ifname, i, rtnl, /* ignore_missing = */ true, first);
+                        r = cat_files_by_link_one(ifname, i, rtnl, /* ignore_missing= */ true, first);
                         if (r < 0)
                                 return r;
                 }
@@ -620,7 +620,7 @@ static int cat_files_by_link_config(const char *link_config, sd_netlink **rtnl, 
                 return 0;
         }
 
-        return cat_files_by_link_one(ifname, type, rtnl, /* ignore_missing = */ false, first);
+        return cat_files_by_link_one(ifname, type, rtnl, /* ignore_missing= */ false, first);
 }
 
 int verb_cat(int argc, char *argv[], void *userdata) {
@@ -651,7 +651,7 @@ int verb_cat(int argc, char *argv[], void *userdata) {
                 _cleanup_strv_free_ char **dropins = NULL;
                 _cleanup_free_ char *path = NULL;
 
-                r = get_config_files_by_name(*name, /* allow_masked = */ false, &path, &dropins);
+                r = get_config_files_by_name(*name, /* allow_masked= */ false, &path, &dropins);
                 if (r == -ENOENT) {
                         RET_GATHER(ret, log_error_errno(r, "Cannot find network config file '%s'.", *name));
                         continue;
@@ -666,7 +666,7 @@ int verb_cat(int argc, char *argv[], void *userdata) {
                 if (!first)
                         putchar('\n');
 
-                r = cat_files(path, dropins, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
+                r = cat_files(path, dropins, /* flags= */ CAT_FORMAT_HAS_SECTIONS);
                 if (r < 0)
                         return r;
 
@@ -699,7 +699,7 @@ int verb_mask(int argc, char *argv[], void *userdata) {
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Network config of unknown type: %s", *name);
 
-                r = get_config_files_by_name(*name, /* allow_masked = */ true, &config_path, /* ret_dropins = */ NULL);
+                r = get_config_files_by_name(*name, /* allow_masked= */ true, &config_path, /* ret_dropins= */ NULL);
                 if (r == -ENOENT)
                         log_warning("No existing network config '%s' found, proceeding anyway.", *name);
                 else if (r < 0)
@@ -758,7 +758,7 @@ int verb_unmask(int argc, char *argv[], void *userdata) {
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Network config of unknown type: %s", *name);
 
-                r = get_config_files_by_name(*name, /* allow_masked = */ true, &path, /* ret_dropins = */ NULL);
+                r = get_config_files_by_name(*name, /* allow_masked= */ true, &path, /* ret_dropins= */ NULL);
                 if (r == -ENOENT) {
                         log_debug_errno(r, "Network configuration '%s' doesn't exist, skipping.", *name);
                         continue;

@@ -207,7 +207,7 @@ int bpf_restrict_fs_cleanup(Unit *u) {
         assert(u->manager);
 
         /* If we never successfully detected support, there is nothing to clean up. */
-        if (!bpf_restrict_fs_supported(/* initialize = */ false))
+        if (!bpf_restrict_fs_supported(/* initialize= */ false))
                 return 0;
 
         if (!u->manager->restrict_fs)

@@ -147,7 +147,7 @@ static int manager_varlink_send_managed_oom_initial(Manager *m) {
 
         assert(m->managed_oom_varlink);
 
-        r = build_managed_oom_cgroups_json(m, /* allow_empty = */ false, &v);
+        r = build_managed_oom_cgroups_json(m, /* allow_empty= */ false, &v);
         if (r <= 0)
                 return r;
 
@@ -323,7 +323,7 @@ static int vl_method_subscribe_managed_oom_cgroups(
         if (!streq(u->id, "systemd-oomd.service"))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -334,7 +334,7 @@ static int vl_method_subscribe_managed_oom_cgroups(
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-        r = build_managed_oom_cgroups_json(m, /* allow_empty = */ true, &v);
+        r = build_managed_oom_cgroups_json(m, /* allow_empty= */ true, &v);
         if (r < 0)
                 return r;
 

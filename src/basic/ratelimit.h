@@ -5,7 +5,7 @@
 
 typedef struct RateLimit {
         usec_t interval; /* Keep those two fields first so they can be initialized easily: */
-        unsigned burst;  /*   RateLimit rl = { INTERVAL, BURST }; */
+        unsigned burst;  /* RateLimit rl = { INTERVAL, BURST }; */
         unsigned num;
         usec_t begin;
 } RateLimit;
