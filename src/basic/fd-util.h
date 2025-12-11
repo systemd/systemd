@@ -44,12 +44,6 @@
 #  endif
 #endif
 
-/* On musl, O_ACCMODE is defined as (03|O_SEARCH), unlike glibc which defines it as
- * (O_RDONLY|O_WRONLY|O_RDWR). Additionally, O_SEARCH is simply defined as O_PATH. This changes the behaviour
- * of O_ACCMODE in certain situations, which we don't want. This definition is copied from glibc and works
- * around the problems with musl's definition. */
-#define O_ACCMODE_STRICT (O_RDONLY|O_WRONLY|O_RDWR)
-
 /* The default, minimum, and maximum values of /proc/sys/fs/nr_open. See kernel's fs/file.c.
  * These values have been unchanged since kernel-2.6.26:
  * https://github.com/torvalds/linux/commit/eceea0b3df05ed262ae32e0c6340cc7a3626632d */

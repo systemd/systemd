@@ -668,7 +668,7 @@ TEST(fdopen_independent) {
         ASSERT_EQ(fread(buf, 1, sizeof(buf), f), strlen(TEST_TEXT));
         ASSERT_STREQ(buf, TEST_TEXT);
         ASSERT_OK_ERRNO(r = fcntl(fileno(f), F_GETFL));
-        ASSERT_EQ((r & O_ACCMODE_STRICT), O_RDONLY);
+        ASSERT_EQ((r & O_ACCMODE), O_RDONLY);
         ASSERT_OK_ERRNO(r = fcntl(fileno(f), F_GETFD));
         ASSERT_TRUE(FLAGS_SET(r, FD_CLOEXEC));
         f = safe_fclose(f);
@@ -678,7 +678,7 @@ TEST(fdopen_independent) {
         ASSERT_EQ(fread(buf, 1, sizeof(buf), f), strlen(TEST_TEXT));
         ASSERT_STREQ(buf, TEST_TEXT);
         ASSERT_OK_ERRNO(r = fcntl(fileno(f), F_GETFL));
-        ASSERT_EQ((r & O_ACCMODE_STRICT), O_RDONLY);
+        ASSERT_EQ((r & O_ACCMODE), O_RDONLY);
         ASSERT_OK_ERRNO(r = fcntl(fileno(f), F_GETFD));
         ASSERT_FALSE(FLAGS_SET(r, FD_CLOEXEC));
         f = safe_fclose(f);
@@ -688,7 +688,7 @@ TEST(fdopen_independent) {
         ASSERT_EQ(fread(buf, 1, sizeof(buf), f), strlen(TEST_TEXT));
         ASSERT_STREQ(buf, TEST_TEXT);
         ASSERT_OK_ERRNO(r = fcntl(fileno(f), F_GETFL));
-        ASSERT_EQ((r & O_ACCMODE_STRICT), O_RDWR);
+        ASSERT_EQ((r & O_ACCMODE), O_RDWR);
         ASSERT_OK_ERRNO(r = fcntl(fileno(f), F_GETFD));
         ASSERT_TRUE(FLAGS_SET(r, FD_CLOEXEC));
         f = safe_fclose(f);

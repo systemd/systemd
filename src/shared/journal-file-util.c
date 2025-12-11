@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <pthread.h>
+#include <sys/fcntl.h>
 #include <unistd.h>
 
 #include "sd-event.h"
@@ -9,7 +10,6 @@
 #include "chattr-util.h"
 #include "copy.h"
 #include "errno-util.h"
-#include "fd-util.h"
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
 #include "journal-internal.h"
@@ -525,7 +525,7 @@ int journal_file_open_reliably(
                     -EIDRM))            /* File has been deleted */
                 return r;
 
-        if ((open_flags & O_ACCMODE_STRICT) == O_RDONLY)
+        if ((open_flags & O_ACCMODE) == O_RDONLY)
                 return r;
 
         if (!(open_flags & O_CREAT))
@@ -540,7 +540,7 @@ int journal_file_open_reliably(
         /* The file is corrupted. Try opening it read-only as the template before rotating to inherit its
          * sequence number and ID. */
         r = journal_file_open(-EBADF, fname,
-                              (open_flags & ~(O_ACCMODE_STRICT|O_CREAT|O_EXCL)) | O_RDONLY,
+                              (open_flags & ~(O_ACCMODE|O_CREAT|O_EXCL)) | O_RDONLY,
                               file_flags, 0, compress_threshold_bytes, NULL,
                               mmap_cache, /* template = */ NULL, &old_file);
         if (r < 0)
