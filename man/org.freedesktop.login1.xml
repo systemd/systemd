@@ -71,6 +71,7 @@ node /org/freedesktop/login1 {
                     in  b remote,
                     in  s remote_user,
                     in  s remote_host,
+                    in  b remote_access,
                     in  a(sv) properties,
                     out s session_id,
                     out o object_path,
@@ -94,6 +95,7 @@ node /org/freedesktop/login1 {
                              in  b remote,
                              in  s remote_user,
                              in  s remote_host,
+                             in  b remote_access,
                              in  t flags,
                              in  a(sv) properties,
                              out s session_id,
@@ -1246,6 +1248,8 @@ node /org/freedesktop/login1/session/1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RemoteUser = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b RemoteAccess = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Service = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Desktop = '...';
@@ -1347,6 +1351,8 @@ node /org/freedesktop/login1/session/1 {
     <variablelist class="dbus-property" generated="True" extra-ref="RemoteHost"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RemoteUser"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RemoteAccess"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Service"/>
 
@@ -1536,6 +1542,9 @@ node /org/freedesktop/login1/session/1 {
 
       <para><varname>RemoteHost</varname> and <varname>RemoteUser</varname> encode the remote host and user
       if this is a remote session, or an empty string otherwise.</para>
+
+      <para><varname>RemoteAccess</varname> encodes whether the session is granted additional device access
+      powers, controlled by udevd through the tag <literal>raccess</literal></para>
 
       <para><varname>Service</varname> encodes the PAM service name that registered the session.</para>
 
