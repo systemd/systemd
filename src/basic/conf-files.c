@@ -239,7 +239,7 @@ static int files_add(
 
                 /* Does this match the suffix? */
                 if (suffix && !endswith(de->d_name, suffix)) {
-                        log_debug("Skipping file '%s/%s' with unexpected suffix.", root, skip_leading_slash(original_path));
+                        log_debug("It does not end in '%s', skipping file '%s/%s'.", suffix, root, skip_leading_slash(original_path));
                         continue;
                 }
 
