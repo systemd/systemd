@@ -103,7 +103,7 @@ int verb_image_policy(int argc, char *argv[], void *userdata) {
                 else if (streq(argv[i], "@host"))
                         p = &image_policy_host;
                 else {
-                        r = image_policy_from_string(argv[i], &pbuf);
+                        r = image_policy_from_string(argv[i], /* graceful= */ false, &pbuf);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse image policy '%s': %m", argv[i]);
 
