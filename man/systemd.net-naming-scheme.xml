@@ -90,6 +90,10 @@
             <entry><constant>ww</constant></entry>
             <entry>Wireless wide area network (WWAN)</entry>
           </row>
+          <row>
+            <entry><constant>mc</constant></entry>
+            <entry>Management Component Transport Protocol (MCTP)</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
@@ -559,6 +563,16 @@
           <listitem><para>The naming scheme based on devicetree aliases was extended to support WLAN devices.</para>
 
           <xi:include href="version-info.xml" xpointer="v259"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>v260</constant></term>
+
+          <listitem><para>MCTP interfaces are now assigned persistent names, using a <constant>mc</constant>
+          prefix.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
           </listitem>
         </varlistentry>
       </variablelist>
