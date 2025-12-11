@@ -4319,7 +4319,7 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                r = image_policy_from_string(s, &p);
+                r = image_policy_from_string(s, /* graceful= */ true, &p);
                 if (r < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse image policy string: %s", s);
 

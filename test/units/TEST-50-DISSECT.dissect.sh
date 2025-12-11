@@ -212,6 +212,12 @@ systemd-run --wait -P \
             -p RootImagePolicy='root=signed' \
             -p MountAPIVFS=yes \
             cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run --wait -P \
+            -p RootImage="$MINIMAL_IMAGE.gpt" \
+            -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
+            -p RootImagePolicy='root=signed+lol:wut=wat+signed' \
+            -p MountAPIVFS=yes \
+            cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 (! systemd-run --wait -P \
                -p RootImage="$MINIMAL_IMAGE.gpt" \
                -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \

@@ -73,7 +73,7 @@ static int json_dispatch_image_policy(const char *name, sd_json_variant *variant
         if (!sd_json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = image_policy_from_string(sd_json_variant_string(variant), &q);
+        r = image_policy_from_string(sd_json_variant_string(variant), /* graceful= */ false, &q);
         if (r < 0)
                 return json_log(variant, flags, r, "JSON field '%s' is not a valid image policy.", strna(name));
 
@@ -235,7 +235,7 @@ static int determine_image_policy(
 
         e = secure_getenv(envvar);
         if (e) {
-                r = image_policy_from_string(e, &envvar_policy);
+                r = image_policy_from_string(e, /* graceful= */ false, &envvar_policy);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse image policy supplied via $%s: %m", envvar);
 

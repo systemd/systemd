@@ -209,7 +209,7 @@ static PartitionPolicyFlags policy_flag_from_string_one(const char *s) {
         return _PARTITION_POLICY_FLAGS_INVALID;
 }
 
-PartitionPolicyFlags partition_policy_flags_from_string(const char *s) {
+PartitionPolicyFlags partition_policy_flags_from_string(const char *s, bool graceful) {
         PartitionPolicyFlags flags = 0;
         int r;
 
@@ -229,8 +229,13 @@ PartitionPolicyFlags partition_policy_flags_from_string(const char *s) {
                         break;
 
                 ff = policy_flag_from_string_one(strstrip(f));
-                if (ff < 0)
+                if (ff < 0) {
+                        if (graceful) {
+                                log_debug("Unknown partition policy flag: %s, ignoring", f);
+                                continue;
+                        }
                         return -EBADRQC; /* recognizable error */
+                }
 
                 flags |= ff;
         }
@@ -254,7 +259,7 @@ static ImagePolicy* image_policy_new(size_t n_policies) {
         return p;
 }
 
-int image_policy_from_string(const char *s, ImagePolicy **ret) {
+int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret) {
         _cleanup_free_ ImagePolicy *p = NULL;
         uint64_t dmask = 0;
         ImagePolicy *t;
@@ -336,15 +341,20 @@ int image_policy_from_string(const char *s, ImagePolicy **ret) {
                         default_specified = true;
                 } else {
                         designator = partition_designator_from_string(ds);
-                        if (designator < 0)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADSLT), "Unknown partition designator: %s", ds); /* recognizable error */
+                        if (designator < 0) {
+                                if (!graceful)
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EBADSLT), "Unknown partition designator: %s", ds); /* recognizable error */
+
+                                log_debug("Unknown partition designator: %s, ignoring", ds);
+                                continue;
+                        }
                         if (dmask & (UINT64_C(1) << designator))
                                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "Partition designator specified more than once: %s", ds);
                         dmask |= UINT64_C(1) << designator;
                 }
 
                 fs = strstrip(f);
-                flags = partition_policy_flags_from_string(fs);
+                flags = partition_policy_flags_from_string(fs, graceful);
                 if (flags == -EBADRQC)
                         return log_debug_errno(flags, "Unknown partition policy flag: %s", fs);
                 if (flags < 0)
@@ -651,7 +661,7 @@ int config_parse_image_policy(
                 return 0;
         }
 
-        r = image_policy_from_string(rvalue, &np);
+        r = image_policy_from_string(rvalue, /* graceful */ true, &np);
         if (r == -ENOTUNIQ)
                 return log_syntax(unit, LOG_ERR, filename, line, r, "Duplicate rule in image policy, refusing: %s", rvalue);
         if (r == -EBADSLT)
@@ -678,7 +688,7 @@ int parse_image_policy_argument(const char *s, ImagePolicy **policy) {
          * Hence, do not pass in uninitialized pointers.
          */
 
-        r = image_policy_from_string(s, &np);
+        r = image_policy_from_string(s, /* graceful= */ false, &np);
         if (r == -ENOTUNIQ)
                 return log_error_errno(r, "Duplicate rule in image policy: %s", s);
         if (r == -EBADSLT)

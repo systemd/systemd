@@ -3726,21 +3726,21 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (c->root_image_policy)
                                 return -EINVAL; /* duplicated */
 
-                        r = image_policy_from_string(val, &c->root_image_policy);
+                        r = image_policy_from_string(val, /* graceful= */ true, &c->root_image_policy);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-mount-image-policy="))) {
                         if (c->mount_image_policy)
                                 return -EINVAL; /* duplicated */
 
-                        r = image_policy_from_string(val, &c->mount_image_policy);
+                        r = image_policy_from_string(val, /* graceful= */ true, &c->mount_image_policy);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-extension-image-policy="))) {
                         if (c->extension_image_policy)
                                 return -EINVAL; /* duplicated */
 
-                        r = image_policy_from_string(val, &c->extension_image_policy);
+                        r = image_policy_from_string(val, /* graceful= */ true, &c->extension_image_policy);
                         if (r < 0)
                                 return r;
                 } else
