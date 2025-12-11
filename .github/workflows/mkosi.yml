@@ -308,6 +308,7 @@ jobs:
             --print-errorlogs \
             --no-stdsplit \
             --num-processes "$(($(nproc) - 1))" \
+            --quiet \
             "${MAX_LINES[@]}"
 
       - name: Archive failed test journals
