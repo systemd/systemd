@@ -817,7 +817,7 @@ static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
         if (r != 0)
                 return r;
 
-        return streq_ptr(x->server_name, y->server_name);
+        return strcmp_ptr(x->server_name, y->server_name);
 }
 
 DEFINE_HASH_OPS(dns_server_hash_ops, DnsServer, dns_server_hash_func, dns_server_compare_func);
