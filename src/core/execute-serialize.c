@@ -1674,6 +1674,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_item_escaped(f, "exec-context-root-mstack", c->root_mstack);
+        if (r < 0)
+                return r;
+
         r = serialize_item_format(f, "exec-context-umask", "%04o", c->umask);
         if (r < 0)
                 return r;
@@ -2630,6 +2634,14 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->root_ephemeral = r;
+                } else if ((val = startswith(l, "exec-context-root-mstack="))) {
+                        ssize_t k;
+                        char *p;
+
+                        k = cunescape(val, 0, &p);
+                        if (k < 0)
+                                return k;
+                        free_and_replace(c->root_mstack, p);
                 } else if ((val = startswith(l, "exec-context-umask="))) {
                         r = parse_mode(val, &c->umask);
                         if (r < 0)

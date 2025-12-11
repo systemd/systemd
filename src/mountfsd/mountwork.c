@@ -124,7 +124,7 @@ static int validate_image_fd(int fd, MountImageParameters *p) {
                         return r;
         }
 
-        fl = fd_verify_safe_flags(fd);
+        fl = fd_verify_safe_flags_full(fd, O_NONBLOCK);
         if (fl < 0)
                 return log_debug_errno(fl, "Image file descriptor has unsafe flags set: %m");
 
@@ -353,6 +353,8 @@ static int vl_method_mount_image(
         }
 
         r = validate_image_fd(image_fd, &p);
+        if (r == -EREMOTEIO)
+                return sd_varlink_errorbo(link, "io.systemd.MountFileSystem.BadFileDescriptorFlags", SD_JSON_BUILD_PAIR_STRING("parameter", "imageFileDescriptor"));
         if (r < 0)
                 return r;
 
@@ -564,6 +566,7 @@ static int vl_method_mount_image(
         if (r < 0)
                 return r;
 
+        _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL;
         for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
                 DissectedPartition *pp = di->partitions + d;
                 int fd_idx;
@@ -575,7 +578,14 @@ static int vl_method_mount_image(
                         continue;
 
                 if (userns_fd >= 0) {
-                        r = nsresource_add_mount(userns_fd, pp->fsmount_fd);
+
+                        if (!nsresource_link) {
+                                r = nsresource_connect(&nsresource_link);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        r = nsresource_add_mount(nsresource_link, userns_fd, pp->fsmount_fd);
                         if (r < 0)
                                 return r;
                 }
@@ -682,6 +692,7 @@ static JSON_DISPATCH_ENUM_DEFINE(dispatch_mount_directory_mode, MountMapMode, mo
 
 static DirectoryOwnership validate_directory_fd(
                 int fd,
+                const char *path, /* purely for logging purposes */
                 uid_t peer_uid,
                 uid_t *ret_current_owner_uid) {
 
@@ -716,14 +727,14 @@ static DirectoryOwnership validate_directory_fd(
         if (st.st_uid == 0) {
                 *ret_current_owner_uid = st.st_uid;
                 if (peer_uid == 0) {
-                        log_debug("Directory file descriptor points to root owned directory, who is also the peer.");
+                        log_debug("Directory file descriptor points to root owned directory (%s), who is also the peer.", strna(path));
                         return DIRECTORY_IS_ROOT_PEER_OWNED;
                 }
-                log_debug("Directory file descriptor points to root owned directory.");
+                log_debug("Directory file descriptor points to root owned directory (%s).", strna(path));
                 return DIRECTORY_IS_ROOT_OWNED;
         }
         if (st.st_uid == peer_uid) {
-                log_debug("Directory file descriptor points to peer owned directory.");
+                log_debug("Directory file descriptor points to peer owned directory (%s).", strna(path));
                 *ret_current_owner_uid = st.st_uid;
                 return DIRECTORY_IS_PEER_OWNED;
         }
@@ -744,7 +755,7 @@ static DirectoryOwnership validate_directory_fd(
 
                 /* If the peer is root, then it doesn't matter if we find a parent owned by root, let's shortcut things. */
                 if (peer_uid == 0) {
-                        log_debug("Directory file descriptor is owned by foreign UID range, and peer is root.");
+                        log_debug("Directory referenced by file descriptor is owned by foreign UID range, and peer is root.");
                         *ret_current_owner_uid = st.st_uid;
                         return DIRECTORY_IS_FOREIGN_OWNED;
                 }
@@ -827,8 +838,12 @@ static int vl_method_mount_directory(
         if (r < 0)
                 return log_debug_errno(r, "Failed to get client UID: %m");
 
+        /* Get path of the fd, to improve logging */
+        _cleanup_free_ char *directory_path = NULL;
+        (void) fd_get_path(directory_fd, &directory_path);
+
         uid_t current_owner_uid;
-        DirectoryOwnership owned_by = validate_directory_fd(directory_fd, peer_uid, &current_owner_uid);
+        DirectoryOwnership owned_by = validate_directory_fd(directory_fd, directory_path, peer_uid, &current_owner_uid);
         if (owned_by == -EREMOTEIO)
                 return sd_varlink_errorbo(link, "io.systemd.MountFileSystem.BadFileDescriptorFlags", SD_JSON_BUILD_PAIR_STRING("parameter", "directoryFileDescriptor"));
         if (owned_by < 0)
@@ -843,9 +858,6 @@ static int vl_method_mount_directory(
                 p.mode = default_mount_map_mode(owned_by);
                 assert(p.mode > 0);
         }
-
-        _cleanup_free_ char *directory_path = NULL;
-        (void) fd_get_path(directory_fd, &directory_path);
 
         log_debug("Mounting '%s' with mapping mode: %s", strna(directory_path), mount_map_mode_to_string(p.mode));
 
@@ -984,7 +996,7 @@ static int vl_method_mount_directory(
         }
 
         if (userns_fd >= 0) {
-                r = nsresource_add_mount(userns_fd, mount_fd);
+                r = nsresource_add_mount(/* link= */ NULL, userns_fd, mount_fd);
                 if (r < 0)
                         return r;
         }
@@ -1003,6 +1015,7 @@ static int vl_method_mount_directory(
 typedef struct MakeDirectoryParameters {
         unsigned parent_fd_idx;
         const char *name;
+        mode_t mode;
 } MakeDirectoryParameters;
 
 static int vl_method_make_directory(
@@ -1012,14 +1025,16 @@ static int vl_method_make_directory(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "parentFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MakeDirectoryParameters, parent_fd_idx), SD_JSON_MANDATORY },
-                { "name",                 SD_JSON_VARIANT_STRING,   json_dispatch_const_filename, offsetof(MakeDirectoryParameters, name),          SD_JSON_MANDATORY },
+                { "parentFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,        offsetof(MakeDirectoryParameters, parent_fd_idx), SD_JSON_MANDATORY },
+                { "name",                 SD_JSON_VARIANT_STRING,        json_dispatch_const_filename, offsetof(MakeDirectoryParameters, name),          SD_JSON_MANDATORY },
+                { "mode",                 _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,    offsetof(MakeDirectoryParameters, mode),          SD_JSON_STRICT    },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
         MakeDirectoryParameters p = {
                 .parent_fd_idx = UINT_MAX,
+                .mode = MODE_INVALID,
         };
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
         int r;
@@ -1027,6 +1042,11 @@ static int vl_method_make_directory(
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
+
+        if (p.mode == MODE_INVALID)
+                p.mode = 0700;
+        else
+                p.mode &= 0775; /* refuse generating world writable dirs */
 
         if (p.parent_fd_idx == UINT_MAX)
                 return sd_varlink_error_invalid_parameter_name(link, "parentFileDescriptor");
@@ -1089,11 +1109,11 @@ static int vl_method_make_directory(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, 0700);
+        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, p.mode);
         if (fd < 0)
                 return fd;
 
-        r = RET_NERRNO(fchmod(fd, 0700)); /* Set mode explicitly, as paranoia regarding umask games */
+        r = RET_NERRNO(fchmod(fd, p.mode)); /* Set mode explicitly, as paranoia regarding umask games */
         if (r < 0)
                 goto fail;
 

@@ -11,6 +11,7 @@
 {{type}}.RootHashSignature,                   config_parse_exec_root_hash_sig,                    0,                                  offsetof({{type}}, exec_context)
 {{type}}.RootVerity,                          config_parse_unit_path_printf,                      true,                               offsetof({{type}}, exec_context.root_verity)
 {{type}}.RootEphemeral,                       config_parse_bool,                                  0,                                  offsetof({{type}}, exec_context.root_ephemeral)
+{{type}}.RootMStack,                          config_parse_unit_path_printf,                      true,                               offsetof({{type}}, exec_context.root_mstack)
 {{type}}.ExtensionDirectories,                config_parse_namespace_path_strv,                   0,                                  offsetof({{type}}, exec_context.extension_directories)
 {{type}}.ExtensionImages,                     config_parse_extension_images,                      0,                                  offsetof({{type}}, exec_context)
 {{type}}.ExtensionImagePolicy,                config_parse_image_policy,                          0,                                  offsetof({{type}}, exec_context.extension_image_policy)
