@@ -3879,7 +3879,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_RLIMIT: {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jcur = NULL, *jmax = NULL;
-                        _cleanup_free_ char *field = NULL, *t = NULL;
+                        _cleanup_free_ char *key = NULL, *t = NULL;
                         const char *eq;
                         struct rlimit rl;
                         int l;
@@ -3900,22 +3900,24 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!eq)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't parse resource limit assignment: %s", optarg);
 
-                        field = strndup(optarg, eq - optarg);
-                        if (!field)
+                        key = strndup(optarg, eq - optarg);
+                        if (!key)
                                 return log_oom();
 
-                        l = rlimit_from_string_harder(field);
+                        l = rlimit_from_string_harder(key);
                         if (l < 0)
-                                return log_error_errno(l, "Unknown resource limit type: %s", field);
+                                return log_error_errno(l, "Unknown resource limit type: %s", key);
+
+                        const char *rlimit_field = strjoina("RLIMIT_", rlimit_to_string(l));
 
                         if (isempty(eq + 1)) {
                                 /* Remove only the specific rlimit */
 
-                                r = strv_extend(&arg_identity_filter_rlimits, rlimit_to_string(l));
+                                r = strv_extend(&arg_identity_filter_rlimits, rlimit_field);
                                 if (r < 0)
                                         return r;
 
-                                r = sd_json_variant_filter(&arg_identity_extra_rlimits, STRV_MAKE(field));
+                                r = sd_json_variant_filter(&arg_identity_extra_rlimits, STRV_MAKE(rlimit_field));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to filter JSON identity data: %m");
 
@@ -3934,16 +3936,12 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to allocate maximum integer: %m");
 
-                        t = strjoin("RLIMIT_", rlimit_to_string(l));
-                        if (!t)
-                                return log_oom();
-
                         r = sd_json_variant_set_fieldbo(
-                                        &arg_identity_extra_rlimits, t,
+                                        &arg_identity_extra_rlimits, rlimit_field,
                                         SD_JSON_BUILD_PAIR_VARIANT("cur", jcur),
                                         SD_JSON_BUILD_PAIR_VARIANT("max", jmax));
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", rlimit_to_string(l));
+                                return log_error_errno(r, "Failed to set %s field: %m", rlimit_field);
 
                         break;
                 }
