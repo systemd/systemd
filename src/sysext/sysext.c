@@ -92,9 +92,9 @@ static bool arg_legend = true;
 static bool arg_force = false;
 static bool arg_no_reload = false;
 static int arg_noexec = -1;
-static ImagePolicy *arg_image_policy = NULL;
+static ImagePolicy *arg_image_policy = POINTER_MAX; /* Special value to track initialization */
 static bool arg_varlink = false;
-static MutableMode arg_mutable = MUTABLE_NO;
+static MutableMode arg_mutable = _MUTABLE_INVALID; /* Special value to track initialization */
 static const char *arg_overlayfs_mount_options = NULL;
 
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
@@ -108,7 +108,14 @@ static ImageClass arg_image_class = IMAGE_SYSEXT;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+
+static void image_policy_init_freep(ImagePolicy **p) {
+        if (*p == POINTER_MAX)
+                return;
+
+        image_policy_freep(p);
+}
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_init_freep);
 
 /* Helper struct for naming simplicity and reusability */
 static const struct {
@@ -163,10 +170,12 @@ static int parse_mutable_mode(const char *p) {
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_mutable_mode, mutable_mode, MutableMode);
 
 static int parse_config_file(ImageClass image_class) {
-        const char *section = image_class == IMAGE_SYSEXT ? "SysExt" : "ConfExt";
+        ImagePolicy *config_image_policy = NULL;
+        MutableMode config_mutable = MUTABLE_NO;
+        const char *section = image_class == IMAGE_SYSEXT ? "Sysext" : "Confext";
         const ConfigTableItem items[] = {
-                { section, "Mutable",           config_parse_mutable_mode,      0,      &arg_mutable            },
-                { section, "ImagePolicy",       config_parse_image_policy,      0,      &arg_image_policy       },
+                { section, "Mutable",           config_parse_mutable_mode,      0,      &config_mutable            },
+                { section, "ImagePolicy",       config_parse_image_policy,      0,      &config_image_policy       },
                 {}
         };
         _cleanup_free_ char *config_file = NULL;
@@ -179,7 +188,7 @@ static int parse_config_file(ImageClass image_class) {
         r = config_parse_standard_file_with_dropins_full(
                         arg_root,
                         config_file,
-                        image_class == IMAGE_SYSEXT ? "SysExt\0" : "ConfExt\0",
+                        section,
                         config_item_table_lookup, items,
                         CONFIG_PARSE_WARN,
                         /* userdata = */ NULL,
@@ -187,6 +196,16 @@ static int parse_config_file(ImageClass image_class) {
                         /* ret_dropin_files = */ NULL);
         if (r < 0)
                 return r;
+
+        /* Because this runs after parse_argv we only overwrite when things aren't set yet.
+         * This must take care of initialization even if there was no config file. */
+        if (arg_mutable == _MUTABLE_INVALID) {
+                arg_mutable = config_mutable;
+        }
+
+        if (arg_image_policy == POINTER_MAX) {
+                arg_image_policy = config_image_policy;
+        }
 
         return 0;
 }
@@ -2589,6 +2608,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_IMAGE_POLICY:
+                        /* When the CLI flag is given we initialize in any case
+                         * so that the config file entry won't overwrite it and
+                         * because parse_image_policy_argument calls free(). */
+                        if (arg_image_policy == POINTER_MAX)
+                                arg_image_policy = NULL;
                         r = parse_image_policy_argument(optarg, &arg_image_policy);
                         if (r < 0)
                                 return r;
@@ -2691,15 +2715,19 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* Parse configuration file */
-        r = parse_config_file(arg_image_class);
-        if (r < 0)
-                log_warning_errno(r, "Failed to parse global config file, ignoring: %m");
-
         /* Parse command line */
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        /* Parse configuration file after argv because it needs --root=.
+         * The config entries will not overwrite values set by env/argv
+         * which it can detect because these values are not initialized.
+         * The function also takes care of initializing the values it
+         * needed to be uninitialized. */
+        r = parse_config_file(arg_image_class);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse global config file, ignoring: %m");
 
         if (arg_varlink) {
                 _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
