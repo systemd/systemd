@@ -502,7 +502,7 @@ static int bus_set_transient_exec_context_fd(
         assert(name);
         assert(p);
         assert(b);
-        assert(verify_mode == O_DIRECTORY || (verify_mode & ~O_ACCMODE_STRICT) == 0);
+        assert(verify_mode == O_DIRECTORY || (verify_mode & ~O_ACCMODE) == 0);
 
         r = sd_bus_message_read(message, "h", &fd);
         if (r < 0)
