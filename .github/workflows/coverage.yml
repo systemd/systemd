@@ -124,7 +124,8 @@ jobs:
             --no-stdsplit \
             --num-processes "$(($(nproc) - 1))" \
             --timeout-multiplier 2 \
-            --max-lines 300
+            --max-lines 300 \
+            --quiet
 
       - name: Archive failed test journals
         uses: actions/upload-artifact@v4

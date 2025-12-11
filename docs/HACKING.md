@@ -43,7 +43,7 @@ $ mkosi -f genkey                                            # Generate signing 
 $ mkosi -f box -- meson setup -Dbpf-framework=disabled build # bpftool detection inside mkosi box is broken on Ubuntu Noble and older
 $ mkosi -f box -- meson compile -C build
 $ mkosi -f box -- build/systemctl --version
-$ mkosi -f box -- meson test -C build --print-errorlogs      # Run the unit tests
+$ mkosi -f box -- meson test -C build --print-errorlogs -q   # Run the unit tests
 ```
 
 To build and boot an OS image with the latest systemd installed:
