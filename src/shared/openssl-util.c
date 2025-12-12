@@ -1774,7 +1774,7 @@ int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
         if (r < 0)
                 return r;
 
-        const unsigned char *t = (unsigned char*) buf;
+        const unsigned char *t = (const unsigned char*) buf;
         if (!d2i_PUBKEY(ret, &t, len))
                 return -EIO;
 
