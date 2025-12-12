@@ -893,7 +893,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, ExecFlags flags, PidRef *ret_pi
 static void mount_enter_dead(Mount *m, MountResult f, bool flush_result) {
         assert(m);
 
-        if (m->result == MOUNT_SUCCESS || flush_result)
+        if (m->result == MOUNT_SUCCESS || f == MOUNT_FAILURE_START_LIMIT_HIT || flush_result)
                 m->result = f;
 
         unit_log_result(UNIT(m), m->result == MOUNT_SUCCESS, mount_result_to_string(m->result));

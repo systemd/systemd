@@ -668,7 +668,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {
 static void swap_enter_dead(Swap *s, SwapResult f) {
         assert(s);
 
-        if (s->result == SWAP_SUCCESS)
+        if (s->result == SWAP_SUCCESS || f == SWAP_FAILURE_START_LIMIT_HIT)
                 s->result = f;
 
         unit_log_result(UNIT(s), s->result == SWAP_SUCCESS, swap_result_to_string(s->result));
