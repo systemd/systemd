@@ -87,8 +87,6 @@ static SD_VARLINK_DEFINE_ERROR(
                 InsufficientFreeSpace,
                 SD_VARLINK_FIELD_COMMENT("Minimal size of the disk required for the installation."),
                 SD_VARLINK_DEFINE_FIELD(minimalSizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Additional free space needed on the selected disk."),
-                SD_VARLINK_DEFINE_FIELD(needFreeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Size of the selected block device."),
                 SD_VARLINK_DEFINE_FIELD(currentSizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 static SD_VARLINK_DEFINE_ERROR(
