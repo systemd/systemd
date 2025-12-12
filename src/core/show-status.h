@@ -31,12 +31,10 @@ typedef enum StatusUnitFormat {
 static inline bool show_status_on(ShowStatus s) {
         return IN_SET(s, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES);
 }
-ShowStatus show_status_from_string(const char *s) _const_;
-const char* show_status_to_string(ShowStatus s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(show_status, ShowStatus);
 int parse_show_status(const char *s, ShowStatus *ret);
 
-StatusUnitFormat status_unit_format_from_string(const char *s) _const_;
-const char* status_unit_format_to_string(StatusUnitFormat s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(status_unit_format, StatusUnitFormat);
 
 int status_vprintf(const char *status, ShowStatusFlags flags, const char *format, va_list ap) _printf_(3,0);
 int status_printf(const char *status, ShowStatusFlags flags, const char *format, ...) _printf_(3,4);

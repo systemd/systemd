@@ -196,20 +196,15 @@ int session_kill(Session *s, KillWhom whom, int signo, sd_bus_error *error);
 
 SessionState session_get_state(Session *s);
 
-const char* session_state_to_string(SessionState t) _const_;
-SessionState session_state_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(session_state, SessionState);
 
-const char* session_type_to_string(SessionType t) _const_;
-SessionType session_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(session_type, SessionType);
 
-const char* session_class_to_string(SessionClass t) _const_;
-SessionClass session_class_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(session_class, SessionClass);
 
-const char* kill_whom_to_string(KillWhom k) _const_;
-KillWhom kill_whom_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);
 
-const char* tty_validity_to_string(TTYValidity t) _const_;
-TTYValidity tty_validity_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(tty_validity, TTYValidity);
 
 void session_leave_vt(Session *s);
 

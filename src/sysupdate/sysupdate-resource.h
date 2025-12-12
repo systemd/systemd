@@ -95,8 +95,5 @@ Instance* resource_find_instance(Resource *rr, const char *version);
 
 int resource_resolve_path(Resource *rr, const char *root, const char *relative_to_directory, const char *node);
 
-ResourceType resource_type_from_string(const char *s) _pure_;
-const char* resource_type_to_string(ResourceType t) _const_;
-
-PathRelativeTo path_relative_to_from_string(const char *s) _pure_;
-const char* path_relative_to_to_string(PathRelativeTo r) _const_;
+DECLARE_STRING_TABLE_LOOKUP(resource_type, ResourceType);
+DECLARE_STRING_TABLE_LOOKUP(path_relative_to, PathRelativeTo);

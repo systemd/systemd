@@ -19,5 +19,4 @@ int verify_prepare_filename(const char *filename, char **ret);
 int verify_executable(Unit *u, const ExecCommand *exec, const char *root);
 int verify_units(char **filenames, RuntimeScope scope, bool check_man, bool run_generators, RecursiveErrors recursive_errors, const char *root);
 
-const char* recursive_errors_to_string(RecursiveErrors i) _const_;
-RecursiveErrors recursive_errors_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(recursive_errors, RecursiveErrors);

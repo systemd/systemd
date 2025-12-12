@@ -107,11 +107,8 @@ const char* personality_to_string(unsigned long);
 int safe_personality(unsigned long p);
 int opinionated_personality(unsigned long *ret);
 
-const char* sigchld_code_to_string(int i) _const_;
-int sigchld_code_from_string(const char *s) _pure_;
-
-int sched_policy_to_string_alloc(int i, char **ret);
-int sched_policy_from_string(const char *s);
+DECLARE_STRING_TABLE_LOOKUP(sigchld_code, int);
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int);
 
 static inline pid_t PTR_TO_PID(const void *p) {
         return (pid_t) ((uintptr_t) p);
