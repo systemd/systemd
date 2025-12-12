@@ -56,7 +56,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>public</command></term>
+        <term><command>extract-public</command></term>
 
         <listitem><para>This commands prints the public key in PEM format extracted from either the
         certificate given with <option>--certificate=</option> or the private key given with
