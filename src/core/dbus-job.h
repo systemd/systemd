@@ -1,17 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
+#include "sd-bus-vtable.h"
 
-#include "bus-object.h"
-
-typedef struct Job Job;
+#include "core-forward.h"
 
 extern const sd_bus_vtable bus_job_vtable[];
 extern const BusObjectImplementation job_object;
 
-int bus_job_method_cancel(sd_bus_message *message, void *job, sd_bus_error *error);
-int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error);
+int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error);
 
 void bus_job_send_change_signal(Job *j);
 void bus_job_send_pending_change_signal(Job *j, bool including_new);

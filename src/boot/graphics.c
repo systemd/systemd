@@ -4,10 +4,10 @@
  *   Authored by Joonas Lahtinen <joonas.lahtinen@linux.intel.com>
  */
 
+#include "efi-log.h"
 #include "graphics.h"
 #include "proto/console-control.h"
 #include "proto/simple-text-io.h"
-#include "util.h"
 
 EFI_STATUS graphics_mode(bool on) {
         EFI_CONSOLE_CONTROL_PROTOCOL *ConsoleControl = NULL;

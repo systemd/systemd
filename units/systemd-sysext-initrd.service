@@ -16,6 +16,7 @@ ConditionDirectoryNotEmpty=|/etc/extensions
 ConditionDirectoryNotEmpty=|/run/extensions
 ConditionDirectoryNotEmpty=|/var/lib/extensions
 ConditionDirectoryNotEmpty=|/.extra/sysext
+ConditionDirectoryNotEmpty=|/.extra/global_sysext
 ConditionPathExists=/etc/initrd-release
 
 DefaultDependencies=no

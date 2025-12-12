@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -82,6 +81,7 @@ int main(int argc, char *argv[]) {
                 .runtime_scope = RUNTIME_SCOPE_SYSTEM,
 
                 .root_directory = root_directory,
+                .root_directory_fd = -EBADF,
 
                 .read_write_paths = (char**) writable,
                 .read_only_paths = (char**) readonly,

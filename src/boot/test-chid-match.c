@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stddef.h>
-#include <stdint.h>
-
 #include "chid.h"
+#include "edid.h"
+#include "efi-string.h"
 #include "smbios.h"
 #include "tests.h"
 
@@ -12,6 +11,7 @@ extern size_t hwids_section_len;
 
 static struct {
         const RawSmbiosInfo smbios_info;
+        const char16_t *panel_id;
         uint32_t device_type;
 } info[] = {
         {
@@ -23,6 +23,7 @@ static struct {
                         .baseboard_product      = "FODM1",
                         .baseboard_manufacturer = "First ODM",
                 },
+                .panel_id = u"TST42",
                 .device_type = DEVICE_TYPE_DEVICETREE,
         },
         {
@@ -79,9 +80,21 @@ void smbios_raw_info_get_cached(RawSmbiosInfo *ret_info) {
         *ret_info = current_info;
 }
 
+static const char16_t *current_panel = NULL;
+EFI_STATUS edid_get_discovered_panel_id(char16_t **ret_panel) {
+        assert(ret_panel);
+
+        if (!current_panel)
+                return EFI_UNSUPPORTED;
+
+        *ret_panel = xstrdup16(current_panel);
+        return EFI_SUCCESS;
+}
+
 TEST(chid_match) {
         for (size_t i = 0; i < ELEMENTSOF(info); i++) {
                 current_info = info[i].smbios_info;
+                current_panel = info[i].panel_id;
                 const Device *dev = NULL;
                 /* Match and check */
                 ASSERT_EQ(chid_match(hwids_section_data, hwids_section_len, info[i].device_type, &dev), EFI_SUCCESS);

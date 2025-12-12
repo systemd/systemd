@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <unistd.h>
+#include <sys/socket.h>
 
 #include "sd-varlink.h"
 
@@ -9,7 +9,6 @@
 #include "fuzz.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
-#include "log.h"
 
 static FILE *null = NULL;
 

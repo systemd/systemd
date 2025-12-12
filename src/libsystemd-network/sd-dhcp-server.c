@@ -3,10 +3,8 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <net/if_arp.h>
-#include <sys/ioctl.h>
-
 #include "sd-dhcp-server.h"
+#include "sd-event.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -16,6 +14,7 @@
 #include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
@@ -24,9 +23,9 @@
 #include "ordered-set.h"
 #include "path-util.h"
 #include "siphash24.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "unaligned.h"
-#include "utf8.h"
 
 #define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
 #define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
@@ -129,6 +128,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         free(server->boot_server_name);
         free(server->boot_filename);
         free(server->timezone);
+        free(server->domain_name);
 
         for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
                 free(server->servers[i].addr);
@@ -519,9 +519,9 @@ static int server_message_init(
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREPLY,
-                              be32toh(req->message->xid), type,
+                              be32toh(req->message->xid),
                               req->message->htype, req->message->hlen, req->message->chaddr,
-                              req->max_optlen, &optoffset);
+                              type, req->max_optlen, &optoffset);
         if (r < 0)
                 return r;
 
@@ -532,6 +532,64 @@ static int server_message_init(
         *ret = TAKE_PTR(packet);
 
         return 0;
+}
+
+static int dhcp_server_append_static_hostname(
+                sd_dhcp_server *server,
+                DHCPPacket *packet,
+                size_t *offset,
+                DHCPRequest *req) {
+
+        sd_dhcp_server_lease *static_lease;
+        int r;
+
+        assert(server);
+        assert(packet);
+        assert(offset);
+        assert(req);
+
+        static_lease = dhcp_server_get_static_lease(server, req);
+        if (!static_lease || !static_lease->hostname)
+                return 0;
+
+        if (dns_name_is_single_label(static_lease->hostname))
+                /* Option 12 */
+                return dhcp_option_append(
+                                &packet->dhcp,
+                                req->max_optlen,
+                                offset,
+                                /* overload= */ 0,
+                                SD_DHCP_OPTION_HOST_NAME,
+                                strlen(static_lease->hostname),
+                                static_lease->hostname);
+
+
+        /* Option 81 */
+        uint8_t buffer[DHCP_MAX_FQDN_LENGTH + 3];
+
+        /* Flags: S=0 (will not update RR), O=1 (are overriding client),
+         * E=1 (using DNS wire format), N=1 (will not update DNS) */
+        buffer[0] = DHCP_FQDN_FLAG_O | DHCP_FQDN_FLAG_E | DHCP_FQDN_FLAG_N;
+
+        /* RFC 4702: A server SHOULD set these to 255 when sending the option and MUST ignore them on
+         * receipt. */
+        buffer[1] = 255;
+        buffer[2] = 255;
+
+        r = dns_name_to_wire_format(static_lease->hostname, buffer + 3, sizeof(buffer) - 3, false);
+        if (r < 0)
+                return log_dhcp_server_errno(server, r, "Failed to encode FQDN for static lease: %m");
+        if (r > DHCP_MAX_FQDN_LENGTH)
+                return log_dhcp_server_errno(server, SYNTHETIC_ERRNO(EINVAL), "FQDN for static lease too long");
+
+        return dhcp_option_append(
+                        &packet->dhcp,
+                        req->max_optlen,
+                        offset,
+                        /* overload= */ 0,
+                        SD_DHCP_OPTION_FQDN,
+                        3 + r,
+                        buffer);
 }
 
 static int server_send_offer_or_ack(
@@ -626,6 +684,15 @@ static int server_send_offer_or_ack(
                         return r;
         }
 
+        if (server->domain_name) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_DOMAIN_NAME,
+                                strlen(server->domain_name), server->domain_name);
+                if (r < 0)
+                        return r;
+        }
+
         /* RFC 8925 section 3.3. DHCPv4 Server Behavior
          * The server MUST NOT include the IPv6-Only Preferred option in the DHCPOFFER or DHCPACK message if
          * the option was not present in the Parameter Request List sent by the client. */
@@ -665,6 +732,10 @@ static int server_send_offer_or_ack(
                 if (r < 0)
                         return r;
         }
+
+        r = dhcp_server_append_static_hostname(server, packet, &offset, req);
+        if (r < 0)
+                return r;
 
         return dhcp_server_send_packet(server, req, packet, type, offset);
 }
@@ -714,7 +785,7 @@ static int server_send_forcerenew(
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREPLY, 0,
-                              DHCP_FORCERENEW, htype, hlen, chaddr,
+                              htype, hlen, chaddr, DHCP_FORCERENEW,
                               DHCP_MIN_OPTIONS_SIZE, &optoffset);
         if (r < 0)
                 return r;
@@ -1063,7 +1134,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 
                 /* for now pick a random free address from the pool */
                 if (static_lease) {
-                        if (existing_lease != hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_lease->address)))
+                        sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_lease->address));
+                        if (l && l != existing_lease)
                                 /* The address is already assigned to another host. Refusing. */
                                 return 0;
 
@@ -1177,7 +1249,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                                 /* The client requested an address which is different from the static lease. Refusing. */
                                 return server_send_nak_or_ignore(server, init_reboot, req);
 
-                        if (existing_lease != hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address)))
+                        sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
+                        if (l && l != existing_lease)
                                 /* The requested address is already assigned to another host. Refusing. */
                                 return server_send_nak_or_ignore(server, init_reboot, req);
 
@@ -1416,6 +1489,22 @@ int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *tz) {
         return 1;
 }
 
+int sd_dhcp_server_set_domain_name(sd_dhcp_server *server, const char *domain_name) {
+        int r;
+
+        assert_return(server, -EINVAL);
+
+        if (domain_name) {
+                r = dns_name_is_valid(domain_name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EINVAL;
+        }
+
+        return free_and_strdup(&server->domain_name, domain_name);
+}
+
 int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint64_t t) {
         assert_return(server, -EINVAL);
 
@@ -1606,9 +1695,13 @@ int sd_dhcp_server_set_lease_file(sd_dhcp_server *server, int dir_fd, const char
         if (!path_is_safe(path))
                 return -EINVAL;
 
-        _cleanup_close_ int fd = fd_reopen(dir_fd, O_CLOEXEC | O_DIRECTORY | O_PATH);
-        if (fd < 0)
-                return fd;
+        _cleanup_close_ int fd = AT_FDCWD; /* Unlike our usual coding style, AT_FDCWD needs to be set,
+                                            * to pass a 'valid' fd. */
+        if (dir_fd >= 0) {
+                fd = fd_reopen(dir_fd, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                if (fd < 0)
+                        return fd;
+        }
 
         r = free_and_strdup(&server->lease_file, path);
         if (r < 0)
@@ -1617,4 +1710,39 @@ int sd_dhcp_server_set_lease_file(sd_dhcp_server *server, int dir_fd, const char
         close_and_replace(server->lease_dir_fd, fd);
 
         return 0;
+}
+
+static int find_lease_address(Hashmap *h, const char *name, struct in_addr *ret) {
+        int r;
+
+        assert(name);
+
+        sd_dhcp_server_lease *lease;
+        HASHMAP_FOREACH(lease, h) {
+                if (!lease->hostname)
+                        continue;
+
+                r = dns_name_equal(lease->hostname, name);
+                if (r <= 0)
+                        continue;
+
+                if (ret)
+                        ret->s_addr = lease->address;
+                return 1;
+        }
+
+        return -ENOENT;
+}
+
+int sd_dhcp_server_get_lease_address_by_name(sd_dhcp_server *server, const char *name, struct in_addr *ret) {
+        int r;
+
+        assert_return(server, -EINVAL);
+        assert_return(dns_name_is_valid(name), -EINVAL);
+
+        r = find_lease_address(server->static_leases_by_address, name, ret);
+        if (r != -ENOENT)
+                return r;
+
+        return find_lease_address(server->bound_leases_by_address, name, ret);
 }

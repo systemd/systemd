@@ -6,9 +6,9 @@
 
 #include "glob-util.h"
 #include "hexdecoct.h"
-#include "macro.h"
 #include "path-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "syslog-util.h"
 #include "unit-name.h"
 

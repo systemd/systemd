@@ -1,20 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "capability-util.h"
 #include "fd-util.h"
 #include "id128-util.h"
-#include "macro.h"
 #include "path-util.h"
 #include "rm-rf.h"
-#include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 #define ID128_WALDI SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10)
@@ -279,7 +279,7 @@ TEST(id128_at) {
         ASSERT_OK(sd_id128_randomize(&id));
 
         ASSERT_OK(id128_write_at(tfd, "etc/machine-id", ID128_FORMAT_PLAIN, id));
-        if (geteuid() == 0)
+        if (have_effective_cap(CAP_DAC_OVERRIDE))
                 ASSERT_OK(id128_write_at(tfd, "etc/machine-id", ID128_FORMAT_PLAIN, id));
         else
                 ASSERT_ERROR(id128_write_at(tfd, "etc/machine-id", ID128_FORMAT_PLAIN, id), EACCES);

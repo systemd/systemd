@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_GCRYPT
+#include <sys/syslog.h>
 
 #include "gcrypt-util.h"
-#include "hexdecoct.h"
-#include "log.h"
+
+#if HAVE_GCRYPT
 
 static void *gcrypt_dl = NULL;
 
@@ -40,8 +40,10 @@ DLSYM_PROTOTYPE(gcry_mpi_sub_ui) = NULL;
 DLSYM_PROTOTYPE(gcry_prime_check) = NULL;
 DLSYM_PROTOTYPE(gcry_randomize) = NULL;
 DLSYM_PROTOTYPE(gcry_strerror) = NULL;
+#endif
 
-static int dlopen_gcrypt(void) {
+int dlopen_gcrypt(void) {
+#if HAVE_GCRYPT
         ELF_NOTE_DLOPEN("gcrypt",
                         "Support for journald forward-sealing",
                         ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
@@ -82,9 +84,13 @@ static int dlopen_gcrypt(void) {
                         DLSYM_ARG(gcry_prime_check),
                         DLSYM_ARG(gcry_randomize),
                         DLSYM_ARG(gcry_strerror));
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int initialize_libgcrypt(bool secmem) {
+#if HAVE_GCRYPT
         int r;
 
         r = dlopen_gcrypt();
@@ -105,5 +111,7 @@ int initialize_libgcrypt(bool secmem) {
         sym_gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 
         return 0;
-}
+#else
+        return -EOPNOTSUPP;
 #endif
+}

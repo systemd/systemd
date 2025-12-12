@@ -13,9 +13,13 @@ install_symlink('run0',
                 install_dir : bindir)
 
 custom_target(
-        'systemd-run0',
         input : 'systemd-run0.in',
         output : 'systemd-run0',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : pamconfdir != 'no',
         install_dir : pamconfdir)
+
+if install_polkit
+        install_data('empower.rules',
+                     install_dir : polkitrulesdir)
+endif

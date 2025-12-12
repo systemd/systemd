@@ -32,15 +32,22 @@ meson_args=("-Db_lundef=false")
 if [ -z "$FUZZING_ENGINE" ]; then
     meson_args+=("-Dllvm-fuzz=true")
 else
-    meson_args+=("-Doss-fuzz=true" "--auto-features=disabled")
+    # The situation with runtime dependencies on oss-fuzz is complicated as the execution environment differs
+    # from the build environment
+    # (https://google.github.io/oss-fuzz/further-reading/fuzzer-environment/#runtime-dependencies). Because
+    # statically linking isn't viable for us for various reasons, we do a build with most features disabled
+    # to link against as few libraries as possible. The libraries we do end up linking against happen (by
+    # chance) to be installed in the oss-fuzz execution environment.
+    meson_args+=("-Doss-fuzz=true" "--auto-features=disabled" "-Dlibmount=enabled" "-Dnspawn=enabled" "-Dresolve=true")
 
     apt-get update
     apt-get install -y gperf m4 gettext python3-pip \
-        libcap-dev libmount-dev \
+        libmount-dev \
         pkg-config wget python3-jinja2 zipmerge zstd
 
     if [[ "$ARCHITECTURE" == i386 ]]; then
-        apt-get install -y pkg-config:i386 libcap-dev:i386 libmount-dev:i386
+        apt-get install -y pkg-config:i386 libcrypt-dev:i386 libmount-dev:i386
+        export PKG_CONFIG=i686-linux-gnu-pkg-config
     fi
 
     pip3 install -r .github/workflows/requirements.txt --require-hashes

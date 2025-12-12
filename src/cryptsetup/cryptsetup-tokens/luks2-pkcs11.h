@@ -2,9 +2,7 @@
 
 #pragma once
 
-#include <stddef.h>
-
-struct crypt_device;
+#include "shared-forward.h"
 
 int acquire_luks2_key(
                 struct crypt_device *cd,

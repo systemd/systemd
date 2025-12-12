@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <endian.h>
+#include <grp.h>
 #include <poll.h>
 #include <stdlib.h>
+#include <sys/inotify.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -12,22 +14,21 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-socket.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "format-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
-#include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -63,7 +64,7 @@ static int append_iovec(sd_bus_message *m, const void *p, size_t sz) {
 }
 
 static int bus_message_setup_iovec(sd_bus_message *m) {
-        struct bus_body_part *part;
+        BusMessageBodyPart *part;
         unsigned n, i;
         int r;
 
@@ -169,7 +170,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         if (!b->anonymous_auth) {
                 l = lines[i++];
                 if (lines[i] - l == 4 + 2) {
-                        if (memcmp(l, "DATA", 4))
+                        if (memcmp(l, "DATA", 4) != 0)
                                 return -EPERM;
                 } else if (lines[i] - l == 3 + 32 + 2) {
                         /*
@@ -181,7 +182,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
                          * wrong reply. We ignore the "<id>" parameter, though,
                          * since it has no real value.
                          */
-                        if (memcmp(l, "OK ", 3))
+                        if (memcmp(l, "OK ", 3) != 0)
                                 return -EPERM;
                 } else
                         return -EPERM;
@@ -192,7 +193,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
 
         if (lines[i] - l != 3 + 32 + 2)
                 return -EPERM;
-        if (memcmp(l, "OK ", 3))
+        if (memcmp(l, "OK ", 3) != 0)
                 return -EPERM;
 
         b->auth = b->anonymous_auth ? BUS_AUTH_ANONYMOUS : BUS_AUTH_EXTERNAL;
@@ -885,16 +886,16 @@ static int bus_socket_inotify_setup(sd_bus *b) {
                 }
 
                 wd = inotify_add_watch(b->inotify_fd, prefix, IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO|IN_DONT_FOLLOW);
-                log_debug("Added inotify watch for %s on bus %s: %i", prefix, strna(b->description), wd);
-
                 if (wd < 0) {
                         if (IN_SET(errno, ENOENT, ELOOP))
                                 break; /* This component doesn't exist yet, or the path contains a cyclic symlink right now */
 
                         r = log_debug_errno(errno, "Failed to add inotify watch on %s: %m", empty_to_root(prefix));
                         goto fail;
-                } else
+                } else {
+                        log_debug("Added inotify watch %i for %s on bus %s.", wd, prefix, strna(b->description));
                         new_watches[n++] = wd;
+                }
 
                 /* Check if this is possibly a symlink. If so, let's follow it and watch it too. */
                 r = readlink_malloc(prefix, &destination);
@@ -1284,8 +1285,8 @@ static int bus_socket_read_message_need(sd_bus *bus, size_t *need) {
         assert(need);
         assert(IN_SET(bus->state, BUS_RUNNING, BUS_HELLO));
 
-        if (bus->rbuffer_size < sizeof(struct bus_header)) {
-                *need = sizeof(struct bus_header) + 8;
+        if (bus->rbuffer_size < sizeof(BusMessageHeader)) {
+                *need = sizeof(BusMessageHeader) + 8;
 
                 /* Minimum message size:
                  *
@@ -1319,7 +1320,7 @@ static int bus_socket_read_message_need(sd_bus *bus, size_t *need) {
         } else
                 return -EBADMSG;
 
-        sum = (uint64_t) sizeof(struct bus_header) + (uint64_t) ALIGN8(b) + (uint64_t) a;
+        sum = (uint64_t) sizeof(BusMessageHeader) + (uint64_t) ALIGN8(b) + (uint64_t) a;
         if (sum >= BUS_MESSAGE_SIZE_MAX)
                 return -ENOBUFS;
 

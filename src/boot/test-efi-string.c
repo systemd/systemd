@@ -2,365 +2,367 @@
 
 #include <fnmatch.h>
 
+#include "alloc-util.h"
+#include "argv-util.h"
 #include "efi-string.h"
 #include "fileio.h"
 #include "tests.h"
 
 TEST(strlen8) {
-        assert_se(strlen8(NULL) == 0);
-        assert_se(strlen8("") == 0);
-        assert_se(strlen8("1") == 1);
-        assert_se(strlen8("11") == 2);
-        assert_se(strlen8("123456789") == 9);
-        assert_se(strlen8("12\0004") == 2);
+        ASSERT_EQ(strlen8(NULL), 0u);
+        ASSERT_EQ(strlen8(""), 0u);
+        ASSERT_EQ(strlen8("1"), 1u);
+        ASSERT_EQ(strlen8("11"), 2u);
+        ASSERT_EQ(strlen8("123456789"), 9u);
+        ASSERT_EQ(strlen8("12\0004"), 2u);
 }
 
 TEST(strlen16) {
-        assert_se(strlen16(NULL) == 0);
-        assert_se(strlen16(u"") == 0);
-        assert_se(strlen16(u"1") == 1);
-        assert_se(strlen16(u"11") == 2);
-        assert_se(strlen16(u"123456789") == 9);
-        assert_se(strlen16(u"12\0004") == 2);
+        ASSERT_EQ(strlen16(NULL), 0u);
+        ASSERT_EQ(strlen16(u""), 0u);
+        ASSERT_EQ(strlen16(u"1"), 1u);
+        ASSERT_EQ(strlen16(u"11"), 2u);
+        ASSERT_EQ(strlen16(u"123456789"), 9u);
+        ASSERT_EQ(strlen16(u"12\0004"), 2u);
 }
 
 TEST(strnlen8) {
-        assert_se(strnlen8(NULL, 0) == 0);
-        assert_se(strnlen8(NULL, 10) == 0);
-        assert_se(strnlen8("", 10) == 0);
-        assert_se(strnlen8("1", 10) == 1);
-        assert_se(strnlen8("11", 1) == 1);
-        assert_se(strnlen8("123456789", 7) == 7);
-        assert_se(strnlen8("12\0004", 5) == 2);
+        ASSERT_EQ(strnlen8(NULL, 0), 0u);
+        ASSERT_EQ(strnlen8(NULL, 10), 0u);
+        ASSERT_EQ(strnlen8("", 10), 0u);
+        ASSERT_EQ(strnlen8("1", 10), 1u);
+        ASSERT_EQ(strnlen8("11", 1), 1u);
+        ASSERT_EQ(strnlen8("123456789", 7), 7u);
+        ASSERT_EQ(strnlen8("12\0004", 5), 2u);
 }
 
 TEST(strnlen16) {
-        assert_se(strnlen16(NULL, 0) == 0);
-        assert_se(strnlen16(NULL, 10) == 0);
-        assert_se(strnlen16(u"", 10) == 0);
-        assert_se(strnlen16(u"1", 10) == 1);
-        assert_se(strnlen16(u"11", 1) == 1);
-        assert_se(strnlen16(u"123456789", 7) == 7);
-        assert_se(strnlen16(u"12\0004", 5) == 2);
+        ASSERT_EQ(strnlen16(NULL, 0), 0u);
+        ASSERT_EQ(strnlen16(NULL, 10), 0u);
+        ASSERT_EQ(strnlen16(u"", 10), 0u);
+        ASSERT_EQ(strnlen16(u"1", 10), 1u);
+        ASSERT_EQ(strnlen16(u"11", 1), 1u);
+        ASSERT_EQ(strnlen16(u"123456789", 7), 7u);
+        ASSERT_EQ(strnlen16(u"12\0004", 5), 2u);
 }
 
 TEST(strsize8) {
-        assert_se(strsize8(NULL) == 0);
-        assert_se(strsize8("") == 1);
-        assert_se(strsize8("1") == 2);
-        assert_se(strsize8("11") == 3);
-        assert_se(strsize8("123456789") == 10);
-        assert_se(strsize8("12\0004") == 3);
+        ASSERT_EQ(strsize8(NULL), 0u);
+        ASSERT_EQ(strsize8(""), 1u);
+        ASSERT_EQ(strsize8("1"), 2u);
+        ASSERT_EQ(strsize8("11"), 3u);
+        ASSERT_EQ(strsize8("123456789"), 10u);
+        ASSERT_EQ(strsize8("12\0004"), 3u);
 }
 
 TEST(strsize16) {
-        assert_se(strsize16(NULL) == 0);
-        assert_se(strsize16(u"") == 2);
-        assert_se(strsize16(u"1") == 4);
-        assert_se(strsize16(u"11") == 6);
-        assert_se(strsize16(u"123456789") == 20);
-        assert_se(strsize16(u"12\0004") == 6);
+        ASSERT_EQ(strsize16(NULL), 0u);
+        ASSERT_EQ(strsize16(u""), 2u);
+        ASSERT_EQ(strsize16(u"1"), 4u);
+        ASSERT_EQ(strsize16(u"11"), 6u);
+        ASSERT_EQ(strsize16(u"123456789"), 20u);
+        ASSERT_EQ(strsize16(u"12\0004"), 6u);
 }
 
 TEST(strtolower8) {
         char s[] = "\0001234abcDEF!\0zZ";
 
-        strtolower8(NULL);
+        ASSERT_NULL(strtolower8(NULL));
 
-        strtolower8(s);
-        assert_se(memcmp(s, "\0001234abcDEF!\0zZ", sizeof(s)) == 0);
+        ASSERT_PTR_EQ(strtolower8(s), s);
+        ASSERT_EQ(memcmp(s, "\0001234abcDEF!\0zZ", sizeof(s)), 0);
 
         s[0] = '#';
-        strtolower8(s);
-        assert_se(memcmp(s, "#1234abcdef!\0zZ", sizeof(s)) == 0);
+        ASSERT_PTR_EQ(strtolower8(s), s);
+        ASSERT_EQ(memcmp(s, "#1234abcdef!\0zZ", sizeof(s)), 0);
 }
 
 TEST(strtolower16) {
         char16_t s[] = u"\0001234abcDEF!\0zZ";
 
-        strtolower16(NULL);
+        ASSERT_NULL(strtolower16(NULL));
 
-        strtolower16(s);
-        assert_se(memcmp(s, u"\0001234abcDEF!\0zZ", sizeof(s)) == 0);
+        ASSERT_PTR_EQ(strtolower16(s), s);
+        ASSERT_EQ(memcmp(s, u"\0001234abcDEF!\0zZ", sizeof(s)), 0);
 
         s[0] = '#';
-        strtolower16(s);
-        assert_se(memcmp(s, u"#1234abcdef!\0zZ", sizeof(s)) == 0);
+        ASSERT_PTR_EQ(strtolower16(s), s);
+        ASSERT_EQ(memcmp(s, u"#1234abcdef!\0zZ", sizeof(s)), 0);
 }
 
 TEST(strncmp8) {
-        assert_se(strncmp8(NULL, "", 10) < 0);
-        assert_se(strncmp8("", NULL, 10) > 0);
-        assert_se(strncmp8(NULL, NULL, 0) == 0);
-        assert_se(strncmp8(NULL, NULL, 10) == 0);
-        assert_se(strncmp8("", "", 10) == 0);
-        assert_se(strncmp8("abc", "abc", 2) == 0);
-        assert_se(strncmp8("aBc", "aBc", 3) == 0);
-        assert_se(strncmp8("aBC", "aBC", 4) == 0);
-        assert_se(strncmp8("", "a", 0) == 0);
-        assert_se(strncmp8("b", "a", 0) == 0);
-        assert_se(strncmp8("", "a", 3) < 0);
-        assert_se(strncmp8("=", "=", 1) == 0);
-        assert_se(strncmp8("A", "a", 1) < 0);
-        assert_se(strncmp8("a", "A", 2) > 0);
-        assert_se(strncmp8("a", "Aa", 2) > 0);
-        assert_se(strncmp8("12\00034", "12345", 4) < 0);
-        assert_se(strncmp8("12\00034", "12345", SIZE_MAX) < 0);
-        assert_se(strncmp8("abc\0def", "abc", SIZE_MAX) == 0);
-        assert_se(strncmp8("abc\0def", "abcdef", SIZE_MAX) < 0);
+        ASSERT_LT(strncmp8(NULL, "", 10), 0);
+        ASSERT_GT(strncmp8("", NULL, 10), 0);
+        ASSERT_EQ(strncmp8(NULL, NULL, 0), 0);
+        ASSERT_EQ(strncmp8(NULL, NULL, 10), 0);
+        ASSERT_EQ(strncmp8("", "", 10), 0);
+        ASSERT_EQ(strncmp8("abc", "abc", 2), 0);
+        ASSERT_EQ(strncmp8("aBc", "aBc", 3), 0);
+        ASSERT_EQ(strncmp8("aBC", "aBC", 4), 0);
+        ASSERT_EQ(strncmp8("", "a", 0), 0);
+        ASSERT_EQ(strncmp8("b", "a", 0), 0);
+        ASSERT_LT(strncmp8("", "a", 3), 0);
+        ASSERT_EQ(strncmp8("=", "=", 1), 0);
+        ASSERT_LT(strncmp8("A", "a", 1), 0);
+        ASSERT_GT(strncmp8("a", "A", 2), 0);
+        ASSERT_GT(strncmp8("a", "Aa", 2), 0);
+        ASSERT_LT(strncmp8("12\00034", "12345", 4), 0);
+        ASSERT_LT(strncmp8("12\00034", "12345", SIZE_MAX), 0);
+        ASSERT_EQ(strncmp8("abc\0def", "abc", SIZE_MAX), 0);
+        ASSERT_LT(strncmp8("abc\0def", "abcdef", SIZE_MAX), 0);
 
-        assert_se(strncmp8((char[]){ CHAR_MIN }, (char[]){ CHAR_MIN }, 1) == 0);
-        assert_se(strncmp8((char[]){ CHAR_MAX }, (char[]){ CHAR_MAX }, 1) == 0);
-        assert_se(strncmp8((char[]){ CHAR_MIN }, (char[]){ CHAR_MAX }, 1) < 0);
-        assert_se(strncmp8((char[]){ CHAR_MAX }, (char[]){ CHAR_MIN }, 1) > 0);
+        ASSERT_EQ(strncmp8((char[]){ CHAR_MIN }, (char[]){ CHAR_MIN }, 1), 0);
+        ASSERT_EQ(strncmp8((char[]){ CHAR_MAX }, (char[]){ CHAR_MAX }, 1), 0);
+        ASSERT_LT(strncmp8((char[]){ CHAR_MIN }, (char[]){ CHAR_MAX }, 1), 0);
+        ASSERT_GT(strncmp8((char[]){ CHAR_MAX }, (char[]){ CHAR_MIN }, 1), 0);
 }
 
 TEST(strncmp16) {
-        assert_se(strncmp16(NULL, u"", 10) < 0);
-        assert_se(strncmp16(u"", NULL, 10) > 0);
-        assert_se(strncmp16(NULL, NULL, 0) == 0);
-        assert_se(strncmp16(NULL, NULL, 10) == 0);
-        assert_se(strncmp16(u"", u"", 0) == 0);
-        assert_se(strncmp16(u"", u"", 10) == 0);
-        assert_se(strncmp16(u"abc", u"abc", 2) == 0);
-        assert_se(strncmp16(u"aBc", u"aBc", 3) == 0);
-        assert_se(strncmp16(u"aBC", u"aBC", 4) == 0);
-        assert_se(strncmp16(u"", u"a", 0) == 0);
-        assert_se(strncmp16(u"b", u"a", 0) == 0);
-        assert_se(strncmp16(u"", u"a", 3) < 0);
-        assert_se(strncmp16(u"=", u"=", 1) == 0);
-        assert_se(strncmp16(u"A", u"a", 1) < 0);
-        assert_se(strncmp16(u"a", u"A", 2) > 0);
-        assert_se(strncmp16(u"a", u"Aa", 2) > 0);
-        assert_se(strncmp16(u"12\00034", u"12345", 4) < 0);
-        assert_se(strncmp16(u"12\00034", u"12345", SIZE_MAX) < 0);
-        assert_se(strncmp16(u"abc\0def", u"abc", SIZE_MAX) == 0);
-        assert_se(strncmp16(u"abc\0def", u"abcdef", SIZE_MAX) < 0);
+        ASSERT_LT(strncmp16(NULL, u"", 10), 0);
+        ASSERT_GT(strncmp16(u"", NULL, 10), 0);
+        ASSERT_EQ(strncmp16(NULL, NULL, 0), 0);
+        ASSERT_EQ(strncmp16(NULL, NULL, 10), 0);
+        ASSERT_EQ(strncmp16(u"", u"", 0), 0);
+        ASSERT_EQ(strncmp16(u"", u"", 10), 0);
+        ASSERT_EQ(strncmp16(u"abc", u"abc", 2), 0);
+        ASSERT_EQ(strncmp16(u"aBc", u"aBc", 3), 0);
+        ASSERT_EQ(strncmp16(u"aBC", u"aBC", 4), 0);
+        ASSERT_EQ(strncmp16(u"", u"a", 0), 0);
+        ASSERT_EQ(strncmp16(u"b", u"a", 0), 0);
+        ASSERT_LT(strncmp16(u"", u"a", 3), 0);
+        ASSERT_EQ(strncmp16(u"=", u"=", 1), 0);
+        ASSERT_LT(strncmp16(u"A", u"a", 1), 0);
+        ASSERT_GT(strncmp16(u"a", u"A", 2), 0);
+        ASSERT_GT(strncmp16(u"a", u"Aa", 2), 0);
+        ASSERT_LT(strncmp16(u"12\00034", u"12345", 4), 0);
+        ASSERT_LT(strncmp16(u"12\00034", u"12345", SIZE_MAX), 0);
+        ASSERT_EQ(strncmp16(u"abc\0def", u"abc", SIZE_MAX), 0);
+        ASSERT_LT(strncmp16(u"abc\0def", u"abcdef", SIZE_MAX), 0);
 
-        assert_se(strncmp16((char16_t[]){ UINT16_MAX }, (char16_t[]){ UINT16_MAX }, 1) == 0);
-        assert_se(strncmp16((char16_t[]){ 0 }, (char16_t[]){ UINT16_MAX }, 1) < 0);
-        assert_se(strncmp16((char16_t[]){ UINT16_MAX }, (char16_t[]){ 0 }, 1) > 0);
+        ASSERT_EQ(strncmp16((char16_t[]){ UINT16_MAX }, (char16_t[]){ UINT16_MAX }, 1), 0);
+        ASSERT_LT(strncmp16((char16_t[]){ 0 }, (char16_t[]){ UINT16_MAX }, 1), 0);
+        ASSERT_GT(strncmp16((char16_t[]){ UINT16_MAX }, (char16_t[]){ 0 }, 1), 0);
 }
 
 TEST(strncasecmp8) {
-        assert_se(strncasecmp8(NULL, "", 10) < 0);
-        assert_se(strncasecmp8("", NULL, 10) > 0);
-        assert_se(strncasecmp8(NULL, NULL, 0) == 0);
-        assert_se(strncasecmp8(NULL, NULL, 10) == 0);
-        assert_se(strncasecmp8("", "", 10) == 0);
-        assert_se(strncasecmp8("abc", "abc", 2) == 0);
-        assert_se(strncasecmp8("aBc", "AbC", 3) == 0);
-        assert_se(strncasecmp8("aBC", "Abc", 4) == 0);
-        assert_se(strncasecmp8("", "a", 0) == 0);
-        assert_se(strncasecmp8("b", "a", 0) == 0);
-        assert_se(strncasecmp8("", "a", 3) < 0);
-        assert_se(strncasecmp8("=", "=", 1) == 0);
-        assert_se(strncasecmp8("A", "a", 1) == 0);
-        assert_se(strncasecmp8("a", "A", 2) == 0);
-        assert_se(strncasecmp8("a", "Aa", 2) < 0);
-        assert_se(strncasecmp8("12\00034", "12345", 4) < 0);
-        assert_se(strncasecmp8("12\00034", "12345", SIZE_MAX) < 0);
-        assert_se(strncasecmp8("abc\0def", "ABC", SIZE_MAX) == 0);
-        assert_se(strncasecmp8("abc\0def", "ABCDEF", SIZE_MAX) < 0);
+        ASSERT_LT(strncasecmp8(NULL, "", 10), 0);
+        ASSERT_GT(strncasecmp8("", NULL, 10), 0);
+        ASSERT_EQ(strncasecmp8(NULL, NULL, 0), 0);
+        ASSERT_EQ(strncasecmp8(NULL, NULL, 10), 0);
+        ASSERT_EQ(strncasecmp8("", "", 10), 0);
+        ASSERT_EQ(strncasecmp8("abc", "abc", 2), 0);
+        ASSERT_EQ(strncasecmp8("aBc", "AbC", 3), 0);
+        ASSERT_EQ(strncasecmp8("aBC", "Abc", 4), 0);
+        ASSERT_EQ(strncasecmp8("", "a", 0), 0);
+        ASSERT_EQ(strncasecmp8("b", "a", 0), 0);
+        ASSERT_LT(strncasecmp8("", "a", 3), 0);
+        ASSERT_EQ(strncasecmp8("=", "=", 1), 0);
+        ASSERT_EQ(strncasecmp8("A", "a", 1), 0);
+        ASSERT_EQ(strncasecmp8("a", "A", 2), 0);
+        ASSERT_LT(strncasecmp8("a", "Aa", 2), 0);
+        ASSERT_LT(strncasecmp8("12\00034", "12345", 4), 0);
+        ASSERT_LT(strncasecmp8("12\00034", "12345", SIZE_MAX), 0);
+        ASSERT_EQ(strncasecmp8("abc\0def", "ABC", SIZE_MAX), 0);
+        ASSERT_LT(strncasecmp8("abc\0def", "ABCDEF", SIZE_MAX), 0);
 
-        assert_se(strncasecmp8((char[]){ CHAR_MIN }, (char[]){ CHAR_MIN }, 1) == 0);
-        assert_se(strncasecmp8((char[]){ CHAR_MAX }, (char[]){ CHAR_MAX }, 1) == 0);
-        assert_se(strncasecmp8((char[]){ CHAR_MIN }, (char[]){ CHAR_MAX }, 1) < 0);
-        assert_se(strncasecmp8((char[]){ CHAR_MAX }, (char[]){ CHAR_MIN }, 1) > 0);
+        ASSERT_EQ(strncasecmp8((char[]){ CHAR_MIN }, (char[]){ CHAR_MIN }, 1), 0);
+        ASSERT_EQ(strncasecmp8((char[]){ CHAR_MAX }, (char[]){ CHAR_MAX }, 1), 0);
+        ASSERT_LT(strncasecmp8((char[]){ CHAR_MIN }, (char[]){ CHAR_MAX }, 1), 0);
+        ASSERT_GT(strncasecmp8((char[]){ CHAR_MAX }, (char[]){ CHAR_MIN }, 1), 0);
 }
 
 TEST(strncasecmp16) {
-        assert_se(strncasecmp16(NULL, u"", 10) < 0);
-        assert_se(strncasecmp16(u"", NULL, 10) > 0);
-        assert_se(strncasecmp16(NULL, NULL, 0) == 0);
-        assert_se(strncasecmp16(NULL, NULL, 10) == 0);
-        assert_se(strncasecmp16(u"", u"", 10) == 0);
-        assert_se(strncasecmp16(u"abc", u"abc", 2) == 0);
-        assert_se(strncasecmp16(u"aBc", u"AbC", 3) == 0);
-        assert_se(strncasecmp16(u"aBC", u"Abc", 4) == 0);
-        assert_se(strncasecmp16(u"", u"a", 0) == 0);
-        assert_se(strncasecmp16(u"b", u"a", 0) == 0);
-        assert_se(strncasecmp16(u"", u"a", 3) < 0);
-        assert_se(strncasecmp16(u"=", u"=", 1) == 0);
-        assert_se(strncasecmp16(u"A", u"a", 1) == 0);
-        assert_se(strncasecmp16(u"a", u"A", 2) == 0);
-        assert_se(strncasecmp16(u"a", u"Aa", 2) < 0);
-        assert_se(strncasecmp16(u"12\00034", u"12345", 4) < 0);
-        assert_se(strncasecmp16(u"12\00034", u"12345", SIZE_MAX) < 0);
-        assert_se(strncasecmp16(u"abc\0def", u"ABC", SIZE_MAX) == 0);
-        assert_se(strncasecmp16(u"abc\0def", u"ABCDEF", SIZE_MAX) < 0);
+        ASSERT_LT(strncasecmp16(NULL, u"", 10), 0);
+        ASSERT_GT(strncasecmp16(u"", NULL, 10), 0);
+        ASSERT_EQ(strncasecmp16(NULL, NULL, 0), 0);
+        ASSERT_EQ(strncasecmp16(NULL, NULL, 10), 0);
+        ASSERT_EQ(strncasecmp16(u"", u"", 10), 0);
+        ASSERT_EQ(strncasecmp16(u"abc", u"abc", 2), 0);
+        ASSERT_EQ(strncasecmp16(u"aBc", u"AbC", 3), 0);
+        ASSERT_EQ(strncasecmp16(u"aBC", u"Abc", 4), 0);
+        ASSERT_EQ(strncasecmp16(u"", u"a", 0), 0);
+        ASSERT_EQ(strncasecmp16(u"b", u"a", 0), 0);
+        ASSERT_LT(strncasecmp16(u"", u"a", 3), 0);
+        ASSERT_EQ(strncasecmp16(u"=", u"=", 1), 0);
+        ASSERT_EQ(strncasecmp16(u"A", u"a", 1), 0);
+        ASSERT_EQ(strncasecmp16(u"a", u"A", 2), 0);
+        ASSERT_LT(strncasecmp16(u"a", u"Aa", 2), 0);
+        ASSERT_LT(strncasecmp16(u"12\00034", u"12345", 4), 0);
+        ASSERT_LT(strncasecmp16(u"12\00034", u"12345", SIZE_MAX), 0);
+        ASSERT_EQ(strncasecmp16(u"abc\0def", u"ABC", SIZE_MAX), 0);
+        ASSERT_LT(strncasecmp16(u"abc\0def", u"ABCDEF", SIZE_MAX), 0);
 
-        assert_se(strncasecmp16((char16_t[]){ UINT16_MAX }, (char16_t[]){ UINT16_MAX }, 1) == 0);
-        assert_se(strncasecmp16((char16_t[]){ 0 }, (char16_t[]){ UINT16_MAX }, 1) < 0);
-        assert_se(strncasecmp16((char16_t[]){ UINT16_MAX }, (char16_t[]){ 0 }, 1) > 0);
+        ASSERT_EQ(strncasecmp16((char16_t[]){ UINT16_MAX }, (char16_t[]){ UINT16_MAX }, 1), 0);
+        ASSERT_LT(strncasecmp16((char16_t[]){ 0 }, (char16_t[]){ UINT16_MAX }, 1), 0);
+        ASSERT_GT(strncasecmp16((char16_t[]){ UINT16_MAX }, (char16_t[]){ 0 }, 1), 0);
 }
 
 TEST(strcpy8) {
         char buf[128];
 
-        assert_se(strcpy8(buf, "123") == buf);
-        assert_se(streq8(buf, "123"));
-        assert_se(strcpy8(buf, "") == buf);
-        assert_se(streq8(buf, ""));
-        assert_se(strcpy8(buf, "A") == buf);
-        assert_se(streq8(buf, "A"));
-        assert_se(strcpy8(buf, NULL) == buf);
-        assert_se(streq8(buf, ""));
+        ASSERT_PTR_EQ(strcpy8(buf, "123"), buf);
+        ASSERT_TRUE(streq8(buf, "123"));
+        ASSERT_PTR_EQ(strcpy8(buf, ""), buf);
+        ASSERT_TRUE(streq8(buf, ""));
+        ASSERT_PTR_EQ(strcpy8(buf, "A"), buf);
+        ASSERT_TRUE(streq8(buf, "A"));
+        ASSERT_PTR_EQ(strcpy8(buf, NULL), buf);
+        ASSERT_TRUE(streq8(buf, ""));
 }
 
 TEST(strcpy16) {
         char16_t buf[128];
 
-        assert_se(strcpy16(buf, u"123") == buf);
-        assert_se(streq16(buf, u"123"));
-        assert_se(strcpy16(buf, u"") == buf);
-        assert_se(streq16(buf, u""));
-        assert_se(strcpy16(buf, u"A") == buf);
-        assert_se(streq16(buf, u"A"));
-        assert_se(strcpy16(buf, NULL) == buf);
-        assert_se(streq16(buf, u""));
+        ASSERT_PTR_EQ(strcpy16(buf, u"123"), buf);
+        ASSERT_TRUE(streq16(buf, u"123"));
+        ASSERT_PTR_EQ(strcpy16(buf, u""), buf);
+        ASSERT_TRUE(streq16(buf, u""));
+        ASSERT_PTR_EQ(strcpy16(buf, u"A"), buf);
+        ASSERT_TRUE(streq16(buf, u"A"));
+        ASSERT_PTR_EQ(strcpy16(buf, NULL), buf);
+        ASSERT_TRUE(streq16(buf, u""));
 }
 
 TEST(strchr8) {
-        assert_se(!strchr8(NULL, 'a'));
-        assert_se(!strchr8("", 'a'));
-        assert_se(!strchr8("123", 'a'));
+        ASSERT_NULL(strchr8(NULL, 'a'));
+        ASSERT_NULL(strchr8("", 'a'));
+        ASSERT_NULL(strchr8("123", 'a'));
 
         const char str[] = "abcaBc";
-        assert_se(strchr8(str, 'a') == &str[0]);
-        assert_se(strchr8(str, 'c') == &str[2]);
-        assert_se(strchr8(str, 'B') == &str[4]);
+        ASSERT_PTR_EQ(strchr8(str, 'a'), &str[0]);
+        ASSERT_PTR_EQ(strchr8(str, 'c'), &str[2]);
+        ASSERT_PTR_EQ(strchr8(str, 'B'), &str[4]);
 
-        assert_se(strchr8(str, 0) == str + strlen8(str));
+        ASSERT_PTR_EQ(strchr8(str, 0), str + strlen8(str));
 }
 
 TEST(strchr16) {
-        assert_se(!strchr16(NULL, 'a'));
-        assert_se(!strchr16(u"", 'a'));
-        assert_se(!strchr16(u"123", 'a'));
+        ASSERT_NULL(strchr16(NULL, 'a'));
+        ASSERT_NULL(strchr16(u"", 'a'));
+        ASSERT_NULL(strchr16(u"123", 'a'));
 
         const char16_t str[] = u"abcaBc";
-        assert_se(strchr16(str, 'a') == &str[0]);
-        assert_se(strchr16(str, 'c') == &str[2]);
-        assert_se(strchr16(str, 'B') == &str[4]);
+        ASSERT_PTR_EQ(strchr16(str, 'a'), &str[0]);
+        ASSERT_PTR_EQ(strchr16(str, 'c'), &str[2]);
+        ASSERT_PTR_EQ(strchr16(str, 'B'), &str[4]);
 
-        assert_se(strchr16(str, 0) == str + strlen16(str));
+        ASSERT_PTR_EQ(strchr16(str, 0), str + strlen16(str));
 }
 
 TEST(xstrndup8) {
         char *s = NULL;
 
-        assert_se(xstrndup8(NULL, 0) == NULL);
-        assert_se(xstrndup8(NULL, 10) == NULL);
+        ASSERT_NULL(xstrndup8(NULL, 0));
+        ASSERT_NULL(xstrndup8(NULL, 10));
 
-        assert_se(s = xstrndup8("", 10));
-        assert_se(streq8(s, ""));
+        ASSERT_NOT_NULL(s = xstrndup8("", 10));
+        ASSERT_TRUE(streq8(s, ""));
         free(s);
 
-        assert_se(s = xstrndup8("abc", 0));
-        assert_se(streq8(s, ""));
+        ASSERT_NOT_NULL(s = xstrndup8("abc", 0));
+        ASSERT_TRUE(streq8(s, ""));
         free(s);
 
-        assert_se(s = xstrndup8("ABC", 3));
-        assert_se(streq8(s, "ABC"));
+        ASSERT_NOT_NULL(s = xstrndup8("ABC", 3));
+        ASSERT_TRUE(streq8(s, "ABC"));
         free(s);
 
-        assert_se(s = xstrndup8("123abcDEF", 5));
-        assert_se(streq8(s, "123ab"));
+        ASSERT_NOT_NULL(s = xstrndup8("123abcDEF", 5));
+        ASSERT_TRUE(streq8(s, "123ab"));
         free(s);
 }
 
 TEST(xstrdup8) {
         char *s = NULL;
 
-        assert_se(xstrdup8(NULL) == NULL);
+        ASSERT_NULL(xstrdup8(NULL));
 
-        assert_se(s = xstrdup8(""));
-        assert_se(streq8(s, ""));
+        ASSERT_NOT_NULL(s = xstrdup8(""));
+        ASSERT_TRUE(streq8(s, ""));
         free(s);
 
-        assert_se(s = xstrdup8("1"));
-        assert_se(streq8(s, "1"));
+        ASSERT_NOT_NULL(s = xstrdup8("1"));
+        ASSERT_TRUE(streq8(s, "1"));
         free(s);
 
-        assert_se(s = xstrdup8("123abcDEF"));
-        assert_se(streq8(s, "123abcDEF"));
+        ASSERT_NOT_NULL(s = xstrdup8("123abcDEF"));
+        ASSERT_TRUE(streq8(s, "123abcDEF"));
         free(s);
 }
 
 TEST(xstrndup16) {
         char16_t *s = NULL;
 
-        assert_se(xstrndup16(NULL, 0) == NULL);
-        assert_se(xstrndup16(NULL, 10) == NULL);
+        ASSERT_NULL(xstrndup16(NULL, 0));
+        ASSERT_NULL(xstrndup16(NULL, 10));
 
-        assert_se(s = xstrndup16(u"", 10));
-        assert_se(streq16(s, u""));
+        ASSERT_NOT_NULL(s = xstrndup16(u"", 10));
+        ASSERT_TRUE(streq16(s, u""));
         free(s);
 
-        assert_se(s = xstrndup16(u"abc", 0));
-        assert_se(streq16(s, u""));
+        ASSERT_NOT_NULL(s = xstrndup16(u"abc", 0));
+        ASSERT_TRUE(streq16(s, u""));
         free(s);
 
-        assert_se(s = xstrndup16(u"ABC", 3));
-        assert_se(streq16(s, u"ABC"));
+        ASSERT_NOT_NULL(s = xstrndup16(u"ABC", 3));
+        ASSERT_TRUE(streq16(s, u"ABC"));
         free(s);
 
-        assert_se(s = xstrndup16(u"123abcDEF", 5));
-        assert_se(streq16(s, u"123ab"));
+        ASSERT_NOT_NULL(s = xstrndup16(u"123abcDEF", 5));
+        ASSERT_TRUE(streq16(s, u"123ab"));
         free(s);
 }
 
 TEST(xstrdup16) {
         char16_t *s = NULL;
 
-        assert_se(xstrdup16(NULL) == NULL);
+        ASSERT_NULL(xstrdup16(NULL));
 
-        assert_se(s = xstrdup16(u""));
-        assert_se(streq16(s, u""));
+        ASSERT_NOT_NULL(s = xstrdup16(u""));
+        ASSERT_TRUE(streq16(s, u""));
         free(s);
 
-        assert_se(s = xstrdup16(u"1"));
-        assert_se(streq16(s, u"1"));
+        ASSERT_NOT_NULL(s = xstrdup16(u"1"));
+        ASSERT_TRUE(streq16(s, u"1"));
         free(s);
 
-        assert_se(s = xstrdup16(u"123abcDEF"));
-        assert_se(streq16(s, u"123abcDEF"));
+        ASSERT_NOT_NULL(s = xstrdup16(u"123abcDEF"));
+        ASSERT_TRUE(streq16(s, u"123abcDEF"));
         free(s);
 }
 
 TEST(xstrn8_to_16) {
         char16_t *s = NULL;
 
-        assert_se(s = xstrn8_to_16(NULL, 0));
+        ASSERT_NOT_NULL(s = xstrn8_to_16(NULL, 0));
         ASSERT_TRUE(streq16(s, u""));
         free(s);
 
-        assert_se(s = xstrn8_to_16("", 0));
+        ASSERT_NOT_NULL(s = xstrn8_to_16("", 0));
         ASSERT_TRUE(streq16(s, u""));
         free(s);
 
-        assert_se(s = xstrn8_to_16("a", 0));
+        ASSERT_NOT_NULL(s = xstrn8_to_16("a", 0));
         ASSERT_TRUE(streq16(s, u""));
         free(s);
 
-        assert_se(s = xstrn8_to_16("", 1));
+        ASSERT_NOT_NULL(s = xstrn8_to_16("", 1));
         ASSERT_TRUE(streq16(s, u""));
         free(s);
 
-        assert_se(s = xstrn8_to_16("1", 1));
+        ASSERT_NOT_NULL(s = xstrn8_to_16("1", 1));
         ASSERT_TRUE(streq16(s, u"1"));
         free(s);
 
-        assert_se(s = xstr8_to_16("abcxyzABCXYZ09 .,-_#*!\"§$%&/()=?`~"));
+        ASSERT_NOT_NULL(s = xstr8_to_16("abcxyzABCXYZ09 .,-_#*!\"§$%&/()=?`~"));
         ASSERT_TRUE(streq16(s, u"abcxyzABCXYZ09 .,-_#*!\"§$%&/()=?`~"));
         free(s);
 
-        assert_se(s = xstr8_to_16("ÿⱿ𝇉 😺"));
+        ASSERT_NOT_NULL(s = xstr8_to_16("ÿⱿ𝇉 😺"));
         ASSERT_TRUE(streq16(s, u"ÿⱿ "));
         free(s);
 
-        assert_se(s = xstrn8_to_16("¶¶", 3));
+        ASSERT_NOT_NULL(s = xstrn8_to_16("¶¶", 3));
         ASSERT_TRUE(streq16(s, u"¶"));
         free(s);
 }
@@ -368,51 +370,65 @@ TEST(xstrn8_to_16) {
 TEST(xstrn16_to_ascii) {
         char *s;
 
-        assert_se(s = xstrn16_to_ascii(NULL, 0));
+        ASSERT_NOT_NULL(s = xstrn16_to_ascii(NULL, 0));
         ASSERT_TRUE(streq8(s, ""));
         free(s);
 
-        assert_se(s = xstrn16_to_ascii(u"", 0));
+        ASSERT_NOT_NULL(s = xstrn16_to_ascii(u"", 0));
         ASSERT_TRUE(streq8(s, ""));
         free(s);
 
-        assert_se(s = xstrn16_to_ascii(u"a", 0));
+        ASSERT_NOT_NULL(s = xstrn16_to_ascii(u"a", 0));
         ASSERT_TRUE(streq8(s, ""));
         free(s);
 
-        assert_se(s = xstrn16_to_ascii(u"", 1));
+        ASSERT_NOT_NULL(s = xstrn16_to_ascii(u"", 1));
         ASSERT_TRUE(streq8(s, ""));
         free(s);
 
-        assert_se(s = xstrn16_to_ascii(u"1", 1));
+        ASSERT_NOT_NULL(s = xstrn16_to_ascii(u"1", 1));
         ASSERT_TRUE(streq8(s, "1"));
         free(s);
 
-        assert_se(s = xstr16_to_ascii(u"abcxyzABCXYZ09 .,-_#*!\"$%&/()=?`~"));
+        ASSERT_NOT_NULL(s = xstr16_to_ascii(u"abcxyzABCXYZ09 .,-_#*!\"$%&/()=?`~"));
         ASSERT_TRUE(streq8(s, "abcxyzABCXYZ09 .,-_#*!\"$%&/()=?`~"));
         free(s);
 
-        assert_se(!xstr16_to_ascii(u"ÿⱿ𝇉 😺"));
-        assert_se(!xstr16_to_ascii(u"¶¶"));
+        ASSERT_NULL(xstr16_to_ascii(u"ÿⱿ𝇉 😺"));
+        ASSERT_NULL(xstr16_to_ascii(u"¶¶"));
 }
 
 TEST(startswith8) {
-        assert_se(streq8(startswith8("", ""), ""));
-        assert_se(streq8(startswith8("x", ""), "x"));
-        assert_se(!startswith8("", "x"));
-        assert_se(!startswith8("", "xxxxxxxx"));
-        assert_se(streq8(startswith8("xxx", "x"), "xx"));
-        assert_se(streq8(startswith8("xxx", "xx"), "x"));
-        assert_se(streq8(startswith8("xxx", "xxx"), ""));
-        assert_se(!startswith8("xxx", "xxxx"));
-        assert_se(!startswith8(NULL, ""));
+        ASSERT_TRUE(streq8(startswith8("", ""), ""));
+        ASSERT_TRUE(streq8(startswith8("x", ""), "x"));
+        ASSERT_NULL(startswith8("", "x"));
+        ASSERT_NULL(startswith8("", "xxxxxxxx"));
+        ASSERT_TRUE(streq8(startswith8("xxx", "x"), "xx"));
+        ASSERT_TRUE(streq8(startswith8("xxx", "xx"), "x"));
+        ASSERT_TRUE(streq8(startswith8("xxx", "xxx"), ""));
+        ASSERT_NULL(startswith8("xxx", "xxxx"));
+        ASSERT_NULL(startswith8(NULL, ""));
 }
 
-#define TEST_FNMATCH_ONE(pattern, haystack, expect)                                     \
-        ({                                                                              \
-                assert_se(fnmatch(pattern, haystack, 0) == (expect ? 0 : FNM_NOMATCH)); \
-                assert_se(efi_fnmatch(u##pattern, u##haystack) == expect);              \
+#define TEST_FNMATCH_ONE_FULL(pattern, haystack, expect, skip_libc)     \
+        ({                                                              \
+                if (!skip_libc)                                         \
+                        ASSERT_EQ(fnmatch(pattern, haystack, 0), expect ? 0 : FNM_NOMATCH); \
+                ASSERT_EQ(efi_fnmatch(u##pattern, u##haystack), expect); \
         })
+
+#define TEST_FNMATCH_ONE(pattern, haystack, expect)             \
+        TEST_FNMATCH_ONE_FULL(pattern, haystack, expect, false)
+
+#ifdef __GLIBC__
+#define TEST_FNMATCH_ONE_MAY_SKIP_LIBC(pattern, haystack, expect)   \
+        TEST_FNMATCH_ONE_FULL(pattern, haystack, expect, false)
+#else
+/* It seems musl is too strict in handling "[]" (or has a bug?). Anyway, let's skip some test cases when
+ * built with musl. The behavior of efi_fnmatch() does not need to match musl's fnmatch(). */
+#define TEST_FNMATCH_ONE_MAY_SKIP_LIBC(pattern, haystack, expect)   \
+        TEST_FNMATCH_ONE_FULL(pattern, haystack, expect, true)
+#endif
 
 TEST(efi_fnmatch) {
         TEST_FNMATCH_ONE("", "", true);
@@ -445,18 +461,18 @@ TEST(efi_fnmatch) {
         TEST_FNMATCH_ONE("[abc", "a", false);
         TEST_FNMATCH_ONE("[][!] [][!] [][!]", "[ ] !", true);
         TEST_FNMATCH_ONE("[]-] []-]", "] -", true);
-        TEST_FNMATCH_ONE("[1\\]] [1\\]]", "1 ]", true);
+        TEST_FNMATCH_ONE_MAY_SKIP_LIBC("[1\\]] [1\\]]", "1 ]", true);
         TEST_FNMATCH_ONE("[$-\\+]", "&", true);
         TEST_FNMATCH_ONE("[1-3A-C] [1-3A-C]", "2 B", true);
         TEST_FNMATCH_ONE("[3-5] [3-5] [3-5]", "3 4 5", true);
         TEST_FNMATCH_ONE("[f-h] [f-h] [f-h]", "f g h", true);
-        TEST_FNMATCH_ONE("[a-c-f] [a-c-f] [a-c-f] [a-c-f] [a-c-f]", "a b c - f", true);
-        TEST_FNMATCH_ONE("[a-c-f]", "e", false);
+        TEST_FNMATCH_ONE_MAY_SKIP_LIBC("[a-c-f] [a-c-f] [a-c-f] [a-c-f] [a-c-f]", "a b c - f", true);
+        TEST_FNMATCH_ONE_MAY_SKIP_LIBC("[a-c-f]", "e", false);
         TEST_FNMATCH_ONE("[--0] [--0] [--0]", "- . 0", true);
         TEST_FNMATCH_ONE("[+--] [+--] [+--]", "+ , -", true);
         TEST_FNMATCH_ONE("[f-l]", "m", false);
         TEST_FNMATCH_ONE("[b]", "z-a", false);
-        TEST_FNMATCH_ONE("[a\\-z]", "b", false);
+        TEST_FNMATCH_ONE_MAY_SKIP_LIBC("[a\\-z]", "b", false);
         TEST_FNMATCH_ONE("?a*b[.-0]c", "/a/b/c", true);
         TEST_FNMATCH_ONE("debian-*-*-*.*", "debian-jessie-2018-06-17-kernel-image-5.10.0-16-amd64.efi", true);
 
@@ -475,74 +491,86 @@ TEST(parse_number8) {
         uint64_t u;
         const char *tail;
 
-        assert_se(!parse_number8(NULL, &u, NULL));
-        assert_se(!parse_number8("", &u, NULL));
-        assert_se(!parse_number8("a1", &u, NULL));
-        assert_se(!parse_number8("1a", &u, NULL));
-        assert_se(!parse_number8("-42", &u, NULL));
-        assert_se(!parse_number8("18446744073709551616", &u, NULL));
+        ASSERT_FALSE(parse_number8(NULL, &u, NULL));
+        ASSERT_FALSE(parse_number8("", &u, NULL));
+        ASSERT_FALSE(parse_number8("a1", &u, NULL));
+        ASSERT_FALSE(parse_number8("1a", &u, NULL));
+        ASSERT_FALSE(parse_number8("-42", &u, NULL));
+        ASSERT_FALSE(parse_number8("18446744073709551616", &u, NULL));
 
-        assert_se(parse_number8("0", &u, NULL));
-        assert_se(u == 0);
-        assert_se(parse_number8("1", &u, NULL));
-        assert_se(u == 1);
-        assert_se(parse_number8("999", &u, NULL));
-        assert_se(u == 999);
-        assert_se(parse_number8("18446744073709551615", &u, NULL));
-        assert_se(u == UINT64_MAX);
-        assert_se(parse_number8("42", &u, &tail));
-        assert_se(u == 42);
-        assert_se(streq8(tail, ""));
-        assert_se(parse_number8("54321rest", &u, &tail));
-        assert_se(u == 54321);
-        assert_se(streq8(tail, "rest"));
+        ASSERT_TRUE(parse_number8("0", &u, NULL));
+        ASSERT_EQ(u, 0u);
+        ASSERT_TRUE(parse_number8("1", &u, NULL));
+        ASSERT_EQ(u, 1u);
+        ASSERT_TRUE(parse_number8("999", &u, NULL));
+        ASSERT_EQ(u, 999u);
+        ASSERT_TRUE(parse_number8("18446744073709551615", &u, NULL));
+        ASSERT_EQ(u, UINT64_MAX);
+        ASSERT_TRUE(parse_number8("42", &u, &tail));
+        ASSERT_EQ(u, 42u);
+        ASSERT_TRUE(streq8(tail, ""));
+        ASSERT_TRUE(parse_number8("54321rest", &u, &tail));
+        ASSERT_EQ(u, 54321u);
+        ASSERT_TRUE(streq8(tail, "rest"));
 }
 
 TEST(parse_number16) {
         uint64_t u;
         const char16_t *tail;
 
-        assert_se(!parse_number16(NULL, &u, NULL));
-        assert_se(!parse_number16(u"", &u, NULL));
-        assert_se(!parse_number16(u"a1", &u, NULL));
-        assert_se(!parse_number16(u"1a", &u, NULL));
-        assert_se(!parse_number16(u"-42", &u, NULL));
-        assert_se(!parse_number16(u"18446744073709551616", &u, NULL));
+        ASSERT_FALSE(parse_number16(NULL, &u, NULL));
+        ASSERT_FALSE(parse_number16(u"", &u, NULL));
+        ASSERT_FALSE(parse_number16(u"a1", &u, NULL));
+        ASSERT_FALSE(parse_number16(u"1a", &u, NULL));
+        ASSERT_FALSE(parse_number16(u"-42", &u, NULL));
+        ASSERT_FALSE(parse_number16(u"18446744073709551616", &u, NULL));
 
-        assert_se(parse_number16(u"0", &u, NULL));
-        assert_se(u == 0);
-        assert_se(parse_number16(u"1", &u, NULL));
-        assert_se(u == 1);
-        assert_se(parse_number16(u"999", &u, NULL));
-        assert_se(u == 999);
-        assert_se(parse_number16(u"18446744073709551615", &u, NULL));
-        assert_se(u == UINT64_MAX);
-        assert_se(parse_number16(u"42", &u, &tail));
-        assert_se(u == 42);
-        assert_se(streq16(tail, u""));
-        assert_se(parse_number16(u"54321rest", &u, &tail));
-        assert_se(u == 54321);
-        assert_se(streq16(tail, u"rest"));
+        ASSERT_TRUE(parse_number16(u"0", &u, NULL));
+        ASSERT_EQ(u, 0u);
+        ASSERT_TRUE(parse_number16(u"1", &u, NULL));
+        ASSERT_EQ(u, 1u);
+        ASSERT_TRUE(parse_number16(u"999", &u, NULL));
+        ASSERT_EQ(u, 999u);
+        ASSERT_TRUE(parse_number16(u"18446744073709551615", &u, NULL));
+        ASSERT_EQ(u, UINT64_MAX);
+        ASSERT_TRUE(parse_number16(u"42", &u, &tail));
+        ASSERT_EQ(u, 42u);
+        ASSERT_TRUE(streq16(tail, u""));
+        ASSERT_TRUE(parse_number16(u"54321rest", &u, &tail));
+        ASSERT_EQ(u, 54321u);
+        ASSERT_TRUE(streq16(tail, u"rest"));
 }
 
 TEST(parse_boolean) {
         bool b;
 
-        assert_se(!parse_boolean(NULL, &b));
-        assert_se(!parse_boolean("", &b));
-        assert_se(!parse_boolean("ja", &b));
-        assert_se(parse_boolean("1", &b) && b == true);
-        assert_se(parse_boolean("y", &b) && b == true);
-        assert_se(parse_boolean("yes", &b) && b == true);
-        assert_se(parse_boolean("t", &b) && b == true);
-        assert_se(parse_boolean("true", &b) && b == true);
-        assert_se(parse_boolean("on", &b) && b == true);
-        assert_se(parse_boolean("0", &b) && b == false);
-        assert_se(parse_boolean("n", &b) && b == false);
-        assert_se(parse_boolean("no", &b) && b == false);
-        assert_se(parse_boolean("f", &b) && b == false);
-        assert_se(parse_boolean("false", &b) && b == false);
-        assert_se(parse_boolean("off", &b) && b == false);
+        ASSERT_FALSE(parse_boolean(NULL, &b));
+        ASSERT_FALSE(parse_boolean("", &b));
+        ASSERT_FALSE(parse_boolean("ja", &b));
+        ASSERT_TRUE(parse_boolean("1", &b));
+        ASSERT_TRUE(b);
+        ASSERT_TRUE(parse_boolean("y", &b));
+        ASSERT_TRUE(b);
+        ASSERT_TRUE(parse_boolean("yes", &b));
+        ASSERT_TRUE(b);
+        ASSERT_TRUE(parse_boolean("t", &b));
+        ASSERT_TRUE(b);
+        ASSERT_TRUE(parse_boolean("true", &b));
+        ASSERT_TRUE(b);
+        ASSERT_TRUE(parse_boolean("on", &b));
+        ASSERT_TRUE(b);
+        ASSERT_TRUE(parse_boolean("0", &b));
+        ASSERT_FALSE(b);
+        ASSERT_TRUE(parse_boolean("n", &b));
+        ASSERT_FALSE(b);
+        ASSERT_TRUE(parse_boolean("no", &b));
+        ASSERT_FALSE(b);
+        ASSERT_TRUE(parse_boolean("f", &b));
+        ASSERT_FALSE(b);
+        ASSERT_TRUE(parse_boolean("false", &b));
+        ASSERT_FALSE(b);
+        ASSERT_TRUE(parse_boolean("off", &b));
+        ASSERT_FALSE(b);
 }
 
 TEST(line_get_key_value) {
@@ -559,46 +587,46 @@ TEST(line_get_key_value) {
         size_t pos = 0;
         char *key, *value;
 
-        assert_se(!line_get_key_value((char[]){ "" }, "=", &pos, &key, &value));
-        assert_se(!line_get_key_value((char[]){ "\t" }, " \t", &pos, &key, &value));
+        ASSERT_NULL(line_get_key_value((char[]){ "" }, "=", &pos, &key, &value));
+        ASSERT_NULL(line_get_key_value((char[]){ "\t" }, " \t", &pos, &key, &value));
 
         pos = 0;
-        assert_se(line_get_key_value(s1, "=", &pos, &key, &value));
-        assert_se(streq8(key, "key"));
-        assert_se(streq8(value, "value"));
-        assert_se(line_get_key_value(s1, "=", &pos, &key, &value));
-        assert_se(streq8(key, "k-e-y"));
-        assert_se(streq8(value, "quoted value"));
-        assert_se(line_get_key_value(s1, "=", &pos, &key, &value));
-        assert_se(streq8(key, "wrong"));
-        assert_se(streq8(value, " 'quotes'"));
-        assert_se(line_get_key_value(s1, "=", &pos, &key, &value));
-        assert_se(streq8(key, "odd"));
-        assert_se(streq8(value, " stripping  # with comments"));
-        assert_se(!line_get_key_value(s1, "=", &pos, &key, &value));
+        ASSERT_NOT_NULL(line_get_key_value(s1, "=", &pos, &key, &value));
+        ASSERT_TRUE(streq8(key, "key"));
+        ASSERT_TRUE(streq8(value, "value"));
+        ASSERT_NOT_NULL(line_get_key_value(s1, "=", &pos, &key, &value));
+        ASSERT_TRUE(streq8(key, "k-e-y"));
+        ASSERT_TRUE(streq8(value, "quoted value"));
+        ASSERT_NOT_NULL(line_get_key_value(s1, "=", &pos, &key, &value));
+        ASSERT_TRUE(streq8(key, "wrong"));
+        ASSERT_TRUE(streq8(value, " 'quotes'"));
+        ASSERT_NOT_NULL(line_get_key_value(s1, "=", &pos, &key, &value));
+        ASSERT_TRUE(streq8(key, "odd"));
+        ASSERT_TRUE(streq8(value, " stripping  # with comments"));
+        ASSERT_NULL(line_get_key_value(s1, "=", &pos, &key, &value));
 
         pos = 0;
-        assert_se(line_get_key_value(s2, " \t", &pos, &key, &value));
-        assert_se(streq8(key, "this"));
-        assert_se(streq8(value, "parser"));
-        assert_se(line_get_key_value(s2, " \t", &pos, &key, &value));
-        assert_se(streq8(key, "also"));
-        assert_se(streq8(value, "used"));
-        assert_se(line_get_key_value(s2, " \t", &pos, &key, &value));
-        assert_se(streq8(key, "for"));
-        assert_se(streq8(value, "the conf"));
-        assert_se(line_get_key_value(s2, " \t", &pos, &key, &value));
-        assert_se(streq8(key, "format"));
-        assert_se(streq8(value, "!!"));
-        assert_se(!line_get_key_value(s2, " \t", &pos, &key, &value));
+        ASSERT_NOT_NULL(line_get_key_value(s2, " \t", &pos, &key, &value));
+        ASSERT_TRUE(streq8(key, "this"));
+        ASSERT_TRUE(streq8(value, "parser"));
+        ASSERT_NOT_NULL(line_get_key_value(s2, " \t", &pos, &key, &value));
+        ASSERT_TRUE(streq8(key, "also"));
+        ASSERT_TRUE(streq8(value, "used"));
+        ASSERT_NOT_NULL(line_get_key_value(s2, " \t", &pos, &key, &value));
+        ASSERT_TRUE(streq8(key, "for"));
+        ASSERT_TRUE(streq8(value, "the conf"));
+        ASSERT_NOT_NULL(line_get_key_value(s2, " \t", &pos, &key, &value));
+        ASSERT_TRUE(streq8(key, "format"));
+        ASSERT_TRUE(streq8(value, "!!"));
+        ASSERT_NULL(line_get_key_value(s2, " \t", &pos, &key, &value));
 
         /* Let's make sure we don't fail on real os-release data. */
         _cleanup_free_ char *osrel = NULL;
         if (read_full_file("/usr/lib/os-release", &osrel, NULL) >= 0) {
                 pos = 0;
                 while (line_get_key_value(osrel, "=", &pos, &key, &value)) {
-                        assert_se(key);
-                        assert_se(value);
+                        ASSERT_NOT_NULL(key);
+                        ASSERT_NOT_NULL(value);
                         printf("%s = %s\n", key, value);
                 }
         }
@@ -607,34 +635,36 @@ TEST(line_get_key_value) {
 TEST(hexdump) {
         char16_t *hex;
 
-        hex = hexdump(NULL, 0);
-        assert(streq16(hex, u""));
+        ASSERT_NOT_NULL(hex = hexdump(NULL, 0));
+        ASSERT_TRUE(streq16(hex, u""));
         free(hex);
 
-        hex = hexdump("1", 2);
-        assert(streq16(hex, u"3100"));
+        ASSERT_NOT_NULL(hex = hexdump("1", 2));
+        ASSERT_TRUE(streq16(hex, u"3100"));
         free(hex);
 
-        hex = hexdump("abc", 4);
-        assert(streq16(hex, u"61626300"));
+        ASSERT_NOT_NULL(hex = hexdump("abc", 4));
+        ASSERT_TRUE(streq16(hex, u"61626300"));
         free(hex);
 
-        hex = hexdump((uint8_t[]){ 0x0, 0x42, 0xFF, 0xF1, 0x1F }, 5);
-        assert(streq16(hex, u"0042fff11f"));
+        ASSERT_NOT_NULL(hex = hexdump((uint8_t[]){ 0x0, 0x42, 0xFF, 0xF1, 0x1F }, 5));
+        ASSERT_TRUE(streq16(hex, u"0042fff11f"));
         free(hex);
 }
 
 _printf_(1, 2) static void test_printf_one(const char *format, ...) {
         va_list ap, ap_efi;
+        int r;
+
         va_start(ap, format);
         va_copy(ap_efi, ap);
 
         _cleanup_free_ char *buf = NULL;
-        int r = vasprintf(&buf, format, ap);
-        assert_se(r >= 0);
+        ASSERT_OK(r = vasprintf(&buf, format, ap));
         log_info("/* %s(%s) -> \"%.100s\" */", __func__, format, buf);
 
-        _cleanup_free_ char16_t *buf_efi = xvasprintf_status(0, format, ap_efi);
+        _cleanup_free_ char16_t *buf_efi = NULL;
+        ASSERT_NOT_NULL(buf_efi = xvasprintf_status(0, format, ap_efi));
 
         bool eq = true;
         for (size_t i = 0; i <= (size_t) r; i++) {
@@ -644,7 +674,7 @@ _printf_(1, 2) static void test_printf_one(const char *format, ...) {
         }
 
         log_info("%.100s", buf);
-        assert_se(eq);
+        ASSERT_TRUE(eq);
 
         va_end(ap);
         va_end(ap_efi);
@@ -658,8 +688,14 @@ TEST(xvasprintf_status) {
         test_printf_one("string");
         test_printf_one("%%-%%%%");
 
+#ifdef __GLIBC__
         test_printf_one("%p %p %32p %*p %*p", NULL, (void *) 0xF, &errno, 0, &saved_argc, 20, &saved_argv);
         test_printf_one("%-10p %-32p %-*p %-*p", NULL, &errno, 0, &saved_argc, 20, &saved_argv);
+#else
+        /* musl prints NULL as 0, while glibc and our implementation print it as (nil). */
+        test_printf_one("%p %32p %*p %*p", (void *) 0xF, &errno, 0, &saved_argc, 20, &saved_argv);
+        test_printf_one("%-32p %-*p %-*p", &errno, 0, &saved_argc, 20, &saved_argv);
+#endif
 
         test_printf_one("%c %3c %*c %*c %-8c", '1', '!', 0, 'a', 9, '_', '>');
 
@@ -745,90 +781,90 @@ TEST(xvasprintf_status) {
         /* Non printf-compatible behavior tests below. */
         char16_t *s;
 
-        assert_se(s = xasprintf_status(0, "\n \r \r\n"));
-        assert_se(streq16(s, u"\r\n \r \r\r\n"));
+        ASSERT_NOT_NULL(s = xasprintf_status(0, "\n \r \r\n"));
+        ASSERT_TRUE(streq16(s, u"\r\n \r \r\r\n"));
         s = mfree(s);
 
-        assert_se(s = xasprintf_status(EFI_SUCCESS, "%m"));
-        assert_se(streq16(s, u"Success"));
+        ASSERT_NOT_NULL(s = xasprintf_status(EFI_SUCCESS, "%m"));
+        ASSERT_TRUE(streq16(s, u"Success"));
         s = mfree(s);
 
-        assert_se(s = xasprintf_status(EFI_SUCCESS, "%15m"));
-        assert_se(streq16(s, u"        Success"));
+        ASSERT_NOT_NULL(s = xasprintf_status(EFI_SUCCESS, "%15m"));
+        ASSERT_TRUE(streq16(s, u"        Success"));
         s = mfree(s);
 
-        assert_se(s = xasprintf_status(EFI_LOAD_ERROR, "%m"));
-        assert_se(streq16(s, u"Load error"));
+        ASSERT_NOT_NULL(s = xasprintf_status(EFI_LOAD_ERROR, "%m"));
+        ASSERT_TRUE(streq16(s, u"Load error"));
         s = mfree(s);
 
-        assert_se(s = xasprintf_status(0x42, "%m"));
-        assert_se(streq16(s, u"0x42"));
+        ASSERT_NOT_NULL(s = xasprintf_status(0x42, "%m"));
+        ASSERT_TRUE(streq16(s, u"0x42"));
         s = mfree(s);
 }
 
 TEST(efi_memchr) {
-        assert_se(streq8(efi_memchr("abcde", 'c', 5), "cde"));
-        assert_se(streq8(efi_memchr("abcde", 'c', 3), "cde"));
-        assert_se(streq8(efi_memchr("abcde", 'c', 2), NULL));
-        assert_se(streq8(efi_memchr("abcde", 'c', 7), "cde"));
-        assert_se(streq8(efi_memchr("abcde", 'q', 5), NULL));
-        assert_se(streq8(efi_memchr("abcde", 'q', 0), NULL));
+        ASSERT_TRUE(streq8(efi_memchr("abcde", 'c', 5), "cde"));
+        ASSERT_TRUE(streq8(efi_memchr("abcde", 'c', 3), "cde"));
+        ASSERT_TRUE(streq8(efi_memchr("abcde", 'c', 2), NULL));
+        ASSERT_TRUE(streq8(efi_memchr("abcde", 'c', 7), "cde"));
+        ASSERT_TRUE(streq8(efi_memchr("abcde", 'q', 5), NULL));
+        ASSERT_TRUE(streq8(efi_memchr("abcde", 'q', 0), NULL));
         /* Test that the character is interpreted as unsigned char. */
-        assert_se(streq8(efi_memchr("abcde", 'a', 6), efi_memchr("abcde", 'a' + 0x100, 6)));
-        assert_se(streq8(efi_memchr("abcde", 0, 6), ""));
-        assert_se(efi_memchr(NULL, 0, 0) == NULL);
+        ASSERT_TRUE(streq8(efi_memchr("abcde", 'a', 6), efi_memchr("abcde", 'a' + 0x100, 6)));
+        ASSERT_TRUE(streq8(efi_memchr("abcde", 0, 6), ""));
+        ASSERT_NULL(efi_memchr(NULL, 0, 0));
 }
 
 TEST(efi_memcmp) {
-        assert_se(efi_memcmp(NULL, NULL, 0) == 0);
-        assert_se(efi_memcmp(NULL, NULL, 1) == 0);
-        assert_se(efi_memcmp(NULL, "", 1) < 0);
-        assert_se(efi_memcmp("", NULL, 1) > 0);
-        assert_se(efi_memcmp("", "", 0) == 0);
-        assert_se(efi_memcmp("", "", 1) == 0);
-        assert_se(efi_memcmp("1", "1", 1) == 0);
-        assert_se(efi_memcmp("1", "2", 1) < 0);
-        assert_se(efi_memcmp("A", "a", 1) < 0);
-        assert_se(efi_memcmp("a", "A", 1) > 0);
-        assert_se(efi_memcmp("abc", "ab", 2) == 0);
-        assert_se(efi_memcmp("ab", "abc", 3) < 0);
-        assert_se(efi_memcmp("abc", "ab", 3) > 0);
-        assert_se(efi_memcmp("ab\000bd", "ab\000bd", 6) == 0);
-        assert_se(efi_memcmp("ab\000b\0", "ab\000bd", 6) < 0);
+        ASSERT_EQ(efi_memcmp(NULL, NULL, 0), 0);
+        ASSERT_EQ(efi_memcmp(NULL, NULL, 1), 0);
+        ASSERT_LT(efi_memcmp(NULL, "", 1), 0);
+        ASSERT_GT(efi_memcmp("", NULL, 1), 0);
+        ASSERT_EQ(efi_memcmp("", "", 0), 0);
+        ASSERT_EQ(efi_memcmp("", "", 1), 0);
+        ASSERT_EQ(efi_memcmp("1", "1", 1), 0);
+        ASSERT_LT(efi_memcmp("1", "2", 1), 0);
+        ASSERT_LT(efi_memcmp("A", "a", 1), 0);
+        ASSERT_GT(efi_memcmp("a", "A", 1), 0);
+        ASSERT_EQ(efi_memcmp("abc", "ab", 2), 0);
+        ASSERT_LT(efi_memcmp("ab", "abc", 3), 0);
+        ASSERT_GT(efi_memcmp("abc", "ab", 3), 0);
+        ASSERT_EQ(efi_memcmp("ab\000bd", "ab\000bd", 6), 0);
+        ASSERT_LT(efi_memcmp("ab\000b\0", "ab\000bd", 6), 0);
 }
 
 TEST(efi_memcpy) {
         char buf[10];
 
-        assert_se(!efi_memcpy(NULL, NULL, 0));
-        assert_se(!efi_memcpy(NULL, "", 1));
-        assert_se(efi_memcpy(buf, NULL, 0) == buf);
-        assert_se(efi_memcpy(buf, NULL, 1) == buf);
-        assert_se(efi_memcpy(buf, "a", 0) == buf);
+        ASSERT_NULL(efi_memcpy(NULL, NULL, 0));
+        ASSERT_NULL(efi_memcpy(NULL, "", 1));
+        ASSERT_PTR_EQ(efi_memcpy(buf, NULL, 0), buf);
+        ASSERT_PTR_EQ(efi_memcpy(buf, NULL, 1), buf);
+        ASSERT_PTR_EQ(efi_memcpy(buf, "a", 0), buf);
 
-        assert_se(efi_memcpy(buf, "", 1) == buf);
-        assert_se(memcmp(buf, "", 1) == 0);
-        assert_se(efi_memcpy(buf, "1", 1) == buf);
-        assert_se(memcmp(buf, "1", 1) == 0);
-        assert_se(efi_memcpy(buf, "23", 3) == buf);
-        assert_se(memcmp(buf, "23", 3) == 0);
-        assert_se(efi_memcpy(buf, "45\0ab\0\0\0c", 9) == buf);
-        assert_se(memcmp(buf, "45\0ab\0\0\0c", 9) == 0);
+        ASSERT_PTR_EQ(efi_memcpy(buf, "", 1), buf);
+        ASSERT_EQ(memcmp(buf, "", 1), 0);
+        ASSERT_PTR_EQ(efi_memcpy(buf, "1", 1), buf);
+        ASSERT_EQ(memcmp(buf, "1", 1), 0);
+        ASSERT_PTR_EQ(efi_memcpy(buf, "23", 3), buf);
+        ASSERT_EQ(memcmp(buf, "23", 3), 0);
+        ASSERT_PTR_EQ(efi_memcpy(buf, "45\0ab\0\0\0c", 9), buf);
+        ASSERT_EQ(memcmp(buf, "45\0ab\0\0\0c", 9), 0);
 }
 
 TEST(efi_memset) {
         char buf[10];
 
-        assert_se(!efi_memset(NULL, '1', 0));
-        assert_se(!efi_memset(NULL, '1', 1));
-        assert_se(efi_memset(buf, '1', 0) == buf);
+        ASSERT_NULL(efi_memset(NULL, '1', 0));
+        ASSERT_NULL(efi_memset(NULL, '1', 1));
+        ASSERT_PTR_EQ(efi_memset(buf, '1', 0), buf);
 
-        assert_se(efi_memset(buf, '2', 1) == buf);
-        assert_se(memcmp(buf, "2", 1) == 0);
-        assert_se(efi_memset(buf, '4', 4) == buf);
-        assert_se(memcmp(buf, "4444", 4) == 0);
-        assert_se(efi_memset(buf, 'a', 10) == buf);
-        assert_se(memcmp(buf, "aaaaaaaaaa", 10) == 0);
+        ASSERT_PTR_EQ(efi_memset(buf, '2', 1), buf);
+        ASSERT_EQ(memcmp(buf, "2", 1), 0);
+        ASSERT_PTR_EQ(efi_memset(buf, '4', 4), buf);
+        ASSERT_EQ(memcmp(buf, "4444", 4), 0);
+        ASSERT_PTR_EQ(efi_memset(buf, 'a', 10), buf);
+        ASSERT_EQ(memcmp(buf, "aaaaaaaaaa", 10), 0);
 }
 
 TEST(efi_strspn) {

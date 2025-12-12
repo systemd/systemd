@@ -1,19 +1,29 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#if HAVE_SECCOMP
-#include <seccomp.h>
-#endif
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "errno-list.h"
 #include "errno-util.h"
-#include "parse-util.h"
-#include "set.h"
-#include "string-util.h"
+#include "shared-forward.h"
 
 #if HAVE_SECCOMP
+#include <seccomp.h> /* IWYU pragma: export */
+
+#include "dlfcn-util.h"
+
+extern DLSYM_PROTOTYPE(seccomp_api_get);
+extern DLSYM_PROTOTYPE(seccomp_arch_add);
+extern DLSYM_PROTOTYPE(seccomp_arch_exist);
+extern DLSYM_PROTOTYPE(seccomp_arch_native);
+extern DLSYM_PROTOTYPE(seccomp_arch_remove);
+extern DLSYM_PROTOTYPE(seccomp_attr_set);
+extern DLSYM_PROTOTYPE(seccomp_init);
+extern DLSYM_PROTOTYPE(seccomp_load);
+extern DLSYM_PROTOTYPE(seccomp_release);
+extern DLSYM_PROTOTYPE(seccomp_rule_add_array);
+extern DLSYM_PROTOTYPE(seccomp_rule_add_exact);
+extern DLSYM_PROTOTYPE(seccomp_syscall_resolve_name);
+extern DLSYM_PROTOTYPE(seccomp_syscall_resolve_num_arch);
+
+int dlopen_libseccomp(void);
 
 const char* seccomp_arch_to_string(uint32_t c);
 int seccomp_arch_from_string(const char *n, uint32_t *ret);
@@ -70,11 +80,11 @@ extern const SyscallFilterSet syscall_filter_sets[];
 
 const SyscallFilterSet *syscall_filter_set_find(const char *name);
 
-int seccomp_filter_set_add_by_name(Hashmap *s, bool b, const char *name);
-int seccomp_filter_set_add(Hashmap *s, bool b, const SyscallFilterSet *set);
+int seccomp_filter_set_add_by_name(Hashmap *filter, bool add, const char *name);
+int seccomp_filter_set_add(Hashmap *filter, bool add, const SyscallFilterSet *set);
 
 int seccomp_add_syscall_filter_item(
-                scmp_filter_ctx *ctx,
+                scmp_filter_ctx *seccomp,
                 const char *name,
                 uint32_t action,
                 char **exclude,
@@ -82,7 +92,7 @@ int seccomp_add_syscall_filter_item(
                 char ***added);
 
 int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action, bool log_missing);
-int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, uint32_t action, bool log_missing);
+int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap *filter, uint32_t action, bool log_missing);
 
 typedef enum SeccompParseFlags {
         SECCOMP_PARSE_INVERT     = 1 << 0,
@@ -140,7 +150,7 @@ static inline bool ERRNO_IS_NEG_SECCOMP_FATAL(intmax_t r) {
 }
 _DEFINE_ABS_WRAPPER(SECCOMP_FATAL);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(scmp_filter_ctx, seccomp_release, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(scmp_filter_ctx, sym_seccomp_release, seccomp_releasep, NULL);
 
 int parse_syscall_archs(char **l, Set **ret_archs);
 
@@ -156,6 +166,10 @@ static inline bool is_seccomp_available(void) {
         return false;
 }
 
+static inline int dlopen_libseccomp(void) {
+        return -EOPNOTSUPP;
+}
+
 #endif
 
 /* This is a special value to be used where syscall filters otherwise expect errno numbers, will be
@@ -164,18 +178,6 @@ enum {
         SECCOMP_ERROR_NUMBER_KILL = INT_MAX - 1,
 };
 
-static inline bool seccomp_errno_or_action_is_valid(int n) {
-        return n == SECCOMP_ERROR_NUMBER_KILL || errno_is_valid(n);
-}
-
-static inline int seccomp_parse_errno_or_action(const char *p) {
-        if (streq_ptr(p, "kill"))
-                return SECCOMP_ERROR_NUMBER_KILL;
-        return parse_errno(p);
-}
-
-static inline const char* seccomp_errno_or_action_to_string(int num) {
-        if (num == SECCOMP_ERROR_NUMBER_KILL)
-                return "kill";
-        return errno_to_name(num);
-}
+bool seccomp_errno_or_action_is_valid(int n) _const_;
+int seccomp_parse_errno_or_action(const char *p) _pure_;
+const char* seccomp_errno_or_action_to_string(int num) _const_;

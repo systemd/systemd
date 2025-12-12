@@ -2,11 +2,10 @@
 #pragma once
 
 #if !SD_BOOT
-#include <stdlib.h>
 #include <sys/uio.h>
 #endif
 
-#include "assert-fundamental.h"
+#include "assert-fundamental.h"         /* IWYU pragma: keep */
 #include "macro-fundamental.h"
 
 #if SD_BOOT
@@ -15,10 +14,6 @@ struct iovec {
         void *iov_base;
         size_t iov_len;
 };
-
-DISABLE_WARNING_REDUNDANT_DECLS;
-void free(void *p);
-REENABLE_WARNING;
 #endif
 
 /* This accepts both const and non-const pointers */
@@ -43,5 +38,5 @@ static inline bool iovec_is_set(const struct iovec *iovec) {
 
 static inline bool iovec_is_valid(const struct iovec *iovec) {
         /* Checks if the iovec is either NULL, empty or points to a valid bit of memory */
-        return !iovec || (iovec->iov_base || iovec->iov_len == 0);
+        return !iovec || iovec->iov_base || iovec->iov_len == 0;
 }

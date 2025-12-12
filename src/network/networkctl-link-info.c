@@ -2,6 +2,10 @@
 
 #include <linux/if_tunnel.h>
 
+#include "sd-bus.h"
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -12,6 +16,8 @@
 #include "networkctl-link-info.h"
 #include "networkctl-util.h"
 #include "sort-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
 #include "wifi-util.h"
@@ -103,9 +109,9 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                 (void) sd_netlink_message_read_u8(m, IFLA_VXLAN_L2MISS, &info->vxlan_info.l2miss);
                 (void) sd_netlink_message_read_u8(m, IFLA_VXLAN_TOS, &info->vxlan_info.tos);
                 (void) sd_netlink_message_read_u8(m, IFLA_VXLAN_TTL, &info->vxlan_info.ttl);
-        } else if (streq(info->netdev_kind, "vlan"))
+        } else if (streq(info->netdev_kind, "vlan")) {
                 (void) sd_netlink_message_read_u16(m, IFLA_VLAN_ID, &info->vlan_id);
-        else if (STR_IN_SET(info->netdev_kind, "ipip", "sit")) {
+        } else if (STR_IN_SET(info->netdev_kind, "ipip", "sit")) {
                 (void) sd_netlink_message_read_in_addr(m, IFLA_IPTUN_LOCAL, &info->local.in);
                 (void) sd_netlink_message_read_in_addr(m, IFLA_IPTUN_REMOTE, &info->remote.in);
         } else if (streq(info->netdev_kind, "geneve")) {
@@ -138,9 +144,9 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
         } else if (streq(info->netdev_kind, "vti6")) {
                 (void) sd_netlink_message_read_in6_addr(m, IFLA_VTI_LOCAL, &info->local.in6);
                 (void) sd_netlink_message_read_in6_addr(m, IFLA_VTI_REMOTE, &info->remote.in6);
-        } else if (STR_IN_SET(info->netdev_kind, "macvlan", "macvtap"))
+        } else if (STR_IN_SET(info->netdev_kind, "macvlan", "macvtap")) {
                 (void) sd_netlink_message_read_u32(m, IFLA_MACVLAN_MODE, &info->macvlan_mode);
-        else if (streq(info->netdev_kind, "ipvlan")) {
+        } else if (streq(info->netdev_kind, "ipvlan")) {
                 (void) sd_netlink_message_read_u16(m, IFLA_IPVLAN_MODE, &info->ipvlan_mode);
                 (void) sd_netlink_message_read_u16(m, IFLA_IPVLAN_FLAGS, &info->ipvlan_flags);
         }
@@ -326,7 +332,7 @@ static void acquire_wlan_link_info(LinkInfo *link) {
         if (!link->sd_device)
                 return;
 
-        if (!device_is_devtype(link->sd_device, "wlan"))
+        if (device_is_devtype(link->sd_device, "wlan") <= 0)
                 return;
 
         r = sd_genl_socket_open(&genl);

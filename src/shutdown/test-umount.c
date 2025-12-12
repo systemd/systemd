@@ -5,8 +5,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "path-util.h"
-#include "string-util.h"
 #include "tests.h"
 #include "umount.h"
 

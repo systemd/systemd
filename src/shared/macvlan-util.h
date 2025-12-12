@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
 #include <linux/if_link.h>
 
-#include "macro.h"
+#include "shared-forward.h"
 
 typedef enum MacVlanMode {
         NETDEV_MACVLAN_MODE_PRIVATE = MACVLAN_MODE_PRIVATE,
@@ -17,4 +16,4 @@ typedef enum MacVlanMode {
 } MacVlanMode;
 
 const char* macvlan_mode_to_string(MacVlanMode d) _const_;
-MacVlanMode macvlan_mode_from_string(const char *d) _pure_;
+MacVlanMode macvlan_mode_from_string(const char *s) _pure_;

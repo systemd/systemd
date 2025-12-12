@@ -2,9 +2,8 @@
  * Copyright © 2019 VMware, Inc. */
 #pragma once
 
-#include "conf-parser.h"
+#include "shared-forward.h"
 #include "qdisc.h"
-#include "time-util.h"
 
 typedef struct TokenBucketFilter {
         QDisc meta;
@@ -21,6 +20,6 @@ typedef struct TokenBucketFilter {
 DEFINE_QDISC_CAST(TBF, TokenBucketFilter);
 extern const QDiscVTable tbf_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_token_bucket_filter_latency);
-CONFIG_PARSER_PROTOTYPE(config_parse_token_bucket_filter_size);
-CONFIG_PARSER_PROTOTYPE(config_parse_token_bucket_filter_rate);
+CONFIG_PARSER_PROTOTYPE(config_parse_tbf_latency);
+CONFIG_PARSER_PROTOTYPE(config_parse_tbf_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_tbf_rate);

@@ -7,11 +7,15 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+if ! check_nss_module mymachine; then
+    exit 0
+fi
+
 at_exit() {
     set +e
 
     machinectl kill --signal=KILL nss-mymachines-{noip,singleip,manyips}
-    mountpoint -q /var/lib/machines && timeout 10 sh -c "until umount /var/lib/machines; do sleep .5; done"
+    mountpoint -q /var/lib/machines && timeout 30 bash -c "until umount /var/lib/machines; do sleep .5; done"
     rm -f /run/systemd/nspawn/*.nspawn
 }
 
@@ -25,7 +29,8 @@ mount --bind "$(mktemp --tmpdir=/var/tmp -d)" /var/lib/machines
 # 1) Have no IP addresses assigned
 create_dummy_container /var/lib/machines/nss-mymachines-noip
 cat >/var/lib/machines/nss-mymachines-noip/sbin/init <<\EOF
-#!/usr/bin/bash -ex
+#!/usr/bin/env bash
+set -ex
 
 ip addr show dev ve-noip
 touch /initialized
@@ -38,7 +43,8 @@ EOF
 # 2) Have one IP address assigned (IPv4 only)
 create_dummy_container /var/lib/machines/nss-mymachines-singleip
 cat >/var/lib/machines/nss-mymachines-singleip/sbin/init <<\EOF
-#!/usr/bin/bash -ex
+#!/usr/bin/env bash
+set -ex
 
 ip addr add 10.1.0.2/24 dev ve-singleip
 ip addr show dev ve-singleip
@@ -51,7 +57,8 @@ EOF
 # 3) Have bunch of IP addresses assigned (both IPv4 and IPv6)
 create_dummy_container /var/lib/machines/nss-mymachines-manyips
 cat >/var/lib/machines/nss-mymachines-manyips/sbin/init <<\EOF
-#!/usr/bin/bash -ex
+#!/usr/bin/env bash
+set -ex
 
 ip addr add 10.2.0.2/24 dev ve-manyips
 for i in {100..120}; do
@@ -132,5 +139,13 @@ done
 # as well
 (! getent group -s mymachines foo 11)
 (! getent passwd -s mymachines foo 11)
+
+# Now check the machined's hook for resolved too
+run_and_grep "10\.1\.0\.2" resolvectl query nss-mymachines-singleip
+
+run_and_grep "fd00:dead:beef:cafe::2" resolvectl query nss-mymachines-manyips
+for i in {100..120}; do
+    run_and_grep "10\.2\.0\.$i" resolvectl query nss-mymachines-manyips
+done
 
 machinectl stop nss-mymachines-{noip,singleip,manyips}

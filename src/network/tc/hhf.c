@@ -3,10 +3,10 @@
 
 #include <linux/pkt_sched.h>
 
-#include "alloc-util.h"
-#include "conf-parser.h"
+#include "sd-netlink.h"
+
 #include "hhf.h"
-#include "netlink-util.h"
+#include "log.h"
 #include "parse-util.h"
 #include "string-util.h"
 
@@ -37,7 +37,7 @@ static int heavy_hitter_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink
         return 0;
 }
 
-int config_parse_heavy_hitter_filter_packet_limit(
+int config_parse_hhf_packet_limit(
                 const char *unit,
                 const char *filename,
                 unsigned line,

@@ -3,23 +3,23 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "build.h"
 #include "conf-parser.h"
-#include "constants.h"
 #include "daemon-util.h"
 #include "env-file.h"
-#include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "hashmap.h"
 #include "journal-header-util.h"
 #include "journal-upload.h"
 #include "journal-util.h"
@@ -31,10 +31,9 @@
 #include "parse-helpers.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "rlimit-util.h"
-#include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "version.h"
 
@@ -309,7 +308,7 @@ int start_upload(Uploader *u,
                 }
 
                 if (STRPTR_IN_SET(arg_trust, "-", "all"))
-                        easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0,
+                        easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L,
                                     LOG_ERR, return -EUCLEAN);
                 else if (arg_trust || startswith(u->url, "https://"))
                         easy_setopt(curl, CURLOPT_CAINFO, arg_trust ?: TRUST_FILE,
@@ -683,7 +682,7 @@ static int parse_config(void) {
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0,                        &arg_trust                },
                 { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0,                        &arg_network_timeout_usec },
                 { "Upload",  "Header",                 config_parse_header,         0,                        &arg_headers              },
-                { "Upload",  "Compression",            config_parse_compression,    /* with_level */ true,    &arg_compression          },
+                { "Upload",  "Compression",            config_parse_compression,    /* with_level = */ true,  &arg_compression          },
                 { "Upload",  "ForceCompression",       config_parse_bool,           0,                        &arg_force_compression    },
                 {}
         };

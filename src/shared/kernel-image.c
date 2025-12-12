@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "env-file.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "kernel-image.h"
 #include "log.h"
-#include "os-util.h"
-#include "parse-util.h"
 #include "pe-binary.h"
 #include "string-table.h"
+#include "string-util.h"
 
 #define PE_SECTION_READ_MAX (16U*1024U)
 

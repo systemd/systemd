@@ -3,35 +3,41 @@
 #include <getopt.h>
 #include <locale.h>
 #include <math.h>
-#include <stdbool.h>
 #include <stdlib.h>
 
 #include "sd-bus.h"
+#include "sd-event.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-print-properties.h"
-#include "env-util.h"
+#include "bus-util.h"
+#include "constants.h"
 #include "format-table.h"
 #include "in-addr-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
+#include "runtime-scope.h"
 #include "sparse-endian.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 static bool arg_adjust_system_clock = false;
 static bool arg_monitor = false;
 static char **arg_property = NULL;
@@ -51,7 +57,6 @@ typedef struct StatusInfo {
 
 static int print_status_info(const StatusInfo *i) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const char *old_tz = NULL, *tz, *tz_colon;
         char a[LINE_MAX];
         TableCell *cell;
         struct tm tm;
@@ -72,13 +77,10 @@ static int print_status_info(const StatusInfo *i) {
         (void) table_set_ellipsize_percent(table, cell, 100);
 
         /* Save the old $TZ */
-        tz = getenv("TZ");
-        if (tz)
-                old_tz = strdupa_safe(tz);
+        SAVE_TIMEZONE;
 
         /* Set the new $TZ */
-        tz_colon = strjoina(":", isempty(i->timezone) ? "UTC" : i->timezone);
-        if (setenv("TZ", tz_colon, true) < 0)
+        if (setenv("TZ", isempty(i->timezone) ? "UTC" : i->timezone, /* overwrite = */ true) < 0)
                 log_warning_errno(errno, "Failed to set TZ environment variable, ignoring: %m");
         else
                 tzset();
@@ -150,13 +152,6 @@ static int print_status_info(const StatusInfo *i) {
         r = table_add_cell_stringf(table, NULL, "%s (%s)", strna(i->timezone), n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
-
-        /* Restore the $TZ */
-        r = set_unset_env("TZ", old_tz, true);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set TZ environment variable, ignoring: %m");
-        else
-                tzset();
 
         r = table_add_many(table,
                            TABLE_FIELD, "System clock synchronized",
@@ -660,8 +655,14 @@ static int show_timesync_status_once(sd_bus *bus) {
                                    &error,
                                    &m,
                                    &info);
-        if (r < 0)
+        if (r < 0) {
+                if (bus_error_is_unknown_service(&error))
+                        return log_error_errno(r,
+                                               "Command requires systemd-timesyncd.service, but it is not available: %s",
+                                               bus_error_message(&error, r));
+
                 return log_error_errno(r, "Failed to query server: %s", bus_error_message(&error, r));
+        }
 
         if (arg_monitor && !terminal_is_dumb())
                 fputs(ANSI_HOME_CLEAR, stdout);
@@ -792,6 +793,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
 }
 
 static int show_timesync(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -801,9 +803,15 @@ static int show_timesync(int argc, char **argv, void *userdata) {
                                      print_timesync_property,
                                      arg_property,
                                      arg_print_flags,
-                                     NULL);
-        if (r < 0)
+                                     &error);
+        if (r < 0) {
+                if (bus_error_is_unknown_service(&error))
+                        return log_error_errno(r,
+                                               "Command requires systemd-timesyncd.service, but it is not available: %s",
+                                               bus_error_message(&error, r));
+
                 return bus_log_parse_error(r);
+        }
 
         return 0;
 }
@@ -977,8 +985,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:

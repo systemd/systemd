@@ -2,9 +2,7 @@
 
 #pragma once
 
-#include "sd-bus.h"
-
-#include "bus-object.h"
+#include "resolved-forward.h"
 
 extern const BusObjectImplementation dnssd_object;
 

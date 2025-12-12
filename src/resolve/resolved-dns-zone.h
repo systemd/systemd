@@ -1,15 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "hashmap.h"
 #include "list.h"
-
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsResourceKey DnsResourceKey;
-typedef struct DnsResourceRecord DnsResourceRecord;
-typedef struct DnsScope DnsScope;
-typedef struct DnsTransaction DnsTransaction;
-typedef struct DnsZoneItem DnsZoneItem;
+#include "resolved-forward.h"
 
 typedef struct DnsZone {
         Hashmap *by_key;
@@ -29,7 +22,7 @@ typedef enum DnsZoneItemState {
         DNS_ZONE_ITEM_WITHDRAWN,
 } DnsZoneItemState;
 
-struct DnsZoneItem {
+typedef struct DnsZoneItem {
         DnsScope *scope;
         DnsResourceRecord *rr;
 
@@ -43,7 +36,7 @@ struct DnsZoneItem {
         LIST_FIELDS(DnsZoneItem, by_name);
 
         DnsTransaction *probe_transaction;
-};
+} DnsZoneItem;
 
 void dns_zone_flush(DnsZone *z);
 

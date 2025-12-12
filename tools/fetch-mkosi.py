@@ -75,7 +75,7 @@ def update_mkosi(args):
         print(f'mkosi: commit {new_commit!s} is still fresh')
         return
 
-    cmd = ['git', '-C', args.dir.as_posix(), 'log', '--graph',
+    cmd = ['git', '-C', args.dir.as_posix(), 'log', '--graph', '--first-parent', '--no-merges',
            '--pretty=oneline', '--no-decorate', '--abbrev-commit', '--abbrev=10',
            f'{old_commit}..{new_commit}']
     print(f"+ {shlex.join(cmd)}")

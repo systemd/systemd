@@ -2,11 +2,10 @@
 #pragma once
 
 #include <linux/l2tp.h>
-#include <netinet/in.h>
 
 #include "in-addr-util.h"
+#include "shared-forward.h"
 #include "netdev.h"
-#include "networkd-util.h"
 
 typedef enum L2tpL2specType {
         NETDEV_L2TP_L2SPECTYPE_NONE = L2TP_L2SPECTYPE_NONE,

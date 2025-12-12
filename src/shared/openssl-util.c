@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <endian.h>
-
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "fd-util.h"
@@ -26,7 +24,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ENGINE*, ENGINE_free, NULL);
 REENABLE_WARNING;
 #  endif
 
+#ifndef OPENSSL_NO_UI_CONSOLE
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(UI_METHOD*, UI_destroy_method, NULL);
+#endif
 
 /* For each error in the OpenSSL thread error queue, log the provided message and the OpenSSL error
  * string. If there are no errors in the OpenSSL thread queue, this logs the message with "No OpenSSL
@@ -871,9 +871,8 @@ int ecc_pkey_from_curve_x_y(
         TAKE_PTR(eckey);
 #endif
 
-    *ret = TAKE_PTR(pkey);
-
-    return 0;
+        *ret = TAKE_PTR(pkey);
+        return 0;
 }
 
 int ecc_pkey_to_curve_x_y(
@@ -1084,6 +1083,8 @@ int digest_and_sign(
                 const void *data, size_t size,
                 void **ret, size_t *ret_size) {
 
+        int r;
+
         assert(privkey);
         assert(ret);
         assert(ret_size);
@@ -1101,8 +1102,13 @@ int digest_and_sign(
         if (!mdctx)
                 return log_openssl_errors("Failed to create new EVP_MD_CTX");
 
-        if (EVP_DigestSignInit(mdctx, NULL, md, NULL, privkey) != 1)
-                return log_openssl_errors("Failed to initialize signature context");
+        if (EVP_DigestSignInit(mdctx, NULL, md, NULL, privkey) != 1) {
+                /* Distro security policies often disable support for SHA-1. Let's return a recognizable
+                 * error for that case. */
+                bool invalid_digest = ERR_GET_REASON(ERR_peek_last_error()) == EVP_R_INVALID_DIGEST;
+                r = log_openssl_errors("Failed to initialize signature context");
+                return invalid_digest ? -EADDRNOTAVAIL : r;
+        }
 
         /* Determine signature size */
         size_t ss;
@@ -1121,14 +1127,15 @@ int digest_and_sign(
         return 0;
 }
 
-int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, PKCS7 **ret_p7, PKCS7_SIGNER_INFO **ret_si) {
+int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, const char *hash_algorithm, PKCS7 **ret_p7, PKCS7_SIGNER_INFO **ret_si) {
         assert(certificate);
         assert(ret_p7);
 
         /* This function sets up a new PKCS7 signing context. If a private key is provided, the context is
          * set up for "in-band" signing with PKCS7_dataFinal(). If a private key is not provided, the context
          * is set up for "out-of-band" signing, meaning the signature has to be provided by the user and
-         * copied into the signer info's "enc_digest" field. */
+         * copied into the signer info's "enc_digest" field. If the signing hash algorithm is not provided,
+         * SHA-256 is used. */
 
         _cleanup_(PKCS7_freep) PKCS7 *p7 = PKCS7_new();
         if (!p7)
@@ -1146,21 +1153,22 @@ int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, PKCS7 **ret_p7, PKCS7_SI
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set PKCS7 certificate: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
-        int x509_mdnid = 0, x509_pknid = 0;
-        if (X509_get_signature_info(certificate, &x509_mdnid, &x509_pknid, NULL, NULL) == 0)
+        int x509_pknid = 0;
+        if (X509_get_signature_info(certificate, NULL, &x509_pknid, NULL, NULL) == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get X509 digest NID: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
-        const EVP_MD *md = EVP_get_digestbynid(x509_mdnid);
+        const EVP_MD *md = EVP_get_digestbyname(hash_algorithm ?: "SHA256");
         if (!md)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get digest algorithm via digest NID");
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get digest algorithm '%s'",
+                                       hash_algorithm ?: "SHA256");
 
         _cleanup_(PKCS7_SIGNER_INFO_freep) PKCS7_SIGNER_INFO *si = PKCS7_SIGNER_INFO_new();
         if (!si)
                 return log_oom();
 
         if (private_key) {
-                if (PKCS7_SIGNER_INFO_set(si, certificate, private_key, EVP_get_digestbynid(x509_mdnid)) <= 0)
+                if (PKCS7_SIGNER_INFO_set(si, certificate, private_key, md) <= 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to configure signer info: %s",
                                                ERR_error_string(ERR_get_error(), NULL));
         } else {
@@ -1178,7 +1186,7 @@ int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, PKCS7 **ret_p7, PKCS7_SI
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set signer info serial: %s",
                                                ERR_error_string(ERR_get_error(), NULL));
 
-                if (X509_ALGOR_set0(si->digest_alg, OBJ_nid2obj(x509_mdnid), V_ASN1_NULL, NULL) == 0)
+                if (X509_ALGOR_set0(si->digest_alg, OBJ_nid2obj(EVP_MD_type(md)), V_ASN1_NULL, NULL) == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set signer info digest algorithm: %s",
                                                ERR_error_string(ERR_get_error(), NULL));
 
@@ -1460,6 +1468,7 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
 #endif
 }
 
+#ifndef OPENSSL_NO_UI_CONSOLE
 static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
         int r;
 
@@ -1495,6 +1504,7 @@ static int openssl_ask_password_ui_read(UI *ui, UI_STRING *uis) {
                 return (UI_method_get_reader(UI_OpenSSL()))(ui, uis);
         }
 }
+#endif
 
 static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) {
         _cleanup_(erase_and_freep) char *rawkey = NULL;
@@ -1532,6 +1542,7 @@ static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) 
 static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSSLAskPasswordUI **ret) {
         assert(ret);
 
+#ifndef OPENSSL_NO_UI_CONSOLE
         _cleanup_(UI_destroy_methodp) UI_METHOD *method = UI_create_method("systemd-ask-password");
         if (!method)
                 return log_openssl_errors("Failed to initialize openssl user interface");
@@ -1555,6 +1566,9 @@ static int openssl_ask_password_ui_new(const AskPasswordRequest *request, OpenSS
 
         *ret = TAKE_PTR(ui);
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 static int load_x509_certificate_from_file(const char *path, X509 **ret) {
@@ -1630,25 +1644,20 @@ static int load_x509_certificate_from_provider(const char *provider, const char 
         return -EOPNOTSUPP;
 #endif
 }
-#endif
 
 OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui) {
-#if HAVE_OPENSSL
         if (!ui)
                 return NULL;
 
+#ifndef OPENSSL_NO_UI_CONSOLE
         assert(UI_get_default_method() == ui->method);
         UI_set_default_method(UI_OpenSSL());
         UI_destroy_method(ui->method);
-        return mfree(ui);
-#else
-        assert(ui == NULL);
-        return NULL;
 #endif
+        return mfree(ui);
 }
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
-#if HAVE_OPENSSL
         _cleanup_free_ uint8_t *der = NULL;
         int dersz;
 
@@ -1660,9 +1669,6 @@ int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
 
         sha256_direct(der, dersz, buffer);
         return 0;
-#else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot calculate X509 fingerprint.");
-#endif
 }
 
 int openssl_load_x509_certificate(
@@ -1670,7 +1676,7 @@ int openssl_load_x509_certificate(
                 const char *certificate_source,
                 const char *certificate,
                 X509 **ret) {
-#if HAVE_OPENSSL
+
         int r;
 
         assert(certificate);
@@ -1694,9 +1700,6 @@ int openssl_load_x509_certificate(
                                 certificate_source);
 
         return 0;
-#else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot load X509 certificate.");
-#endif
 }
 
 int openssl_load_private_key(
@@ -1706,18 +1709,20 @@ int openssl_load_private_key(
                 const AskPasswordRequest *request,
                 EVP_PKEY **ret_private_key,
                 OpenSSLAskPasswordUI **ret_user_interface) {
-#if HAVE_OPENSSL
+
         int r;
 
         assert(private_key);
         assert(request);
+        assert(ret_private_key);
 
         if (private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
                 r = openssl_load_private_key_from_file(private_key, ret_private_key);
                 if (r < 0)
                         return r;
 
-                *ret_user_interface = NULL;
+                if (ret_user_interface)
+                        *ret_user_interface = NULL;
         } else {
                 _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
                 r = openssl_ask_password_ui_new(request, &ui);
@@ -1742,14 +1747,40 @@ int openssl_load_private_key(
                                         private_key,
                                         private_key_source);
 
-                *ret_user_interface = TAKE_PTR(ui);
+                if (ret_user_interface)
+                        *ret_user_interface = TAKE_PTR(ui);
         }
 
         return 0;
-#else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot load private key.");
-#endif
 }
+
+int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
+        int r;
+
+        assert(private_key);
+        assert(ret);
+
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *tf = memstream_init(&m);
+        if (!tf)
+                return log_oom();
+
+        if (i2d_PUBKEY_fp(tf, private_key) != 1)
+                return -EIO;
+
+        _cleanup_(erase_and_freep) char *buf = NULL;
+        size_t len;
+        r = memstream_finalize(&m, &buf, &len);
+        if (r < 0)
+                return r;
+
+        const unsigned char *t = (unsigned char*) buf;
+        if (!d2i_PUBKEY(ret, &t, len))
+                return -EIO;
+
+        return 0;
+}
+#endif
 
 int parse_openssl_certificate_source_argument(
                 const char *argument,

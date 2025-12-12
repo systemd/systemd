@@ -1,0 +1,53 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+name: Unit tests
+on:
+  pull_request:
+    branches:
+      - main
+      - v[0-9]+-stable
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    concurrency:
+      group: ${{ github.workflow }}-${{ matrix.run_phase }}-${{ github.ref }}-${{ matrix.runner }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ ubuntu-24.04 ]
+        run_phase: [GCC, GCC_ASAN_UBSAN, CLANG, CLANG_RELEASE, CLANG_ASAN_UBSAN, CLANG_ASAN_UBSAN_NO_DEPS]
+        include:
+          - run_phase: GCC
+          - run_phase: GCC
+            runner: ubuntu-24.04-arm
+          - run_phase: GCC
+            runner: ubuntu-24.04-ppc64le
+          - run_phase: GCC
+            runner: ubuntu-24.04-s390x
+          - run_phase: CLANG
+          - run_phase: CLANG
+            runner: ubuntu-24.04-arm
+          - run_phase: CLANG
+            runner: ubuntu-24.04-ppc64le
+          - run_phase: CLANG
+            runner: ubuntu-24.04-s390x
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install build dependencies
+        run: |
+          # Drop XDG_* stuff from /etc/environment, so we don't get the user
+          # XDG_* variables when running under sudo
+          sudo sed -i '/^XDG_/d' /etc/environment
+          # Pass only specific env variables through sudo, to avoid having
+          # the already existing XDG_* stuff on the "other side"
+          sudo --preserve-env=GITHUB_ACTIONS,CI .github/workflows/unit-tests.sh SETUP
+      - name: Build & test
+        run: sudo --preserve-env=GITHUB_ACTIONS,CI .github/workflows/unit-tests.sh RUN_${{ matrix.run_phase }}

@@ -2,7 +2,9 @@
 
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "fsprg.h"
 #include "gcrypt-util.h"
@@ -12,6 +14,7 @@
 #include "journal-file.h"
 #include "log.h"
 #include "memory-util.h"
+#include "string-util.h"
 #include "time-util.h"
 
 static void* fssheader_free(FSSHeader *p) {

@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <openssl/pem.h>
-
-#include "fd-util.h"
-#include "fileio.h"
+#include "alloc-util.h"
 #include "json-util.h"
 #include "log.h"
-#include "memstream-util.h"
 #include "openssl-util.h"
 #include "user-record-sign.h"
+#include "user-record.h"
 
 static int user_record_signable_json(UserRecord *ur, char **ret) {
         _cleanup_(user_record_unrefp) UserRecord *reduced = NULL;
@@ -61,13 +58,13 @@ int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
                         &v,
                         "signature",
                         SD_JSON_BUILD_ARRAY(
-                                        SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_BASE64(signature, signature_size)),
-                                                             SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_STRING(key)))));
+                                        SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_BASE64("data", signature, signature_size),
+                                                             SD_JSON_BUILD_PAIR_STRING("key", key))));
         if (r < 0)
                 return r;
 
         if (DEBUG_LOGGING)
-                sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL);
+                sd_json_variant_dump(v, SD_JSON_FORMAT_CENSOR_SENSITIVE|SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL);
 
         signed_ur = user_record_new();
         if (!signed_ur)

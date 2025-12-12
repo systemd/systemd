@@ -16,6 +16,10 @@ measurements listed below are (by default) only done if a system is booted with
 to systemd's UEFI-mode measurements, and if the latter are not done the former
 aren't made either.
 
+See
+[UAPI.7 Linux TPM PCR Registry](https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/)
+for an overview of PCRs.
+
 systemd will measure to PCRs 5 (`boot-loader-config`), 11 (`kernel-boot`),
 12 (`kernel-config`), 13 (`sysexts`), 15 (`system-identity`).
 
@@ -39,9 +43,40 @@ recognizable. Measurements currently recorded as `EV_IPL` will continue to be
 recorded as `EV_IPL`, for compatibility reasons. However, `EV_IPL` will not be
 used for new, additional measurements.
 
+## NvPCR Measurements
+
+Since the PCR number space is very small, systemd userspace supports additional
+PCRs implemented via TPM2 NV Indexes (here called *NvPCRs*, even though they
+are no less volatile than classic PCRs), using the `TPM2_NT_EXTEND` type. These
+mostly behave like real PCRs, but we can allocate them relatively freely from
+the NV index handle space.
+
+The NV index range to use for this is configurable at build time, so that
+downstreams have some flexibility to change this if they want. This uses the
+0x01d10200 NV index as base by default. To abstract the actual nvindex number
+away there's a naming concept, so that nvindexes are referenced by name string
+rather than number.
+
+NvPCRs are defined in little JSON snippets in `/usr/lib/nvpcr/*.nvpcr`, that
+match up index number and name, as well as pick a hash algorithm.
+
+There's one complication: these NV indexes (like any NV indexes) can be deleted
+by anyone with access to the TPM, and then be recreated. This could be used to
+reset the NvPCRs to zero during runtime, which defeats the whole point of
+them. Our way out: we measure a secret as first thing after creation into the
+NvPCRs. (Or actually, we measure a per-NvPCR secret we derive from a system
+secret via an HMAC of the NvPCR name and the NV index handle). This "anchoring"
+secret is stored in `/run/` + `/var/lib/` + ESP/XBOOTLDR (the latter encrypted
+as credential, locked to the TPM), to make it available at the whole runtime of
+the OS. It's only accessible to privileged processes with access to the
+TPM. Due to this, any process with access to the TPM and read access to any of
+the storage locations of the anchor secret is considered part of the TCB, as
+they are able to replay the NvPCR with their own content at will, so due care
+must be employed when designing a system that uses this feature.
+
 ## PCR Measurements Made by `systemd-boot` (UEFI)
 
-### PCS 5, `EV_EVENT_TAG`, `loader.conf`
+### PCR 5, `EV_EVENT_TAG`, `loader.conf`
 
 The content of `systemd-boot`'s configuration file, `loader/loader.conf`, is
 measured as a tagged event.
@@ -73,8 +108,8 @@ trailing NUL bytes).
 ### PCR 11, `EV_IPL`, PE section name
 
 A measurement is made for each PE section of the UKI that is defined by the
-[UKI
-specification](https://uapi-group.org/specifications/specs/unified_kernel_image/),
+[UAPI.5 UKI
+Specification](https://uapi-group.org/specifications/specs/unified_kernel_image/),
 in the canonical order described in the specification.
 
 Happens once for each UKI-defined PE section of the UKI, in the canonical UKI
@@ -164,7 +199,23 @@ initrd" in UTF-16.
 → **Measured hash** covers the per-UKI sysext cpio archive (which is generated
 on-the-fly by `systemd-stub`).
 
-## PCR Measurements Made by `systemd-pcrextend` (Userspace)
+## PCR Measurements Made by `systemd-tpm2-setup` (Userspace)
+
+### PCR 9, NvPCR Initializations
+
+The `systemd-tpm2-setup.service` service initializes any NvPCRs defined via
+`*.nvpcr` files. For each initialized NvPCR it will measure an event into PCR
+9.
+
+→ **Measured hash** covers the string `nvpcr-init:`, suffixed by the NvPCR
+name, suffixed by `:0x`, suffixed by the NV Index handle (formatted in
+hexadecimal), suffixed by a colon, suffixed by the hash function used, in
+lowercase (i.e. `sha256` or so), suffixed by a colon, and finally suffixed by
+the state of the NvPCR after its initialization with the anchor measurement, in
+hexadecimal. Example:
+`nvpcr-init:hardware:0x1d10200:sha256:de3857f637c61e82f02e3722e1b207585fe9711045d863238904be8db10683f2`
+
+## PCR/NvPCR Measurements Made by `systemd-pcrextend` (Userspace)
 
 ### PCR 11, boot phases
 
@@ -187,6 +238,17 @@ from `/etc/machine-id`) during boot.
 formatted in hexadecimal lowercase characters (in UTF-8, without trailing NUL
 bytes).
 
+### NvPCR `hardware` (base+0), product UUID
+
+The `systemd-pcrproduct.service` service will measure the product UUID (as
+available from SMBIOS or Devicetree) of the host system, once at boot.
+
+→ **Measured hash** covers the string "product-id:" suffixed by the product
+UUID formatted in hexadecimal lowercase characters, without separators. If no
+product UUID of the local system could be determined the string
+"product-id:missing" is measured instead. Example string:
+`product-id:4691595be6a345f1833cc75fab63e475`.
+
 ### PCR 15, file system
 
 The `systemd-pcrfs-root.service` and `systemd-pcrfs@.service` services will
@@ -198,7 +260,16 @@ colon-separated strings, identifying the file system type, UUID, label as well
 as the GPT partition entry UUID, entry type UUID and entry label (in UTF-8,
 without trailing NUL bytes).
 
-## PCR Measurements Made by `systemd-cryptsetup` (Userspace)
+### PCR 9, NvPCR initialization separator
+
+After completion of `systemd-tpm2-setup.service` (which initializes all NvPCRs
+and measures their initial state) at arly boot the `systemd-pcrnvdone.service`
+service will measure a separator event into PCR 9, isolating the early-boot
+NvPCR initializations from any later additions.
+
+→ **Measured hash** covers the string `nvpcr-separator`.
+
+## PCR/NvPCR Measurements Made by `systemd-cryptsetup` (Userspace)
 
 ### PCR 15, volume key
 
@@ -210,3 +281,15 @@ system).
 → **Measured hash** covers the (binary) result of the HMAC(V,S) calculation where V
 is the LUKS volume key, and S is the string "cryptsetup:" followed by the LUKS
 volume name and the UUID of the LUKS superblock.
+
+### NvPCR `cryptsetup` (base+1), LUKS unlock mechanism/key slot
+
+The `systemd-cryptsetup@.service` service will measure information about the
+used LUKS keyslot, and in particular include the used unlock mechanism (pkcs11,
+tpm2, fido2, …) in it.
+
+→ **Measured hash** covers the string "cryptsetup-keyslot:", suffixed by the DM
+volume name, a ":" separator, the UUID of the LUKS superblock, a ":" separator,
+a brief string identifying the unlock mechanism, a ":" separator, and finally
+the LUKS slot number used. Example string:
+`cryptsetup-keyslot:root:1e023a55-60f9-4b6b-9b80-67438dc5f065:tpm2:1`

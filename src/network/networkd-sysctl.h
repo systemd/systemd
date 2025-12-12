@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "conf-parser.h"
-
-typedef struct Link Link;
-typedef struct Manager Manager;
+#include "networkd-forward.h"
 
 typedef enum IPv6PrivacyExtensions {
         /* These values map to the kernel's /proc/sys/net/ipv6/conf/xxx/use_tempaddr values. Do not reorder! */
@@ -27,7 +22,7 @@ typedef enum IPReversePathFilter {
         _IP_REVERSE_PATH_FILTER_INVALID = -EINVAL,
 } IPReversePathFilter;
 
-#if HAVE_VMLINUX_H
+#if ENABLE_SYSCTL_BPF
 int manager_install_sysctl_monitor(Manager *manager);
 void manager_remove_sysctl_monitor(Manager *manager);
 int link_clear_sysctl_shadows(Link *link);

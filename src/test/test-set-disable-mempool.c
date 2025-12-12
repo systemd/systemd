@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <pthread.h>
+#include <stdlib.h>
 
 #include "mempool.h"
 #include "process-util.h"

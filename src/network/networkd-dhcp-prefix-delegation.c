@@ -1,8 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/ipv6_route.h>
+#include <linux/rtnetlink.h>
+
+#include "sd-dhcp-client.h"
+#include "sd-dhcp6-client.h"
+#include "sd-netlink.h"
+#include "sd-radv.h"
 
 #include "dhcp6-lease-internal.h"
+#include "errno-util.h"
 #include "hashmap.h"
 #include "in-addr-prefix-util.h"
 #include "networkd-address.h"
@@ -17,6 +24,7 @@
 #include "networkd-route-util.h"
 #include "networkd-setlink.h"
 #include "parse-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tunnel.h"

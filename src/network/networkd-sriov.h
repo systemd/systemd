@@ -2,9 +2,7 @@
  * Copyright © 2020 VMware, Inc. */
 #pragma once
 
-#include "netif-sriov.h"
-
-typedef struct Link Link;
+#include "networkd-forward.h"
 
 int link_request_sr_iov_vfs(Link *link);
 

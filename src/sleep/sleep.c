@@ -4,14 +4,12 @@
   Copyright © 2018 Dell Inc.
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <poll.h>
+#include <stdlib.h>
 #include <sys/timerfd.h>
-#include <sys/types.h>
 #include <sys/utsname.h>
-#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-device.h"
@@ -19,6 +17,7 @@
 #include "sd-json.h"
 #include "sd-messages.h"
 
+#include "alloc-util.h"
 #include "battery-capacity.h"
 #include "battery-util.h"
 #include "blockdev-util.h"
@@ -28,25 +27,20 @@
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "constants.h"
-#include "devnum-util.h"
 #include "efivars.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "format-util.h"
 #include "hibernate-util.h"
-#include "id128-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "os-util.h"
-#include "parse-util.h"
 #include "pretty-print.h"
 #include "sleep-config.h"
 #include "special.h"
-#include "stdio-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 
@@ -272,9 +266,9 @@ static int execute(
         /* This file is opened first, so that if we hit an error, we can abort before modifying any state. */
         state_fd = open("/sys/power/state", O_WRONLY|O_CLOEXEC);
         if (state_fd < 0)
-                return log_error_errno(errno, "Failed to open /sys/power/state: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/sys/power/state");
 
-        if (SLEEP_NEEDS_MEM_SLEEP(sleep_config, operation)) {
+        if (sleep_needs_mem_sleep(sleep_config, operation)) {
                 r = write_mode("/sys/power/mem_sleep", sleep_config->mem_modes);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write mode to /sys/power/mem_sleep: %m");
@@ -317,7 +311,15 @@ static int execute(
         if (setenv("SYSTEMD_SLEEP_ACTION", action, /* overwrite = */ 1) < 0)
                 log_warning_errno(errno, "Failed to set SYSTEMD_SLEEP_ACTION=%s, ignoring: %m", action);
 
-        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, (char **) arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        (void) execute_directories(
+                        "system-sleep",
+                        dirs,
+                        DEFAULT_TIMEOUT_USEC,
+                        /* callbacks= */ NULL,
+                        /* callback_args= */ NULL,
+                        (char **) arguments,
+                        /* envp= */ NULL,
+                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         (void) lock_all_homes();
 
         log_struct(LOG_INFO,
@@ -338,8 +340,15 @@ static int execute(
                            LOG_ITEM("SLEEP=%s", sleep_operation_to_string(arg_operation)));
 
         arguments[1] = "post";
-        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, (char **) arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
-
+        (void) execute_directories(
+                        "system-sleep",
+                        dirs,
+                        DEFAULT_TIMEOUT_USEC,
+                        /* callbacks= */ NULL,
+                        /* callback_args= */ NULL,
+                        (char **) arguments,
+                        /* envp= */ NULL,
+                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         if (r >= 0)
                 return 0;
 

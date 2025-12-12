@@ -1,31 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-varlink.h"
-
+#include "dns-packet.h"
 #include "in-addr-util.h"
 #include "list.h"
-#include "resolved-def.h"
-#include "resolved-dns-dnssec.h"
-#include "resolved-dns-packet.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-transaction.h"
-#include "set.h"
+#include "resolved-forward.h"
 
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsPacket DnsPacket;
-typedef struct DnsQueryCandidate DnsQueryCandidate;
-typedef struct DnsQuery DnsQuery;
-typedef struct DnsQuestion DnsQuestion;
-typedef struct DnsScope DnsScope;
-typedef struct DnsSearchDomain DnsSearchDomain;
-typedef struct DnsStream DnsStream;
-typedef struct DnsStubListenerExtra DnsStubListenerExtra;
-typedef struct Manager Manager;
-
-struct DnsQueryCandidate {
+typedef struct DnsQueryCandidate {
         unsigned n_ref;
         int error_code;
+        uint64_t generation;
 
         DnsQuery *query;
         DnsScope *scope;
@@ -37,9 +23,9 @@ struct DnsQueryCandidate {
 
         LIST_FIELDS(DnsQueryCandidate, candidates_by_query);
         LIST_FIELDS(DnsQueryCandidate, candidates_by_scope);
-};
+} DnsQueryCandidate;
 
-struct DnsQuery {
+typedef struct DnsQuery {
         Manager *manager;
 
         /* The question, formatted in IDNA for use on classic DNS, and as UTF8 for use in LLMNR or mDNS. Note
@@ -120,6 +106,13 @@ struct DnsQuery {
         DnsAnswer *reply_additional;
         DnsStubListenerExtra *stub_listener_extra;
 
+        /* Browser Service and Dnssd Discovered Service Information */
+        DnssdDiscoveredService *dnsservice_request;
+        DnsServiceBrowser *service_browser_request;
+
+        /* Pending query to any installed hooks */
+        HookQuery *hook_query;
+
         /* Completion callback */
         void (*complete)(DnsQuery* q);
 
@@ -129,7 +122,7 @@ struct DnsQuery {
         LIST_FIELDS(DnsQuery, auxiliary_queries);
 
         /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
-};
+} DnsQuery;
 
 enum {
         DNS_QUERY_MATCH,
@@ -143,7 +136,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQueryCandidate*, dns_query_candidate_unref);
 
 void dns_query_candidate_notify(DnsQueryCandidate *c);
 
-int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question_utf8, DnsQuestion *question_idna, DnsPacket *question_bypass, int family, uint64_t flags);
+int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question_utf8, DnsQuestion *question_idna, DnsPacket *question_bypass, int ifindex, uint64_t flags);
 DnsQuery *dns_query_free(DnsQuery *q);
 
 int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for);

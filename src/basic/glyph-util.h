@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-
-#include "macro.h"
+#include "basic-forward.h"
 
 typedef enum Glyph {
         GLYPH_SPACE,
@@ -53,12 +50,20 @@ typedef enum Glyph {
         GLYPH_COMPUTER_DISK,
         GLYPH_WORLD,
         GLYPH_RED_CIRCLE,
+        GLYPH_ORANGE_CIRCLE,
         GLYPH_YELLOW_CIRCLE,
         GLYPH_BLUE_CIRCLE,
         GLYPH_GREEN_CIRCLE,
         GLYPH_SUPERHERO,
+        GLYPH_PUMPKIN,
         GLYPH_IDCARD,
         GLYPH_HOME,
+        GLYPH_ROCKET,
+        GLYPH_BROOM,
+        GLYPH_KEYBOARD,
+        GLYPH_CLOCK,
+        GLYPH_LABEL,
+        GLYPH_SHELL,
         _GLYPH_MAX,
         _GLYPH_INVALID = -EINVAL,
 } Glyph;

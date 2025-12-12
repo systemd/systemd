@@ -3,15 +3,15 @@
   Copyright © 2009 Alan Jenkins <alan-jenkins@tuffmail.co.uk>
 ***/
 
-#include <errno.h>
+#include <sys/inotify.h>
 #include <unistd.h>
 
 #include "libudev.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "io-util.h"
-#include "udev-util.h"
 
 /**
  * SECTION:libudev-queue
@@ -61,6 +61,11 @@ static struct udev_queue* udev_queue_free(struct udev_queue *udev_queue) {
 
         safe_close(udev_queue->fd);
         return mfree(udev_queue);
+}
+
+static int udev_queue_is_empty(void) {
+        return access("/run/udev/queue", F_OK) < 0 ?
+                (errno == ENOENT ? true : -errno) : false;
 }
 
 /**

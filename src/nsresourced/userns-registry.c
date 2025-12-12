@@ -1,18 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
+#include <unistd.h>
+
 #include "sd-json.h"
 #include "sd-netlink.h"
 
+#include "alloc-util.h"
 #include "chase.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "json-util.h"
-#include "missing_magic.h"
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
+#include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "user-util.h"
 #include "userns-registry.h"
 
@@ -439,9 +446,9 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *def = NULL;
         r = sd_json_buildo(
                         &def,
-                        SD_JSON_BUILD_PAIR("owner", SD_JSON_BUILD_UNSIGNED(info->owner)),
-                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(info->name)),
-                        SD_JSON_BUILD_PAIR("userns", SD_JSON_BUILD_UNSIGNED(info->userns_inode)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("owner", info->owner),
+                        SD_JSON_BUILD_PAIR_STRING("name", info->name),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("userns", info->userns_inode),
                         SD_JSON_BUILD_PAIR_CONDITION(info->size > 0, "size", SD_JSON_BUILD_UNSIGNED(info->size)),
                         SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start_uid), "start", SD_JSON_BUILD_UNSIGNED(info->start_uid)),
                         SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->target_uid), "target", SD_JSON_BUILD_UNSIGNED(info->target_uid)),
@@ -632,7 +639,7 @@ static int userns_destroy_cgroup(uint64_t cgroup_id) {
         _cleanup_close_ int cgroup_fd = -EBADF, parent_fd = -EBADF;
         int r;
 
-        cgroup_fd = cg_cgroupid_open(/* cgroupfsfd= */ -EBADF, cgroup_id);
+        cgroup_fd = cg_cgroupid_open(/* cgroupfs_fd= */ -EBADF, cgroup_id);
         if (cgroup_fd == -ESTALE) {
                 log_debug_errno(cgroup_fd, "Control group %" PRIu64 " already gone, ignoring.", cgroup_id);
                 return 0;
@@ -731,7 +738,7 @@ static int userns_destroy_netif(sd_netlink **rtnl, const char *name) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call(*rtnl, m, /* timeout_usec= */ 0, /* ret_reply= */ NULL);
+        r = sd_netlink_call(*rtnl, m, /* timeout= */ 0, /* ret= */ NULL);
         if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) /* Already gone? */
                 return 0;
         if (r < 0)

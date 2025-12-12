@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "analyze.h"
 #include "analyze-condition.h"
 #include "analyze-verify-util.h"
 #include "condition.h"
-#include "conf-parser.h"
 #include "load-fragment.h"
+#include "manager.h"
 #include "service.h"
+#include "string-util.h"
+#include "strv.h"
 
 static int parse_condition(Unit *u, const char *line) {
         assert(u);

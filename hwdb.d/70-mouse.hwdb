@@ -192,6 +192,14 @@ mouse:bluetooth:v05acp030d:name:*:*
  MOUSE_DPI=1300@1000
 
 ##########################################
+# Asus
+##########################################
+
+# Asus Cerberus
+mouse:usb:v04d9pa0d6:name:E-Signal/A-One USB Gaming Mouse:*
+ MOUSE_DPI=800@500 *1350@500 1600@500 2650@500
+
+##########################################
 # Cherry
 ##########################################
 
@@ -258,6 +266,18 @@ mouse:usb:v056ep0155:name:ELECOM ELECOM Relacon:*
  ID_INPUT_TRACKBALL=1
  MOUSE_DPI=*500 1000 1500
  MOUSE_WHEEL_CLICK_ANGLE=30
+
+# Elecom IST Pro (via wired usb) (M-IPT10MRSABK)
+mouse:usb:v056ep018a:name:ELECOM ELECOM IST PRO Mouse:*
+ ID_INPUT_TRACKBALL=1
+
+# Elecom IST Pro (via usb receiver) (M-IPT10MRSABK)
+mouse:usb:v056ep01a9:name:ELECOM ELECOM Bridge G1000 Mouse:*
+ ID_INPUT_TRACKBALL=1
+
+# Elecom IST Pro (via Bluetooth) (M-IPT10MRSABK)
+mouse:bluetooth:v056ep018a:name:ELECOM IST PRO Mouse:*
+ ID_INPUT_TRACKBALL=1
 
 ##########################################
 # Fujitsu Siemens
@@ -387,6 +407,10 @@ mouse:usb:v17efp6045:name:Lenovo USB Laser Mouse:*
 # ThinkPad USB Laser Mouse
 mouse:usb:v17efp6044:name:ThinkPad USB Laser Mouse:*
  MOUSE_DPI=1200@125
+
+# Lenovo Essential USB Mouse (SM-8823)
+mouse:usb:v17efp608d:name:PixArt Lenovo USB Optical Mouse:*
+ MOUSE_DPI=1600@125
 
 ##########################################
 # Logitech
@@ -599,6 +623,10 @@ mouse:usb:v046dpc548:name:Logitech USB Receiver Mouse:*
 mouse:bluetooth:v046dpb035:name:MX Master 3S B Mouse:*
  MOUSE_DPI=1000@142
 
+# Logitech MX Master 4 (via Bluetooth)
+mouse:bluetooth:v046dpb042:name:MX Master 4 Mouse:*
+ MOUSE_DPI=1000@142
+
 # Logitech MX Ergo
 mouse:usb:v046dp406f:name:Logitech MX Ergo:*
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:406f:*
@@ -673,6 +701,10 @@ mouse:usb:v046dpc517:name:Logitech USB Receiver:*
 
 # Logitech RX1000 Laser Mouse
 mouse:usb:v046dpc046:name:Logitech USB Optical Mouse:*
+ MOUSE_DPI=1000@125
+
+# Logitech RX1500
+mouse:usb:v046dpc061:name:Logitech USB Laser Mouse:*
  MOUSE_DPI=1000@125
 
 # Logitech M100 Optical Mouse
@@ -806,12 +838,36 @@ mouse:usb:v0e8fp00a7:name:DaKai 2.4G RX:*
  MOUSE_DPI=*800@126 1600@126
 
 ##########################################
+# Nulea
+##########################################
+
+# Note: The Nulea uses a generic USB dongle. Overriding its value would cause
+# other mice to be erroneously registered as trackballs, so only bluetooth
+# detection is added.
+# Nulea M501 Wireless Trackball (Bluetooth)
+mouse:bluetooth:v000ep3412:name:Nulea BT5.0 Mouse:*
+ ID_INPUT_TRACKBALL=1
+
+##########################################
 # Oklick
 ##########################################
 
 # Oklick 406S Bluetooth Laser Mouse
 mouse:bluetooth:v056ep0061:name:Laser  BTmouse:*
  MOUSE_DPI=*800@333 1600@333
+
+##########################################
+# ProtoArc
+##########################################
+
+# ProtoArc EM01 NL
+mouse:usb:v25a7pfa61:name:Compx 2.4G Receiver Mouse:*
+ ID_INPUT_TRACKBALL=1
+ MOUSE_DPI=200@250 *400@250 800@250 1200@250 1600@250
+
+mouse:bluetooth:v25a7pfaa0:name:EM01 NL:*
+ ID_INPUT_TRACKBALL=1
+ MOUSE_DPI=200@150 *400@150 800@150 1200@150 1600@150
 
 ##########################################
 # P-Active
@@ -832,6 +888,14 @@ mouse:usb:v1532p0042:name:Razer Razer Abyssus:*
 # Razer DeathAdder Black Edition
 mouse:usb:v1532p0029:name:Razer Razer DeathAdder:*
  MOUSE_DPI=3500@1000
+
+# Razer Cobra RZ04-03750300-R3U1
+mouse:usb:v1532p00a3:name:Razer Razer Cobra:*
+ MOUSE_DPI=400@1000 800@1000 *1600@1000 3200@1000 6400@1000
+
+# Razer Basilisk V3
+mouse:usb:v1532p0099:name:Razer Razer Basilisk V3:*
+ MOUSE_DPI=400@125 800@125 1600@125 3200@125 6400@125 400@500 800@500 1600@500 3200@500 6400@500 400@1000 800@1000 *1600@1000 3200@1000 6400@1000
 
 ##########################################
 # Roccat

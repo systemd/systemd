@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/mount.h>
 #include <unistd.h>
 
-#include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
-#include "id128-util.h"
 #include "log.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
@@ -19,6 +19,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tmpfile-util.h"
 #include "utf8.h"
 
@@ -321,8 +322,7 @@ int make_filesystem(
                 const char *label,
                 const char *root,
                 sd_id128_t uuid,
-                bool discard,
-                bool quiet,
+                MakeFileSystemFlags flags,
                 uint64_t sector_size,
                 char *compression,
                 char *compression_level,
@@ -334,7 +334,7 @@ int make_filesystem(
         _cleanup_(unlink_and_freep) char *protofile = NULL;
         char vol_id[CONST_MAX(SD_ID128_UUID_STRING_MAX, 8U + 1U)] = {};
         int stdio_fds[3] = { -EBADF, STDERR_FILENO, STDERR_FILENO};
-        ForkFlags flags = FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|
+        ForkFlags fork_flags = FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|
                         FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG;
         int r;
 
@@ -423,7 +423,7 @@ int make_filesystem(
                                 "-U", vol_id,
                                 "-I", "256",
                                 "-m", "0",
-                                "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
+                                "-E", FLAGS_SET(flags, MKFS_DISCARD) ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
                                 "-b", "4096",
                                 "-T", "default");
                 if (!argv)
@@ -432,7 +432,10 @@ int make_filesystem(
                 if (root && strv_extend_many(&argv, "-d", root) < 0)
                         return log_oom();
 
-                if (quiet && strv_extend(&argv, "-q") < 0)
+                if (FLAGS_SET(flags, MKFS_QUIET) && strv_extend(&argv, "-q") < 0)
+                        return log_oom();
+
+                if (FLAGS_SET(flags, MKFS_FS_VERITY) && strv_extend_many(&argv, "-O", "verity") < 0)
                         return log_oom();
 
                 if (strv_extend(&argv, node) < 0)
@@ -453,32 +456,37 @@ int make_filesystem(
                 if (!argv)
                         return log_oom();
 
-                if (!discard && strv_extend(&argv, "--nodiscard") < 0)
+                if (!FLAGS_SET(flags, MKFS_DISCARD) && strv_extend(&argv, "--nodiscard") < 0)
                         return log_oom();
 
                 if (root && strv_extend_many(&argv, "-r", root) < 0)
                         return log_oom();
 
-                if (quiet && strv_extend(&argv, "-q") < 0)
+                if (FLAGS_SET(flags, MKFS_QUIET) && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
                 if (compression) {
-                        _cleanup_free_ char *c = NULL;
+                        if (!root)
+                                log_warning("Btrfs compression setting ignored because no files are being copied. "
+                                            "Compression= can only be applied when CopyFiles= is also specified.");
+                        else {
+                                _cleanup_free_ char *c = NULL;
 
-                        c = strdup(compression);
-                        if (!c)
-                                return log_oom();
+                                c = strdup(compression);
+                                if (!c)
+                                        return log_oom();
 
-                        if (compression_level && !strextend(&c, ":", compression_level))
-                                return log_oom();
+                                if (compression_level && !strextend(&c, ":", compression_level))
+                                        return log_oom();
 
-                        if (strv_extend_many(&argv, "--compress", c) < 0)
-                                return log_oom();
+                                if (strv_extend_many(&argv, "--compress", c) < 0)
+                                        return log_oom();
+                        }
                 }
 
                 /* mkfs.btrfs unconditionally warns about several settings changing from v5.15 onwards which
                  * isn't silenced by "-q", so let's redirect stdout to /dev/null as well. */
-                if (quiet)
+                if (FLAGS_SET(flags, MKFS_QUIET))
                         stdio_fds[1] = -EBADF;
 
                 /* mkfs.btrfs expects a sector size of at least 4k bytes. */
@@ -494,11 +502,14 @@ int make_filesystem(
                                 "-f",  /* force override, without this it doesn't seem to want to write to an empty partition */
                                 "-l", label,
                                 "-U", vol_id,
-                                "-t", one_zero(discard));
+                                "-t", one_zero(FLAGS_SET(flags, MKFS_DISCARD)));
                 if (!argv)
                         return log_oom();
 
-                if (quiet && strv_extend(&argv, "-q") < 0)
+                if (FLAGS_SET(flags, MKFS_QUIET) && strv_extend(&argv, "-q") < 0)
+                        return log_oom();
+
+                if (FLAGS_SET(flags, MKFS_FS_VERITY) && strv_extend_many(&argv, "-O", "verity") < 0)
                         return log_oom();
 
                 if (sector_size > 0) {
@@ -524,7 +535,7 @@ int make_filesystem(
                 if (!argv)
                         return log_oom();
 
-                if (!discard && strv_extend(&argv, "-K") < 0)
+                if (!FLAGS_SET(flags, MKFS_DISCARD) && strv_extend(&argv, "-K") < 0)
                         return log_oom();
 
                 if (root) {
@@ -556,7 +567,7 @@ int make_filesystem(
                                 return log_oom();
                 }
 
-                if (quiet && strv_extend(&argv, "-q") < 0)
+                if (FLAGS_SET(flags, MKFS_QUIET) && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
                 if (strv_extend(&argv, node) < 0)
@@ -583,7 +594,7 @@ int make_filesystem(
                         return log_oom();
 
                 /* mkfs.vfat does not have a --quiet option so let's redirect stdout to /dev/null instead. */
-                if (quiet)
+                if (FLAGS_SET(flags, MKFS_QUIET))
                         stdio_fds[1] = -EBADF;
 
         } else if (streq(fstype, "swap")) {
@@ -596,7 +607,7 @@ int make_filesystem(
                 if (!argv)
                         return log_oom();
 
-                if (quiet)
+                if (FLAGS_SET(flags, MKFS_QUIET))
                         stdio_fds[1] = -EBADF;
 
         } else if (streq(fstype, "squashfs")) {
@@ -616,7 +627,7 @@ int make_filesystem(
                 }
 
                 /* mksquashfs -quiet option is pretty new so let's redirect stdout to /dev/null instead. */
-                if (quiet)
+                if (FLAGS_SET(flags, MKFS_QUIET))
                         stdio_fds[1] = -EBADF;
 
         } else if (streq(fstype, "erofs")) {
@@ -625,7 +636,7 @@ int make_filesystem(
                 if (!argv)
                         return log_oom();
 
-                if (quiet && strv_extend(&argv, "--quiet") < 0)
+                if (FLAGS_SET(flags, MKFS_QUIET) && strv_extend(&argv, "--quiet") < 0)
                         return log_oom();
 
                 if (compression) {
@@ -662,7 +673,7 @@ int make_filesystem(
                         return log_error_errno(r, "Failed to stat '%s': %m", node);
 
                 if (S_ISBLK(st.st_mode))
-                        flags |= FORK_NEW_MOUNTNS;
+                        fork_flags |= FORK_NEW_MOUNTNS;
         }
 
         if (DEBUG_LOGGING) {
@@ -677,7 +688,7 @@ int make_filesystem(
                         stdio_fds,
                         /*except_fds=*/ NULL,
                         /*n_except_fds=*/ 0,
-                        flags,
+                        fork_flags,
                         /*ret_pid=*/ NULL);
         if (r < 0)
                 return r;
@@ -694,7 +705,7 @@ int make_filesystem(
                  * on unformatted free space, so let's trick it and other mkfs tools into thinking no
                  * partitions are mounted. See https://github.com/kdave/btrfs-progs/issues/640 for more
                  ° information. */
-                 if (flags & FORK_NEW_MOUNTNS)
+                 if (fork_flags & FORK_NEW_MOUNTNS)
                         (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/null", "/proc/self/mounts", NULL, MS_BIND, NULL);
 
                 execvp(mkfs, argv);

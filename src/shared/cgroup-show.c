@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <dirent.h>
-#include <errno.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -16,19 +15,18 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "glyph-util.h"
 #include "hostname-util.h"
-#include "locale-util.h"
 #include "log.h"
-#include "macro.h"
 #include "nulstr-util.h"
 #include "output-mode.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
-#include "unit-name.h"
+#include "unit-def.h"
 #include "xattr-util.h"
 
 static void show_pid_array(
@@ -89,16 +87,13 @@ static int show_cgroup_one_by_path(
 
         _cleanup_free_ pid_t *pids = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
         size_t n = 0;
         char *fn;
         int r;
 
-        r = cg_mangle_path(path, &p);
-        if (r < 0)
-                return r;
+        assert(path);
 
-        fn = strjoina(p, "/cgroup.procs");
+        fn = strjoina(path, "/cgroup.procs");
         f = fopen(fn, "re");
         if (!f)
                 return -errno;
@@ -109,9 +104,12 @@ static int show_cgroup_one_by_path(
                 /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
                  * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads,
                  * “cgroup.procs” in a threaded domain cgroup contains the PIDs of all processes in
-                 * the subtree and is not readable in the subtree proper. */
+                 * the subtree and is not readable in the subtree proper.
+                 *
+                 * ENODEV is generated when we enumerate processes from a cgroup and the cgroup is removed
+                 * concurrently. */
                 r = cg_read_pid(f, &pid, /* flags = */ 0);
-                if (IN_SET(r, 0, -EOPNOTSUPP))
+                if (IN_SET(r, 0, -EOPNOTSUPP, -ENODEV))
                         break;
                 if (r < 0)
                         return r;
@@ -224,7 +222,7 @@ int show_cgroup_by_path(
                 size_t n_columns,
                 OutputFlags flags) {
 
-        _cleanup_free_ char *fn = NULL, *p1 = NULL, *last = NULL, *p2 = NULL;
+        _cleanup_free_ char *p1 = NULL, *last = NULL, *p2 = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         bool shown_pids = false;
         char *gn = NULL;
@@ -237,23 +235,19 @@ int show_cgroup_by_path(
 
         prefix = strempty(prefix);
 
-        r = cg_mangle_path(path, &fn);
-        if (r < 0)
-                return r;
-
-        d = opendir(fn);
+        d = opendir(path);
         if (!d)
                 return -errno;
 
         while ((r = cg_read_subgroup(d, &gn)) > 0) {
                 _cleanup_free_ char *k = NULL;
 
-                k = path_join(fn, gn);
+                k = path_join(path, gn);
                 free(gn);
                 if (!k)
                         return -ENOMEM;
 
-                if (!(flags & OUTPUT_SHOW_ALL) && cg_is_empty_recursive(NULL, k) > 0)
+                if (!(flags & OUTPUT_SHOW_ALL) && cg_is_empty(path_startswith(k, "/sys/fs/cgroup/")) > 0)
                         continue;
 
                 if (!shown_pids) {
@@ -302,17 +296,17 @@ int show_cgroup_by_path(
         return 0;
 }
 
-int show_cgroup(const char *controller,
-                const char *path,
+int show_cgroup(const char *path,
                 const char *prefix,
                 size_t n_columns,
                 OutputFlags flags) {
+
         _cleanup_free_ char *p = NULL;
         int r;
 
         assert(path);
 
-        r = cg_get_path(controller, path, NULL, &p);
+        r = cg_get_path(path, /* suffix = */ NULL, &p);
         if (r < 0)
                 return r;
 
@@ -320,7 +314,6 @@ int show_cgroup(const char *controller,
 }
 
 static int show_extra_pids(
-                const char *controller,
                 const char *path,
                 const char *prefix,
                 size_t n_columns,
@@ -349,7 +342,7 @@ static int show_extra_pids(
         for (i = 0, j = 0; i < n_pids; i++) {
                 _cleanup_free_ char *k = NULL;
 
-                r = cg_pid_get_path(controller, pids[i], &k);
+                r = cg_pid_get_path(pids[i], &k);
                 if (r < 0)
                         return r;
 
@@ -365,7 +358,6 @@ static int show_extra_pids(
 }
 
 int show_cgroup_and_extra(
-                const char *controller,
                 const char *path,
                 const char *prefix,
                 size_t n_columns,
@@ -377,11 +369,11 @@ int show_cgroup_and_extra(
 
         assert(path);
 
-        r = show_cgroup(controller, path, prefix, n_columns, flags);
+        r = show_cgroup(path, prefix, n_columns, flags);
         if (r < 0)
                 return r;
 
-        return show_extra_pids(controller, path, prefix, n_columns, extra_pids, n_extra_pids, flags);
+        return show_extra_pids(path, prefix, n_columns, extra_pids, n_extra_pids, flags);
 }
 
 int show_cgroup_get_unit_path_and_warn(

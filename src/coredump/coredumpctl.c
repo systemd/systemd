@@ -4,6 +4,8 @@
 #include <getopt.h>
 #include <locale.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -18,11 +20,13 @@
 #include "bus-util.h"
 #include "chase.h"
 #include "compress.h"
-#include "constants.h"
 #include "dissect-image.h"
+#include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "image-policy.h"
@@ -31,7 +35,7 @@
 #include "json-util.h"
 #include "log.h"
 #include "logs-show.h"
-#include "macro.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "pager.h"
@@ -40,11 +44,11 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "rlimit-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "verbs.h"
@@ -190,8 +194,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --version                 Print version string\n"
                "     --no-pager                Do not pipe output into a pager\n"
                "     --no-legend               Do not print the column headers\n"
-               "     --json=pretty|short|off\n"
-               "                               Generate JSON output\n"
+               "     --json=pretty|short|off   Generate JSON output\n"
                "     --debugger=DEBUGGER       Use the given debugger\n"
                "  -A --debugger-arguments=ARGS Pass the given arguments to the debugger\n"
                "  -n INT                       Show maximum number of rows\n"
@@ -539,7 +542,7 @@ static int resolve_filename(const char *root, char **p) {
 static int print_list(FILE* file, sd_journal *j, Table *t) {
         _cleanup_free_ char
                 *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
-                *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
+                *sgnl = NULL, *exe = NULL, *comm = NULL,
                 *filename = NULL, *truncated = NULL, *coredump = NULL;
         const void *d;
         size_t l;
@@ -564,14 +567,16 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
                 RETRIEVE(d, l, "COREDUMP_SIGNAL", sgnl);
                 RETRIEVE(d, l, "COREDUMP_EXE", exe);
                 RETRIEVE(d, l, "COREDUMP_COMM", comm);
-                RETRIEVE(d, l, "COREDUMP_CMDLINE", cmdline);
                 RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
                 RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
                 RETRIEVE(d, l, "COREDUMP", coredump);
         }
 
-        if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline && !filename)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Empty coredump log entry");
+        if (!pid || !uid || !gid || !sgnl || !comm) {
+                log_warning("Found a coredump entry without mandatory fields (PID=%s, UID=%s, GID=%s, SIGNAL=%s, COMM=%s), ignoring.",
+                            strna(pid), strna(uid), strna(gid), strna(sgnl), strna(comm));
+                return 0;
+        }
 
         (void) parse_uid(uid, &uid_as_int);
         (void) parse_gid(gid, &gid_as_int);
@@ -610,7 +615,7 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
                         TABLE_SIGNAL, normal_coredump ? signal_as_int : 0,
                         TABLE_STRING, present,
                         TABLE_SET_COLOR, color,
-                        TABLE_STRING, exe ?: comm ?: cmdline,
+                        TABLE_STRING, exe ?: comm,
                         TABLE_SIZE, size);
         if (r < 0)
                 return table_log_add_error(r);
@@ -1160,19 +1165,9 @@ static int dump_core(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static void sigterm_handler(int signal, siginfo_t *info, void *ucontext) {
-        assert(signal == SIGTERM);
-        assert(info);
-
-        /* If the sender is not us, propagate the signal to all processes in
-         * the same process group */
-        if (pid_is_valid(info->si_pid) && info->si_pid != getpid_cached())
-                (void) kill(0, signal);
-}
-
 static int run_debug(int argc, char **argv, void *userdata) {
         static const struct sigaction sa = {
-                .sa_sigaction = sigterm_handler,
+                .sa_sigaction = sigterm_process_group_handler,
                 .sa_flags = SA_SIGINFO,
         };
 

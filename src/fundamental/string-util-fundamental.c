@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if !SD_BOOT
-#  include <ctype.h>
-#endif
-
 #include "macro-fundamental.h"
 #include "string-util-fundamental.h"
 
-sd_char *startswith(const sd_char *s, const sd_char *prefix) {
+sd_char *startswith_internal(const sd_char *s, const sd_char *prefix) {
         size_t l;
 
         assert(s);
@@ -20,7 +16,7 @@ sd_char *startswith(const sd_char *s, const sd_char *prefix) {
         return (sd_char*) s + l;
 }
 
-sd_char *startswith_no_case(const sd_char *s, const sd_char *prefix) {
+sd_char *startswith_no_case_internal(const sd_char *s, const sd_char *prefix) {
         size_t l;
 
         assert(s);
@@ -33,7 +29,7 @@ sd_char *startswith_no_case(const sd_char *s, const sd_char *prefix) {
         return (sd_char*) s + l;
 }
 
-sd_char* endswith(const sd_char *s, const sd_char *suffix) {
+sd_char* endswith_internal(const sd_char *s, const sd_char *suffix) {
         size_t sl, pl;
 
         assert(s);
@@ -54,7 +50,7 @@ sd_char* endswith(const sd_char *s, const sd_char *suffix) {
         return (sd_char*) s + sl - pl;
 }
 
-sd_char* endswith_no_case(const sd_char *s, const sd_char *suffix) {
+sd_char* endswith_no_case_internal(const sd_char *s, const sd_char *suffix) {
         size_t sl, pl;
 
         assert(s);

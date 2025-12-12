@@ -28,3 +28,4 @@ ImportCredential=login.motd
 ImportCredential=login.issue
 ImportCredential=network.hosts
 ImportCredential=ssh.authorized_keys.root
+RestrictSUIDSGID=no

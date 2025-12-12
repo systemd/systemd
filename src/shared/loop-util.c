@@ -4,9 +4,7 @@
 #include <valgrind/memcheck.h>
 #endif
 
-#include <errno.h>
 #include <fcntl.h>
-#include <linux/blkpg.h>
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -26,13 +24,13 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "loop-util.h"
-#include "missing_fs.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 static void cleanup_clear_loop_close(int *fd) {
         if (*fd < 0)
@@ -377,6 +375,44 @@ static int loop_configure(
         return 0;
 }
 
+static int fd_get_max_discard(int fd, uint64_t *ret) {
+        struct stat st;
+        char sysfs_path[STRLEN("/sys/dev/block/" ":" "/queue/discard_max_bytes") + DECIMAL_STR_MAX(dev_t) * 2 + 1];
+        _cleanup_free_ char *buffer = NULL;
+        int r;
+
+        assert(ret);
+
+        if (fstat(ASSERT_FD(fd), &st) < 0)
+                return -errno;
+
+        if (!S_ISBLK(st.st_mode))
+                return -ENOTBLK;
+
+        xsprintf(sysfs_path, "/sys/dev/block/" DEVNUM_FORMAT_STR "/queue/discard_max_bytes", DEVNUM_FORMAT_VAL(st.st_rdev));
+
+        r = read_one_line_file(sysfs_path, &buffer);
+        if (r < 0)
+                return r;
+
+        return safe_atou64(buffer, ret);
+}
+
+static int fd_set_max_discard(int fd, uint64_t max_discard) {
+        struct stat st;
+        char sysfs_path[STRLEN("/sys/dev/block/" ":" "/queue/discard_max_bytes") + DECIMAL_STR_MAX(dev_t) * 2 + 1];
+
+        if (fstat(ASSERT_FD(fd), &st) < 0)
+                return -errno;
+
+        if (!S_ISBLK(st.st_mode))
+                return -ENOTBLK;
+
+        xsprintf(sysfs_path, "/sys/dev/block/" DEVNUM_FORMAT_STR "/queue/discard_max_bytes", DEVNUM_FORMAT_VAL(st.st_rdev));
+
+        return write_string_filef(sysfs_path, WRITE_STRING_FILE_DISABLE_BUFFER, "%" PRIu64, max_discard);
+}
+
 static int loop_device_make_internal(
                 const char *path,
                 int fd,
@@ -574,6 +610,23 @@ static int loop_device_make_internal(
                 (void) usleep_safe(usec);
         }
 
+        if (S_ISBLK(st.st_mode)) {
+                /* Propagate backing device's discard byte limit to our loopback block device. We do this in
+                 * order to avoid that (supposedly quick) discard requests on the loopback device get turned
+                 * into (likely slow) zero-out requests on backing devices that do not support discarding
+                 * natively, but do support zero-out. */
+                uint64_t discard_max_bytes;
+
+                r = fd_get_max_discard(fd, &discard_max_bytes);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read 'discard_max_bytes' of backing device, ignoring: %m");
+                else {
+                        r = fd_set_max_discard(d->fd, discard_max_bytes);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to write 'discard_max_bytes' of loop device, ignoring: %m");
+                }
+        }
+
         d->backing_file = TAKE_PTR(backing_file);
         d->backing_inode = st.st_ino;
         d->backing_devno = st.st_dev;
@@ -662,7 +715,7 @@ int loop_device_make_by_path_at(
                 r = fd;
 
                 /* Retry read-only? */
-                if (open_flags >= 0 || !(ERRNO_IS_PRIVILEGE(r) || r == -EROFS))
+                if (open_flags >= 0 || !ERRNO_IS_NEG_FS_WRITE_REFUSED(r))
                         return r;
 
                 fd = xopenat(dir_fd, path, basic_flags|direct_flags|O_RDONLY);
@@ -1066,9 +1119,8 @@ int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
         VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
 #endif
 
-        if (size == UINT64_MAX && offset == UINT64_MAX)
-                return 0;
-        if (info.lo_sizelimit == size && info.lo_offset == offset)
+        if ((size == UINT64_MAX || info.lo_sizelimit == size) &&
+            (offset == UINT64_MAX || info.lo_offset == offset))
                 return 0;
 
         if (size != UINT64_MAX)

@@ -1,37 +1,36 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-sources = files(
+systemd_journald_sources = files(
+        'journald.c',
+)
+systemd_journald_extract_sources = files(
         'journald-audit.c',
         'journald-client.c',
+        'journald-config.c',
         'journald-console.c',
         'journald-context.c',
         'journald-kmsg.c',
+        'journald-manager.c',
         'journald-native.c',
         'journald-rate-limit.c',
-        'journald-server.c',
         'journald-socket.c',
         'journald-stream.c',
+        'journald-sync.c',
         'journald-syslog.c',
         'journald-varlink.c',
         'journald-wall.c',
+        # Build fuzz-journald.c as part of systemd-journald so we only compile it once instead of once per
+        # fuzz test.
+        'fuzz-journald-util.c',
 )
 
 journald_gperf_c = custom_target(
-        'journald-gperf.c',
         input : 'journald-gperf.gperf',
         output : 'journald-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += journald_gperf_c
-sources += journald_gperf_c
-
-libjournal_core = static_library(
-        'journal-core',
-        sources,
-        include_directories : includes,
-        dependencies: [threads,
-                       userspace],
-        build_by_default : false)
+systemd_journald_extract_sources += journald_gperf_c
 
 journalctl_sources = files(
         'journalctl.c',
@@ -54,31 +53,22 @@ else
 endif
 
 journal_test_template = test_template + {
-        'link_with' : [
-                libjournal_core,
-                libshared,
-        ],
+        'objects' : ['systemd-journald'],
 }
 
 journal_fuzz_template = fuzz_template + {
-        'link_with' : [
-                libjournal_core,
-                libshared,
-        ],
-        'dependencies' : libselinux,
+        'objects' : ['systemd-journald'],
+        'dependencies' : libselinux_cflags,
 }
 
 executables += [
         libexec_template + {
                 'name' : 'systemd-journald',
-                'sources' : files('journald.c'),
-                'link_with' : [
-                        libjournal_core,
-                        libshared,
-                ],
+                'sources' : systemd_journald_sources,
+                'extract' : systemd_journald_extract_sources,
                 'dependencies' : [
                         liblz4_cflags,
-                        libselinux,
+                        libselinux_cflags,
                         libxz_cflags,
                         libzstd_cflags,
                         threads,
@@ -89,18 +79,14 @@ executables += [
                 'public' : true,
                 'conditions' : ['HAVE_QRENCODE'],
                 'sources' : files('bsod.c'),
-                'link_with' : libshared,
                 'dependencies' : libqrencode,
         },
         executable_template + {
                 'name' : 'systemd-cat',
                 'public' : true,
                 'sources' : files('cat.c'),
-                'link_with' : [
-                        libjournal_core,
-                        libshared,
-                ],
-                'dependencies' : threads,
+                'objects' : ['systemd-journald'],
+                'dependencies' : [threads],
         },
         executable_template + {
                 'name' : 'journalctl',
@@ -119,21 +105,23 @@ executables += [
                 'sources' : files('test-journald-config.c'),
                 'dependencies' : [
                         liblz4_cflags,
-                        libselinux,
+                        libselinux_cflags,
                         libxz_cflags,
                 ],
         },
-        test_template + {
-                'sources' : files(
-                        'test-journald-rate-limit.c',
-                        'journald-rate-limit.c',
-                ),
+        journal_test_template + {
+                'sources' : files('test-journald-rate-limit.c'),
+                'dependencies' : [
+                        liblz4_cflags,
+                        libselinux_cflags,
+                        libxz_cflags,
+                ],
         },
         journal_test_template + {
                 'sources' : files('test-journald-syslog.c'),
                 'dependencies' : [
                         liblz4_cflags,
-                        libselinux,
+                        libselinux_cflags,
                         libxz_cflags,
                         threads,
                 ],
@@ -141,51 +129,35 @@ executables += [
         journal_test_template + {
                 'sources' : files('test-journald-tables.c'),
                 'dependencies' : [
-                        libselinux,
+                        libselinux_cflags,
                 ],
         },
         journal_fuzz_template + {
-                'sources' : files(
-                        'fuzz-journald-audit.c',
-                        'fuzz-journald.c',
-                ),
+                'sources' : files('fuzz-journald-audit.c'),
         },
         journal_fuzz_template + {
-                'sources' : files(
-                        'fuzz-journald-kmsg.c',
-                        'fuzz-journald.c',
-                ),
+                'sources' : files('fuzz-journald-kmsg.c'),
         },
         journal_fuzz_template + {
-                'sources' : files(
-                        'fuzz-journald-native.c',
-                        'fuzz-journald.c',
-                ),
+                'sources' : files('fuzz-journald-native.c'),
         },
         journal_fuzz_template + {
-                'sources' : files(
-                        'fuzz-journald-native-fd.c',
-                        'fuzz-journald.c',
-                ),
+                'sources' : files('fuzz-journald-native-fd.c'),
         },
         journal_fuzz_template + {
-                'sources' : files(
-                        'fuzz-journald-stream.c',
-                        'fuzz-journald.c',
-                ),
+                'sources' : files('fuzz-journald-stream.c'),
         },
         journal_fuzz_template + {
-                'sources' : files(
-                        'fuzz-journald-syslog.c',
-                        'fuzz-journald.c',
-                ),
+                'sources' : files('fuzz-journald-syslog.c'),
         },
 ]
 
-if install_sysconfdir_samples
-        install_data('journald.conf',
-                     install_dir : pkgconfigfiledir)
-endif
+custom_target(
+        input : 'journald.conf.in',
+        output: 'journald.conf',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : install_sysconfdir_samples,
+        install_dir : pkgconfigfiledir)
 
 if get_option('create-log-dirs')
         install_emptydir('/var/log/journal',

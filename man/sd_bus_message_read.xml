@@ -221,8 +221,8 @@ int16_t n;
 uint16_t q;
 int32_t i;
 uint32_t u;
-int32_t x;
-uint32_t t;
+int64_t x;
+uint64_t t;
 double d;
 
 sd_bus_message_read(m, "ynqiuxtd", &amp;y, &amp;n, &amp;q, &amp;i, &amp;u, &amp;x, &amp;t, &amp;d);</programlisting>

@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "macro.h"
 #include "network-generator.h"
-#include "string-util.h"
 #include "tests.h"
 
 static void test_network_one(const char *ifname, const char *key, const char *value, const char *expected) {
@@ -211,6 +209,51 @@ int main(int argc, char *argv[]) {
                          "\n[Address]\n"
                          "Address=192.168.0.10/24\n"
                          "Peer=192.168.0.2\n"
+                         "\n[Route]\n"
+                         "Gateway=192.168.0.1\n"
+                         );
+
+        test_network_one("eth0", "ip", "192.168.0.10::192.168.0.1:255.255.255.0::eth0:on:10.10.10.10:10.10.10.11:10.10.10.161",
+                         "[Match]\n"
+                         "Name=eth0\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "DHCP=yes\n"
+                         "DNS=10.10.10.10\n"
+                         "DNS=10.10.10.11\n"
+                         "NTP=10.10.10.161\n"
+                         "\n[DHCP]\n"
+                         "\n[Address]\n"
+                         "Address=192.168.0.10/24\n"
+                         "\n[Route]\n"
+                         "Gateway=192.168.0.1\n"
+                         );
+
+        test_network_one("eth0", "ip", "192.168.0.10::192.168.0.1:255.255.255.0::eth0:on:10.10.10.10::10.10.10.161",
+                         "[Match]\n"
+                         "Name=eth0\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "DHCP=yes\n"
+                         "DNS=10.10.10.10\n"
+                         "NTP=10.10.10.161\n"
+                         "\n[DHCP]\n"
+                         "\n[Address]\n"
+                         "Address=192.168.0.10/24\n"
+                         "\n[Route]\n"
+                         "Gateway=192.168.0.1\n"
+                         );
+
+        test_network_one("eth0", "ip", "192.168.0.10::192.168.0.1:255.255.255.0::eth0:on:::10.10.10.161",
+                         "[Match]\n"
+                         "Name=eth0\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "DHCP=yes\n"
+                         "NTP=10.10.10.161\n"
+                         "\n[DHCP]\n"
+                         "\n[Address]\n"
+                         "Address=192.168.0.10/24\n"
                          "\n[Route]\n"
                          "Gateway=192.168.0.1\n"
                          );

@@ -2,6 +2,7 @@
 
 #include <net/if.h>
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "namespace-util.h"
 #include "nsresource.h"

@@ -1,35 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/nl80211.h>
-
-#include "sd-bus.h"
-#include "sd-device.h"
+#include "sd-dhcp-lease.h"
 #include "sd-lldp-tx.h"
 
 #include "bridge.h"
-#include "condition.h"
-#include "conf-parser.h"
 #include "firewall-util.h"
-#include "hashmap.h"
 #include "ipoib.h"
 #include "net-condition.h"
-#include "netdev.h"
-#include "networkd-address.h"
+#include "network-util.h"
 #include "networkd-bridge-vlan.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
 #include "networkd-dns.h"
+#include "networkd-forward.h"
 #include "networkd-ipv6ll.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-ndisc.h"
 #include "networkd-radv.h"
 #include "networkd-sysctl.h"
-#include "networkd-util.h"
-#include "ordered-set.h"
 #include "resolve-util.h"
-#include "socket-netlink.h"
 
 typedef enum KeepConfiguration {
         KEEP_CONFIGURATION_NO               = 0,
@@ -53,15 +45,13 @@ typedef enum ActivationPolicy {
         _ACTIVATION_POLICY_INVALID = -EINVAL,
 } ActivationPolicy;
 
-typedef struct Manager Manager;
-
 typedef struct NetworkDHCPServerEmitAddress {
         bool emit;
         struct in_addr *addresses;
         size_t n_addresses;
 } NetworkDHCPServerEmitAddress;
 
-struct Network {
+typedef struct Network {
         Manager *manager;
 
         unsigned n_ref;
@@ -125,6 +115,7 @@ struct Network {
         /* DHCP Client Support */
         AddressFamily dhcp;
         struct in_addr dhcp_request_address;
+        bool dhcp_use_bootp;
         DHCPClientIdentifier dhcp_client_identifier;
         DUID dhcp_duid;
         uint32_t dhcp_iaid;
@@ -190,6 +181,7 @@ struct Network {
         int dhcp6_use_dnr;
         bool dhcp6_use_hostname;
         int dhcp6_use_ntp;
+        bool dhcp6_use_sip;
         bool dhcp6_use_captive_portal;
         bool dhcp6_use_rapid_commit;
         UseDomains dhcp6_use_domains;
@@ -228,6 +220,8 @@ struct Network {
         struct in_addr dhcp_server_router;
         bool dhcp_server_emit_timezone;
         char *dhcp_server_timezone;
+        bool dhcp_server_emit_domain;
+        char *dhcp_server_domain;
         usec_t dhcp_server_default_lease_time_usec, dhcp_server_max_lease_time_usec;
         uint32_t dhcp_server_pool_offset;
         uint32_t dhcp_server_pool_size;
@@ -238,7 +232,8 @@ struct Network {
         char *dhcp_server_boot_filename;
         usec_t dhcp_server_ipv6_only_preferred_usec;
         bool dhcp_server_rapid_commit;
-        int dhcp_server_persist_leases;
+        DHCPServerPersistLeases dhcp_server_persist_leases;
+        char *dhcp_server_local_lease_domain;
 
         /* link-local addressing support */
         AddressFamily link_local;
@@ -419,7 +414,7 @@ struct Network {
 
         /* NTP */
         char **ntp;
-};
+} Network;
 
 Network *network_ref(Network *network);
 Network *network_unref(Network *network);
@@ -446,7 +441,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_activation_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_link_group);
 CONFIG_PARSER_PROTOTYPE(config_parse_ignore_carrier_loss);
 
-const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* network_network_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 const char* keep_configuration_to_string(KeepConfiguration i) _const_;
 KeepConfiguration keep_configuration_from_string(const char *s) _pure_;

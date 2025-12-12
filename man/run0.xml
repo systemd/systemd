@@ -139,8 +139,8 @@
         <term><option>-g</option></term>
 
         <listitem><para>Switches to the specified user/group. If not specified defaults to
-        <literal>root</literal>, unless <option>--area=</option> is used (see below), in which case this
-        defaults to the invoking user.</para>
+        <literal>root</literal>, unless <option>--area=</option> or <option>--empower</option> are used (see
+        below), in which case this defaults to the invoking user.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
@@ -164,6 +164,24 @@
         user's home directory otherwise.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--via-shell</option></term>
+
+        <listitem><para>Invokes the target user's login shell and runs the specified command (if any) via it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-i</option></term>
+
+        <listitem><para>Shortcut for <option>--via-shell --chdir='~'</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
 
@@ -249,7 +267,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-a <replaceable>AREA</replaceable></option></term>
         <term><option>--area=<replaceable>AREA</replaceable></option></term>
 
         <listitem><para>Controls the "area" of the target account to log into. Areas are secondary home
@@ -274,6 +291,31 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--empower</option></term>
+
+        <listitem><para>If specified, run0 will elevate the privileges of the selected user (using
+        <option>--user=</option>) or the current user if no user is explicitly selected. Currently this means
+        we give the invoked process all available capabilities and add the the <literal>empower</literal>
+        group as a supplemental group (for which all polkit actions are allowed by default), but other
+        privileges may be granted in the future as well when using this option.</para>
+
+        <para>Note that other (unprivileged) processes of the selected user will have privileges over the
+        invoked process. Consider not using this option in an environment where there might be malicious
+        processes running as the selected user.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--same-root-dir</option></term>
+
+        <listitem><para>Execute the <command>run0</command> session in the same root directory that the
+        <command>run0</command> command is executed in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--machine=</option></term>
 
         <listitem>
@@ -290,9 +332,12 @@
 
     <para>All command line arguments after the first non-option argument become part of the command line of
     the launched process. If no command line is specified an interactive shell is invoked. The shell to
-    invoke may be controlled via <option>--setenv=SHELL=…</option> and currently defaults to the
-    <emphasis>originating user's</emphasis> shell (i.e. not the target user's!) if operating locally, or
-    <filename>/bin/sh</filename> when operating with <option>--machine=</option>.</para>
+    invoke may be controlled through <option>--via-shell</option> - when specified the target user's shell
+    is used - or <option>--setenv=SHELL=…</option>. By default, the <emphasis>originating user's</emphasis> shell
+    is executed if operating locally, or <filename>/bin/sh</filename> when operating with <option>--machine=</option>.</para>
+
+    <para>Note that unlike <command>sudo</command>, <command>run0</command> always spawns shells with login shell
+    semantics, regardless of <option>-i</option>.</para>
   </refsect1>
 
   <refsect1>

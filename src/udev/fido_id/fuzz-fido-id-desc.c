@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/hid.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
 
 #include "fido_id_desc.h"
 #include "fuzz.h"
-#include "log.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fuzz_setup_logging();

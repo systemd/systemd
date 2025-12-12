@@ -1,15 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <sys/statvfs.h>
+#include <unistd.h>
 
 #include "acl-util.h"
+#include "alloc-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
-#include "missing_magic.h"
 #include "shift-uid.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "user-util.h"
 
 /* While we are chmod()ing a directory tree, we set the top-level UID base to this "busy" base, so that we can always
@@ -32,11 +37,11 @@ static int get_acl(int fd, const char *name, acl_type_t type, acl_t *ret) {
                 if (child_fd < 0)
                         return -errno;
 
-                acl = acl_get_file(FORMAT_PROC_FD_PATH(child_fd), type);
+                acl = sym_acl_get_file(FORMAT_PROC_FD_PATH(child_fd), type);
         } else if (type == ACL_TYPE_ACCESS)
-                acl = acl_get_fd(fd);
+                acl = sym_acl_get_fd(fd);
         else
-                acl = acl_get_file(FORMAT_PROC_FD_PATH(fd), type);
+                acl = sym_acl_get_file(FORMAT_PROC_FD_PATH(fd), type);
         if (!acl)
                 return -errno;
 
@@ -57,11 +62,11 @@ static int set_acl(int fd, const char *name, acl_type_t type, acl_t acl) {
                 if (child_fd < 0)
                         return -errno;
 
-                r = acl_set_file(FORMAT_PROC_FD_PATH(child_fd), type, acl);
+                r = sym_acl_set_file(FORMAT_PROC_FD_PATH(child_fd), type, acl);
         } else if (type == ACL_TYPE_ACCESS)
-                r = acl_set_fd(fd, acl);
+                r = sym_acl_set_fd(fd, acl);
         else
-                r = acl_set_file(FORMAT_PROC_FD_PATH(fd), type, acl);
+                r = sym_acl_set_file(FORMAT_PROC_FD_PATH(fd), type, acl);
         if (r < 0)
                 return -errno;
 
@@ -76,7 +81,7 @@ static int shift_acl(acl_t acl, uid_t shift, acl_t *ret) {
         assert(acl);
         assert(ret);
 
-        r = acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
+        r = sym_acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
         if (r < 0)
                 return -errno;
         while (r > 0) {
@@ -84,7 +89,7 @@ static int shift_acl(acl_t acl, uid_t shift, acl_t *ret) {
                 bool modify = false;
                 acl_tag_t tag;
 
-                if (acl_get_tag_type(i, &tag) < 0)
+                if (sym_acl_get_tag_type(i, &tag) < 0)
                         return -errno;
 
                 if (IN_SET(tag, ACL_USER, ACL_GROUP)) {
@@ -93,7 +98,7 @@ static int shift_acl(acl_t acl, uid_t shift, acl_t *ret) {
                          * this is actually OK */
                         assert_cc(sizeof(uid_t) == sizeof(gid_t));
 
-                        old_uid = acl_get_qualifier(i);
+                        old_uid = sym_acl_get_qualifier(i);
                         if (!old_uid)
                                 return -errno;
 
@@ -108,16 +113,16 @@ static int shift_acl(acl_t acl, uid_t shift, acl_t *ret) {
                                 /* There's no copy of the ACL yet? if so, let's create one, and start the loop from the
                                  * beginning, so that we copy all entries, starting from the first, this time. */
 
-                                n = acl_entries(acl);
+                                n = sym_acl_entries(acl);
                                 if (n < 0)
                                         return -errno;
 
-                                copy = acl_init(n);
+                                copy = sym_acl_init(n);
                                 if (!copy)
                                         return -errno;
 
                                 /* Seek back to the beginning */
-                                r = acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
+                                r = sym_acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
                                 if (r < 0)
                                         return -errno;
                                 continue;
@@ -127,18 +132,18 @@ static int shift_acl(acl_t acl, uid_t shift, acl_t *ret) {
                 if (copy) {
                         acl_entry_t new_entry;
 
-                        if (acl_create_entry(&copy, &new_entry) < 0)
+                        if (sym_acl_create_entry(&copy, &new_entry) < 0)
                                 return -errno;
 
-                        if (acl_copy_entry(new_entry, i) < 0)
+                        if (sym_acl_copy_entry(new_entry, i) < 0)
                                 return -errno;
 
                         if (modify)
-                                if (acl_set_qualifier(new_entry, &new_uid) < 0)
+                                if (sym_acl_set_qualifier(new_entry, &new_uid) < 0)
                                         return -errno;
                 }
 
-                r = acl_get_entry(acl, ACL_NEXT_ENTRY, &i);
+                r = sym_acl_get_entry(acl, ACL_NEXT_ENTRY, &i);
                 if (r < 0)
                         return -errno;
         }
@@ -157,8 +162,14 @@ static int patch_acls(int fd, const char *name, const struct stat *st, uid_t shi
         assert(st);
 
         /* ACLs are not supported on symlinks, there's no point in trying */
-        if (S_ISLNK(st->st_mode))
+        if (!inode_type_can_acl(st->st_mode))
                 return 0;
+
+        r = dlopen_libacl();
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return 0;
+        if (r < 0)
+                return r;
 
         r = get_acl(fd, name, ACL_TYPE_ACCESS, &acl);
         if (r == -EOPNOTSUPP)
@@ -178,10 +189,10 @@ static int patch_acls(int fd, const char *name, const struct stat *st, uid_t shi
         }
 
         if (S_ISDIR(st->st_mode)) {
-                acl_free(acl);
+                sym_acl_free(acl);
 
                 if (shifted)
-                        acl_free(shifted);
+                        sym_acl_free(shifted);
 
                 acl = shifted = NULL;
 

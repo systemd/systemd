@@ -1,49 +1,33 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
 #include <string.h>
 
 #include "alloc-util.h"
-#include "macro.h"
-#include "string-util-fundamental.h"
-#include "utf8.h"
+#include "basic-forward.h"
+#include "string-util-fundamental.h" /* IWYU pragma: export */
 
-/* What is interpreted as whitespace? */
-#define WHITESPACE          " \t\n\r"
-#define NEWLINE             "\n\r"
-#define QUOTES              "\"\'"
-#define COMMENTS            "#;"
-#define GLOB_CHARS          "*?["
-#define DIGITS              "0123456789"
-#define LOWERCASE_LETTERS   "abcdefghijklmnopqrstuvwxyz"
-#define UPPERCASE_LETTERS   "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-#define LETTERS             LOWERCASE_LETTERS UPPERCASE_LETTERS
-#define ALPHANUMERICAL      LETTERS DIGITS
-#define HEXDIGITS           DIGITS "abcdefABCDEF"
-#define LOWERCASE_HEXDIGITS DIGITS "abcdef"
-#define URI_RESERVED        ":/?#[]@!$&'()*+;="         /* [RFC3986] */
-#define URI_UNRESERVED      ALPHANUMERICAL "-._~"       /* [RFC3986] */
-#define URI_VALID           URI_RESERVED URI_UNRESERVED /* [RFC3986] */
-
-static inline char* strstr_ptr(const char *haystack, const char *needle) {
+static inline char* strstr_ptr_internal(const char *haystack, const char *needle) {
         if (!haystack || !needle)
                 return NULL;
-        return strstr(haystack, needle);
+        return (char*) strstr(haystack, needle);
 }
 
-static inline char* strstrafter(const char *haystack, const char *needle) {
-        char *p;
+#define strstr_ptr(haystack, needle) \
+        const_generic(haystack, strstr_ptr_internal(haystack, needle))
 
+static inline char* strstrafter_internal(const char *haystack, const char *needle) {
         /* Returns NULL if not found, or pointer to first character after needle if found */
 
-        p = strstr_ptr(haystack, needle);
+        char *p = (char*) strstr_ptr(haystack, needle);
         if (!p)
                 return NULL;
 
         return p + strlen(needle);
 }
+
+#define strstrafter(haystack, needle) \
+        const_generic(haystack, strstrafter_internal(haystack, needle))
 
 static inline const char* strnull(const char *s) {
         return s ?: "(null)";
@@ -106,7 +90,6 @@ static inline const char* empty_or_dash_to_null(const char *p) {
 
 char* first_word(const char *s, const char *word) _pure_;
 
-char* strprepend(char **x, const char *s);
 char* strextendn(char **x, const char *s, size_t l) _nonnull_if_nonzero_(2, 3);
 
 #define strjoin(a, ...) strextend_with_separator_internal(NULL, NULL, a, __VA_ARGS__, NULL)
@@ -144,11 +127,11 @@ static inline char* skip_leading_chars(const char *s, const char *bad) {
         return (char*) s + strspn(s, bad);
 }
 
-char ascii_tolower(char x);
+char ascii_tolower(char x) _const_;
 char* ascii_strlower(char *s);
 char* ascii_strlower_n(char *s, size_t n);
 
-char ascii_toupper(char x);
+char ascii_toupper(char x) _const_;
 char* ascii_strupper(char *s);
 
 int ascii_strcasecmp_n(const char *a, const char *b, size_t n);
@@ -190,12 +173,25 @@ char* strreplace(const char *text, const char *old_string, const char *new_strin
 
 char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]);
 
+char* strextendv_with_separator(char **x, const char *separator, va_list ap);
 char* strextend_with_separator_internal(char **x, const char *separator, ...) _sentinel_;
 #define strextend_with_separator(x, separator, ...) strextend_with_separator_internal(x, separator, __VA_ARGS__, NULL)
 #define strextend(x, ...) strextend_with_separator_internal(x, NULL, __VA_ARGS__, NULL)
 
 int strextendf_with_separator(char **x, const char *separator, const char *format, ...) _printf_(3,4);
 #define strextendf(x, ...) strextendf_with_separator(x, NULL, __VA_ARGS__)
+
+#define strprepend_with_separator(x, separator, ...)                            \
+        ({                                                                      \
+                char **_p_ = ASSERT_PTR(x), *_s_;                               \
+                _s_ = strextend_with_separator_internal(NULL, (separator), __VA_ARGS__, empty_to_null(*_p_), NULL); \
+                if (_s_) {                                                      \
+                        free(*_p_);                                             \
+                        *_p_ = _s_;                                             \
+                }                                                               \
+                _s_;                                                            \
+        })
+#define strprepend(x, ...) strprepend_with_separator(x, NULL, __VA_ARGS__)
 
 char* strrep(const char *s, unsigned n);
 
@@ -225,9 +221,7 @@ static inline int strdup_to(char **ret, const char *src) {
 }
 
 bool string_is_safe(const char *p) _pure_;
-static inline bool string_is_safe_ascii(const char *p) {
-        return ascii_is_valid(p) && string_is_safe(p);
-}
+bool string_is_safe_ascii(const char *p) _pure_;
 
 DISABLE_WARNING_STRINGOP_TRUNCATION;
 static inline void strncpy_exact(char *buf, const char *src, size_t buf_len) {
@@ -254,15 +248,7 @@ static inline void* memory_startswith_no_case(const void *p, size_t sz, const ch
         return (uint8_t*) p + n;
 }
 
-static inline char* str_realloc(char *p) {
-        /* Reallocate *p to actual size. Ignore failure, and return the original string on error. */
-
-        if (!p)
-                return NULL;
-
-        return realloc(p, strlen(p) + 1) ?: p;
-}
-
+char* str_realloc(char *p);
 char* string_erase(char *x);
 
 int string_truncate_lines(const char *s, size_t n_lines, char **ret);
@@ -287,19 +273,43 @@ typedef enum MakeCStringMode {
 
 int make_cstring(const char *s, size_t n, MakeCStringMode mode, char **ret);
 
-size_t strspn_from_end(const char *str, const char *accept);
+size_t strspn_from_end(const char *str, const char *accept) _pure_;
 
 char* strdupspn(const char *a, const char *accept);
 char* strdupcspn(const char *a, const char *reject);
 
-char* find_line_startswith(const char *haystack, const char *needle);
+/* These are like strdupa()/strndupa(), but honour ALLOCA_MAX */
+#define strdupa_safe(s)                                                 \
+        ({                                                              \
+                const char *_t = (s);                                   \
+                (char*) memdupa_suffix0(_t, strlen(_t));                \
+        })
 
-bool version_is_valid(const char *s);
+#define strndupa_safe(s, n)                                             \
+        ({                                                              \
+                const char *_t = (s);                                   \
+                (char*) memdupa_suffix0(_t, strnlen(_t, n));            \
+        })
 
-bool version_is_valid_versionspec(const char *s);
+char* find_line_startswith_internal(const char *haystack, const char *needle);
+#define find_line_startswith(haystack, needle) \
+        const_generic(haystack, find_line_startswith_internal(haystack, needle))
+
+char* find_line_internal(const char *haystack, const char *needle);
+#define find_line(haystack, needle) \
+        const_generic(haystack, find_line_internal(haystack, needle))
+
+char* find_line_after_internal(const char *haystack, const char *needle);
+#define find_line_after(haystack, needle) \
+        const_generic(haystack, find_line_after_internal(haystack, needle))
+
+bool version_is_valid(const char *s) _pure_;
+bool version_is_valid_versionspec(const char *s) _pure_;
 
 ssize_t strlevenshtein(const char *x, const char *y);
 
-char* strrstr(const char *haystack, const char *needle);
+char* strrstr_internal(const char *haystack, const char *needle) _pure_;
+#define strrstr(haystack, needle) \
+        const_generic(haystack, strrstr_internal(haystack, needle))
 
-size_t str_common_prefix(const char *a, const char *b);
+size_t str_common_prefix(const char *a, const char *b) _pure_;

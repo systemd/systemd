@@ -6,6 +6,7 @@
 #if ENABLE_TPM
 
 bool tpm_present(void);
+uint32_t tpm_get_active_pcr_banks(void);
 
 /* Routines for boot-time TPM PCR measurement as well as submitting an event log entry about it. The latter
  * can be done with two different event log record types. For old stuff we use EV_IPL (which is legacy, and
@@ -20,12 +21,16 @@ char *description, bool *ret_measured);
 /* New stuff is logged as EV_EVENT_TAG */
 EFI_STATUS tpm_log_tagged_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, uint32_t event_id, const char16_t *description, bool *ret_measured);
 
-EFI_STATUS tpm_log_load_options(const char16_t *cmdline, bool *ret_measured);
+EFI_STATUS tpm_log_load_options(const char16_t *load_options, bool *ret_measured);
 
 #else
 
 static inline bool tpm_present(void) {
         return false;
+}
+
+static inline uint32_t tpm_get_active_pcr_banks(void) {
+        return 0;
 }
 
 static inline EFI_STATUS tpm_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
@@ -46,7 +51,7 @@ static inline EFI_STATUS tpm_log_tagged_event(uint32_t pcrindex, EFI_PHYSICAL_AD
         return EFI_SUCCESS;
 }
 
-static inline EFI_STATUS tpm_log_load_options(const char16_t *cmdline, bool *ret_measured) {
+static inline EFI_STATUS tpm_log_load_options(const char16_t *load_options, bool *ret_measured) {
         if (ret_measured)
                 *ret_measured = false;
         return EFI_SUCCESS;

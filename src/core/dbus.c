@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <sys/epoll.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -11,7 +9,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-internal.h"
-#include "bus-polkit.h"
+#include "bus-object.h"
 #include "bus-util.h"
 #include "dbus.h"
 #include "dbus-automount.h"
@@ -31,19 +29,23 @@
 #include "dbus-target.h"
 #include "dbus-timer.h"
 #include "dbus-unit.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "fdset.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
+#include "manager.h"
+#include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "selinux-access.h"
 #include "serialize.h"
-#include "service.h"
+#include "set.h"
 #include "special.h"
 #include "string-util.h"
 #include "strv.h"
-#include "strxcpyx.h"
 #include "umask-util.h"
-#include "user-util.h"
 
 #define CONNECTIONS_MAX 4096
 
@@ -54,22 +56,22 @@ void bus_send_pending_reload_message(Manager *m) {
 
         assert(m);
 
-        if (!m->pending_reload_message)
+        if (!m->pending_reload_message_dbus)
                 return;
 
         /* If we cannot get rid of this message we won't dispatch any D-Bus messages, so that we won't end up wanting
          * to queue another message. */
 
-        r = sd_bus_send(NULL, m->pending_reload_message, NULL);
+        r = sd_bus_message_send(m->pending_reload_message_dbus);
         if (r < 0)
                 log_warning_errno(r, "Failed to send queued reload message, ignoring: %m");
 
-        m->pending_reload_message = sd_bus_message_unref(m->pending_reload_message);
+        m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
 
         return;
 }
 
-static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         sd_bus *bus;
 
@@ -159,7 +161,7 @@ failed:
 }
 
 #if HAVE_SELINUX
-static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Manager *m = userdata;
         const char *verb, *path;
         Unit *u = NULL;
@@ -187,7 +189,7 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
                 return 0;
 
         if (object_path_startswith("/org/freedesktop/systemd1", path)) {
-                r = mac_selinux_access_check(message, verb, error);
+                r = mac_selinux_access_check(message, verb, reterr_error);
                 if (r < 0)
                         return r;
 
@@ -212,7 +214,7 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
         if (!u)
                 return 0;
 
-        r = mac_selinux_unit_access_check(u, message, verb, error);
+        r = mac_selinux_unit_access_check(u, message, verb, reterr_error);
         if (r < 0)
                 return r;
 
@@ -220,7 +222,7 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
 }
 #endif
 
-static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_bus_error *error) {
+static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_bus_error *reterr_error) {
         Unit *u = NULL;  /* just to appease gcc, initialization is not really necessary */
         int r;
 
@@ -244,7 +246,7 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
                 if (!u)
                         return 0;
         } else {
-                r = manager_load_unit_from_dbus_path(m, path, error, &u);
+                r = manager_load_unit_from_dbus_path(m, path, reterr_error, &u);
                 if (r < 0)
                         return 0;
                 assert(u);
@@ -254,7 +256,7 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
         return 1;
 }
 
-static int bus_unit_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_unit_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
 
         assert(bus);
@@ -262,10 +264,10 @@ static int bus_unit_find(sd_bus *bus, const char *path, const char *interface, v
         assert(interface);
         assert(found);
 
-        return find_unit(m, bus, path, (Unit**) found, error);
+        return find_unit(m, bus, path, (Unit**) found, reterr_error);
 }
 
-static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         Unit *u;
         int r;
@@ -275,7 +277,7 @@ static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *in
         assert(interface);
         assert(found);
 
-        r = find_unit(m, bus, path, &u, error);
+        r = find_unit(m, bus, path, &u, reterr_error);
         if (r <= 0)
                 return r;
 
@@ -286,7 +288,7 @@ static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *in
         return 1;
 }
 
-static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         Unit *u;
         int r;
@@ -296,7 +298,7 @@ static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *inter
         assert(interface);
         assert(found);
 
-        r = find_unit(m, bus, path, &u, error);
+        r = find_unit(m, bus, path, &u, reterr_error);
         if (r <= 0)
                 return r;
 
@@ -310,7 +312,7 @@ static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *inter
         return 1;
 }
 
-static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         CGroupContext *c;
         Unit *u;
@@ -321,7 +323,7 @@ static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *in
         assert(interface);
         assert(found);
 
-        r = find_unit(m, bus, path, &u, error);
+        r = find_unit(m, bus, path, &u, reterr_error);
         if (r <= 0)
                 return r;
 
@@ -336,9 +338,8 @@ static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *in
         return 1;
 }
 
-static int bus_exec_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_unit_exec_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
-        ExecContext *c;
         Unit *u;
         int r;
 
@@ -347,12 +348,33 @@ static int bus_exec_context_find(sd_bus *bus, const char *path, const char *inte
         assert(interface);
         assert(found);
 
-        r = find_unit(m, bus, path, &u, error);
+        r = find_unit(m, bus, path, &u, reterr_error);
         if (r <= 0)
                 return r;
 
         if (!streq_ptr(interface, unit_dbus_interface_from_type(u->type)))
                 return 0;
+
+        if (!UNIT_HAS_EXEC_CONTEXT(u))
+                return 0;
+
+        *found = u;
+        return 1;
+}
+
+static int bus_exec_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
+        ExecContext *c;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(interface);
+        assert(found);
+
+        Unit *u;
+        r = bus_unit_exec_context_find(bus, path, interface, userdata, (void**) &u, reterr_error);
+        if (r <= 0)
+                return r;
 
         c = unit_get_exec_context(u);
         if (!c)
@@ -362,7 +384,7 @@ static int bus_exec_context_find(sd_bus *bus, const char *path, const char *inte
         return 1;
 }
 
-static int bus_kill_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_kill_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         KillContext *c;
         Unit *u;
@@ -373,7 +395,7 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
         assert(interface);
         assert(found);
 
-        r = find_unit(m, bus, path, &u, error);
+        r = find_unit(m, bus, path, &u, reterr_error);
         if (r <= 0)
                 return r;
 
@@ -388,7 +410,7 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
         return 1;
 }
 
-static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;
@@ -441,6 +463,7 @@ static const BusObjectImplementation bus_mount_object = {
                 { bus_unit_cgroup_vtable, bus_unit_cgroup_find },
                 { bus_cgroup_vtable,      bus_cgroup_context_find },
                 { bus_exec_vtable,        bus_exec_context_find },
+                { bus_unit_exec_vtable,   bus_unit_exec_context_find },
                 { bus_kill_vtable,        bus_kill_context_find }),
 };
 
@@ -469,6 +492,7 @@ static const BusObjectImplementation bus_service_object = {
                 { bus_unit_cgroup_vtable, bus_unit_cgroup_find },
                 { bus_cgroup_vtable,      bus_cgroup_context_find },
                 { bus_exec_vtable,        bus_exec_context_find },
+                { bus_unit_exec_vtable,   bus_unit_exec_context_find },
                 { bus_kill_vtable,        bus_kill_context_find }),
 };
 
@@ -489,6 +513,7 @@ static const BusObjectImplementation bus_socket_object = {
                 { bus_unit_cgroup_vtable, bus_unit_cgroup_find },
                 { bus_cgroup_vtable,      bus_cgroup_context_find },
                 { bus_exec_vtable,        bus_exec_context_find },
+                { bus_unit_exec_vtable,   bus_unit_exec_context_find },
                 { bus_kill_vtable,        bus_kill_context_find }),
 };
 
@@ -500,6 +525,7 @@ static const BusObjectImplementation bus_swap_object = {
                 { bus_unit_cgroup_vtable, bus_unit_cgroup_find },
                 { bus_cgroup_vtable,      bus_cgroup_context_find },
                 { bus_exec_vtable,        bus_exec_context_find },
+                { bus_unit_exec_vtable,   bus_unit_exec_context_find },
                 { bus_kill_vtable,        bus_kill_context_find }),
 };
 
@@ -895,7 +921,7 @@ int bus_init_private(Manager *m) {
                 r = sockaddr_un_set_path(&sa.un, p);
         }
         if (r < 0)
-                return log_error_errno(r, "Failed set socket path for private bus: %m");
+                return log_error_errno(r, "Failed to set socket path for private bus: %m");
         sa_len = r;
 
         (void) sockaddr_un_unlink(&sa.un);
@@ -978,8 +1004,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         }
 
         /* Get rid of queued message on this bus */
-        if (m->pending_reload_message && sd_bus_message_get_bus(m->pending_reload_message) == *bus)
-                m->pending_reload_message = sd_bus_message_unref(m->pending_reload_message);
+        if (m->pending_reload_message_dbus && sd_bus_message_get_bus(m->pending_reload_message_dbus) == *bus)
+                m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
 
         /* Possibly flush unwritten data, but only if we are
          * unprivileged, since we don't want to sync here */
@@ -1158,6 +1184,7 @@ void dump_bus_properties(FILE *f) {
         vtable_dump_bus_properties(f, bus_cgroup_vtable);
         vtable_dump_bus_properties(f, bus_device_vtable);
         vtable_dump_bus_properties(f, bus_exec_vtable);
+        vtable_dump_bus_properties(f, bus_unit_exec_vtable);
         vtable_dump_bus_properties(f, bus_job_vtable);
         vtable_dump_bus_properties(f, bus_kill_vtable);
         vtable_dump_bus_properties(f, bus_manager_vtable);

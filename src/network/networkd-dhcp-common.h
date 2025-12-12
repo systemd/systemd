@@ -3,12 +3,9 @@
 
 #include <netinet/in.h>
 
-#include "conf-parser.h"
 #include "dhcp-duid-internal.h"
-#include "dns-resolver-internal.h"
 #include "in-addr-util.h"
-#include "set.h"
-#include "time-util.h"
+#include "networkd-forward.h"
 
 /* Special values for *_uplink_index. */
 #define UPLINK_INDEX_AUTO  0 /* uplink will be selected automatically */
@@ -20,10 +17,6 @@
 #define IPV6RA_ROUTE_METRIC_MEDIUM 1024
 #define IPV6RA_ROUTE_METRIC_LOW    2048
 #define DHCP6PD_ROUTE_METRIC 256
-
-typedef struct Link Link;
-typedef struct Manager Manager;
-typedef struct Network Network;
 
 typedef enum DHCPOptionDataType {
         DHCP_OPTION_DATA_UINT8,
@@ -81,7 +74,7 @@ static inline bool in6_prefix_is_filtered(const struct in6_addr *prefix, uint8_t
 int link_get_captive_portal(Link *link, const char **ret);
 
 const char* dhcp_option_data_type_to_string(DHCPOptionDataType d) _const_;
-DHCPOptionDataType dhcp_option_data_type_from_string(const char *d) _pure_;
+DHCPOptionDataType dhcp_option_data_type_from_string(const char *s) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_route_metric);

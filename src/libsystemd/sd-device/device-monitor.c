@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <linux/filter.h>
 #include <linux/netlink.h>
 #include <linux/sockios.h>
@@ -22,13 +21,13 @@
 #include "hashmap.h"
 #include "io-util.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "log-context.h"
-#include "missing_socket.h"
 #include "mountpoint-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "uid-range.h"
 
 #define log_monitor(m, format, ...)                                     \
@@ -413,13 +412,13 @@ _public_ int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *even
         return 0;
 }
 
-_public_ sd_event *sd_device_monitor_get_event(sd_device_monitor *m) {
+_public_ sd_event* sd_device_monitor_get_event(sd_device_monitor *m) {
         assert_return(m, NULL);
 
         return m->event;
 }
 
-_public_ sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *m) {
+_public_ sd_event_source* sd_device_monitor_get_event_source(sd_device_monitor *m) {
         assert_return(m, NULL);
 
         return m->event_source;
@@ -448,7 +447,7 @@ _public_ int sd_device_monitor_get_description(sd_device_monitor *m, const char 
         return 0;
 }
 
-static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
+static sd_device_monitor* device_monitor_free(sd_device_monitor *m) {
         assert(m);
 
         (void) sd_device_monitor_detach_event(m);
@@ -471,6 +470,7 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device_monitor, sd_device_monitor, devic
 
 static int check_subsystem_filter(sd_device_monitor *m, sd_device *device) {
         const char *s, *d;
+        int r;
 
         assert(m);
         assert(device);
@@ -479,13 +479,9 @@ static int check_subsystem_filter(sd_device_monitor *m, sd_device *device) {
                 return true;
 
         HASHMAP_FOREACH_KEY(d, s, m->subsystem_filter) {
-                if (!device_in_subsystem(device, s))
-                        continue;
-
-                if (d && !device_is_devtype(device, d))
-                        continue;
-
-                return true;
+                r = device_is_subsystem_devtype(device, s, d);
+                if (r != 0)
+                        return r;
         }
 
         return false;

@@ -18,15 +18,9 @@
  * Boston, MA  02110-1301  USA
  */
 
-#include <errno.h>
-#include <fcntl.h>
 #include <mtd/mtd-user.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -75,7 +69,7 @@ int probe_smart_media(int mtd_fd, mtd_info_t* info) {
         }
 
         for (offset = 0; offset < block_size * spare_count; offset += sector_size) {
-                (void) lseek(mtd_fd, SEEK_SET, offset);
+                (void) lseek(mtd_fd, offset, SEEK_SET);
 
                 if (read(mtd_fd, cis_buffer, SM_SECTOR_SIZE) == SM_SECTOR_SIZE) {
                         cis_found = 1;

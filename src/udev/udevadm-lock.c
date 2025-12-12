@@ -1,23 +1,23 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <getopt.h>
-#include <stdlib.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "blockdev-util.h"
-#include "btrfs-util.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "hash-funcs.h"
 #include "lock-util.h"
-#include "main-func.h"
-#include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "sort-util.h"
+#include "static-destruct.h"
 #include "strv.h"
 #include "time-util.h"
 #include "udevadm.h"
@@ -184,7 +184,8 @@ static int lock_device(
         struct stat st;
         int r;
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        /* We open in O_WRONLY mode here, to trigger a rescan in udev once we are done */
+        fd = open(path, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
 

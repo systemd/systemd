@@ -1,15 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdbool.h>
-#include <stddef.h>
+#include <stdlib.h>
 
 #include "alloc-util.h"
-#include "efivars.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "getopt-defs.h"
 #include "initrd-util.h"
-#include "macro.h"
+#include "log.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -165,9 +163,7 @@ int proc_cmdline_strv(char ***ret) {
 }
 
 static char *mangle_word(const char *word, ProcCmdlineFlags flags) {
-        char *c;
-
-        c = startswith(word, "rd.");
+        char *c = (char*) startswith(word, "rd.");
         if (c) {
                 /* Filter out arguments that are intended only for the initrd */
 
@@ -183,6 +179,8 @@ static char *mangle_word(const char *word, ProcCmdlineFlags flags) {
 
         return (char*) word;
 }
+
+#define mangle_word(word, flags) const_generic(word, mangle_word(word, flags))
 
 static int proc_cmdline_parse_strv(char **args, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
         int r;
@@ -414,4 +412,15 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
         va_end(ap);
 
         return r;
+}
+
+bool proc_cmdline_value_missing(const char *key, const char *value) {
+        assert(key);
+
+        if (!value) {
+                log_warning("Missing argument for %s= kernel command line switch, ignoring.", key);
+                return true;
+        }
+
+        return false;
 }

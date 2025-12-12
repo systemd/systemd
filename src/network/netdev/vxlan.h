@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct VxLan VxLan;
-
 #include <linux/if_link.h>
 
 #include "in-addr-util.h"
 #include "netdev.h"
-#include "netdev-util.h"
 
 #define VXLAN_VID_MAX (1u << 24) - 1
 #define VXLAN_FLOW_LABEL_MAX_MASK 0xFFFFFU
@@ -20,7 +17,7 @@ typedef enum VxLanDF {
         _NETDEV_VXLAN_DF_INVALID = -EINVAL,
 } VxLanDF;
 
-struct VxLan {
+typedef struct VxLan {
         NetDev meta;
 
         uint32_t vni;
@@ -63,13 +60,13 @@ struct VxLan {
         bool vnifilter;
 
         struct ifla_vxlan_port_range port_range;
-};
+} VxLan;
 
 DEFINE_NETDEV_CAST(VXLAN, VxLan);
 extern const NetDevVTable vxlan_vtable;
 
 const char* df_to_string(VxLanDF d) _const_;
-VxLanDF df_from_string(const char *d) _pure_;
+VxLanDF df_from_string(const char *s) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_vxlan_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_port_range);

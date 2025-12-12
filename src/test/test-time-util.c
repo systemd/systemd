@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "env-util.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "random-util.h"
 #include "serialize.h"
 #include "string-util.h"
@@ -11,6 +11,12 @@
 #include "time-util.h"
 
 #define TRIAL 100u
+
+static void set_timezone(const char *tz) {
+        ASSERT_OK(set_unset_env("TZ", tz, /* overwrite = */ true));
+        tzset();
+        log_info("TZ=%s, tzname[0]=%s, tzname[1]=%s", strna(getenv("TZ")), strempty(get_tzname(/* dst= */ false)), strempty(get_tzname(/* dst= */ true)));
+}
 
 TEST(parse_sec) {
         usec_t u;
@@ -391,35 +397,55 @@ TEST(format_timestamp) {
 }
 
 static void test_format_timestamp_impl(usec_t x) {
-        bool success, override;
-        const char *xx, *yy;
-        usec_t y, x_sec, y_sec;
-
-        xx = FORMAT_TIMESTAMP(x);
+        const char *xx = FORMAT_TIMESTAMP(x);
         ASSERT_NOT_NULL(xx);
+
+        /* Because of the timezone change, format_timestamp() may set timezone that is currently unused.
+         * E.g. Africa/Juba uses EAT since Sat Jan 15 10:00:00 2000 and until Sun Jan 31 20:59:59 2021, but
+         * now CAT/CAST is used there (see zdump for more details). In such cases, format_timestamp() may set
+         * the timezone used at the specified time (which happens when built with musl), but it may not match
+         * the timezone currently used, thus we may not parse back the timestamp. */
+
+        const char *space;
+        ASSERT_NOT_NULL(space = strrchr(xx, ' '));
+
+        const char *tz = space + 1;
+        if (!streq_ptr(tz, get_tzname(/* dst= */ false)) &&
+            !streq_ptr(tz, get_tzname(/* dst= */ true)) &&
+            parse_gmtoff(tz, NULL) < 0) {
+
+                log_warning("@" USEC_FMT " → %s, timezone '%s' is currently unused, ignoring.", x, xx, tz);
+
+                /* Verify the generated string except for the timezone part. Of course, in most cases, parsed
+                 * time does not match with the input, hence only check if it is parsable. */
+                ASSERT_OK(parse_timestamp(strndupa_safe(xx, space - xx), NULL));
+                return;
+        }
+
+        usec_t y;
         ASSERT_OK(parse_timestamp(xx, &y));
-        yy = FORMAT_TIMESTAMP(y);
+        const char *yy = FORMAT_TIMESTAMP(y);
         ASSERT_NOT_NULL(yy);
 
-        x_sec = x / USEC_PER_SEC;
-        y_sec = y / USEC_PER_SEC;
-        success = (x_sec == y_sec) && streq(xx, yy);
-        /* Workaround for https://github.com/systemd/systemd/issues/28472
-         * and https://github.com/systemd/systemd/pull/35471. */
-        override = !success &&
-                   (STRPTR_IN_SET(tzname[0], "CAT", "EAT", "WET") ||
-                    STRPTR_IN_SET(tzname[1], "CAT", "EAT", "WET")) &&
-                   (x_sec > y_sec ? x_sec - y_sec : y_sec - x_sec) == 3600; /* 1 hour, ignore fractional second */
-        log_full(success ? LOG_DEBUG : override ? LOG_WARNING : LOG_ERR,
+        usec_t x_sec = x / USEC_PER_SEC;
+        usec_t y_sec = y / USEC_PER_SEC;
+
+        if (x_sec == y_sec && streq(xx, yy))
+                return; /* Yay!*/
+
+        /* When the timezone is built with rearguard being enabled (e.g. old Ubuntu and RHEL), the following
+         * timezone may provide time shifted 1 hour from the original. See
+         * https://github.com/systemd/systemd/issues/28472 and https://github.com/systemd/systemd/pull/35471 */
+        bool ignore =
+                streq_ptr(getenv("TZ"), "Africa/Windhoek") &&
+                (x_sec > y_sec ? x_sec - y_sec : y_sec - x_sec) == 3600;
+
+        log_full(ignore ? LOG_WARNING : LOG_ERR,
                  "@" USEC_FMT " → %s → @" USEC_FMT " → %s%s",
                  x, xx, y, yy,
-                 override ? ", ignoring." : "");
-        if (!override) {
-                if (!success)
-                        log_warning("tzname[0]=\"%s\", tzname[1]=\"%s\"", tzname[0], tzname[1]);
-                ASSERT_EQ(x_sec, y_sec);
-                ASSERT_STREQ(xx, yy);
-        }
+                 ignore ? ", ignoring." : "");
+
+        ASSERT_TRUE(ignore);
 }
 
 static void test_format_timestamp_loop(void) {
@@ -446,24 +472,13 @@ TEST(FORMAT_TIMESTAMP) {
 }
 
 static void test_format_timestamp_with_tz_one(const char *tz) {
-        const char *saved_tz, *colon_tz;
-
         if (!timezone_is_valid(tz, LOG_DEBUG))
                 return;
 
-        log_info("/* %s(%s) */", __func__, tz);
-
-        saved_tz = getenv("TZ");
-
-        assert_se(colon_tz = strjoina(":", tz));
-        assert_se(setenv("TZ", colon_tz, 1) >= 0);
-        tzset();
-        log_debug("%s: tzname[0]=%s, tzname[1]=%s", tz, strempty(tzname[0]), strempty(tzname[1]));
+        SAVE_TIMEZONE;
+        set_timezone(tz);
 
         test_format_timestamp_loop();
-
-        assert_se(set_unset_env("TZ", saved_tz, true) == 0);
-        tzset();
 }
 
 TEST(FORMAT_TIMESTAMP_with_tz) {
@@ -660,6 +675,35 @@ TEST(format_timestamp_range) {
 #endif
 
         test_format_timestamp_one(USEC_INFINITY, TIMESTAMP_UTC, NULL);
+}
+
+TEST(parse_gmtoff) {
+        long t;
+
+        ASSERT_OK(parse_gmtoff("+14", &t));
+        ASSERT_EQ(t, (long) (14 * USEC_PER_HOUR / USEC_PER_SEC));
+        ASSERT_OK(parse_gmtoff("-09", &t));
+        ASSERT_EQ(t, - (long) (9 * USEC_PER_HOUR / USEC_PER_SEC));
+        ASSERT_OK(parse_gmtoff("+1400", &t));
+        ASSERT_EQ(t, (long) (14 * USEC_PER_HOUR / USEC_PER_SEC));
+        ASSERT_OK(parse_gmtoff("-0900", &t));
+        ASSERT_EQ(t, - (long) (9 * USEC_PER_HOUR / USEC_PER_SEC));
+        ASSERT_OK(parse_gmtoff("+14:00", &t));
+        ASSERT_EQ(t, (long) (14 * USEC_PER_HOUR / USEC_PER_SEC));
+        ASSERT_OK(parse_gmtoff("-09:00", &t));
+        ASSERT_EQ(t, - (long) (9 * USEC_PER_HOUR / USEC_PER_SEC));
+
+        ASSERT_ERROR(parse_gmtoff("", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("UTC", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("09", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("0900", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("?0900", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("?0900", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("+0900abc", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("+0900 ", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("+090000", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("+0900:00", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("+0900.00", &t), EINVAL);
 }
 
 static void test_parse_timestamp_one(const char *str, usec_t max_diff, usec_t expected) {
@@ -985,24 +1029,13 @@ TEST(parse_timestamp) {
 }
 
 static void test_parse_timestamp_with_tz_one(const char *tz) {
-        const char *saved_tz, *colon_tz;
-
         if (!timezone_is_valid(tz, LOG_DEBUG))
                 return;
 
-        log_info("/* %s(%s) */", __func__, tz);
-
-        saved_tz = getenv("TZ");
-
-        assert_se(colon_tz = strjoina(":", tz));
-        assert_se(setenv("TZ", colon_tz, 1) >= 0);
-        tzset();
-        log_debug("%s: tzname[0]=%s, tzname[1]=%s", tz, strempty(tzname[0]), strempty(tzname[1]));
+        SAVE_TIMEZONE;
+        set_timezone(tz);
 
         test_parse_timestamp_impl(tz);
-
-        assert_se(set_unset_env("TZ", saved_tz, true) == 0);
-        tzset();
 }
 
 TEST(parse_timestamp_with_tz) {
@@ -1094,22 +1127,19 @@ TEST(usec_shift_clock) {
 }
 
 TEST(in_utc_timezone) {
-        const char *tz = getenv("TZ");
+        SAVE_TIMEZONE;
 
-        assert_se(setenv("TZ", ":UTC", 1) >= 0);
+        assert_se(setenv("TZ", "UTC", 1) >= 0);
         assert_se(in_utc_timezone());
-        ASSERT_STREQ(tzname[0], "UTC");
-        ASSERT_STREQ(tzname[1], "UTC");
+        ASSERT_STREQ(get_tzname(/* dst= */ false), "UTC");
+        ASSERT_STREQ(get_tzname(/* dst= */ true), "UTC");
         assert_se(timezone == 0);
         assert_se(daylight == 0);
 
-        assert_se(setenv("TZ", ":Europe/Berlin", 1) >= 0);
+        assert_se(setenv("TZ", "Europe/Berlin", 1) >= 0);
         assert_se(!in_utc_timezone());
-        ASSERT_STREQ(tzname[0], "CET");
-        ASSERT_STREQ(tzname[1], "CEST");
-
-        assert_se(set_unset_env("TZ", tz, true) == 0);
-        tzset();
+        ASSERT_STREQ(get_tzname(/* dst= */ false), "CET");
+        ASSERT_STREQ(get_tzname(/* dst= */ true), "CEST");
 }
 
 TEST(map_clock_usec) {
@@ -1163,14 +1193,12 @@ static void test_timezone_offset_change_one(const char *utc, const char *pretty)
 }
 
 TEST(timezone_offset_change) {
-        const char *tz = getenv("TZ");
+        SAVE_TIMEZONE;
 
         /* See issue #26370. */
 
         if (timezone_is_valid("Africa/Casablanca", LOG_DEBUG)) {
-                assert_se(setenv("TZ", ":Africa/Casablanca", 1) >= 0);
-                tzset();
-                log_debug("Africa/Casablanca: tzname[0]=%s, tzname[1]=%s", strempty(tzname[0]), strempty(tzname[1]));
+                set_timezone("Africa/Casablanca");
 
                 test_timezone_offset_change_one("Sun 2015-10-25 01:59:59 UTC", "Sun 2015-10-25 02:59:59 +01");
                 test_timezone_offset_change_one("Sun 2015-10-25 02:00:00 UTC", "Sun 2015-10-25 02:00:00 +00");
@@ -1181,9 +1209,7 @@ TEST(timezone_offset_change) {
         }
 
         if (timezone_is_valid("Asia/Atyrau", LOG_DEBUG)) {
-                assert_se(setenv("TZ", ":Asia/Atyrau", 1) >= 0);
-                tzset();
-                log_debug("Asia/Atyrau: tzname[0]=%s, tzname[1]=%s", strempty(tzname[0]), strempty(tzname[1]));
+                set_timezone("Asia/Atyrau");
 
                 test_timezone_offset_change_one("Sat 2004-03-27 21:59:59 UTC", "Sun 2004-03-28 01:59:59 +04");
                 test_timezone_offset_change_one("Sat 2004-03-27 22:00:00 UTC", "Sun 2004-03-28 03:00:00 +05");
@@ -1192,18 +1218,13 @@ TEST(timezone_offset_change) {
         }
 
         if (timezone_is_valid("Chile/EasterIsland", LOG_DEBUG)) {
-                assert_se(setenv("TZ", ":Chile/EasterIsland", 1) >= 0);
-                tzset();
-                log_debug("Chile/EasterIsland: tzname[0]=%s, tzname[1]=%s", strempty(tzname[0]), strempty(tzname[1]));
+                set_timezone("Chile/EasterIsland");
 
                 test_timezone_offset_change_one("Sun 1981-10-11 03:59:59 UTC", "Sat 1981-10-10 20:59:59 -07");
                 test_timezone_offset_change_one("Sun 1981-10-11 04:00:00 UTC", "Sat 1981-10-10 22:00:00 -06");
                 test_timezone_offset_change_one("Sun 1982-03-14 02:59:59 UTC", "Sat 1982-03-13 20:59:59 -06");
                 test_timezone_offset_change_one("Sun 1982-03-14 03:00:00 UTC", "Sat 1982-03-13 21:00:00 -06");
         }
-
-        assert_se(set_unset_env("TZ", tz, true) == 0);
-        tzset();
 }
 
 static usec_t absdiff(usec_t a, usec_t b) {

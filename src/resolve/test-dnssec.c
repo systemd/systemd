@@ -2,15 +2,16 @@
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <sys/socket.h>
 
 #include "alloc-util.h"
+#include "bitmap.h"
+#include "dns-answer.h"
+#include "dns-rr.h"
 #include "hexdecoct.h"
-#include "resolved-dns-answer.h"
 #include "resolved-dns-dnssec.h"
-#include "resolved-dns-rr.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 TEST(dnssec_verify_dns_key) {
         static const uint8_t ds1_fprint[] = {

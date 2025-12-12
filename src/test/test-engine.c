@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
 
-#include "bus-util.h"
+#include "sd-bus.h"
+
 #include "manager.h"
 #include "manager-dump.h"
 #include "rm-rf.h"
@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
 
         /* prepare the test */
         _cleanup_free_ char *unit_dir = NULL;
-        ASSERT_OK(get_testdata_dir("units", &unit_dir));
+        ASSERT_OK(get_testdata_dir("test-engine", &unit_dir));
         ASSERT_OK(setenv_unit_path(unit_dir));
         assert_se(runtime_dir = setup_fake_runtime_dir());
 

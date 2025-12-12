@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "hashmap.h"
-#include "macro.h"
-#include "set.h"
-#include "unit-name.h"
+#include "shared-forward.h"
 
 int drop_in_file(
                 const char *dir,
@@ -35,4 +32,4 @@ int unit_file_find_dropin_paths(
                 const char *file_suffix,
                 const char *name,
                 const Set *aliases,
-                char ***paths);
+                char ***ret);

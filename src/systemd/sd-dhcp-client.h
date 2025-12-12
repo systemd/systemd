@@ -19,20 +19,19 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <net/ethernet.h>
-#include <netinet/in.h>
 #include <stdbool.h>
-#include <sys/types.h>
 
 #include "_sd-common.h"
-#include "sd-device.h"
-#include "sd-dhcp-client-id.h"
-#include "sd-dhcp-lease.h"
-#include "sd-dhcp-option.h"
-#include "sd-event.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct in_addr;
+
+typedef struct sd_device sd_device;
+typedef struct sd_dhcp_client_id sd_dhcp_client_id;
+typedef struct sd_dhcp_lease sd_dhcp_lease;
+typedef struct sd_dhcp_option sd_dhcp_option;
+typedef struct sd_event sd_event;
 
 enum {
         SD_DHCP_CLIENT_EVENT_STOP               = 0,
@@ -64,10 +63,10 @@ int sd_dhcp_client_set_request_broadcast(
                 int broadcast);
 int sd_dhcp_client_set_ifindex(
                 sd_dhcp_client *client,
-                int interface_index);
+                int ifindex);
 int sd_dhcp_client_set_ifname(
                 sd_dhcp_client *client,
-                const char *interface_name);
+                const char *ifname);
 int sd_dhcp_client_get_ifname(sd_dhcp_client *client, const char **ret);
 int sd_dhcp_client_set_mac(
                 sd_dhcp_client *client,
@@ -105,8 +104,8 @@ __extension__ int sd_dhcp_client_set_iaid_duid_raw(
                 bool iaid_set,
                 uint32_t iaid,
                 uint16_t duid_type,
-                const uint8_t *duid,
-                size_t duid_len);
+                const uint8_t *duid_data,
+                size_t duid_data_len);
 __extension__ int sd_dhcp_client_set_rapid_commit(
                 sd_dhcp_client *client,
                 bool rapid_commit);
@@ -115,7 +114,7 @@ int sd_dhcp_client_set_mtu(
                 uint32_t mtu);
 int sd_dhcp_client_set_max_attempts(
                 sd_dhcp_client *client,
-                uint64_t attempt);
+                uint64_t max_attempts);
 int sd_dhcp_client_set_client_port(
                 sd_dhcp_client *client,
                 uint16_t port);
@@ -142,10 +141,13 @@ int sd_dhcp_client_set_service_type(
                 int type);
 int sd_dhcp_client_set_socket_priority(
                 sd_dhcp_client *client,
-                int so_priority);
+                int socket_priority);
 int sd_dhcp_client_set_fallback_lease_lifetime(
                 sd_dhcp_client *client,
                 uint64_t fallback_lease_lifetime);
+int sd_dhcp_client_set_bootp(
+                sd_dhcp_client *client,
+                int bootp);
 
 int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v);
 int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);

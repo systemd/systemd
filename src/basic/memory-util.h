@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <malloc.h>
-#include <stdbool.h>
 #include <string.h>
-#include <sys/types.h>
 
-#include "macro.h"
-#include "memory-util-fundamental.h"
+#include "basic-forward.h"
+#include "memory-util-fundamental.h" /* IWYU pragma: export */
 
 size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l)          ALIGN_TO(l, page_size())
@@ -110,56 +106,3 @@ static inline void erase_char(char *p) {
 
 /* Makes a copy of the buffer with reversed order of bytes */
 void* memdup_reverse(const void *mem, size_t size);
-
-#define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \
-        scope type *name##_ref(type *p) {                       \
-                if (!p)                                         \
-                        return NULL;                            \
-                                                                \
-                /* For type check. */                           \
-                unsigned *q = &p->n_ref;                        \
-                assert(*q > 0);                                 \
-                assert_se(*q < UINT_MAX);                       \
-                                                                \
-                (*q)++;                                         \
-                return p;                                       \
-        }
-
-#define _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, scope) \
-        scope type *name##_unref(type *p) {                      \
-                if (!p)                                          \
-                        return NULL;                             \
-                                                                 \
-                assert(p->n_ref > 0);                            \
-                p->n_ref--;                                      \
-                if (p->n_ref > 0)                                \
-                        return NULL;                             \
-                                                                 \
-                return free_func(p);                             \
-        }
-
-#define DEFINE_TRIVIAL_REF_FUNC(type, name)     \
-        _DEFINE_TRIVIAL_REF_FUNC(type, name,)
-#define DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name)     \
-        _DEFINE_TRIVIAL_REF_FUNC(type, name, static)
-#define DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name)      \
-        _DEFINE_TRIVIAL_REF_FUNC(type, name, _public_)
-
-#define DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func)        \
-        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func,)
-#define DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func)        \
-        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, static)
-#define DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func)         \
-        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, _public_)
-
-#define DEFINE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
-        DEFINE_TRIVIAL_REF_FUNC(type, name);                    \
-        DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func);
-
-#define DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
-        DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name);                    \
-        DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func);
-
-#define DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
-        DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name);                    \
-        DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func);

@@ -44,7 +44,7 @@ DHCPv4.DUIDRawData,                      config_parse_duid_rawdata,             
 DHCPv6.UseDomains,                       config_parse_use_domains,                0,                                                         offsetof(Manager, dhcp6_use_domains)
 DHCPv6.DUIDType,                         config_parse_duid_type,                  0,                                                         offsetof(Manager, dhcp6_duid)
 DHCPv6.DUIDRawData,                      config_parse_duid_rawdata,               0,                                                         offsetof(Manager, dhcp6_duid)
-DHCPServer.PersistLeases,                config_parse_bool,                       0,                                                         offsetof(Manager, dhcp_server_persist_leases)
+DHCPServer.PersistLeases,                config_parse_dhcp_server_persist_leases, 0,                                                         offsetof(Manager, dhcp_server_persist_leases)
 /* Deprecated */
 DHCP.DUIDType,                           config_parse_manager_duid_type,          0,                                                         0
 DHCP.DUIDRawData,                        config_parse_manager_duid_rawdata,       0,                                                         0

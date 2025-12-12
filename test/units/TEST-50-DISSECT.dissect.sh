@@ -9,17 +9,25 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-systemd-dissect --json=short "$MINIMAL_IMAGE.raw" | \
-    grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
-systemd-dissect "$MINIMAL_IMAGE.raw" | grep -q -F "MARKER=1"
-# shellcheck disable=SC2153
-systemd-dissect "$MINIMAL_IMAGE.raw" | grep -q -F -f <(sed 's/"//g' "$OS_RELEASE")
+. /etc/os-release
+if [[ "${ID_LIKE:-}" == alpine ]]; then
+    # Alpine/postmarketOS builds libdevmapper and so on without systemd support, and seems to not wait for
+    # uevents for dm-X devices being processed by systemd-udevd. That causes a significant issue in
+    # dissect-image.c especially when multiple dm-X devices are activated/deactivated in parallel.
+    exit 0
+fi
 
-systemd-dissect --list "$MINIMAL_IMAGE.raw" | grep -q '^etc/os-release$'
+systemd-dissect --json=short "$MINIMAL_IMAGE.raw" | \
+    grep -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"' >/dev/null
+systemd-dissect "$MINIMAL_IMAGE.raw" | grep -F "MARKER=1" >/dev/null
+# shellcheck disable=SC2153
+systemd-dissect "$MINIMAL_IMAGE.raw" | grep -F -f <(sed 's/"//g' "$OS_RELEASE") >/dev/null
+
+systemd-dissect --list "$MINIMAL_IMAGE.raw" | grep '^etc/os-release$' >/dev/null
 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" --mtree-hash yes | \
-    grep -qe "^./usr/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]* sha256sum=[a-z0-9]*$"
+    grep -E "^.(/usr|)/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]* sha256sum=[a-z0-9]*$" >/dev/null
 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" --mtree-hash no  | \
-    grep -qe "^./usr/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]*$"
+    grep -E "^.(/usr|)/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]*$" >/dev/null
 
 read -r SHA256SUM1 _ < <(systemd-dissect --copy-from "$MINIMAL_IMAGE.raw" etc/os-release | sha256sum)
 test "$SHA256SUM1" != ""
@@ -27,7 +35,7 @@ read -r SHA256SUM2 _ < <(systemd-dissect --read-only --with "$MINIMAL_IMAGE.raw"
 test "$SHA256SUM2" != ""
 test "$SHA256SUM1" = "$SHA256SUM2"
 
-if systemctl --version | grep -qF -- "+LIBARCHIVE" ; then
+if systemctl --version | grep -F -- "+LIBARCHIVE"  >/dev/null; then
     # Make sure tarballs are reproducible
     read -r SHA256SUM1 _ < <(systemd-dissect --make-archive "$MINIMAL_IMAGE.raw" | sha256sum)
     test "$SHA256SUM1" != ""
@@ -44,25 +52,25 @@ systemd-dissect "$MINIMAL_IMAGE.raw" \
                 --json=short \
                 --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
                 --verity-data="$MINIMAL_IMAGE.fooverity" | \
-                grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
+                grep -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"' >/dev/null
 systemd-dissect "$MINIMAL_IMAGE.raw" \
                 --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
                 --verity-data="$MINIMAL_IMAGE.fooverity" | \
-                grep -q -F "MARKER=1"
+                grep -F "MARKER=1" >/dev/null
 systemd-dissect "$MINIMAL_IMAGE.raw" \
                 --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
                 --verity-data="$MINIMAL_IMAGE.fooverity" | \
-                grep -q -F -f <(sed 's/"//g' "$OS_RELEASE")
+                grep -F -f <(sed 's/"//g' "$OS_RELEASE") >/dev/null
 mv "$MINIMAL_IMAGE.fooverity" "$MINIMAL_IMAGE.verity"
 mv "$MINIMAL_IMAGE.foohash" "$MINIMAL_IMAGE.roothash"
 
 mkdir -p "$IMAGE_DIR/mount" "$IMAGE_DIR/mount2"
-systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
+SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
 grep -q -F -f "$OS_RELEASE" "$IMAGE_DIR/mount/usr/lib/os-release"
 grep -q -F -f "$OS_RELEASE" "$IMAGE_DIR/mount/etc/os-release"
 grep -q -F "MARKER=1" "$IMAGE_DIR/mount/usr/lib/os-release"
 # Verity volume should be shared (opened only once)
-systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount2"
+SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount2"
 verity_count=$(find /dev/mapper/ -name "*verity*" | wc -l)
 # In theory we should check that count is exactly one. In practice, libdevmapper
 # randomly and unpredictably fails with an unhelpful EINVAL when a device is open
@@ -71,8 +79,29 @@ if [[ "$verity_count" -lt 1 ]]; then
     echo "Verity device $MINIMAL_IMAGE.raw not found in /dev/mapper/"
     exit 1
 fi
+# Ensure the kernel is verifying the signature if the mkosi key is in the keyring
+if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    veritysetup status "$(cat "$MINIMAL_IMAGE.roothash")-verity" | grep "verified (with signature)" >/dev/null
+fi
 systemd-dissect --umount "$IMAGE_DIR/mount"
 systemd-dissect --umount "$IMAGE_DIR/mount2"
+
+# Ensure the deferred close flag is set up correctly and we don't leak verity devices
+# when sharing is disabled
+# The devices are named 'loopXYZ-verity' when sharing is disabled
+SYSTEMD_VERITY_SHARING=0 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
+d=""
+for f in /dev/mapper/*; do
+    if [[ "$(basename "$f")" =~ ^loop.*-verity ]] && veritysetup status "$(basename "$f")" | grep "$MINIMAL_IMAGE.raw" >/dev/null; then
+        d="$f"
+        break
+    fi
+done
+test -n "$d"
+dmsetup ls | grep "$(basename "$d")" >/dev/null
+umount -R "$IMAGE_DIR/mount"
+timeout 60 bash -c "while test -e $d; do sleep 0.1; done"
+( ! dmsetup ls | grep "$(basename "$d")") >/dev/null
 
 # Test BindLogSockets=
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
@@ -110,7 +139,7 @@ if [[ "$(findmnt -n -o FSTYPE /)" == btrfs ]]; then
     btrfs subvolume delete /test-dissect-btrfs-snapshot
 fi
 
-systemd-run -P -p RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -P -p RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 mv "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE.fooverity"
 mv "$MINIMAL_IMAGE.roothash" "$MINIMAL_IMAGE.foohash"
 systemd-run -P \
@@ -118,13 +147,13 @@ systemd-run -P \
             -p RootHash="$MINIMAL_IMAGE.foohash" \
             -p RootVerity="$MINIMAL_IMAGE.fooverity" \
             -p BindLogSockets=yes \
-            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+            cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 # Let's use the long option name just here as a test
 systemd-run -P \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             --property RootHash="$MINIMAL_IMAGE_ROOTHASH" \
             --property RootVerity="$MINIMAL_IMAGE.fooverity" \
-            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+            cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 mv "$MINIMAL_IMAGE.fooverity" "$MINIMAL_IMAGE.verity"
 mv "$MINIMAL_IMAGE.foohash" "$MINIMAL_IMAGE.roothash"
 
@@ -135,19 +164,19 @@ VERITY_UUID="$(systemd-id128 -u show "$(tail -c 32 "$MINIMAL_IMAGE.roothash")" -
 systemd-dissect --json=short \
                 --root-hash "$MINIMAL_IMAGE_ROOTHASH" \
                 "$MINIMAL_IMAGE.gpt" | \
-                grep -q '{"rw":"ro","designator":"root","partition_uuid":"'"$ROOT_UUID"'","partition_label":"Root Partition","fstype":"squashfs","architecture":"'"$ARCHITECTURE"'","verity":"signed",'
+                grep '{"rw":"ro","designator":"root","partition_uuid":"'"$ROOT_UUID"'","partition_label":"Root Partition","fstype":"squashfs","architecture":"'"$ARCHITECTURE"'","verity":"signed",' >/dev/null
 systemd-dissect --json=short \
                 --root-hash "$MINIMAL_IMAGE_ROOTHASH" \
                 "$MINIMAL_IMAGE.gpt" | \
-                grep -q '{"rw":"ro","designator":"root-verity","partition_uuid":"'"$VERITY_UUID"'","partition_label":"Verity Partition","fstype":"DM_verity_hash","architecture":"'"$ARCHITECTURE"'","verity":null,'
+                grep '{"rw":"ro","designator":"root-verity","partition_uuid":"'"$VERITY_UUID"'","partition_label":"Verity Partition","fstype":"DM_verity_hash","architecture":"'"$ARCHITECTURE"'","verity":null,' >/dev/null
 if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
     systemd-dissect --json=short \
                     --root-hash "$MINIMAL_IMAGE_ROOTHASH" \
                     "$MINIMAL_IMAGE.gpt" | \
-                    grep -qE '{"rw":"ro","designator":"root-verity-sig","partition_uuid":"'".*"'","partition_label":"Signature Partition","fstype":"verity_hash_signature","architecture":"'"$ARCHITECTURE"'","verity":null,'
+                    grep -E '{"rw":"ro","designator":"root-verity-sig","partition_uuid":"'".*"'","partition_label":"Signature Partition","fstype":"verity_hash_signature","architecture":"'"$ARCHITECTURE"'","verity":null,' >/dev/null
 fi
-systemd-dissect --root-hash "$MINIMAL_IMAGE_ROOTHASH" "$MINIMAL_IMAGE.gpt" | grep -q -F "MARKER=1"
-systemd-dissect --root-hash "$MINIMAL_IMAGE_ROOTHASH" "$MINIMAL_IMAGE.gpt" | grep -q -F -f <(sed 's/"//g' "$OS_RELEASE")
+systemd-dissect --root-hash "$MINIMAL_IMAGE_ROOTHASH" "$MINIMAL_IMAGE.gpt" | grep -F "MARKER=1" >/dev/null
+systemd-dissect --root-hash "$MINIMAL_IMAGE_ROOTHASH" "$MINIMAL_IMAGE.gpt" | grep -F -f <(sed 's/"//g' "$OS_RELEASE") >/dev/null
 
 # Test image policies
 systemd-dissect --validate "$MINIMAL_IMAGE.gpt"
@@ -171,49 +200,55 @@ systemd-run --wait -P \
             -p RootImage="$MINIMAL_IMAGE.gpt" \
             -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
             -p MountAPIVFS=yes \
-            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+            cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 systemd-run --wait -P \
             -p RootImage="$MINIMAL_IMAGE.gpt" \
             -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
             -p RootImagePolicy='*' \
             -p MountAPIVFS=yes \
-            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+            cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 (! systemd-run --wait -P \
                -p RootImage="$MINIMAL_IMAGE.gpt" \
                -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
                -p RootImagePolicy='~' \
                -p MountAPIVFS=yes \
-               cat /usr/lib/os-release | grep -q -F "MARKER=1")
+               cat /usr/lib/os-release | grep -F "MARKER=1") >/dev/null
 (! systemd-run --wait -P \
                -p RootImage="$MINIMAL_IMAGE.gpt" \
                -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
                -p RootImagePolicy='-' \
                -p MountAPIVFS=yes \
-               cat /usr/lib/os-release | grep -q -F "MARKER=1")
+               cat /usr/lib/os-release | grep -F "MARKER=1") >/dev/null
 (! systemd-run --wait -P \
                -p RootImage="$MINIMAL_IMAGE.gpt" \
                -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
                -p RootImagePolicy='root=absent' \
                -p MountAPIVFS=yes \
-               cat /usr/lib/os-release | grep -q -F "MARKER=1")
+               cat /usr/lib/os-release | grep -F "MARKER=1") >/dev/null
 systemd-run --wait -P \
             -p RootImage="$MINIMAL_IMAGE.gpt" \
             -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
             -p RootImagePolicy='root=verity' \
             -p MountAPIVFS=yes \
-            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+            cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 systemd-run --wait -P \
             -p RootImage="$MINIMAL_IMAGE.gpt" \
             -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
             -p RootImagePolicy='root=signed' \
             -p MountAPIVFS=yes \
-            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+            cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
+systemd-run --wait -P \
+            -p RootImage="$MINIMAL_IMAGE.gpt" \
+            -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
+            -p RootImagePolicy='root=signed+lol:wut=wat+signed' \
+            -p MountAPIVFS=yes \
+            cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 (! systemd-run --wait -P \
                -p RootImage="$MINIMAL_IMAGE.gpt" \
                -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
                -p RootImagePolicy='root=encrypted' \
                -p MountAPIVFS=yes \
-               cat /usr/lib/os-release | grep -q -F "MARKER=1")
+               cat /usr/lib/os-release | grep -F "MARKER=1") >/dev/null
 
 systemd-dissect --root-hash "$MINIMAL_IMAGE_ROOTHASH" --mount "$MINIMAL_IMAGE.gpt" "$IMAGE_DIR/mount"
 grep -q -F -f "$OS_RELEASE" "$IMAGE_DIR/mount/usr/lib/os-release"
@@ -232,15 +267,15 @@ systemd-run -P \
             -p RootImage="$MINIMAL_IMAGE.gpt" \
             -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
             -p MountAPIVFS=yes \
-            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+            cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             -p RootImage="$MINIMAL_IMAGE.raw" \
             -p RootImageOptions="root:nosuid,dev home:ro,dev ro,noatime" \
-            mount | grep -F "squashfs" | grep -q -F "nosuid"
+            mount | grep -F "squashfs" | grep -F "nosuid" >/dev/null
 systemd-run -P \
             -p RootImage="$MINIMAL_IMAGE.gpt" \
             -p RootImageOptions="root:ro,noatime root:ro,dev" \
-            mount | grep -F "squashfs" | grep -q -F "noatime"
+            mount | grep -F "squashfs" | grep -F "noatime" >/dev/null
 
 mkdir -p "$IMAGE_DIR/result"
 cat >/run/systemd/system/testservice-50a.service <<EOF
@@ -254,8 +289,8 @@ RootImageOptions=root:ro,noatime home:ro,dev relatime,dev
 RootImageOptions=nosuid,dev
 EOF
 systemctl start testservice-50a.service
-grep -F "squashfs" "$IMAGE_DIR/result/a" | grep -q -F "noatime"
-grep -F "squashfs" "$IMAGE_DIR/result/a" | grep -q -F -v "nosuid"
+grep -F "squashfs" "$IMAGE_DIR/result/a" | grep -F "noatime" >/dev/null
+grep -F "squashfs" "$IMAGE_DIR/result/a" | grep -F -v "nosuid" >/dev/null
 
 cat >/run/systemd/system/testservice-50b.service <<EOF
 [Service]
@@ -270,7 +305,7 @@ RootImageOptions=home:ro,dev nosuid,dev,%%foo
 MountAPIVFS=yes
 EOF
 systemctl start testservice-50b.service
-grep -F "squashfs" "$IMAGE_DIR/result/b" | grep -q -F "noatime"
+grep -F "squashfs" "$IMAGE_DIR/result/b" | grep -F "noatime" >/dev/null
 
 # Check that specifier escape is applied %%foo → %foo
 busctl get-property org.freedesktop.systemd1 \
@@ -280,41 +315,41 @@ busctl get-property org.freedesktop.systemd1 \
 # Now do some checks with MountImages, both by itself, with options and in combination with RootImage, and as single FS or GPT image
 systemd-run -P \
             -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" \
-            cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
+            cat /run/img1/usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" \
-            cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
+            cat /run/img2/usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2:nosuid,dev" \
-            mount | grep -F "squashfs" | grep -q -F "nosuid"
+            mount | grep -F "squashfs" | grep -F "nosuid" >/dev/null
 systemd-run -P \
             -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1:root:nosuid $MINIMAL_IMAGE.raw:/run/img2:home:suid" \
-            mount | grep -F "squashfs" | grep -q -F "nosuid"
+            mount | grep -F "squashfs" | grep -F "nosuid" >/dev/null
 systemd-run -P \
             -p MountImages="$MINIMAL_IMAGE.raw:/run/img2\:3" \
-            cat /run/img2:3/usr/lib/os-release | grep -q -F "MARKER=1"
+            cat /run/img2:3/usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             -p MountImages="$MINIMAL_IMAGE.raw:/run/img2\:3:nosuid" \
-            mount | grep -F "squashfs" | grep -q -F "nosuid"
+            mount | grep -F "squashfs" | grep -F "nosuid" >/dev/null
 systemd-run -P \
             -p TemporaryFileSystem=/run \
             -p RootImage="$MINIMAL_IMAGE.raw" \
             -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" \
-            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+            cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             -p TemporaryFileSystem=/run \
             -p RootImage="$MINIMAL_IMAGE.raw" \
             -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" \
-            cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
+            cat /run/img1/usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             -p TemporaryFileSystem=/run \
             -p RootImage="$MINIMAL_IMAGE.gpt" \
             -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
             -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" \
-            cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
+            cat /run/img2/usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             -p MountImages="$MINIMAL_IMAGE.raw:/run/img2" \
-            veritysetup status "${MINIMAL_IMAGE_ROOTHASH}-verity" | grep -q "${MINIMAL_IMAGE_ROOTHASH}"
+            veritysetup status "${MINIMAL_IMAGE_ROOTHASH}-verity" | grep "${MINIMAL_IMAGE_ROOTHASH}" >/dev/null
 cat >/run/systemd/system/testservice-50c.service <<EOF
 [Service]
 MountAPIVFS=yes
@@ -330,8 +365,8 @@ Type=oneshot
 EOF
 systemctl start testservice-50c.service
 grep -q -F "MARKER=1" "$IMAGE_DIR/result/c"
-grep -F "squashfs" "$IMAGE_DIR/result/c" | grep -q -F "noatime"
-grep -F "squashfs" "$IMAGE_DIR/result/c" | grep -q -F -v "nosuid"
+grep -F "squashfs" "$IMAGE_DIR/result/c" | grep -F "noatime" >/dev/null
+grep -F "squashfs" "$IMAGE_DIR/result/c" | grep -F -v "nosuid" >/dev/null
 
 # Adding a new mounts at runtime works if the unit is in the active state,
 # so use Type=notify to make sure there's no race condition in the test
@@ -342,7 +377,7 @@ Type=notify
 RemainAfterExit=yes
 MountAPIVFS=yes
 PrivateTmp=yes
-ExecStart=sh -c ' \\
+ExecStart=bash -c ' \\
     systemd-notify --ready; \\
     while [ ! -f /tmp/img/usr/lib/os-release ] || ! grep -q -F MARKER /tmp/img/usr/lib/os-release; do \\
         sleep 0.1; \\
@@ -355,7 +390,7 @@ systemctl start testservice-50d.service
 
 # Mount twice to exercise mount-beneath (on kernel 6.5+, on older kernels it will just overmount)
 mkdir -p /tmp/wrong/foo
-mksquashfs /tmp/wrong/foo /tmp/wrong.raw
+mksquashfs /tmp/wrong/foo /tmp/wrong.raw -noappend
 systemctl mount-image --mkdir testservice-50d.service /tmp/wrong.raw /tmp/img
 test "$(systemctl show -P SubState testservice-50d.service)" = "running"
 systemctl mount-image --mkdir testservice-50d.service "$MINIMAL_IMAGE.raw" /tmp/img root:nosuid
@@ -367,41 +402,41 @@ systemctl is-active testservice-50d.service
 systemd-run -P \
             --property ExtensionImages=/tmp/app0.raw \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /opt/script0.sh | grep -q -F "extension-release.app0"
+            cat /opt/script0.sh | grep -F "extension-release.app0" >/dev/null
 systemd-run -P \
             --property ExtensionImages=/tmp/app0.raw \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+            cat /usr/lib/systemd/system/some_file | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             --property ExtensionImages="/tmp/app0.raw /tmp/app1.raw" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /opt/script0.sh | grep -q -F "extension-release.app0"
+            cat /opt/script0.sh | grep -F "extension-release.app0" >/dev/null
 systemd-run -P \
             --property ExtensionImages="/tmp/app0.raw /tmp/app1.raw" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+            cat /usr/lib/systemd/system/some_file | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             --property ExtensionImages="/tmp/app0.raw /tmp/app1.raw" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /opt/script1.sh | grep -q -F "extension-release.app2"
+            cat /opt/script1.sh | grep -F "extension-release.app2" >/dev/null
 systemd-run -P \
             --property ExtensionImages="/tmp/app0.raw /tmp/app1.raw" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
+            cat /usr/lib/systemd/system/other_file | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             --property ExtensionImages=/tmp/app-nodistro.raw \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+            cat /usr/lib/systemd/system/some_file | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             --property ExtensionImages=/etc/service-scoped-test.raw \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+            cat /etc/systemd/system/some_file | grep -F "MARKER_CONFEXT_123" >/dev/null
 systemd-run -P \
             --property ExtensionImages="/tmp/app0.raw /tmp/conf0.raw" \
-            veritysetup status "$(cat /tmp/app0.roothash)-verity" | grep -q "$(cat /tmp/app0.roothash)"
+            veritysetup status "$(cat /tmp/app0.roothash)-verity" | grep "$(cat /tmp/app0.roothash)" >/dev/null
 systemd-run -P \
             --property ExtensionImages="/tmp/app0.raw /tmp/conf0.raw" \
-            veritysetup status "$(cat /tmp/conf0.roothash)-verity" | grep -q "$(cat /tmp/conf0.roothash)"
+            veritysetup status "$(cat /tmp/conf0.roothash)-verity" | grep "$(cat /tmp/conf0.roothash)" >/dev/null
 
 # Check that two identical verity images at different paths do not fail with -ELOOP from OverlayFS
 mkdir -p /tmp/loop
@@ -415,7 +450,7 @@ systemd-run -P \
             --property ExtensionImages=/tmp/loop/app0_copy.raw \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             "${BIND_LOG_SOCKETS[@]}" \
-            cat /opt/script0.sh | grep -q -F "extension-release.app0"
+            cat /opt/script0.sh | grep -F "extension-release.app0" >/dev/null
 rm -rf /tmp/loop/
 
 # Check that using a symlink to NAME-VERSION.raw works as long as the symlink has the correct name NAME.raw
@@ -425,7 +460,7 @@ ln -fs /tmp/symlink-test/app-nodistro-v1.raw /tmp/symlink-test/app-nodistro.raw
 systemd-run -P \
             --property ExtensionImages=/tmp/symlink-test/app-nodistro.raw \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+            cat /usr/lib/systemd/system/some_file | grep -F "MARKER=1" >/dev/null
 
 # Symlink check again but for confext
 mkdir -p /etc/symlink-test/
@@ -434,18 +469,18 @@ ln -fs /etc/symlink-test/service-scoped-test-v1.raw /etc/symlink-test/service-sc
 systemd-run -P \
             --property ExtensionImages=/etc/symlink-test/service-scoped-test.raw \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+            cat /etc/systemd/system/some_file | grep -F "MARKER_CONFEXT_123" >/dev/null
 # And again mixing sysext and confext
 systemd-run -P \
     --property ExtensionImages=/tmp/symlink-test/app-nodistro.raw \
     --property ExtensionImages=/etc/symlink-test/service-scoped-test.raw \
     --property RootImage="$MINIMAL_IMAGE.raw" \
-    cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+    cat /etc/systemd/system/some_file | grep -F "MARKER_CONFEXT_123" >/dev/null
 systemd-run -P \
     --property ExtensionImages=/tmp/symlink-test/app-nodistro.raw \
     --property ExtensionImages=/etc/symlink-test/service-scoped-test.raw \
     --property RootImage="$MINIMAL_IMAGE.raw" \
-    cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+    cat /usr/lib/systemd/system/some_file | grep -F "MARKER=1" >/dev/null
 
 cat >/run/systemd/system/testservice-50e.service <<EOF
 [Service]
@@ -456,8 +491,8 @@ RootImage=$MINIMAL_IMAGE.raw
 ExtensionImages=/tmp/app0.raw /tmp/app1.raw:nosuid
 # Relevant only for sanitizer runs
 UnsetEnvironment=LD_PRELOAD
-ExecStart=bash -c '/opt/script0.sh | grep ID'
-ExecStart=bash -c '/opt/script1.sh | grep ID'
+ExecStart=bash -o pipefail -c '/opt/script0.sh | grep ID'
+ExecStart=bash -o pipefail -c '/opt/script1.sh | grep ID'
 Type=oneshot
 RemainAfterExit=yes
 EOF
@@ -474,7 +509,7 @@ mkdir "$VDIR" "$EMPTY_VDIR"
 ln -s /tmp/app0.raw "$VDIR/${VBASE}_0.raw"
 ln -s /tmp/app1.raw "$VDIR/${VBASE}_1.raw"
 
-systemd-run -P -p ExtensionImages="$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR" bash -c '/opt/script1.sh | grep ID'
+systemd-run -P -p ExtensionImages="$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR" bash -o pipefail -c '/opt/script1.sh | grep ID'
 
 rm -rf "$VDIR" "$EMPTY_VDIR"
 
@@ -495,35 +530,35 @@ systemd-dissect --mount /etc/service-scoped-test.raw "$IMAGE_DIR/service-scoped-
 systemd-run -P \
             --property ExtensionDirectories="$IMAGE_DIR/app0" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /opt/script0.sh | grep -q -F "extension-release.app0"
+            cat /opt/script0.sh | grep -F "extension-release.app0" >/dev/null
 systemd-run -P \
             --property ExtensionDirectories="$IMAGE_DIR/app0" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+            cat /usr/lib/systemd/system/some_file | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             --property ExtensionDirectories="$IMAGE_DIR/app0 $IMAGE_DIR/app1" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /opt/script0.sh | grep -q -F "extension-release.app0"
+            cat /opt/script0.sh | grep -F "extension-release.app0" >/dev/null
 systemd-run -P \
             --property ExtensionDirectories="$IMAGE_DIR/app0 $IMAGE_DIR/app1" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+            cat /usr/lib/systemd/system/some_file | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             --property ExtensionDirectories="$IMAGE_DIR/app0 $IMAGE_DIR/app1" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /opt/script1.sh | grep -q -F "extension-release.app2"
+            cat /opt/script1.sh | grep -F "extension-release.app2" >/dev/null
 systemd-run -P \
             --property ExtensionDirectories="$IMAGE_DIR/app0 $IMAGE_DIR/app1" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
+            cat /usr/lib/systemd/system/other_file | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             --property ExtensionDirectories="$IMAGE_DIR/app-nodistro" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+            cat /usr/lib/systemd/system/some_file | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             --property ExtensionDirectories="$IMAGE_DIR/service-scoped-test" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
-            cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+            cat /etc/systemd/system/some_file | grep -F "MARKER_CONFEXT_123" >/dev/null
 cat >/run/systemd/system/testservice-50f.service <<EOF
 [Service]
 MountAPIVFS=yes
@@ -551,16 +586,212 @@ mkdir "$VDIR" "$EMPTY_VDIR"
 ln -s "$IMAGE_DIR/app0" "$VDIR/${VBASE}_0"
 ln -s "$IMAGE_DIR/app1" "$VDIR/${VBASE}_1"
 
-systemd-run -P --property ExtensionDirectories="$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR" cat /opt/script1.sh | grep -q -F "extension-release.app2"
+systemd-run -P --property ExtensionDirectories="$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR" cat /opt/script1.sh | grep -F "extension-release.app2" >/dev/null
 
 rm -rf "$VDIR" "$EMPTY_VDIR"
 
 systemd-dissect --umount "$IMAGE_DIR/app0"
 systemd-dissect --umount "$IMAGE_DIR/app1"
 
+# Check reloading refreshes vpick extensions
+VBASE="vtest$RANDOM"
+VDIR="/tmp/${VBASE}.v"
+mkdir "$VDIR"
+rm -rf /tmp/markers/
+mkdir /tmp/markers/
+cat >/run/systemd/system/testservice-50g.service <<EOF
+[Service]
+Type=notify-reload
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+PrivateTmp=disconnected
+BindPaths=/tmp/markers/
+ExtensionDirectories=-${VDIR}
+ExecStart=bash -o pipefail -x -c ' \\
+    trap "{ \\
+        systemd-notify --reloading; \\
+        (ls /etc | grep marker || echo no-marker) >/tmp/markers/50g; \\
+        systemd-notify --ready; \\
+    }" SIGHUP; \\
+    systemd-notify --ready; \\
+    while true; do sleep 1; done; \\
+'
+EOF
+mkdir -p "$VDIR/${VBASE}_1/etc/extension-release.d/"
+echo "ID=_any" >"$VDIR/${VBASE}_1/etc/extension-release.d/extension-release.${VBASE}_1"
+touch "$VDIR/${VBASE}_1/etc/${VBASE}_1.marker"
+systemctl start testservice-50g.service
+systemctl is-active testservice-50g.service
+# First reload; at reload time, the marker file in /etc should be picked up.
+systemctl reload testservice-50g.service
+grep -q -F "${VBASE}_1.marker" /tmp/markers/50g
+# Make a version 2 and reload again; this time we should see the v2 marker
+mkdir -p "$VDIR/${VBASE}_2/etc/extension-release.d/"
+echo "ID=_any" >"$VDIR/${VBASE}_2/etc/extension-release.d/extension-release.${VBASE}_2"
+touch "$VDIR/${VBASE}_2/etc/${VBASE}_2.marker"
+systemctl reload testservice-50g.service
+grep -q -F "${VBASE}_2.marker" /tmp/markers/50g
+# Do it for a couple more times (to make sure we're tearing down old overlays)
+for _ in {1..5}; do systemctl reload testservice-50g.service; done
+systemctl stop testservice-50g.service
+rm -f /run/systemd/system/testservice-50g.service
+
+# Repeat the same vpick notify-reload test with ExtensionImages= (keeping the
+# same VBASE and reusing VDIR files for convenience, but using .raw extensions
+# this time)
+VDIR2="/tmp/${VBASE}.raw.v"
+mkdir "$VDIR2"
+cat >/run/systemd/system/testservice-50h.service <<EOF
+[Service]
+Type=notify-reload
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+PrivateTmp=disconnected
+BindPaths=/tmp/markers/
+ExtensionImages=-$VDIR2
+ExecStart=bash -o pipefail -x -c ' \\
+    trap "{ \\
+        systemd-notify --reloading; \\
+        (ls /etc | grep marker || echo no-marker) >/tmp/markers/50h; \\
+        systemd-notify --ready; \\
+    }" SIGHUP; \\
+    systemd-notify --ready; \\
+    while true; do sleep 1; done; \\
+'
+EOF
+mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw" -noappend
+systemctl start testservice-50h.service
+systemctl is-active testservice-50h.service
+# First reload should pick up the v1 marker
+systemctl reload testservice-50h.service
+grep -q -F "${VBASE}_1.marker" /tmp/markers/50h
+# Second reload should pick up the v2 marker
+mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw" -noappend
+systemctl reload testservice-50h.service
+grep -q -F "${VBASE}_2.marker" /tmp/markers/50h
+# Test that removing all the extensions don't cause any issues
+rm -rf "${VDIR2:?}"/*
+systemctl reload testservice-50h.service
+systemctl is-active testservice-50h.service
+grep -q -F "no-marker" /tmp/markers/50h
+systemctl stop testservice-50h.service
+rm -f /run/systemd/system/testservice-50h.service
+
+# Test combining vpick reload/restart with RootDirectory= & RootImage=
+cat >/run/systemd/system/testservice-50i.service <<EOF
+[Service]
+Type=notify-reload
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+PrivateTmp=disconnected
+BindPaths=/tmp/markers/
+RootImage=$MINIMAL_IMAGE.raw
+ExtensionDirectories=-${VDIR}
+NotifyAccess=all
+ExecStart=bash -x -o pipefail -c ' \
+    trap '"'"' \
+        now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
+        stdbuf -o1K printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        (ls /etc | grep marker) >/tmp/markers/50i; \
+        (cat /usr/lib/os-release) >>/tmp/markers/50i; \
+        echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+    '"'"' SIGHUP; \
+    echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+    while true; do sleep 1; done; \
+'
+EOF
+# Move away the v2 extension for now
+mv "$VDIR/${VBASE}_2/" "$VDIR/.${VBASE}_2"
+systemctl start testservice-50i.service
+systemctl is-active testservice-50i.service
+# Move the v2 extension back and reload
+mv "$VDIR/.${VBASE}_2" "$VDIR/${VBASE}_2/"
+systemctl reload testservice-50i.service
+grep -q -F "${VBASE}_2.marker" /tmp/markers/50i
+# Ensure that we are also still seeing files exclusive to the root image
+grep -q -F "MARKER=1" /tmp/markers/50i
+systemctl stop testservice-50i.service
+rm -f /run/systemd/system/testservice-50i.service
+
+unsquashfs -force -no-xattrs -d /tmp/vpickminimg "$MINIMAL_IMAGE.raw"
+cat >/run/systemd/system/testservice-50j.service <<EOF
+[Service]
+Type=notify-reload
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+PrivateTmp=disconnected
+BindPaths=/tmp/markers/
+RootDirectory=/tmp/vpickminimg
+ExtensionDirectories=-${VDIR}
+NotifyAccess=all
+ExecStart=bash -x -o pipefail -c ' \
+    trap '"'"' \
+        now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
+        stdbuf -o1K printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        (ls /etc | grep marker) >/tmp/markers/50j; \
+        (cat /usr/lib/os-release) >>/tmp/markers/50j; \
+        echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+    '"'"' SIGHUP; \
+    echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+    while true; do sleep 1; done; \
+'
+EOF
+systemctl start testservice-50j.service
+systemctl is-active testservice-50j.service
+systemctl reload testservice-50j.service
+grep -q -F "${VBASE}_2.marker" /tmp/markers/50j
+grep -q -F "MARKER=1" /tmp/markers/50j
+systemctl stop testservice-50j.service
+rm -f /run/systemd/system/testservice-50j.service
+
+cat >/run/systemd/system/testservice-50k.service <<EOF
+[Service]
+Type=notify-reload
+EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
+PrivateTmp=disconnected
+BindPaths=/tmp/markers/
+RootImage=$MINIMAL_IMAGE.raw
+ExtensionImages=-$VDIR2 /tmp/app0.raw
+PrivateUsers=yes
+NotifyAccess=all
+ExecStart=bash -x -o pipefail -c ' \
+    trap '"'"' \
+        now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
+        stdbuf -o1K printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        (ls /etc | grep marker) >/tmp/markers/50k; \
+        (cat /usr/lib/os-release) >>/tmp/markers/50k; \
+        echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+    '"'"' SIGHUP; \
+    echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+    while true; do sleep 1; done; \
+'
+EOF
+systemctl start testservice-50k.service
+systemctl is-active testservice-50k.service
+# Ensure the kernel is verifying the signature if the mkosi key is in the keyring
+if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
+    veritysetup status "$(cat "$MINIMAL_IMAGE.roothash")-verity" | grep "verified (with signature)" >/dev/null
+fi
+# First reload should pick up the v1 marker
+mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw" -noappend
+systemctl reload testservice-50k.service
+grep -q -F "${VBASE}_1.marker" /tmp/markers/50k
+# Second reload should pick up the v2 marker
+mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw" -noappend
+systemctl reload testservice-50k.service
+grep -q -F "${VBASE}_2.marker" /tmp/markers/50k
+# Test that removing all the extensions don't cause any issues
+rm -rf "${VDIR2:?}"/*
+systemctl reload testservice-50k.service
+systemctl is-active testservice-50k.service
+grep -q -F "MARKER=1" /tmp/markers/50k
+systemctl stop testservice-50k.service
+rm -f /run/systemd/system/testservice-50k.service
+
+systemctl daemon-reload
+rm -rf "$VDIR" "$VDIR2" /tmp/vpickminimg /tmp/markers/
+
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
 ln -s /tmp/app-nodistro.raw /var/lib/extensions/app-nodistro.raw
+systemd-sysext status
+systemd-sysext list
 systemd-sysext merge
 grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
 systemd-sysext unmerge
@@ -601,7 +832,7 @@ ln -s "$MINIMAL_IMAGE.raw" "$VDIR/${VBASE}_33.raw"
 ln -s "$MINIMAL_IMAGE.raw" "$VDIR/${VBASE}_34.raw"
 ln -s "$MINIMAL_IMAGE.raw" "$VDIR/${VBASE}_35.raw"
 
-systemd-run -P -p RootImage="$VDIR" cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -P -p RootImage="$VDIR" cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 
 rm "$VDIR/${VBASE}_33.raw" "$VDIR/${VBASE}_34.raw" "$VDIR/${VBASE}_35.raw"
 rmdir "$VDIR"
@@ -667,7 +898,7 @@ echo "ID=_any" >/run/confexts/test/etc/extension-release.d/extension-release.tes
 echo "ARCHITECTURE=_any" >>/run/confexts/test/etc/extension-release.d/extension-release.test
 echo "MARKER_CONFEXT_123" >/run/confexts/test/etc/testfile
 cat <<EOF >/run/confexts/test/etc/testscript
-#!/bin/bash
+#!/usr/bin/env bash
 echo "This should not happen"
 EOF
 chmod +x /run/confexts/test/etc/testscript
@@ -678,7 +909,7 @@ systemd-confext status
 systemd-confext unmerge
 rm -rf /run/confexts/
 
-unsquashfs -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
+unsquashfs -force -no-xattrs -d /tmp/img "$MINIMAL_IMAGE.raw"
 systemd-run --unit=test-root-ephemeral \
     -p RootDirectory=/tmp/img \
     -p RootEphemeral=yes \
@@ -690,13 +921,16 @@ systemctl stop test-root-ephemeral
 timeout 10 bash -c 'until test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
 test ! -f /tmp/img/abc
 
+# Test RootDirectoryFileDescriptor=
+systemd-run --wait --pipe --root-directory=/tmp/img -- grep -q 'MARKER=1' /usr/lib/os-release
+
 systemd-dissect --mtree /tmp/img >/dev/null
 systemd-dissect --list /tmp/img >/dev/null
 
 read -r SHA256SUM1 _ < <(systemd-dissect --copy-from /tmp/img etc/os-release | sha256sum)
 test "$SHA256SUM1" != ""
 
-echo abc > abc
+echo abc >abc
 systemd-dissect --copy-to /tmp/img abc /abc
 test -f /tmp/img/abc
 
@@ -705,11 +939,11 @@ mkdir -p /run/extensions/ testkit/usr/lib/extension-release.d/
 echo "ID=_any" >testkit/usr/lib/extension-release.d/extension-release.testkit
 echo "ARCHITECTURE=_any" >>testkit/usr/lib/extension-release.d/extension-release.testkit
 echo "MARKER_SYSEXT_123" >testkit/usr/lib/testfile
-mksquashfs testkit/ testkit.raw
+mksquashfs testkit/ testkit.raw -noappend
 cp testkit.raw /run/extensions/
-unsquashfs -l /run/extensions/testkit.raw
-systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext for portable service'
-systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext for system'
+unsquashfs -force -l /run/extensions/testkit.raw
+systemd-dissect --no-pager /run/extensions/testkit.raw | grep '✓ sysext for portable service' >/dev/null
+systemd-dissect --no-pager /run/extensions/testkit.raw | grep '✓ sysext for system' >/dev/null
 systemd-sysext merge
 systemd-sysext status
 grep -q -F "MARKER_SYSEXT_123" /usr/lib/testfile
@@ -721,11 +955,11 @@ mkdir -p /run/confexts/ testjob/etc/extension-release.d/
 echo "ID=_any" >testjob/etc/extension-release.d/extension-release.testjob
 echo "ARCHITECTURE=_any" >>testjob/etc/extension-release.d/extension-release.testjob
 echo "MARKER_CONFEXT_123" >testjob/etc/testfile
-mksquashfs testjob/ testjob.raw
+mksquashfs testjob/ testjob.raw -noappend
 cp testjob.raw /run/confexts/
-unsquashfs -l /run/confexts/testjob.raw
-systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext for system'
-systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext for portable service'
+unsquashfs -force -l /run/confexts/testjob.raw
+systemd-dissect --no-pager /run/confexts/testjob.raw | grep '✓ confext for system' >/dev/null
+systemd-dissect --no-pager /run/confexts/testjob.raw | grep '✓ confext for portable service' >/dev/null
 systemd-confext merge
 systemd-confext status
 grep -q -F "MARKER_CONFEXT_123" /etc/testfile
@@ -743,18 +977,16 @@ systemd-sysext merge --no-reload
 systemd-sysext unmerge --no-reload
 systemd-sysext merge
 journalctl --sync
-set +o pipefail
 # "journalctl -u foo.service" may not work as expected, especially entries for _TRANSPORT=stdout,
 # for short-living services or when the service manager generates debugging logs.
 # Instead, SYSLOG_IDENTIFIER= should be reliable for stdout. Let's use it.
-timeout -v 30s journalctl -b SYSLOG_IDENTIFIER=echo _TRANSPORT=stdout -o cat -n all --follow | grep -m 1 -q '^foo$'
-set -o pipefail
+timeout -v 30s bash -c "journalctl -b SYSLOG_IDENTIFIER=echo _TRANSPORT=stdout -o cat -n all --follow | grep -m 1 -q '^foo$'"
 systemd-sysext unmerge --no-reload
 # Grep on the Warning to find the warning helper mentioning the daemon reload.
-systemctl status foo.service 2>&1 | grep -q -F "Warning"
+systemctl status foo.service 2>&1 | grep -F "Warning" >/dev/null
 systemd-sysext merge
 systemd-sysext unmerge
-systemctl status foo.service 2>&1 | grep -v -q -F "Warning"
+systemctl status foo.service 2>&1 | grep -v -F "Warning" >/dev/null
 rm /var/lib/extensions/app-reload.raw
 
 # Sneak in a couple of expected-to-fail invocations to cover

@@ -13,12 +13,12 @@ ExecStart=test %I = foo/bar
 ExecStart=test %j = specifier
 ExecStart=test %J = specifier
 ExecStart=test %f = /foo/bar
-ExecStart=sh -c 'test %u = $$(id -un)'
-ExecStart=sh -c 'test %U = $$(id -u)'
-ExecStart=sh -c 'test %g = $$(id -gn)'
-ExecStart=sh -c 'test %G = $$(id -g)'
+ExecStart=bash -c 'test %u = $$(id -un)'
+ExecStart=bash -c 'test %U = $$(id -u)'
+ExecStart=bash -c 'test %g = $$(id -gn)'
+ExecStart=bash -c 'test %G = $$(id -g)'
 ExecStart=test %h = /root
-ExecStart=sh -c 'test -x %s'
-ExecStart=sh -c 'test %b = $$(cat /proc/sys/kernel/random/boot_id | sed -e 's/-//g')'
-ExecStart=sh -c 'test %H = $$(uname -n)'
-ExecStart=sh -c 'test %v = $$(uname -r)'
+ExecStart=bash -c 'test -x %s'
+ExecStart=bash -c 'test %b = $$(cat /proc/sys/kernel/random/boot_id | sed -e 's/-//g')'
+ExecStart=bash -c 'test %H = $$(uname -n)'
+ExecStart=bash -c 'test %v = $$(uname -r)'

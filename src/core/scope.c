@@ -1,26 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <unistd.h>
 
-#include "alloc-util.h"
+#include "sd-bus.h"
+
 #include "cgroup-setup.h"
 #include "dbus-scope.h"
 #include "dbus-unit.h"
 #include "exit-status.h"
-#include "load-dropin.h"
 #include "log.h"
 #include "manager.h"
-#include "process-util.h"
+#include "parse-util.h"
+#include "pidref.h"
 #include "random-util.h"
 #include "scope.h"
 #include "serialize.h"
+#include "set.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit.h"
-#include "unit-name.h"
 #include "user-util.h"
 
 static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
@@ -236,15 +236,6 @@ static int scope_coldplug(Unit *u) {
         if (r < 0)
                 return r;
 
-        if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED) && u->pids) {
-                PidRef *pid;
-                SET_FOREACH(pid, u->pids) {
-                        r = unit_watch_pidref(u, pid, /* exclusive= */ false);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
         bus_scope_track_controller(s);
 
         scope_set_state(s, s->deserialized_state);
@@ -357,7 +348,9 @@ static int scope_enter_start_chown(Scope *s) {
 
                         r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
                         if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to resolve user \"%s\": %m", user);
+                                log_unit_error_errno(UNIT(s), r,
+                                                     "Failed to resolve user '%s': %s",
+                                                     user, STRERROR_USER(r));
                                 _exit(EXIT_USER);
                         }
                 }
@@ -367,7 +360,9 @@ static int scope_enter_start_chown(Scope *s) {
 
                         r = get_group_creds(&group, &gid, 0);
                         if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to resolve group \"%s\": %m", group);
+                                log_unit_error_errno(UNIT(s), r,
+                                                     "Failed to resolve group '%s': %s",
+                                                     group, STRERROR_GROUP(r));
                                 _exit(EXIT_GROUP);
                         }
                 }
@@ -511,8 +506,7 @@ static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "state", scope_state_to_string(s->state));
         (void) serialize_bool(f, "was-abandoned", s->was_abandoned);
 
-        if (s->controller)
-                (void) serialize_item(f, "controller", s->controller);
+        (void) serialize_item(f, "controller", s->controller);
 
         SET_FOREACH(pid, u->pids)
                 serialize_pidref(f, fds, "pids", pid);
@@ -705,10 +699,9 @@ static void scope_enumerate_perpetual(Manager *m) {
         u = manager_get_unit(m, SPECIAL_INIT_SCOPE);
         if (!u) {
                 r = unit_new_for_name(m, sizeof(Scope), SPECIAL_INIT_SCOPE, &u);
-                if (r < 0)  {
-                        log_error_errno(r, "Failed to allocate the special " SPECIAL_INIT_SCOPE " unit: %m");
-                        return;
-                }
+                if (r < 0)
+                        return (void) log_error_errno(r, "Failed to allocate the special %s unit: %m",
+                                                      SPECIAL_INIT_SCOPE);
         }
 
         u->transient = true;

@@ -2,16 +2,21 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
+#include "nspawn-mount.h"
 #include "nspawn-register.h"
 #include "nspawn-settings.h"
+#include "pidref.h"
 #include "special.h"
 #include "stat-util.h"
-#include "strv.h"
+#include "string-util.h"
+#include "unit-def.h"
+#include "unit-name.h"
 
 static int append_machine_properties(
                 sd_bus_message *m,
@@ -126,102 +131,128 @@ static int can_set_coredump_receive(sd_bus *bus) {
         return r >= 0;
 }
 
-int register_machine(
+static int register_machine_ex(
                 sd_bus *bus,
                 const char *machine_name,
-                pid_t pid,
+                const PidRef *pid,
                 const char *directory,
                 sd_id128_t uuid,
                 int local_ifindex,
-                const char *slice,
-                CustomMount *mounts,
-                unsigned n_mounts,
-                int kill_signal,
-                char **properties,
-                sd_bus_message *properties_message,
                 const char *service,
-                StartMode start_mode,
-                RegisterMachineFlags flags) {
+                sd_bus_error *error) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        assert(bus);
+        assert(machine_name);
+        assert(service);
+        assert(error);
+
+        r = bus_message_new_method_call(bus, &m,  bus_machine_mgr, "RegisterMachineEx");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "s", machine_name);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(
+                        m,
+                        "(sv)(sv)(sv)",
+                        "Id", "ay", SD_BUS_MESSAGE_APPEND_ID128(uuid),
+                        "Service", "s", service,
+                        "Class", "s", "container");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (pidref_is_set(pid)) {
+                if (pid->fd >= 0) {
+                        r = sd_bus_message_append(m, "(sv)", "LeaderPIDFD", "h", pid->fd);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                if (pid->fd_id > 0) {
+                        r = sd_bus_message_append(m, "(sv)", "LeaderPIDFDID", "t", pid->fd_id);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append(m, "(sv)", "LeaderPID", "u", pid->pid);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+        }
+
+        if (!isempty(directory)) {
+                r = sd_bus_message_append(m, "(sv)", "RootDirectory", "s", directory);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (local_ifindex > 0) {
+                r = sd_bus_message_append(m, "(sv)", "NetworkInterfaces", "ai", 1, local_ifindex);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return sd_bus_call(bus, m, 0, error, NULL);
+}
+
+int register_machine(
+                sd_bus *bus,
+                const char *machine_name,
+                const PidRef *pid,
+                const char *directory,
+                sd_id128_t uuid,
+                int local_ifindex,
+                const char *service) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
+        assert(machine_name);
+        assert(service);
 
-        if (FLAGS_SET(flags, REGISTER_MACHINE_KEEP_UNIT)) {
-                r = bus_call_method(
-                                bus,
-                                bus_machine_mgr,
-                                "RegisterMachineWithNetwork",
-                                &error,
-                                NULL,
-                                "sayssusai",
-                                machine_name,
-                                SD_BUS_MESSAGE_APPEND_ID128(uuid),
-                                service,
-                                "container",
-                                (uint32_t) pid,
-                                strempty(directory),
-                                local_ifindex > 0 ? 1 : 0, local_ifindex);
-        } else {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        r = register_machine_ex(
+                        bus,
+                        machine_name,
+                        pid,
+                        directory,
+                        uuid,
+                        local_ifindex,
+                        service,
+                        &error);
+        if (r >= 0)
+                return 0;
+        if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
+                return log_error_errno(r, "Failed to register machine: %s", bus_error_message(&error, r));
 
-                r = bus_message_new_method_call(bus, &m,  bus_machine_mgr, "CreateMachineWithNetwork");
-                if (r < 0)
-                        return bus_log_create_error(r);
+        sd_bus_error_free(&error);
 
-                r = sd_bus_message_append(
-                                m,
-                                "sayssusai",
-                                machine_name,
-                                SD_BUS_MESSAGE_APPEND_ID128(uuid),
-                                service,
-                                "container",
-                                (uint32_t) pid,
-                                strempty(directory),
-                                local_ifindex > 0 ? 1 : 0, local_ifindex);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_open_container(m, 'a', "(sv)");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                if (!isempty(slice)) {
-                        r = sd_bus_message_append(m, "(sv)", "Slice", "s", slice);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-                }
-
-                r = append_controller_property(bus, m);
-                if (r < 0)
-                        return r;
-
-                r = append_machine_properties(
-                                m,
-                                mounts,
-                                n_mounts,
-                                kill_signal,
-                                start_mode == START_BOOT && can_set_coredump_receive(bus) > 0);
-                if (r < 0)
-                        return r;
-
-                if (properties_message) {
-                        r = sd_bus_message_copy(m, properties_message, true);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-                }
-
-                r = bus_append_unit_property_assignment_many(m, UNIT_SERVICE, properties);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_call(bus, m, 0, &error, NULL);
-        }
+        r = bus_call_method(
+                        bus,
+                        bus_machine_mgr,
+                        "RegisterMachineWithNetwork",
+                        &error,
+                        NULL,
+                        "sayssusai",
+                        machine_name,
+                        SD_BUS_MESSAGE_APPEND_ID128(uuid),
+                        service,
+                        "container",
+                        pidref_is_set(pid) ? (uint32_t) pid->pid : 0,
+                        strempty(directory),
+                        local_ifindex > 0 ? 1 : 0, local_ifindex);
         if (r < 0)
                 return log_error_errno(r, "Failed to register machine: %s", bus_error_message(&error, r));
 
@@ -247,7 +278,7 @@ int unregister_machine(
 int allocate_scope(
                 sd_bus *bus,
                 const char *machine_name,
-                pid_t pid,
+                const PidRef* pid,
                 const char *slice,
                 CustomMount *mounts,
                 unsigned n_mounts,
@@ -261,7 +292,7 @@ int allocate_scope(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *scope = NULL;
-        const char *description, *object;
+        const char *object;
         int r;
 
         assert(bus);
@@ -287,16 +318,13 @@ int allocate_scope(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        description = strjoina("Container ", machine_name);
-
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        r = pidref_set_pid(&pidref, pid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate PID reference: %m");
-
-        r = bus_append_scope_pidref(m, &pidref, FLAGS_SET(flags, ALLOCATE_SCOPE_ALLOW_PIDFD));
+        r = bus_append_scope_pidref(m, pid, FLAGS_SET(flags, ALLOCATE_SCOPE_ALLOW_PIDFD));
         if (r < 0)
                 return bus_log_create_error(r);
+
+        _cleanup_free_ char *description = strjoin("Container ", machine_name);
+        if (!description)
+                return log_oom();
 
         r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
                                   "Description", "s", description,
@@ -387,11 +415,11 @@ int terminate_scope(
         _cleanup_free_ char *scope = NULL;
         int r;
 
-        r = unit_name_mangle_with_suffix(machine_name, "to terminate", 0, ".scope", &scope);
+        r = unit_name_mangle_with_suffix(machine_name, "to terminate", /* flags= */ 0, ".scope", &scope);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle scope name: %m");
 
-        r = bus_call_method(bus, bus_systemd_mgr, "AbandonScope", &error, NULL, "s", scope);
+        r = bus_call_method(bus, bus_systemd_mgr, "AbandonScope", &error, /* ret_reply= */ NULL, "s", scope);
         if (r < 0) {
                 log_debug_errno(r, "Failed to abandon scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
                 sd_bus_error_free(&error);
@@ -412,7 +440,7 @@ int terminate_scope(
                 sd_bus_error_free(&error);
         }
 
-        r = bus_call_method(bus, bus_systemd_mgr, "UnrefUnit", &error, NULL, "s", scope);
+        r = bus_call_method(bus, bus_systemd_mgr, "UnrefUnit", &error, /* ret_reply= */ NULL, "s", scope);
         if (r < 0)
                 log_debug_errno(r, "Failed to drop reference to scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
 

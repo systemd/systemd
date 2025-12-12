@@ -109,7 +109,7 @@ static int delete_dm(DeviceMapper *m) {
 
         fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open /dev/mapper/control: %m");
+                return log_debug_errno(errno, "Failed to open %s: %m", "/dev/mapper/control");
 
         return RET_NERRNO(ioctl(fd, DM_DEV_REMOVE, &(struct dm_ioctl) {
                 .version = {

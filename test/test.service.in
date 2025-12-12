@@ -8,6 +8,7 @@ After=basic.target network.target @after@
 [Service]
 ExecStartPre=rm -f /failed /testok
 ExecStart=@command@
+ExecStartPost=/usr/lib/systemd/tests/testdata/units/post.sh
 Type=oneshot
 MemoryAccounting=@memory-accounting@
 Environment=SYSTEMD_PAGER= @env@

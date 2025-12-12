@@ -34,7 +34,7 @@
 
     <para><command>systemd-measure</command> is a tool that may be used to pre-calculate and sign the
     expected TPM2 PCR 11 values that should be seen when a Linux <ulink
-    url="https://uapi-group.org/specifications/specs/unified_kernel_image/">Unified Kernel Image
+    url="https://uapi-group.org/specifications/specs/unified_kernel_image/">UAPI.5 Unified Kernel Image
     (UKI)</ulink> based on
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> is
     booted up. It accepts paths to the ELF kernel image file, initrd image file, devicetree file, kernel
@@ -172,6 +172,10 @@
         <command>status</command> output. May be used more then once to specify multiple banks. If not
         specified, defaults to the four banks <literal>sha1</literal>, <literal>sha256</literal>,
         <literal>sha384</literal>, <literal>sha512</literal>.</para>
+
+        <para>Note that some operating systems disable support for SHA1-based signatures, in which case this
+        operation will fail. Please consult your OS' documentation for details on how to override the OS
+        security policy around this.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
@@ -342,7 +346,6 @@ $ ukify build \
      <programlisting># systemd-cryptenroll --tpm2-device=auto \
      --tpm2-public-key=tpm2-pcr-public-key.pem \
      --tpm2-signature=tpm2-pcr-signature.json \
-     --tpm2-pcrs="" \
      /dev/sda5</programlisting>
 
      <para>And then unlock the device with the signature:</para>

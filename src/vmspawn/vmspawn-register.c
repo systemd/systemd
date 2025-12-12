@@ -9,10 +9,10 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "errno-util.h"
 #include "json-util.h"
 #include "log.h"
-#include "macro.h"
-#include "process-util.h"
+#include "pidref.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -24,6 +24,7 @@ int register_machine(
                 const char *machine_name,
                 sd_id128_t uuid,
                 const char *service,
+                const PidRef *pidref,
                 const char *directory,
                 unsigned cid,
                 const char *address,
@@ -55,7 +56,7 @@ int register_machine(
                                 SD_BUS_MESSAGE_APPEND_ID128(uuid),
                                 service,
                                 "vm",
-                                (uint32_t) getpid_cached(),
+                                (uint32_t) (pidref_is_set(pidref) ? pidref->pid : 0),
                                 strempty(directory));
                 if (r < 0)
                        return log_error_errno(r, "Failed to register machine: %s", bus_error_message(&error, r));
@@ -78,7 +79,8 @@ int register_machine(
                         SD_JSON_BUILD_PAIR_CONDITION(!!address, "sshAddress", SD_JSON_BUILD_STRING(address)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!key_path, "sshPrivateKeyPath", SD_JSON_BUILD_STRING(key_path)),
                         SD_JSON_BUILD_PAIR_CONDITION(isatty_safe(STDIN_FILENO), "allowInteractiveAuthentication", SD_JSON_BUILD_BOOLEAN(true)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!keep_unit, "allocateUnit", SD_JSON_BUILD_BOOLEAN(true)));
+                        SD_JSON_BUILD_PAIR_CONDITION(!keep_unit, "allocateUnit", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(pidref), "leaderProcessId", JSON_BUILD_PIDREF(pidref)));
 }
 
 int unregister_machine(sd_bus *bus, const char *machine_name) {

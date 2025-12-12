@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Service]
+Type=oneshot
+Environment=SHLVL=100
+ExecStartPre=-|false
+ExecStart=|@echo with login shell $$SHELL: lvl $$SHLVL
+ExecStart=:|"str='with normal shell'" printenv str
+ExecStart=|echo YAY! >/tmp/TEST-07-PID1.prefix-shell.flag

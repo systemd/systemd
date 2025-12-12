@@ -3,12 +3,15 @@
 #include <linux/nl80211.h>
 #include <net/ethernet.h>
 
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "ether-addr-util.h"
-#include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-wifi.h"
 #include "networkd-wiphy.h"
+#include "set.h"
 #include "string-util.h"
 #include "wifi-util.h"
 
@@ -116,7 +119,7 @@ int manager_genl_process_nl80211_config(sd_netlink *genl, sd_netlink_message *me
         }
 
         if (!streq(ifname, link->ifname)) {
-                log_link_debug(link, "nl80211: received %s(%u) message with invalid interface name '%s', ignoring: %m",
+                log_link_debug(link, "nl80211: received %s(%u) message with invalid interface name '%s', ignoring.",
                                strna(nl80211_cmd_to_string(cmd)), cmd, ifname);
                 return 0;
         }
@@ -136,7 +139,7 @@ int manager_genl_process_nl80211_config(sd_netlink *genl, sd_netlink_message *me
         }
         if (r >= 0) {
                 if (len == 0) {
-                        log_link_debug(link, "nl80211: received SSID has zero length, ignoring it: %m");
+                        log_link_debug(link, "nl80211: received SSID has zero length, ignoring it.");
                         ssid = mfree(ssid);
                 } else if (strlen_ptr(ssid) != len) {
                         log_link_debug(link, "nl80211: received SSID contains NUL characters, ignoring it.");

@@ -175,7 +175,7 @@ if ! systemd-detect-virt -cq; then
     systemd-run --wait --pipe --unit "$SERVICE_NAME" "${ARGUMENTS[@]}" \
         bash -xec "test -r /dev/null; test ! -w /dev/null; test ! -r $LODEV; test -w $LODEV; test ! -r /dev/tty; test ! -w /dev/tty"
 
-    if ! systemctl --version | grep -qF -- "-BPF_FRAMEWORK"; then
+    if ! systemctl --version | grep -F -- "-BPF_FRAMEWORK" >/dev/null; then
         # SocketBind*=
         ARGUMENTS=(
             -p SocketBindAllow=
@@ -356,7 +356,7 @@ systemd-run \
     -p DynamicUser=yes \
     -p EnvironmentFile=-/usr/lib/systemd/systemd-asan-env \
     -p NotifyAccess=all \
-    sh -c 'touch /tmp/a && touch /var/tmp/b && ! test -f /tmp/b && ! test -f /var/tmp/a && systemd-notify --ready && sleep infinity'
+    bash -c 'touch /tmp/a && touch /var/tmp/b && ! test -f /tmp/b && ! test -f /var/tmp/a && systemd-notify --ready && sleep infinity'
 (! ls /tmp/systemd-private-"$(tr -d '-' < /proc/sys/kernel/random/boot_id)"-test-07-dynamic-user-tmp.service-* &>/dev/null)
 (! ls /var/tmp/systemd-private-"$(tr -d '-' < /proc/sys/kernel/random/boot_id)"-test-07-dynamic-user-tmp.service-* &>/dev/null)
 systemctl is-active test-07-dynamic-user-tmp.service
@@ -405,7 +405,7 @@ if [[ ! -v ASAN_OPTIONS ]]; then
     # Here, -p EnvironmentFile=-/usr/lib/systemd/systemd-asan-env does not work,
     # as sd-executor loads NSS module and fails before applying the environment:
     # (true)[660]: test-dynamicuser-fail.service: Changing to the requested working directory failed: No such file or directory
-    # (true)[660]: test-dynamicuser-fail.service: Failed at step CHDIR spawning /usr/bin/true: No such file or directory
+    # (true)[660]: test-dynamicuser-fail.service: Failed at step CHDIR spawning true: No such file or directory
     # TEST-07-PID1.sh[660]: ==660==LeakSanitizer has encountered a fatal error.
     # TEST-07-PID1.sh[660]: ==660==HINT: For debugging, try setting environment variable LSAN_OPTIONS=verbosity=1:log_threads=1
     # TEST-07-PID1.sh[660]: ==660==HINT: LeakSanitizer does not work under ptrace (strace, gdb, etc)

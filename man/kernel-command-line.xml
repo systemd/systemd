@@ -166,7 +166,7 @@
           command line or <filename>/etc/fstab</filename>, or otherwise configured. If true, full state-less boot mode
           is selected. In this case, the root directory is mounted as volatile memory file system (<literal>tmpfs</literal>),
           and only <filename>/usr/</filename> is mounted from the file system configured as root device, in read-only mode.
-          This enables fully state-less boots were the vendor-supplied OS is used as shipped, with only default
+          This enables fully state-less boots where the vendor-supplied OS is used as shipped, with only default
           configuration and no stored state in effect, as <filename>/etc/</filename> and <filename>/var/</filename> (as
           well as all other resources shipped in the root file system) are reset at boot and lost on shutdown. If this
           setting is set to <literal>state</literal> the root file system is mounted read-only, however
@@ -275,7 +275,7 @@
         <listitem>
           <para>Parameter understood by the file quota checker
           service. For details, see
-          <citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+          <citerefentry><refentrytitle>systemd-quotacheck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
           <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
@@ -768,7 +768,7 @@
         <term><varname>systemd.tpm2_allow_clear=</varname></term>
 
         <listitem><para>Controls whether to allow clearing of the TPM chip, implemented by
-        <citerefentry><refentrytitle>systemd-tpm2-clear</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+        <citerefentry><refentrytitle>systemd-tpm2-clear.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
@@ -802,11 +802,10 @@
       <variablelist>
         <varlistentry>
           <term>systemd 252</term>
+
           <listitem><para>Kernel command-line arguments <varname>systemd.unified_cgroup_hierarchy</varname>
           and <varname>systemd.legacy_systemd_cgroup_controller</varname> were deprecated. Please switch to
-          the unified cgroup hierarchy.</para>
-
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          the unified cgroup hierarchy.</para></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>
@@ -821,7 +820,7 @@
         <member><citerefentry><refentrytitle>smbios-type-11</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>systemd-fsck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
-        <member><citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-quotacheck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>

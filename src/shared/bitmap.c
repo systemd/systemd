@@ -1,15 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "alloc-util.h"
 #include "bitmap.h"
-#include "hashmap.h"
-#include "macro.h"
 #include "memory-util.h"
 
 /* Bitmaps are only meant to store relatively small numbers
@@ -129,13 +123,12 @@ bool bitmap_isset(const Bitmap *b, unsigned n) {
 }
 
 bool bitmap_isclear(const Bitmap *b) {
-        unsigned i;
 
         if (!b)
                 return true;
 
-        for (i = 0; i < b->n_bitmaps; i++)
-                if (b->bitmaps[i] != 0)
+        FOREACH_ARRAY(i, b->bitmaps, b->n_bitmaps)
+                if (*i != 0)
                         return false;
 
         return true;
@@ -187,7 +180,6 @@ bool bitmap_iterate(const Bitmap *b, Iterator *i, unsigned *n) {
 bool bitmap_equal(const Bitmap *a, const Bitmap *b) {
         size_t common_n_bitmaps;
         const Bitmap *c;
-        unsigned i;
 
         if (a == b)
                 return true;
@@ -203,7 +195,7 @@ bool bitmap_equal(const Bitmap *a, const Bitmap *b) {
                 return false;
 
         c = a->n_bitmaps > b->n_bitmaps ? a : b;
-        for (i = common_n_bitmaps; i < c->n_bitmaps; i++)
+        for (unsigned i = common_n_bitmaps; i < c->n_bitmaps; i++)
                 if (c->bitmaps[i] != 0)
                         return false;
 

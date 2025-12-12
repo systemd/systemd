@@ -3,8 +3,8 @@
 #include "binfmt-util.h"
 #include "tests.h"
 
-TEST(binfmt_mounted) {
-        ASSERT_OK(binfmt_mounted());
+TEST(binfmt_mounted_and_writable) {
+        ASSERT_OK(binfmt_mounted_and_writable());
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

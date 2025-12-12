@@ -1,16 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "shared-forward.h"
 
-#include "macro.h"
-#include "memory-util.h"
-
-#if HAVE_VMLINUX_H
-#include "bpf/userns_restrict/userns-restrict-skel.h"
-#else
 struct userns_restrict_bpf;
-#endif
 
 int userns_restrict_install(bool pin, struct userns_restrict_bpf **ret);
 struct userns_restrict_bpf *userns_restrict_bpf_free(struct userns_restrict_bpf *obj);

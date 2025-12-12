@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "fdset.h"
-
-typedef struct Manager Manager;
+#include "core-forward.h"
 
 #define DESTROY_IPC_FLAG (UINT32_C(1) << 31)
 

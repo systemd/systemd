@@ -322,7 +322,7 @@
         <varlistentry>
           <term><constant>-EBADF</constant></term>
 
-          <listitem><para>The specified socket file descriptor was invalid.</para></listitem>
+          <listitem><para>The specified file descriptor is invalid.</para></listitem>
         </varlistentry>
 
         <varlistentry>

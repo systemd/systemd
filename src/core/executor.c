@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <unistd.h>
+#include <stdlib.h>
 
 #include "sd-messages.h"
 
@@ -20,6 +20,7 @@
 #include "fileio.h"
 #include "getopt-defs.h"
 #include "label-util.h"
+#include "log.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
@@ -182,6 +183,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(exec_command_done) ExecCommand command = {};
         _cleanup_(exec_params_deep_clear) ExecParameters params = EXEC_PARAMETERS_INIT(/* flags= */ 0);
         _cleanup_(exec_shared_runtime_done) ExecSharedRuntime shared = {
+                .userns_storage_socket = EBADF_PAIR,
                 .netns_storage_socket = EBADF_PAIR,
                 .ipcns_storage_socket = EBADF_PAIR,
         };

@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <locale.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-journal.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -14,27 +14,27 @@
 #include "bus-map-properties.h"
 #include "bus-print-properties.h"
 #include "bus-unit-procs.h"
+#include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "log.h"
 #include "logs-show.h"
-#include "macro.h"
 #include "main-func.h"
-#include "memory-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "rlimit-util.h"
-#include "signal-util.h"
+#include "runtime-scope.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sysfs-show.h"
 #include "terminal-util.h"
-#include "unit-name.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "verbs.h"
 
@@ -47,7 +47,7 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static const char *arg_kill_whom = NULL;
 static int arg_signal = SIGTERM;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 static bool arg_ask_password = true;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
@@ -296,7 +296,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(1), 100);
 
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         if (use_ex)
                 r = list_sessions_table_add(table, reply);
@@ -337,7 +337,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error_property = SD_BUS_ERROR_NULL;
@@ -405,7 +405,7 @@ static int list_seats(int argc, char *argv[], void *userdata) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (;;) {
                 const char *seat;
@@ -436,7 +436,6 @@ static int show_unit_cgroup(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *cgroup = NULL;
-        unsigned c;
         int r;
 
         assert(bus);
@@ -450,10 +449,7 @@ static int show_unit_cgroup(
         if (isempty(cgroup))
                 return 0;
 
-        c = columns();
-        if (c > 18)
-                c -= 18;
-
+        unsigned c = MAX(LESS_BY(columns(), 18U), 10U);
         r = unit_show_processes(bus, unit, cgroup, prefix, c, get_output_flags(), &error);
         if (r == -EBADR) {
                 if (arg_transport == BUS_TRANSPORT_REMOTE)
@@ -461,10 +457,10 @@ static int show_unit_cgroup(
 
                 /* Fallback for older systemd versions where the GetUnitProcesses() call is not yet available */
 
-                if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup) != 0 && leader <= 0)
+                if (cg_is_empty(cgroup) != 0 && leader <= 0)
                         return 0;
 
-                show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, prefix, c, &leader, leader > 0, get_output_flags());
+                show_cgroup_and_extra(cgroup, prefix, c, &leader, leader > 0, get_output_flags());
         } else if (r < 0)
                 return log_error_errno(r, "Failed to dump process list: %s", bus_error_message(&error, r));
 
@@ -583,7 +579,7 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_NA);
+        table_set_ersatz_string(table, TABLE_ERSATZ_NA);
 
         if (dual_timestamp_is_set(&i.timestamp)) {
                 r = table_add_cell(table, NULL, TABLE_FIELD, "Since");
@@ -774,7 +770,7 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_NA);
+        table_set_ersatz_string(table, TABLE_ERSATZ_NA);
 
         if (dual_timestamp_is_set(&i.timestamp)) {
                 r = table_add_cell(table, NULL, TABLE_FIELD, "Since");
@@ -873,7 +869,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_NA);
+        table_set_ersatz_string(table, TABLE_ERSATZ_NA);
 
         if (!strv_isempty(i.sessions)) {
                 _cleanup_strv_free_ char **sessions = TAKE_PTR(i.sessions);
@@ -905,10 +901,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
                 return table_log_print_error(r);
 
         if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                unsigned c = columns();
-                if (c > 21)
-                        c -= 21;
-
+                unsigned c = MAX(LESS_BY(columns(), 21U), 10U);
                 show_sysfs(i.id, strrepa(" ", STRLEN("Sessions:")), c, get_output_flags());
         }
 
@@ -1607,10 +1600,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
 
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0)
@@ -1661,8 +1652,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':

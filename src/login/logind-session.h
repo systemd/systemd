@@ -1,20 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
-
-#include "hashmap.h"
 #include "list.h"
+#include "logind-forward.h"
 #include "pidref.h"
-#include "string-util.h"
 #include "time-util.h"
-
-typedef struct Manager Manager;
-typedef struct Seat Seat;
-typedef struct Session Session;
-typedef struct User User;
 
 typedef enum SessionState {
         SESSION_OPENING,  /* Session scope is being created */
@@ -106,7 +96,7 @@ typedef enum TTYValidity {
         _TTY_VALIDITY_INVALID = -EINVAL,
 } TTYValidity;
 
-struct Session {
+typedef struct Session {
         Manager *manager;
 
         char *id;
@@ -175,7 +165,7 @@ struct Session {
         LIST_FIELDS(Session, sessions_by_seat);
 
         LIST_FIELDS(Session, gc_queue);
-};
+} Session;
 
 int session_new(Manager *m, const char *id, Session **ret);
 Session* session_free(Session *s);
@@ -204,7 +194,7 @@ int session_save(Session *s);
 int session_load(Session *s);
 int session_kill(Session *s, KillWhom whom, int signo, sd_bus_error *error);
 
-SessionState session_get_state(Session *u);
+SessionState session_get_state(Session *s);
 
 const char* session_state_to_string(SessionState t) _const_;
 SessionState session_state_from_string(const char *s) _pure_;
@@ -231,10 +221,5 @@ bool session_job_pending(Session *s);
 
 int session_send_create_reply(Session *s, const sd_bus_error *error);
 
-static inline bool SESSION_IS_SELF(const char *name) {
-        return isempty(name) || streq(name, "self");
-}
-
-static inline bool SESSION_IS_AUTO(const char *name) {
-        return streq_ptr(name, "auto");
-}
+bool session_is_self(const char *name);
+bool session_is_auto(const char *name);

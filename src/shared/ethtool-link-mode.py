@@ -10,10 +10,12 @@ OVERRIDES = {
     'autoneg' : 'autonegotiation',
 }
 
-mode, cpp, header = sys.argv[1:]
+mode = sys.argv[1]
+cpp = sys.argv[2]
+include_dirs = sys.argv[3:]
 xml = mode == '--xml'
 
-command = [*shlex.split(cpp), '-include', header, '-']
+command = [*shlex.split(cpp), '-include', 'linux/ethtool.h'] + include_dirs + ['-']
 out = subprocess.check_output(command, stdin=subprocess.DEVNULL, universal_newlines=True)
 
 lines = iter(out.splitlines())

@@ -4,35 +4,38 @@
 #include <getopt.h>
 #include <linux/loop.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/file.h>
-#include <sys/ioctl.h>
-#include <sys/mount.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 
 #include "architecture.h"
+#include "argv-util.h"
 #include "blockdev-util.h"
 #include "build.h"
 #include "chase.h"
 #include "copy.h"
 #include "device-util.h"
-#include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
+#include "image-policy.h"
 #include "json-util.h"
 #include "libarchive-util.h"
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -44,11 +47,13 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "recurse-dir.h"
+#include "runtime-scope.h"
 #include "sha256.h"
 #include "shift-uid.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tar-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
@@ -469,23 +474,22 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_ROOT_HASH:
                 case ARG_USR_HASH: {
-                        _cleanup_free_ void *p = NULL;
-                        size_t l;
+                        _cleanup_(iovec_done) struct iovec roothash = {};
 
                         PartitionDesignator d = c == ARG_USR_HASH ? PARTITION_USR : PARTITION_ROOT;
                         if (arg_verity_settings.designator >= 0 &&
                             arg_verity_settings.designator != d)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
 
-                        r = unhexmem(optarg, &p, &l);
+                        r = unhexmem(optarg, &roothash.iov_base, &roothash.iov_len);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse root hash '%s': %m", optarg);
-                        if (l < sizeof(sd_id128_t))
+                        if (roothash.iov_len < sizeof(sd_id128_t))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Root hash must be at least 128-bit long: %s", optarg);
 
-                        free_and_replace(arg_verity_settings.root_hash, p);
-                        arg_verity_settings.root_hash_size = l;
+                        iovec_done(&arg_verity_settings.root_hash);
+                        arg_verity_settings.root_hash = TAKE_STRUCT(roothash);
                         arg_verity_settings.designator = d;
                         break;
                 }
@@ -493,8 +497,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ROOT_HASH_SIG:
                 case ARG_USR_HASH_SIG: {
                         char *value;
-                        size_t l;
-                        void *p;
+                        _cleanup_(iovec_done) struct iovec sig = {};
 
                         PartitionDesignator d = c == ARG_USR_HASH_SIG ? PARTITION_USR : PARTITION_ROOT;
                         if (arg_verity_settings.designator >= 0 &&
@@ -502,17 +505,17 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
 
                         if ((value = startswith(optarg, "base64:"))) {
-                                r = unbase64mem(value, &p, &l);
+                                r = unbase64mem(value, &sig.iov_base, &sig.iov_len);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
                         } else {
-                                r = read_full_file(optarg, (char**) &p, &l);
+                                r = read_full_file(optarg, (char**) &sig.iov_base, &sig.iov_len);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to read root hash signature file '%s': %m", optarg);
                         }
 
-                        free_and_replace(arg_verity_settings.root_hash_sig, p);
-                        arg_verity_settings.root_hash_sig_size = l;
+                        iovec_done(&arg_verity_settings.root_hash_sig);
+                        arg_verity_settings.root_hash_sig = TAKE_STRUCT(sig);
                         arg_verity_settings.designator = d;
                         break;
                 }
@@ -1102,9 +1105,9 @@ static int action_dissect(
 
                 r = sd_json_buildo(
                                 &v,
-                                SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(bn)),
+                                SD_JSON_BUILD_PAIR_STRING("name", bn),
                                 SD_JSON_BUILD_PAIR_CONDITION(size != UINT64_MAX, "size", SD_JSON_BUILD_INTEGER(size)),
-                                SD_JSON_BUILD_PAIR("sectorSize", SD_JSON_BUILD_INTEGER(m->sector_size)),
+                                SD_JSON_BUILD_PAIR_INTEGER("sectorSize", m->sector_size),
                                 SD_JSON_BUILD_PAIR_CONDITION(a >= 0, "architecture", SD_JSON_BUILD_STRING(architecture_to_string(a))),
                                 SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->image_uuid), "imageUuid", SD_JSON_BUILD_UUID(m->image_uuid)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!!m->hostname, "hostname", SD_JSON_BUILD_STRING(m->hostname)),
@@ -1114,16 +1117,16 @@ static int action_dissect(
                                 SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->initrd_release), "initrdRelease", JSON_BUILD_STRV_ENV_PAIR(m->initrd_release)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->sysext_release), "sysextRelease", JSON_BUILD_STRV_ENV_PAIR(m->sysext_release)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->confext_release), "confextRelease", JSON_BUILD_STRV_ENV_PAIR(m->confext_release)),
-                                SD_JSON_BUILD_PAIR("useBootableUefi", SD_JSON_BUILD_BOOLEAN(dissected_image_is_bootable_uefi(m))),
-                                SD_JSON_BUILD_PAIR("useBootableContainer", SD_JSON_BUILD_BOOLEAN(dissected_image_is_bootable_os(m))),
-                                SD_JSON_BUILD_PAIR("useInitrd", SD_JSON_BUILD_BOOLEAN(dissected_image_is_initrd(m))),
-                                SD_JSON_BUILD_PAIR("usePortableService", SD_JSON_BUILD_BOOLEAN(dissected_image_is_portable(m))),
-                                SD_JSON_BUILD_PAIR("useSystemExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "system"))),
-                                SD_JSON_BUILD_PAIR("useInitRDSystemExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "initrd"))),
-                                SD_JSON_BUILD_PAIR("usePortableSystemExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "portable"))),
-                                SD_JSON_BUILD_PAIR("useConfigurationExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "system"))),
-                                SD_JSON_BUILD_PAIR("useInitRDConfigurationExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "initrd"))),
-                                SD_JSON_BUILD_PAIR("usePortableConfigurationExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "portable"))));
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useBootableUefi", dissected_image_is_bootable_uefi(m)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useBootableContainer", dissected_image_is_bootable_os(m)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useInitrd", dissected_image_is_initrd(m)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("usePortableService", dissected_image_is_portable(m)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useSystemExtension", strv_contains(sysext_scopes, "system")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useInitRDSystemExtension", strv_contains(sysext_scopes, "initrd")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("usePortableSystemExtension", strv_contains(sysext_scopes, "portable")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useConfigurationExtension", strv_contains(confext_scopes, "system")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useInitRDConfigurationExtension", strv_contains(confext_scopes, "initrd")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("usePortableConfigurationExtension", strv_contains(confext_scopes, "portable")));
                 if (r < 0)
                         return log_oom();
         }
@@ -1201,7 +1204,7 @@ static int action_dissect(
         }
 
         if (!sd_json_format_enabled(arg_json_format_flags)) {
-                (void) table_set_header(t, arg_legend);
+                table_set_header(t, arg_legend);
 
                 r = table_print(t, NULL);
                 if (r < 0)
@@ -1290,7 +1293,7 @@ static const char *pick_color_for_uid_gid(uid_t uid) {
                 return ansi_highlight_yellow4(); /* files should never be owned by 'nobody' (but might happen due to userns mapping) */
         if (uid_is_system(uid))
                 return ansi_normal();            /* files in disk images are typically owned by root and other system users, no issue there */
-        if (uid_is_dynamic(uid))
+        if (uid_is_dynamic(uid) || uid_is_greeter(uid))
                 return ansi_highlight_red();     /* files should never be owned persistently by dynamic users, and there are just no excuses */
         if (uid_is_container(uid) || uid_is_foreign(uid))
                 return ansi_highlight_cyan();
@@ -1428,109 +1431,6 @@ static int mtree_print_item(
         return RECURSE_DIR_CONTINUE;
 }
 
-#if HAVE_LIBARCHIVE
-static int archive_item(
-                RecurseDirEvent event,
-                const char *path,
-                int dir_fd,
-                int inode_fd,
-                const struct dirent *de,
-                const struct statx *sx,
-                void *userdata) {
-
-        struct archive *a = ASSERT_PTR(userdata);
-        int r;
-
-        assert(path);
-
-        if (!IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY))
-                return RECURSE_DIR_CONTINUE;
-
-        assert(inode_fd >= 0);
-        assert(sx);
-
-        log_debug("Archiving %s\n", path);
-
-        _cleanup_(sym_archive_entry_freep) struct archive_entry *entry = NULL;
-        entry = sym_archive_entry_new();
-        if (!entry)
-                return log_oom();
-
-        assert(FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_MODE));
-        sym_archive_entry_set_pathname(entry, path);
-        sym_archive_entry_set_filetype(entry, sx->stx_mode);
-
-        if (!S_ISLNK(sx->stx_mode))
-                sym_archive_entry_set_perm(entry, sx->stx_mode);
-
-        if (FLAGS_SET(sx->stx_mask, STATX_UID))
-                sym_archive_entry_set_uid(entry, sx->stx_uid);
-        if (FLAGS_SET(sx->stx_mask, STATX_GID))
-                sym_archive_entry_set_gid(entry, sx->stx_gid);
-
-        if (S_ISREG(sx->stx_mode)) {
-                if (!FLAGS_SET(sx->stx_mask, STATX_SIZE))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Unable to determine file size of '%s'.", path);
-
-                sym_archive_entry_set_size(entry, sx->stx_size);
-        }
-
-        if (S_ISCHR(sx->stx_mode) || S_ISBLK(sx->stx_mode)) {
-                sym_archive_entry_set_rdevmajor(entry, sx->stx_rdev_major);
-                sym_archive_entry_set_rdevminor(entry, sx->stx_rdev_minor);
-        }
-
-        /* We care about a modicum of reproducibility here, hence we don't save atime/btime here */
-        if (FLAGS_SET(sx->stx_mask, STATX_MTIME))
-                sym_archive_entry_set_mtime(entry, sx->stx_mtime.tv_sec, sx->stx_mtime.tv_nsec);
-        if (FLAGS_SET(sx->stx_mask, STATX_CTIME))
-                sym_archive_entry_set_ctime(entry, sx->stx_ctime.tv_sec, sx->stx_ctime.tv_nsec);
-
-        if (S_ISLNK(sx->stx_mode)) {
-                _cleanup_free_ char *s = NULL;
-
-                assert(dir_fd >= 0);
-                assert(de);
-
-                r = readlinkat_malloc(dir_fd, de->d_name, &s);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read symlink target of '%s': %m", path);
-
-                sym_archive_entry_set_symlink(entry, s);
-        }
-
-        if (sym_archive_write_header(a, entry) != ARCHIVE_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to write archive entry header: %s", sym_archive_error_string(a));
-
-        if (S_ISREG(sx->stx_mode)) {
-                _cleanup_close_ int data_fd = -EBADF;
-
-                /* Convert the O_PATH fd in a proper fd */
-                data_fd = fd_reopen(inode_fd, O_RDONLY|O_CLOEXEC);
-                if (data_fd < 0)
-                        return log_error_errno(data_fd, "Failed to open '%s': %m", path);
-
-                for (;;) {
-                        char buffer[64*1024];
-                        ssize_t l;
-
-                        l = read(data_fd, buffer, sizeof(buffer));
-                        if (l < 0)
-                                return log_error_errno(errno, "Failed to read '%s': %m",  path);
-                        if (l == 0)
-                                break;
-
-                        la_ssize_t k;
-                        k = sym_archive_write_data(a, buffer, l);
-                        if (k < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to write archive data: %s", sym_archive_error_string(a));
-                }
-        }
-
-        return RECURSE_DIR_CONTINUE;
-}
-#endif
-
 static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopDevice *d, int userns_fd) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_free_ char *t = NULL;
@@ -1553,7 +1453,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                  * the mounts are done in a mount namespace there's not going to be a collision here */
                 r = get_common_dissect_directory(&t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed generate private mount directory: %m");
+                        return log_error_errno(r, "Failed to generate private mount directory: %m");
 
                 r = dissected_image_mount_and_warn(
                                 m,
@@ -1732,58 +1632,38 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
         case ACTION_MAKE_ARCHIVE: {
 #if HAVE_LIBARCHIVE
-                _cleanup_(unlink_and_freep) char *tar = NULL;
                 _cleanup_close_ int dfd = -EBADF;
-                _cleanup_fclose_ FILE *f = NULL;
 
                 dfd = open(root, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open mount directory: %m");
 
-                _cleanup_(sym_archive_write_freep) struct archive *a = sym_archive_write_new();
-                if (!a)
-                        return log_oom();
-
-                if (arg_target)
-                        r = sym_archive_write_set_format_filter_by_ext(a, arg_target);
-                else
-                        r = sym_archive_write_set_format_gnutar(a);
-                if (r != ARCHIVE_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to set libarchive output format: %s", sym_archive_error_string(a));
-
+                _cleanup_(unlink_and_freep) char *tar = NULL;
+                _cleanup_close_ int tmp_fd = -EBADF;
+                int output_fd;
                 if (arg_target) {
-                        r = fopen_tmpfile_linkable(arg_target, O_WRONLY|O_CLOEXEC, &tar, &f);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create target file '%s': %m", arg_target);
+                        tmp_fd = open_tmpfile_linkable(arg_target, O_WRONLY|O_CLOEXEC, &tar);
+                        if (tmp_fd < 0)
+                                return log_error_errno(tmp_fd, "Failed to create target file '%s': %m", arg_target);
 
-                        r = sym_archive_write_open_FILE(a, f);
+                        output_fd = tmp_fd;
                 } else {
                         if (isatty_safe(STDOUT_FILENO))
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Refusing to write archive to TTY.");
 
-                        r = sym_archive_write_open_fd(a, STDOUT_FILENO);
+                        output_fd = STDOUT_FILENO;
                 }
-                if (r != ARCHIVE_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to set libarchive output file: %s", sym_archive_error_string(a));
 
-                r = recurse_dir(dfd,
-                                ".",
-                                STATX_TYPE|STATX_MODE|STATX_UID|STATX_GID|STATX_SIZE|STATX_ATIME|STATX_CTIME,
-                                UINT_MAX,
-                                RECURSE_DIR_SORT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL,
-                                archive_item,
-                                a);
+                r = tar_c(dfd, output_fd, arg_target, /* flags= */ 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make archive: %m");
-
-                r = sym_archive_write_close(a);
-                if (r != ARCHIVE_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Unable to finish writing archive: %s", sym_archive_error_string(a));
+                        return r;
 
                 if (arg_target) {
-                        r = flink_tmpfile(f, tar, arg_target, LINK_TMPFILE_REPLACE);
+                        r = link_tmpfile(tmp_fd, tar, arg_target, LINK_TMPFILE_REPLACE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to move archive file into place: %m");
+
+                        tar = mfree(tar);
                 }
 
                 return 0;
@@ -1968,16 +1848,10 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
 
 static int action_discover(void) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
-        _cleanup_(table_unrefp) Table *t = NULL;
-        Image *img;
         int r;
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return log_oom();
-
         for (ImageClass cl = 0; cl < _IMAGE_CLASS_MAX; cl++) {
-                r = image_discover(arg_runtime_scope, cl, NULL, images);
+                r = image_discover(arg_runtime_scope, cl, NULL, &images);
                 if (r < 0)
                         return log_error_errno(r, "Failed to discover images: %m");
         }
@@ -1987,13 +1861,14 @@ static int action_discover(void) {
                 return 0;
         }
 
-        t = table_new("name", "type", "class", "ro", "path", "time", "usage");
+        _cleanup_(table_unrefp) Table *t = table_new("name", "type", "class", "ro", "path", "time", "usage");
         if (!t)
                 return log_oom();
 
         table_set_align_percent(t, table_get_cell(t, 0, 6), 100);
         table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
 
+        Image *img;
         HASHMAP_FOREACH(img, images) {
 
                 if (!arg_all && startswith(img->name, "."))
@@ -2005,8 +1880,8 @@ static int action_discover(void) {
                                 TABLE_SET_COLOR, startswith(img->name, ".") ? ANSI_GREY : NULL,
                                 TABLE_STRING, image_type_to_string(img->type),
                                 TABLE_STRING, image_class_to_string(img->class),
-                                TABLE_BOOLEAN, img->read_only,
-                                TABLE_SET_COLOR, !img->read_only ? ANSI_HIGHLIGHT_GREEN : ANSI_HIGHLIGHT_RED,
+                                TABLE_BOOLEAN, image_is_read_only(img),
+                                TABLE_SET_COLOR, image_is_read_only(img) ? ANSI_HIGHLIGHT_RED : ANSI_HIGHLIGHT_GREEN,
                                 TABLE_PATH, img->path,
                                 TABLE_TIMESTAMP, img->mtime != 0 ? img->mtime : img->crtime,
                                 TABLE_SIZE, img->usage,
@@ -2082,8 +1957,13 @@ static int action_detach(const char *path) {
                 FOREACH_DEVICE(e, d) {
                         _cleanup_(loop_device_unrefp) LoopDevice *entry_loop = NULL;
 
-                        if (!device_is_devtype(d, "disk")) /* Filter out partition block devices */
+                        r = device_is_devtype(d, "disk");
+                        if (r < 0) {
+                                log_device_warning_errno(d, r, "Failed to check if device is a whole disk, skipping: %m");
                                 continue;
+                        }
+                        if (r == 0)
+                                continue; /* Filter out partition block devices */
 
                         r = loop_device_open(d, O_RDONLY, LOCK_SH, &entry_loop);
                         if (r < 0) {
@@ -2272,9 +2152,17 @@ static int run(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to guess verity root hash: %m");
 
                                 if (arg_action != ACTION_DISSECT) {
+                                        _cleanup_(erase_and_freep) char *envpw = NULL;
+
+                                        r = getenv_steal_erase("PASSWORD", &envpw);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to acquire password from environment: %m");
+
                                         r = dissected_image_decrypt_interactively(
-                                                        m, NULL,
+                                                        m,
+                                                        envpw,
                                                         &arg_verity_settings,
+                                                        arg_image_policy,
                                                         arg_flags);
                                         if (r < 0)
                                                 return r;
@@ -2290,12 +2178,9 @@ static int run(int argc, char *argv[]) {
                         if (arg_loop_ref || arg_loop_ref_auto) /* yes, the 2nd check is strictly speaking redundant, given the normalization we did above, but let's be explicit here */
                                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--loop-ref=/--loop-ref-auto not supported when operating via systemd-mountfsd.");
 
-                        if (verity_settings_set(&arg_verity_settings))
-                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Externally configured verity settings not supported when operating via systemd-mountfsd.");
-
                         /* Don't run things in private userns, if the mount shall be attached to the host */
                         if (!IN_SET(arg_action, ACTION_MOUNT, ACTION_WITH)) {
-                                userns_fd = nsresource_allocate_userns(/* name= */ NULL, UINT64_C(0x10000)); /* allocate 64K users by default */
+                                userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K); /* allocate 64K users by default */
                                 if (userns_fd < 0)
                                         return log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
                         }
@@ -2304,6 +2189,7 @@ static int run(int argc, char *argv[]) {
                                         arg_image,
                                         userns_fd,
                                         arg_image_policy,
+                                        &arg_verity_settings,
                                         arg_flags,
                                         &m);
                         if (r < 0)

@@ -1,20 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <poll.h>
 #include <signal.h>
-#include <stdlib.h>
 #include <unistd.h>
 
+#include "bus-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
 #include "polkit-agent.h"
 #include "process-util.h"
 #include "stdio-util.h"
-#include "time-util.h"
 
 #if ENABLE_POLKIT
 static pid_t agent_pid = 0;

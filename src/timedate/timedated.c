@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/timex.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -18,31 +17,34 @@
 #include "bus-log-control-api.h"
 #include "bus-map-properties.h"
 #include "bus-message-util.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "clock-util.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hwclock-util.h"
+#include "label-util.h"
 #include "list.h"
 #include "log.h"
 #include "log-context.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "path-util.h"
-#include "selinux-util.h"
 #include "service-util.h"
-#include "signal-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
-#include "user-util.h"
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
@@ -290,22 +292,32 @@ static int context_write_data_timezone(Context *c) {
 
                 if (access("/usr/share/zoneinfo/UTC", F_OK) < 0) {
 
-                        if (unlink("/etc/localtime") < 0 && errno != ENOENT)
+                        if (unlink(etc_localtime()) < 0 && errno != ENOENT)
                                 return -errno;
 
                         return 0;
                 }
 
-                source = "../usr/share/zoneinfo/UTC";
+                source = "/usr/share/zoneinfo/UTC";
         } else {
-                p = path_join("../usr/share/zoneinfo", c->zone);
+                p = path_join("/usr/share/zoneinfo", c->zone);
                 if (!p)
                         return -ENOMEM;
 
                 source = p;
         }
 
-        return symlink_atomic(source, "/etc/localtime");
+        return symlinkat_atomic_full(source, AT_FDCWD, etc_localtime(),
+                                     !secure_getenv("SYSTEMD_ETC_LOCALTIME"));
+}
+
+static const char* etc_adjtime(void) {
+        static const char *cached = NULL;
+
+        if (!cached)
+                cached = secure_getenv("SYSTEMD_ETC_ADJTIME") ?: "/etc/adjtime";
+
+        return cached;
 }
 
 static int context_write_data_local_rtc(Context *c) {
@@ -314,7 +326,7 @@ static int context_write_data_local_rtc(Context *c) {
 
         assert(c);
 
-        r = read_full_file("/etc/adjtime", &s, NULL);
+        r = read_full_file(etc_adjtime(), &s, NULL);
         if (r < 0) {
                 if (r != -ENOENT)
                         return r;
@@ -366,7 +378,7 @@ static int context_write_data_local_rtc(Context *c) {
                 *mempcpy_typesafe(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
 
                 if (streq(w, NULL_ADJTIME_UTC)) {
-                        if (unlink("/etc/adjtime") < 0)
+                        if (unlink(etc_adjtime()) < 0)
                                 if (errno != ENOENT)
                                         return -errno;
 
@@ -378,7 +390,7 @@ static int context_write_data_local_rtc(Context *c) {
         if (r < 0)
                 return r;
 
-        return write_string_file("/etc/adjtime", w, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+        return write_string_file(etc_adjtime(), w, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
 }
 
 static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m) {
@@ -721,9 +733,9 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         log_struct(LOG_INFO,
                    LOG_MESSAGE_ID(SD_MESSAGE_TIMEZONE_CHANGE_STR),
                    LOG_ITEM("TIMEZONE=%s", c->zone),
-                   LOG_ITEM("TIMEZONE_SHORTNAME=%s", tzname[daylight]),
+                   LOG_ITEM("TIMEZONE_SHORTNAME=%s", get_tzname(daylight)),
                    LOG_ITEM("DAYLIGHT=%i", daylight),
-                   LOG_MESSAGE("Changed time zone to '%s' (%s).", c->zone, tzname[daylight]));
+                   LOG_MESSAGE("Changed time zone to '%s' (%s).", c->zone, get_tzname(daylight)));
 
         (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
                                               "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone",
@@ -1052,7 +1064,7 @@ static int method_list_timezones(sd_bus_message *m, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static const sd_bus_vtable timedate_vtable[] = {
@@ -1152,6 +1164,7 @@ static int run(int argc, char *argv[]) {
                                "Manage the system clock and timezone and NTP enablement.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
+                               /* runtime_scope= */ NULL,
                                argc, argv);
         if (r <= 0)
                 return r;

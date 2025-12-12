@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "copy.h"
 #include "data-fd-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "memfd-util.h"
-#include "missing_mman.h"
 #include "tmpfile-util.h"
 
 /* When the data is smaller or equal to 64K, try to place the copy in a memfd */

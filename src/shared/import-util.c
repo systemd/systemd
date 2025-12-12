@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
 #include "errno-util.h"
 #include "import-util.h"
 #include "log.h"
-#include "macro.h"
 #include "nulstr-util.h"
-#include "path-util.h"
 #include "string-table.h"
 #include "string-util.h"
 
@@ -170,7 +166,7 @@ int tar_strip_suffixes(const char *name, char **ret) {
         return 0;
 }
 
-int raw_strip_suffixes(const char *p, char **ret) {
+int raw_strip_suffixes(const char *name, char **ret) {
 
         static const char suffixes[] =
                 ".xz\0"
@@ -186,7 +182,7 @@ int raw_strip_suffixes(const char *p, char **ret) {
 
         _cleanup_free_ char *q = NULL;
 
-        q = strdup(p);
+        q = strdup(name);
         if (!q)
                 return -ENOMEM;
 
@@ -236,7 +232,7 @@ int import_set_nocow_and_log(int fd, const char *path) {
         r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL);
         if (r < 0)
                 return log_full_errno(
-                                ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
+                                ERRNO_IS_IOCTL_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
                                 r, "Failed to set file attributes on %s: %m", path);
 
         return 0;

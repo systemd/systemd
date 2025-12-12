@@ -5,8 +5,6 @@ set -o pipefail
 
 # Test OnSuccess=/OnFailure= in combination
 
-systemd-analyze log-level debug
-
 # Start-up should fail, but the automatic restart should fix it
 (! systemctl start success-failure-test )
 
@@ -45,5 +43,3 @@ done
 test "$(systemctl is-active success-failure-test-failure)" = "inactive"
 
 systemctl stop success-failure-test success-failure-test-success
-
-systemd-analyze log-level info

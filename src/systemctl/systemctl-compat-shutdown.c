@@ -3,13 +3,15 @@
 #include <getopt.h>
 
 #include "alloc-util.h"
+#include "log.h"
+#include "parse-util.h"
 #include "pretty-print.h"
 #include "reboot-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-compat-shutdown.h"
-#include "systemctl-logind.h"
-#include "systemctl-sysv-compat.h"
-#include "terminal-util.h"
+#include "time-util.h"
 
 static int shutdown_help(void) {
         _cleanup_free_ char *link = NULL;
@@ -43,6 +45,81 @@ static int shutdown_help(void) {
                ansi_highlight(), ansi_normal(),
                ansi_highlight_red(), ansi_normal(),
                link);
+
+        return 0;
+}
+
+static int parse_shutdown_time_spec(const char *t, usec_t *ret) {
+        int r;
+
+        assert(t);
+        assert(ret);
+
+        /* This parses SysV compat time spec. */
+
+        if (streq(t, "now"))
+                *ret = 0;
+        else if (!strchr(t, ':')) {
+                uint64_t u;
+
+                if (safe_atou64(t, &u) < 0)
+                        return -EINVAL;
+
+                *ret = now(CLOCK_REALTIME) + USEC_PER_MINUTE * u;
+        } else {
+                char *e = NULL;
+                long hour, minute;
+
+                errno = 0;
+                hour = strtol(t, &e, 10);
+                if (errno > 0 || *e != ':' || hour < 0 || hour > 23)
+                        return -EINVAL;
+
+                minute = strtol(e+1, &e, 10);
+                if (errno > 0 || *e != 0 || minute < 0 || minute > 59)
+                        return -EINVAL;
+
+                usec_t n = now(CLOCK_REALTIME);
+                struct tm tm = {};
+
+                r = localtime_or_gmtime_usec(n, /* utc= */ false, &tm);
+                if (r < 0)
+                        return r;
+
+                tm.tm_hour = (int) hour;
+                tm.tm_min = (int) minute;
+                tm.tm_sec = 0;
+
+                usec_t s;
+                r = mktime_or_timegm_usec(&tm, /* utc= */ false, &s);
+                if (r < 0)
+                        return r;
+
+                if (s <= n) {
+                        /* The specified time is today, but in the past. We need to schedule it for tomorrow
+                         * at the same time. Adding USEC_PER_DAY would be wrong across DST changes, so just
+                         * let mktime() normalise it. */
+                        int requested_hour = tm.tm_hour;
+                        int requested_min = tm.tm_min;
+
+                        tm.tm_mday++;
+                        tm.tm_isdst = -1;
+                        r = mktime_or_timegm_usec(&tm, /* utc= */ false, &s);
+                        if (r < 0)
+                                return r;
+
+                        if (tm.tm_hour != requested_hour || tm.tm_min != requested_min) {
+                                log_warning("Requested shutdown time %02d:%02d does not exist. "
+                                            "Rescheduling to %02d:%02d.",
+                                            requested_hour,
+                                            requested_min,
+                                            tm.tm_hour,
+                                            tm.tm_min);
+                        }
+                }
+
+                *ret = s;
+        }
 
         return 0;
 }

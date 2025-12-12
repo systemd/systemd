@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdarg.h>
-
 #include "alloc-util.h"
-#include "string-util.h"
 #include "tests.h"
 #include "xml.h"
 
@@ -19,12 +16,12 @@ static void test_one(const char *data, ...) {
                 const char *nn;
 
                 t = xml_tokenize(&data, &name, &state, NULL);
-                assert_se(t >= 0);
+                ASSERT_OK(t);
 
                 tt = va_arg(ap, int);
-                assert_se(tt >= 0);
+                ASSERT_GE(tt, 0);
 
-                assert_se(t == tt);
+                ASSERT_EQ(t, tt);
                 if (t == XML_END)
                         break;
 

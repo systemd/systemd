@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "efivars.h"
+#include "efi-efivars.h"
+#include "efi-log.h"
 #include "memory-util-fundamental.h"
 #include "proto/rng.h"
 #include "random-seed.h"
@@ -210,10 +211,10 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
 
         size = info->FileSize;
         if (size < RANDOM_MAX_SIZE_MIN)
-                return log_error("Random seed file is too short.");
+                return log_error_status(EFI_INVALID_PARAMETER, "Random seed file is too short.");
 
         if (size > RANDOM_MAX_SIZE_MAX)
-                return log_error("Random seed file is too large.");
+                return log_error_status(EFI_INVALID_PARAMETER, "Random seed file is too large.");
 
         seed = xmalloc(size);
         rsize = size;

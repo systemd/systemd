@@ -1,12 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/mman.h>
 
+#include "alloc-util.h"
+#include "boot-entry.h"
 #include "bootctl.h"
 #include "bootctl-util.h"
 #include "errno-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "sync-util.h"
 
 int sync_everything(void) {
@@ -119,7 +124,7 @@ int settle_entry_token(void) {
 
         r = boot_entry_token_ensure(
                         arg_root,
-                        getenv("KERNEL_INSTALL_CONF_ROOT"),
+                        secure_getenv("KERNEL_INSTALL_CONF_ROOT"),
                         arg_machine_id,
                         /* machine_id_is_random = */ false,
                         &arg_entry_token_type,

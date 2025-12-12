@@ -1,26 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "chase.h"
 #include "conf-files.h"
-#include "dirent-util.h"
 #include "dropin.h"
 #include "escape.h"
-#include "fd-util.h"
 #include "fileio.h"
-#include "hashmap.h"
 #include "log.h"
-#include "macro.h"
-#include "mkdir.h"
 #include "path-util.h"
 #include "set.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unit-def.h"
 #include "unit-name.h"
 
 int drop_in_file(

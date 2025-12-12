@@ -1,18 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <errno.h>
-#include <limits.h>
 #include <linux/oom.h>
 #include <pthread.h>
 #include <spawn.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <syslog.h>
 #include <threads.h>
@@ -28,8 +22,8 @@
 #include "argv-util.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
+#include "dlfcn-util.h"
 #include "env-file.h"
-#include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -40,16 +34,14 @@
 #include "iovec-util.h"
 #include "locale-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
-#include "missing_sched.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
@@ -59,10 +51,8 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "terminal-util.h"
 #include "time-util.h"
 #include "user-util.h"
-#include "utf8.h"
 
 /* The kernel limits userspace processes to TASK_COMM_LEN (16 bytes), but allows higher values for its own
  * workers, e.g. "kworker/u9:3-kcryptd/253:0". Let's pick a fixed smallish limit that will work for the kernel.
@@ -1364,6 +1354,18 @@ int pid_compare_func(const pid_t *a, const pid_t *b) {
         return CMP(*a, *b);
 }
 
+bool nice_is_valid(int n) {
+        return n >= PRIO_MIN && n < PRIO_MAX;
+}
+
+bool sched_policy_is_valid(int i) {
+        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR);
+}
+
+bool sched_priority_is_valid(int i) {
+        return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
+}
+
 /* The cached PID, possible values:
  *
  *     == UNSET [0]  → cache not initialized yet
@@ -1661,7 +1663,7 @@ int pidref_safe_fork_full(
                 }
 
                 if (ret_pid) {
-                        if (FLAGS_SET(flags, FORK_PID_ONLY))
+                        if (FLAGS_SET(flags, _FORK_PID_ONLY))
                                 *ret_pid = PIDREF_MAKE_FROM_PID(pid);
                         else {
                                 r = pidref_set_pid(ret_pid, pid);
@@ -1693,6 +1695,15 @@ int pidref_safe_fork_full(
                         log_full_errno(flags & FORK_LOG ? LOG_WARNING : LOG_DEBUG,
                                        r, "Failed to rename process, ignoring: %m");
         }
+
+        /* let's disable dlopen() in the child, as a paranoia safety precaution: children should not live for
+         * long and only do minimal work before exiting or exec()ing. Doing dlopen() is not either. If people
+         * want dlopen() they should do it before forking. This is a safety precaution in particular for
+         * cases where the child does namespace shenanigans: we should never end up loading a module from a
+         * foreign environment. Note that this has no effect on NSS! (i.e. it only has effect on uses of our
+         * dlopen_safe(), which we use comprehensively in our codebase, but glibc NSS doesn't bother, of
+         * course.) */
+        block_dlopen();
 
         if (flags & (FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL))
                 if (prctl(PR_SET_PDEATHSIG, fork_flags_to_signal(flags)) < 0) {
@@ -1839,7 +1850,7 @@ int pidref_safe_fork_full(
                 freeze();
 
         if (ret_pid) {
-                if (FLAGS_SET(flags, FORK_PID_ONLY))
+                if (FLAGS_SET(flags, _FORK_PID_ONLY))
                         *ret_pid = PIDREF_MAKE_FROM_PID(getpid_cached());
                 else {
                         r = pidref_set_self(ret_pid);
@@ -1868,7 +1879,7 @@ int safe_fork_full(
          * a pidref to the caller. */
         assert(!FLAGS_SET(flags, FORK_DETACH) || !ret_pid);
 
-        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags|FORK_PID_ONLY, ret_pid ? &pidref : NULL);
+        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags|_FORK_PID_ONLY, ret_pid ? &pidref : NULL);
         if (r < 0 || !ret_pid)
                 return r;
 
@@ -2145,11 +2156,7 @@ int posix_spawn_wrapper(
         if (cgroup && have_clone_into_cgroup) {
                 _cleanup_free_ char *resolved_cgroup = NULL;
 
-                r = cg_get_path_and_check(
-                                SYSTEMD_CGROUP_CONTROLLER,
-                                cgroup,
-                                /* suffix= */ NULL,
-                                &resolved_cgroup);
+                r = cg_get_path(cgroup, /* suffix= */ NULL, &resolved_cgroup);
                 if (r < 0)
                         return r;
 

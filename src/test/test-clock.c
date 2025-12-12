@@ -3,15 +3,13 @@
   Copyright © 2016 Canonical Ltd.
 ***/
 
-#include <fcntl.h>
 #include <unistd.h>
 
 #include "clock-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "log.h"
-#include "macro.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 

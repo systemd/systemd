@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
-/*
- * manage device node user ACL
- */
 
 #include "sd-login.h"
 
+#include "acl-util.h"
 #include "device-util.h"
-#include "devnode-acl.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "login-util.h"
 #include "udev-builtin.h"
 
@@ -26,14 +24,19 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
         if (!logind_running())
                 return 0;
 
-        const char *node;
-        r = sd_device_get_devname(dev, &node);
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get device node: %m");
+        _cleanup_close_ int fd = sd_device_open(dev, O_CLOEXEC|O_PATH);
+        if (fd < 0) {
+                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
+                log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
+                                      "Failed to open device node%s: %m",
+                                      ignore ? ", ignoring" : "");
+                return ignore ? 0 : fd;
+        }
 
         const char *seat;
-        if (sd_device_get_property_value(dev, "ID_SEAT", &seat) < 0)
-                seat = "seat0";
+        r = device_get_seat(dev, &seat);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get seat: %m");
 
         uid_t uid;
         r = sd_seat_get_active(seat, /* ret_session = */ NULL, &uid);
@@ -47,10 +50,7 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
                 goto reset;
         }
 
-        r = devnode_acl(node,
-                        /* flush = */ true,
-                        /* del = */ false, /* old_uid = */ 0,
-                        /* add = */ true, /* new_uid = */ uid);
+        r = devnode_acl(fd, uid);
         if (r < 0) {
                 log_device_full_errno(dev, r == -ENOENT ? LOG_DEBUG : LOG_ERR, r, "Failed to apply ACL: %m");
                 goto reset;
@@ -60,10 +60,7 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
 
 reset:
         /* Better be safe than sorry and reset ACL */
-        k = devnode_acl(node,
-                        /* flush = */ true,
-                        /* del = */ false, /* old_uid = */ 0,
-                        /* add = */ false, /* new_uid = */ 0);
+        k = devnode_acl(fd, /* uid = */ 0);
         if (k < 0)
                 RET_GATHER(r, log_device_full_errno(dev, k == -ENOENT ? LOG_DEBUG : LOG_ERR, k, "Failed to flush ACLs: %m"));
 

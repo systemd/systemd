@@ -3,8 +3,6 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
-#include <net/ethernet.h>
 #include <net/if_arp.h>
 #include <string.h>
 
@@ -15,20 +13,15 @@
 
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
 
-int dhcp_message_init(
+int bootp_message_init(
                 DHCPMessage *message,
                 uint8_t op,
                 uint32_t xid,
-                uint8_t type,
                 uint16_t arp_type,
                 uint8_t hlen,
-                const uint8_t *chaddr,
-                size_t optlen,
-                size_t *optoffset) {
+                const uint8_t *chaddr) {
 
-        size_t offset = 0;
-        int r;
-
+        assert(message);
         assert(IN_SET(op, BOOTREQUEST, BOOTREPLY));
         assert(chaddr || hlen == 0);
 
@@ -52,13 +45,37 @@ int dhcp_message_init(
         message->xid = htobe32(xid);
         message->magic = htobe32(DHCP_MAGIC_COOKIE);
 
+        return 0;
+}
+
+int dhcp_message_init(
+                DHCPMessage *message,
+                uint8_t op,
+                uint32_t xid,
+                uint16_t arp_type,
+                uint8_t hlen,
+                const uint8_t *chaddr,
+                uint8_t type,
+                size_t optlen,
+                size_t *ret_optoffset) {
+
+        size_t offset = 0;
+        int r;
+
+        assert(message);
+        assert(chaddr || hlen == 0);
+        assert(ret_optoffset);
+
+        r = bootp_message_init(message, op, xid, arp_type, hlen, chaddr);
+        if (r < 0)
+                return r;
+
         r = dhcp_option_append(message, optlen, &offset, 0,
                                SD_DHCP_OPTION_MESSAGE_TYPE, 1, &type);
         if (r < 0)
                 return r;
 
-        *optoffset = offset;
-
+        *ret_optoffset = offset;
         return 0;
 }
 
@@ -119,7 +136,7 @@ void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
         packet->udp.len = htobe16(len - DHCP_IP_SIZE);
 
         packet->ip.check = packet->udp.len;
-        packet->udp.check = dhcp_packet_checksum((uint8_t*)&packet->ip.ttl, len - 8);
+        packet->udp.check = dhcp_packet_checksum(&packet->ip.ttl, len - 8);
 
         packet->ip.ttl = IPDEFTTL;
         packet->ip.check = 0;
@@ -184,7 +201,7 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
                 packet->ip.check = packet->udp.len;
                 packet->ip.ttl = 0;
 
-                if (dhcp_packet_checksum((uint8_t*)&packet->ip.ttl,
+                if (dhcp_packet_checksum(&packet->ip.ttl,
                                   be16toh(packet->udp.len) + 12))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "ignoring packet: invalid UDP checksum");

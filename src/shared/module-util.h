@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "dlfcn-util.h"
+#include "shared-forward.h"
 
 #if HAVE_KMOD
 
-#include <libkmod.h>
+#include <libkmod.h> /* IWYU pragma: export */
 
-#include "macro.h"
-#include "memory-util.h"
+#include "dlfcn-util.h"
 
 extern DLSYM_PROTOTYPE(kmod_list_next);
 extern DLSYM_PROTOTYPE(kmod_load_resources);
@@ -26,9 +25,9 @@ extern DLSYM_PROTOTYPE(kmod_validate_resources);
 
 int dlopen_libkmod(void);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct kmod_ctx*, sym_kmod_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct kmod_module*, sym_kmod_module_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct kmod_list*, sym_kmod_module_unref_list, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct kmod_ctx*, sym_kmod_unref, kmod_unrefp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct kmod_module*, sym_kmod_module_unref, kmod_module_unrefp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct kmod_list*, sym_kmod_module_unref_list, kmod_module_unref_listp, NULL);
 
 #define sym_kmod_list_foreach(list_entry, first_entry) \
         for (list_entry = first_entry; \

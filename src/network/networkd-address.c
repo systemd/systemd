@@ -1,21 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
-#include <net/if_arp.h>
+#include <stdio.h>
+
+#include "sd-event.h"
+#include "sd-netlink.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bitfield.h"
+#include "conf-parser.h"
+#include "errno-util.h"
 #include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "logarithm.h"
-#include "memory-util.h"
 #include "netlink-util.h"
+#include "networkd-address-generation.h"
 #include "networkd-address.h"
 #include "networkd-address-pool.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-ipv4acd.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-netlabel.h"
@@ -23,10 +29,13 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
+#include "set.h"
+#include "siphash24.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "strxcpyx.h"
 
 #define ADDRESSES_PER_LINK_MAX 16384U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 8192U
@@ -307,6 +316,27 @@ bool link_check_addresses_ready(Link *link, NetworkConfigSource source) {
 
         SET_FOREACH(a, link->addresses) {
                 if (source >= 0 && a->source != source)
+                        continue;
+                if (address_is_marked(a))
+                        continue;
+                if (!address_exists(a))
+                        continue;
+                if (!address_is_ready(a))
+                        return false;
+                has = true;
+        }
+
+        if (has || source != NETWORK_CONFIG_SOURCE_DHCP6)
+                return has;
+
+        /* If there is no DHCPv6 addresses, but all conflicting addresses are successfully configured, then
+         * let's handle the DHCPv6 client successfully configured addresses. Otherwise, if the conflicted
+         * addresses are static or foreign, and there is no other dynamic addressing protocol enabled, then
+         * the link will never enter the configured state. See also link_check_ready(). */
+        SET_FOREACH(a, link->addresses) {
+                if (source >= 0 && a->source == NETWORK_CONFIG_SOURCE_DHCP6)
+                        continue;
+                if (!a->also_requested_by_dhcp6)
                         continue;
                 if (address_is_marked(a))
                         continue;
@@ -639,6 +669,10 @@ static int address_set_masquerade(Address *address, bool add) {
 
         assert(address);
         assert(address->link);
+        assert(address->link->manager);
+
+        if (!address->link->manager->nfnl)
+                return 0;
 
         if (!address->link->network)
                 return 0;
@@ -657,7 +691,7 @@ static int address_set_masquerade(Address *address, bool add) {
         if (r < 0)
                 return r;
 
-        r = fw_add_masquerade(&address->link->manager->fw_ctx, add, address->family, &masked, address->prefixlen);
+        r = fw_nftables_add_masquerade(address->link->manager->nfnl, add, address->family, &masked, address->prefixlen);
         if (r < 0)
                 return r;
 
@@ -672,13 +706,8 @@ static void address_modify_nft_set_context(Address *address, bool add, NFTSetCon
         assert(address);
         assert(address->link);
         assert(address->link->manager);
+        assert(address->link->manager->nfnl);
         assert(nft_set_context);
-
-        if (!address->link->manager->fw_ctx) {
-                r = fw_ctx_new_full(&address->link->manager->fw_ctx, /* init_tables= */ false);
-                if (r < 0)
-                        return;
-        }
 
         FOREACH_ARRAY(nft_set, nft_set_context->sets, nft_set_context->n_sets) {
                 uint32_t ifindex;
@@ -687,16 +716,16 @@ static void address_modify_nft_set_context(Address *address, bool add, NFTSetCon
 
                 switch (nft_set->source) {
                 case NFT_SET_SOURCE_ADDRESS:
-                        r = nft_set_element_modify_ip(address->link->manager->fw_ctx, add, nft_set->nfproto, address->family, nft_set->table, nft_set->set,
+                        r = nft_set_element_modify_ip(address->link->manager->nfnl, add, nft_set->nfproto, address->family, nft_set->table, nft_set->set,
                                                       &address->in_addr);
                         break;
                 case NFT_SET_SOURCE_PREFIX:
-                        r = nft_set_element_modify_iprange(address->link->manager->fw_ctx, add, nft_set->nfproto, address->family, nft_set->table, nft_set->set,
+                        r = nft_set_element_modify_iprange(address->link->manager->nfnl, add, nft_set->nfproto, address->family, nft_set->table, nft_set->set,
                                                            &address->in_addr, address->prefixlen);
                         break;
                 case NFT_SET_SOURCE_IFINDEX:
                         ifindex = address->link->ifindex;
-                        r = nft_set_element_modify_any(address->link->manager->fw_ctx, add, nft_set->nfproto, nft_set->table, nft_set->set,
+                        r = nft_set_element_modify_any(address->link->manager->nfnl, add, nft_set->nfproto, nft_set->table, nft_set->set,
                                                        &ifindex, sizeof(ifindex));
                         break;
                 default:
@@ -704,12 +733,12 @@ static void address_modify_nft_set_context(Address *address, bool add, NFTSetCon
                 }
 
                 if (r < 0)
-                        log_warning_errno(r, "Failed to %s NFT set: family %s, table %s, set %s, IP address %s, ignoring: %m",
+                        log_warning_errno(r, "Failed to %s NFT set entry: family %s, table %s, set %s, IP address %s, ignoring: %m",
                                           add ? "add" : "delete",
                                           nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set,
                                           IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
                 else
-                        log_debug("%s NFT set: family %s, table %s, set %s, IP address %s",
+                        log_debug("%s NFT set entry: family %s, table %s, set %s, IP address %s",
                                   add ? "Added" : "Deleted",
                                   nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set,
                                   IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
@@ -719,6 +748,10 @@ static void address_modify_nft_set_context(Address *address, bool add, NFTSetCon
 static void address_modify_nft_set(Address *address, bool add) {
         assert(address);
         assert(address->link);
+        assert(address->link->manager);
+
+        if (!address->link->manager->nfnl)
+                return;
 
         if (!IN_SET(address->family, AF_INET, AF_INET6))
                 return;
@@ -793,7 +826,7 @@ static int address_update(Address *address) {
                         return r;
         }
 
-        link_update_operstate(link, /* also_update_bond_master = */ true);
+        link_update_operstate(link, /* also_update_master = */ true);
         link_check_ready(link);
         return 0;
 }
@@ -868,7 +901,7 @@ static int address_drop(Address *in, bool removed_by_us) {
                 }
         }
 
-        link_update_operstate(link, /* also_update_bond_master = */ true);
+        link_update_operstate(link, /* also_update_master = */ true);
         link_check_ready(link);
         return 0;
 }
@@ -1315,7 +1348,7 @@ int link_drop_ipv6ll_addresses(Link *link) {
         /* IPv6LL address may be in the tentative state, and in that case networkd has not received it.
          * So, we need to dump all IPv6 addresses. */
 
-        if (link_may_have_ipv6ll(link, /* check_multicast = */ false))
+        if (link_ipv6ll_enabled_harder(link))
                 return 0;
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_GETADDR, link->ifindex, AF_INET6);
@@ -1420,7 +1453,7 @@ int link_drop_unmanaged_addresses(Link *link) {
                                 continue;
 
                 } else if (address->source != NETWORK_CONFIG_SOURCE_STATIC)
-                        continue; /* Ignore dynamically configurad addresses. */
+                        continue; /* Ignore dynamically configured addresses. */
 
                 address_mark(address);
         }
@@ -1939,6 +1972,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 nft_set_context_clear(&address->nft_set_context);
                 (void) nft_set_context_dup(&a->nft_set_context, &address->nft_set_context);
                 address->requested_as_null = a->requested_as_null;
+                address->also_requested_by_dhcp6 = a->also_requested_by_dhcp6;
                 address->callback = a->callback;
 
                 ipv6_token_ref(a->token);
@@ -2393,16 +2427,22 @@ int address_section_verify(Address *address) {
         return 0;
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        trivial_hash_ops_address_detach,
+        void,
+        trivial_hash_func,
+        trivial_compare_func,
+        Address,
+        address_detach);
+
 int network_drop_invalid_addresses(Network *network) {
-        _cleanup_set_free_ Set *addresses = NULL;
+        _cleanup_set_free_ Set *addresses = NULL, *duplicated_addresses = NULL;
         Address *address;
         int r;
 
         assert(network);
 
         ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section) {
-                Address *dup;
-
                 if (address_section_verify(address) < 0) {
                         /* Drop invalid [Address] sections or Address= settings in [Network].
                          * Note that address_detach() will drop the address from addresses_by_section. */
@@ -2411,7 +2451,7 @@ int network_drop_invalid_addresses(Network *network) {
                 }
 
                 /* Always use the setting specified later. So, remove the previously assigned setting. */
-                dup = set_remove(addresses, address);
+                Address *dup = set_remove(addresses, address);
                 if (dup) {
                         log_warning("%s: Duplicated address %s is specified at line %u and %u, "
                                     "dropping the address setting specified at line %u.",
@@ -2420,8 +2460,12 @@ int network_drop_invalid_addresses(Network *network) {
                                     address->section->line,
                                     dup->section->line, dup->section->line);
 
-                        /* address_detach() will drop the address from addresses_by_section. */
-                        address_detach(dup);
+                        /* Do not call address_detach() for 'dup' now, as we can remove only the current
+                         * entry in the loop. We will drop the address from addresses_by_section later. */
+                        r = set_ensure_put(&duplicated_addresses, &trivial_hash_ops_address_detach, dup);
+                        if (r < 0)
+                                return log_oom();
+                        assert(r > 0);
                 }
 
                 /* Use address_hash_ops, instead of address_hash_ops_detach. Otherwise, the Address objects

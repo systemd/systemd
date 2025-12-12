@@ -2,8 +2,8 @@
 #pragma once
 
 #include "ask-password-api.h"
+#include "shared-forward.h"
 #include "iovec-util.h"
-#include "macro.h"
 #include "sha256.h"
 
 typedef enum CertificateSourceType {
@@ -30,45 +30,49 @@ int parse_openssl_key_source_argument(const char *argument, char **private_key_s
 #define X509_FINGERPRINT_SIZE SHA256_DIGEST_SIZE
 
 #if HAVE_OPENSSL
-#  include <openssl/bio.h>
-#  include <openssl/bn.h>
-#  include <openssl/crypto.h>
-#  include <openssl/err.h>
-#  include <openssl/evp.h>
-#  include <openssl/opensslv.h>
-#  include <openssl/pkcs7.h>
-#  include <openssl/ssl.h>
-#  include <openssl/ui.h>
-#  include <openssl/x509v3.h>
+#  include <openssl/bio.h>              /* IWYU pragma: export */
+#  include <openssl/bn.h>               /* IWYU pragma: export */
+#  include <openssl/crypto.h>           /* IWYU pragma: export */
+#  include <openssl/err.h>              /* IWYU pragma: export */
+#  include <openssl/evp.h>              /* IWYU pragma: export */
+#  include <openssl/opensslv.h>         /* IWYU pragma: export */
+#  include <openssl/pkcs7.h>            /* IWYU pragma: export */
+#  include <openssl/ssl.h>              /* IWYU pragma: export */
+#  ifndef OPENSSL_NO_UI_CONSOLE
+#    include <openssl/ui.h>             /* IWYU pragma: export */
+#  endif
+#  include <openssl/x509v3.h>           /* IWYU pragma: export */
 #  ifndef OPENSSL_VERSION_MAJOR
 /* OPENSSL_VERSION_MAJOR macro was added in OpenSSL 3. Thus, if it doesn't exist,  we must be before OpenSSL 3. */
 #    define OPENSSL_VERSION_MAJOR 1
 #  endif
 #  if OPENSSL_VERSION_MAJOR >= 3
-#    include <openssl/core_names.h>
-#    include <openssl/kdf.h>
-#    include <openssl/param_build.h>
-#    include <openssl/provider.h>
-#    include <openssl/store.h>
+#    include <openssl/core_names.h>     /* IWYU pragma: export */
+#    include <openssl/kdf.h>            /* IWYU pragma: export */
+#    include <openssl/param_build.h>    /* IWYU pragma: export */
+#    include <openssl/provider.h>       /* IWYU pragma: export */
+#    include <openssl/store.h>          /* IWYU pragma: export */
 #  endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(void*, OPENSSL_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509_NAME*, X509_NAME_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY_CTX*, EVP_PKEY_CTX_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_CIPHER_CTX*, EVP_CIPHER_CTX_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_POINT*, EC_POINT_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_GROUP*, EC_GROUP_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_OCTET_STRING*, ASN1_OCTET_STRING_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_TIME*, ASN1_TIME_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free_all, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIGNUM*, BN_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BN_CTX*, BN_CTX_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_GROUP*, EC_GROUP_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_POINT*, EC_POINT_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ECDSA_SIG*, ECDSA_SIG_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_CIPHER_CTX*, EVP_CIPHER_CTX_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD_CTX*, EVP_MD_CTX_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY_CTX*, EVP_PKEY_CTX_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(PKCS7*, PKCS7_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(PKCS7_SIGNER_INFO*, PKCS7_SIGNER_INFO_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(SSL*, SSL_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free_all, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD_CTX*, EVP_MD_CTX_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_OCTET_STRING*, ASN1_OCTET_STRING_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_TIME*, ASN1_TIME_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509_NAME*, X509_NAME_free, NULL);
 
 static inline STACK_OF(X509_ALGOR) *x509_algor_free_many(STACK_OF(X509_ALGOR) *attrs) {
         if (!attrs)
@@ -165,58 +169,15 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 
 int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_t size, void **ret, size_t *ret_size);
 
-int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, PKCS7 **ret_p7, PKCS7_SIGNER_INFO **ret_si);
+int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, const char *hash_algorithm, PKCS7 **ret_p7, PKCS7_SIGNER_INFO **ret_si);
 
 int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret);
-
-#else
-
-typedef struct X509 X509;
-typedef struct EVP_PKEY EVP_PKEY;
-typedef struct EVP_MD EVP_MD;
-typedef struct UI_METHOD UI_METHOD;
-typedef struct ASN1_TYPE ASN1_TYPE;
-typedef struct ASN1_STRING ASN1_STRING;
-
-static inline void* X509_free(X509 *p) {
-        assert(p == NULL);
-        return NULL;
+static inline int string_hashsum_sha224(const char *s, size_t len, char **ret) {
+        return string_hashsum(s, len, "SHA224", ret);
 }
-
-static inline void* EVP_PKEY_free(EVP_PKEY *p) {
-        assert(p == NULL);
-        return NULL;
+static inline int string_hashsum_sha256(const char *s, size_t len, char **ret) {
+        return string_hashsum(s, len, "SHA256", ret);
 }
-
-static inline void* ASN1_TYPE_free(ASN1_TYPE *p) {
-        assert(p == NULL);
-        return NULL;
-}
-
-static inline void* ASN1_STRING_free(ASN1_STRING *p) {
-        assert(p == NULL);
-        return NULL;
-}
-
-static inline int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret) {
-        return -EOPNOTSUPP;
-}
-
-#endif
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_TYPE*, ASN1_TYPE_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_STRING*, ASN1_STRING_free, NULL);
-
-struct OpenSSLAskPasswordUI {
-        AskPasswordRequest request;
-        UI_METHOD *method;
-};
-
-OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_free, NULL);
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static X509_FINGERPRINT_SIZE]);
 
@@ -234,10 +195,15 @@ int openssl_load_private_key(
                 EVP_PKEY **ret_private_key,
                 OpenSSLAskPasswordUI **ret_user_interface);
 
-static inline int string_hashsum_sha224(const char *s, size_t len, char **ret) {
-        return string_hashsum(s, len, "SHA224", ret);
-}
+int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret);
 
-static inline int string_hashsum_sha256(const char *s, size_t len, char **ret) {
-        return string_hashsum(s, len, "SHA256", ret);
-}
+struct OpenSSLAskPasswordUI {
+        AskPasswordRequest request;
+#ifndef OPENSSL_NO_UI_CONSOLE
+        UI_METHOD *method;
+#endif
+};
+
+OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_free, NULL);
+#endif

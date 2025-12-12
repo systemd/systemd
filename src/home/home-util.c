@@ -1,14 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
+#include "hash-funcs.h"
 #include "home-util.h"
-#include "libcrypt-util.h"
-#include "memory-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-record.h"
 #include "user-util.h"
+
+/* This should be 83% right now, i.e. 100 of (100 + 20). Let's protect us against accidental changes. */
+assert_cc(USER_DISK_SIZE_DEFAULT_PERCENT == 83U);
 
 DEFINE_HASH_OPS_FULL(blob_fd_hash_ops, char, path_hash_func, path_compare, free, void, close_fd_ptr);
 

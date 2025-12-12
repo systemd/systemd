@@ -40,17 +40,16 @@ REQUIREMENTS:
                      ≥ 4.13 for TIOCGPTPEER and SYNTH_UUID= property support in uevent
                      ≥ 4.15 for cgroup-bpf device hook and cpu controller in cgroup v2
                      ≥ 4.17 for cgroup-bpf socket address hooks, /sys/power/resume_offset,
-                            and FRA_PROTOCOL attribute for fib rules
+                                and FRA_PROTOCOL attribute for fib rules
                      ≥ 4.20 for PSI (used by systemd-oomd)
                      ≥ 5.1 for SO_BINDTOIFINDEX
                      ≥ 5.2 for cgroup freezer and new mount API
                      ≥ 5.3 for bounded loops in BPF program, keyring namespacing,
-                           and nexthop support
+                               and nexthop support
                      ≥ 5.4 for pidfd and signed Verity images
 
         ⛔ Kernel versions below 5.4 ("minimum baseline") are not supported at all,
            and are missing required functionality as listed above.
-           # FIXME: actually drop compat glue before v258
 
         Linux kernel ≥ 5.6 for getrandom() GRND_INSECURE
                      ≥ 5.7 for CLONE_INTO_CGROUP, cgroup2fs memory_recursiveprot option,
@@ -70,8 +69,12 @@ REQUIREMENTS:
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
                                and MOVE_MOUNT_BENEATH
                      ≥ 6.6 for quota support on tmpfs
+                     ≥ 6.7 for cgroup2fs memory_hugetlb_accounting option
                      ≥ 6.9 for pidfs
+                     ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
+                                and block device 'partscan' sysfs attribute
                      ≥ 6.13 for PIDFD_GET_INFO and {set,remove}xattrat()
+                     ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
            when unavailable.
@@ -163,7 +166,7 @@ REQUIREMENTS:
 
         Required for reading credentials from SMBIOS:
           CONFIG_DMI
-          CONFIG_DMI_SYSFS
+          CONFIG_DMI_SYSFS (must be built-in, not as kmod)
 
         Required for RestrictFileSystems= in service units:
           CONFIG_BPF
@@ -209,7 +212,7 @@ REQUIREMENTS:
         newer though. TL;DR: turn audit off, still.
 
         glibc >= 2.31
-        libcap
+        libxcrypt or glibc (<= 2.38 built with --enable-crypt)
         libmount >= 2.30 (from util-linux)
                 (util-linux *must* be built without --enable-libmount-support-mtab)
         libseccomp >= 2.3.1 (optional)
@@ -287,7 +290,7 @@ REQUIREMENTS:
 
         Useful commands:
           ninja -C build -v some/target
-          meson test -C build/
+          meson test -C build/ -q
           sudo meson install -C build/ --no-rebuild
           DESTDIR=... meson install -C build/
 

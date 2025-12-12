@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "assert-util.h"
-#include "memory-util.h"
+#include "shared-forward.h"
 
 #if defined(__x86_64__) || defined(__i386__) || defined(__arm__) || defined(__aarch64__)
 #  define ARCHITECTURE_SUPPORTS_SMBIOS 1
@@ -31,8 +28,14 @@
 #endif
 
 #if defined(__x86_64__) || defined(__i386__)
+#  define ARCHITECTURE_SUPPORTS_HPET 1
+#else
+#  define ARCHITECTURE_SUPPORTS_HPET 0
+#endif
+
+#if defined(__x86_64__) || defined(__i386__)
 #  define QEMU_MACHINE_TYPE "q35"
-#elif defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch64)
+#elif defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch64) || defined(__m68k__)
 #  define QEMU_MACHINE_TYPE "virt"
 #elif defined(__s390__) || defined(__s390x__)
 #  define QEMU_MACHINE_TYPE "s390-ccw-virtio"
@@ -40,8 +43,10 @@
 #  define QEMU_MACHINE_TYPE "pseries"
 #elif defined(__mips__)
 #  define QEMU_MACHINE_TYPE "malta"
+#elif defined(__sparc__)
+#  define QEMU_MACHINE_TYPE "sun4u"
 #else
-#  error "No qemu machine defined for this architecture"
+#  define QEMU_MACHINE_TYPE "none"
 #endif
 
 typedef struct OvmfConfig {
@@ -86,6 +91,6 @@ int list_ovmf_config(char ***ret);
 int load_ovmf_config(const char *path, OvmfConfig **ret);
 int find_ovmf_config(int search_sb, OvmfConfig **ret);
 int find_qemu_binary(char **ret_qemu_binary);
-int vsock_fix_child_cid(int vsock_fd, unsigned *machine_cid, const char *machine);
+int vsock_fix_child_cid(int vhost_device_fd, unsigned *machine_cid, const char *machine);
 
 char* escape_qemu_value(const char *s);

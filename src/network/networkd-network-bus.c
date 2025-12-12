@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
+#include "bus-object.h"
 #include "ether-addr-util.h"
 #include "networkd-manager.h"
 #include "networkd-network-bus.h"
-#include "path-util.h"
-#include "string-util.h"
+#include "set.h"
 #include "strv.h"
 
 static int property_get_hw_addrs(

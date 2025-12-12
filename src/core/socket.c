@@ -1,35 +1,37 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/sctp.h>
 #include <mqueue.h>
 #include <netinet/tcp.h>
-#include <sys/epoll.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
-#include "bpf-firewall.h"
+#include "bpf-program.h"
+#include "bus-common-errors.h"
 #include "bus-error.h"
-#include "bus-util.h"
-#include "chase.h"
-#include "constants.h"
 #include "copy.h"
 #include "dbus-socket.h"
 #include "dbus-unit.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "exit-status.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "format-util.h"
+#include "fs-util.h"
+#include "glyph-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
 #include "ip-protocol-list.h"
-#include "label-util.h"
 #include "log.h"
 #include "manager.h"
 #include "mkdir-label.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
@@ -38,7 +40,8 @@
 #include "selinux-util.h"
 #include "serialize.h"
 #include "service.h"
-#include "signal-util.h"
+#include "set.h"
+#include "siphash24.h"
 #include "smack-util.h"
 #include "socket.h"
 #include "socket-netlink.h"
@@ -50,14 +53,14 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-struct SocketPeer {
+typedef struct SocketPeer {
         unsigned n_ref;
 
         Socket *socket;
         union sockaddr_union peer;
         socklen_t peer_salen;
         struct ucred peer_cred;
-};
+} SocketPeer;
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD]             = UNIT_INACTIVE,
@@ -66,6 +69,7 @@ static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_START_CHOWN]      = UNIT_ACTIVATING,
         [SOCKET_START_POST]       = UNIT_ACTIVATING,
         [SOCKET_LISTENING]        = UNIT_ACTIVE,
+        [SOCKET_DEFERRED]         = UNIT_ACTIVE,
         [SOCKET_RUNNING]          = UNIT_ACTIVE,
         [SOCKET_STOP_PRE]         = UNIT_DEACTIVATING,
         [SOCKET_STOP_PRE_SIGTERM] = UNIT_DEACTIVATING,
@@ -126,6 +130,7 @@ static void socket_init(Unit *u) {
 
         s->max_connections = 64;
 
+        s->pass_rights = true; /* defaults to enabled in kernel */
         s->priority = -1;
         s->ip_tos = -1;
         s->ip_ttl = -1;
@@ -140,6 +145,8 @@ static void socket_init(Unit *u) {
         s->trigger_limit = RATELIMIT_OFF;
 
         s->poll_limit = RATELIMIT_OFF;
+
+        s->defer_trigger_max_usec = USEC_INFINITY;
 }
 
 static void socket_unwatch_control_pid(Socket *s) {
@@ -423,6 +430,9 @@ static int socket_verify(Socket *s) {
         if (s->accept && UNIT_ISSET(s->service))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Explicit service configuration for accepting socket units not supported. Refusing.");
 
+        if (s->accept && s->defer_trigger != SOCKET_DEFER_NO)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Socket unit is configured to be accepting with DeferTrigger= enabled. Refusing.");
+
         if (!strv_isempty(s->symlinks) && !socket_find_symlink_target(s))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Unit has symlinks set but none or more than one node in the file system. Refusing.");
 
@@ -607,13 +617,15 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTransparent: %s\n"
                 "%sBroadcast: %s\n"
                 "%sPassCredentials: %s\n"
-                "%sPassFileDescriptorsToExec: %s\n"
+                "%sPassPIDFD: %s\n"
                 "%sPassSecurity: %s\n"
                 "%sPassPacketInfo: %s\n"
+                "%sAcceptFileDescriptors: %s\n"
                 "%sTCPCongestion: %s\n"
                 "%sRemoveOnStop: %s\n"
                 "%sWritable: %s\n"
                 "%sFileDescriptorName: %s\n"
+                "%sPassFileDescriptorsToExec: %s\n"
                 "%sSELinuxContextFromNet: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
@@ -628,13 +640,15 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->transparent),
                 prefix, yes_no(s->broadcast),
                 prefix, yes_no(s->pass_cred),
-                prefix, yes_no(s->pass_fds_to_exec),
+                prefix, yes_no(s->pass_pidfd),
                 prefix, yes_no(s->pass_sec),
                 prefix, yes_no(s->pass_pktinfo),
+                prefix, yes_no(s->pass_rights),
                 prefix, strna(s->tcp_congestion),
                 prefix, yes_no(s->remove_on_stop),
                 prefix, yes_no(s->writable),
                 prefix, socket_fdname(s),
+                prefix, yes_no(s->pass_fds_to_exec),
                 prefix, yes_no(s->selinux_context_from_net));
 
         if (s->timestamping != SOCKET_TIMESTAMPING_OFF)
@@ -664,8 +678,12 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, s->max_connections_per_source);
         else
                 fprintf(f,
-                        "%sFlushPending: %s\n",
-                         prefix, yes_no(s->flush_pending));
+                        "%sFlushPending: %s\n"
+                        "%sDeferTrigger: %s\n"
+                        "%sDeferTriggerMaxSec: %s\n",
+                        prefix, yes_no(s->flush_pending),
+                        prefix, socket_defer_trigger_to_string(s->defer_trigger),
+                        prefix, FORMAT_TIMESPAN(s->defer_trigger_max_usec, USEC_PER_SEC));
 
         if (s->priority >= 0)
                 fprintf(f,
@@ -830,7 +848,11 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         cgroup_context_dump(UNIT(s), f, prefix);
 }
 
-static int instance_from_socket(int fd, unsigned nr, char **ret) {
+static int instance_from_socket(
+                int fd,
+                unsigned nr,
+                char **ret) {
+
         union sockaddr_union local, remote;
         socklen_t l;
         int r;
@@ -846,6 +868,11 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
         if (getpeername(fd, &remote.sa, &l) < 0)
                 return -errno;
 
+        uint64_t cookie;
+        r = socket_get_cookie(fd, &cookie);
+        if (r < 0)
+                return r;
+
         char *s;
 
         switch (local.sa.sa_family) {
@@ -856,8 +883,9 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
                         b = be32toh(remote.in.sin_addr.s_addr);
 
                 if (asprintf(&s,
-                             "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                             "%u-%" PRIu64 "-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
                              nr,
+                             cookie,
                              a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
                              be16toh(local.in.sin_port),
                              b >> 24, (b >> 16) & 0xFF, (b >> 8) & 0xFF, b & 0xFF,
@@ -879,8 +907,9 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
                                 *b = remote.in6.sin6_addr.s6_addr+12;
 
                         if (asprintf(&s,
-                                     "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                                     "%u-%" PRIu64 "-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
                                      nr,
+                                     cookie,
                                      a[0], a[1], a[2], a[3],
                                      be16toh(local.in6.sin6_port),
                                      b[0], b[1], b[2], b[3],
@@ -888,8 +917,9 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
                                 return -ENOMEM;
                 } else {
                         if (asprintf(&s,
-                                     "%u-%s:%u-%s:%u",
+                                     "%u-%" PRIu64 "-%s:%u-%s:%u",
                                      nr,
+                                     cookie,
                                      IN6_ADDR_TO_STRING(&local.in6.sin6_addr),
                                      be16toh(local.in6.sin6_port),
                                      IN6_ADDR_TO_STRING(&remote.in6.sin6_addr),
@@ -909,19 +939,20 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
                         uint64_t pidfd_id;
 
                         if (pidfd >= 0 && pidfd_get_inode_id(pidfd, &pidfd_id) >= 0)
-                                r = asprintf(&s, "%u-" PID_FMT "_%" PRIu64 "-" UID_FMT,
-                                             nr, ucred.pid, pidfd_id, ucred.uid);
+                                r = asprintf(&s, "%u-%" PRIu64 "-" PID_FMT "_%" PRIu64 "-" UID_FMT,
+                                             nr, cookie, ucred.pid, pidfd_id, ucred.uid);
                         else
-                                r = asprintf(&s, "%u-" PID_FMT "-" UID_FMT,
-                                             nr, ucred.pid, ucred.uid);
+                                r = asprintf(&s, "%u-%" PRIu64 "-" PID_FMT "-" UID_FMT,
+                                             nr, cookie, ucred.pid, ucred.uid);
                         if (r < 0)
                                 return -ENOMEM;
                 } else if (r == -ENODATA) {
                         /* This handles the case where somebody is connecting from another pid/uid namespace
                          * (e.g. from outside of our container). */
                         if (asprintf(&s,
-                                     "%u-unknown",
-                                     nr) < 0)
+                                     "%u-%" PRIu64 "-unknown",
+                                     nr,
+                                     cookie) < 0)
                                 return -ENOMEM;
                 } else
                         return r;
@@ -931,8 +962,9 @@ static int instance_from_socket(int fd, unsigned nr, char **ret) {
 
         case AF_VSOCK:
                 if (asprintf(&s,
-                             "%u-%u:%u-%u:%u",
+                             "%u-%" PRIu64 "-%u:%u-%u:%u",
                              nr,
+                             cookie,
                              local.vm.svm_cid, local.vm.svm_port,
                              remote.vm.svm_cid, remote.vm.svm_port) < 0)
                         return -ENOMEM;
@@ -994,6 +1026,17 @@ static void socket_close_fds(Socket *s) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Socket*, socket_close_fds, NULL);
 
+#define log_socket_option_errno(s, e, option)                                          \
+        ({                                                                             \
+                int _e_ = (e);                                                         \
+                log_unit_full_errno(                                                   \
+                                UNIT(s),                                               \
+                                ERRNO_IS_NOT_SUPPORTED(_e_) ? LOG_DEBUG : LOG_WARNING, \
+                                _e_,                                                   \
+                                "Failed to set %s socket option, ignoring: %m",        \
+                                option);                                               \
+        })
+
 static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         int r;
 
@@ -1004,67 +1047,79 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         if (s->keep_alive) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_KEEPALIVE, true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_KEEPALIVE failed: %m");
+                        log_socket_option_errno(s, r, "SO_KEEPALIVE");
         }
 
         if (timestamp_is_set(s->keep_alive_time)) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_KEEPIDLE, s->keep_alive_time / USEC_PER_SEC);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "TCP_KEEPIDLE failed: %m");
+                        log_socket_option_errno(s, r, "TCP_KEEPIDLE");
         }
 
         if (s->keep_alive_interval > 0) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_KEEPINTVL, s->keep_alive_interval / USEC_PER_SEC);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "TCP_KEEPINTVL failed: %m");
+                        log_socket_option_errno(s, r, "TCP_KEEPINTVL");
         }
 
         if (s->keep_alive_cnt > 0) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_KEEPCNT, s->keep_alive_cnt);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "TCP_KEEPCNT failed: %m");
+                        log_socket_option_errno(s, r, "TCP_KEEPCNT");
         }
 
         if (s->defer_accept > 0) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_DEFER_ACCEPT, s->defer_accept / USEC_PER_SEC);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "TCP_DEFER_ACCEPT failed: %m");
+                        log_socket_option_errno(s, r, "TCP_DEFER_ACCEPT");
         }
 
         if (s->no_delay) {
                 if (s->socket_protocol == IPPROTO_SCTP) {
                         r = setsockopt_int(fd, SOL_SCTP, SCTP_NODELAY, true);
                         if (r < 0)
-                                log_unit_warning_errno(UNIT(s), r, "SCTP_NODELAY failed: %m");
+                                log_socket_option_errno(s, r, "SCTP_NODELAY");
                 } else {
                         r = setsockopt_int(fd, SOL_TCP, TCP_NODELAY, true);
                         if (r < 0)
-                                log_unit_warning_errno(UNIT(s), r, "TCP_NODELAY failed: %m");
+                                log_socket_option_errno(s, r, "TCP_NODELAY");
                 }
         }
 
         if (s->broadcast) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_BROADCAST, true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_BROADCAST failed: %m");
+                        log_socket_option_errno(s, r, "SO_BROADCAST");
         }
 
         if (s->pass_cred) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_PASSCRED failed: %m");
+                        log_socket_option_errno(s, r, "SO_PASSCRED");
+        }
+
+        if (s->pass_pidfd) {
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
+                if (r < 0)
+                        log_socket_option_errno(s, r, "SO_PASSPIDFD");
         }
 
         if (s->pass_sec) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_PASSSEC failed: %m");
+                        log_socket_option_errno(s, r, "SO_PASSSEC");
         }
 
         if (s->pass_pktinfo) {
                 r = socket_set_recvpktinfo(fd, socket_address_family(&p->address), true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "Failed to enable packet info socket option: %m");
+                        log_socket_option_errno(s, r, "packet info");
+        }
+
+        if (!s->pass_rights) {
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+                if (r < 0)
+                        log_socket_option_errno(s, r, "SO_PASSRIGHTS");
         }
 
         if (s->timestamping != SOCKET_TIMESTAMPING_OFF) {
@@ -1072,61 +1127,59 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
                                    s->timestamping == SOCKET_TIMESTAMPING_NS ? SO_TIMESTAMPNS : SO_TIMESTAMP,
                                    true);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "Failed to enable timestamping socket option, ignoring: %m");
+                        log_socket_option_errno(s, r, "timestamping");
         }
 
         if (s->priority >= 0) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PRIORITY, s->priority);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_PRIORITY failed: %m");
+                        log_socket_option_errno(s, r, "SO_PRIORITY");
         }
 
         if (s->receive_buffer > 0) {
                 r = fd_set_rcvbuf(fd, s->receive_buffer, false);
                 if (r < 0)
-                        log_unit_full_errno(UNIT(s), ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                            "SO_RCVBUF/SO_RCVBUFFORCE failed: %m");
+                        log_socket_option_errno(s, r, "SO_RCVBUF/SO_RCVBUFFORCE");
         }
 
         if (s->send_buffer > 0) {
                 r = fd_set_sndbuf(fd, s->send_buffer, false);
                 if (r < 0)
-                        log_unit_full_errno(UNIT(s), ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                            "SO_SNDBUF/SO_SNDBUFFORCE failed: %m");
+                        log_socket_option_errno(s, r, "SO_SNDBUF/SO_SNDBUFFORCE");
         }
 
         if (s->mark >= 0) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_MARK, s->mark);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_MARK failed: %m");
+                        log_socket_option_errno(s, r, "SO_MARK");
         }
 
         if (s->ip_tos >= 0) {
                 r = setsockopt_int(fd, IPPROTO_IP, IP_TOS, s->ip_tos);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "IP_TOS failed: %m");
+                        log_socket_option_errno(s, r, "IP_TOS");
         }
 
         if (s->ip_ttl >= 0) {
                 r = socket_set_ttl(fd, socket_address_family(&p->address), s->ip_ttl);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "IP_TTL/IPV6_UNICAST_HOPS failed: %m");
+                        log_socket_option_errno(s, r, "IP_TTL/IPV6_UNICAST_HOPS");
         }
 
         if (s->tcp_congestion)
                 if (setsockopt(fd, SOL_TCP, TCP_CONGESTION, s->tcp_congestion, strlen(s->tcp_congestion)+1) < 0)
-                        log_unit_warning_errno(UNIT(s), errno, "TCP_CONGESTION failed: %m");
+                        log_socket_option_errno(s, errno, "TCP_CONGESTION");
 
         if (s->smack_ip_in) {
                 r = mac_smack_apply_fd(fd, SMACK_ATTR_IPIN, s->smack_ip_in);
                 if (r < 0)
-                        log_unit_error_errno(UNIT(s), r, "mac_smack_apply_ip_in_fd: %m");
+                        log_unit_warning_errno(UNIT(s), r, "Failed to apply SMACK label for IP input, ignoring: %m");
         }
 
         if (s->smack_ip_out) {
                 r = mac_smack_apply_fd(fd, SMACK_ATTR_IPOUT, s->smack_ip_out);
                 if (r < 0)
-                        log_unit_error_errno(UNIT(s), r, "mac_smack_apply_ip_out_fd: %m");
+                        log_unit_warning_errno(UNIT(s), r, "Failed to apply SMACK label for IP output, ignoring: %m");
         }
 }
 
@@ -1408,8 +1461,8 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
                         /* ENOTCONN is legitimate if TCP RST was received. Other socket families might return
                          * different errors. This connection is over, but the socket unit lives on. */
                         return log_unit_debug_errno(UNIT(s), r,
-                                                    "Got %s on incoming socket, assuming aborted connection attempt, ignoring.",
-                                                    errno_to_name(r));
+                                                    "Got error %s on incoming socket, assuming aborted connection attempt, ignoring.",
+                                                    ERRNO_NAME(r));
                 if (r < 0)
                         return r;
         }
@@ -1450,7 +1503,7 @@ static int socket_determine_selinux_label(Socket *s, char **ret) {
 static int socket_address_listen_do(
                 Socket *s,
                 const SocketAddress *address,
-                const char *label) {
+                const char *selinux_label) {
 
         assert(s);
         assert(address);
@@ -1466,7 +1519,8 @@ static int socket_address_listen_do(
                         s->transparent,
                         s->directory_mode,
                         s->socket_mode,
-                        label);
+                        selinux_label,
+                        s->smack);
 }
 
 #define log_address_error_errno(u, address, error, fmt)          \
@@ -1477,9 +1531,7 @@ static int socket_address_listen_do(
                 log_unit_error_errno(u, error, fmt, strna(_t));  \
         })
 
-static int fork_needed(const SocketAddress *address, Socket *s) {
-        int r;
-
+static bool fork_needed(const SocketAddress *address, Socket *s) {
         assert(address);
         assert(s);
 
@@ -1493,13 +1545,9 @@ static int fork_needed(const SocketAddress *address, Socket *s) {
                         if (nft_set->source == NFT_SET_SOURCE_CGROUP)
                                 return true;
 
-        if (IN_SET(address->sockaddr.sa.sa_family, AF_INET, AF_INET6)) {
-                r = bpf_firewall_supported();
-                if (r < 0)
-                        return r;
-                if (r != BPF_FIREWALL_UNSUPPORTED) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
-                        return true;
-        }
+        if (IN_SET(address->sockaddr.sa.sa_family, AF_INET, AF_INET6) &&
+            bpf_program_supported() > 0) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
+                return true;
 
         return exec_needs_network_namespace(&s->exec_context);
 }
@@ -1521,10 +1569,7 @@ static int socket_address_listen_in_cgroup(
          * the socket is actually properly attached to the unit's cgroup for the purpose of BPF filtering and
          * such. */
 
-        r = fork_needed(address, s);
-        if (r < 0)
-                return r;
-        if (r == 0) {
+        if (!fork_needed(address, s)) {
                 /* Shortcut things... */
                 fd = socket_address_listen_do(s, address, label);
                 if (fd < 0)
@@ -1535,24 +1580,29 @@ static int socket_address_listen_in_cgroup(
 
         r = unit_setup_exec_runtime(UNIT(s));
         if (r < 0)
-                return log_unit_error_errno(UNIT(s), r, "Failed acquire runtime: %m");
+                return log_unit_error_errno(UNIT(s), r, "Failed to acquire runtime: %m");
 
-        if (s->exec_context.network_namespace_path &&
-            s->exec_runtime &&
-            s->exec_runtime->shared &&
-            s->exec_runtime->shared->netns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(s->exec_runtime->shared->netns_storage_socket, s->exec_context.network_namespace_path, CLONE_NEWNET);
-                if (r < 0)
-                        return log_unit_error_errno(UNIT(s), r, "Failed to open network namespace path %s: %m", s->exec_context.network_namespace_path);
-        }
+        if (s->exec_runtime && s->exec_runtime->shared) {
+                if (s->exec_context.user_namespace_path &&
+                    s->exec_runtime->shared->userns_storage_socket[0] >= 0) {
+                        r = open_shareable_ns_path(s->exec_runtime->shared->userns_storage_socket, s->exec_context.user_namespace_path, CLONE_NEWUSER);
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open user namespace path %s: %m", s->exec_context.user_namespace_path);
+                }
 
-        if (s->exec_context.ipc_namespace_path &&
-            s->exec_runtime &&
-            s->exec_runtime->shared &&
-            s->exec_runtime->shared->ipcns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(s->exec_runtime->shared->ipcns_storage_socket, s->exec_context.ipc_namespace_path, CLONE_NEWIPC);
-                if (r < 0)
-                        return log_unit_error_errno(UNIT(s), r, "Failed to open IPC namespace path %s: %m", s->exec_context.ipc_namespace_path);
+                if (s->exec_context.network_namespace_path &&
+                    s->exec_runtime->shared->netns_storage_socket[0] >= 0) {
+                        r = open_shareable_ns_path(s->exec_runtime->shared->netns_storage_socket, s->exec_context.network_namespace_path, CLONE_NEWNET);
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open network namespace path %s: %m", s->exec_context.network_namespace_path);
+                }
+
+                if (s->exec_context.ipc_namespace_path &&
+                    s->exec_runtime->shared->ipcns_storage_socket[0] >= 0) {
+                        r = open_shareable_ns_path(s->exec_runtime->shared->ipcns_storage_socket, s->exec_context.ipc_namespace_path, CLONE_NEWIPC);
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open IPC namespace path %s: %m", s->exec_context.ipc_namespace_path);
+                }
         }
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
@@ -1820,8 +1870,10 @@ static void socket_set_state(Socket *s, SocketState state) {
         old_state = s->state;
         s->state = state;
 
-        if (!SOCKET_STATE_WITH_PROCESS(state)) {
+        if (!SOCKET_STATE_WITH_PROCESS(state) && state != SOCKET_DEFERRED)
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+
+        if (!SOCKET_STATE_WITH_PROCESS(state)) {
                 socket_unwatch_control_pid(s);
                 s->control_command = NULL;
                 s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
@@ -1835,11 +1887,15 @@ static void socket_set_state(Socket *s, SocketState state) {
                     SOCKET_START_CHOWN,
                     SOCKET_START_POST,
                     SOCKET_LISTENING,
+                    SOCKET_DEFERRED,
                     SOCKET_RUNNING,
                     SOCKET_STOP_PRE,
                     SOCKET_STOP_PRE_SIGTERM,
                     SOCKET_STOP_PRE_SIGKILL))
                 socket_close_fds(s);
+
+        if (state != SOCKET_DEFERRED)
+                unit_remove_from_stop_notify_queue(UNIT(s));
 
         if (state != old_state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", socket_state_to_string(old_state), socket_state_to_string(state));
@@ -1855,6 +1911,11 @@ static int socket_coldplug(Unit *u) {
 
         if (s->deserialized_state == s->state)
                 return 0;
+
+        /* Patch "deferred" back to "listening" and let socket_enter_running() figure out what to do.
+         * This saves us the trouble of handling flipping of DeferTrigger= vs Accept= during reload. */
+        if (s->deserialized_state == SOCKET_DEFERRED)
+                s->deserialized_state = SOCKET_LISTENING;
 
         if (pidref_is_set(&s->control_pid) &&
             pidref_is_unwaited(&s->control_pid) > 0 &&
@@ -1877,9 +1938,9 @@ static int socket_coldplug(Unit *u) {
                    SOCKET_RUNNING)) {
 
                 /* Originally, we used to simply reopen all sockets here that we didn't have file descriptors
-                 * for. However, this is problematic, as we won't traverse through the SOCKET_START_CHOWN state for
-                 * them, and thus the UID/GID wouldn't be right. Hence, instead simply check if we have all fds open,
-                 * and if there's a mismatch, warn loudly.
+                 * for. However, this is problematic, as we won't traverse through the SOCKET_START_CHOWN
+                 * state for them, and thus the UID/GID wouldn't be right. Hence, instead simply check if we
+                 * have all fds open, and if there's a mismatch, warn loudly.
                  *
                  * Note that SOCKET_START_OPEN requires no special treatment, as it's only intermediate
                  * between SOCKET_START_PRE and SOCKET_START_CHOWN and shall otherwise not be observed.
@@ -1888,14 +1949,14 @@ static int socket_coldplug(Unit *u) {
                 r = socket_check_open(s);
                 if (r == SOCKET_OPEN_NONE)
                         log_unit_warning(UNIT(s),
-                                         "Socket unit configuration has changed while unit has been running, "
-                                         "no open socket file descriptor left. "
-                                         "The socket unit is not functional until restarted.");
+                                         "Unit configuration changed while unit was running, "
+                                         "and no socket file descriptors are open. "
+                                         "Unit not functional until restarted.");
                 else if (r == SOCKET_OPEN_SOME)
                         log_unit_warning(UNIT(s),
-                                         "Socket unit configuration has changed while unit has been running, "
+                                         "Unit configuration changed while unit was running, "
                                          "and some socket file descriptors have not been opened yet. "
-                                         "The socket unit is not fully functional until restarted.");
+                                         "Unit not fully functional until restarted.");
         }
 
         if (s->deserialized_state == SOCKET_LISTENING) {
@@ -1947,7 +2008,6 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
                 if (r < 0)
                         return r;
 
-                exec_params.flags |= EXEC_PASS_FDS;
                 exec_params.fds = TAKE_PTR(fds);
                 exec_params.fd_names = TAKE_PTR(fd_names);
                 exec_params.n_socket_fds = n_fds;
@@ -1998,7 +2058,9 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
 
                         r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
                         if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to resolve user %s: %m", user);
+                                log_unit_error_errno(UNIT(s), r,
+                                                     "Failed to resolve user '%s': %s",
+                                                     user, STRERROR_USER(r));
                                 _exit(EXIT_USER);
                         }
                 }
@@ -2008,7 +2070,9 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
 
                         r = get_group_creds(&group, &gid, 0);
                         if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to resolve group %s: %m", group);
+                                log_unit_error_errno(UNIT(s), r,
+                                                     "Failed to resolve group '%s': %s",
+                                                     group, STRERROR_GROUP(r));
                                 _exit(EXIT_GROUP);
                         }
                 }
@@ -2086,8 +2150,6 @@ static void socket_enter_stop_post(Socket *s, SocketResult f) {
         s->control_command = s->exec_command[SOCKET_EXEC_STOP_POST];
 
         if (s->control_command) {
-                pidref_done(&s->control_pid);
-
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'stop-post' task: %m");
@@ -2164,8 +2226,6 @@ static void socket_enter_stop_pre(Socket *s, SocketResult f) {
         s->control_command = s->exec_command[SOCKET_EXEC_STOP_PRE];
 
         if (s->control_command) {
-                pidref_done(&s->control_pid);
-
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'stop-pre' task: %m");
@@ -2188,8 +2248,12 @@ static void flush_ports(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                (void) flush_accept(p->fd);
-                (void) flush_fd(p->fd);
+                if (p->type == SOCKET_MQUEUE)
+                        (void) flush_mqueue(p->fd);
+                else {
+                        (void) flush_accept(p->fd);
+                        (void) flush_fd(p->fd);
+                }
         }
 }
 
@@ -2223,8 +2287,6 @@ static void socket_enter_start_post(Socket *s) {
         s->control_command = s->exec_command[SOCKET_EXEC_START_POST];
 
         if (s->control_command) {
-                pidref_done(&s->control_pid);
-
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start-post' task: %m");
@@ -2297,8 +2359,6 @@ static void socket_enter_start_pre(Socket *s) {
         s->control_command = s->exec_command[SOCKET_EXEC_START_PRE];
 
         if (s->control_command) {
-                pidref_done(&s->control_pid);
-
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start-pre' task: %m");
@@ -2309,6 +2369,76 @@ static void socket_enter_start_pre(Socket *s) {
                 socket_set_state(s, SOCKET_START_PRE);
         } else
                 socket_enter_start_open(s);
+}
+
+static bool socket_may_defer(Socket *s) {
+        assert(s);
+
+        switch (s->defer_trigger) {
+
+        case SOCKET_DEFER_NO:
+                return false;
+
+        case SOCKET_DEFER_YES:
+                return !hashmap_isempty(UNIT(s)->manager->jobs);
+
+        case SOCKET_DEFER_PATIENT:
+                assert(s->defer_trigger_max_usec > 0);
+                return true;
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static bool socket_stop_notify(Unit *u) {
+        Socket *s = ASSERT_PTR(SOCKET(u));
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(s->state == SOCKET_DEFERRED);
+
+        r = manager_add_job(u->manager, JOB_START, UNIT_DEREF(s->service), JOB_LENIENT, &error, /* ret = */ NULL);
+        if (r >= 0) { /* Yay! */
+                socket_set_state(s, SOCKET_RUNNING);
+                return true; /* changed */
+        }
+        if (sd_bus_error_has_name(&error, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE)) {
+                if (s->defer_trigger == SOCKET_DEFER_PATIENT || !hashmap_isempty(u->manager->jobs))
+                        /* Wait for some more */
+                        return false;
+
+                log_unit_warning_errno(u, r, "Service conflicts with active units even after all jobs have completed, giving up.");
+        } else
+                log_unit_warning_errno(u, r, "Failed to queue service startup job: %s", bus_error_message(&error, r));
+
+        socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+        return true; /* changed */
+}
+
+static void socket_enter_deferred(Socket *s) {
+        int r;
+
+        assert(s);
+        assert(socket_may_defer(s));
+
+        /* So here's the thing: if there're currently units conflicting with the service we shall be
+         * triggering, and the previous transaction is still running (job pool is not empty), let's
+         * defer the activation a bit, and recheck upon any unit stop. IOW, the trigger in question
+         * becomes bound to the conflicting dependency, and not the socket IO because we never process them.
+         * Put a safety net around all this though, i.e. give up if the service still can't be started
+         * even after all existing jobs have completed, or DeferTriggerMaxSec= is reached. */
+
+        r = socket_arm_timer(s, /* relative = */ true, s->defer_trigger_max_usec);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
+                return socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+        }
+
+        unit_add_to_stop_notify_queue(UNIT(s));
+
+        /* Disable IO event sources */
+        socket_set_state(s, SOCKET_DEFERRED);
 }
 
 static void socket_enter_running(Socket *s, int cfd_in) {
@@ -2329,6 +2459,11 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                         goto refuse;
 
                 flush_ports(s);
+                return;
+        }
+
+        if (s->state == SOCKET_DEFERRED) {
+                assert(cfd < 0);
                 return;
         }
 
@@ -2356,9 +2491,17 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                                 goto fail;
                         }
 
-                        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, &error, /* ret = */ NULL);
-                        if (r == -EDEADLK)
-                                return (void) log_unit_debug_errno(UNIT(s), r, "Failed to queue service startup job, ignoring: %s", bus_error_message(&error, r));
+                        if (s->defer_trigger != SOCKET_DEFER_NO) {
+                                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_LENIENT, &error, /* ret = */ NULL);
+                                if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE) && socket_may_defer(s))
+                                        /* We only check BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE here, not
+                                         * BUS_ERROR_TRANSACTION_JOBS_CONFLICTING or BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
+                                         * since those are errors in a single transaction, which are most likely
+                                         * caused by dependency issues in the unit configuration.
+                                         * Deferring activation probably won't help. */
+                                        return socket_enter_deferred(s);
+                        } else
+                                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, &error, /* ret = */ NULL);
                         if (r < 0)
                                 goto queue_error;
                 }
@@ -2376,12 +2519,11 @@ static void socket_enter_running(Socket *s, int cfd_in) {
 
                 if (s->max_connections_per_source > 0) {
                         r = socket_acquire_peer(s, cfd, &p);
-                        if (r < 0) {
-                                if (ERRNO_IS_DISCONNECT(r))
-                                        return;
+                        if (ERRNO_IS_NEG_DISCONNECT(r))
+                                return;
+                        if (r < 0)
                                 /* We didn't have enough resources to acquire peer information, let's fail. */
                                 goto fail;
-                        }
                         if (r > 0 && p->n_ref > s->max_connections_per_source) {
                                 _cleanup_free_ char *t = NULL;
 
@@ -2464,8 +2606,6 @@ static void socket_run_next(Socket *s) {
 
         s->control_command = s->control_command->command_next;
 
-        pidref_done(&s->control_pid);
-
         r = socket_spawn(s, s->control_command, &s->control_pid);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to spawn next task: %m");
@@ -2482,26 +2622,6 @@ static void socket_run_next(Socket *s) {
 static int socket_start(Unit *u) {
         Socket *s = ASSERT_PTR(SOCKET(u));
         int r;
-
-        /* We cannot fulfill this request right now, try again later
-         * please! */
-        if (IN_SET(s->state,
-                   SOCKET_STOP_PRE,
-                   SOCKET_STOP_PRE_SIGKILL,
-                   SOCKET_STOP_PRE_SIGTERM,
-                   SOCKET_STOP_POST,
-                   SOCKET_FINAL_SIGTERM,
-                   SOCKET_FINAL_SIGKILL,
-                   SOCKET_CLEANING))
-                return -EAGAIN;
-
-        /* Already on it! */
-        if (IN_SET(s->state,
-                   SOCKET_START_PRE,
-                   SOCKET_START_OPEN,
-                   SOCKET_START_CHOWN,
-                   SOCKET_START_POST))
-                return 0;
 
         /* Cannot run this without the service being around */
         if (UNIT_ISSET(s->service)) {
@@ -2563,7 +2683,7 @@ static int socket_stop(Unit *u) {
                 return 0;
         }
 
-        assert(IN_SET(s->state, SOCKET_LISTENING, SOCKET_RUNNING));
+        assert(IN_SET(s->state, SOCKET_LISTENING, SOCKET_DEFERRED, SOCKET_RUNNING));
 
         socket_enter_stop_pre(s, SOCKET_SUCCESS);
         return 1;
@@ -2855,7 +2975,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         log_unit_debug(u, "No matching ffs socket found: %s", value);
 
         } else if (streq(key, "trigger-ratelimit"))
-                (void) deserialize_ratelimit(&s->trigger_limit, key, value);
+                deserialize_ratelimit(&s->trigger_limit, key, value);
         else
                 log_unit_debug(UNIT(s), "Unknown serialization key: %s", key);
 
@@ -3026,10 +3146,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         if (!IN_SET(p->address.sockaddr.sa.sa_family, AF_INET, AF_INET6))
                 goto shortcut;
 
-        r = bpf_firewall_supported();
-        if (r < 0)
-                return r;
-        if (r == BPF_FIREWALL_UNSUPPORTED)
+        if (bpf_program_supported() <= 0)
                 goto shortcut;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
@@ -3253,6 +3370,11 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
                 socket_enter_stop_pre(s, SOCKET_FAILURE_TIMEOUT);
                 break;
 
+        case SOCKET_DEFERRED:
+                log_unit_warning(UNIT(s), "DeferTriggerMaxSec= elapsed. Stopping.");
+                socket_enter_stop_pre(s, SOCKET_FAILURE_TIMEOUT);
+                break;
+
         case SOCKET_STOP_PRE:
                 log_unit_warning(UNIT(s), "Stopping timed out. Terminating.");
                 socket_enter_signal(s, SOCKET_STOP_PRE_SIGTERM, SOCKET_FAILURE_TIMEOUT);
@@ -3382,7 +3504,7 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
         Service *service = ASSERT_PTR(SERVICE(other));
 
         /* Don't propagate state changes from the service if we are already down */
-        if (!IN_SET(s->state, SOCKET_RUNNING, SOCKET_LISTENING))
+        if (!IN_SET(s->state, SOCKET_RUNNING, SOCKET_LISTENING, SOCKET_DEFERRED))
                 return;
 
         /* We don't care for the service state if we are in Accept=yes mode */
@@ -3508,9 +3630,17 @@ static int socket_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&s->exec_context, ret);
 }
 
-static int socket_can_start(Unit *u) {
+static int socket_test_startable(Unit *u) {
         Socket *s = ASSERT_PTR(SOCKET(u));
         int r;
+
+        /* It is already being started. */
+        if (IN_SET(s->state,
+                   SOCKET_START_PRE,
+                   SOCKET_START_OPEN,
+                   SOCKET_START_CHOWN,
+                   SOCKET_START_POST))
+                return false;
 
         r = unit_test_start_limit(u);
         if (r < 0) {
@@ -3518,7 +3648,7 @@ static int socket_can_start(Unit *u) {
                 return r;
         }
 
-        return 1;
+        return true;
 }
 
 static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
@@ -3553,30 +3683,38 @@ static const char* const socket_timestamping_table[_SOCKET_TIMESTAMPING_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(socket_timestamping, SocketTimestamping);
 
-SocketTimestamping socket_timestamping_from_string_harder(const char *p) {
+SocketTimestamping socket_timestamping_from_string_harder(const char *s) {
         SocketTimestamping t;
         int r;
 
-        if (!p)
+        if (!s)
                 return _SOCKET_TIMESTAMPING_INVALID;
 
-        t = socket_timestamping_from_string(p);
+        t = socket_timestamping_from_string(s);
         if (t >= 0)
                 return t;
 
         /* Let's alternatively support the various other aliases parse_time() accepts for ns and µs here,
          * too. */
-        if (streq(p, "nsec"))
+        if (streq(s, "nsec"))
                 return SOCKET_TIMESTAMPING_NS;
-        if (STR_IN_SET(p, "usec", "µs", "μs")) /* Accept both small greek letter mu + micro sign unicode codepoints */
+        if (STR_IN_SET(s, "usec", "µs", "μs")) /* Accept both small greek letter mu + micro sign unicode codepoints */
                 return SOCKET_TIMESTAMPING_US;
 
-        r = parse_boolean(p);
+        r = parse_boolean(s);
         if (r < 0)
                 return _SOCKET_TIMESTAMPING_INVALID;
 
         return r ? SOCKET_TIMESTAMPING_NS : SOCKET_TIMESTAMPING_OFF; /* If boolean yes, default to ns accuracy */
 }
+
+static const char* const socket_defer_trigger_table[_SOCKET_DEFER_MAX] = {
+        [SOCKET_DEFER_NO]      = "no",
+        [SOCKET_DEFER_YES]     = "yes",
+        [SOCKET_DEFER_PATIENT] = "patient",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(socket_defer_trigger, SocketDeferTrigger, SOCKET_DEFER_YES);
 
 const UnitVTable socket_vtable = {
         .object_size = sizeof(Socket),
@@ -3627,6 +3765,8 @@ const UnitVTable socket_vtable = {
 
         .trigger_notify = socket_trigger_notify,
 
+        .stop_notify = socket_stop_notify,
+
         .reset_failed = socket_reset_failed,
 
         .notify_handoff_timestamp = socket_handoff_timestamp,
@@ -3649,5 +3789,5 @@ const UnitVTable socket_vtable = {
                 },
         },
 
-        .can_start = socket_can_start,
+        .test_startable = socket_test_startable,
 };

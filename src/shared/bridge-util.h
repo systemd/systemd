@@ -2,9 +2,8 @@
 #pragma once
 
 #include <linux/if_bridge.h>
-#include <netinet/in.h>
 
-#include "conf-parser.h"
+#include "shared-forward.h"
 
 typedef enum BridgeState {
         NETDEV_BRIDGE_STATE_DISABLED   = BR_STATE_DISABLED,
@@ -17,4 +16,4 @@ typedef enum BridgeState {
 } BridgeState;
 
 const char* bridge_state_to_string(BridgeState d) _const_;
-BridgeState bridge_state_from_string(const char *d) _pure_;
+BridgeState bridge_state_from_string(const char *s) _pure_;

@@ -1,21 +1,11 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-device.h"
-#include "sd-event.h"
-#include "sd-netlink.h"
-
-#include "errno-list.h"
-#include "hashmap.h"
-#include "time-util.h"
 #include "udev-config.h"
+#include "udev-forward.h"
 
 #define DEFAULT_WORKER_TIMEOUT_USEC (3 * USEC_PER_MINUTE)
 #define MIN_WORKER_TIMEOUT_USEC     (1 * USEC_PER_MSEC)
-
-typedef struct UdevRules UdevRules;
 
 typedef struct UdevWorker {
         sd_event *event;

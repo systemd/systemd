@@ -1,16 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <elf.h>
+#include <fcntl.h>
 #include <link.h>
+#include <stdlib.h>
 #include <sys/auxv.h>
 
+#include "alloc-util.h"
 #include "build-path.h"
-#include "errno-list.h"
-#include "errno-util.h"
-#include "fd-util.h"
-#include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "unistd.h"
 
 static int get_runpath_from_dynamic(const ElfW(Dyn) *d, ElfW(Addr) bias, const char **ret) {
@@ -34,11 +34,11 @@ static int get_runpath_from_dynamic(const ElfW(Dyn) *d, ElfW(Addr) bias, const c
                         break;
 
                 case DT_STRTAB:
-                        /* On MIPS and RISC-V DT_STRTAB records an offset, not a valid address, so it has to be adjusted
-                         * using the bias calculated earlier. */
+                        /* On MIPS, RISC-V, or with musl, DT_STRTAB records an offset, not a valid address,
+                         * so it has to be adjusted using the bias calculated earlier. */
                         if (d->d_un.d_val != 0)
                                 strtab = (const char *) ((uintptr_t) d->d_un.d_val
-#if defined(__mips__) || defined(__riscv)
+#if defined(__mips__) || defined(__riscv) || !defined(__GLIBC__)
                                          + bias
 #endif
                                 );

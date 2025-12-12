@@ -1,24 +1,34 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/vm_sockets.h>
+
+#include "sd-event.h"
 #include "sd-varlink.h"
 
 #include "bus-polkit.h"
+#include "constants.h"
 #include "discover-image.h"
+#include "errno-util.h"
 #include "format-util.h"
-#include "hostname-util.h"
+#include "hashmap.h"
+#include "image-policy.h"
 #include "image-varlink.h"
 #include "json-util.h"
+#include "local-addresses.h"
 #include "machine.h"
 #include "machine-varlink.h"
 #include "machined.h"
+#include "machined-resolve-hook.h"
 #include "machined-varlink.h"
-#include "mkdir.h"
-#include "process-util.h"
-#include "socket-util.h"
+#include "path-lookup.h"
+#include "set.h"
+#include "string-util.h"
+#include "strv.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-io.systemd.Resolve.Hook.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
@@ -40,13 +50,13 @@ static int build_user_json(const char *user_name, uid_t uid, const char *real_na
         return sd_json_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
-                                                           SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
-                                                           SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
-                                                           SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
+                                                           SD_JSON_BUILD_PAIR_STRING("userName", user_name),
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("uid", uid),
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("gid", GID_NOBODY),
                                                            SD_JSON_BUILD_PAIR_CONDITION(!isempty(real_name), "realName", SD_JSON_BUILD_STRING(real_name)),
                                                            SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
                                                            SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
-                                                           SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                                                           SD_JSON_BUILD_PAIR_BOOLEAN("locked", true),
                                                            SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
                                                            SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container")))));
 }
@@ -212,8 +222,8 @@ static int build_group_json(const char *group_name, gid_t gid, const char *descr
         return sd_json_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_OBJECT(
-                                                           SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(group_name)),
-                                                           SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)),
+                                                           SD_JSON_BUILD_PAIR_STRING("groupName", group_name),
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("gid", gid),
                                                            SD_JSON_BUILD_PAIR_CONDITION(!isempty(description), "description", SD_JSON_BUILD_STRING(description)),
                                                            SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Machine")),
                                                            SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("container")))));
@@ -349,7 +359,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         if (gid_is_valid(p.gid))
                 r = group_lookup_gid(m, p.gid, &found_name, &found_description);
         else if (p.group_name)
-                r = group_lookup_name(m, p.group_name, (uid_t*) &found_gid, &found_description);
+                r = group_lookup_name(m, p.group_name, &found_gid, &found_description);
         else
                 return sd_varlink_error(link, "io.systemd.UserDatabase.EnumerationNotSupported", NULL);
         if (r == -ESRCH)
@@ -472,14 +482,17 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("service", m->service),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("rootDirectory", m->root_directory),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("unit", m->unit),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("subgroup", m->subgroup),
                         SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(&m->leader), "leader", JSON_BUILD_PIDREF(&m->leader)),
+                        SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(&m->supervisor), "supervisor", JSON_BUILD_PIDREF(&m->supervisor)),
                         SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&m->timestamp), "timestamp", JSON_BUILD_DUAL_TIMESTAMP(&m->timestamp)),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("vSockCid", m->vsock_cid, VMADDR_CID_ANY),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("sshAddress", m->ssh_address),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("sshPrivateKeyPath", m->ssh_private_key_path),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("addresses", addr_array),
                         JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY("OSRelease", os_release),
-                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("UIDShift", shift, UID_INVALID));
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("UIDShift", shift, UID_INVALID),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("UID", m->uid));
         if (r < 0)
                 return r;
 
@@ -606,14 +619,15 @@ static int vl_method_open_root_directory(sd_varlink *link, sd_json_variant *para
         return lookup_machine_and_call_method(link, parameters, flags, userdata, vl_method_open_root_directory_internal);
 }
 
-static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image, bool more, AcquireMetadata am) {
+static int list_image_one_and_maybe_read_metadata(Manager *m, sd_varlink *link, Image *image, bool more, AcquireMetadata am) {
         int r;
 
+        assert(m);
         assert(link);
         assert(image);
 
         if (should_acquire_metadata(am) && !image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_container);
+                r = image_read_metadata(image, &image_policy_container, m->runtime_scope);
                 if (r < 0 && am != ACQUIRE_METADATA_GRACEFUL)
                         return log_debug_errno(r, "Failed to read image metadata: %m");
                 if (r < 0)
@@ -628,7 +642,7 @@ static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("path", image->path),
                         SD_JSON_BUILD_PAIR_STRING("type", image_type_to_string(image->type)),
                         SD_JSON_BUILD_PAIR_STRING("class", image_class_to_string(image->class)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("readOnly", image->read_only),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("readOnly", image_is_read_only(image)),
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("creationTimestamp", image->crtime),
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("modificationTimestamp", image->mtime),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("usage", image->usage, UINT64_MAX),
@@ -689,24 +703,21 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
                 if (r < 0)
                         return log_debug_errno(r, "Failed to find image: %m");
 
-                return list_image_one_and_maybe_read_metadata(link, found, /* more = */ false, p.acquire_metadata);
+                return list_image_one_and_maybe_read_metadata(m, link, found, /* more = */ false, p.acquire_metadata);
         }
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        _cleanup_hashmap_free_ Hashmap *images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = image_discover(m->runtime_scope, IMAGE_MACHINE, /* root = */ NULL, images);
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        r = image_discover(m->runtime_scope, IMAGE_MACHINE, /* root = */ NULL, &images);
         if (r < 0)
                 return log_debug_errno(r, "Failed to discover images: %m");
 
         Image *image, *previous = NULL;
         HASHMAP_FOREACH(image, images) {
                 if (previous) {
-                        r = list_image_one_and_maybe_read_metadata(link, previous, /* more = */ true, p.acquire_metadata);
+                        r = list_image_one_and_maybe_read_metadata(m, link, previous, /* more = */ true, p.acquire_metadata);
                         if (r < 0)
                                 return r;
                 }
@@ -715,7 +726,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         }
 
         if (previous)
-                return list_image_one_and_maybe_read_metadata(link, previous, /* more = */ false, p.acquire_metadata);
+                return list_image_one_and_maybe_read_metadata(m, link, previous, /* more = */ false, p.acquire_metadata);
 
         return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, NULL);
 }
@@ -728,10 +739,14 @@ static int manager_varlink_init_userdb(Manager *m) {
 
         if (m->varlink_userdb_server)
                 return 0;
+        if (m->runtime_scope != RUNTIME_SCOPE_SYSTEM) /* no userdb in per-user mode! */
+                return 0;
 
         r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
+
+        (void) sd_varlink_server_set_description(s, "varlink-userdb");
 
         r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_UserDatabase);
         if (r < 0)
@@ -745,9 +760,9 @@ static int manager_varlink_init_userdb(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
-        r = sd_varlink_server_listen_address(s, "/run/systemd/userdb/io.systemd.Machine", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+        r = sd_varlink_server_listen_address(s, VARLINK_PATH_MACHINED_USERDB, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to varlink socket %s: %m", VARLINK_PATH_MACHINED_USERDB);
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
@@ -812,11 +827,20 @@ static int manager_varlink_init_machine(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
         if (r == 0) {
-                r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+                _cleanup_free_ char *socket_path = NULL;
+                r = runtime_directory_generic(m->runtime_scope, "systemd/machine/io.systemd.Machine", &socket_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine socket path: %m");
+
+                r = sd_varlink_server_listen_address(s, socket_path, runtime_scope_to_socket_mode(m->runtime_scope) | SD_VARLINK_SERVER_MODE_MKDIR_0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to io.systemd.Machine varlink socket: %m");
 
-                r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.MachineImage", 0666);
+                socket_path = mfree(socket_path);
+                r = runtime_directory_generic(m->runtime_scope, "systemd/machine/io.systemd.MachineImage", &socket_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine socket path: %m");
+                r = sd_varlink_server_listen_address(s, socket_path, runtime_scope_to_socket_mode(m->runtime_scope));
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to io.systemd.MachineImage varlink socket: %m");
         }
@@ -826,6 +850,59 @@ static int manager_varlink_init_machine(Manager *m) {
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
         m->varlink_machine_server = TAKE_PTR(s);
+        return 0;
+}
+
+static void on_resolve_hook_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        if (set_remove(m->query_filter_subscriptions, link))
+                sd_varlink_unref(link);
+}
+
+static int manager_varlink_init_resolve_hook(Manager *m) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        int r;
+
+        assert(m);
+
+        if (m->varlink_resolve_hook_server)
+                return 0;
+        if (m->runtime_scope != RUNTIME_SCOPE_SYSTEM) /* no resolved in per-user mode! */
+                return 0;
+
+        r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate varlink server object: %m");
+
+        (void) sd_varlink_server_set_description(s, "varlink-resolve-hook");
+
+        r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_Resolve_Hook);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Resolve.Hook interface to varlink server: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        s,
+                        "io.systemd.Resolve.Hook.QueryFilter",   vl_method_query_filter,
+                        "io.systemd.Resolve.Hook.ResolveRecord", vl_method_resolve_record);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        r = sd_varlink_server_bind_disconnect(s, on_resolve_hook_disconnect);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind on resolve hook disconnection events: %m");
+
+        r = sd_varlink_server_listen_address(s, VARLINK_PATH_MACHINED_RESOLVE_HOOK,
+                                             0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to varlink socket %s: %m",
+                                       VARLINK_PATH_MACHINED_RESOLVE_HOOK);
+
+        r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        m->varlink_resolve_hook_server = TAKE_PTR(s);
         return 0;
 }
 
@@ -840,6 +917,10 @@ int manager_varlink_init(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = manager_varlink_init_resolve_hook(m);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -848,4 +929,5 @@ void manager_varlink_done(Manager *m) {
 
         m->varlink_userdb_server = sd_varlink_server_unref(m->varlink_userdb_server);
         m->varlink_machine_server = sd_varlink_server_unref(m->varlink_machine_server);
+        m->varlink_resolve_hook_server = sd_varlink_server_unref(m->varlink_resolve_hook_server);
 }

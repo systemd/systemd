@@ -13,23 +13,7 @@
 typedef struct {
         uint8_t Major;
         uint8_t Minor;
-        uint8_t RevMajor;
-        uint8_t RevMinor;
-} TCG_VERSION;
-
-typedef struct {
-        uint8_t Major;
-        uint8_t Minor;
 } EFI_TCG2_VERSION;
-
-typedef struct {
-        uint8_t Size;
-        TCG_VERSION StructureVersion;
-        TCG_VERSION ProtocolSpecVersion;
-        uint8_t HashAlgorithmBitmap;
-        bool TPMPresentFlag;
-        bool TPMDeactivatedFlag;
-} EFI_TCG_BOOT_SERVICE_CAPABILITY;
 
 typedef struct {
         uint8_t Size;
@@ -79,7 +63,9 @@ struct EFI_TCG2_PROTOCOL {
                         uint64_t DataToHashLen,
                         EFI_TCG2_EVENT *EfiTcgEvent);
         void *SubmitCommand;
-        void *GetActivePcrBanks;
+        EFI_STATUS (EFIAPI *GetActivePcrBanks)(
+                        EFI_TCG2_PROTOCOL *This,
+                        uint32_t *ActivePcrBanks);
         void *SetActivePcrBanks;
         void *GetResultOfSetActivePcrBanks;
 };

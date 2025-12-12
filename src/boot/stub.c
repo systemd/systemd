@@ -3,7 +3,8 @@
 #include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
-#include "efivars.h"
+#include "efi-efivars.h"
+#include "efi-log.h"
 #include "export-vars.h"
 #include "graphics.h"
 #include "iovec-util-fundamental.h"
@@ -37,7 +38,9 @@ enum {
         INITRD_CREDENTIAL = _INITRD_DYNAMIC_FIRST,
         INITRD_GLOBAL_CREDENTIAL,
         INITRD_SYSEXT,
+        INITRD_GLOBAL_SYSEXT,
         INITRD_CONFEXT,
+        INITRD_GLOBAL_CONFEXT,
         INITRD_PCRSIG,
         INITRD_PCRPKEY,
         INITRD_OSREL,
@@ -48,7 +51,7 @@ enum {
 /* magic string to find in the binary image */
 DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-stub " GIT_VERSION " ####");
 
-DECLARE_SBAT(SBAT_STUB_SECTION_TEXT);
+DECLARE_SBAT_PADDED(SBAT_STUB_SECTION_TEXT);
 
 static char16_t* pe_section_to_str16(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
@@ -254,10 +257,20 @@ static void process_arguments(
         EFI_SHELL_PARAMETERS_PROTOCOL *shell;
         if (BS->HandleProtocol(stub_image, MAKE_GUID_PTR(EFI_SHELL_PARAMETERS_PROTOCOL), (void **) &shell) != EFI_SUCCESS) {
 
-                /* We also do a superficial check whether first character of passed command line
-                 * is printable character (for compat with some Dell systems which fill in garbage?). */
-                if (loaded_image->LoadOptionsSize < sizeof(char16_t) || ((const char16_t *) loaded_image->LoadOptions)[0] <= 0x1F)
+                if (loaded_image->LoadOptionsSize < sizeof(char16_t))
                         goto nothing;
+
+                /* Superficial check to ensure the load options data looks like it might be a printable
+                 * string. Some Dell and other systems fill in binary data in UEFI entries that are generated
+                 * by the firmware. The UEFI specification allows this. See
+                 * https://uefi.org/specs/UEFI/2.10/03_Boot_Manager.html#load-options */
+                for (size_t i = 0; i < loaded_image->LoadOptionsSize / sizeof(char16_t); i++) {
+                        char16_t c = ((const char16_t *) loaded_image->LoadOptions)[i];
+                        if (c == L'\0')
+                                break;
+                        if (c <= 0x1F)
+                                goto nothing;
+                }
 
                 /* Not running from EFI shell, use entire LoadOptions. Note that LoadOptions is a void*, so
                  * it could actually be anything! */
@@ -869,6 +882,19 @@ static void generate_sidecar_initrds(
                 combine_measured_flag(sysext_measured, m);
 
         if (pack_cpio(loaded_image,
+                      u"\\loader\\extensions",
+                      u".raw", /* as above */
+                      u".confext.raw",
+                      ".extra/global_sysext",
+                      /* dir_mode= */ 0555,
+                      /* access_mode= */ 0444,
+                      /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
+                      u"Global system extension initrd",
+                      initrds + INITRD_GLOBAL_SYSEXT,
+                      &m) == EFI_SUCCESS)
+                combine_measured_flag(sysext_measured, m);
+
+        if (pack_cpio(loaded_image,
                       /* dropin_dir= */ NULL,
                       u".confext.raw",
                       /* exclude_suffix= */ NULL,
@@ -878,6 +904,19 @@ static void generate_sidecar_initrds(
                       /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Configuration extension initrd",
                       initrds + INITRD_CONFEXT,
+                      &m) == EFI_SUCCESS)
+                combine_measured_flag(confext_measured, m);
+
+        if (pack_cpio(loaded_image,
+                      u"\\loader\\extensions",
+                      u".confext.raw",
+                      /* exclude_suffix= */ NULL,
+                      ".extra/global_confext",
+                      /* dir_mode= */ 0555,
+                      /* access_mode= */ 0444,
+                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
+                      u"Global configuration extension initrd",
+                      initrds + INITRD_GLOBAL_CONFEXT,
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(confext_measured, m);
 }
@@ -1196,7 +1235,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         /* Pick up the arguments passed to us, split out the prefixing profile parameter, and return the rest
          * as potential command line to use. */
-        (void) process_arguments(image, loaded_image, &profile, &cmdline);
+        process_arguments(image, loaded_image, &profile, &cmdline);
 
         /* Find the sections we want to operate on, both the basic ones, and the one appropriate for the
          * selected profile. */

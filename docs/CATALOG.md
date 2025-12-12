@@ -51,7 +51,7 @@ The text format of the .catalog files is as follows:
 
 * Simple, UTF-8 text files, with usual line breaks at 76 chars.
   URLs and suchlike where line-breaks are undesirable may use longer lines.
-  As catalog files need to be usable on text consoles it is essential that the 76 char line break rule is otherwise followed for human readable text.
+  As catalog files need to be usable on text consoles it is essential that the 76 char line break rule is otherwise followed for human-readable text.
 * Lines starting with `#` are ignored, and may be used for comments.
 
 * The files consist of a series of entries.
@@ -63,7 +63,7 @@ The text format of the .catalog files is as follows:
     Some header fields may appear more than once per entry.
     The following header fields are currently known (but additional fields may be added later):
 
-        * Subject: A short, one-line human readable description of the message
+        * Subject: A short, one-line human-readable description of the message
         * Defined-By: Who defined this message.
 
         Usually a package name or suchlike
@@ -71,7 +71,7 @@ The text format of the .catalog files is as follows:
         This can be a web URL or a telephone number in the tel:// namespace
         * Documentation: URIs for further user, administrator or developer documentation on the log entry. URIs should be listed in order of relevance, the most relevant documentation first.
     * An empty line
-    * The actual catalog entry payload, as human readable prose.
+    * The actual catalog entry payload, as human-readable prose.
       Multiple paragraphs may be separated by empty lines.
       The prose should first describe the message and when it occurs, possibly followed by recommendations how to deal with the message and (if it is an error message) correct the problem at hand.
       This message text should be readable by users and administrators.

@@ -80,9 +80,19 @@
 
         <listitem><para>This allows inserting additional entries into the <command>systemd-boot</command>
         menu. For details see
-        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry></para>
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.boot.loglevel=</varname><replaceable>LEVEL</replaceable></term>
+
+        <listitem><para>This allows configuration of the log level, and is read by <command>systemd-boot</command>.
+        For details see
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

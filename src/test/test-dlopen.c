@@ -3,15 +3,15 @@
 #include <dlfcn.h>
 #include <stdlib.h>
 
-#include "assert-util.h"
-#include "macro.h"
+#include "dlfcn-util.h"
+#include "shared-forward.h"
 
 int main(int argc, char **argv) {
         void *handles[argc - 1];
         int i;
 
         for (i = 0; i < argc - 1; i++)
-                assert_se(handles[i] = dlopen(argv[i + 1], RTLD_NOW|RTLD_NODELETE));
+                assert_se(dlopen_safe(argv[i + 1], handles + i, /* reterr_dlerror= */ NULL) >= 0);
 
         for (i--; i >= 0; i--)
                 assert_se(dlclose(handles[i]) == 0);

@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <curl/curl.h>
 #include <sys/stat.h>
 
-#include "curl-util.h"
+#include "shared-forward.h"
 #include "import-compress.h"
 #include "openssl-util.h"
 
+typedef struct CurlGlue CurlGlue;
 typedef struct PullJob PullJob;
 
 typedef void (*PullJobFinished)(PullJob *job);
@@ -27,7 +29,7 @@ typedef enum PullJobState {
 
 #define PULL_JOB_IS_COMPLETE(j) (IN_SET((j)->state, PULL_JOB_DONE, PULL_JOB_FAILED))
 
-struct PullJob {
+typedef struct PullJob {
         PullJobState state;
         int error;
 
@@ -56,8 +58,9 @@ struct PullJob {
         uint64_t uncompressed_max;
         uint64_t compressed_max;
 
-        uint8_t *payload;
-        size_t payload_size;
+        uint64_t expected_content_length;
+
+        struct iovec payload;
 
         int disk_fd;
         bool close_disk_fd;
@@ -74,12 +77,14 @@ struct PullJob {
         bool calc_checksum;
         EVP_MD_CTX *checksum_ctx;
 
-        char *checksum;
+        struct iovec checksum;
+        struct iovec expected_checksum;
+
         bool sync;
         bool force_memory;
-};
+} PullJob;
 
-int pull_job_new(PullJob **job, const char *url, CurlGlue *glue, void *userdata);
+int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata);
 PullJob* pull_job_unref(PullJob *job);
 
 int pull_job_begin(PullJob *j);

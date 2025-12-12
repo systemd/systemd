@@ -4,9 +4,10 @@
 
 #include "alloc-util.h"
 #include "fileio.h"
-#include "fs-util.h"
+#include "hashmap.h"
 #include "install.h"
 #include "mkdir.h"
+#include "path-util.h"
 #include "rm-rf.h"
 #include "special.h"
 #include "string-util.h"
@@ -706,7 +707,10 @@ TEST(preset_and_list) {
         q = strjoina(root, "/usr/lib/systemd/system/preset-no.service");
 
         HASHMAP_FOREACH(fl, h) {
-                assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, basename(fl->path), &state) >= 0);
+                _cleanup_free_ char *unit_filename = NULL;
+
+                ASSERT_OK(path_extract_filename(fl->path, &unit_filename));
+                ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, unit_filename, &state));
                 assert_se(fl->state == state);
 
                 if (streq(fl->path, p)) {
@@ -1199,7 +1203,7 @@ TEST(verify_alias) {
         verify_one(&bare_template, "foo.target.wants/plain.socket", -EXDEV, NULL);
         verify_one(&bare_template, "foo.target.wants/plain@.service", -EXDEV, NULL);
          /* Name mismatch: we cannot allow this, because plain@foo.service would be pulled in by foo.target,
-          * but would not be resolveable on its own, since systemd doesn't know how to load the fragment. */
+          * but would not be resolvable on its own, since systemd doesn't know how to load the fragment. */
         verify_one(&bare_template, "foo.target.wants/plain@foo.service", -EXDEV, NULL);
         verify_one(&bare_template, "foo.target.wants/template1@foo.service", 0, NULL);
         verify_one(&bare_template, "foo.target.wants/service", -EXDEV, NULL);

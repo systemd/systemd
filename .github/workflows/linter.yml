@@ -29,17 +29,19 @@ jobs:
           fetch-depth: 0
 
       - name: Lint Code Base
-        uses: super-linter/super-linter/slim@4e8a7c2bf106c4c766c816b35ec612638dc9b6b2
+        uses: super-linter/super-linter/slim@502f4fe48a81a392756e173e39a861f8c8efe056
         env:
           DEFAULT_BRANCH: main
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_GITHUB_ACTIONS: true
+          LINTER_RULES_PATH: .github/linters
+          GITHUB_ACTIONS_CONFIG_FILE: actionlint.yml
 
-      - uses: systemd/mkosi@dbb4020beee2cdf250f93a425794f1cf8b0fe693
+      - uses: systemd/mkosi@5a476a92deca8ad54869e5d416217aa1bb137b25
 
       - name: Check that tabs are not used in Python code
-        run: sh -c '! git grep -P "\\t" -- src/boot/generate-hwids-section.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py'
+        run: sh -c '! git grep -P "\\t" -- src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py'
 
       - name: Build tools tree
         run: |
@@ -47,31 +49,38 @@ jobs:
           [Build]
           ToolsTreeDistribution=fedora
           ToolsTreeRelease=rawhide
+          ToolsTreePackages=
+                libgcrypt-devel
+                libgpg-error-devel
+                musl-gcc
           EOF
 
-          mkosi -f sandbox -- true
+          mkosi -f box -- true
 
       - name: Run mypy
         run: |
-          mkosi sandbox -- mypy --version
-          mkosi sandbox -- mypy src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
-
-      - name: Run ruff check
-        run: |
-          mkosi sandbox -- ruff --version
-          mkosi sandbox -- ruff check src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          mkosi box -- mypy --version
+          mkosi box -- mypy src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
 
       - name: Run ruff format
         run: |
-          mkosi sandbox -- ruff --version
-          if ! mkosi sandbox -- ruff format --check src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          mkosi box -- ruff --version
+          if ! mkosi box -- ruff format --check src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
           then
               echo "Please run 'ruff format' on the above files or apply the diffs below manually"
-              mkosi sandbox -- ruff format --check --quiet --diff src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+              mkosi box -- ruff format --check --quiet --diff src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
           fi
 
+      - name: Run ruff check
+        run: |
+          mkosi box -- ruff --version
+          mkosi box -- ruff check src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+
       - name: Configure meson
-        run: mkosi sandbox -- env CC=clang CXX=clang++ meson setup build
+        run: mkosi box -- env CC=clang CXX=clang++ meson setup -Dlocalegen-path=/usr/bin/locale-gen -Dcompat-mutable-uid-boundaries=true build
 
       - name: Run clang-tidy
-        run: mkosi sandbox -- ninja -C build clang-tidy
+        run: mkosi box -- meson test -C build --suite=clang-tidy --print-errorlogs --no-stdsplit --quiet
+
+      - name: Build with musl
+        run: mkosi box -- .github/workflows/build-test-musl.sh

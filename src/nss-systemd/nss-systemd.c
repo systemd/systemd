@@ -1,19 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <gshadow.h>
 #include <nss.h>
 #include <pthread.h>
 #include <string.h>
 #include <threads.h>
 
+#include "alloc-util.h"
 #include "env-util.h"
 #include "errno-util.h"
-#include "fd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "nss-systemd.h"
 #include "nss-util.h"
 #include "pthread-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-record-nss.h"
 #include "user-util.h"
@@ -120,15 +121,6 @@ static GetentData getsgent_data = {
         .mutex = PTHREAD_MUTEX_INITIALIZER,
 };
 REENABLE_WARNING;
-
-static void setup_logging_once(void) {
-        static pthread_once_t once = PTHREAD_ONCE_INIT;
-        assert_se(pthread_once(&once, log_parse_environment_variables) == 0);
-}
-
-#define NSS_ENTRYPOINT_BEGIN                    \
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);       \
-        setup_logging_once()
 
 NSS_GETPW_PROTOTYPES(systemd);
 NSS_GETSP_PROTOTYPES(systemd);
@@ -734,7 +726,7 @@ enum nss_status _nss_systemd_getgrent_r(
                 int *errnop) {
 
         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-        _cleanup_free_ char **members = NULL;
+        _cleanup_strv_free_ char **members = NULL;
         int r;
 
         PROTECT_ERRNO;

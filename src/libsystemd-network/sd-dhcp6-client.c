@@ -3,27 +3,30 @@
   Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <linux/if_arp.h>
 #include <linux/if_infiniband.h>
-#include <sys/ioctl.h>
 
 #include "sd-dhcp6-client.h"
+#include "sd-dhcp6-option.h"
 
 #include "alloc-util.h"
 #include "device-util.h"
 #include "dhcp-duid-internal.h"
+#include "dhcp6-client-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
+#include "ordered-set.h"
 #include "random-util.h"
 #include "socket-util.h"
 #include "sort-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "web-util.h"
 

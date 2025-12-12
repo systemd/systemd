@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "sd-path.h"
 
+#include "sd-forward.h"
 #include "runtime-scope.h"
 
 typedef enum LookupPathsFlags {
@@ -58,7 +57,8 @@ int lookup_paths_init_or_warn(LookupPaths *lp, RuntimeScope scope, LookupPathsFl
 void lookup_paths_log(LookupPaths *p);
 void lookup_paths_done(LookupPaths *p);
 
-int runtime_directory(RuntimeScope scope, const char *suffix, char **ret);
+int runtime_directory_generic(RuntimeScope scope, const char *suffix, char **ret);
+int runtime_directory(RuntimeScope scope, const char *fallback_suffix, char **ret);
 
 /* We don't treat /etc/xdg/systemd/ in these functions as the xdg base dir spec suggests because we assume
  * that is a link to /etc/systemd/ anyway. */

@@ -1,41 +1,37 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdlib.h>
 #include <sys/file.h>
-#include <unistd.h>
 
-#include "sd-device.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "blkid-util.h"
 #include "blockdev-util.h"
-#include "btrfs-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
-#include "dirent-util.h"
 #include "dissect-image.h"
 #include "dropin.h"
 #include "efi-loader.h"
+#include "efivars.h"
+#include "errno-util.h"
 #include "factory-reset.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "fstab-util.h"
 #include "generator.h"
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "initrd-util.h"
+#include "loop-util.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
-#include "specifier.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "virt.h"
 
@@ -51,6 +47,7 @@ static const char *arg_dest_late = NULL;
 static bool arg_enabled = true;
 static GptAutoRoot arg_auto_root = _GPT_AUTO_ROOT_INVALID;
 static GptAutoRoot arg_auto_usr = _GPT_AUTO_ROOT_INVALID;
+static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static bool arg_swap_enabled = true;
 static char *arg_root_fstype = NULL;
 static char *arg_root_options = NULL;
@@ -130,7 +127,7 @@ static int add_cryptsetup(
                  * assignment, under the assumption that people who are fine to use sd-stub with its PCR
                  * assignments are also OK with our PCR 15 use here. */
                 if (r > 0)
-                        if (!strextend_with_separator(&options, ",", "tpm2-measure-pcr=yes"))
+                        if (!strextend_with_separator(&options, ",", "tpm2-measure-pcr=yes,tpm2-measure-keyslot-nvpcr=cryptsetup"))
                                 return log_oom();
                 if (r == 0)
                         log_debug("Will not measure volume key of volume '%s', not booted via systemd-stub with measurements enabled.", id);
@@ -821,7 +818,7 @@ static int add_root_mount(void) {
                         return 0;
                 }
 
-                r = efi_loader_get_device_part_uuid(/* ret_uuid= */ NULL);
+                r = efi_loader_get_device_part_uuid(/* ret= */ NULL);
                 if (r == -ENOENT) {
                         log_notice("EFI loader partition unknown, not processing %s.\n"
                                    "(The boot loader did not set EFI variable LoaderDevicePartUUID.)",
@@ -1068,15 +1065,6 @@ static int enumerate_partitions(dev_t devnum) {
         _cleanup_free_ char *devname = NULL;
         int r;
 
-        static const PartitionDesignator ignore_designators[] = {
-                PARTITION_ROOT,
-                PARTITION_ROOT_VERITY,
-                PARTITION_ROOT_VERITY_SIG,
-                PARTITION_USR,
-                PARTITION_USR_VERITY,
-                PARTITION_USR_VERITY_SIG,
-        };
-
         assert(!in_initrd());
 
         /* Run on the final root fs (not in the initrd), to mount auxiliary partitions, and hook in rw
@@ -1092,14 +1080,6 @@ static int enumerate_partitions(dev_t devnum) {
                 return log_debug_errno(r, "Failed to get device node of " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devnum));
 
-        _cleanup_(image_policy_freep) ImagePolicy *image_policy = NULL;
-        r = image_policy_ignore_designators(
-                        arg_image_policy ?: &image_policy_host,
-                        ignore_designators, ELEMENTSOF(ignore_designators),
-                        &image_policy);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to mark root/usr designators as ignore in image policy: %m");
-
         /* Let's take a LOCK_SH lock on the block device, in case udevd is already running. If we don't take
          * the lock, udevd might end up issuing BLKRRPART in the middle, and we don't want that, since that
          * might remove all partitions while we are operating on them. */
@@ -1109,9 +1089,9 @@ static int enumerate_partitions(dev_t devnum) {
 
         r = dissect_loop_device(
                         loop,
-                        /* verity= */ NULL,
+                        &arg_verity_settings,
                         /* mount_options= */ NULL,
-                        image_policy,
+                        arg_image_policy ?: &image_policy_host,
                         arg_image_filter,
                         DISSECT_IMAGE_GPT_ONLY|
                         DISSECT_IMAGE_USR_NO_ROOT|
@@ -1208,6 +1188,25 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 arg_auto_root = GPT_AUTO_ROOT_OFF;
                 log_debug("Disabling root partition auto-detection, roothash= is set.");
+
+                arg_verity_settings.designator = PARTITION_ROOT;
+
+                iovec_done(&arg_verity_settings.root_hash);
+                r = unhexmem(value, &arg_verity_settings.root_hash.iov_base, &arg_verity_settings.root_hash.iov_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse roothash= from kernel command line: %m");
+
+        } else if (streq(key, "usrhash")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                arg_verity_settings.designator = PARTITION_USR;
+
+                iovec_done(&arg_verity_settings.root_hash);
+                r = unhexmem(value, &arg_verity_settings.root_hash.iov_base, &arg_verity_settings.root_hash.iov_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse usrhash= from kernel command line: %m");
 
         } else if (streq(key, "rootfstype")) {
 

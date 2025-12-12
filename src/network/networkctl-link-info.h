@@ -1,16 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
 
 #include <linux/if.h>
 #include <linux/if_link.h>
 #include <linux/nl80211.h>
-#include <stdint.h>
-
-#include "sd-bus.h"
-#include "sd-device.h"
-#include "sd-netlink.h"
 
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
+#include "shared-forward.h"
 #include "in-addr-util.h"
 
 typedef struct VxLanInfo {

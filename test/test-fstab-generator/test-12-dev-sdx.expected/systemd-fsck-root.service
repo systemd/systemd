@@ -15,3 +15,4 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/lib/systemd/systemd-fsck /dev/sdx1
 TimeoutSec=infinity
+ImportCredential=fsck.*

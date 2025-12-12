@@ -4,7 +4,6 @@
 #include <locale.h>
 
 #include "sd-event.h"
-#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -13,16 +12,16 @@
 #include "export-raw.h"
 #include "export-tar.h"
 #include "fd-util.h"
-#include "fs-util.h"
-#include "hostname-util.h"
 #include "import-common.h"
-#include "import-util.h"
+#include "log.h"
 #include "main-func.h"
+#include "runtime-scope.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "verbs.h"
 
+static ImportFlags arg_import_flags = 0;
 static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;
 static ImageClass arg_class = IMAGE_MACHINE;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
@@ -56,7 +55,7 @@ static void on_tar_finished(TarExport *export, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int export_tar(int argc, char *argv[], void *userdata) {
@@ -96,6 +95,9 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         } else {
                 _cleanup_free_ char *pretty = NULL;
 
+                if (isatty_safe(STDOUT_FILENO))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Refusing to write archive to TTY.");
+
                 fd = STDOUT_FILENO;
 
                 (void) fd_get_path(fd, &pretty);
@@ -110,7 +112,12 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate exporter: %m");
 
-        r = tar_export_start(export, local, fd, arg_compress);
+        r = tar_export_start(
+                        export,
+                        local,
+                        fd,
+                        arg_compress,
+                        arg_import_flags & IMPORT_FLAGS_MASK_TAR);
         if (r < 0)
                 return log_error_errno(r, "Failed to export image: %m");
 
@@ -129,7 +136,7 @@ static void on_raw_finished(RawExport *export, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int export_raw(int argc, char *argv[], void *userdata) {
@@ -206,7 +213,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --version                 Show package version\n"
                "     --format=FORMAT           Select format\n"
                "     --class=CLASS             Select image class (machine, sysext, confext,\n"
-               "                               portable)\n",
+               "                               portable)\n"
+               "     --system                  Operate in per-system mode\n"
+               "     --user                    Operate in per-user mode\n",
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -222,6 +231,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_FORMAT,
                 ARG_CLASS,
+                ARG_SYSTEM,
+                ARG_USER,
         };
 
         static const struct option options[] = {
@@ -229,6 +240,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version", no_argument,       NULL, ARG_VERSION },
                 { "format",  required_argument, NULL, ARG_FORMAT  },
                 { "class",   required_argument, NULL, ARG_CLASS   },
+                { "system",  no_argument,       NULL, ARG_SYSTEM  },
+                { "user",    no_argument,       NULL, ARG_USER    },
                 {}
         };
 
@@ -248,17 +261,8 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_FORMAT:
-                        if (streq(optarg, "uncompressed"))
-                                arg_compress = IMPORT_COMPRESS_UNCOMPRESSED;
-                        else if (streq(optarg, "xz"))
-                                arg_compress = IMPORT_COMPRESS_XZ;
-                        else if (streq(optarg, "gzip"))
-                                arg_compress = IMPORT_COMPRESS_GZIP;
-                        else if (streq(optarg, "bzip2"))
-                                arg_compress = IMPORT_COMPRESS_BZIP2;
-                        else if (streq(optarg, "zstd"))
-                                arg_compress = IMPORT_COMPRESS_ZSTD;
-                        else
+                        arg_compress = import_compress_type_from_string(optarg);
+                        if (arg_compress < 0 || arg_compress == IMPORT_COMPRESS_UNKNOWN)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown format: %s", optarg);
                         break;
@@ -270,12 +274,23 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_SYSTEM:
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                case ARG_USER:
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached();
                 }
+
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER)
+                arg_import_flags |= IMPORT_FOREIGN_UID;
 
         return 1;
 }

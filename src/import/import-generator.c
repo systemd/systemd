@@ -2,9 +2,12 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "creds-util.h"
 #include "discover-image.h"
 #include "efivars.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
@@ -12,9 +15,11 @@
 #include "initrd-util.h"
 #include "json-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "proc-cmdline.h"
-#include "special.h"
+#include "runtime-scope.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "unit-name.h"
 #include "web-util.h"
 
@@ -59,14 +64,16 @@ static int parse_pull_expression(const char *v) {
         if (r < 0)
                 return log_error_errno(r, "Failed to extract option string from pull expression '%s': %m", v);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No option string in pull expression '%s': %m", v);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No option string in pull expression '%s'.", v);
 
         _cleanup_free_ char *local = NULL;
         r = extract_first_word(&p, &local, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r < 0)
                 return log_error_errno(r, "Failed to extract local name from pull expression '%s': %m", v);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No local string in pull expression '%s': %m", v);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No local string in pull expression '%s'.", v);
+        if (isempty(p))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No remote string in pull expression '%s'.", v);
 
         _cleanup_free_ char *remote = strdup(p);
         if (!remote)
@@ -194,7 +201,10 @@ static int parse_pull_expression(const char *v) {
         if (!GREEDY_REALLOC(arg_transfers, arg_n_transfers + 1))
                 return log_oom();
 
-        const char *image_root = runtime ? image_root_runtime_to_string(class) : image_root_to_string(class);
+        _cleanup_free_ char *image_root = NULL;
+        r = image_root_pick(RUNTIME_SCOPE_SYSTEM, class, runtime, &image_root);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pick image root: %m");
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
         r = sd_json_buildo(
@@ -214,7 +224,7 @@ static int parse_pull_expression(const char *v) {
                 .type = type,
                 .local = TAKE_PTR(local),
                 .remote = TAKE_PTR(remote),
-                .image_root = image_root,
+                .image_root = TAKE_PTR(image_root),
                 .json = TAKE_PTR(j),
                 .blockdev = blockdev,
         };
@@ -382,7 +392,7 @@ static int transfer_generate(const Transfer *t) {
         if (!escaped)
                 return log_oom();
 
-        fprintf(f, "ExecStart=:varlinkctl call -q --more /run/systemd/io.systemd.Import io.systemd.Import.Pull '%s'\n",
+        fprintf(f, "ExecStart=:varlinkctl call -q --more --timeout=infinity /run/systemd/io.systemd.Import io.systemd.Import.Pull '%s'\n",
                 escaped);
 
         r = fflush_and_check(f);

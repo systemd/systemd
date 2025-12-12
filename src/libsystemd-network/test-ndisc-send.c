@@ -1,7 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <netinet/icmp6.h>
 
+#include "sd-ndisc-protocol.h"
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "build.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
@@ -13,7 +18,8 @@
 #include "netlink-util.h"
 #include "network-common.h"
 #include "parse-util.h"
-#include "socket-util.h"
+#include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 
@@ -303,7 +309,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 if (hw_addr.length != sizeof(struct ether_addr))
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Unsupported hardware address length %zu: %m",
+                                               "Unsupported hardware address length %zu.",
                                                hw_addr.length);
 
                 arg_source_mac = hw_addr.ether;

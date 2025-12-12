@@ -15,13 +15,13 @@ components:
    i.e. [`systemd-boot`](https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html)
    that provides interactive and programmatic control of what precisely to
    boot. It takes care of enumerating all possible boot targets (implementing
-   the [Boot Loader
+   the [UAPI.1 Boot Loader
    Specification](https://uapi-group.org/specifications/specs/boot_loader_specification/)),
    potentially presenting it to the user in a menu, but otherwise picking an
    item automatically, implementing boot counting and automatic rollback if
    desired.
 
-2. A [unified kernel image
+2. A [UAPI.5 Unified Kernel Image
    ("UKI")](https://uapi-group.org/specifications/specs/unified_kernel_image/),
    i.e. an UEFI PE executable that combines
    [`systemd-stub`](https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html),
@@ -133,7 +133,7 @@ the same disk. Specifically:
    ESP as well, in particular below the `/loader/` subdirectory.
 
 2. The UKIs may either be placed in the ESP (below the `/EFI/Linux/`
-   subdirectory), or in the [Extended Boot Loader
+   subdirectory), or in the [UAPI.1 Extended Boot Loader
    Partition](https://uapi-group.org/specifications/specs/boot_loader_specification/#the-partitions)
    ("XBOOTLDR"), which can be placed on the same disk as the ESP and is also
    VFAT. XBOOTLDR is an optional concept and it's only *raison d'être* is that
@@ -146,7 +146,7 @@ the same disk. Specifically:
 3. The `rootfs` is placed on the same disk as the ESP/XBOOTLDR, in a partition
    marked with a special GPT partition type. Various other well-known types of
    partitions can be placed next to the `rootfs` and are automatically
-   discovered and mounted, see the [Discoverable Partitions
+   discovered and mounted, see the [UAPI.2 Discoverable Partitions
    Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification/)
    for details.
 
@@ -179,8 +179,8 @@ each of these resources:
    [`bootctl`](https://www.freedesktop.org/software/systemd/man/latest/bootctl.html),
    `efibootmgr` or `kernel-bootcfg`.
 
-2. The `systemd-boot` boot loader may be configured via [`Boot Loader
-   Specification Type #1`](https://uapi-group.org/specifications/specs/boot_loader_specification/)
+2. The `systemd-boot` boot loader may be configured via [UAPI.1 Boot Loader
+   Specification Type #1](https://uapi-group.org/specifications/specs/boot_loader_specification/)
    entries to acquire UKIs or similar from other locations.
 
 3. The `initrd` part of the UKI understands the `root=` (and `mount.usr=`)
@@ -220,7 +220,7 @@ local disk. This can happen at each of these three components:
    `rootfs` from HTTP
    sources](https://www.freedesktop.org/software/systemd/man/latest/systemd-import-generator.html),
    either in a GPT disk image (specifically:
-   [DDIs](https://uapi-group.org/specifications/specs/discoverable_disk_image/),
+   [UAPI.3 DDIs](https://uapi-group.org/specifications/specs/discoverable_disk_image/),
    with `.raw` suffix) or in a `.tar` file, which are placed in system RAM and
    then booted into (these downloads can be downloaded in compressed form and
    are automatically decompressed on-the-fly). This of course requires

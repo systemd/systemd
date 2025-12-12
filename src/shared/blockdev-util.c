@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/blkpg.h>
+#include <linux/fs.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
-#include <sys/mount.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -19,10 +20,11 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "missing_magic.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "string-util.h"
 
-static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
+static int fd_get_devnum(int fd, BlockDeviceLookupFlags flags, dev_t *ret) {
         struct stat st;
         dev_t devnum;
         int r;
@@ -57,9 +59,14 @@ static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
 }
 
 int block_device_is_whole_disk(sd_device *dev) {
+        int r;
+
         assert(dev);
 
-        if (!device_in_subsystem(dev, "block"))
+        r = device_in_subsystem(dev, "block");
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -ENOTBLK;
 
         return device_is_devtype(dev, "disk");
@@ -141,7 +148,7 @@ int block_device_get_originating(sd_device *dev, sd_device **ret) {
         return 0;
 }
 
-int block_device_new_from_fd(int fd, BlockDeviceLookupFlag flags, sd_device **ret) {
+int block_device_new_from_fd(int fd, BlockDeviceLookupFlags flags, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         dev_t devnum;
         int r;
@@ -187,7 +194,7 @@ int block_device_new_from_fd(int fd, BlockDeviceLookupFlag flags, sd_device **re
         return 0;
 }
 
-int block_device_new_from_path(const char *path, BlockDeviceLookupFlag flags, sd_device **ret) {
+int block_device_new_from_path(const char *path, BlockDeviceLookupFlags flags, sd_device **ret) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(path);
@@ -333,20 +340,24 @@ int get_block_device_harder(const char *path, dev_t *ret) {
         return get_block_device_harder_fd(fd, ret);
 }
 
-int lock_whole_block_device(dev_t devt, int operation) {
+int lock_whole_block_device(dev_t devt, int open_flags, int operation) {
         _cleanup_close_ int lock_fd = -EBADF;
         dev_t whole_devt;
         int r;
 
-        /* Let's get a BSD file lock on the whole block device, as per: https://systemd.io/BLOCK_DEVICE_LOCKING */
+        /* Let's get a BSD file lock on the whole block device, as per: https://systemd.io/BLOCK_DEVICE_LOCKING
+         *
+         * NB: it matters whether open_flags indicates open for write: only then will the eventual closing of
+         * the fd trigger udev's partitioning rescanning of the device (as it watches for IN_CLOSE_WRITE),
+         * hence make sure to pass the right value there. */
 
         r = block_get_whole_disk(devt, &whole_devt);
         if (r < 0)
                 return r;
 
-        lock_fd = r = device_open_from_devnum(S_IFBLK, whole_devt, O_RDONLY|O_CLOEXEC|O_NONBLOCK, NULL);
-        if (r < 0)
-                return r;
+        lock_fd = device_open_from_devnum(S_IFBLK, whole_devt, open_flags|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, NULL);
+        if (lock_fd < 0)
+                return lock_fd;
 
         if (flock(lock_fd, operation) < 0)
                 return -errno;
@@ -407,6 +418,12 @@ int blockdev_partscan_enabled(sd_device *dev) {
 
         assert(dev);
 
+        r = device_in_subsystem(dev, "block");
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOTBLK;
+
         /* For v6.10 or newer. */
         r = device_get_sysattr_bool(dev, "partscan");
         if (r != -ENOENT)
@@ -414,7 +431,10 @@ int blockdev_partscan_enabled(sd_device *dev) {
 
         /* Partition block devices never have partition scanning on, there's no concept of sub-partitions for
          * partitions. */
-        if (device_is_devtype(dev, "partition"))
+        r = device_is_devtype(dev, "partition");
+        if (r < 0)
+                return r;
+        if (r > 0)
                 return false;
 
         /* For loopback block device, especially for v5.19 or newer. Even if this is enabled, we also need to
@@ -534,7 +554,7 @@ static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {
 }
 
 int fd_is_encrypted(int fd) {
-        char p[SYS_BLOCK_PATH_MAX(NULL)];
+        char p[SYS_BLOCK_PATH_MAX("")];
         dev_t devt;
         int r;
 
@@ -550,7 +570,7 @@ int fd_is_encrypted(int fd) {
 }
 
 int path_is_encrypted(const char *path) {
-        char p[SYS_BLOCK_PATH_MAX(NULL)];
+        char p[SYS_BLOCK_PATH_MAX("")];
         dev_t devt;
         int r;
 
@@ -788,27 +808,6 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
         return k < 0 ? k : has_partitions;
 }
 
-
-int blockdev_reread_partition_table(sd_device *dev) {
-        _cleanup_close_ int fd = -EBADF;
-
-        assert(dev);
-
-        /* Try to re-read the partition table. This only succeeds if none of the devices is busy. */
-
-        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (fd < 0)
-                return fd;
-
-        if (flock(fd, LOCK_EX|LOCK_NB) < 0)
-                return -errno;
-
-        if (ioctl(fd, BLKRRPART, 0) < 0)
-                return -errno;
-
-        return 0;
-}
-
 int blockdev_get_sector_size(int fd, uint32_t *ret) {
         int ssz = 0;
 
@@ -887,4 +886,47 @@ int blockdev_get_root(int level, dev_t *ret) {
                 *ret = devno;
 
         return 1;
+}
+
+int partition_node_of(const char *node, unsigned nr, char **ret) {
+        int r;
+
+        assert(node);
+        assert(nr > 0);
+        assert(ret);
+
+        /* Given a device node path to a block device returns the device node path to the partition block
+         * device of the specified partition */
+
+        _cleanup_free_ char *fn = NULL;
+        r = path_extract_filename(node, &fn);
+        if (r < 0)
+                return r;
+        if (r == O_DIRECTORY)
+                return -EISDIR;
+
+        _cleanup_free_ char *dn = NULL;
+        r = path_extract_directory(node, &dn);
+        if (r < 0 && r != -EDESTADDRREQ) /* allow if only filename is specified */
+                return r;
+
+        size_t l = strlen(fn);
+        assert(l > 0); /* underflow check for the subtraction below */
+
+        bool need_p = ascii_isdigit(fn[l-1]); /* Last char a digit? */
+
+        _cleanup_free_ char *subnode = NULL;
+        if (asprintf(&subnode, "%s%s%u", fn, need_p ? "p" : "", nr) < 0)
+                return -ENOMEM;
+
+        if (dn) {
+                _cleanup_free_ char *j = path_join(dn, subnode);
+                if (!j)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(j);
+        } else
+                *ret = TAKE_PTR(subnode);
+
+        return 0;
 }

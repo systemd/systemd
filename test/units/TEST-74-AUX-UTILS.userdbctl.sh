@@ -46,3 +46,16 @@ userdbctl user 65534 -j | userdbctl -F- user  | cmp - <(userdbctl user 65534)
 userdbctl group root -j | userdbctl -F- group  | cmp - <(userdbctl group root)
 userdbctl group systemd-network -j | userdbctl -F- group  | cmp - <(userdbctl group systemd-network)
 userdbctl group 65534 -j | userdbctl -F- group  | cmp - <(userdbctl group 65534)
+
+# Ensure NSS doesn't try to automount via open_tree
+if [[ ! -v ASAN_OPTIONS ]]; then
+    systemctl stop systemd-userdbd.socket systemd-userdbd.service
+    (! systemd-run -q -t --property SystemCallFilter=~open_tree id definitelynotarealuser) | grep "no such user" >/dev/null
+    (! systemd-run -q -t --property SystemCallFilter=~open_tree id --groups definitelynotarealuser) | grep "no such user" >/dev/null
+    (! systemd-run -q -t --property SystemCallFilter=~open_tree groups definitelynotarealuser) | grep "no such user" >/dev/null
+    # getent shows no output when the entry is not found, but exists with 2, while sd-run crashing will exit
+    # with 1
+    assert_rc 2 systemd-run -q -t --property SystemCallFilter=~open_tree getent passwd definitelynotarealuser
+    assert_rc 2 systemd-run -q -t --property SystemCallFilter=~open_tree getent group definitelynotarealgroup
+    systemctl start systemd-userdbd.socket systemd-userdbd.service
+fi

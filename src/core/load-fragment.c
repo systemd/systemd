@@ -3,40 +3,36 @@
   Copyright © 2012 Holger Hans Peter Freyther
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
-#include <linux/oom.h>
 #include <sched.h>
-#include <sys/resource.h>
+#include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-messages.h"
 
 #include "af-list.h"
 #include "all-units.h"
 #include "alloc-util.h"
-#include "bpf-firewall.h"
 #include "bpf-program.h"
 #include "bpf-restrict-fs.h"
-#include "bpf-socket-bind.h"
 #include "bus-error.h"
-#include "bus-internal.h"
-#include "bus-util.h"
-#include "cap-list.h"
+#include "calendarspec.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
+#include "condition.h"
 #include "conf-parser.h"
+#include "coredump-util.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
+#include "dissect-image.h"
 #include "env-util.h"
-#include "errno-list.h"
 #include "escape.h"
 #include "exec-credential.h"
 #include "execute.h"
+#include "extract-word.h"
 #include "fd-util.h"
-#include "fileio.h"
-#include "firewall-util.h"
-#include "fs-util.h"
 #include "fstab-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "ioprio-util.h"
@@ -46,10 +42,12 @@
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
-#include "missing_fs.h"
+#include "manager.h"
 #include "mountpoint-util.h"
+#include "nsflags.h"
 #include "nulstr-util.h"
 #include "open-file.h"
+#include "ordered-set.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -60,6 +58,8 @@
 #include "seccomp-util.h"
 #include "securebits-util.h"
 #include "selinux-util.h"
+#include "set.h"
+#include "show-status.h"
 #include "signal-util.h"
 #include "socket-netlink.h"
 #include "specifier.h"
@@ -71,8 +71,6 @@
 #include "unit-name.h"
 #include "unit-printf.h"
 #include "user-util.h"
-#include "utf8.h"
-#include "varlink.h"
 #include "web-util.h"
 
 static int parse_socket_protocol(const char *s) {
@@ -133,6 +131,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGrou
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_proc, protect_proc, ProtectProc);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_proc_subset, proc_subset, ProcSubset);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_private_bpf, private_bpf, PrivateBPF);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_tmp, private_tmp, PrivateTmp);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_users, private_users, PrivateUsers);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_private_pids, private_pids, PrivatePIDs);
@@ -159,6 +158,11 @@ DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_propagation_flag, mount_propagat
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat);
 DEFINE_CONFIG_PARSE_ENUM_FULL(config_parse_socket_timestamping, socket_timestamping_from_string_harder, SocketTimestamping);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_socket_defer_trigger, socket_defer_trigger, SocketDeferTrigger);
+DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate_commands, bpf_delegate_commands_from_string, uint64_t);
+DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate_maps, bpf_delegate_maps_from_string, uint64_t);
+DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate_programs, bpf_delegate_programs_from_string, uint64_t);
+DEFINE_CONFIG_PARSE_PTR(config_parse_bpf_delegate_attachments, bpf_delegate_attachments_from_string, uint64_t);
 
 bool contains_instance_specifier_superset(const char *s) {
         const char *p, *q;
@@ -738,7 +742,7 @@ int config_parse_exec_nice(
 }
 
 int config_parse_exec_oom_score_adjust(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -777,7 +781,7 @@ int config_parse_exec_oom_score_adjust(
 }
 
 int config_parse_exec_coredump_filter(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -815,7 +819,7 @@ int config_parse_exec_coredump_filter(
 }
 
 int config_parse_kill_mode(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -888,7 +892,7 @@ int config_parse_exec(
         bool semicolon;
 
         do {
-                _cleanup_free_ char *path = NULL, *firstword = NULL;
+                _cleanup_free_ char *firstword = NULL;
 
                 semicolon = false;
 
@@ -915,6 +919,8 @@ int config_parse_exec(
                          *
                          * "-":  Ignore if the path doesn't exist
                          * "@":  Allow overriding argv[0] (supplied as a separate argument)
+                         * "|":  Prefix the cmdline with target user's shell (when combined with "@" invoke
+                         *       login shell semantics)
                          * ":":  Disable environment variable substitution
                          * "+":  Run with full privileges and no sandboxing
                          * "!":  Apply sandboxing except for user/group credentials
@@ -926,6 +932,8 @@ int config_parse_exec(
                                 separate_argv0 = true;
                         else if (*f == ':' && !FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND))
                                 flags |= EXEC_COMMAND_NO_ENV_EXPAND;
+                        else if (*f == '|' && !FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL))
+                                flags |= EXEC_COMMAND_VIA_SHELL;
                         else if (*f == '+' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID)) && !ambient_hack)
                                 flags |= EXEC_COMMAND_FULLY_PRIVILEGED;
                         else if (*f == '!' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID)) && !ambient_hack)
@@ -947,45 +955,59 @@ int config_parse_exec(
 
                 ignore = FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE);
 
-                r = unit_path_printf(u, f, &path);
-                if (r < 0) {
-                        log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, r,
-                                   "Failed to resolve unit specifiers in '%s'%s: %m",
-                                   f, ignore ? ", ignoring" : "");
-                        return ignore ? 0 : -ENOEXEC;
-                }
-
-                if (isempty(path)) {
-                        log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
-                                   "Empty path in command line%s: %s",
-                                   ignore ? ", ignoring" : "", rvalue);
-                        return ignore ? 0 : -ENOEXEC;
-                }
-                if (!string_is_safe(path)) {
-                        log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
-                                   "Executable path contains special characters%s: %s",
-                                   ignore ? ", ignoring" : "", path);
-                        return ignore ? 0 : -ENOEXEC;
-                }
-                if (path_implies_directory(path)) {
-                        log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
-                                   "Executable path specifies a directory%s: %s",
-                                   ignore ? ", ignoring" : "", path);
-                        return ignore ? 0 : -ENOEXEC;
-                }
-
-                if (!(path_is_absolute(path) ? path_is_valid(path) : filename_is_valid(path))) {
-                        log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
-                                   "Neither a valid executable name nor an absolute path%s: %s",
-                                   ignore ? ", ignoring" : "", path);
-                        return ignore ? 0 : -ENOEXEC;
-                }
-
                 _cleanup_strv_free_ char **args = NULL;
+                _cleanup_free_ char *path = NULL;
 
-                if (!separate_argv0)
-                        if (strv_extend(&args, path) < 0)
+                if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)) {
+                        /* Use _PATH_BSHELL as placeholder since we can't do NSS lookups in pid1. This would
+                         * be exported to various dbus properties and is used to determine SELinux label -
+                         * which isn't accurate, but is a best-effort thing to assume all shells have more
+                         * or less the same label. */
+                        path = strdup(_PATH_BSHELL);
+                        if (!path)
                                 return log_oom();
+
+                        if (strv_extend_many(&args, separate_argv0 ? "-sh" : "sh", empty_to_null(f)) < 0)
+                                return log_oom();
+                } else {
+                        r = unit_path_printf(u, f, &path);
+                        if (r < 0) {
+                                log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, r,
+                                           "Failed to resolve unit specifiers in '%s'%s: %m",
+                                           f, ignore ? ", ignoring" : "");
+                                return ignore ? 0 : -ENOEXEC;
+                        }
+
+                        if (isempty(path)) {
+                                log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
+                                           "Empty path in command line%s: %s",
+                                           ignore ? ", ignoring" : "", rvalue);
+                                return ignore ? 0 : -ENOEXEC;
+                        }
+                        if (!string_is_safe(path)) {
+                                log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
+                                           "Executable path contains special characters%s: %s",
+                                           ignore ? ", ignoring" : "", path);
+                                return ignore ? 0 : -ENOEXEC;
+                        }
+                        if (path_implies_directory(path)) {
+                                log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
+                                           "Executable path specifies a directory%s: %s",
+                                           ignore ? ", ignoring" : "", path);
+                                return ignore ? 0 : -ENOEXEC;
+                        }
+
+                        if (!filename_or_absolute_path_is_valid(path)) {
+                                log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
+                                           "Neither a valid executable name nor an absolute path%s: %s",
+                                           ignore ? ", ignoring" : "", path);
+                                return ignore ? 0 : -ENOEXEC;
+                        }
+
+                        if (!separate_argv0)
+                                if (strv_extend(&args, path) < 0)
+                                        return log_oom();
+                }
 
                 while (!isempty(p)) {
                         _cleanup_free_ char *word = NULL, *resolved = NULL;
@@ -1054,7 +1076,7 @@ int config_parse_exec(
 }
 
 int config_parse_socket_bindtodevice(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1411,16 +1433,17 @@ int config_parse_exec_output(
         return 0;
 }
 
-int config_parse_exec_io_class(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata) {
+int config_parse_exec_io_class(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
         int x;
@@ -1430,7 +1453,7 @@ int config_parse_exec_io_class(const char *unit,
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                c->ioprio_set = false;
+                c->ioprio_is_set = false;
                 c->ioprio = IOPRIO_DEFAULT_CLASS_AND_PRIO;
                 return 0;
         }
@@ -1442,21 +1465,22 @@ int config_parse_exec_io_class(const char *unit,
         }
 
         c->ioprio = ioprio_normalize(ioprio_prio_value(x, ioprio_prio_data(c->ioprio)));
-        c->ioprio_set = true;
+        c->ioprio_is_set = true;
 
         return 0;
 }
 
-int config_parse_exec_io_priority(const char *unit,
-                                  const char *filename,
-                                  unsigned line,
-                                  const char *section,
-                                  unsigned section_line,
-                                  const char *lvalue,
-                                  int ltype,
-                                  const char *rvalue,
-                                  void *data,
-                                  void *userdata) {
+int config_parse_exec_io_priority(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
         int i, r;
@@ -1466,7 +1490,7 @@ int config_parse_exec_io_priority(const char *unit,
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                c->ioprio_set = false;
+                c->ioprio_is_set = false;
                 c->ioprio = IOPRIO_DEFAULT_CLASS_AND_PRIO;
                 return 0;
         }
@@ -1478,21 +1502,22 @@ int config_parse_exec_io_priority(const char *unit,
         }
 
         c->ioprio = ioprio_normalize(ioprio_prio_value(ioprio_prio_class(c->ioprio), i));
-        c->ioprio_set = true;
+        c->ioprio_is_set = true;
 
         return 0;
 }
 
-int config_parse_exec_cpu_sched_policy(const char *unit,
-                                       const char *filename,
-                                       unsigned line,
-                                       const char *section,
-                                       unsigned section_line,
-                                       const char *lvalue,
-                                       int ltype,
-                                       const char *rvalue,
-                                       void *data,
-                                       void *userdata) {
+int config_parse_exec_cpu_sched_policy(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
         int x;
@@ -1522,47 +1547,55 @@ int config_parse_exec_cpu_sched_policy(const char *unit,
         return 0;
 }
 
-int config_parse_numa_mask(const char *unit,
-                           const char *filename,
-                           unsigned line,
-                           const char *section,
-                           unsigned section_line,
-                           const char *lvalue,
-                           int ltype,
-                           const char *rvalue,
-                           void *data,
-                           void *userdata) {
+int config_parse_numa_mask(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CPUSet *cpu_set = ASSERT_PTR(data);
         int r;
-        NUMAPolicy *p = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
         if (streq(rvalue, "all")) {
-                r = numa_mask_add_all(&p->nodes);
+                _cleanup_(cpu_set_done) CPUSet c = {};
+
+                r = numa_mask_add_all(&c);
                 if (r < 0)
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to create NUMA mask representing \"all\" NUMA nodes, ignoring: %m");
-        } else {
-                r = parse_cpu_set_extend(rvalue, &p->nodes, true, unit, filename, line, lvalue);
-                if (r < 0)
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse NUMA node mask, ignoring: %s", rvalue);
+
+                cpu_set_done(cpu_set);
+                *cpu_set = TAKE_STRUCT(c);
+                return 0;
         }
 
-        return 0;
+        /* When parsing system.conf or user.conf, rather than unit files, userdata is NULL. */
+        return userdata ?
+                config_parse_unit_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata) :
+                config_parse_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
 
-int config_parse_exec_cpu_sched_prio(const char *unit,
-                                     const char *filename,
-                                     unsigned line,
-                                     const char *section,
-                                     unsigned section_line,
-                                     const char *lvalue,
-                                     int ltype,
-                                     const char *rvalue,
-                                     void *data,
-                                     void *userdata) {
+int config_parse_exec_cpu_sched_prio(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
         int i, r;
@@ -1681,9 +1714,7 @@ int config_parse_exec_root_hash(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ void *roothash_decoded = NULL;
         ExecContext *c = ASSERT_PTR(data);
-        size_t roothash_decoded_size = 0;
         int r;
 
         assert(filename);
@@ -1693,8 +1724,7 @@ int config_parse_exec_root_hash(
         if (isempty(rvalue)) {
                 /* Reset if the empty string is assigned */
                 c->root_hash_path = mfree(c->root_hash_path);
-                c->root_hash = mfree(c->root_hash);
-                c->root_hash_size = 0;
+                iovec_done(&c->root_hash);
                 return 0;
         }
 
@@ -1707,24 +1737,24 @@ int config_parse_exec_root_hash(
                         return -ENOMEM;
 
                 free_and_replace(c->root_hash_path, p);
-                c->root_hash = mfree(c->root_hash);
-                c->root_hash_size = 0;
+                iovec_done(&c->root_hash);
                 return 0;
         }
 
         /* We have a roothash to decode, eg: RootHash=012345789abcdef */
-        r = unhexmem(rvalue, &roothash_decoded, &roothash_decoded_size);
+        _cleanup_(iovec_done) struct iovec roothash_decoded = {};
+        r = unhexmem(rvalue, &roothash_decoded.iov_base, &roothash_decoded.iov_len);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to decode RootHash=, ignoring: %s", rvalue);
                 return 0;
         }
-        if (roothash_decoded_size < sizeof(sd_id128_t)) {
+        if (roothash_decoded.iov_len < sizeof(sd_id128_t)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "RootHash= is too short, ignoring: %s", rvalue);
                 return 0;
         }
 
-        free_and_replace(c->root_hash, roothash_decoded);
-        c->root_hash_size = roothash_decoded_size;
+        iovec_done(&c->root_hash);
+        c->root_hash = TAKE_STRUCT(roothash_decoded);
         c->root_hash_path = mfree(c->root_hash_path);
 
         return 0;
@@ -1742,10 +1772,7 @@ int config_parse_exec_root_hash_sig(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ void *roothash_sig_decoded = NULL;
-        char *value;
         ExecContext *c = ASSERT_PTR(data);
-        size_t roothash_sig_decoded_size = 0;
         int r;
 
         assert(filename);
@@ -1755,8 +1782,7 @@ int config_parse_exec_root_hash_sig(
         if (isempty(rvalue)) {
                 /* Reset if the empty string is assigned */
                 c->root_hash_sig_path = mfree(c->root_hash_sig_path);
-                c->root_hash_sig = mfree(c->root_hash_sig);
-                c->root_hash_sig_size = 0;
+                iovec_done(&c->root_hash_sig);
                 return 0;
         }
 
@@ -1769,26 +1795,27 @@ int config_parse_exec_root_hash_sig(
                         return log_oom();
 
                 free_and_replace(c->root_hash_sig_path, p);
-                c->root_hash_sig = mfree(c->root_hash_sig);
-                c->root_hash_sig_size = 0;
+                iovec_done(&c->root_hash_sig);
                 return 0;
         }
 
-        if (!(value = startswith(rvalue, "base64:"))) {
+        const char *value = startswith(rvalue, "base64:");
+        if (!value) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to decode RootHashSignature=, not a path but doesn't start with 'base64:', ignoring: %s", rvalue);
                 return 0;
         }
 
         /* We have a roothash signature to decode, eg: RootHashSignature=base64:012345789abcdef */
-        r = unbase64mem(value, &roothash_sig_decoded, &roothash_sig_decoded_size);
+        _cleanup_(iovec_done) struct iovec roothash_sig_decoded = {};
+        r = unbase64mem(value, &roothash_sig_decoded.iov_base, &roothash_sig_decoded.iov_len);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to decode RootHashSignature=, ignoring: %s", rvalue);
                 return 0;
         }
 
-        free_and_replace(c->root_hash_sig, roothash_sig_decoded);
-        c->root_hash_sig_size = roothash_sig_decoded_size;
+        iovec_done(&c->root_hash_sig);
+        c->root_hash_sig = TAKE_STRUCT(roothash_sig_decoded);
         c->root_hash_sig_path = mfree(c->root_hash_sig_path);
 
         return 0;
@@ -1807,8 +1834,6 @@ int config_parse_exec_cpu_affinity(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
-        _cleanup_free_ char *k = NULL;
         int r;
 
         assert(filename);
@@ -1817,21 +1842,12 @@ int config_parse_exec_cpu_affinity(
 
         if (streq(rvalue, "numa")) {
                 c->cpu_affinity_from_numa = true;
-                cpu_set_reset(&c->cpu_set);
-
+                cpu_set_done(&c->cpu_set);
                 return 0;
         }
 
-        r = unit_full_printf(u, rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to resolve unit specifiers in '%s', ignoring: %m",
-                           rvalue);
-                return 0;
-        }
-
-        r = parse_cpu_set_extend(k, &c->cpu_set, true, unit, filename, line, lvalue);
-        if (r >= 0)
+        r = config_parse_unit_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &c->cpu_set, userdata);
+        if (r > 0)
                 c->cpu_affinity_from_numa = false;
 
         return 0;
@@ -1850,41 +1866,22 @@ int config_parse_capability_set(
                 void *userdata) {
 
         uint64_t *capability_set = ASSERT_PTR(data);
-        uint64_t sum = 0, initial, def;
-        bool invert = false;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        if (rvalue[0] == '~') {
-                invert = true;
-                rvalue++;
-        }
+        uint64_t initial = streq(lvalue, "CapabilityBoundingSet") ? CAP_MASK_ALL : 0;
 
-        if (streq(lvalue, "CapabilityBoundingSet")) {
-                initial = CAP_MASK_ALL; /* initialized to all bits on */
-                def = CAP_MASK_UNSET;   /* not set */
-        } else
-                def = initial = 0; /* All bits off */
-
-        r = capability_set_from_string(rvalue, &sum);
+        r = parse_capability_set(rvalue, initial, capability_set);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s= specifier '%s', ignoring: %m", lvalue, rvalue);
                 return 0;
         }
 
-        if (sum == 0 || *capability_set == def)
-                /* "", "~" or uninitialized data -> replace */
-                *capability_set = invert ? ~sum : sum;
-        else {
-                /* previous data -> merge */
-                if (invert)
-                        *capability_set &= ~sum;
-                else
-                        *capability_set |= sum;
-        }
+        if (*capability_set == CAP_MASK_UNSET)
+                *capability_set = 0;
 
         return 0;
 }
@@ -2149,16 +2146,17 @@ int config_parse_trigger_unit(
         return 0;
 }
 
-int config_parse_path_spec(const char *unit,
-                           const char *filename,
-                           unsigned line,
-                           const char *section,
-                           unsigned section_line,
-                           const char *lvalue,
-                           int ltype,
-                           const char *rvalue,
-                           void *data,
-                           void *userdata) {
+int config_parse_path_spec(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Path *p = ASSERT_PTR(data);
         PathSpec *s;
@@ -2638,16 +2636,17 @@ int config_parse_working_directory(
         return 0;
 }
 
-int config_parse_unit_env_file(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata) {
+int config_parse_unit_env_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         char ***env = ASSERT_PTR(data);
         const Unit *u = userdata;
@@ -3752,7 +3751,7 @@ int config_parse_cpu_quota(
         return 0;
 }
 
-int config_parse_allowed_cpuset(
+int config_parse_unit_cpu_set(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -3764,8 +3763,7 @@ int config_parse_allowed_cpuset(
                 void *data,
                 void *userdata) {
 
-        CPUSet *c = data;
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *k = NULL;
         int r;
 
@@ -3781,8 +3779,7 @@ int config_parse_allowed_cpuset(
                 return 0;
         }
 
-        (void) parse_cpu_set_extend(k, c, true, unit, filename, line, lvalue);
-        return 0;
+        return config_parse_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, k, data, userdata);
 }
 
 int config_parse_memory_limit(
@@ -4415,7 +4412,7 @@ int config_parse_io_limit(
         if (r < 0)
                 return 0;
 
-        if (streq("infinity", p))
+        if (streq(p, "infinity"))
                 num = CGROUP_LIMIT_MAX;
         else {
                 r = parse_size(p, 1000, &num);
@@ -4581,6 +4578,48 @@ int config_parse_exec_directories(
                 if (r < 0)
                         return log_oom();
         }
+}
+
+int config_parse_exec_quota(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        QuotaLimit *quota_limit = ASSERT_PTR(data);
+        uint64_t quota_absolute = UINT64_MAX;
+        uint32_t quota_scale = UINT32_MAX;
+        int r;
+
+        if (isempty(rvalue) || streq(rvalue, "off")) {
+                quota_limit->quota_enforce = false;
+                quota_limit->quota_absolute = UINT64_MAX;
+                quota_limit->quota_scale = UINT32_MAX;
+                return 0;
+        }
+
+        r = parse_permyriad(rvalue);
+        if (r < 0) {
+                r = parse_size(rvalue, 1024, &quota_absolute);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse disk quota value, ignoring: %s", rvalue);
+                        return 0;
+                }
+        } else
+                /* Normalize to 2^32-1 == 100% */
+                quota_scale = UINT32_SCALE_FROM_PERMYRIAD(r);
+
+        quota_limit->quota_absolute = quota_absolute;
+        quota_limit->quota_scale = quota_scale;
+        quota_limit->quota_enforce = true;
+
+        return 0;
 }
 
 int config_parse_set_credential(
@@ -5438,7 +5477,7 @@ int config_parse_extension_images(
 }
 
 int config_parse_job_timeout_sec(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -5476,7 +5515,7 @@ int config_parse_job_timeout_sec(
 }
 
 int config_parse_job_running_timeout_sec(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -5508,7 +5547,7 @@ int config_parse_job_running_timeout_sec(
 }
 
 int config_parse_emergency_action(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -5534,16 +5573,13 @@ int config_parse_emergency_action(
                 runtime_scope = ltype; /* otherwise, assume the scope is passed in via ltype */
 
         r = parse_emergency_action(rvalue, runtime_scope, x);
-        if (r < 0) {
-                if (r == -EOPNOTSUPP)
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "%s= specified as %s mode action, ignoring: %s",
-                                   lvalue, runtime_scope_to_string(runtime_scope), rvalue);
-                else
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r == -EOPNOTSUPP)
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                "%s= specified as %s mode action, ignoring: %s",
+                                lvalue, runtime_scope_to_string(runtime_scope), rvalue);
+        else if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
 
         return 0;
 }
@@ -5712,15 +5748,12 @@ int config_parse_ip_filter_bpf_progs(
         if (r < 0)
                 return log_oom();
 
-        r = bpf_firewall_supported();
-        if (r < 0)
-                return r;
-        if (r != BPF_FIREWALL_SUPPORTED_WITH_MULTI) {
+        if (bpf_program_supported() <= 0) {
                 static bool warned = false;
 
-                log_full(warned ? LOG_DEBUG : LOG_WARNING,
-                         "File %s:%u configures an IP firewall with BPF programs (%s=%s), but the local system does not support BPF/cgroup based firewalling with multiple filters.\n"
-                         "Starting this unit will fail! (This warning is only shown for the first loaded unit using IP firewalling.)", filename, line, lvalue, rvalue);
+                log_syntax(unit, warned ? LOG_DEBUG : LOG_WARNING, filename, line, 0,
+                           "Configures an IP firewall with BPF programs (%s=%s), but the local system does not support BPF/cgroup based firewalling with multiple filters. "
+                           "Starting this unit will fail! (This warning is only shown for the first loaded unit using IP firewalling.)", lvalue, rvalue);
 
                 warned = true;
         }
@@ -6062,7 +6095,7 @@ int unit_load_fragment(Unit *u) {
                                 _cleanup_freecon_ char *selcon = NULL;
 
                                 /* Cache the SELinux context of the unit file here. We'll make use of when checking access permissions to loaded units */
-                                r = fgetfilecon_raw(fileno(f), &selcon);
+                                r = sym_fgetfilecon_raw(fileno(f), &selcon);
                                 if (r < 0)
                                         log_unit_warning_errno(u, r, "Failed to read SELinux context of '%s', ignoring: %m", fragment);
 
@@ -6212,6 +6245,10 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_personality,           "PERSONALITY" },
                 { config_parse_log_filter_patterns,   "REGEX" },
                 { config_parse_mount_node,            "NODE" },
+                { config_parse_bpf_delegate_commands, "BPF_DELEGATE_COMMANDS" },
+                { config_parse_bpf_delegate_maps,     "BPF_DELEGATE_MAPS" },
+                { config_parse_bpf_delegate_programs, "BPF_DELEGATE_PROGRAMS" },
+                { config_parse_bpf_delegate_attachments, "BPF_DELEGATE_ATTACHMENTS" },
         };
 
         const char *prev = NULL;
@@ -6255,27 +6292,8 @@ void unit_dump_config_items(FILE *f) {
         }
 }
 
-int config_parse_cpu_affinity2(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        CPUSet *affinity = ASSERT_PTR(data);
-
-        (void) parse_cpu_set_extend(rvalue, affinity, true, unit, filename, line, lvalue);
-
-        return 0;
-}
-
 int config_parse_show_status(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -6301,7 +6319,7 @@ int config_parse_show_status(
 }
 
 int config_parse_output_restricted(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -6348,7 +6366,7 @@ int config_parse_output_restricted(
 }
 
 int config_parse_crash_chvt(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -6606,7 +6624,7 @@ int config_parse_protect_hostname(
 
         const char *colon = strchr(rvalue, ':');
         if (colon) {
-                r = unit_full_printf_full(u, colon + 1, HOST_NAME_MAX, &h);
+                r = unit_full_printf_full(u, colon + 1, LINUX_HOST_NAME_MAX, &h);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve unit specifiers in '%s', ignoring: %m", colon + 1);

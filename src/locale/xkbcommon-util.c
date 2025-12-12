@@ -2,7 +2,6 @@
 
 #include "dlfcn-util.h"
 #include "log.h"
-#include "macro.h"
 #include "string-util.h"
 #include "xkbcommon-util.h"
 
@@ -39,12 +38,12 @@ static void log_xkb(struct xkb_context *ctx, enum xkb_log_level lvl, const char 
         REENABLE_WARNING;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct xkb_context *, sym_xkb_context_unref, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct xkb_keymap *, sym_xkb_keymap_unref, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct xkb_context *, sym_xkb_context_unref, xkb_context_unrefp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct xkb_keymap *, sym_xkb_keymap_unref, xkb_keymap_unrefp, NULL);
 
 int verify_xkb_rmlvo(const char *model, const char *layout, const char *variant, const char *options) {
-        _cleanup_(sym_xkb_context_unrefp) struct xkb_context *ctx = NULL;
-        _cleanup_(sym_xkb_keymap_unrefp) struct xkb_keymap *km = NULL;
+        _cleanup_(xkb_context_unrefp) struct xkb_context *ctx = NULL;
+        _cleanup_(xkb_keymap_unrefp) struct xkb_keymap *km = NULL;
         const struct xkb_rule_names rmlvo = {
                 .model          = model,
                 .layout         = layout,

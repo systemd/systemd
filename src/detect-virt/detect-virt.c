@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
-#include <stdbool.h>
-#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "build.h"
@@ -112,16 +109,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LIST:
-                        DUMP_STRING_TABLE(virtualization, Virtualization, _VIRTUALIZATION_MAX);
-                        return 0;
+                        return DUMP_STRING_TABLE(virtualization, Virtualization, _VIRTUALIZATION_MAX);
 
                 case ARG_CVM:
                         arg_mode = ONLY_CVM;
                         return 1;
 
                 case ARG_LIST_CVM:
-                        DUMP_STRING_TABLE(confidential_virtualization, ConfidentialVirtualization, _CONFIDENTIAL_VIRTUALIZATION_MAX);
-                        return 0;
+                        return DUMP_STRING_TABLE(confidential_virtualization, ConfidentialVirtualization, _CONFIDENTIAL_VIRTUALIZATION_MAX);
 
                 case '?':
                         return -EINVAL;

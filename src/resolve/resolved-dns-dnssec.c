@@ -1,21 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "bitmap.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-rr.h"
 #include "dns-type.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "openssl-util.h"
-#include "resolved-dns-answer.h"
 #include "resolved-dns-dnssec.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-rr.h"
 #include "sort-util.h"
 #include "string-table.h"
+#include "string-util.h"
+#include "time-util.h"
 
 #if HAVE_OPENSSL && OPENSSL_VERSION_MAJOR >= 3
 DISABLE_WARNING_DEPRECATED_DECLARATIONS;
@@ -44,32 +44,6 @@ REENABLE_WARNING;
  * Example chain:
  *            Normal RR → RRSIG/DNSKEY+ → DS → RRSIG/DNSKEY+ → DS → ... → DS → RRSIG/DNSKEY+ → DS
  */
-
-uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke) {
-        const uint8_t *p;
-        uint32_t sum, f;
-
-        /* The algorithm from RFC 4034, Appendix B. */
-
-        assert(dnskey);
-        assert(dnskey->key->type == DNS_TYPE_DNSKEY);
-
-        f = (uint32_t) dnskey->dnskey.flags;
-
-        if (mask_revoke)
-                f &= ~DNSKEY_FLAG_REVOKE;
-
-        sum = f + ((((uint32_t) dnskey->dnskey.protocol) << 8) + (uint32_t) dnskey->dnskey.algorithm);
-
-        p = dnskey->dnskey.key;
-
-        for (size_t i = 0; i < dnskey->dnskey.key_size; i++)
-                sum += (i & 1) == 0 ? (uint32_t) p[i] << 8 : (uint32_t) p[i];
-
-        sum += (sum >> 16) & UINT32_C(0xFFFF);
-
-        return sum & UINT32_C(0xFFFF);
-}
 
 #if HAVE_OPENSSL
 

@@ -1,24 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-bus.h"
-#include "sd-event.h"
-
+#include "core-forward.h"
 #include "list.h"
-#include "memory-util.h"
-#include "time-util.h"
-#include "unit-dependency-atom.h"
-
-typedef struct ActivationDetails ActivationDetails;
-typedef struct Job Job;
-typedef struct JobDependency JobDependency;
-typedef enum JobType JobType;
-typedef enum JobState JobState;
-typedef enum JobResult JobResult;
-typedef struct Manager Manager;
-typedef struct Unit Unit;
 
 /* Be careful when changing the job types! Adjust job_merging_table[] accordingly! */
 enum JobType {
@@ -65,14 +49,14 @@ enum JobType {
         _JOB_TYPE_INVALID = -EINVAL,
 };
 
-enum JobState {
+typedef enum JobState {
         JOB_WAITING,
         JOB_RUNNING,
         _JOB_STATE_MAX,
         _JOB_STATE_INVALID = -EINVAL,
-};
+} JobState;
 
-enum JobResult {
+typedef enum JobResult {
         JOB_DONE,                /* Job completed successfully (or skipped due to an unmet ConditionXYZ=) */
         JOB_CANCELED,            /* Job canceled by a conflicting job installation or by explicit cancel request */
         JOB_TIMEOUT,             /* Job timeout elapsed */
@@ -88,9 +72,9 @@ enum JobResult {
         JOB_CONCURRENCY,         /* Slice the unit is in has its hard concurrency limit reached */
         _JOB_RESULT_MAX,
         _JOB_RESULT_INVALID = -EINVAL,
-};
+} JobResult;
 
-struct JobDependency {
+typedef struct JobDependency {
         /* Encodes that the 'subject' job needs the 'object' job in
          * some way. This structure is used only while building a transaction. */
         Job *subject;
@@ -101,9 +85,9 @@ struct JobDependency {
 
         bool matters:1;
         bool conflicts:1;
-};
+} JobDependency;
 
-struct Job {
+typedef struct Job {
         Manager *manager;
         Unit *unit;
 
@@ -158,7 +142,7 @@ struct Job {
         bool ref_by_private_bus:1;
 
         bool in_gc_queue:1;
-};
+} Job;
 
 Job* job_new(Unit *unit, JobType type);
 Job* job_new_raw(Unit *unit);
@@ -178,17 +162,17 @@ int job_coldplug(Job *j);
 JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts);
 void job_dependency_free(JobDependency *l);
 
-JobType job_type_lookup_merge(JobType a, JobType b) _pure_;
+JobType job_type_lookup_merge(JobType a, JobType b) _const_;
 
-_pure_ static inline bool job_type_is_mergeable(JobType a, JobType b) {
+static inline bool job_type_is_mergeable(JobType a, JobType b) {
         return job_type_lookup_merge(a, b) >= 0;
 }
 
-_pure_ static inline bool job_type_is_conflicting(JobType a, JobType b) {
+static inline bool job_type_is_conflicting(JobType a, JobType b) {
         return a != JOB_NOP && b != JOB_NOP && !job_type_is_mergeable(a, b);
 }
 
-_pure_ static inline bool job_type_is_superset(JobType a, JobType b) {
+static inline bool job_type_is_superset(JobType a, JobType b) {
         /* Checks whether operation a is a "superset" of b in its actions */
         if (b == JOB_NOP)
                 return true;
@@ -197,7 +181,7 @@ _pure_ static inline bool job_type_is_superset(JobType a, JobType b) {
         return a == job_type_lookup_merge(a, b);
 }
 
-bool job_type_is_redundant(JobType a, UnitActiveState b) _pure_;
+bool job_type_is_redundant(JobType a, UnitActiveState b) _const_;
 
 /* Collapses a state-dependent job type into a simpler type by observing
  * the state of the unit which it is going to be applied to. */

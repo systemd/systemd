@@ -117,7 +117,7 @@
         are applied to file system in the indicated disk image. This is similar to <option>--root=</option>
         but operates on file systems stored in disk images or block devices. The disk image should either
         contain just a file system or a set of file systems within a GPT partition table, following the
-        <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
+        <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         switch of the same name.</para>
@@ -272,6 +272,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--prompt-keymap-auto</option></term>
+
+        <listitem><para>If invoked from a virtual terminal TTY equivalent to
+        <option>--prompt-keymap</option>, otherwise has no effect. Or in other words, only prompts
+        interactively for a keymap if a local keyboard is used for interactivity that requires it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--copy-locale</option></term>
         <term><option>--copy-keymap</option></term>
         <term><option>--copy-timezone</option></term>
@@ -342,6 +353,26 @@
         to turn off the welcome text.</para>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--chrome=</option></term>
+
+        <listitem><para>Takes a boolean argument. By default the initial setup screen will show reverse color
+        "chrome" bars at the top and and the bottom of the terminal screen, which may be disabled by setting
+        this option to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mute-console=</option></term>
+
+        <listitem><para>Takes a boolean argument. If true kernel log output and service manager status output
+        to the system console is temporarily disabled while <command>systemd-firstboot</command> is running,
+        so that its own output is not interrupted. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

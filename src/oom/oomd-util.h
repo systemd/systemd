@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "cgroup-util.h"
-#include "hashmap.h"
+#include "shared-forward.h"
 #include "psi-util.h"
 
 #define DUMP_ON_KILL_COUNT 10u
@@ -131,7 +129,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
 int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected);
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret);
-int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *ret);
+int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext *ret);
 
 /* Get the OomdCGroupContext of `path` and insert it into `new_h`. The key for the inserted context will be `path`.
  *

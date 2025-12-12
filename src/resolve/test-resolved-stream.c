@@ -1,36 +1,34 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
 #include <fcntl.h>
 #include <net/if.h>
-#include <net/if_arp.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include "sd-event.h"
 
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
 #include "resolved-manager.h"
 #include "sparse-endian.h"
 #include "tests.h"
+#include "time-util.h"
 
 static union sockaddr_union server_address;
 

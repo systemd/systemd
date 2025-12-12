@@ -1,21 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-#include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "creds-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
 #include "install.h"
-#include "missing_socket.h"
+#include "log.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "special.h"
+#include "ssh-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "virt.h"
 
 /* A small generator binding potentially five or more SSH sockets:
@@ -82,7 +86,7 @@ static int make_sshd_template_unit(
         assert(sshd_binary);
         assert(generated_sshd_template_unit);
 
-        /* If the system has a suitable template already, symlink it to the name we want to reuse it */
+        /* If the system has a suitable template already, symlink it under the name we want to use */
         if (found_sshd_template_service)
                 return generator_add_symlink(
                                 dest,
@@ -93,10 +97,11 @@ static int make_sshd_template_unit(
         if (!*generated_sshd_template_unit) {
                 _cleanup_fclose_ FILE *f = NULL;
 
+                /* We use a generic name for the unit, since we'll use it for both AF_UNIX and AF_VSOCK  */
                 r = generator_open_unit_file_full(
                                 dest,
                                 /* source= */ NULL,
-                                "sshd-generated@.service", /* Give this generated unit a generic name, since we want to use it for both AF_UNIX and AF_VSOCK */
+                                "sshd-generated@.service",
                                 &f,
                                 generated_sshd_template_unit,
                                 /* ret_temp_path= */ NULL);
@@ -107,10 +112,11 @@ static int make_sshd_template_unit(
                         "[Unit]\n"
                         "Description=OpenSSH Per-Connection Server Daemon\n"
                         "Documentation=man:systemd-ssh-generator(8) man:sshd(8)\n"
+                        "\n"
                         "[Service]\n"
                         "ExecStart=-%s -i -o \"AuthorizedKeysFile ${CREDENTIALS_DIRECTORY}/ssh.ephemeral-authorized_keys-all .ssh/authorized_keys\"\n"
                         "StandardInput=socket\n"
-                        "ImportCredential=ssh.ephemeral-authorized_keys-all",
+                        "ImportCredential=ssh.ephemeral-authorized_keys-all\n",
                         sshd_binary);
 
                 r = fflush_and_check(f);
@@ -130,6 +136,7 @@ static int write_socket_unit(
                 const char *unit,
                 const char *listen_stream,
                 const char *comment,
+                const char *extra,
                 bool with_ssh_access_target_dependency) {
 
         int r;
@@ -168,6 +175,9 @@ static int write_socket_unit(
                 "PollLimitBurst=50\n",
                 listen_stream);
 
+        if (extra)
+                fputs(extra, f);
+
         r = fflush_and_check(f);
         if (r < 0)
                 return log_error_errno(r, "Failed to write %s SSH socket unit: %m", comment);
@@ -203,29 +213,15 @@ static int add_vsock_socket(
                 return 0;
         }
 
-        _cleanup_close_ int vsock_fd = socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0);
-        if (vsock_fd < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
-                        log_debug("Not creating AF_VSOCK ssh listener, since AF_VSOCK is not available.");
-                        return 0;
-                }
-
-                return log_error_errno(errno, "Unable to test if AF_VSOCK is available: %m");
-        }
-
-        vsock_fd = safe_close(vsock_fd);
+        r = vsock_open_or_warn(/* ret= */ NULL);
+        if (r <= 0)
+                return r;
 
         /* Determine the local CID so that we can log it to help users to connect to this VM */
         unsigned local_cid;
-        r = vsock_get_local_cid(&local_cid);
-        if (r < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(r)) {
-                        log_debug("Not creating AF_VSOCK ssh listener, since /dev/vsock is not available (even though AF_VSOCK is).");
-                        return 0;
-                }
-
-                return log_error_errno(r, "Failed to query local AF_VSOCK CID: %m");
-        }
+        r = vsock_get_local_cid_or_warn(&local_cid);
+        if (r <= 0)
+                return r;
 
         r = make_sshd_template_unit(
                         dest,
@@ -241,6 +237,8 @@ static int add_vsock_socket(
                         "sshd-vsock.socket",
                         "vsock::22",
                         "AF_VSOCK",
+                        "ExecStartPost=-/usr/lib/systemd/systemd-ssh-issue --make-vsock\n"
+                        "ExecStopPre=-/usr/lib/systemd/systemd-ssh-issue --rm-vsock\n",
                         /* with_ssh_access_target_dependency= */ true);
         if (r < 0)
                 return r;
@@ -276,6 +274,7 @@ static int add_local_unix_socket(
                         "sshd-unix-local.socket",
                         "/run/ssh-unix-local/socket",
                         "AF_UNIX Local",
+                        /* extra= */ NULL,
                         /* with_ssh_access_target_dependency= */ false);
         if (r < 0)
                 return r;
@@ -310,7 +309,7 @@ static int add_export_unix_socket(
                         log_debug("Container manager does not provide /run/host/unix-export/ mount, not binding AF_UNIX socket there.");
                         return 0;
                 }
-                if (errno == EROFS || ERRNO_IS_PRIVILEGE(errno)) {
+                if (ERRNO_IS_FS_WRITE_REFUSED(errno)) {
                         log_debug("Container manager does not provide write access to /run/host/unix-export/, not binding AF_UNIX socket there.");
                         return 0;
                 }
@@ -332,6 +331,7 @@ static int add_export_unix_socket(
                         "sshd-unix-export.socket",
                         "/run/host/unix-export/ssh",
                         "AF_UNIX Export",
+                        /* extra= */ NULL,
                         /* with_ssh_access_target_dependency= */ true);
         if (r < 0)
                 return r;
@@ -383,6 +383,7 @@ static int add_extra_sockets(
                                 socket ?: "sshd-extra.socket",
                                 *i,
                                 *i,
+                                /* extra= */ NULL,
                                 /* with_ssh_access_target_dependency= */ true);
                 if (r < 0)
                         return r;
@@ -455,7 +456,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         strv_sort_uniq(arg_listen_extra);
 
         if (!arg_auto && strv_isempty(arg_listen_extra)) {
-                log_debug("Disabling SSH generator logic, because as it has been turned off explicitly.");
+                log_debug("Disabling SSH generator logic, because it has been turned off explicitly.");
                 return 0;
         }
 

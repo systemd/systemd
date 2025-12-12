@@ -49,10 +49,6 @@
     <para>Note that compatibility is quite comprehensive but not 100%, for more details see <ulink
     url="https://systemd.io/INCOMPATIBILITIES">Compatibility with SysV</ulink>.</para>
 
-    <para>SysV runlevels have corresponding systemd targets
-    (<filename>runlevel<replaceable>X</replaceable>.target</filename>).  The wrapper unit that is generated
-    will be wanted by those targets which correspond to runlevels for which the script is enabled.</para>
-
     <para><command>systemd</command> does not support SysV scripts as part of early boot, so all wrapper
     units are ordered after <filename>basic.target</filename>.</para>
 

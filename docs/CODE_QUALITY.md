@@ -22,7 +22,7 @@ available functionality:
    configure -C build -D…".)
 
 2. Run the full integration test suite as described in
-   [test/integration-tests/README.md](/../test/integration-tests/README.md).
+   [`test/integration-tests/README.md`](https://github.com/systemd/systemd/blob/main/test/integration-tests/README.md).
    This will build OS images with a number of integration tests and run them
    using `systemd-nspawn` and `qemu`. Requires root.
 

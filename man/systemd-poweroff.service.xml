@@ -54,9 +54,9 @@
     thus keeping the file system busy, which then cannot be re-mounted read-only.</para>
 
     <para>Shortly before executing the actual system power-off/halt/reboot/kexec,
-    <filename>systemd-shutdown</filename> will run all executables in
-    <filename>/usr/lib/systemd/system-shutdown/</filename> and pass one arguments to them: either
-    <literal>poweroff</literal>, <literal>halt</literal>, <literal>reboot</literal>, or
+    <command>systemd-shutdown</command> will run all executables in
+    <filename>/usr/lib/systemd/system-shutdown/</filename>. Those executables are called with one argument:
+    either <literal>poweroff</literal>, <literal>halt</literal>, <literal>reboot</literal>, or
     <literal>kexec</literal>, depending on the chosen action. All executables in this directory are executed
     in parallel, and execution of the action is not continued before all executables finished. (A safety
     timeout of 90s is applied however.) Note that these executables are run <emphasis>after</emphasis> all

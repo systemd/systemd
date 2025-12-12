@@ -2,45 +2,50 @@
 
 #include <fcntl.h>
 #include <linux/if_tun.h>
+#include <linux/magic.h>
 #include <linux/nsfs.h>
 #include <linux/veth.h>
 #include <net/if.h>
+#include <poll.h>
+#include <sched.h>
 #include <sys/eventfd.h>
-#include <sys/mount.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
+#include <unistd.h>
 #include <utmpx.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 #include "sd-netlink.h"
 #include "sd-varlink.h"
 
+#include "argv-util.h"
 #include "bus-polkit.h"
 #include "env-util.h"
+#include "errno-util.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
-#include "group-record.h"
+#include "format-util.h"
+#include "hashmap.h"
 #include "io-util.h"
 #include "json-util.h"
-#include "lock-util.h"
 #include "main-func.h"
-#include "missing_magic.h"
-#include "missing_syscall.h"
-#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "netlink-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "siphash24.h"
 #include "socket-util.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "uid-classification.h"
 #include "uid-range.h"
 #include "user-record.h"
-#include "user-record-nss.h"
 #include "user-util.h"
 #include "userdb.h"
 #include "userns-registry.h"
@@ -93,15 +98,15 @@ static int build_user_json(UserNamespaceInfo *userns_info, uid_t offset, sd_json
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(name)),
-                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(userns_info->start_uid + offset)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
-                        SD_JSON_BUILD_PAIR("realName", SD_JSON_BUILD_STRING(realname)),
+                        SD_JSON_BUILD_PAIR_STRING("userName", name),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("uid", userns_info->start_uid + offset),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", GID_NOBODY),
+                        SD_JSON_BUILD_PAIR_STRING("realName", realname),
                         SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
-                        SD_JSON_BUILD_PAIR("shell", SD_JSON_BUILD_STRING(NOLOGIN)),
-                        SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_STRING("shell", NOLOGIN),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("locked", true),
                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
-                        SD_JSON_BUILD_PAIR("disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(disposition))));
+                        SD_JSON_BUILD_PAIR_STRING("disposition", user_disposition_to_string(disposition)));
 }
 
 static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -150,7 +155,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                         return log_oom();
 
                 r = userns_registry_load_by_name(
-                                /* registry_fd= */ -EBADF,
+                                /* dir_fd= */ -EBADF,
                                 n,
                                 &userns_info);
                 if (r == -ENOENT)
@@ -178,7 +183,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 offset = p.uid - start;
 
                 r = userns_registry_load_by_start_uid(
-                                /* registry_fd= */ -EBADF,
+                                /* dir_fd= */ -EBADF,
                                 start,
                                 &userns_info);
                 if (r == -ENOENT)
@@ -195,7 +200,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
         if (r < 0)
                 return r;
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v)));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("record", v));
 
 not_found:
         return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
@@ -224,11 +229,11 @@ static int build_group_json(UserNamespaceInfo *userns_info, gid_t offset, sd_jso
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(name)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(userns_info->start_gid + offset)),
-                        SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(description)),
+                        SD_JSON_BUILD_PAIR_STRING("groupName", name),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", userns_info->start_gid + offset),
+                        SD_JSON_BUILD_PAIR_STRING("description", description),
                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
-                        SD_JSON_BUILD_PAIR("disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(disposition))));
+                        SD_JSON_BUILD_PAIR_STRING("disposition", user_disposition_to_string(disposition)));
 }
 
 static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -277,7 +282,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                         return log_oom();
 
                 r = userns_registry_load_by_name(
-                                /* registry_fd= */ -EBADF,
+                                /* dir_fd= */ -EBADF,
                                 n,
                                 &userns_info);
                 if (r == -ENOENT)
@@ -305,7 +310,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 offset = p.gid - start;
 
                 r = userns_registry_load_by_start_gid(
-                                /* registry_fd= */ -EBADF,
+                                /* dir_fd= */ -EBADF,
                                 start,
                                 &userns_info);
                 if (r == -ENOENT)
@@ -322,7 +327,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         if (r < 0)
                 return r;
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v)));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("record", v));
 
 not_found:
         return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
@@ -374,13 +379,13 @@ static int uid_is_available(
         if (r > 0)
                 return false;
 
-        r = userdb_by_uid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret_record= */ NULL);
+        r = userdb_by_uid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
         if (r >= 0)
                 return false;
         if (r != -ESRCH)
                 return r;
 
-        r = groupdb_by_gid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret_record= */ NULL);
+        r = groupdb_by_gid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
         if (r >= 0)
                 return false;
         if (r != -ESRCH)
@@ -411,13 +416,13 @@ static int name_is_available(
         if (!user_name)
                 return -ENOMEM;
 
-        r = userdb_by_name(user_name, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret_record= */ NULL);
+        r = userdb_by_name(user_name, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
         if (r >= 0)
                 return false;
         if (r != -ESRCH)
                 return r;
 
-        r = groupdb_by_name(user_name, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret_record= */ NULL);
+        r = groupdb_by_name(user_name, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
         if (r >= 0)
                 return false;
         if (r != -ESRCH)
@@ -625,14 +630,35 @@ static int test_userns_api_support(sd_varlink *link) {
         return 0;
 }
 
-static char* random_name(void) {
-        char *s = NULL;
+static char* hash_name(sd_varlink *link, const char *name) {
+        int r;
 
-        /* Make up a random name for this userns. Make sure the random name fits into utmpx even if prefixed
-         * with "ns-", the peer's UID, "-", and suffixed by "-65535". */
+        assert(link);
+        assert(name);
+
+        /* Make up a hashed name for this userns. We take the passed name, and hash it together with the
+         * connection cookie. This should make collisions unlikely but generation still deterministic (this
+         * matters because on polkit requests we might be called twice, and should generate the same string
+         * each time, to ensure the Polkit query looks the same) */
+
+        uint64_t cookie = 0;
+        r = socket_get_cookie(sd_varlink_get_fd(link), &cookie);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine connection cookie, ignoring: %m");
+
+        struct siphash h;
+        static sd_id128_t key = SD_ID128_MAKE(ed,3a,bb,01,3a,14,4b,b3,8a,63,a4,ad,ba,2d,c9,0a);
+        siphash24_init(&h, key.bytes);
+        siphash24_compress_typesafe(cookie, &h);
+        siphash24_compress_string(name, &h);
+
+        /* Make sure the hashed name fits into utmpx even if prefixed with "ns-", the peer's UID, "-", and
+         * suffixed by "-65535". */
+
         assert_cc(STRLEN("ns-65535-") + 16 + STRLEN("-65535") < sizeof_field(struct utmpx, ut_user));
 
-        if (asprintf(&s, "%016" PRIx64, random_u64()) < 0)
+        char *s = NULL;
+        if (asprintf(&s, "%016" PRIx64, siphash24_finalize(&h)) < 0)
                 return NULL;
 
         return s;
@@ -685,8 +711,8 @@ static int validate_name(sd_varlink *link, const char *name, bool mangle, char *
                         if (!userns_name_is_valid(un)) {
                                 free(un);
 
-                                /* if not, make up a random name */
-                                un = random_name();
+                                /* if not, make up a hashed name */
+                                un = hash_name(link, name);
                                 if (!un)
                                         return -ENOMEM;
                         }
@@ -711,7 +737,7 @@ static int validate_name(sd_varlink *link, const char *name, bool mangle, char *
                                 free_and_replace(un, c);
                         else  {
                                 free(c);
-                                c = random_name();
+                                c = hash_name(link, name);
                                 if (!c)
                                         return -ENOMEM;
 
@@ -1243,7 +1269,7 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
                         link,
                         /* bus= */ NULL,
                         "io.systemd.namespace-resource.delegate-mount",
-                        /* polkit_details= */ NULL,
+                        /* details= */ NULL,
                         /* good_user= */ UID_INVALID,
                         POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of mounts to registered userns */
                         &c->polkit_registry);
@@ -1396,7 +1422,7 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
                         link,
                         /* bus= */ NULL,
                         "io.systemd.namespace-resource.delegate-cgroup",
-                        /* polkit_details= */ NULL,
+                        /* details= */ NULL,
                         /* good_user= */ UID_INVALID,
                         POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of cgroups to registered userns */
                         &c->polkit_registry);
@@ -1629,7 +1655,7 @@ static int create_tap(
                 if (errno == ENOENT) /* Turn ENOENT → EOPNOTSUPP */
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Network tap device node /dev/net/tun not found, cannot create network interface.");
 
-                return log_error_errno(errno, "Failed to open /dev/net/tun: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/dev/net/tun");
         }
 
         if (ioctl(fd, TUNSETIFF, &ifr) < 0)
@@ -1678,7 +1704,7 @@ static int validate_netns(sd_varlink *link, int userns_fd, int netns_fd) {
         if (owner_userns_fd < 0)
                 return -errno;
 
-        r = inode_same_at(owner_userns_fd, /* path_a= */ NULL, userns_fd, /* path_b= */ NULL, AT_EMPTY_PATH);
+        r = inode_same_at(owner_userns_fd, /* filea= */ NULL, userns_fd, /* fileb= */ NULL, AT_EMPTY_PATH);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1874,8 +1900,8 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
 
                 return sd_varlink_replybo(
                                 link,
-                                SD_JSON_BUILD_PAIR("hostInterfaceName", SD_JSON_BUILD_STRING(ifname_host)),
-                                SD_JSON_BUILD_PAIR("namespaceInterfaceName", SD_JSON_BUILD_STRING(ifname_namespace)));
+                                SD_JSON_BUILD_PAIR_STRING("hostInterfaceName", ifname_host),
+                                SD_JSON_BUILD_PAIR_STRING("namespaceInterfaceName", ifname_namespace));
 
         } else if (streq(p.mode, "tap")) {
                 /* NB: when we do the "tap" stuff we do not actually do any namespace operation here, neither
@@ -2064,7 +2090,7 @@ static int run(int argc, char *argv[]) {
                                 if (r == -ESRCH)
                                         return log_error_errno(r, "Parent already died?");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to send SIGUSR2 signal to parent. %m");
+                                        return log_error_errno(r, "Failed to send SIGUSR2 signal to parent: %m");
                         }
                 }
 

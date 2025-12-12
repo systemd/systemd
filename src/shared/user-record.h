@@ -1,17 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <sys/types.h>
-
 #include "sd-id128.h"
-#include "sd-json.h"
 
-#include "hashmap.h"
+#include "bitfield.h"
 #include "rlimit-util.h"
-#include "strv.h"
-#include "time-util.h"
-#include "user-util.h"
+#include "shared-forward.h"
 
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
@@ -25,7 +19,7 @@ typedef enum UserDisposition {
         _USER_DISPOSITION_INVALID = -EINVAL,
 } UserDisposition;
 
-typedef enum UserHomeStorage {
+typedef enum UserStorage {
         USER_CLASSIC,
         USER_LUKS,
         USER_DIRECTORY, /* A directory, and a .identity file in it, which USER_CLASSIC lacks */
@@ -183,10 +177,7 @@ static inline UserRecordMask USER_RECORD_STRIP_MASK(UserRecordLoadFlags f) {
         return (f >> 21) & _USER_RECORD_MASK_MAX;
 }
 
-static inline sd_json_dispatch_flags_t USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(UserRecordLoadFlags flags) {
-        return (FLAGS_SET(flags, USER_RECORD_LOG) ? SD_JSON_LOG : 0) |
-                (FLAGS_SET(flags, USER_RECORD_PERMISSIVE) ? SD_JSON_PERMISSIVE : 0);
-}
+sd_json_dispatch_flags_t USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(UserRecordLoadFlags flags) _const_;
 
 typedef struct Pkcs11EncryptedKey {
         /* The encrypted passphrase, which can be decrypted with the private key indicated below */
@@ -434,6 +425,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(UserRecord*, user_record_unref);
 
 int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags flags);
 int user_record_build(UserRecord **ret, ...);
+#define user_record_buildo(ret, ...)                                    \
+        user_record_build((ret), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
 const char* user_record_user_name_and_realm(UserRecord *h);
 UserStorage user_record_storage(UserRecord *h);
@@ -476,7 +469,7 @@ uint32_t user_record_dev_shm_limit_scale(UserRecord *h);
 const char **user_record_self_modifiable_fields(UserRecord *h);
 const char **user_record_self_modifiable_blobs(UserRecord *h);
 const char **user_record_self_modifiable_privileged(UserRecord *h);
-int user_record_self_changes_allowed(UserRecord *current, UserRecord *new);
+int user_record_self_changes_allowed(UserRecord *current, UserRecord *incoming);
 
 int user_record_build_image_path(UserStorage storage, const char *user_name_and_realm, char **ret);
 
@@ -520,31 +513,31 @@ typedef struct UserDBMatch {
                 uid_t uid_max;
                 gid_t gid_max;
         };
+        sd_id128_t uuid;
 } UserDBMatch;
 
 #define USER_DISPOSITION_MASK_ALL ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
 
 #define USERDB_MATCH_NULL                                       \
-        (UserDBMatch) {                                         \
+        (const UserDBMatch) {                                   \
                 .disposition_mask = USER_DISPOSITION_MASK_ALL,  \
                 .uid_min = 0,                                   \
                 .uid_max = UID_INVALID-1,                       \
+                .uuid = SD_ID128_NULL,                          \
        }
 
-static inline bool userdb_match_is_set(const UserDBMatch *match) {
-        if (!match)
-                return false;
+/* Maybe useful when we want to resolve root and system user/group but want to refuse nobody user/group. */
+#define USERDB_MATCH_ROOT_AND_SYSTEM                            \
+        (const UserDBMatch) {                                   \
+                .disposition_mask =                             \
+                        INDEXES_TO_MASK(uint64_t, USER_INTRINSIC, USER_SYSTEM), \
+                .uid_min = 0,                                   \
+                .uid_max = UID_NOBODY - 1,                      \
+        }
 
-        return !strv_isempty(match->fuzzy_names) ||
-                !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL) ||
-                match->uid_min > 0 ||
-                match->uid_max < UID_INVALID-1;
-}
+bool userdb_match_is_set(const UserDBMatch *match) _pure_;
 
-static inline void userdb_match_done(UserDBMatch *match) {
-        assert(match);
-        strv_free(match->fuzzy_names);
-}
+void userdb_match_done(UserDBMatch *match);
 
 bool user_name_fuzzy_match(const char *names[], size_t n_names, char **matches);
 bool user_record_match(UserRecord *u, const UserDBMatch *match);

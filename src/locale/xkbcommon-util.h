@@ -2,6 +2,7 @@
 #pragma once
 
 #include "dlfcn-util.h"
+#include "shared-forward.h"
 
 #if HAVE_XKBCOMMON
 #include <xkbcommon/xkbcommon.h>

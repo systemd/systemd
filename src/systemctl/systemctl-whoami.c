@@ -1,7 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "format-util.h"
+#include <stdio.h>
+
+#include "alloc-util.h"
+#include "bus-util.h"
+#include "errno-util.h"
 #include "parse-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-util.h"
 #include "systemctl-whoami.h"

@@ -1,26 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/utsname.h>
+#include <linux/capability.h>
 
-#include "af-list.h"
+#include "sd-bus.h"
+
+#include "alloc-util.h"
+#include "analyze-verify-util.h"
 #include "analyze.h"
 #include "analyze-security.h"
-#include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "capability-util.h"
 #include "copy.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "in-addr-prefix-util.h"
-#include "locale-util.h"
-#include "macro.h"
 #include "manager.h"
-#include "missing_sched.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
@@ -31,8 +31,8 @@
 #include "service.h"
 #include "set.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "unit-serialize.h"
@@ -136,7 +136,7 @@ static SecurityInfo *security_info_new(void) {
 
         *info = (SecurityInfo) {
                 .default_dependencies = true,
-                .capability_bounding_set = UINT64_MAX,
+                .capability_bounding_set = CAP_MASK_ALL,
                 .restrict_namespaces = UINT64_MAX,
                 ._umask = 0002,
         };
@@ -569,7 +569,7 @@ static bool syscall_names_in_filter(Set *s, bool allow_list, const SyscallFilter
                 }
 
                 /* Let's see if the system call actually exists on this platform, before complaining */
-                if (seccomp_syscall_resolve_name(syscall) < 0)
+                if (sym_seccomp_syscall_resolve_name(syscall) < 0)
                         continue;
 
                 if (set_contains(s, syscall) == allow_list) {
@@ -602,6 +602,13 @@ static int assess_system_call_filter(
         char *d;
         uint64_t b;
         int r;
+
+        r = dlopen_libseccomp();
+        if (r < 0) {
+                *ret_badness = UINT64_MAX;
+                *ret_description = NULL;
+                return r;
+        }
 
         if (!info->system_call_filter_allow_list && set_isempty(info->system_call_filter)) {
                 r = strdup_to(&d, "Service does not filter system calls");
@@ -1879,7 +1886,7 @@ static int assess(const SecurityInfo *info,
 
                 r = table_print_with_pager(details_table, json_format_flags, pager_flags, /* show_header= */true);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to output table: %m");
+                        return r;
         }
 
         exposure = DIV_ROUND_UP(badness_sum * 100U, weight_sum);
@@ -2569,32 +2576,34 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
                 info->_umask = c->umask;
 
 #if HAVE_SECCOMP
-                SET_FOREACH(key, c->syscall_archs) {
-                        const char *name;
+                if (dlopen_libseccomp() >= 0) {
+                        SET_FOREACH(key, c->syscall_archs) {
+                                const char *name;
 
-                        name = seccomp_arch_to_string(PTR_TO_UINT32(key) - 1);
-                        if (!name)
-                                continue;
+                                name = seccomp_arch_to_string(PTR_TO_UINT32(key) - 1);
+                                if (!name)
+                                        continue;
 
-                        if (set_put_strdup(&info->system_call_architectures, name) < 0)
-                                return log_oom();
-                }
+                                if (set_put_strdup(&info->system_call_architectures, name) < 0)
+                                        return log_oom();
+                        }
 
-                info->system_call_filter_allow_list = c->syscall_allow_list;
+                        info->system_call_filter_allow_list = c->syscall_allow_list;
 
-                void *id, *num;
-                HASHMAP_FOREACH_KEY(num, id, c->syscall_filter) {
-                        _cleanup_free_ char *name = NULL;
+                        void *id, *num;
+                        HASHMAP_FOREACH_KEY(num, id, c->syscall_filter) {
+                                _cleanup_free_ char *name = NULL;
 
-                        if (info->system_call_filter_allow_list && PTR_TO_INT(num) >= 0)
-                                continue;
+                                if (info->system_call_filter_allow_list && PTR_TO_INT(num) >= 0)
+                                        continue;
 
-                        name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
-                        if (!name)
-                                continue;
+                                name = sym_seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                                if (!name)
+                                        continue;
 
-                        if (set_ensure_consume(&info->system_call_filter, &string_hash_ops_free, TAKE_PTR(name)) < 0)
-                                return log_oom();
+                                if (set_ensure_consume(&info->system_call_filter, &string_hash_ops_free, TAKE_PTR(name)) < 0)
+                                        return log_oom();
+                        }
                 }
 #endif
         }
@@ -2890,7 +2899,7 @@ static int analyze_security(sd_bus *bus,
 
                 r = table_print_with_pager(overview_table, json_format_flags, pager_flags, /* show_header= */true);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to output table: %m");
+                        return r;
         }
         return ret;
 }

@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "format-util.h"
-#include "socket-util.h"
+#include "in-addr-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "tests.h"
 #include "utmp-wtmp.h"
 

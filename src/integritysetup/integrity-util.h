@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdint.h>
-
-#include "cryptsetup-util.h"
-#include "time-util.h"
+#include "shared-forward.h"
 
 int parse_integrity_options(
                 const char *options,
@@ -15,4 +12,7 @@ int parse_integrity_options(
                 char **ret_integrity_alg);
 
 #define DM_HMAC_256 "hmac(sha256)"
+#define DM_HMAC_512 "hmac(sha512)"
+#define DM_PHMAC_256 "phmac(sha256)"
+#define DM_PHMAC_512 "phmac(sha512)"
 #define DM_MAX_KEY_SIZE 4096            /* Maximum size of key allowed for dm-integrity */

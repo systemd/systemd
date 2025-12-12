@@ -1,20 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <unistd.h>
+
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "hexdecoct.h"
+#include "image-policy.h"
+#include "log.h"
 #include "memfd-util.h"
-#include "missing_mman.h"
-#include "missing_syscall.h"
 #include "parse-util.h"
-#include "process-util.h"
+#include "pidref.h"
+#include "ratelimit.h"
 #include "serialize.h"
+#include "set.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 
 int serialize_item(FILE *f, const char *key, const char *value) {
         assert(f);
@@ -152,15 +162,15 @@ int serialize_usec(FILE *f, const char *key, usec_t usec) {
         return serialize_item_format(f, key, USEC_FMT, usec);
 }
 
-int serialize_dual_timestamp(FILE *f, const char *name, const dual_timestamp *t) {
+int serialize_dual_timestamp(FILE *f, const char *key, const dual_timestamp *t) {
         assert(f);
-        assert(name);
+        assert(key);
         assert(t);
 
         if (!dual_timestamp_is_set(t))
                 return 0;
 
-        return serialize_item_format(f, name, USEC_FMT " " USEC_FMT, t->realtime, t->monotonic);
+        return serialize_item_format(f, key, USEC_FMT " " USEC_FMT, t->realtime, t->monotonic);
 }
 
 int serialize_strv(FILE *f, const char *key, char * const *l) {
@@ -319,6 +329,14 @@ int serialize_image_policy(FILE *f, const char *key, const ImagePolicy *p) {
                 return r;
 
         return 1;
+}
+
+int serialize_bool(FILE *f, const char *key, bool b) {
+        return serialize_item(f, key, yes_no(b));
+}
+
+int serialize_bool_elide(FILE *f, const char *key, bool b) {
+        return b ? serialize_item(f, key, yes_no(b)) : 0;
 }
 
 int deserialize_read_line(FILE *f, char **ret) {

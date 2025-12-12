@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "unit.h"
+#include "core-forward.h"
 
 /*
  * Attach cgroup-bpf programs foreign to systemd, i.e. loaded to the kernel by an entity

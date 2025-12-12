@@ -1,28 +1,31 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-daemon.h"
+#include "sd-event.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "build.h"
 #include "bus-dump.h"
+#include "bus-error.h"
 #include "bus-internal.h"
-#include "bus-message.h"
 #include "bus-signature.h"
 #include "bus-type.h"
 #include "bus-util.h"
 #include "busctl-introspect.h"
 #include "capsule-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "glyph-util.h"
-#include "json-util.h"
 #include "log.h"
 #include "logarithm.h"
 #include "main-func.h"
@@ -35,9 +38,10 @@
 #include "pretty-print.h"
 #include "runtime-scope.h"
 #include "set.h"
-#include "sort-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "verbs.h"
 #include "version.h"
@@ -2261,8 +2265,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'C':

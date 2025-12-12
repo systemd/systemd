@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "kill.h"
 #include "signal-util.h"
 #include "string-table.h"
+#include "string-util.h"
 
 void kill_context_init(KillContext *c) {
         assert(c);
@@ -51,6 +54,8 @@ static const char* const kill_whom_table[_KILL_WHOM_MAX] = {
         [KILL_MAIN_FAIL]    = "main-fail",
         [KILL_CONTROL_FAIL] = "control-fail",
         [KILL_ALL_FAIL]     = "all-fail",
+        [KILL_CGROUP]       = "cgroup",
+        [KILL_CGROUP_FAIL]  = "cgroup-fail",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);

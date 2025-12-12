@@ -14,31 +14,32 @@ executables += [
                         libshared_fdisk,
                 ],
                 'dependencies' : [
-                        libblkid,
+                        libblkid_cflags,
                         libfdisk,
+                        libmount_cflags,
                         libopenssl,
                         threads,
                 ],
         },
         executable_template + {
                 'name' : 'systemd-repart.standalone',
-                'public' : have_standalone_binaries,
+                'public' : true,
                 'sources' : files('repart.c'),
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
+                        libc_wrapper_static,
                         libbasic_static,
                         libshared_fdisk,
                         libshared_static,
                         libsystemd_static,
                 ],
                 'dependencies' : [
-                        libblkid,
+                        libblkid_cflags,
                         libfdisk,
+                        libmount_cflags,
                         libopenssl,
                         threads,
                 ],
-                'build_by_default' : have_standalone_binaries,
-                'install' : have_standalone_binaries,
         },
 ]
 

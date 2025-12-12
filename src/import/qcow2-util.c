@@ -3,7 +3,7 @@
 #include <zlib.h>
 
 #include "alloc-util.h"
-#include "btrfs-util.h"
+#include "copy.h"
 #include "qcow2-util.h"
 #include "sparse-endian.h"
 

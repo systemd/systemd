@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
+
 #include "alloc-util.h"
-#include "escape.h"
+#include "extract-word.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -222,9 +224,9 @@ static void test_strv_unquote_one(const char *quoted, char **list) {
 
 TEST(strv_unquote) {
         test_strv_unquote_one("    foo=bar     \"waldo\"    zzz    ", STRV_MAKE("foo=bar", "waldo", "zzz"));
-        test_strv_unquote_one("", STRV_MAKE_EMPTY);
-        test_strv_unquote_one(" ", STRV_MAKE_EMPTY);
-        test_strv_unquote_one("   ", STRV_MAKE_EMPTY);
+        test_strv_unquote_one("", STRV_EMPTY);
+        test_strv_unquote_one(" ", STRV_EMPTY);
+        test_strv_unquote_one("   ", STRV_EMPTY);
         test_strv_unquote_one("   x", STRV_MAKE("x"));
         test_strv_unquote_one("x   ", STRV_MAKE("x"));
         test_strv_unquote_one("  x   ", STRV_MAKE("x"));
@@ -747,6 +749,43 @@ TEST(strv_extendf) {
         ASSERT_STREQ(b[0], "test3 bar foo 128");
 }
 
+TEST(strv_extendf_with_size) {
+        _cleanup_strv_free_ char **a = NULL;
+        size_t n = 0;
+
+        ASSERT_OK(strv_extendf_with_size(&a, &n, "test2 %s %d %s", "foo", 128, "bar"));
+        ASSERT_OK(strv_extendf_with_size(&a, &n, "test3 %s %s %d", "bar", "foo", 128));
+
+        ASSERT_EQ(n, 2u);
+        ASSERT_EQ(strv_length(a), n);
+        ASSERT_STREQ(a[0], "test2 foo 128 bar");
+        ASSERT_STREQ(a[1], "test3 bar foo 128");
+}
+
+TEST(strv_extend_joined) {
+        _cleanup_strv_free_ char **a = NULL;
+
+        ASSERT_OK(strv_extend_joined(&a, "hoge"));
+        ASSERT_OK(strv_extend_joined(&a, "aaa", "bbb", "ccc"));
+
+        ASSERT_EQ(strv_length(a), 2u);
+        ASSERT_STREQ(a[0], "hoge");
+        ASSERT_STREQ(a[1], "aaabbbccc");
+}
+
+TEST(strv_extend_joined_with_size) {
+        _cleanup_strv_free_ char **a = NULL;
+        size_t n = 0;
+
+        ASSERT_OK(strv_extend_joined_with_size(&a, &n, "hoge"));
+        ASSERT_OK(strv_extend_joined_with_size(&a, &n, "aaa", "bbb", "ccc"));
+
+        ASSERT_EQ(n, 2u);
+        ASSERT_EQ(strv_length(a), n);
+        ASSERT_STREQ(a[0], "hoge");
+        ASSERT_STREQ(a[1], "aaabbbccc");
+}
+
 TEST(strv_foreach) {
         _cleanup_strv_free_ char **a;
         unsigned i = 0;
@@ -772,7 +811,7 @@ TEST(strv_foreach_backwards) {
         STRV_FOREACH_BACKWARDS(check, (char**) NULL)
                 assert_not_reached();
 
-        STRV_FOREACH_BACKWARDS(check, STRV_MAKE_EMPTY)
+        STRV_FOREACH_BACKWARDS(check, STRV_EMPTY)
                 assert_not_reached();
 
         unsigned count = 0;
@@ -789,28 +828,6 @@ TEST(strv_foreach_pair) {
                      "pair_three", "pair_three");
         STRV_FOREACH_PAIR(x, y, a)
                 ASSERT_STREQ(*x, *y);
-}
-
-static void test_strv_from_stdarg_alloca_one(char **l, const char *first, ...) {
-        char **j;
-        unsigned i;
-
-        log_info("/* %s */", __func__);
-
-        j = strv_from_stdarg_alloca(first);
-
-        for (i = 0;; i++) {
-                ASSERT_STREQ(l[i], j[i]);
-
-                if (!l[i])
-                        break;
-        }
-}
-
-TEST(strv_from_stdarg_alloca) {
-        test_strv_from_stdarg_alloca_one(STRV_MAKE("foo", "bar"), "foo", "bar", NULL);
-        test_strv_from_stdarg_alloca_one(STRV_MAKE("foo"), "foo", NULL);
-        test_strv_from_stdarg_alloca_one(STRV_MAKE_EMPTY, NULL);
 }
 
 TEST(strv_insert) {
@@ -1069,7 +1086,7 @@ TEST(strv_fnmatch) {
         _cleanup_strv_free_ char **v = NULL;
         size_t pos;
 
-        assert_se(!strv_fnmatch(STRV_MAKE_EMPTY, "a"));
+        assert_se(!strv_fnmatch(STRV_EMPTY, "a"));
 
         v = strv_new("xxx", "*\\*", "yyy");
         assert_se(!strv_fnmatch_full(v, "\\", 0, NULL));

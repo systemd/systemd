@@ -1,18 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if_arp.h>
-#include <netinet/tcp.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
+#include "dns-packet.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
-#include "macro.h"
-#include "missing_network.h"
-#include "resolved-dns-packet.h"
+#include "log.h"
+#include "missing-network.h"
+#include "ordered-set.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-manager.h"
+#include "set.h"
+#include "time-util.h"
 
 #define DNS_STREAMS_MAX 128
 
@@ -423,7 +427,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                 }
 
                                 ss = dns_stream_read(s,
-                                          (uint8_t*) DNS_PACKET_DATA(s->read_packet) + s->n_read - sizeof(s->read_size),
+                                          DNS_PACKET_DATA(s->read_packet) + s->n_read - sizeof(s->read_size),
                                           sizeof(s->read_size) + be16toh(s->read_size) - s->n_read);
                                 if (ss < 0) {
                                         if (!ERRNO_IS_TRANSIENT(ss))

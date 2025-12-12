@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "audit-util.h"
+#include "format-util.h"
+#include "pidref.h"
 #include "tests.h"
 
 TEST(audit_loginuid_from_pid) {
@@ -11,18 +13,14 @@ TEST(audit_loginuid_from_pid) {
         ASSERT_OK(pidref_set_pid(&pid1, 1));
 
         uid_t uid;
-        r = audit_loginuid_from_pid(&self, &uid);
-        if (r != -ENODATA)
-                ASSERT_OK(r);
+        ASSERT_OK_OR(r = audit_loginuid_from_pid(&self, &uid), -ENODATA);
         if (r >= 0)
                 log_info("self audit login uid: " UID_FMT, uid);
 
         ASSERT_ERROR(audit_loginuid_from_pid(&pid1, &uid), ENODATA);
 
         uint32_t sessionid;
-        r = audit_session_from_pid(&self, &sessionid);
-        if (r != -ENODATA)
-                ASSERT_OK(r);
+        ASSERT_OK_OR(r = audit_session_from_pid(&self, &sessionid), -ENODATA);
         if (r >= 0)
                 log_info("self audit session id: %" PRIu32, sessionid);
 

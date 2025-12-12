@@ -2,13 +2,16 @@
 
 #include "sd-varlink-idl.h"
 
+#include "alloc-util.h"
 #include "ansi-color.h"
+#include "extract-word.h"
+#include "json-internal.h"
 #include "json-util.h"
 #include "log.h"
 #include "memstream-util.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "utf8.h"
 #include "varlink-idl-util.h"
 
@@ -587,7 +590,7 @@ static sd_varlink_symbol* varlink_symbol_free(sd_varlink_symbol *symbol) {
         return mfree(symbol);
 }
 
-sd_varlink_interface* varlink_interface_free(sd_varlink_interface *interface) {
+_public_ sd_varlink_interface* sd_varlink_interface_free(sd_varlink_interface *interface) {
         if (!interface)
                 return NULL;
 
@@ -897,7 +900,7 @@ static int varlink_idl_subparse_field_type(
         } else {
                 _cleanup_free_ char *token = NULL;
 
-                r = varlink_idl_subparse_token(p, line, column, /* valid_tokens= */ NULL, VALID_CHARS_IDENTIFIER, &token);
+                r = varlink_idl_subparse_token(p, line, column, /* allowed_delimiters= */ NULL, VALID_CHARS_IDENTIFIER, &token);
                 if (r < 0)
                         return r;
                 if (!token)
@@ -1138,13 +1141,13 @@ static int varlink_idl_resolve_types(sd_varlink_interface *interface) {
         return 0;
 }
 
-int varlink_idl_parse(
+_public_ int sd_varlink_idl_parse(
                 const char *text,
-                unsigned *line,
-                unsigned *column,
+                unsigned *reterr_line,
+                unsigned *reterr_column,
                 sd_varlink_interface **ret) {
 
-        _cleanup_(varlink_interface_freep) sd_varlink_interface *interface = NULL;
+        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *interface = NULL;
         _cleanup_(varlink_symbol_freep) sd_varlink_symbol *symbol = NULL;
         enum {
                 STATE_PRE_INTERFACE,
@@ -1165,18 +1168,18 @@ int varlink_idl_parse(
         const char **p = &text;
         int r;
 
-        if (!line)
-                line = &_line;
-        if (!column)
-                column = &_column;
+        if (!reterr_line)
+                reterr_line = &_line;
+        if (!reterr_column)
+                reterr_column = &_column;
 
         while (state != STATE_DONE) {
                 _cleanup_free_ char *token = NULL;
 
                 r = varlink_idl_subparse_token(
                                 p,
-                                line,
-                                column,
+                                reterr_line,
+                                reterr_column,
                                 allowed_delimiters,
                                 allowed_chars,
                                 &token);
@@ -1187,11 +1190,11 @@ int varlink_idl_parse(
 
                 case STATE_PRE_INTERFACE:
                         if (!token)
-                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *reterr_line, *reterr_column);
                         if (streq(token, "#")) {
                                 _cleanup_free_ char *comment = NULL;
 
-                                r = varlink_idl_subparse_comment(&text, line, column, &comment);
+                                r = varlink_idl_subparse_comment(&text, reterr_line, reterr_column, &comment);
                                 if (r < 0)
                                         return r;
 
@@ -1212,12 +1215,12 @@ int varlink_idl_parse(
                                 allowed_delimiters = NULL;
                                 allowed_chars = VALID_CHARS_INTERFACE_NAME;
                         } else
-                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *reterr_line, *reterr_column, token);
                         break;
 
                 case STATE_INTERFACE:
                         if (!token)
-                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *reterr_line, *reterr_column);
 
                         r = varlink_interface_realloc(&interface, n_symbols);
                         if (r < 0)
@@ -1240,7 +1243,7 @@ int varlink_idl_parse(
                         if (streq(token, "#")) {
                                 _cleanup_free_ char *comment = NULL;
 
-                                r = varlink_idl_subparse_comment(&text, line, column, &comment);
+                                r = varlink_idl_subparse_comment(&text, reterr_line, reterr_column, &comment);
                                 if (r < 0)
                                         return r;
 
@@ -1267,7 +1270,7 @@ int varlink_idl_parse(
                                 state = STATE_ERROR;
                                 allowed_chars = VALID_CHARS_IDENTIFIER;
                         } else
-                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *reterr_line, *reterr_column, token);
 
                         break;
 
@@ -1276,7 +1279,7 @@ int varlink_idl_parse(
                         n_fields = 0;
 
                         if (!token)
-                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *reterr_line, *reterr_column);
 
                         r = varlink_symbol_realloc(&symbol, n_fields);
                         if (r < 0)
@@ -1285,7 +1288,7 @@ int varlink_idl_parse(
                         symbol->symbol_type = SD_VARLINK_METHOD;
                         symbol->name = TAKE_PTR(token);
 
-                        r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, SD_VARLINK_INPUT, 0);
+                        r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_INPUT, 0);
                         if (r < 0)
                                 return r;
 
@@ -1297,12 +1300,12 @@ int varlink_idl_parse(
                         assert(symbol);
 
                         if (!token)
-                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *reterr_line, *reterr_column);
 
                         if (!streq(token, "->"))
-                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *reterr_line, *reterr_column, token);
 
-                        r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, SD_VARLINK_OUTPUT, 0);
+                        r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_OUTPUT, 0);
                         if (r < 0)
                                 return r;
 
@@ -1321,7 +1324,7 @@ int varlink_idl_parse(
                         n_fields = 0;
 
                         if (!token)
-                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *reterr_line, *reterr_column);
 
                         r = varlink_symbol_realloc(&symbol, n_fields);
                         if (r < 0)
@@ -1330,7 +1333,7 @@ int varlink_idl_parse(
                         symbol->symbol_type = _SD_VARLINK_SYMBOL_TYPE_INVALID; /* don't know yet if enum or struct, will be field in by varlink_idl_subparse_struct_or_enum() */
                         symbol->name = TAKE_PTR(token);
 
-                        r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, SD_VARLINK_REGULAR, 0);
+                        r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_REGULAR, 0);
                         if (r < 0)
                                 return r;
 
@@ -1349,7 +1352,7 @@ int varlink_idl_parse(
                         n_fields = 0;
 
                         if (!token)
-                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *reterr_line, *reterr_column);
 
                         r = varlink_symbol_realloc(&symbol, n_fields);
                         if (r < 0)
@@ -1358,7 +1361,7 @@ int varlink_idl_parse(
                         symbol->symbol_type = SD_VARLINK_ERROR;
                         symbol->name = TAKE_PTR(token);
 
-                        r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, SD_VARLINK_REGULAR, 0);
+                        r = varlink_idl_subparse_struct_or_enum(&text, reterr_line, reterr_column, &symbol, &n_fields, SD_VARLINK_REGULAR, 0);
                         if (r < 0)
                                 return r;
 
@@ -1702,32 +1705,52 @@ static int varlink_idl_validate_field_element_type(const sd_varlink_field *field
 
         case SD_VARLINK_BOOL:
                 if (!sd_json_variant_is_boolean(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a bool, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                        "Field '%s' should be a bool, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 break;
 
         case SD_VARLINK_INT:
                 /* Allow strings here too, since integers with > 53 bits are often passed in as strings */
                 if (!sd_json_variant_is_integer(v) && !sd_json_variant_is_unsigned(v) && !sd_json_variant_is_string(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an int, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                        "Field '%s' should be an int, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 break;
 
         case SD_VARLINK_FLOAT:
                 if (!sd_json_variant_is_number(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a float, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                        "Field '%s' should be a float, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 break;
 
         case SD_VARLINK_STRING:
                 if (!sd_json_variant_is_string(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a string, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                        "Field '%s' should be a string, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 break;
 
         case SD_VARLINK_OBJECT:
                 if (!sd_json_variant_is_object(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an object, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                        "Field '%s' should be an object, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 break;
 
@@ -1756,7 +1779,10 @@ static int varlink_idl_validate_field(const sd_varlink_field *field, sd_json_var
                 sd_json_variant *i;
 
                 if (!sd_json_variant_is_array(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an array, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an array, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 JSON_VARIANT_ARRAY_FOREACH(i, v) {
                         r = varlink_idl_validate_field_element_type(field, i);
@@ -1769,7 +1795,11 @@ static int varlink_idl_validate_field(const sd_varlink_field *field, sd_json_var
                 sd_json_variant *e;
 
                 if (!sd_json_variant_is_object(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an object, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                        "Field '%s' should be an object, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 JSON_VARIANT_OBJECT_FOREACH(k, e, v) {
                         r = varlink_idl_validate_field_element_type(field, e);
@@ -1791,11 +1821,9 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
         assert(symbol);
         assert(!IN_SET(symbol->symbol_type, _SD_VARLINK_SYMBOL_COMMENT, _SD_VARLINK_INTERFACE_COMMENT));
 
-        if (!v) {
-                if (reterr_bad_field)
-                        *reterr_bad_field = NULL;
-                return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Null object passed, refusing.");
-        }
+        /* Consider a NULL pointer equivalent to an empty object */
+        if (!v)
+                v = JSON_VARIANT_MAGIC_EMPTY_OBJECT;
 
         switch (symbol->symbol_type) {
 

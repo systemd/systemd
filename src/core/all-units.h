@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "automount.h"
-#include "device.h"
-#include "mount.h"
-#include "path.h"
-#include "scope.h"
-#include "service.h"
-#include "slice.h"
-#include "socket.h"
-#include "swap.h"
-#include "target.h"
-#include "timer.h"
-#include "unit.h"
+#include "automount.h"  /* IWYU pragma: export */
+#include "device.h"     /* IWYU pragma: export */
+#include "mount.h"      /* IWYU pragma: export */
+#include "path.h"       /* IWYU pragma: export */
+#include "scope.h"      /* IWYU pragma: export */
+#include "service.h"    /* IWYU pragma: export */
+#include "slice.h"      /* IWYU pragma: export */
+#include "socket.h"     /* IWYU pragma: export */
+#include "swap.h"       /* IWYU pragma: export */
+#include "target.h"     /* IWYU pragma: export */
+#include "timer.h"      /* IWYU pragma: export */
+#include "unit.h"       /* IWYU pragma: export */

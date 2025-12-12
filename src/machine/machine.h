@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-event.h"
 #include "sd-id128.h"
 
 #include "copy.h"
 #include "list.h"
+#include "machine-forward.h"
 #include "pidref.h"
 #include "time-util.h"
-
-typedef struct Machine Machine;
-typedef struct Manager Manager;
-typedef struct Operation Operation;
 
 typedef enum MachineState {
         MACHINE_OPENING,    /* Machine is being registered */
@@ -32,30 +27,47 @@ typedef enum MachineClass {
 
 typedef enum KillWhom {
         KILL_LEADER,
+        KILL_SUPERVISOR,
         KILL_ALL,
         _KILL_WHOM_MAX,
         _KILL_WHOM_INVALID = -EINVAL,
 } KillWhom;
 
-struct Machine {
+typedef struct Machine {
         Manager *manager;
 
         char *name;
         sd_id128_t id;
 
+        uid_t uid;
+
         MachineClass class;
 
         char *state_file;
         char *service;
+        /* Note that the root directory is accepted as-is from the caller, including unprivileged users, so
+         * do not use it for anything but informational purposes. */
         char *root_directory;
 
         char *unit;
+        char *subgroup;
         char *scope_job;
+        char *cgroup;
 
-        PidRef leader;
-        sd_event_source *leader_pidfd_event_source;
+        /* Leader: the top-level process that encapsulates the machine itself. For containers that's PID 1,
+         * for VMs that's qemu or whatever process wraps the actual VM code. This process defines the runtime
+         * lifecycle of the machine. In case of containers we can use this reference to enter namespaces,
+         * send signals and so on.
+         *
+         * Supervisor: the process that supervises the machine, if there is any and if that process is
+         * responsible for a single machine. Sending SIGTERM to this process should (non-cooperatively)
+         * terminate the machine. */
+        PidRef leader, supervisor;
+        sd_event_source *leader_pidfd_event_source, *supervisor_pidfd_event_source;
 
         dual_timestamp timestamp;
+
+        sd_event_source *cgroup_empty_event_source;
 
         bool in_gc_queue:1;
         bool started:1;
@@ -75,7 +87,7 @@ struct Machine {
         LIST_HEAD(Operation, operations);
 
         LIST_FIELDS(Machine, gc_queue);
-};
+} Machine;
 
 int machine_new(MachineClass class, const char *name, Machine **ret);
 int machine_link(Manager *manager, Machine *machine);
@@ -93,7 +105,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Machine*, machine_free);
 
 void machine_release_unit(Machine *m);
 
-MachineState machine_get_state(Machine *u);
+MachineState machine_get_state(Machine *m);
 
 const char* machine_class_to_string(MachineClass t) _const_;
 MachineClass machine_class_from_string(const char *s) _pure_;

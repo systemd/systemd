@@ -206,7 +206,7 @@
             identify the main process of the service. The manager will proceed with starting follow-up units
             after the parent process exits.</para></listitem>
 
-            <listitem><para>Behavior of <option>oneshot</option> is similar to <option>simple</option>;
+            <listitem><para>Behavior of <option>oneshot</option> is similar to <option>exec</option>;
             however, the service manager will consider the unit up after the main process exits. It will then
             start follow-up units. <varname>RemainAfterExit=</varname> is particularly useful for this type
             of service. <varname>Type=</varname><option>oneshot</option> is the implied default if neither
@@ -357,15 +357,17 @@
       <varlistentry>
         <term><varname>PIDFile=</varname></term>
 
-        <listitem><para>Takes a path referring to the PID file of the service. Usage of this option is recommended for
-        services where <varname>Type=</varname> is set to <option>forking</option>. The path specified typically points
-        to a file below <filename>/run/</filename>. If a relative path is specified it is hence prefixed with
-        <filename>/run/</filename>. The service manager will read the PID of the main process of the service from this
-        file after start-up of the service. The service manager will not write to the file configured here, although it
-        will remove the file after the service has shut down if it still exists. The PID file does not need to be owned
-        by a privileged user, but if it is owned by an unprivileged user additional safety restrictions are enforced:
-        the file may not be a symlink to a file owned by a different user (neither directly nor indirectly), and the
-        PID file must refer to a process already belonging to the service.</para>
+        <listitem><para>Takes a path referring to the PID file of the service. Usage of this option is
+        recommended for services where <varname>Type=</varname> is set to <option>forking</option>. The path
+        specified typically points to a file below <filename>/run/</filename>. If a relative path is
+        specified for system service, then it is hence prefixed with <filename>/run/</filename>, and prefixed
+        with <filename>$XDG_RUNTIME_DIR</filename> if specified in a user service. The service manager will
+        read the PID of the main process of the service from this file after start-up of the service. The
+        service manager will not write to the file configured here, although it will remove the file after
+        the service has shut down if it still exists. The PID file does not need to be owned by a privileged
+        user, but if it is owned by an unprivileged user additional safety restrictions are enforced: the
+        file may not be a symlink to a file owned by a different user (neither directly nor indirectly), and
+        the PID file must refer to a process already belonging to the service.</para>
 
         <para>Note that PID files should be avoided in modern projects. Use <option>Type=notify</option>,
         <option>Type=notify-reload</option> or <option>Type=simple</option> where possible, which does not
@@ -473,8 +475,8 @@
       <varlistentry>
         <term><varname>ExecReload=</varname></term>
 
-        <listitem><para>Commands to execute to trigger a configuration reload in the service. This argument
-        takes multiple command lines, following the same scheme as described for
+        <listitem><para>Commands to execute to trigger a configuration reload in the service. This setting
+        may take multiple command lines, following the same scheme as described for
         <varname>ExecStart=</varname> above. Use of this setting is optional. Specifier and environment
         variable substitution is supported here following the same scheme as for
         <varname>ExecStart=</varname>.</para>
@@ -484,13 +486,12 @@
 
         <programlisting>ExecReload=kill -HUP $MAINPID</programlisting>
 
-        <para>Note however that reloading a daemon by enqueuing a signal (as with the example line above) is
-        usually not a good choice, because this is an asynchronous operation and hence not suitable when
-        ordering reloads of multiple services against each other. It is thus strongly recommended to either
-        use <varname>Type=</varname><option>notify-reload</option> in place of
-        <varname>ExecReload=</varname>, or to set <varname>ExecReload=</varname> to a command that not only
-        triggers a configuration reload of the daemon, but also synchronously waits for it to complete. For
-        example, <citerefentry
+        <para>Note however that reloading a daemon by enqueuing a signal without completion notification
+        (as is the case with the example line above) is usually not a good choice, because this is an
+        asynchronous operation and hence not suitable when ordering reloads of multiple services against
+        each other. It is thus strongly recommended to either use <varname>Type=notify-reload</varname>,
+        or to set <varname>ExecReload=</varname> to a command that not only triggers a configuration reload
+        of the daemon, but also synchronously waits for it to complete. For example, <citerefentry
         project='mankier'><refentrytitle>dbus-broker</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         uses the following:</para>
 
@@ -498,6 +499,22 @@
         /org/freedesktop/DBus org.freedesktop.DBus \
         ReloadConfig
 </programlisting>
+
+        <para>This setting can be combined with <varname>Type=notify-reload</varname>, in which case
+        the service main process is signaled after all specified command lines finish execution. Specially,
+        if <literal>RELOADING=1</literal> notification is received before <varname>ExecReload=</varname>
+        completes, the signaling is skipped and the service manager immediately starts listening for
+        <literal>READY=1</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ExecReloadPost=</varname></term>
+
+        <listitem><para>Commands to execute after a successful reload operation. Syntax for this setting
+        is exactly the same as <varname>ExecReload=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/>
         </listitem>
       </varlistentry>
 
@@ -1070,18 +1087,14 @@
 
       <varlistentry>
         <term><varname>RootDirectoryStartOnly=</varname></term>
-        <listitem><para>Takes a boolean argument. If true, the root
-        directory, as configured with the
+        <listitem><para>Takes a boolean argument. If true, the root directory, as configured with the
         <varname>RootDirectory=</varname> option (see
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for more information), is only applied to the process started
-        with <varname>ExecStart=</varname>, and not to the various
-        other <varname>ExecStartPre=</varname>,
-        <varname>ExecStartPost=</varname>,
-        <varname>ExecReload=</varname>, <varname>ExecStop=</varname>,
-        and <varname>ExecStopPost=</varname> commands. If false, the
-        setting is applied to all configured commands the same way.
-        Defaults to false.</para></listitem>
+        for more information), is only applied to the process started with <varname>ExecStart=</varname>,
+        and not to the various other <varname>ExecStartPre=</varname>, <varname>ExecStartPost=</varname>,
+        <varname>ExecReload=</varname>, <varname>ExecReloadPost=</varname>, <varname>ExecStop=</varname>,
+        and <varname>ExecStopPost=</varname> commands. If false, the setting is applied to all
+        configured commands the same way. Defaults to false.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1269,11 +1282,13 @@
         <para>This setting takes one of <constant>continue</constant>, <constant>stop</constant> or
         <constant>kill</constant>. If set to <constant>continue</constant> and a process in the unit is
         killed by the OOM killer, this is logged but the unit continues running. If set to
-        <constant>stop</constant> the event is logged but the unit is terminated cleanly by the service
-        manager. If set to <constant>kill</constant> and one of the unit's processes is killed by the OOM
-        killer the kernel is instructed to kill all remaining processes of the unit too, by setting the
-        <filename>memory.oom.group</filename> attribute to <constant>1</constant>; also see kernel
-        page <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Group v2</ulink>.
+        <constant>stop</constant> the event is logged and the unit's processes are terminated cleanly by the
+        service manager. If set to <constant>kill</constant> and one of the unit's processes is killed by the
+        OOM killer the kernel is instructed to kill all remaining processes of the unit too, by setting the
+        <filename>memory.oom.group</filename> attribute to <constant>1</constant>; also see kernel page
+        <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Group v2</ulink>. In case of
+        both <constant>stop</constant> and <constant>kill</constant>, the service ultimately ends up in the
+        <constant>oom-kill</constant> failed state after which <varname>Restart=</varname> may apply.
         </para>
 
         <para>Defaults to the setting <varname>DefaultOOMPolicy=</varname> in
@@ -1397,7 +1412,7 @@
         <tbody>
           <row>
             <entry><literal>@</literal></entry>
-            <entry>If the executable path is prefixed with <literal>@</literal>, the second specified token will be passed as <constant>argv[0]</constant> to the executed process (instead of the actual filename), followed by the further arguments specified.</entry>
+            <entry>If the executable path is prefixed with <literal>@</literal>, the second specified token will be passed as <constant>argv[0]</constant> to the executed process (instead of the actual filename), followed by the further arguments specified, unless <literal>|</literal> is also specified, in which case it enables login shell semantics for the shell spawned by prefixing <literal>-</literal> to <constant>argv[0]</constant>.</entry>
           </row>
 
           <row>
@@ -1420,14 +1435,19 @@
 
             <entry>Similar to the <literal>+</literal> character discussed above this permits invoking command lines with elevated privileges. However, unlike <literal>+</literal> the <literal>!</literal> character exclusively alters the effect of <varname>User=</varname>, <varname>Group=</varname> and <varname>SupplementaryGroups=</varname>, i.e. only the stanzas that affect user and group credentials. Note that this setting may be combined with <varname>DynamicUser=</varname>, in which case a dynamic user/group pair is allocated before the command is invoked, but credential changing is left to the executed process itself.</entry>
           </row>
+
+          <row>
+            <entry><literal>|</literal></entry>
+
+            <entry>If <literal>|</literal> is specified standalone as executable path, invoke the default shell of <varname>User=</varname>. If specified as a prefix, use the shell (<literal>-c</literal>) to spawn the executable. When <literal>@</literal> is used in conjunction, <constant>argv[0]</constant> of shell will be prefixed with <literal>-</literal> to enable login shell semantics.</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
 
-    <para><literal>@</literal>, <literal>-</literal>, <literal>:</literal>, and one of
-    <literal>+</literal>/<literal>!</literal>/<literal>!!</literal> may be used together and they can appear in any
-    order. However, only one of <literal>+</literal>, <literal>!</literal>, <literal>!!</literal> may be used at a
-    time.</para>
+    <para><literal>@</literal>, <literal>|</literal>, <literal>-</literal>, <literal>:</literal>, and one of
+    <literal>+</literal>/<literal>!</literal> may be used together and they can appear in any order.
+    However, <literal>+</literal> and <literal>!</literal> may not be specified at the same time.</para>
 
     <para>For each command, the first argument must be either an absolute path to an executable or a simple
     file name without any slashes. If the command is not a full (absolute) path, it will be resolved to a
@@ -1476,7 +1496,8 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
     <literal>too</literal>.
     </para>
 
-    <para>To pass a literal dollar sign, use <literal>$$</literal>.
+    <para>Unless for commands with the special executable prefix <literal>:</literal>,
+    to pass a literal dollar sign, use <literal>$$</literal>.
     Variables whose value is not known at expansion time are treated
     as empty strings. Note that the first argument (i.e. the program
     to execute) may not be a variable.</para>
@@ -1490,9 +1511,9 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
     includes e.g. <varname>$USER</varname>, but not
     <varname>$TERM</varname>).</para>
 
-    <para>Note that shell command lines are not directly supported. If
-    shell command lines are to be used, they need to be passed
-    explicitly to a shell implementation of some kind. Example:</para>
+    <para>Note that shell command lines are not directly supported, and <literal>|</literal> invokes the user's
+    default shell which isn't deterministic. It's recommended to specify a shell implementation explicitly
+    if portability is desired. Example:</para>
     <programlisting>ExecStart=sh -c 'dmesg | tac'</programlisting>
 
     <para>Example:</para>
@@ -1690,7 +1711,7 @@ WantedBy=multi-user.target</programlisting>
       just starts one process in the background:</para>
 
       <programlisting>[Unit]
-Description=Some simple daemon
+Description=My Simple Daemon
 
 [Service]
 Type=forking
@@ -1716,7 +1737,7 @@ WantedBy=multi-user.target</programlisting>
       The following example shows a typical DBus service:</para>
 
       <programlisting>[Unit]
-Description=Simple DBus service
+Description=Simple DBus Service
 
 [Service]
 Type=dbus
@@ -1755,7 +1776,7 @@ SystemdService=simple-dbus-service.service</programlisting>
       daemon would look like this:</para>
 
       <programlisting>[Unit]
-Description=Simple notifying service
+Description=Simple Notifying Service
 
 [Service]
 Type=notify-reload

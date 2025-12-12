@@ -2,9 +2,9 @@
 
 #include <getopt.h>
 #include <locale.h>
+#include <unistd.h>
 
 #include "sd-event.h"
-#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -12,25 +12,27 @@
 #include "discover-image.h"
 #include "env-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
-#include "hostname-util.h"
 #include "import-raw.h"
 #include "import-tar.h"
 #include "import-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "runtime-scope.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "terminal-util.h"
 #include "verbs.h"
 
-static const char *arg_image_root = NULL;
+static char *arg_image_root = NULL;
 static ImportFlags arg_import_flags = IMPORT_BTRFS_SUBVOL | IMPORT_BTRFS_QUOTA | IMPORT_CONVERT_QCOW2 | IMPORT_SYNC;
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
 static ImageClass arg_class = IMAGE_MACHINE;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
+
+STATIC_DESTRUCTOR_REGISTER(arg_image_root, freep);
 
 static int normalize_local(const char *local, char **ret) {
         _cleanup_free_ char *ll = NULL;
@@ -133,7 +135,7 @@ static void on_tar_finished(TarImport *import, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int import_tar(int argc, char *argv[], void *userdata) {
@@ -202,7 +204,7 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int import_raw(int argc, char *argv[], void *userdata) {
@@ -290,7 +292,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --offset=BYTES           Offset to seek to in destination\n"
                "     --size-max=BYTES         Maximum number of bytes to write to destination\n"
                "     --class=CLASS            Select image class (machine, sysext, confext,\n"
-               "                              portable)\n",
+               "                              portable)\n"
+               "     --system                 Operate in per-system mode\n"
+               "     --user                   Operate in per-user mode\n",
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -315,6 +319,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OFFSET,
                 ARG_SIZE_MAX,
                 ARG_CLASS,
+                ARG_SYSTEM,
+                ARG_USER,
         };
 
         static const struct option options[] = {
@@ -331,6 +337,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "offset",          required_argument, NULL, ARG_OFFSET          },
                 { "size-max",        required_argument, NULL, ARG_SIZE_MAX        },
                 { "class",           required_argument, NULL, ARG_CLASS           },
+                { "system",          no_argument,       NULL, ARG_SYSTEM          },
+                { "user",            no_argument,       NULL, ARG_USER            },
                 {}
         };
 
@@ -354,7 +362,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_IMAGE_ROOT:
-                        arg_image_root = optarg;
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image_root);
+                        if (r < 0)
+                                return r;
+
                         break;
 
                 case ARG_READ_ONLY:
@@ -430,6 +441,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_SYSTEM:
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                case ARG_USER:
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -446,8 +465,14 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_offset != UINT64_MAX && !FLAGS_SET(arg_import_flags, IMPORT_DIRECT))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File offset only supported in --direct mode.");
 
-        if (!arg_image_root)
-                arg_image_root = image_root_to_string(arg_class);
+        if (!arg_image_root) {
+                r = image_root_pick(arg_runtime_scope < 0 ? RUNTIME_SCOPE_SYSTEM : arg_runtime_scope, arg_class, /* runtime= */ false, &arg_image_root);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to pick image root: %m");
+        }
+
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER)
+                arg_import_flags |= IMPORT_FOREIGN_UID;
 
         return 1;
 }

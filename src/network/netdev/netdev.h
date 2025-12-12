@@ -1,15 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
 #include "ether-addr-util.h"
-#include "hash-funcs.h"
 #include "list.h"
 #include "log-link.h"
 #include "netdev-util.h"
-#include "time-util.h"
+#include "networkd-forward.h"
 
 /* Special hardware address value to suppress generating persistent hardware address for the netdev. */
 #define HW_ADDR_NONE ((struct hw_addr_data) { .length = 1, })
@@ -108,9 +104,6 @@ typedef enum NetDevCreateType {
         _NETDEV_CREATE_MAX,
         _NETDEV_CREATE_INVALID = -EINVAL,
 } NetDevCreateType;
-
-typedef struct Manager Manager;
-typedef struct Condition Condition;
 
 typedef struct NetDev {
         Manager *manager;
@@ -242,15 +235,15 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 bool netdev_is_managed(NetDev *netdev);
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 void link_assign_netdev(Link *link);
-int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
-int netdev_generate_hw_addr(NetDev *netdev, Link *link, const char *name,
+int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message);
+int netdev_generate_hw_addr(NetDev *netdev, Link *parent, const char *name,
                             const struct hw_addr_data *hw_addr, struct hw_addr_data *ret);
 
 bool netdev_needs_reconfigure(NetDev *netdev, NetDevLocalAddressType type);
 int link_request_stacked_netdev(Link *link, NetDev *netdev);
 
 const char* netdev_kind_to_string(NetDevKind d) _const_;
-NetDevKind netdev_kind_from_string(const char *d) _pure_;
+NetDevKind netdev_kind_from_string(const char *s) _pure_;
 
 static inline NetDevCreateType netdev_get_create_type(NetDev *netdev) {
         assert(netdev);
@@ -263,7 +256,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_netdev_kind);
 CONFIG_PARSER_PROTOTYPE(config_parse_netdev_hw_addr);
 
 /* gperf */
-const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 /* Macros which append INTERFACE= to the message */
 

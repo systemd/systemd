@@ -2,7 +2,6 @@
 
 #include "errno-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(strerror_not_threadsafe) {
@@ -41,10 +40,10 @@ TEST(STRERROR) {
         ASSERT_NOT_NULL(strstr(c, buf));
 }
 
-TEST(STRERROR_OR_ELSE) {
-        log_info("STRERROR_OR_ELSE(0, \"EOF\") → %s", STRERROR_OR_EOF(0));
-        log_info("STRERROR_OR_ELSE(EPERM, \"EOF\") → %s", STRERROR_OR_EOF(EPERM));
-        log_info("STRERROR_OR_ELSE(-EPERM, \"EOF\") → %s", STRERROR_OR_EOF(-EPERM));
+TEST(STRERROR_OR_EOF) {
+        log_info("STRERROR_OR_EOF(0, \"EOF\") → %s", STRERROR_OR_EOF(0));
+        log_info("STRERROR_OR_EOF(EPERM, \"EOF\") → %s", STRERROR_OR_EOF(EPERM));
+        log_info("STRERROR_OR_EOF(-EPERM, \"EOF\") → %s", STRERROR_OR_EOF(-EPERM));
 }
 
 TEST(PROTECT_ERRNO) {

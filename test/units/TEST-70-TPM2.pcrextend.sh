@@ -30,6 +30,7 @@ export SYSTEMD_FORCE_MEASURE=1
 "$SD_PCREXTEND" --version
 "$SD_PCREXTEND" foo
 "$SD_PCREXTEND" --machine-id
+"$SD_PCREXTEND" --product-id
 "$SD_PCREXTEND" --tpm2-device=list
 "$SD_PCREXTEND" --tpm2-device=auto foo
 "$SD_PCREXTEND" --tpm2-device=/dev/tpm0 foo
@@ -40,6 +41,7 @@ export SYSTEMD_FORCE_MEASURE=1
 "$SD_PCREXTEND" --file-system=/
 "$SD_PCREXTEND" --file-system=/tmp --file-system=/
 "$SD_PCREXTEND" --file-system=/tmp --file-system=/ --pcr=15 --pcr=11
+"$SD_PCREXTEND" --nvpcr=hardware foo
 
 if tpm_has_pcr sha1 11; then
     "$SD_PCREXTEND" --bank=sha1 --pcr=11 foo
@@ -55,6 +57,7 @@ fi
 (! "$SD_PCREXTEND" --pcr=-1 foo)
 (! "$SD_PCREXTEND" --pcr=1024 foo)
 (! "$SD_PCREXTEND" --foo=bar)
+(! "$SD_PCREXTEND" --nvpcr=idontexist foo)
 
 unset SYSTEMD_FORCE_MEASURE
 
@@ -89,7 +92,7 @@ RECORD_COUNT=$((RECORD_COUNT + 1))
 tpm2_pcrread sha256:11 -Q -o /tmp/oldpcr11
 # Do the equivalent of 'SYSTEMD_FORCE_MEASURE=1 "$SD_PCREXTEND" foobar' via Varlink, just to test the Varlink logic (but first we need to patch out the conditionalization...)
 mkdir -p /run/systemd/system/systemd-pcrextend.socket.d
-cat > /run/systemd/system/systemd-pcrextend.socket.d/50-no-condition.conf <<EOF
+cat >/run/systemd/system/systemd-pcrextend.socket.d/50-no-condition.conf <<EOF
 [Unit]
 # Turn off all conditions */
 ConditionSecurity=

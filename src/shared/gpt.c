@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "gpt.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -30,7 +31,7 @@ bool partition_designator_is_versioned(PartitionDesignator d) {
                       PARTITION_USR_VERITY_SIG);
 }
 
-PartitionDesignator partition_verity_of(PartitionDesignator p) {
+PartitionDesignator partition_verity_hash_of(PartitionDesignator p) {
         switch (p) {
 
         case PARTITION_ROOT:
@@ -58,7 +59,7 @@ PartitionDesignator partition_verity_sig_of(PartitionDesignator p) {
         }
 }
 
-PartitionDesignator partition_verity_to_data(PartitionDesignator d) {
+PartitionDesignator partition_verity_hash_to_data(PartitionDesignator d) {
         switch (d) {
 
         case PARTITION_ROOT_VERITY:
@@ -84,6 +85,14 @@ PartitionDesignator partition_verity_sig_to_data(PartitionDesignator d) {
         default:
                 return _PARTITION_DESIGNATOR_INVALID;
         }
+}
+
+PartitionDesignator partition_verity_to_data(PartitionDesignator d) {
+        PartitionDesignator e = partition_verity_hash_to_data(d);
+        if (e >= 0)
+                return e;
+
+        return partition_verity_sig_to_data(d);
 }
 
 static const char *const partition_designator_table[_PARTITION_DESIGNATOR_MAX] = {

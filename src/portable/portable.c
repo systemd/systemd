@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/loop.h>
+#include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-messages.h"
 
 #include "bus-common-errors.h"
@@ -9,27 +11,29 @@
 #include "bus-locator.h"
 #include "chase.h"
 #include "conf-files.h"
-#include "constants.h"
 #include "copy.h"
+#include "cryptsetup-util.h"
 #include "data-fd-util.h"
 #include "dirent-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-file.h"
 #include "env-util.h"
-#include "errno-list.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extension-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "install.h"
 #include "iovec-util.h"
-#include "locale-util.h"
+#include "libmount-util.h"
 #include "log-context.h"
+#include "log.h"
 #include "loop-util.h"
 #include "mkdir.h"
-#include "nulstr-util.h"
 #include "os-util.h"
 #include "path-lookup.h"
 #include "portable.h"
@@ -44,7 +48,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "tmpfile-util.h"
-#include "user-util.h"
+#include "unit-name.h"
 #include "vpick.h"
 
 /* Markers used in the first line of our 20-portable.conf unit file drop-in to determine, that a) the unit file was
@@ -308,10 +312,11 @@ static int extract_now(
 #if HAVE_SELINUX
                         /* The units will be copied on the host's filesystem, so if they had a SELinux label
                          * we have to preserve it. Copy it out so that it can be applied later. */
-
-                        r = fgetfilecon_raw(fd, &con);
-                        if (r < 0 && !ERRNO_IS_XATTR_ABSENT(errno))
-                                log_debug_errno(errno, "Failed to get SELinux file context from '%s', ignoring: %m", de->d_name);
+                        if (mac_selinux_use()) {
+                                r = sym_fgetfilecon_raw(fd, &con);
+                                if (r < 0 && !ERRNO_IS_XATTR_ABSENT(errno))
+                                        log_debug_errno(errno, "Failed to get SELinux file context from '%s', ignoring: %m", de->d_name);
+                        }
 #endif
 
                         if (socket_fd >= 0) {
@@ -416,6 +421,10 @@ static int portable_extract_by_path(
                  * there, and extract the metadata we need. The metadata is sent from the child back to us. */
 
                 BLOCK_SIGNALS(SIGCHLD);
+
+                /* Load some libraries before we fork workers off that want to use them */
+                (void) dlopen_cryptsetup();
+                (void) dlopen_libmount();
 
                 r = mkdtemp_malloc("/tmp/inspect-XXXXXX", &tmpdir);
                 if (r < 0)
@@ -569,7 +578,7 @@ static int extract_image_and_extensions(
                 char ***ret_valid_prefixes,
                 sd_bus_error *error) {
 
-        _cleanup_free_ char *id = NULL, *version_id = NULL, *sysext_level = NULL, *confext_level = NULL;
+        _cleanup_free_ char *id = NULL, *id_like = NULL, *version_id = NULL, *sysext_level = NULL, *confext_level = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
@@ -671,6 +680,7 @@ static int extract_image_and_extensions(
 
                 r = parse_env_file_fd(os_release->fd, os_release->name,
                                      "ID", &id,
+                                     "ID_LIKE", &id_like,
                                      "VERSION_ID", &version_id,
                                      "SYSEXT_LEVEL", &sysext_level,
                                      "CONFEXT_LEVEL", &confext_level,
@@ -718,9 +728,9 @@ static int extract_image_and_extensions(
                         return r;
 
                 if (validate_extension) {
-                        r = extension_release_validate(ext->path, id, version_id, sysext_level, "portable", extension_release, IMAGE_SYSEXT);
+                        r = extension_release_validate(ext->path, id, id_like, version_id, sysext_level, "portable", extension_release, IMAGE_SYSEXT);
                         if (r < 0)
-                                r = extension_release_validate(ext->path, id, version_id, confext_level, "portable", extension_release, IMAGE_CONFEXT);
+                                r = extension_release_validate(ext->path, id, id_like, version_id, confext_level, "portable", extension_release, IMAGE_CONFEXT);
 
                         if (r == 0)
                                 return sd_bus_error_set_errnof(error, ESTALE, "Image %s extension-release metadata does not match the root's", ext->path);

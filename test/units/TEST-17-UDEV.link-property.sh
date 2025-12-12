@@ -163,11 +163,11 @@ EOF
 udevadm control --reload
 
 output=$(udevadm test --action add /sys/class/net/test1)
-assert_in "LINK_VERSION=$(uname -r)" "$output"
+assert_in "LINK_VERSION=$(uname -r | sed 's/\+/\\+/g')" "$output"
 
 udevadm trigger --settle --action add /sys/class/net/test1
 output=$(udevadm info --query property /sys/class/net/test1)
-assert_in "LINK_VERSION=$(uname -r)" "$output"
+assert_in "LINK_VERSION=$(uname -r | sed 's/\+/\\+/g')" "$output"
 
 # test for constant properties
 cat >/run/systemd/network/10-test.link.d/13-override.conf <<EOF

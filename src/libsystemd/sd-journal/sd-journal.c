@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <linux/magic.h>
 #include <poll.h>
-#include <stddef.h>
+#include <stdlib.h>
 #include <sys/inotify.h>
 #include <sys/vfs.h>
 #include <unistd.h>
@@ -14,14 +11,13 @@
 
 #include "alloc-util.h"
 #include "catalog.h"
-#include "compress.h"
 #include "dirent-util.h"
 #include "env-file.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "id128-util.h"
@@ -31,19 +27,21 @@
 #include "journal-file.h"
 #include "journal-internal.h"
 #include "list.h"
+#include "log.h"
 #include "lookup3.h"
 #include "nulstr-util.h"
 #include "origin-id.h"
 #include "path-util.h"
 #include "prioq.h"
-#include "process-util.h"
 #include "replace-var.h"
+#include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 #include "uid-classification.h"
 
 #define JOURNAL_FILES_RECHECK_USEC (2 * USEC_PER_SEC)
@@ -1582,6 +1580,7 @@ static int add_any_file(
                 const char *path) {
 
         _cleanup_close_ int our_fd = -EBADF;
+        _cleanup_free_ char *resolved_path = NULL;
         JournalFile *f;
         struct stat st;
         int r;
@@ -1608,6 +1607,14 @@ static int add_any_file(
                         r = log_debug_errno(errno, "Failed to turn off O_NONBLOCK for %s: %m", path);
                         goto error;
                 }
+
+                r = fd_get_path(fd, &resolved_path);
+                if (r < 0) {
+                        r = log_debug_errno(r, "Failed to resolve path '%s': %m", path);
+                        goto error;
+                }
+
+                path = resolved_path;
         }
 
         if (fstat(fd, &st) < 0) {
@@ -1742,7 +1749,7 @@ static int add_file_by_name(
         if (!path)
                 return -ENOMEM;
 
-        return add_any_file(j, -1, path);
+        return add_any_file(j, /* fd = */ -EBADF, path);
 }
 
 static int remove_file_by_name(
@@ -2317,14 +2324,14 @@ static sd_journal *journal_new(int flags, const char *path, const char *namespac
          SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE |         \
          SD_JOURNAL_ASSUME_IMMUTABLE)
 
-_public_ int sd_journal_open_namespace(sd_journal **ret, const char *namespace, int flags) {
+_public_ int sd_journal_open_namespace(sd_journal **ret, const char *name_space, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
         assert_return((flags & ~OPEN_ALLOWED_FLAGS) == 0, -EINVAL);
 
-        j = journal_new(flags, NULL, namespace);
+        j = journal_new(flags, NULL, name_space);
         if (!j)
                 return -ENOMEM;
 
@@ -2429,7 +2436,7 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
                 return -ENOMEM;
 
         STRV_FOREACH(path, paths) {
-                r = add_any_file(j, -1, *path);
+                r = add_any_file(j, /* fd = */ -EBADF, *path);
                 if (r < 0)
                         return r;
         }
@@ -2516,7 +2523,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
                 if (r < 0)
                         goto fail;
 
-                r = add_any_file(j, fds[i], NULL);
+                r = add_any_file(j, fds[i], /* path = */ NULL);
                 if (r < 0)
                         goto fail;
         }
@@ -2708,7 +2715,7 @@ _public_ int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret) {
         return 0;
 }
 
-_public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id128_t *ret_boot_id) {
+_public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret_monotonic, sd_id128_t *ret_boot_id) {
         JournalFile *f;
         Object *o;
         int r;
@@ -2741,8 +2748,8 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
         if (!VALID_MONOTONIC(t))
                 return -EBADMSG;
 
-        if (ret)
-                *ret = t;
+        if (ret_monotonic)
+                *ret_monotonic = t;
         if (ret_boot_id)
                 *ret_boot_id = o->entry.boot_id;
 
@@ -2806,7 +2813,7 @@ static bool field_is_valid(const char *field) {
         return true;
 }
 
-_public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **data, size_t *size) {
+_public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **data, size_t *length) {
         JournalFile *f;
         size_t field_length;
         Object *o;
@@ -2816,7 +2823,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         assert_return(!journal_origin_changed(j), -ECHILD);
         assert_return(field, -EINVAL);
         assert_return(data, -EINVAL);
-        assert_return(size, -EINVAL);
+        assert_return(length, -EINVAL);
         assert_return(field_is_valid(field), -EINVAL);
 
         f = j->current_file;
@@ -2850,7 +2857,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                         return r;
 
                 *data = d;
-                *size = l;
+                *length = l;
 
                 return 0;
         }
@@ -2858,7 +2865,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         return -ENOENT;
 }
 
-_public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *size) {
+_public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *length) {
         JournalFile *f;
         Object *o;
         int r;
@@ -2866,7 +2873,7 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
         assert_return(data, -EINVAL);
-        assert_return(size, -EINVAL);
+        assert_return(length, -EINVAL);
 
         f = j->current_file;
         if (!f)
@@ -2895,7 +2902,7 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
                 assert(r > 0);
 
                 *data = d;
-                *size = l;
+                *length = l;
 
                 j->current_field++;
 
@@ -2905,11 +2912,11 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
         return 0;
 }
 
-_public_ int sd_journal_enumerate_available_data(sd_journal *j, const void **data, size_t *size) {
+_public_ int sd_journal_enumerate_available_data(sd_journal *j, const void **data, size_t *length) {
         for (;;) {
                 int r;
 
-                r = sd_journal_enumerate_data(j, data, size);
+                r = sd_journal_enumerate_data(j, data, length);
                 if (r >= 0)
                         return r;
                 if (!JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(r))
@@ -3041,7 +3048,7 @@ static void process_q_overflow(sd_journal *j) {
                 if (m->is_root) /* Never GC root directories */
                         continue;
 
-                log_debug("Directory '%s' hasn't been seen in this enumeration, removing.", f->path);
+                log_debug("Directory '%s' hasn't been seen in this enumeration, removing.", m->path);
                 directory_free(m);
         }
 
@@ -3293,13 +3300,13 @@ void journal_print_header(sd_journal *j) {
         }
 }
 
-_public_ int sd_journal_get_usage(sd_journal *j, uint64_t *ret) {
+_public_ int sd_journal_get_usage(sd_journal *j, uint64_t *ret_bytes) {
         JournalFile *f;
         uint64_t sum = 0;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
-        assert_return(ret, -EINVAL);
+        assert_return(ret_bytes, -EINVAL);
 
         ORDERED_HASHMAP_FOREACH(f, j->files) {
                 struct stat st;
@@ -3318,7 +3325,7 @@ _public_ int sd_journal_get_usage(sd_journal *j, uint64_t *ret) {
                 sum += b;
         }
 
-        *ret = sum;
+        *ret_bytes = sum;
         return 0;
 }
 

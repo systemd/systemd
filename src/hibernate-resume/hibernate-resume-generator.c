@@ -9,8 +9,6 @@
 #include "hibernate-resume-config.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "main-func.h"
-#include "parse-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "static-destruct.h"

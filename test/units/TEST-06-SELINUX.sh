@@ -4,8 +4,8 @@ set -eux
 set -o pipefail
 
 . /etc/os-release
-if ! [[ "$ID" =~ centos|fedora ]]; then
-    echo "Skipping because only CentOS and Fedora support SELinux tests" >>/skipped
+if ! [[ "$ID" =~ centos|fedora|opensuse ]]; then
+    echo "Skipping because only CentOS, Fedora and openSUSE support SELinux tests" >>/skipped
     exit 77
 fi
 

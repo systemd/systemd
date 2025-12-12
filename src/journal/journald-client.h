@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stddef.h>
-
-typedef struct ClientContext ClientContext;
+#include "journald-forward.h"
 
 int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup);
 int client_context_check_keep_log(ClientContext *c, const char *message, size_t len);

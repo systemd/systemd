@@ -4,7 +4,6 @@
 #include <linux/rfkill.h>
 #include <poll.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -12,17 +11,18 @@
 
 #include "alloc-util.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
 #include "list.h"
 #include "main-func.h"
-#include "mkdir.h"
 #include "parse-util.h"
 #include "reboot-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "udev-util.h"
 
 /* Note that any write is delayed until exit and the rfkill state will not be
@@ -291,7 +291,7 @@ static int run(int argc, char *argv[]) {
                                 return 0;
                         }
 
-                        return log_error_errno(errno, "Failed to open /dev/rfkill: %m");
+                        return log_error_errno(errno, "Failed to open %s: %m", "/dev/rfkill");
                 }
         } else {
                 c.rfkill_fd = SD_LISTEN_FDS_START;

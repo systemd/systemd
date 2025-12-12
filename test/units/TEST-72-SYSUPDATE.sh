@@ -54,15 +54,18 @@ at_exit() {
 trap at_exit EXIT
 
 update_checksums() {
-	(cd "$WORKDIR/source" && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
+    (cd "$WORKDIR/source" && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
 }
 
 new_version() {
     local sector_size="${1:?}"
     local version="${2:?}"
 
-    # Create a pair of random partition payloads, and compress one
-    dd if=/dev/urandom of="$WORKDIR/source/part1-$version.raw" bs="$sector_size" count=2048
+    # Create a pair of random partition payloads, and compress one.
+    # To make not the initial bytes of part1-xxx.raw accidentally match one of the compression header,
+    # let's make the first sector filled by zero.
+    dd if=/dev/zero of="$WORKDIR/source/part1-$version.raw" bs="$sector_size" count=1
+    dd if=/dev/urandom of="$WORKDIR/source/part1-$version.raw" bs="$sector_size" count=2047 conv=notrunc oflag=append
     dd if=/dev/urandom of="$WORKDIR/source/part2-$version.raw" bs="$sector_size" count=2048
     gzip -k -f "$WORKDIR/source/part2-$version.raw"
 
@@ -296,9 +299,9 @@ EOF
     # sure that sysupdate still recognizes the installation and can complete it
     # in place
     rm -r "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d"
-    "$SYSUPDATE" --offline list v5 | grep -q "incomplete"
+    "$SYSUPDATE" --offline list v5 | grep "incomplete" >/dev/null
     update_now
-    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    "$SYSUPDATE" --offline list v5 | grep -v "incomplete" >/dev/null
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
 
@@ -308,9 +311,9 @@ EOF
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
     mkdir "$CONFIGDIR/optional.feature.d"
     echo -e "[Feature]\nEnabled=true" > "$CONFIGDIR/optional.feature.d/enable.conf"
-    "$SYSUPDATE" --offline list v5 | grep -q "incomplete"
+    "$SYSUPDATE" --offline list v5 | grep "incomplete" >/dev/null
     update_now
-    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    "$SYSUPDATE" --offline list v5 | grep -v "incomplete" >/dev/null
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
     test -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
@@ -319,7 +322,7 @@ EOF
     rm -r "$CONFIGDIR/optional.feature.d"
     (! "$SYSUPDATE" --verify=no check-new)
     "$SYSUPDATE" vacuum
-    "$SYSUPDATE" --offline list v5 | grep -qv "incomplete"
+    "$SYSUPDATE" --offline list v5 | grep -v "incomplete" >/dev/null
     verify_version "$blockdev" "$sector_size" v3 1
     verify_version_current "$blockdev" "$sector_size" v5 2
     test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v5.efi.extra.d/optional.efi"
@@ -354,7 +357,7 @@ EOF
         updatectl check
         rm -r /run/sysupdate.test.d
     fi
-    
+
     # Create seventh version, and update through a file:// URL. This should be
     # almost as good as testing HTTP, but is simpler for us to set up. file:// is
     # abstracted in curl for us, and since our main goal is to test our own code

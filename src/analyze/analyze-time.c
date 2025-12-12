@@ -1,8 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-time.h"
 #include "analyze-time-data.h"
+#include "bus-util.h"
+#include "runtime-scope.h"
 
 int verb_time(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;

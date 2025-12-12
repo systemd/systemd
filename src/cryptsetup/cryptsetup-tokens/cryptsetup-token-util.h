@@ -3,8 +3,8 @@
 #pragma once
 
 #include <libcryptsetup.h>
-#include <stdbool.h>
-#include <stddef.h>
+
+#include "shared-forward.h"
 
 /* crypt_dump() internal indentation magic */
 #define CRYPT_DUMP_LINE_SEP "\n\t            "
@@ -15,7 +15,7 @@
 #define crypt_log(cd, ...)         crypt_logf(cd, CRYPT_LOG_NORMAL,  __VA_ARGS__)
 
 #define crypt_log_full_errno(cd, e, lvl, ...) ({ \
-        int _e = abs(e), _s = errno; \
+        int _e = ABS(e), _s = errno; \
         errno = _e; \
         crypt_logf(cd, lvl, __VA_ARGS__); \
         errno = _s; \

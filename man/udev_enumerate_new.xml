@@ -49,11 +49,17 @@
     </funcsynopsis>
   </refsynopsisdiv>
 
-  <!--<refsect1>
+  <refsect1>
     <title>Description</title>
 
-    <para>XXX: Add short description.</para>
-  </refsect1>-->
+    <para><function>udev_enumerate_new()</function> creates an enumeration context to scan
+    <filename>/sys/</filename>.</para>
+
+    <para><function>udev_enumerate_ref()</function> takes a reference of an enumeration context.</para>
+
+    <para><function>udev_enumerate_unref()</function> drops a reference of an enumeration context. If the
+    refcount reaches zero, all resources of the enumeration context will be released.</para>
+  </refsect1>
 
   <refsect1>
     <title>Return Value</title>

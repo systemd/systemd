@@ -4,9 +4,9 @@
 # as follows:
 #
 # mkosi genkey
-# mkosi -f sandbox -- meson setup testsuite test/integration-tests/standalone
+# mkosi -f box -- meson setup testsuite test/integration-tests/standalone
 # mkosi -f
-# mkosi sandbox -- meson test -C testsuite
+# mkosi box -- meson test -C testsuite
 #
 project('systemd-testsuite',
         license : 'LGPLv2+',

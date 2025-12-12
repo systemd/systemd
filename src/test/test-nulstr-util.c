@@ -42,22 +42,22 @@ TEST(strv_parse_nulstr_full) {
                                    STRV_MAKE("hoge", "hoge2", "hoge3", "", "hoge5", "", "xxx"));
 
         strv_parse_nulstr_full_one(((const char[0]) {}), 0,
-                                   STRV_MAKE_EMPTY, STRV_MAKE_EMPTY);
+                                   STRV_EMPTY, STRV_EMPTY);
 
         strv_parse_nulstr_full_one(((const char[1]) { 0 }), 1,
-                                   STRV_MAKE(""), STRV_MAKE_EMPTY);
+                                   STRV_MAKE(""), STRV_EMPTY);
 
         strv_parse_nulstr_full_one(((const char[1]) { 'x' }), 1,
                                    STRV_MAKE("x"), STRV_MAKE("x"));
 
         strv_parse_nulstr_full_one(((const char[2]) { 0, 0 }), 2,
-                                   STRV_MAKE("", ""), STRV_MAKE_EMPTY);
+                                   STRV_MAKE("", ""), STRV_EMPTY);
 
         strv_parse_nulstr_full_one(((const char[2]) { 'x', 0 }), 2,
                                    STRV_MAKE("x"), STRV_MAKE("x"));
 
         strv_parse_nulstr_full_one(((const char[3]) { 0, 0, 0 }), 3,
-                                   STRV_MAKE("", "", ""), STRV_MAKE_EMPTY);
+                                   STRV_MAKE("", "", ""), STRV_EMPTY);
 
         strv_parse_nulstr_full_one(((const char[3]) { 'x', 0, 0 }), 3,
                                    STRV_MAKE("x", ""), STRV_MAKE("x"));

@@ -1,9 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/wait.h>
 #include <unistd.h>
+
+#include "sd-bus.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "portabled.h"
 #include "portabled-operation.h"
@@ -118,7 +123,7 @@ Operation *operation_free(Operation *o) {
         safe_close(o->extra_fd);
 
         if (o->pid > 1)
-                (void) sigkill_wait(o->pid);
+                sigkill_wait(o->pid);
 
         sd_bus_message_unref(o->message);
 

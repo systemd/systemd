@@ -1,19 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <malloc.h>
-#include <netinet/in.h>
-#include <stdbool.h>
-#include <unistd.h>
-
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "fd-util.h"
-#include "format-util.h"
+#include "errno-util.h"
+#include "hashmap.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
+#include "ordered-set.h"
 #include "socket-util.h"
 
 static int broadcast_groups_get(sd_netlink *nl) {
@@ -226,6 +222,16 @@ static int netlink_queue_received_message(sd_netlink *nl, sd_netlink_message *m)
         assert(nl);
         assert(m);
 
+        serial = message_get_serial(m);
+        if (serial != 0) {
+                NetlinkIgnoredSerial *s = hashmap_remove(nl->ignored_serials, UINT32_TO_PTR(serial));
+                if (s) {
+                        /* We are not interested in the message anymore. */
+                        free(s);
+                        return 0;
+                }
+        }
+
         if (ordered_set_size(nl->rqueue) >= NETLINK_RQUEUE_MAX)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
                                        "sd-netlink: exhausted the read queue size (%d)", NETLINK_RQUEUE_MAX);
@@ -239,7 +245,6 @@ static int netlink_queue_received_message(sd_netlink *nl, sd_netlink_message *m)
         if (sd_netlink_message_is_broadcast(m))
                 return 0;
 
-        serial = message_get_serial(m);
         if (serial == 0)
                 return 0;
 
@@ -307,7 +312,7 @@ static int parse_message_one(sd_netlink *nl, uint32_t group, const struct nlmsgh
                 goto finalize;
 
         /* check that we support this message type */
-        r = netlink_get_policy_set_and_header_size(nl, hdr->nlmsg_type, NULL, &size);
+        r = netlink_get_policy_set_and_header_size(nl, hdr->nlmsg_type, hdr->nlmsg_flags, NULL, &size);
         if (r == -EOPNOTSUPP) {
                 log_debug("sd-netlink: ignored message with unknown type: %i", hdr->nlmsg_type);
                 goto finalize;

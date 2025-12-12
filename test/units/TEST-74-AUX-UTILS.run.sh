@@ -81,6 +81,11 @@ systemd-run --wait --pipe --user --machine=testuser@ \
 systemd-run --wait --pipe --user --machine=testuser@ \
             bash -xec '[[ "$PWD" == /home/testuser && -n "$INVOCATION_ID" ]]'
 
+# https://github.com/systemd/systemd/issues/39038
+systemd-run --wait --machine=testuser@ --user -p User=testuser true
+systemd-run --wait --machine=testuser@ --user -p Group=testuser true
+(! systemd-run --wait --machine=testuser@ --user -p Group=testuser -p SupplementaryGroups=root true)
+
 # PrivateTmp=yes implies PrivateUsers=yes for user manager, so skip this if we
 # don't have unprivileged user namespaces.
 if [[ "$(sysctl -ne kernel.apparmor_restrict_unprivileged_userns)" -ne 1 ]]; then
@@ -126,7 +131,7 @@ systemd-run --remain-after-exit \
             true
 systemctl cat "$UNIT.service" "$UNIT.timer"
 grep -q "^OnUnitInactiveSec=16h$" "/run/systemd/transient/$UNIT.timer"
-grep -qE "^ExecStart=.*/bin/true.*$" "/run/systemd/transient/$UNIT.service"
+grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT.timer" "$UNIT.service" || :
 
 UNIT="timer-1-$RANDOM"
@@ -162,7 +167,7 @@ grep -q "^OnTimezoneChange=yes$" "/run/systemd/transient/$UNIT.timer"
 grep -q "^After=systemd-journald.service$" "/run/systemd/transient/$UNIT.timer"
 grep -q "^Description=My Fancy Timer$" "/run/systemd/transient/$UNIT.service"
 grep -q "^RemainAfterExit=yes$" "/run/systemd/transient/$UNIT.service"
-grep -qE "^ExecStart=.*/bin/true.*$" "/run/systemd/transient/$UNIT.service"
+grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$UNIT.service"
 (! grep -q "^After=systemd-journald.service$" "/run/systemd/transient/$UNIT.service")
 systemctl stop "$UNIT.timer" "$UNIT.service" || :
 
@@ -180,7 +185,7 @@ systemd-analyze verify --recursive-errors=no "/run/systemd/transient/$UNIT.path"
 grep -q "^PathExists=/tmp$" "/run/systemd/transient/$UNIT.path"
 grep -q "^PathExists=/tmp/foo$" "/run/systemd/transient/$UNIT.path"
 grep -q "^PathChanged=/root/bar$" "/run/systemd/transient/$UNIT.path"
-grep -qE "^ExecStart=.*/bin/true.*$" "/run/systemd/transient/$UNIT.service"
+grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT.path" "$UNIT.service" || :
 
 : "Transient socket unit"
@@ -197,7 +202,7 @@ systemd-analyze verify --recursive-errors=no "/run/systemd/transient/$UNIT.socke
 grep -q "^ListenFIFO=/tmp/socket.fifo$" "/run/systemd/transient/$UNIT.socket"
 grep -q "^SocketMode=0666$" "/run/systemd/transient/$UNIT.socket"
 grep -q "^SocketMode=0644$" "/run/systemd/transient/$UNIT.socket"
-grep -qE "^ExecStart=.*/bin/true.*$" "/run/systemd/transient/$UNIT.service"
+grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT.socket" "$UNIT.service" || :
 
 : "Job mode"
@@ -215,8 +220,8 @@ SHELL=/bin/true systemd-run --shell
 SHELL=/bin/true systemd-run --scope --shell
 systemd-run --wait --pty true
 systemd-run --wait --machine=.host --pty true
-systemd-run --json=short /bin/true | jq . >/dev/null
-systemd-run --json=pretty /bin/true | jq . >/dev/null
+systemd-run --json=short true | jq . >/dev/null
+systemd-run --json=pretty true | jq . >/dev/null
 (! SHELL=/bin/false systemd-run --quiet --shell)
 
 (! systemd-run)
@@ -256,10 +261,20 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
         # Validate that we actually went properly through PAM (XDG_SESSION_TYPE is set by pam_systemd)
         assert_eq "$(run0 ${tu:+"--user=$tu"} bash -c 'echo $XDG_SESSION_TYPE')" "unspecified"
 
+        # Test spawning via shell
+        assert_eq "$(run0 ${tu:+"--user=$tu"} --setenv=SHLVL=10 printenv SHLVL)" "10"
+        if [[ ! -v ASAN_OPTIONS ]]; then
+            assert_eq "$(run0 ${tu:+"--user=$tu"} --setenv=SHLVL=10 --via-shell echo \$SHLVL)" "11"
+        fi
+
         if [[ -n "$tu" ]]; then
             # Validate that $SHELL is set to login shell of target user when cmdline is supplied (not invoking shell)
             TARGET_LOGIN_SHELL="$(getent passwd "$tu" | cut -d: -f7)"
             assert_eq "$(run0 --user="$tu" printenv SHELL)" "$TARGET_LOGIN_SHELL"
+            # ... or when the command is chained by login shell
+            if [[ ! -v ASAN_OPTIONS ]]; then
+                assert_eq "$(run0 --user="$tu" -i printenv SHELL)" "$TARGET_LOGIN_SHELL"
+            fi
         fi
     done
     # Let's chain a couple of run0 calls together, for fun
@@ -287,6 +302,14 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
     # Validate when we invoke run0 without a tty, that depending on --pty it either allocates a tty or not
     assert_neq "$(run0 --pty tty < /dev/null)" "not a tty"
     assert_eq "$(run0 --pipe tty < /dev/null)" "not a tty"
+
+    # Validate that --empower gives all capabilities to a non-root user.
+    caps="$(run0 -u testuser --empower systemd-analyze capability --mask "$(grep CapEff /proc/self/status | cut -d':' -f2)" --json=pretty | jq -r length)"
+    assert_neq "$caps" "0"
+
+    run0 -u testuser --empower touch /run/empower
+    assert_eq "$(stat -c "%U" /run/empower)" testuser
+    rm /run/empower
 fi
 
 # Tests whether intermediate disconnects corrupt us (modified testcase from https://github.com/systemd/systemd/issues/27204)

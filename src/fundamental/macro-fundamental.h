@@ -1,18 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <limits.h>
 #include <stdalign.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-
-/* This header unconditionally defines MAX() so include it here already so
- * it won't override our own definition of MAX() that we define later in this
- * file. */
-#if !SD_BOOT
-#include <sys/param.h>
-#endif
 
 /* Temporarily disable some warnings */
 #define DISABLE_WARNING_DEPRECATED_DECLARATIONS                         \
@@ -152,15 +144,15 @@
 #define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
 #define UNIQ __COUNTER__
 
-/* Note that this works differently from pthread_once(): this macro does
- * not synchronize code execution, i.e. code that is run conditionalized
- * on this macro will run concurrently to all other code conditionalized
- * the same way, there's no ordering or completion enforced. */
+/* The macro is true when the code block is called first time, and is false for the second and later times.
+ * Note that this works differently from pthread_once(): this macro does not synchronize code execution, i.e.
+ * code that is run conditionalized on this macro will run concurrently to all other code conditionalized the
+ * same way, there's no ordering or completion enforced. */
 #define ONCE __ONCE(UNIQ_T(_once_, UNIQ))
-#define __ONCE(o)                                                  \
-        ({                                                         \
-                static bool (o) = false;                           \
-                __atomic_exchange_n(&(o), true, __ATOMIC_SEQ_CST); \
+#define __ONCE(o)                                                       \
+        ({                                                              \
+                static bool (o) = false;                                \
+                !__atomic_exchange_n(&(o), true, __ATOMIC_SEQ_CST);     \
         })
 
 #define U64_KB UINT64_C(1024)
@@ -175,6 +167,13 @@
                 const typeof(b) UNIQ_T(B, bq) = (b);    \
                 UNIQ_T(A, aq) > UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
         })
+
+#ifdef __clang__
+#  define ABS(a) __builtin_llabs(a)
+#else
+#  define ABS(a) __builtin_imaxabs(a)
+#endif
+assert_cc(sizeof(long long) == sizeof(intmax_t));
 
 #define IS_UNSIGNED_INTEGER_TYPE(type) \
         (__builtin_types_compatible_p(typeof(type), unsigned char) ||   \
@@ -351,11 +350,12 @@
 #define CASE_F_18(X, ...) case X: CASE_F_17( __VA_ARGS__)
 #define CASE_F_19(X, ...) case X: CASE_F_18( __VA_ARGS__)
 #define CASE_F_20(X, ...) case X: CASE_F_19( __VA_ARGS__)
+#define CASE_F_21(X, ...) case X: CASE_F_20( __VA_ARGS__)
 
-#define GET_CASE_F(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,NAME,...) NAME
+#define GET_CASE_F(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,NAME,...) NAME
 #define FOR_EACH_MAKE_CASE(...) \
-        GET_CASE_F(__VA_ARGS__,CASE_F_20,CASE_F_19,CASE_F_18,CASE_F_17,CASE_F_16,CASE_F_15,CASE_F_14,CASE_F_13,CASE_F_12,CASE_F_11, \
-                               CASE_F_10,CASE_F_9,CASE_F_8,CASE_F_7,CASE_F_6,CASE_F_5,CASE_F_4,CASE_F_3,CASE_F_2,CASE_F_1) \
+        GET_CASE_F(__VA_ARGS__,CASE_F_21,CASE_F_20,CASE_F_19,CASE_F_18,CASE_F_17,CASE_F_16,CASE_F_15,CASE_F_14,CASE_F_13,CASE_F_12, \
+                               CASE_F_11,CASE_F_10,CASE_F_9,CASE_F_8,CASE_F_7,CASE_F_6,CASE_F_5,CASE_F_4,CASE_F_3,CASE_F_2,CASE_F_1) \
                    (__VA_ARGS__)
 
 #define IN_SET(x, first, ...)                                           \
@@ -364,7 +364,7 @@
                 /* If the build breaks in the line below, you need to extend the case macros. We use typeof(+x) \
                  * here to widen the type of x if it is a bit-field as this would otherwise be illegal. */      \
                 static const typeof(+x) __assert_in_set[] _unused_ = { first, __VA_ARGS__ }; \
-                assert_cc(ELEMENTSOF(__assert_in_set) <= 20);           \
+                assert_cc(ELEMENTSOF(__assert_in_set) <= 21);           \
                 switch (x) {                                            \
                 FOR_EACH_MAKE_CASE(first, __VA_ARGS__)                  \
                         _found = true;                                  \
@@ -397,6 +397,10 @@
  */
 #define STRLEN(x) (sizeof(""x"") - sizeof(typeof(x[0])))
 
+DISABLE_WARNING_REDUNDANT_DECLS;
+void free(void *p);
+REENABLE_WARNING;
+
 #define mfree(memory)                           \
         ({                                      \
                 free(memory);                   \
@@ -418,7 +422,7 @@ assert_cc(sizeof(dummy_t) == 0);
 
 /* Restriction/bug (see below) was fixed in GCC 15 and clang 19. */
 #if __GNUC__ >= 15 || (defined(__clang__) && __clang_major__ >= 19)
-#define DECLARE_FLEX_ARRAY(type, name) type name[]
+#  define DECLARE_FLEX_ARRAY(type, name) type name[]
 #else
 /* Declare a flexible array usable in a union.
  * This is essentially a work-around for a pointless constraint in C99
@@ -433,18 +437,24 @@ assert_cc(sizeof(dummy_t) == 0);
         }
 #endif
 
-/* Declares an ELF read-only string section that does not occupy memory at runtime. */
-#define DECLARE_NOALLOC_SECTION(name, text)   \
-        asm(".pushsection " name ",\"S\"\n\t" \
-            ".ascii " STRINGIFY(text) "\n\t"  \
+/* Declare an ELF read-only string section that does not occupy memory at runtime. */
+#define DECLARE_NOALLOC_SECTION(name, text)           \
+        asm(".pushsection " name ",\"S\"\n\t"         \
+            ".ascii " STRINGIFY(text) "\n\t"          \
             ".popsection\n")
 
-#ifdef SBAT_DISTRO
-        #define DECLARE_SBAT(text) DECLARE_NOALLOC_SECTION(".sbat", text)
-#else
-        #define DECLARE_SBAT(text)
-#endif
+/* Similar to DECLARE_NOALLOC_SECTION, but pad the section with extra 512 bytes. After taking alignment into
+ * account, the section has up to 1024 bytes minus the size of the original content of padding, and this
+ * extra space can be used to extend the contents. This is intended for the .sbat section. */
+#define DECLARE_NOALLOC_SECTION_PADDED(name, text)    \
+        assert_cc(STRLEN(text) <= 512);               \
+        asm(".pushsection " name ",\"S\"\n\t"         \
+            ".ascii " STRINGIFY(text) "\n\t"          \
+            ".balign 512\n\t"                         \
+            ".fill 512, 1, 0\n\t"                     \
+            ".popsection\n")
 
+#define typeof_field(struct_type, member) typeof(((struct_type *) 0)->member)
 #define sizeof_field(struct_type, member) sizeof(((struct_type *) 0)->member)
 #define endoffsetof_field(struct_type, member) (offsetof(struct_type, member) + sizeof_field(struct_type, member))
 #define voffsetof(v, member) offsetof(typeof(v), member)
@@ -466,3 +476,17 @@ assert_cc(sizeof(dummy_t) == 0);
 
 assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
 #define PROJECT_FILE (&__FILE__[STRLEN(RELATIVE_SOURCE_PATH) + 1])
+
+/* In GCC 14 (C23) we can force enums to have the right types, and not solely rely on language extensions anymore */
+#if (__GNUC__ >= 14 || __STDC_VERSION__ >= 202311L) && !defined(__EDG__)
+#  define ENUM_TYPE_S64(id) id : int64_t
+#else
+#  define ENUM_TYPE_S64(id) id
+#endif
+
+/* This macro is used to have a const-returning and non-const returning version of a function based on
+ * whether its first argument is const or not (e.g. strstr()). */
+#define const_generic(ptr, call)                              \
+        _Generic(0 ? (ptr) : (void*) 1,                       \
+                 const void*: (const typeof(*call)*) (call),  \
+                 void*: (call))

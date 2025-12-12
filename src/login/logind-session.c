@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <linux/kd.h>
 #include <linux/vt.h>
@@ -9,7 +8,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "audit-util.h"
@@ -18,12 +20,12 @@
 #include "daemon-util.h"
 #include "devnum-util.h"
 #include "env-file.h"
-#include "escape.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "io-util.h"
+#include "hashmap.h"
 #include "login-util.h"
 #include "logind.h"
 #include "logind-dbus.h"
@@ -41,10 +43,9 @@
 #include "process-util.h"
 #include "serialize.h"
 #include "string-table.h"
-#include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
-#include "uid-classification.h"
+#include "user-record.h"
 #include "user-util.h"
 
 #define RELEASE_USEC (20*USEC_PER_SEC)
@@ -276,8 +277,6 @@ static void session_save_devices(Session *s, FILE *f) {
 }
 
 int session_save(Session *s) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(s);
@@ -290,30 +289,33 @@ int session_save(Session *s) {
 
         r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create /run/systemd/sessions/: %m");
 
-        r = fopen_temporary(s->state_file, &f, &temp_path);
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable(s->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create state file '%s': %m", s->state_file);
 
-        (void) fchmod(fileno(f), 0644);
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to set access mode for state file '%s' to 0644: %m", s->state_file);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "UID="UID_FMT"\n"
-                "USER=%s\n"
                 "ACTIVE=%s\n"
                 "IS_DISPLAY=%s\n"
                 "STATE=%s\n"
                 "REMOTE=%s\n"
                 "LEADER_FD_SAVED=%s\n",
                 s->user->user_record->uid,
-                s->user->user_record->user_name,
                 one_zero(session_is_active(s)),
                 one_zero(s->user->display == s),
                 session_state_to_string(session_get_state(s)),
                 one_zero(s->remote),
                 one_zero(s->leader_fd_saved));
+
+        env_file_fputs_assignment(f, "USER=", s->user->user_record->user_name);
 
         if (s->type >= 0)
                 fprintf(f, "TYPE=%s\n", session_type_to_string(s->type));
@@ -324,79 +326,34 @@ int session_save(Session *s) {
         if (s->class >= 0)
                 fprintf(f, "CLASS=%s\n", session_class_to_string(s->class));
 
-        if (s->scope)
-                fprintf(f, "SCOPE=%s\n", s->scope);
-        if (s->scope_job)
-                fprintf(f, "SCOPE_JOB=%s\n", s->scope_job);
-
+        env_file_fputs_assignment(f, "SCOPE=", s->scope);
+        env_file_fputs_assignment(f, "SCOPE_JOB=", s->scope_job);
         if (s->seat)
-                fprintf(f, "SEAT=%s\n", s->seat->id);
-
-        if (s->tty)
-                fprintf(f, "TTY=%s\n", s->tty);
+                env_file_fputs_assignment(f, "SEAT=", s->seat->id);
+        env_file_fputs_assignment(f, "TTY=", s->tty);
 
         if (s->tty_validity >= 0)
                 fprintf(f, "TTY_VALIDITY=%s\n", tty_validity_to_string(s->tty_validity));
 
-        if (s->display)
-                fprintf(f, "DISPLAY=%s\n", s->display);
+        env_file_fputs_assignment(f, "DISPLAY=", s->display);
+        env_file_fputs_assignment(f, "REMOTE_HOST=", s->remote_host);
+        env_file_fputs_assignment(f, "REMOTE_USER=", s->remote_user);
+        env_file_fputs_assignment(f, "SERVICE=", s->service);
+        env_file_fputs_assignment(f, "DESKTOP=", s->desktop);
 
-        if (s->remote_host) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(s->remote_host);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                fprintf(f, "REMOTE_HOST=%s\n", escaped);
+        if (s->seat) {
+                if (!seat_has_vts(s->seat))
+                        fprintf(f, "POSITION=%u\n", s->position);
+                else if (s->vtnr > 0)
+                        fprintf(f, "VTNR=%u\n", s->vtnr);
         }
 
-        if (s->remote_user) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(s->remote_user);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                fprintf(f, "REMOTE_USER=%s\n", escaped);
-        }
-
-        if (s->service) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(s->service);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                fprintf(f, "SERVICE=%s\n", escaped);
-        }
-
-        if (s->desktop) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(s->desktop);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                fprintf(f, "DESKTOP=%s\n", escaped);
-        }
-
-        if (s->seat && seat_has_vts(s->seat))
-                fprintf(f, "VTNR=%u\n", s->vtnr);
-
-        if (!s->vtnr)
-                fprintf(f, "POSITION=%u\n", s->position);
-
-        if (pidref_is_set(&s->leader))
+        if (pidref_is_set(&s->leader)) {
                 fprintf(f, "LEADER="PID_FMT"\n", s->leader.pid);
+                (void) pidref_acquire_pidfd_id(&s->leader);
+                if (s->leader.fd_id != 0)
+                        fprintf(f, "LEADER_PIDFDID=%" PRIu64 "\n", s->leader.fd_id);
+        }
 
         if (audit_session_is_valid(s->audit_id))
                 fprintf(f, "AUDIT=%"PRIu32"\n", s->audit_id);
@@ -409,26 +366,16 @@ int session_save(Session *s) {
                         s->timestamp.monotonic);
 
         if (s->controller) {
-                fprintf(f, "CONTROLLER=%s\n", s->controller);
+                env_file_fputs_assignment(f, "CONTROLLER=", s->controller);
                 session_save_devices(s, f);
         }
 
-        r = fflush_and_check(f);
+        r = flink_tmpfile(f, temp_path, s->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to move '%s' into place: %m", s->state_file);
 
-        if (rename(temp_path, s->state_file) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        temp_path = mfree(temp_path);
+        temp_path = mfree(temp_path); /* disarm auto-destroy: temporary file does not exist anymore */
         return 0;
-
-fail:
-        (void) unlink(s->state_file);
-
-        return log_error_errno(r, "Failed to save session data %s: %m", s->state_file);
 }
 
 static int session_load_devices(Session *s, const char *devices) {
@@ -462,6 +409,48 @@ static int session_load_devices(Session *s, const char *devices) {
         return r;
 }
 
+static int session_load_leader(Session *s, uint64_t pidfdid) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
+
+        assert(s);
+        assert(pid_is_valid(s->deserialized_pid));
+        assert(!pidref_is_set(&s->leader));
+
+        if (pidfdid == 0 && s->leader_fd_saved)
+                /* We have no pidfd id for stable reference, but the pidfd has been submitted to fdstore.
+                 * manager_enumerate_fds() will dispatch the leader fd for us later. */
+                return 0;
+
+        r = pidref_set_pid(&pidref, s->deserialized_pid);
+        if (r == -ESRCH)
+                return log_warning_errno(r, "Leader of session '%s' is gone while deserializing.", s->id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to deserialize leader PID for session '%s': %m", s->id);
+        if (pidref.fd < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to acquire pidfd for session leader '" PID_FMT "', refusing.",
+                                       pidref.pid);
+
+        if (pidfdid > 0) {
+                r = pidref_acquire_pidfd_id(&pidref);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire pidfd id of deserialized leader '" PID_FMT "': %m",
+                                               pidref.pid);
+
+                if (pidref.fd_id != pidfdid)
+                        return log_warning_errno(SYNTHETIC_ERRNO(ESRCH),
+                                                 "Deserialized pidfd id for process " PID_FMT " (%" PRIu64 ") doesn't match the current one (%" PRIu64 "). PID recycled while deserializing?",
+                                                 pidref.pid, pidfdid, pidref.fd_id);
+        }
+
+        r = session_set_leader_consume(s, TAKE_PIDREF(pidref));
+        if (r < 0)
+                return log_error_errno(r, "Failed to set leader PID for session '%s': %m", s->id);
+
+        return 1;
+}
+
 int session_load(Session *s) {
         _cleanup_free_ char *remote = NULL,
                 *seat = NULL,
@@ -471,6 +460,7 @@ int session_load(Session *s) {
                 *position = NULL,
                 *leader_pid = NULL,
                 *leader_fd_saved = NULL,
+                *leader_pidfdid = NULL,
                 *type = NULL,
                 *original_type = NULL,
                 *class = NULL,
@@ -505,6 +495,7 @@ int session_load(Session *s) {
                            "POSITION",        &position,
                            "LEADER",          &leader_pid,
                            "LEADER_FD_SAVED", &leader_fd_saved,
+                           "LEADER_PIDFDID",  &leader_pidfdid,
                            "TYPE",            &type,
                            "ORIGINAL_TYPE",   &original_type,
                            "CLASS",           &class,
@@ -549,7 +540,7 @@ int session_load(Session *s) {
         }
 
         if (vtnr)
-                safe_atou(vtnr, &s->vtnr);
+                (void) safe_atou(vtnr, &s->vtnr);
 
         if (seat && !s->seat) {
                 Seat *o;
@@ -567,7 +558,7 @@ int session_load(Session *s) {
         if (position && s->seat) {
                 unsigned npos;
 
-                safe_atou(position, &npos);
+                (void) safe_atou(position, &npos);
                 seat_claim_position(s->seat, s, npos);
         }
 
@@ -647,8 +638,6 @@ int session_load(Session *s) {
         }
 
         if (leader_pid) {
-                assert(!pidref_is_set(&s->leader));
-
                 r = parse_pid(leader_pid, &s->deserialized_pid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse LEADER=%s: %m", leader_pid);
@@ -658,25 +647,19 @@ int session_load(Session *s) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse LEADER_FD_SAVED=%s: %m", leader_fd_saved);
                         s->leader_fd_saved = r > 0;
-
-                        if (s->leader_fd_saved)
-                                /* The leader fd will be acquired from fdstore later */
-                                return 0;
                 }
 
-                _cleanup_(pidref_done) PidRef p = PIDREF_NULL;
+                uint64_t pidfdid;
+                if (leader_pidfdid) {
+                        r = safe_atou64(leader_pidfdid, &pidfdid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse LEADER_PIDFDID=%s: %m", leader_pidfdid);
+                } else
+                        pidfdid = 0;
 
-                r = pidref_set_pid(&p, s->deserialized_pid);
+                r = session_load_leader(s, pidfdid);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to deserialize leader PID for session '%s': %m", s->id);
-                if (p.fd < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to acquire pidfd for session leader '" PID_FMT "', refusing.",
-                                               p.pid);
-
-                r = session_set_leader_consume(s, TAKE_PIDREF(p));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set leader PID for session '%s': %m", s->id);
+                        return r;
         }
 
         return 0;
@@ -787,7 +770,7 @@ static int session_dispatch_stop_on_idle(sd_event_source *source, uint64_t t, vo
         if (idle) {
                 log_info("Session \"%s\" of user \"%s\" is idle, stopping.", s->id, s->user->user_record->user_name);
 
-                return session_stop(s, /* force */ true);
+                return session_stop(s, /* force = */ true);
         }
 
         r = sd_event_source_set_time(
@@ -881,11 +864,11 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
                 (void) seat_save(s->seat);
 
         /* Send signals */
-        session_send_signal(s, true);
-        user_send_changed(s->user, "Display", NULL);
+        (void) session_send_signal(s, true);
+        (void) user_send_changed(s->user, "Display");
 
         if (s->seat && s->seat->active == s)
-                (void) seat_send_changed(s->seat, "ActiveSession", NULL);
+                (void) seat_send_changed(s->seat, "ActiveSession");
 
         return 0;
 }
@@ -1017,7 +1000,7 @@ int session_finalize(Session *s) {
         session_reset_leader(s, /* keep_fdstore = */ false);
 
         (void) user_save(s->user);
-        (void) user_send_changed(s->user, "Display", NULL);
+        (void) user_send_changed(s->user, "Display");
 
         return 0;
 }
@@ -1163,13 +1146,13 @@ int session_set_idle_hint(Session *s, bool b) {
         s->idle_hint = b;
         dual_timestamp_now(&s->idle_hint_timestamp);
 
-        session_send_changed(s, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
+        (void) session_send_changed(s, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
 
         if (s->seat)
-                seat_send_changed(s->seat, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
+                (void) seat_send_changed(s->seat, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
 
-        user_send_changed(s->user, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
-        manager_send_changed(s->manager, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
+        (void) user_send_changed(s->user, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
+        (void) manager_send_changed(s->manager, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
 
         return 1;
 }
@@ -1191,7 +1174,7 @@ int session_set_locked_hint(Session *s, bool b) {
 
         s->locked_hint = b;
         (void) session_save(s);
-        (void) session_send_changed(s, "LockedHint", NULL);
+        (void) session_send_changed(s, "LockedHint");
 
         return 1;
 }
@@ -1204,7 +1187,7 @@ void session_set_type(Session *s, SessionType t) {
 
         s->type = t;
         (void) session_save(s);
-        (void) session_send_changed(s, "Type", NULL);
+        (void) session_send_changed(s, "Type");
 }
 
 void session_set_class(Session *s, SessionClass c) {
@@ -1215,7 +1198,7 @@ void session_set_class(Session *s, SessionClass c) {
 
         s->class = c;
         (void) session_save(s);
-        (void) session_send_changed(s, "Class", NULL);
+        (void) session_send_changed(s, "Class");
 
         /* This class change might mean we need the per-user session manager now. Try to start it. */
         (void) user_start_service_manager(s->user);
@@ -1232,7 +1215,7 @@ int session_set_display(Session *s, const char *display) {
                 return r;
 
         (void) session_save(s);
-        (void) session_send_changed(s, "Display", NULL);
+        (void) session_send_changed(s, "Display");
 
         return 1;
 }
@@ -1248,7 +1231,7 @@ int session_set_tty(Session *s, const char *tty) {
                 return r;
 
         (void) session_save(s);
-        (void) session_send_changed(s, "TTY", NULL);
+        (void) session_send_changed(s, "TTY");
 
         return 1;
 }
@@ -1611,6 +1594,14 @@ int session_send_create_reply(Session *s, const sd_bus_error *error) {
         RET_GATHER(r, session_send_create_reply_bus(s, error));
         RET_GATHER(r, session_send_create_reply_varlink(s, error));
         return r;
+}
+
+bool session_is_self(const char *name) {
+        return isempty(name) || streq(name, "self");
+}
+
+bool session_is_auto(const char *name) {
+        return streq_ptr(name, "auto");
 }
 
 static const char* const session_state_table[_SESSION_STATE_MAX] = {

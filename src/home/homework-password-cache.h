@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "homework-forward.h"
 #include "strv.h"
-#include "user-record.h"
 
 typedef struct PasswordCache {
         /* The volume key from the kernel keyring */

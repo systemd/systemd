@@ -1,17 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_ELFUTILS
-
 #include <dwarf.h>
 #include <elfutils/libdwelf.h>
 #include <elfutils/libdwfl.h>
 #include <libelf.h>
-#include <sys/prctl.h>
-#include <sys/resource.h>
-#include <sys/types.h>
+#endif
 #include <unistd.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
+#include "coredump-util.h"
 #include "dlfcn-util.h"
 #include "elf-util.h"
 #include "errno-util.h"
@@ -19,14 +19,13 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "hexdecoct.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memstream-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "rlimit-util.h"
+#include "set.h"
 #include "string-util.h"
 
 #define FRAMES_MAX 64
@@ -35,6 +34,8 @@
 
 /* The amount of data we're willing to write to each of the output pipes. */
 #define COREDUMP_PIPE_MAX (1024*1024U)
+
+#if HAVE_ELFUTILS
 
 static void *dw_dl = NULL;
 static void *elf_dl = NULL;
@@ -89,7 +90,10 @@ static DLSYM_PROTOTYPE(elf_version) = NULL;
 static DLSYM_PROTOTYPE(gelf_getphdr) = NULL;
 static DLSYM_PROTOTYPE(gelf_getnote) = NULL;
 
+#endif
+
 int dlopen_dw(void) {
+#if HAVE_ELFUTILS
         int r;
 
         ELF_NOTE_DLOPEN("dw",
@@ -138,9 +142,13 @@ int dlopen_dw(void) {
                 return r;
 
         return 1;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int dlopen_elf(void) {
+#if HAVE_ELFUTILS
         int r;
 
         ELF_NOTE_DLOPEN("elf",
@@ -165,7 +173,12 @@ int dlopen_elf(void) {
                 return r;
 
         return 1;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
+
+#if HAVE_ELFUTILS
 
 typedef struct StackContext {
         MemStream m;
@@ -174,6 +187,7 @@ typedef struct StackContext {
         unsigned n_thread;
         unsigned n_frame;
         sd_json_variant **package_metadata;
+        sd_json_variant **dlopen_metadata;
         Set **modules;
 } StackContext;
 
@@ -193,7 +207,7 @@ static void stack_context_done(StackContext *c) {
         }
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Elf *, sym_elf_end, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(Elf *, sym_elf_end, elf_endp, NULL);
 
 static int frame_callback(Dwfl_Frame *frame, void *userdata) {
         StackContext *c = ASSERT_PTR(userdata);
@@ -340,8 +354,8 @@ static void report_module_metadata(StackContext *c, const char *name, sd_json_va
         fputs("\n", c->m.f);
 }
 
-static int parse_package_metadata(const char *name, sd_json_variant *id_json, Elf *elf, bool *ret_interpreter_found, StackContext *c) {
-        bool interpreter_found = false;
+static int parse_metadata(const char *name, sd_json_variant *id_json, Elf *elf, bool *ret_interpreter_found, StackContext *c) {
+        bool package_metadata_found = false, interpreter_found = false;
         size_t n_program_headers;
         int r;
 
@@ -396,7 +410,7 @@ static int parse_package_metadata(const char *name, sd_json_variant *id_json, El
 
                         /* Package metadata might have different owners, but the
                          * magic ID is always the same. */
-                        if (note_header.n_type != ELF_PACKAGE_METADATA_ID)
+                        if (!IN_SET(note_header.n_type, ELF_PACKAGE_METADATA_ID, ELF_NOTE_DLOPEN_TYPE))
                                 continue;
 
                         _cleanup_free_ char *payload_0suffixed = NULL;
@@ -418,46 +432,59 @@ static int parse_package_metadata(const char *name, sd_json_variant *id_json, El
                                 return log_error_errno(r, "json_parse on \"%s\" failed: %m", strnull(esc));
                         }
 
-                        /* If we have a build-id, merge it in the same JSON object so that it appears all
-                         * nicely together in the logs/metadata. */
-                        if (id_json) {
-                                r = sd_json_variant_merge_object(&v, id_json);
+                        if (note_header.n_type == ELF_PACKAGE_METADATA_ID) {
+                                /* If we have a build-id, merge it in the same JSON object so that it appears all
+                                 * nicely together in the logs/metadata. */
+                                if (id_json) {
+                                        r = sd_json_variant_merge_object(&v, id_json);
+                                        if (r < 0)
+                                                return log_error_errno(r, "sd_json_variant_merge of package meta with buildId failed: %m");
+                                }
+
+                                /* Pretty-print to the buffer, so that the metadata goes as plaintext in the
+                                 * journal. */
+                                report_module_metadata(c, name, v);
+
+                                /* Then we build a new object using the module name as the key, and merge it
+                                 * with the previous parses, so that in the end it all fits together in a single
+                                 * JSON blob. */
+                                r = sd_json_buildo(&w, SD_JSON_BUILD_PAIR_VARIANT(name, v));
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to build JSON object: %m");
+
+                                r = sd_json_variant_merge_object(c->package_metadata, w);
                                 if (r < 0)
                                         return log_error_errno(r, "sd_json_variant_merge of package meta with buildId failed: %m");
+
+                                package_metadata_found = true;
+                        } else if (c->dlopen_metadata) {
+                                sd_json_variant *z;
+
+                                JSON_VARIANT_ARRAY_FOREACH(z, v) {
+                                        r = sd_json_variant_append_array(c->dlopen_metadata, z);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to append entry to dlopen metadata: %m");
+                                }
                         }
-
-                        /* Pretty-print to the buffer, so that the metadata goes as plaintext in the
-                         * journal. */
-                        report_module_metadata(c, name, v);
-
-                        /* Then we build a new object using the module name as the key, and merge it
-                         * with the previous parses, so that in the end it all fits together in a single
-                         * JSON blob. */
-                        r = sd_json_buildo(&w, SD_JSON_BUILD_PAIR(name, SD_JSON_BUILD_VARIANT(v)));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to build JSON object: %m");
-
-                        r = sd_json_variant_merge_object(c->package_metadata, w);
-                        if (r < 0)
-                                return log_error_errno(r, "sd_json_variant_merge of package meta with buildId failed: %m");
 
                         /* Finally stash the name, so we avoid double visits. */
                         r = set_put_strdup(c->modules, name);
                         if (r < 0)
                                 return log_error_errno(r, "set_put_strdup failed: %m");
 
-                        if (ret_interpreter_found)
-                                *ret_interpreter_found = interpreter_found;
+                        if (!c->dlopen_metadata) {
+                                if (ret_interpreter_found)
+                                        *ret_interpreter_found = interpreter_found;
 
-                        return 1;
+                                return 1;
+                        }
                 }
         }
 
         if (ret_interpreter_found)
                 *ret_interpreter_found = interpreter_found;
 
-        /* Didn't find package metadata for this module - that's ok, just go to the next. */
-        return 0;
+        return c->dlopen_metadata ? 0 : package_metadata_found;
 }
 
 /* Get the build-id out of an ELF object or a dwarf core module. */
@@ -486,7 +513,7 @@ static int parse_buildid(Dwfl_Module *mod, Elf *elf, const char *name, StackCont
                 /* We will later parse package metadata json and pass it to our caller. Prepare the
                 * build-id in json format too, so that it can be appended and parsed cleanly. It
                 * will then be added as metadata to the journal message with the stack trace. */
-                r = sd_json_buildo(&id_json, SD_JSON_BUILD_PAIR("buildId", SD_JSON_BUILD_HEX(id, id_len)));
+                r = sd_json_buildo(&id_json, SD_JSON_BUILD_PAIR_HEX("buildId", id, id_len));
                 if (r < 0)
                         return log_error_errno(r, "json_build on buildId failed: %m");
         }
@@ -523,7 +550,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
          * to the ELF object first. We might be lucky and just get it from elfutils. */
         elf = sym_dwfl_module_getelf(mod, &bias);
         if (elf) {
-                r = parse_package_metadata(name, id_json, elf, NULL, c);
+                r = parse_metadata(name, id_json, elf, NULL, c);
                 if (r < 0)
                         return DWARF_CB_ABORT;
                 if (r > 0)
@@ -575,10 +602,11 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                 if (!data)
                         continue;
 
-                _cleanup_(sym_elf_endp) Elf *memelf = sym_elf_memory(data->d_buf, data->d_size);
+                _cleanup_(elf_endp) Elf *memelf = sym_elf_memory(data->d_buf, data->d_size);
                 if (!memelf)
                         continue;
-                r = parse_package_metadata(name, id_json, memelf, NULL, c);
+
+                r = parse_metadata(name, id_json, memelf, NULL, c);
                 if (r < 0)
                         return DWARF_CB_ABORT;
                 if (r > 0)
@@ -588,7 +616,12 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
         return DWARF_CB_OK;
 }
 
-static int parse_core(int fd, const char *root, char **ret, sd_json_variant **ret_package_metadata) {
+static int parse_core(
+                int fd,
+                const char *root,
+                char **ret,
+                sd_json_variant **ret_package_metadata,
+                sd_json_variant **ret_dlopen_metadata) {
 
         const Dwfl_Callbacks callbacks = {
                 .find_elf = sym_dwfl_build_id_find_elf,
@@ -596,10 +629,11 @@ static int parse_core(int fd, const char *root, char **ret, sd_json_variant **re
                 .find_debuginfo = sym_dwfl_standard_find_debuginfo,
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL, *dlopen_metadata = NULL;
         _cleanup_set_free_ Set *modules = NULL;
         _cleanup_(stack_context_done) StackContext c = {
                 .package_metadata = &package_metadata,
+                .dlopen_metadata = ret_dlopen_metadata ? &dlopen_metadata : NULL,
                 .modules = &modules,
         };
         int r;
@@ -655,15 +689,24 @@ static int parse_core(int fd, const char *root, char **ret, sd_json_variant **re
 
         if (ret_package_metadata)
                 *ret_package_metadata = TAKE_PTR(package_metadata);
+        if (ret_dlopen_metadata)
+                *ret_dlopen_metadata = TAKE_PTR(dlopen_metadata);
 
         return 0;
 }
 
-static int parse_elf(int fd, const char *executable, const char *root, char **ret, sd_json_variant **ret_package_metadata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL, *elf_metadata = NULL;
+static int parse_elf(
+                int fd,
+                const char *executable,
+                const char *root,
+                char **ret,
+                sd_json_variant **ret_package_metadata,
+                sd_json_variant **ret_dlopen_metadata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL, *dlopen_metadata = NULL, *elf_metadata = NULL;
         _cleanup_set_free_ Set *modules = NULL;
         _cleanup_(stack_context_done) StackContext c = {
                 .package_metadata = &package_metadata,
+                .dlopen_metadata = ret_dlopen_metadata ? &dlopen_metadata : NULL,
                 .modules = &modules,
         };
         const char *elf_type;
@@ -690,7 +733,7 @@ static int parse_elf(int fd, const char *executable, const char *root, char **re
         if (elf_header.e_type == ET_CORE) {
                 _cleanup_free_ char *out = NULL;
 
-                r = parse_core(fd, root, ret ? &out : NULL, &package_metadata);
+                r = parse_core(fd, root, ret ? &out : NULL, &package_metadata, &dlopen_metadata);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to inspect core file: %m");
 
@@ -707,13 +750,13 @@ static int parse_elf(int fd, const char *executable, const char *root, char **re
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse build-id of ELF file: %m");
 
-                r = parse_package_metadata(e, id_json, c.elf, &interpreter_found, &c);
+                r = parse_metadata(e, id_json, c.elf, &interpreter_found, &c);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse package metadata of ELF file: %m");
 
                 /* If we found a build-id and nothing else, return at least that. */
                 if (!package_metadata && id_json) {
-                        r = sd_json_buildo(&package_metadata, SD_JSON_BUILD_PAIR(e, SD_JSON_BUILD_VARIANT(id_json)));
+                        r = sd_json_buildo(&package_metadata, SD_JSON_BUILD_PAIR_VARIANT(e, id_json));
                         if (r < 0)
                                 return log_warning_errno(r, "Failed to build JSON object: %m");
                 }
@@ -726,7 +769,7 @@ static int parse_elf(int fd, const char *executable, const char *root, char **re
 
         /* Note that e_type is always DYN for both executables and libraries, so we can't tell them apart from the header,
          * but we will search for the PT_INTERP section when parsing the metadata. */
-        r = sd_json_buildo(&elf_metadata, SD_JSON_BUILD_PAIR("elfType", SD_JSON_BUILD_STRING(elf_type)));
+        r = sd_json_buildo(&elf_metadata, SD_JSON_BUILD_PAIR_STRING("elfType", elf_type));
         if (r < 0)
                 return log_warning_errno(r, "Failed to build JSON object: %m");
 
@@ -735,7 +778,7 @@ static int parse_elf(int fd, const char *executable, const char *root, char **re
         if (elf_architecture) {
                 r = sd_json_variant_merge_objectbo(
                                 &elf_metadata,
-                                SD_JSON_BUILD_PAIR("elfArchitecture", SD_JSON_BUILD_STRING(elf_architecture)));
+                                SD_JSON_BUILD_PAIR_STRING("elfArchitecture", elf_architecture));
                 if (r < 0)
                         return log_warning_errno(r, "Failed to add elfArchitecture field: %m");
 
@@ -757,15 +800,28 @@ static int parse_elf(int fd, const char *executable, const char *root, char **re
 
         if (ret_package_metadata)
                 *ret_package_metadata = TAKE_PTR(elf_metadata);
+        if (ret_dlopen_metadata)
+                *ret_dlopen_metadata = TAKE_PTR(dlopen_metadata);
 
         return 0;
 }
 
-int parse_elf_object(int fd, const char *executable, const char *root, bool fork_disable_dump, char **ret, sd_json_variant **ret_package_metadata) {
+#endif
+
+int parse_elf_object(
+                int fd,
+                const char *executable,
+                const char *root,
+                bool fork_disable_dump,
+                char **ret,
+                sd_json_variant **ret_package_metadata,
+                sd_json_variant **ret_dlopen_metadata) {
+#if HAVE_ELFUTILS
         _cleanup_close_pair_ int error_pipe[2] = EBADF_PAIR,
                                  return_pipe[2] = EBADF_PAIR,
-                                 json_pipe[2] = EBADF_PAIR;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL;
+                                 package_metadata_pipe[2] = EBADF_PAIR,
+                                 dlopen_metadata_pipe[2] = EBADF_PAIR;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL, *dlopen_metadata = NULL;
         _cleanup_free_ char *buf = NULL;
         int r;
 
@@ -790,7 +846,13 @@ int parse_elf_object(int fd, const char *executable, const char *root, bool fork
         }
 
         if (ret_package_metadata) {
-                r = RET_NERRNO(pipe2(json_pipe, O_CLOEXEC|O_NONBLOCK));
+                r = RET_NERRNO(pipe2(package_metadata_pipe, O_CLOEXEC|O_NONBLOCK));
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_dlopen_metadata) {
+                r = RET_NERRNO(pipe2(dlopen_metadata_pipe, O_CLOEXEC|O_NONBLOCK));
                 if (r < 0)
                         return r;
         }
@@ -803,8 +865,8 @@ int parse_elf_object(int fd, const char *executable, const char *root, bool fork
          * the file descriptor and writing into these four pipes. */
         r = safe_fork_full("(sd-parse-elf)",
                            NULL,
-                           (int[]){ fd, error_pipe[1], return_pipe[1], json_pipe[1] },
-                           4,
+                           (int[]){ fd, error_pipe[1], return_pipe[1], package_metadata_pipe[1], dlopen_metadata_pipe[1] },
+                           5,
                            FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_WAIT|FORK_REOPEN_LOG,
                            NULL);
         if (r < 0) {
@@ -826,12 +888,18 @@ int parse_elf_object(int fd, const char *executable, const char *root, bool fork
         if (r == 0) {
                 /* We want to avoid loops, given this can be called from systemd-coredump */
                 if (fork_disable_dump) {
-                        r = RET_NERRNO(prctl(PR_SET_DUMPABLE, 0));
+                        r = set_dumpable(SUID_DUMP_DISABLE);
                         if (r < 0)
                                 report_errno_and_exit(error_pipe[1], r);
                 }
 
-                r = parse_elf(fd, executable, root, ret ? &buf : NULL, ret_package_metadata ? &package_metadata : NULL);
+                r = parse_elf(
+                                fd,
+                                executable,
+                                root,
+                                ret ? &buf : NULL,
+                                ret_package_metadata ? &package_metadata : NULL,
+                                ret_dlopen_metadata ? &dlopen_metadata : NULL);
                 if (r < 0)
                         report_errno_and_exit(error_pipe[1], r);
 
@@ -864,13 +932,29 @@ int parse_elf_object(int fd, const char *executable, const char *root, bool fork
 
                         /* Bump the space for the returned string. We don't know how much space we'll need in
                          * advance, so we'll just try to write as much as possible and maybe fail later. */
-                        (void) fcntl(json_pipe[1], F_SETPIPE_SZ, COREDUMP_PIPE_MAX);
+                        (void) fcntl(package_metadata_pipe[1], F_SETPIPE_SZ, COREDUMP_PIPE_MAX);
 
-                        json_out = take_fdopen(&json_pipe[1], "w");
+                        json_out = take_fdopen(&package_metadata_pipe[1], "w");
                         if (!json_out)
                                 report_errno_and_exit(error_pipe[1], -errno);
 
                         r = sd_json_variant_dump(package_metadata, SD_JSON_FORMAT_FLUSH, json_out, NULL);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to write JSON package metadata, ignoring: %m");
+                }
+
+                if (dlopen_metadata) {
+                        _cleanup_fclose_ FILE *json_out = NULL;
+
+                        /* Bump the space for the returned string. We don't know how much space we'll need in
+                         * advance, so we'll just try to write as much as possible and maybe fail later. */
+                        (void) fcntl(dlopen_metadata_pipe[1], F_SETPIPE_SZ, COREDUMP_PIPE_MAX);
+
+                        json_out = take_fdopen(&dlopen_metadata_pipe[1], "w");
+                        if (!json_out)
+                                report_errno_and_exit(error_pipe[1], -errno);
+
+                        r = sd_json_variant_dump(dlopen_metadata, SD_JSON_FORMAT_FLUSH, json_out, NULL);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to write JSON package metadata, ignoring: %m");
                 }
@@ -880,7 +964,8 @@ int parse_elf_object(int fd, const char *executable, const char *root, bool fork
 
         error_pipe[1] = safe_close(error_pipe[1]);
         return_pipe[1] = safe_close(return_pipe[1]);
-        json_pipe[1] = safe_close(json_pipe[1]);
+        package_metadata_pipe[1] = safe_close(package_metadata_pipe[1]);
+        dlopen_metadata_pipe[1] = safe_close(dlopen_metadata_pipe[1]);
 
         if (ret) {
                 _cleanup_fclose_ FILE *in = NULL;
@@ -897,21 +982,36 @@ int parse_elf_object(int fd, const char *executable, const char *root, bool fork
         if (ret_package_metadata) {
                 _cleanup_fclose_ FILE *json_in = NULL;
 
-                json_in = take_fdopen(&json_pipe[0], "r");
+                json_in = take_fdopen(&package_metadata_pipe[0], "r");
                 if (!json_in)
                         return -errno;
 
                 r = sd_json_parse_file(json_in, NULL, 0, &package_metadata, NULL, NULL);
                 if (r < 0 && r != -ENODATA) /* ENODATA: json was empty, so we got nothing, but that's ok */
-                        log_warning_errno(r, "Failed to read or parse json metadata, ignoring: %m");
+                        log_warning_errno(r, "Failed to read or parse package metadata, ignoring: %m");
+        }
+
+        if (ret_dlopen_metadata) {
+                _cleanup_fclose_ FILE *json_in = NULL;
+
+                json_in = take_fdopen(&dlopen_metadata_pipe[0], "r");
+                if (!json_in)
+                        return -errno;
+
+                r = sd_json_parse_file(json_in, NULL, 0, &dlopen_metadata, NULL, NULL);
+                if (r < 0 && r != -ENODATA) /* ENODATA: json was empty, so we got nothing, but that's ok */
+                        log_warning_errno(r, "Failed to read or parse dlopen metadata, ignoring: %m");
         }
 
         if (ret)
                 *ret = TAKE_PTR(buf);
         if (ret_package_metadata)
                 *ret_package_metadata = TAKE_PTR(package_metadata);
+        if (ret_dlopen_metadata)
+                *ret_dlopen_metadata = TAKE_PTR(dlopen_metadata);
 
         return 0;
-}
-
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "elfutils disabled, parsing ELF objects not supported");
 #endif
+}

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <math.h>
-#include <stdlib.h>
 
 /* We make an exception here to our usual "include system headers first" rule because we need one of these
  * macros to disable a warning triggered by the glib headers. */
@@ -20,13 +19,10 @@ REENABLE_WARNING
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "bus-dump.h"
 #include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
 #include "escape.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "log.h"
 #include "memstream-util.h"
 #include "tests.h"

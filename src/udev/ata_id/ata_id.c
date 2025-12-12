@@ -5,30 +5,21 @@
  * Copyright © 2009-2010 David Zeuthen <zeuthen@gmail.com>
  */
 
-#include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/bsg.h>
 #include <linux/hdreg.h>
-#include <scsi/scsi.h>
-#include <scsi/scsi_ioctl.h>
 #include <scsi/sg.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "build.h"
 #include "device-nodes.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "memory-util.h"
 #include "udev-util.h"
 #include "unaligned.h"
 
@@ -421,8 +412,13 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         fd = open(ASSERT_PTR(arg_device), O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return log_error_errno(errno, "Cannot open %s: %m", arg_device);
+        if (fd < 0) {
+                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(errno);
+                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
+                               "Failed to open device node '%s'%s: %m",
+                               arg_device, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
+        }
 
         if (disk_identify(fd, identify.byte, &peripheral_device_type) >= 0) {
                 /*

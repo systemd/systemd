@@ -3,10 +3,15 @@
 #include <linux/if_arp.h>
 #include <linux/if_link.h>
 
+#include "sd-netlink.h"
+
+#include "conf-parser.h"
 #include "ipoib.h"
+#include "networkd-link.h"
 #include "networkd-network.h"
 #include "parse-util.h"
 #include "string-table.h"
+#include "string-util.h"
 
 assert_cc((int) IP_OVER_INFINIBAND_MODE_DATAGRAM  == (int) IPOIB_MODE_DATAGRAM);
 assert_cc((int) IP_OVER_INFINIBAND_MODE_CONNECTED == (int) IPOIB_MODE_CONNECTED);

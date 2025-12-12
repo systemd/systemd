@@ -1,32 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-typedef enum UnitFilePresetMode UnitFilePresetMode;
-typedef enum InstallChangeType InstallChangeType;
-typedef enum UnitFileFlags UnitFileFlags;
-typedef enum InstallMode InstallMode;
-typedef struct InstallChange InstallChange;
-typedef struct UnitFileList UnitFileList;
-typedef struct InstallInfo InstallInfo;
-
-#include "hashmap.h"
-#include "macro.h"
-#include "path-lookup.h"
-#include "strv.h"
+#include "shared-forward.h"
+#include "runtime-scope.h"
 #include "unit-file.h"
-#include "unit-name.h"
 
-enum UnitFilePresetMode {
+typedef enum UnitFilePresetMode {
         UNIT_FILE_PRESET_FULL,
         UNIT_FILE_PRESET_ENABLE_ONLY,
         UNIT_FILE_PRESET_DISABLE_ONLY,
         _UNIT_FILE_PRESET_MODE_MAX,
         _UNIT_FILE_PRESET_MODE_INVALID = -EINVAL,
-};
+} UnitFilePresetMode;
 
-enum InstallChangeType {
+typedef enum InstallChangeType {
         INSTALL_CHANGE_SYMLINK,
         INSTALL_CHANGE_UNLINK,
         INSTALL_CHANGE_IS_MASKED,
@@ -37,31 +24,31 @@ enum InstallChangeType {
         _INSTALL_CHANGE_TYPE_MAX,
         _INSTALL_CHANGE_INVALID = -EINVAL,
         _INSTALL_CHANGE_ERRNO_MAX = -ERRNO_MAX, /* Ensure this type covers the whole negative errno range */
-};
+} InstallChangeType;
 
 static inline bool INSTALL_CHANGE_TYPE_VALID(InstallChangeType t) {
         return t >= _INSTALL_CHANGE_ERRNO_MAX && t < _INSTALL_CHANGE_TYPE_MAX;
 }
 
-enum UnitFileFlags {
+typedef enum UnitFileFlags {
         UNIT_FILE_RUNTIME                  = 1 << 0, /* Public API via DBUS, do not change */
         UNIT_FILE_FORCE                    = 1 << 1, /* Public API via DBUS, do not change */
         UNIT_FILE_PORTABLE                 = 1 << 2, /* Public API via DBUS, do not change */
         UNIT_FILE_DRY_RUN                  = 1 << 3,
         UNIT_FILE_IGNORE_AUXILIARY_FAILURE = 1 << 4,
         _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE,
-};
+} UnitFileFlags;
 
 /* type can be either one of the INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK, … listed above, or a negative
  * errno value.
  *
  * If source is specified, it should be the contents of the path symlink. In case of an error, source should
  * be the existing symlink contents or NULL. */
-struct InstallChange {
+typedef struct InstallChange {
         int type; /* INSTALL_CHANGE_SYMLINK, … if positive, errno if negative */
         char *path;
         char *source;
-};
+} InstallChange;
 
 static inline bool install_changes_have_modification(const InstallChange *changes, size_t n_changes) {
         FOREACH_ARRAY(i, changes, n_changes)
@@ -70,21 +57,21 @@ static inline bool install_changes_have_modification(const InstallChange *change
         return false;
 }
 
-struct UnitFileList {
+typedef struct UnitFileList {
         char *path;
         UnitFileState state;
-};
+} UnitFileList;
 
-enum InstallMode {
+typedef enum InstallMode {
         INSTALL_MODE_REGULAR,
         INSTALL_MODE_LINKED,
         INSTALL_MODE_ALIAS,
         INSTALL_MODE_MASKED,
         _INSTALL_MODE_MAX,
         _INSTALL_MODE_INVALID = -EINVAL,
-};
+} InstallMode;
 
-struct InstallInfo {
+typedef struct InstallInfo {
         char *name;
         char *path;
         char *root;
@@ -100,7 +87,7 @@ struct InstallInfo {
 
         InstallMode install_mode;
         bool auxiliary;
-};
+} InstallInfo;
 
 int unit_file_enable(
                 RuntimeScope scope,
@@ -113,7 +100,7 @@ int unit_file_disable(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char * const *names,
+                char * const *files,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_reenable(
@@ -125,7 +112,7 @@ int unit_file_reenable(
                 size_t *n_changes);
 int unit_file_preset(
                 RuntimeScope scope,
-                UnitFileFlags flags,
+                UnitFileFlags file_flags,
                 const char *root_dir,
                 char * const *names,
                 UnitFilePresetMode mode,
@@ -133,7 +120,7 @@ int unit_file_preset(
                 size_t *n_changes);
 int unit_file_preset_all(
                 RuntimeScope scope,
-                UnitFileFlags flags,
+                UnitFileFlags file_flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
                 InstallChange **changes,
@@ -188,15 +175,15 @@ int unit_file_add_dependency(
 
 int unit_file_lookup_state(
                 RuntimeScope scope,
-                const LookupPaths *paths,
+                const LookupPaths *lp,
                 const char *name,
                 UnitFileState *ret);
 
 int unit_file_get_state(RuntimeScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
 
-int unit_file_exists_full(RuntimeScope scope, const LookupPaths *paths, const char *name, char **ret_path);
-static inline int unit_file_exists(RuntimeScope scope, const LookupPaths *paths, const char *name) {
-        return unit_file_exists_full(scope, paths, name, NULL);
+int unit_file_exists_full(RuntimeScope scope, const LookupPaths *lp, const char *name, char **ret_path);
+static inline int unit_file_exists(RuntimeScope scope, const LookupPaths *lp, const char *name) {
+        return unit_file_exists_full(scope, lp, name, NULL);
 }
 
 int unit_file_get_list(RuntimeScope scope, const char *root_dir, char * const *states, char * const *patterns, Hashmap **ret);

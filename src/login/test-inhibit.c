@@ -6,9 +6,7 @@
 #include "sd-bus.h"
 
 #include "bus-locator.h"
-#include "bus-util.h"
 #include "fd-util.h"
-#include "macro.h"
 #include "tests.h"
 
 static int inhibit(sd_bus *bus, const char *what) {

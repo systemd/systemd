@@ -25,20 +25,27 @@ __contains_word () {
 }
 
 __get_entry_ids() {
-    bootctl --no-pager list 2>/dev/null | { while read -r a b; do [[ $a == 'id:' ]] && echo " $b"; done }
+    bootctl --no-pager list 2>/dev/null | { while read -r a b; do [[ $a == 'id:' ]] && echo " $b"; done; }
 }
 
 _bootctl() {
     local i verb comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
-        [STANDALONE]='-h --help -p --print-esp-path -x --print-boot-path --version --no-variables --no-pager --graceful --dry-run'
-        [ARG]='--esp-path --boot-path --make-machine-id-directory --root --image --install-source --random-seed'
+        [STANDALONE]='-h --help --version
+                      -p --print-esp-path -x --print-boot-path --print-loader-path
+                      --print-stub-path -R --print-root-device -RR
+                      --no-pager --graceful -q --quiet --all-architectures
+                      --dry-run'
+        [ARG]='--esp-path --boot-path --root --image --image-policy --install-source
+               --variables --random-seed --make-entry-directory --entry-token --json
+               --efi-boot-option-description --secure-boot-auto-enroll --private-key
+               --private-key-source --certificate --certificate-source'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
-            --esp-path|--boot-path)
+            --esp-path|--boot-path|--private-key|--certificate)
                 if [[ -z $cur ]]; then
                     comps=$(compgen -A directory -- "/" )
                 else
@@ -46,8 +53,11 @@ _bootctl() {
                 fi
                 compopt -o filenames
                 ;;
-            --make-machine-id-directory)
+            --make-entry-directory)
                 comps="yes no auto"
+                ;;
+            --entry-token)
+                comps="machine-id os-id os-image-id auto literal:"
                 ;;
             --image|--root)
                 compopt -o nospace
@@ -56,8 +66,11 @@ _bootctl() {
             --install-source)
                 comps="image host auto"
                 ;;
-            --random-seed)
+            --random-seed|--variables|--secure-boot-auto-enroll)
                 comps="yes no"
+                ;;
+            --json)
+                comps=$( bootctl --json=help 2>/dev/null )
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
@@ -70,9 +83,8 @@ _bootctl() {
     fi
 
     local -A VERBS=(
-        # systemd-efi-options takes an argument, but it is free-form, so we cannot complete it
-        [STANDALONE]='help status install update remove is-installed random-seed systemd-efi-options list set-timeout set-timeout-oneshot cleanup'
-        [BOOTENTRY]='set-default set-oneshot unlink'
+        [STANDALONE]='help status install update remove is-installed random-seed list set-timeout set-timeout-oneshot cleanup'
+        [BOOTENTRY]='set-default set-oneshot set-sysfail unlink'
         [BOOLEAN]='reboot-to-firmware'
         [FILE]='kernel-identify kernel-inspect'
     )
@@ -94,7 +106,7 @@ _bootctl() {
             if ! __contains_word "${COMP_WORDS[i]}" ${OPTS[*]} ${VERBS[*]} &&
                     ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                 name=${COMP_WORDS[i]}
-                break;
+                break
             fi
         done
 

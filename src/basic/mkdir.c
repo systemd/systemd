@@ -1,21 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdbool.h>
-#include <string.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "btrfs.h"
 #include "chase.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "log.h"
-#include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "stat-util.h"
-#include "stdio-util.h"
+#include "string-util.h"
+#include "time-util.h"
 #include "user-util.h"
 
 int mkdirat_safe_internal(
@@ -150,7 +150,7 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
         assert(_mkdirat != mkdirat);
 
         if (prefix) {
-                p = path_startswith_full(path, prefix, /* accept_dot_dot= */ false);
+                p = path_startswith_full(path, prefix, PATH_STARTSWITH_REFUSE_DOT_DOT);
                 if (!p)
                         return -EINVAL;
 
@@ -203,7 +203,7 @@ int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, g
         return mkdir_p_internal(prefix, path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
-int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, usec_t ts, char **subvolumes) {
+int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, usec_t ts, Hashmap *subvolumes) {
         _cleanup_free_ char *pp = NULL, *bn = NULL;
         _cleanup_close_ int dfd = -EBADF;
         int r;
@@ -238,21 +238,25 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
         if (r < 0)
                 return r;
 
-        if (path_strv_contains(subvolumes, p))
-                r = btrfs_subvol_make_fallback(dfd, bn, m);
-        else
-                r = RET_NERRNO(mkdirat(dfd, bn, m));
-        if (r == -EEXIST)
+        XOpenFlags flags = 0;
+        if (hashmap_contains(subvolumes, p)) {
+                flags = XO_SUBVOLUME;
+                if ((PTR_TO_INT(hashmap_get(subvolumes, p)) & BTRFS_SUBVOL_NODATACOW))
+                        flags |= XO_NOCOW;
+        }
+
+        _cleanup_close_ int nfd = xopenat_full(
+                                dfd, bn,
+                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,
+                                flags,
+                                m);
+        if (nfd == -EEXIST)
                 return 0;
-        if (r < 0)
-                return r;
+        if (nfd < 0)
+                return nfd;
 
         if (ts == USEC_INFINITY && !uid_is_valid(uid) && !gid_is_valid(gid))
                 return 1;
-
-        _cleanup_close_ int nfd = openat(dfd, bn, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        if (nfd < 0)
-                return -errno;
 
         if (ts != USEC_INFINITY) {
                 struct timespec tspec;

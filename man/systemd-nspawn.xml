@@ -130,11 +130,11 @@
 
     <itemizedlist>
       <listitem><para>Only disk image based containers are supported (i.e. <option>--image=</option>).
-      Directory based ones (i.e. <option>--directory=</option>) are not supported.</para></listitem>
+      Directory based ones (i.e. <option>--directory=</option>) are only supported if owned by the "foreign"
+      UID range.</para></listitem>
 
-      <listitem><para>Machine registration via <option>--machine=</option> is not supported.</para></listitem>
-
-      <listitem><para>Only <option>--private-network</option> and <option>--network-veth</option> networking modes are supported.</para></listitem>
+      <listitem><para>Only <option>--private-network</option> and <option>--network-veth</option> networking
+      modes are supported.</para></listitem>
     </itemizedlist>
 
     <para>When running in unprivileged mode, some needed functionality is provided via
@@ -327,14 +327,12 @@
           partition of type
           0fc63daf-8483-4772-8e79-3d69d8477de4.</para></listitem>
 
-          <listitem><para>A GUID partition table (GPT) with a marked
-          root partition which is mounted as the root directory of the
-          container. Optionally, GPT images may contain a home and/or
-          a server data partition which are mounted to the appropriate
-          places in the container. All these partitions must be
-          identified by the partition types defined by the <ulink
-          url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
-          Partitions Specification</ulink>.</para></listitem>
+          <listitem><para>A GUID partition table (GPT) with a marked root partition which is mounted as the
+          root directory of the container. Optionally, GPT images may contain a home and/or a server data
+          partition which are mounted to the appropriate places in the container. All these partitions must
+          be identified by the partition types defined by the <ulink
+          url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2
+          Discoverable Partitions Specification</ulink>.</para></listitem>
 
           <listitem><para>No partition table, and a single file system spanning the whole image.</para></listitem>
         </itemizedlist>
@@ -626,11 +624,10 @@
         provides protection against accidental destructive operations only.</para>
 
         <para>Note that if credentials are used in combination with a non-root <option>--user=</option>
-        (e.g.: <option>--set-credential=</option>, <option>--load-credential=</option> or
-        <option>--import-credential=</option>), then <option>--no-new-privileges=yes</option> must be used, and
-        <option>--boot</option> or <option>--as-pid2</option> must not be used, as the credentials would
-        otherwise be unreadable by the container due to missing privileges after switching to the specified
-        user.</para></listitem>
+        (e.g.: <option>--set-credential=</option> or <option>--load-credential=</option>), then
+        <option>--no-new-privileges=yes</option> must be used, and <option>--boot</option> or
+        <option>--as-pid2</option> must not be used, as the credentials would otherwise be unreadable
+        by the container due to missing privileges after switching to the specified user.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -651,13 +648,15 @@
         <term><option>--notify-ready=</option></term>
 
         <listitem><para>Configures support for notifications from the container's init process.
-        <option>--notify-ready=</option> takes a boolean (<option>no</option> and  <option>yes</option>).
-        With option <option>no</option> systemd-nspawn notifies systemd
-        with a <literal>READY=1</literal> message when the init process is created.
-        With option <option>yes</option> systemd-nspawn waits for the
-        <literal>READY=1</literal> message from the init process in the container
-        before sending its own to systemd. For more details about notifications
-        see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+        <option>--notify-ready=</option> takes a boolean. If false <command>systemd-vmpawn</command>
+        notifies the calling service manager with a <literal>READY=1</literal> message when the init process is
+        created. If true it waits for a <literal>READY=1</literal> message from the init process in the VM
+        before sending its own to the service manager. For more details about notifications see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+        <para>Defaults to false. (Note that this is unlike the option of the same name to
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        that defaults to true.)</para>
 
         <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
@@ -888,7 +887,7 @@
         correction of the numeric UID/GID values, according to the UID/GID shift applied.</para>
 
         <para>Note that for fully unprivileged operation in <literal>managed</literal> mode, any directory
-        image should be ownd by the foreign UID range.</para>
+        image should be owned by the foreign UID range.</para>
 
         <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
@@ -922,7 +921,7 @@
 
         <para><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <option>--shift</option> switch may be used to shift UID/GID ownership from or to the 0, foreign or
-        specific container UID/GID base outside of any <command>systemd-nspawn</command></para> invocation.
+        specific container UID/GID base outside of any <command>systemd-nspawn</command> invocation.</para>
 
         <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
@@ -1599,14 +1598,12 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <listitem><para>Binds the home directory of the specified user on the host into the container. Takes
         the name of an existing user on the host as argument. May be used multiple times to bind multiple
-        users into the container. This does three things:</para>
+        users into the container. This does two things:</para>
 
         <orderedlist>
           <listitem><para>The user's home directory is bind mounted from the host into
-          <filename>/run/host/home/</filename>.</para></listitem>
-
-          <listitem><para>An additional UID/GID mapping is added that maps the host user's UID/GID to a
-          container UID/GID, allocated from the 60514…60577 range.</para></listitem>
+          <filename>/run/host/home/</filename>, using an idmapped mount to map the host user's UID/GID to its
+          assigned UID/GID in the container.</para></listitem>
 
           <listitem><para>A JSON user and group record is generated in <filename>/run/userdb/</filename> that
           describes the mapped user. It contains a minimized representation of the host's user record,
@@ -1616,7 +1613,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
           user/group databases.</para></listitem>
         </orderedlist>
 
-        <para>The combination of the three operations above ensures that it is possible to log into the
+        <para>The combination of the two operations above ensures that it is possible to log into the
         container using the same account information as on the host. The user is only mapped transiently,
         while the container is running, and the mapping itself does not result in persistent changes to the
         container (except maybe for log messages generated at login time, and similar). Note that in
@@ -1642,10 +1639,42 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         the container's <filename>/etc/passwd</filename> and <filename>/etc/group</filename>, and thus might
         not detect existing accounts in other databases.</para>
 
-        <para>This operation is only supported in combination with
-        <option>--private-users=</option>/<option>-U</option>.</para>
-
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--bind-user-shell=</option></term>
+
+        <listitem><para>When used with <option>--bind-user=</option>, includes the specified shell in the
+        user records of users bound into the container. Takes either a boolean or an absolute path.</para>
+
+        <itemizedlist>
+          <listitem><para>If false (the default), no shell is passed in the user records for users bound into
+          the container. This causes bound users to the use the container's default shell.</para></listitem>
+
+          <listitem><para>If true, the shells specified by the host user records are included in the user records of all users bound into the container.</para></listitem>
+
+          <listitem><para>If passed an absolute path, sets that path as the shell for user records of all users bound into the container.</para></listitem>
+        </itemizedlist>
+
+        <para>Note: This will not check whether the specified shells exist in the container.</para>
+
+        <para>This operation is only supported in combination with <option>--bind-user=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--bind-user-group=<replaceable>NAME</replaceable></option></term>
+
+        <listitem><para>When used with <option>--bind-user=</option>, includes the specified group as an
+        auxiliary group in the user records of users bound into the container. Takes a group name.</para>
+
+        <para>Note: This will not check whether the specified groups exist in the container.</para>
+
+        <para>This operation is only supported in combination with <option>--bind-user=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1857,6 +1886,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
     </variablelist>
    </refsect2>
   </refsect1>
@@ -1927,8 +1957,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
       <para><command>debootstrap</command> supports
       <ulink url="https://www.debian.org">Debian</ulink>,
-      <ulink url="https://www.ubuntu.com">Ubuntu</ulink>,
-      and <ulink url="https://www.tanglu.org">Tanglu</ulink>
+      and <ulink url="https://www.ubuntu.com">Ubuntu</ulink>
       out of the box, so the same command can be used to install any of those. For other
       distributions from the Debian family, a mirror has to be specified, see
       <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>.

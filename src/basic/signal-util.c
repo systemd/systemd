@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdarg.h>
 #include <threads.h>
+#include <unistd.h>
 
 #include "errno-util.h"
-#include "macro.h"
-#include "missing_syscall.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -91,7 +89,7 @@ int sigset_add_many_internal(sigset_t *ss, ...) {
         return r;
 }
 
-int sigprocmask_many_internal(int how, sigset_t *old, ...) {
+int sigprocmask_many_internal(int how, sigset_t *ret_old_mask, ...) {
         va_list ap;
         sigset_t ss;
         int r;
@@ -99,14 +97,14 @@ int sigprocmask_many_internal(int how, sigset_t *old, ...) {
         if (sigemptyset(&ss) < 0)
                 return -errno;
 
-        va_start(ap, old);
+        va_start(ap, ret_old_mask);
         r = sigset_add_many_ap(&ss, ap);
         va_end(ap);
 
         if (r < 0)
                 return r;
 
-        return RET_NERRNO(sigprocmask(how, &ss, old));
+        return RET_NERRNO(sigprocmask(how, &ss, ret_old_mask));
 }
 
 static const char *const static_signal_table[] = {
@@ -321,4 +319,16 @@ int parse_signo(const char *s, int *ret) {
                 *ret = sig;
 
         return 0;
+}
+
+void sigterm_process_group_handler(int signal, siginfo_t *info, void *ucontext) {
+        assert(signal == SIGTERM);
+        assert(info);
+
+        /* If the sender is not us, propagate the signal to all processes in
+         * the same process group */
+        if (si_code_from_process(info->si_code) &&
+            pid_is_valid(info->si_pid) &&
+            info->si_pid != getpid_cached())
+                (void) kill(0, signal);
 }

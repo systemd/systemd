@@ -3,14 +3,12 @@
 #include <linux/netfilter.h>
 #include <linux/netfilter/nf_tables.h>
 #include <linux/netfilter/nfnetlink.h>
-#include <netinet/in.h>
 
 #include "sd-netlink.h"
 
+#include "alloc-util.h"
 #include "iovec-util.h"
-#include "log.h"
 #include "netlink-internal.h"
-#include "netlink-types.h"
 #include "netlink-util.h"
 
 bool nfproto_is_valid(int nfproto) {
@@ -33,7 +31,7 @@ int sd_nfnl_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int nfproto,
         assert_return(nfproto_is_valid(nfproto), -EINVAL);
         assert_return(NFNL_MSG_TYPE(msg_type) == msg_type, -EINVAL);
 
-        r = message_new(nfnl, &m, subsys << 8 | msg_type);
+        r = message_new(nfnl, &m, subsys << 8 | msg_type, NLM_F_REQUEST | NLM_F_ACK);
         if (r < 0)
                 return r;
 
@@ -120,7 +118,7 @@ int sd_nfnl_send_batch(
                 return -ENOMEM;
 
         if (ret_serials) {
-                serials = new(uint32_t, n_messages);
+                serials = new(uint32_t, n_messages + 2);
                 if (!serials)
                         return -ENOMEM;
         }
@@ -134,6 +132,9 @@ int sd_nfnl_send_batch(
                 return r;
 
         netlink_seal_message(nfnl, batch_begin);
+        if (serials)
+                serials[c] = message_get_serial(batch_begin);
+
         iovs[c++] = IOVEC_MAKE(batch_begin->hdr, batch_begin->hdr->nlmsg_len);
 
         for (size_t i = 0; i < n_messages; i++) {
@@ -148,7 +149,7 @@ int sd_nfnl_send_batch(
 
                 netlink_seal_message(nfnl, messages[i]);
                 if (serials)
-                        serials[i] = message_get_serial(messages[i]);
+                        serials[c] = message_get_serial(messages[i]);
 
                 /* It seems that the kernel accepts an arbitrary number. Let's set the lower 16 bits of the
                  * serial of the first message. */
@@ -162,6 +163,9 @@ int sd_nfnl_send_batch(
                 return r;
 
         netlink_seal_message(nfnl, batch_end);
+        if (serials)
+                serials[c] = message_get_serial(batch_end);
+
         iovs[c++] = IOVEC_MAKE(batch_end->hdr, batch_end->hdr->nlmsg_len);
 
         assert(c == n_messages + 2);
@@ -179,10 +183,8 @@ int sd_nfnl_call_batch(
                 sd_netlink *nfnl,
                 sd_netlink_message **messages,
                 size_t n_messages,
-                uint64_t usec,
-                sd_netlink_message ***ret_messages) {
+                uint64_t usec) {
 
-        _cleanup_free_ sd_netlink_message **replies = NULL;
         _cleanup_free_ uint32_t *serials = NULL;
         int r;
 
@@ -191,26 +193,40 @@ int sd_nfnl_call_batch(
         assert_return(messages, -EINVAL);
         assert_return(n_messages > 0, -EINVAL);
 
-        if (ret_messages) {
-                replies = new0(sd_netlink_message*, n_messages);
-                if (!replies)
-                        return -ENOMEM;
-        }
-
         r = sd_nfnl_send_batch(nfnl, messages, n_messages, &serials);
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < n_messages; i++)
-                RET_GATHER(r,
-                           sd_netlink_read(nfnl, serials[i], usec, ret_messages ? replies + i : NULL));
-        if (r < 0)
-                return r;
+        for (size_t i = 1; i <= n_messages; i++) {
+                /* If we have received an error, kernel may not send replies for later messages. Let's ignore
+                 * remaining replies. */
+                if (r < 0) {
+                        (void) sd_netlink_ignore_serial(nfnl, serials[i], usec);
+                        continue;
+                }
 
-        if (ret_messages)
-                *ret_messages = TAKE_PTR(replies);
+                r = sd_netlink_read(nfnl, serials[i], usec, /* ret= */ NULL);
+                if (r != -ETIMEDOUT)
+                        continue;
 
-        return 0;
+                /* The kernel returns some errors, e.g. unprivileged, to the BATCH_BEGIN. Hence, if we have
+                 * not received any replies for the batch body, try to read an error in the reply for the
+                 * batch begin. Note, since v6.10 (bf2ac490d28c21a349e9eef81edc45320fca4a3c), we can expect
+                 * that the kernel always replies the batch begin and end. When we bump the kernel baseline,
+                 * we can read the reply for the batch begin at first. */
+                int k = sd_netlink_read(nfnl, serials[0], usec, /* ret= */ NULL);
+                if (k < 0)
+                        r = k;
+
+                serials[0] = 0; /* indicates that we have read the reply. */
+        }
+
+        /* Ignore replies for batch begin and end if we have not read them. */
+        if (serials[0] != 0)
+                (void) sd_netlink_ignore_serial(nfnl, serials[0], usec);
+        (void) sd_netlink_ignore_serial(nfnl, serials[n_messages + 1], usec);
+
+        return r;
 }
 
 int sd_nfnl_nft_message_new_basechain(

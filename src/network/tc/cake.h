@@ -4,7 +4,6 @@
 
 #include <linux/pkt_sched.h>
 
-#include "conf-parser.h"
 #include "qdisc.h"
 
 typedef enum CakeCompensationMode {

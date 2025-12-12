@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
-#include "hashmap.h"
+#include "shared-forward.h"
 #include "journal-remote-parse.h"
 #include "journal-remote-write.h"
-#include "journal-vacuum.h"
 
-struct RemoteServer {
+typedef struct RemoteServer {
         RemoteSource **sources;
         size_t active;
 
@@ -26,7 +23,7 @@ struct RemoteServer {
         JournalFileFlags file_flags;
         bool check_trust;
         JournalMetrics metrics;
-};
+} RemoteServer;
 extern RemoteServer *journal_remote_server_global;
 
 /* Used for MHD_OPTION_CONNECTION_MEMORY_LIMIT and header parsing cap */

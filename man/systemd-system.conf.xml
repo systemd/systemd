@@ -201,7 +201,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>DefaultCPUAccounting=</varname></term>
         <term><varname>DefaultMemoryAccounting=</varname></term>
         <term><varname>DefaultTasksAccounting=</varname></term>
         <term><varname>DefaultIOAccounting=</varname></term>
@@ -209,14 +208,12 @@
 
         <listitem>
         <para>Configure the default resource accounting settings, as configured per-unit by
-        <varname>CPUAccounting=</varname>, <varname>MemoryAccounting=</varname>,
-        <varname>TasksAccounting=</varname>, <varname>IOAccounting=</varname> and
-        <varname>IPAccounting=</varname>. See
+        <varname>MemoryAccounting=</varname>, <varname>TasksAccounting=</varname>, <varname>IOAccounting=</varname>,
+        and <varname>IPAccounting=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details on the per-unit settings.</para>
 
-        <para><varname>DefaultCPUAccounting=</varname> defaults to yes when running on kernel ≥4.15, and no on older versions.
-        <varname>DefaultMemoryAccounting=</varname> defaults to &MEMORY_ACCOUNTING_DEFAULT;.
+        <para><varname>DefaultMemoryAccounting=</varname> defaults to &MEMORY_ACCOUNTING_DEFAULT;.
         <varname>DefaultTasksAccounting=</varname> defaults to yes.
         The other settings default to no.</para>
 
@@ -550,6 +547,17 @@
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultRestrictSUIDSGID=</varname></term>
+
+        <listitem><para>Takes a boolean argument. This is used as a default for units
+        which lack an explicit definition for <varname>RestrictSUIDSGID=</varname>.
+        See <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -573,9 +581,9 @@
         </para>
 
         <para><varname>DefaultTimeoutStartSec=</varname> and <varname>DefaultTimeoutStopSec=</varname>
-        default to &DEFAULT_TIMEOUT; in the system manager and &DEFAULT_USER_TIMEOUT; in the user manager.
-        <varname>DefaultTimeoutAbortSec=</varname> is not set by default so that all units fall back to
-        <varname>TimeoutStopSec=</varname>. <varname>DefaultRestartSec=</varname> defaults to 100 ms.
+        default to &DEFAULT_TIMEOUT_SEC; in the system manager and &DEFAULT_USER_TIMEOUT_SEC; in the user
+        manager. <varname>DefaultTimeoutAbortSec=</varname> is not set by default so that all units fall back
+        to <varname>TimeoutStopSec=</varname>. <varname>DefaultRestartSec=</varname> defaults to 100 ms.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v209"/></listitem>
@@ -589,8 +597,8 @@
         and <filename>/etc/crypttab</filename> (see
         <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-        Defaults to &DEFAULT_TIMEOUT; in the system manager and &DEFAULT_USER_TIMEOUT; in the user manager.
-        </para>
+        Defaults to &DEFAULT_TIMEOUT_SEC; in the system manager and &DEFAULT_USER_TIMEOUT_SEC; in the user
+        manager.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
@@ -633,34 +641,14 @@
 
     <variablelist class='config-directives'>
       <varlistentry>
-        <term><varname>ManagerEnvironment=</varname></term>
-
-        <listitem><para>Takes the same arguments as <varname>DefaultEnvironment=</varname>, see above. Sets
-        environment variables for the manager process itself. These variables are inherited by processes
-        spawned by user managers, but not the system manager - use <varname>DefaultEnvironment=</varname>
-        for that. Note that these variables are merged into the existing environment block. In particular, in
-        case of the system manager, this includes variables set by the kernel based on the kernel command line.
-        As with <varname>DefaultEnvironment=</varname>, this environment block is internal, and changes are not
-        reflected in the manager's <filename>/proc/PID/environ</filename>.</para>
-
-        <para>Setting environment variables for the manager process may be useful to modify its behaviour.
-        See <ulink url="https://systemd.io/ENVIRONMENT">Known Environment Variables</ulink> for a
-        descriptions of some variables understood by <command>systemd</command>.</para>
-
-        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
-        specifiers.</para>
-
-        <xi:include href="version-info.xml" xpointer="v248"/>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>DefaultEnvironment=</varname></term>
 
         <listitem><para>Configures environment variables passed to all executed processes. Takes a
         space-separated list of variable assignments. See <citerefentry
         project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details about environment variables.</para>
+        details about environment variables. This environment block is internal, and changes are not
+        reflected in the manager's <filename>/proc/PID/environ</filename>.
+        </para>
 
         <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
         specifiers.</para>
@@ -675,6 +663,30 @@
         <literal>VAR3</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v205"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ManagerEnvironment=</varname></term>
+
+        <listitem><para>Sets environment variables for the manager process itself. Takes a space-separated
+        list of variable assignment in the same format as <varname>DefaultEnvironment=</varname>, see above.
+        These variables are merged into the existing environment block of the manager process. In particular,
+        in case of the system manager, this block includes variables set by the kernel based on the kernel
+        command line, and in case of the user manager, the variables passed by the system manager. After
+        those variables have been merged, they will persist until overridden, even if the manager is reloaded
+        or reexecuted. In case of the user manager, these variables are also inherited by processes spawned
+        by the manager. As with <varname>DefaultEnvironment=</varname>, this environment block is internal,
+        and changes are not reflected in the manager's <filename>/proc/PID/environ</filename>.</para>
+
+        <para>Setting environment variables for the manager process may be useful to modify its behaviour.
+        See <ulink url="https://systemd.io/ENVIRONMENT">Known Environment Variables</ulink> for a description
+        of some variables understood by <command>systemd</command>.</para>
+
+        <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
+        specifiers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -754,10 +766,18 @@
       <variablelist>
         <varlistentry>
           <term>systemd 252</term>
-          <listitem><para>Option <varname>DefaultBlockIOAccounting=</varname> was deprecated. Please switch
-          to the unified cgroup hierarchy.</para>
 
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          <listitem><para>Option <varname>DefaultBlockIOAccounting=</varname> was deprecated. Please switch
+          to the unified cgroup hierarchy.</para></listitem>
+        </varlistentry>
+      </variablelist>
+
+      <variablelist>
+        <varlistentry>
+          <term>systemd 258</term>
+
+          <listitem><para><varname>DefaultCPUAccounting=</varname> setting is deprecated, because CPU accounting
+          is always available on the unified cgroup hierarchy and such setting has no effect.</para></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>

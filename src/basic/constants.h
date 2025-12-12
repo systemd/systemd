@@ -1,29 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#if !defined(HAS_FEATURE_MEMORY_SANITIZER)
-#  if defined(__has_feature)
-#    if __has_feature(memory_sanitizer)
-#      define HAS_FEATURE_MEMORY_SANITIZER 1
-#    endif
-#  endif
-#  if !defined(HAS_FEATURE_MEMORY_SANITIZER)
-#    define HAS_FEATURE_MEMORY_SANITIZER 0
-#  endif
-#endif
-
-#if !defined(HAS_FEATURE_ADDRESS_SANITIZER)
-#  ifdef __SANITIZE_ADDRESS__
-#      define HAS_FEATURE_ADDRESS_SANITIZER 1
-#  elif defined(__has_feature)
-#    if __has_feature(address_sanitizer)
-#      define HAS_FEATURE_ADDRESS_SANITIZER 1
-#    endif
-#  endif
-#  if !defined(HAS_FEATURE_ADDRESS_SANITIZER)
-#    define HAS_FEATURE_ADDRESS_SANITIZER 0
-#  endif
-#endif
+#include "time-util.h"
 
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 
@@ -81,9 +59,13 @@
 #define DEFAULT_RLIMIT_MEMLOCK (1024ULL*1024ULL*8ULL)
 
 /* Path where PID1 listens for varlink subscriptions from systemd-oomd to notify of changes in ManagedOOM settings. */
-#define VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM "/run/systemd/io.systemd.ManagedOOM"
+#define VARLINK_PATH_MANAGED_OOM_SYSTEM "/run/systemd/io.systemd.ManagedOOM"
 /* Path where systemd-oomd listens for varlink connections from user managers to report changes in ManagedOOM settings. */
-#define VARLINK_ADDR_PATH_MANAGED_OOM_USER "/run/systemd/oom/io.systemd.ManagedOOM"
+#define VARLINK_PATH_MANAGED_OOM_USER "/run/systemd/oom/io.systemd.ManagedOOM"
+/* Path where systemd-machined listens to userdb varlink queries */
+#define VARLINK_PATH_MACHINED_USERDB "/run/systemd/userdb/io.systemd.Machine"
+/* Path where systemd-machined listens to resolve.hook varlink queries */
+#define VARLINK_PATH_MACHINED_RESOLVE_HOOK "/run/systemd/resolve.hook/io.systemd.Machine"
 
 /* Recommended baseline - see README for details */
 #define KERNEL_BASELINE_VERSION "5.7"

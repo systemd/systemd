@@ -1,0 +1,23 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+%{
+#if __GNUC__ >= 15
+_Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
+#endif
+#include <stddef.h>
+#include "conf-parser.h"
+#include "resolved-dns-delegate.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name resolved_dns_delegate_gperf_hash
+%define lookup-function-name resolved_dns_delegate_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Delegate.DNS,          config_parse_delegate_dns_servers, 0, 0
+Delegate.Domains,      config_parse_delegate_domains,     0, 0
+Delegate.DefaultRoute, config_parse_tristate,             0, offsetof(DnsDelegate, default_route)

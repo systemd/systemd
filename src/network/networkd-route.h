@@ -1,23 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-
-#include "sd-netlink.h"
-
-#include "conf-parser.h"
 #include "in-addr-util.h"
-#include "networkd-link.h"
+#include "networkd-forward.h"
 #include "networkd-route-metric.h"
 #include "networkd-route-nexthop.h"
 #include "networkd-util.h"
-
-typedef struct Manager Manager;
-typedef struct Network Network;
-typedef struct Request Request;
-typedef struct Route Route;
-typedef struct Wireguard Wireguard;
 
 typedef int (*route_netlink_handler_t)(
                 sd_netlink *rtnl,
@@ -26,7 +14,7 @@ typedef int (*route_netlink_handler_t)(
                 Link *link,
                 Route *route);
 
-struct Route {
+typedef struct Route {
         Manager *manager;
         Network *network;
         Wireguard *wireguard;
@@ -79,7 +67,7 @@ struct Route {
         bool pref_set:1;
         bool gateway_from_dhcp_or_ra:1;
         int gateway_onlink;
-};
+} Route;
 
 void log_route_debug(const Route *route, const char *str, Manager *manager);
 

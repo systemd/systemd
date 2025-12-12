@@ -1,0 +1,1207 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the systemd package.
+# kanitha chim <kchim@redhat.com>, 2025.
+msgid ""
+msgstr ""
+"Project-Id-Version: systemd\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-26 01:17+0000\n"
+"PO-Revision-Date: 2025-09-28 10:07+0000\n"
+"Last-Translator: kanitha chim <kchim@redhat.com>\n"
+"Language-Team: Khmer (Central) <https://translate.fedoraproject.org/projects/"
+"systemd/main/km/>\n"
+"Language: km\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Weblate 5.13.3\n"
+
+#: src/core/org.freedesktop.systemd1.policy.in:22
+msgid "Send passphrase back to system"
+msgstr "ផ្ញើឃ្លាសម្ងាត់ត្រឡប់ទៅប្រព័ន្ធវិញ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:23
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr "Authentication គឺតម្រូវឱ្យផ្ញើឃ្លាសម្ងាត់ដែលបានបញ្ចូលត្រឡប់ទៅប្រព័ន្ធវិញ។"
+
+#: src/core/org.freedesktop.systemd1.policy.in:33
+msgid "Manage system services or other units"
+msgstr "គ្រប់គ្រងសេវាកម្មប្រព័ន្ធ ឬអង្គភាពផ្សេងទៀត"
+
+#: src/core/org.freedesktop.systemd1.policy.in:34
+msgid "Authentication is required to manage system services or other units."
+msgstr "ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារដើម្បីគ្រប់គ្រងសេវាកម្មប្រព័ន្ធ ឬអង្គភាពផ្សេងទៀត។"
+
+#: src/core/org.freedesktop.systemd1.policy.in:43
+msgid "Manage system service or unit files"
+msgstr "គ្រប់គ្រងសេវាប្រព័ន្ធ ឬ unit files"
+
+#: src/core/org.freedesktop.systemd1.policy.in:44
+msgid "Authentication is required to manage system service or unit files."
+msgstr "Authentication ត្រូវបានទាមទារដើម្បីគ្រប់គ្រងសេវាកម្មប្រព័ន្ធ ឬ unit files។"
+
+#: src/core/org.freedesktop.systemd1.policy.in:54
+msgid "Set or unset system and service manager environment variables"
+msgstr "កំណត់ ឬមិនកំណត់ environment variables នៃកម្មវិធីគ្រប់គ្រងសេវាកម្ម និងប្រព័ន្ធ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:55
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"Authentication គឺតម្រូវឱ្យកំណត់ ឬមិនកំណត់ environment variables របស់ប្រព័ន្ធ "
+"និងអ្នកគ្រប់គ្រងសេវាកម្ម។"
+
+#: src/core/org.freedesktop.systemd1.policy.in:64
+msgid "Reload the systemd state"
+msgstr "ផ្ទុកស្ថានភាព systemd ឡើងវិញ"
+
+#: src/core/org.freedesktop.systemd1.policy.in:65
+msgid "Authentication is required to reload the systemd state."
+msgstr "Authentication តម្រូវឱ្យដំណើរការឡើងវិញនូវស្ថានភាព systemd។"
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr "បោះបង់ស្ថានភាព systemd ដោយគ្មានដែនកំណត់អត្រា"
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr "Authentication គឺតម្រូវឱ្យបោះចោលស្ថានភាព systemd ដោយគ្មានដែនកំណត់អត្រា។"
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr "បង្កើត home area"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required to create a user's home area."
+msgstr "Authentication តម្រូវឱ្យបង្កើត home area របស់អ្នកប្រើ។"
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr "ដក home area"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required to remove a user's home area."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យលុប home area របស់អ្នកប្រើចេញ។"
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr "ពិនិត្យអត្តសញ្ញាណនៃ home area"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"តម្រូវឱ្យមានការផ្ទៀងផ្ទាត់ authentication ដើម្បីពិនិត្យមើលព័ត៌មានសម្ងាត់ប្រឆាំងនឹង home area "
+"របស់អ្នកប្រើ។"
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr "ធ្វើបច្ចុប្បន្នភាព home area"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required to update a user's home area."
+msgstr "Authentication តម្រូវឱ្យធ្វើបច្ចុប្បន្នភាព home area របស់អ្នកប្រើ។"
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Update your home area"
+msgstr "ធ្វើបច្ចុប្បន្នភាព home area របស់អ្នក"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to update your home area."
+msgstr "Authentication តម្រូវឱ្យធ្វើបច្ចុប្បន្នភាព home area របស់អ្នក។"
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Resize a home area"
+msgstr "ផ្លាស់ប្តូរទំហំ home area"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid "Authentication is required to resize a user's home area."
+msgstr "Authentication គឺតម្រូវឱ្យផ្លាស់ប្តូរ home area របស់អ្នកប្រើប្រាស់។"
+
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Change password of a home area"
+msgstr "ផ្លាស់ប្តូរពាក្យសម្ងាត់នៃ home area"
+
+#: src/home/org.freedesktop.home1.policy:74
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr "Authentication គឺតម្រូវឱ្យផ្លាស់ប្តូរពាក្យសម្ងាត់នៃ home area របស់អ្នកប្រើ។"
+
+#: src/home/org.freedesktop.home1.policy:83
+msgid "Activate a home area"
+msgstr "បើកឱ្យ home area ដំណើរការ"
+
+#: src/home/org.freedesktop.home1.policy:84
+msgid "Authentication is required to activate a user's home area."
+msgstr "Authentication គឺតម្រូវឱ្យធ្វើសកម្មភាព home area របស់អ្នកប្រើ។"
+
+#: src/home/org.freedesktop.home1.policy:93
+msgid "Manage Home Directory Signing Keys"
+msgstr "គ្រប់គ្រង​ Home Directory Signing Keys"
+
+#: src/home/org.freedesktop.home1.policy:94
+msgid "Authentication is required to manage signing keys for home directories."
+msgstr "Authentication គឺតម្រូវឱ្យគ្រប់គ្រង signing keys សម្រាប់ home directories។"
+
+#: src/home/pam_systemd_home.c:333
+#, c-format
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
+msgstr ""
+"Home របស់អ្នកប្រើប្រាស់ %s បច្ចុប្បន្នគឺអវត្តមាន សូមដោតឧបករណ៍ផ្ទុកចាំបាច់ ឬប្រព័ន្ធឯកសារបម្រុងទុក។"
+
+#: src/home/pam_systemd_home.c:338
+#, c-format
+msgid "Too frequent login attempts for user %s, try again later."
+msgstr "ការព្យាយាមចូល​​ login ញឹកញាប់ពេកសម្រាប់អ្នកប្រើប្រាស់ %s សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។"
+
+#: src/home/pam_systemd_home.c:350
+msgid "Password: "
+msgstr "ពាក្យសម្ងាត់: "
+
+#: src/home/pam_systemd_home.c:352
+#, c-format
+msgid "Password incorrect or not sufficient for authentication of user %s."
+msgstr "ពាក្យសម្ងាត់មិនត្រឹមត្រូវ ឬមិនគ្រប់គ្រាន់សម្រាប់ការផ្ទៀងផ្ទាត់អ្នកប្រើប្រាស់ %s ។"
+
+#: src/home/pam_systemd_home.c:353
+msgid "Sorry, try again: "
+msgstr "សូមអភ័យទោស សូមព្យាយាមម្តងទៀត៖ "
+
+#: src/home/pam_systemd_home.c:375
+msgid "Recovery key: "
+msgstr "Recovery key៖ "
+
+#: src/home/pam_systemd_home.c:377
+#, c-format
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
+msgstr "លេខសំងាត់/កូនសោសង្គ្រោះមិនត្រឹមត្រូវ ឬមិនគ្រប់គ្រាន់សម្រាប់ការផ្ទៀងផ្ទាត់អ្នកប្រើប្រាស់ %s ។"
+
+#: src/home/pam_systemd_home.c:378
+msgid "Sorry, reenter recovery key: "
+msgstr "សូមអភ័យទោស សូមបញ្ចូលសោសង្គ្រោះឡើងវិញ៖ "
+
+#: src/home/pam_systemd_home.c:398
+#, c-format
+msgid "Security token of user %s not inserted."
+msgstr "និមិត្តសញ្ញាសុវត្ថិភាពរបស់អ្នកប្រើ %s មិនត្រូវបានបញ្ចូលទេ។"
+
+#: src/home/pam_systemd_home.c:399 src/home/pam_systemd_home.c:402
+msgid "Try again with password: "
+msgstr "ព្យាយាមម្តងទៀតដោយប្រើពាក្យសម្ងាត់៖ "
+
+#: src/home/pam_systemd_home.c:401
+#, c-format
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
+msgstr ""
+"ពាក្យ​សម្ងាត់​មិន​ត្រឹមត្រូវ ឬ​មិន​គ្រប់គ្រាន់ ហើយ​ configured security token ​របស់​អ្នក​ប្រើ %s មិន​ត្រូវ​"
+"បាន​បញ្ចូល​ទេ។"
+
+#: src/home/pam_systemd_home.c:421
+msgid "Security token PIN: "
+msgstr "កូដ token PIN សុវត្ថិភាព៖ "
+
+#: src/home/pam_systemd_home.c:438
+#, c-format
+msgid "Please authenticate physically on security token of user %s."
+msgstr "សូមផ្ទៀងផ្ទាត់ physically on security token របស់អ្នកប្រើប្រាស់ %s ។"
+
+#: src/home/pam_systemd_home.c:449
+#, c-format
+msgid "Please confirm presence on security token of user %s."
+msgstr "សូមបញ្ជាក់វត្តមាននៅលើនិមិត្តសញ្ញាសុវត្ថិភាពរបស់អ្នកប្រើប្រាស់ %s។"
+
+#: src/home/pam_systemd_home.c:460
+#, c-format
+msgid "Please verify user on security token of user %s."
+msgstr "សូមផ្ទៀងផ្ទាត់អ្នកប្រើប្រាស់លើសញ្ញាសម្ងាត់សុវត្ថិភាពរបស់អ្នកប្រើប្រាស់ %s ។"
+
+#: src/home/pam_systemd_home.c:469
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
+msgstr ""
+"កូដ PIN និមិត្តសញ្ញាសុវត្ថិភាពត្រូវបានចាក់សោ សូមដោះសោជាមុនសិន។ (ព័ត៌មានជំនួយ៖ ការដក "
+"និងការបញ្ចូលឡើងវិញអាចគ្រប់គ្រាន់។ )"
+
+#: src/home/pam_systemd_home.c:477
+#, c-format
+msgid "Security token PIN incorrect for user %s."
+msgstr "កូដ PIN និមិត្តសញ្ញាសុវត្ថិភាពមិនត្រឹមត្រូវសម្រាប់អ្នកប្រើប្រាស់ %s ។"
+
+#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:516
+msgid "Sorry, retry security token PIN: "
+msgstr "សូមអភ័យទោស សូមសាកល្បងកូដ PIN និមិត្តសញ្ញាសុវត្ថិភាពម្តងទៀត៖ "
+
+#: src/home/pam_systemd_home.c:496
+#, c-format
+msgid "Security token PIN of user %s incorrect (only a few tries left!)"
+msgstr "កូដ PIN និមិត្តសញ្ញាសុវត្ថិភាពរបស់អ្នកប្រើ %s មិនត្រឹមត្រូវ (នៅសល់តែព្យាយាមពីរបីដងប៉ុណ្ណោះ!)"
+
+#: src/home/pam_systemd_home.c:515
+#, c-format
+msgid "Security token PIN of user %s incorrect (only one try left!)"
+msgstr "កូដ PIN និមិត្តសញ្ញាសុវត្ថិភាពរបស់អ្នកប្រើ %s មិនត្រឹមត្រូវ (ព្យាយាមនៅសល់តែមួយប៉ុណ្ណោះ!)"
+
+#: src/home/pam_systemd_home.c:682
+#, c-format
+msgid "Home of user %s is currently not active, please log in locally first."
+msgstr "ទំព័រដើមរបស់អ្នកប្រើ %s បច្ចុប្បន្នមិនសកម្មទេ សូម log in locally ជាមុនសិន។"
+
+#: src/home/pam_systemd_home.c:684
+#, c-format
+msgid "Home of user %s is currently locked, please unlock locally first."
+msgstr "ទំព័រដើមរបស់អ្នកប្រើ %s បច្ចុប្បន្នត្រូវបានចាក់សោ សូមដោះសោនៅក្នុងមូលដ្ឋានជាមុនសិន។"
+
+#: src/home/pam_systemd_home.c:718
+#, c-format
+msgid "Too many unsuccessful login attempts for user %s, refusing."
+msgstr "ការប៉ុនប៉ង log in មិនជោគជ័យច្រើនពេកសម្រាប់អ្នកប្រើប្រាស់ %s, បដិសេធ។"
+
+#: src/home/pam_systemd_home.c:1017
+msgid "User record is blocked, prohibiting access."
+msgstr "កំណត់ត្រាអ្នកប្រើប្រាស់ត្រូវបានរារាំង, ហាមឃាត់ការចូលប្រើប្រាស់។"
+
+#: src/home/pam_systemd_home.c:1021
+msgid "User record is not valid yet, prohibiting access."
+msgstr "កំណត់​ត្រា​អ្នក​ប្រើ​មិន​ទាន់​មាន​សុពលភាព​នៅ​ឡើយ​ទេ, ​ហាម​ឃាត់​ការ​ចូល​ប្រើប្រាស់។"
+
+#: src/home/pam_systemd_home.c:1025
+msgid "User record is not valid anymore, prohibiting access."
+msgstr "កំណត់​ត្រា​អ្នក​ប្រើ​មិន​ត្រឹមត្រូវ​ទៀត​ទេ, ​ហាម​ឃាត់​ការ​ចូល​ប្រើ។"
+
+#: src/home/pam_systemd_home.c:1030 src/home/pam_systemd_home.c:1079
+msgid "User record not valid, prohibiting access."
+msgstr "កំណត់​ត្រា​អ្នក​ប្រើ​មិន​ត្រឹមត្រូវ, ហាម​ឃាត់​ការ​ចូល​ប្រើ។"
+
+#: src/home/pam_systemd_home.c:1040
+#, c-format
+msgid "Too many logins, try again in %s."
+msgstr "ការ log in ច្រើនពេក សូមព្យាយាមម្តងទៀតក្នុង %s ។"
+
+#: src/home/pam_systemd_home.c:1051
+msgid "Password change required."
+msgstr "ទាមទារការផ្លាស់ប្តូរពាក្យសម្ងាត់។"
+
+#: src/home/pam_systemd_home.c:1055
+msgid "Password expired, change required."
+msgstr "ពាក្យសម្ងាត់ផុតកំណត់ ទាមទារការផ្លាស់ប្តូរ។"
+
+#: src/home/pam_systemd_home.c:1061
+msgid "Password is expired, but can't change, refusing login."
+msgstr "ពាក្យ​សម្ងាត់​បាន​ផុត​កំណត់ ប៉ុន្តែ​មិន​អាច​ផ្លាស់​ប្តូរ​បាន, ​បដិសេធ​ការ​ log in។"
+
+#: src/home/pam_systemd_home.c:1065
+msgid "Password will expire soon, please change."
+msgstr "ពាក្យសម្ងាត់នឹងផុតកំណត់ក្នុងពេលឆាប់ៗនេះ សូមផ្លាស់ប្តូរ។"
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
+msgid "Set hostname"
+msgstr "កំណត់ឈ្មោះម៉ាស៊ីន"
+
+#: src/hostname/org.freedesktop.hostname1.policy:21
+msgid "Authentication is required to set the local hostname."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់ local hostname។"
+
+#: src/hostname/org.freedesktop.hostname1.policy:30
+msgid "Set static hostname"
+msgstr "កំណត់ static hostname"
+
+#: src/hostname/org.freedesktop.hostname1.policy:31
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr ""
+"ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់ local hostname ដែលបាន statically configured ក៏ដូចជា "
+"pretty hostname។"
+
+#: src/hostname/org.freedesktop.hostname1.policy:41
+msgid "Set machine information"
+msgstr "កំណត់ព័ត៌មានម៉ាស៊ីន"
+
+#: src/hostname/org.freedesktop.hostname1.policy:42
+msgid "Authentication is required to set local machine information."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់ព័ត៌មានម៉ាស៊ីនមូលដ្ឋាន។"
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "ទទួលបាន product UUID"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "ការផ្ទៀងផ្ទាត់គឺទាមទារដើម្បីទទួលបាន product UUID។"
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "ទទួលបានលេខ serial របស់ hardware"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr "ការផ្ទៀងផ្ទាត់គឺទាមទារដើម្បីទទួលបានលេខ serial របស់ hardware។"
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "ទទួលបានការពិពណ៌នារបស់ប្រព័ន្ធ"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "ការផ្ទៀងផ្ទាត់គឺទាមទារដើម្បីទទួលបានការពិពណ៌នារបស់ប្រព័ន្ធ។"
+
+#: src/import/org.freedesktop.import1.policy:22
+msgid "Import a disk image"
+msgstr "ទាញចូលរូបភាពឌីស"
+
+#: src/import/org.freedesktop.import1.policy:23
+msgid "Authentication is required to import an image."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យទាញចូលរូបភាព។"
+
+#: src/import/org.freedesktop.import1.policy:32
+msgid "Export a disk image"
+msgstr "ទាញចេញរូបភាពឌីស"
+
+#: src/import/org.freedesktop.import1.policy:33
+msgid "Authentication is required to export disk image."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យទាញចេញរូបភាពឌីស។"
+
+#: src/import/org.freedesktop.import1.policy:42
+msgid "Download a disk image"
+msgstr "ទាញយករូបភាពឌីស"
+
+#: src/import/org.freedesktop.import1.policy:43
+msgid "Authentication is required to download a disk image."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យទាញយករូបភាពថាស។"
+
+#: src/import/org.freedesktop.import1.policy:52
+msgid "Cancel transfer of a disk image"
+msgstr "បោះបង់ការផ្ទេររូបភាពឌីស"
+
+#: src/import/org.freedesktop.import1.policy:53
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យលុបចោលការផ្ទេររូបភាពថាសដែលកំពុងដំណើរការ។"
+
+#: src/locale/org.freedesktop.locale1.policy:22
+msgid "Set system locale"
+msgstr "កំណត់មូលដ្ឋានប្រព័ន្ធ"
+
+#: src/locale/org.freedesktop.locale1.policy:23
+msgid "Authentication is required to set the system locale."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់មូលដ្ឋានប្រព័ន្ធ។"
+
+#: src/locale/org.freedesktop.locale1.policy:33
+msgid "Set system keyboard settings"
+msgstr "កំណត់ការកំណត់ក្តារចុចប្រព័ន្ធ"
+
+#: src/locale/org.freedesktop.locale1.policy:34
+msgid "Authentication is required to set the system keyboard settings."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់ការកំណត់ក្តារចុចប្រព័ន្ធ។"
+
+#: src/login/org.freedesktop.login1.policy:22
+msgid "Allow applications to inhibit system shutdown"
+msgstr "អនុញ្ញាតឱ្យកម្មវិធីរារាំងការបិទប្រព័ន្ធ"
+
+#: src/login/org.freedesktop.login1.policy:23
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr "ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារសម្រាប់កម្មវិធីដើម្បីរារាំងការបិទប្រព័ន្ធ។"
+
+#: src/login/org.freedesktop.login1.policy:33
+msgid "Allow applications to delay system shutdown"
+msgstr "អនុញ្ញាតឱ្យកម្មវិធីពន្យារពេលការបិទប្រព័ន្ធ"
+
+#: src/login/org.freedesktop.login1.policy:34
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr "ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារសម្រាប់កម្មវិធីដើម្បីពន្យារពេលការបិទប្រព័ន្ធ។"
+
+#: src/login/org.freedesktop.login1.policy:44
+msgid "Allow applications to inhibit system sleep"
+msgstr "អនុញ្ញាតឱ្យកម្មវិធីរារាំងការគេងរបស់ប្រព័ន្ធ"
+
+#: src/login/org.freedesktop.login1.policy:45
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr "ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារសម្រាប់កម្មវិធីដើម្បីរារាំងការគេងរបស់ប្រព័ន្ធ។"
+
+#: src/login/org.freedesktop.login1.policy:55
+msgid "Allow applications to delay system sleep"
+msgstr "អនុញ្ញាតឱ្យកម្មវិធីពន្យារពេលការគេងរបស់ប្រព័ន្ធ"
+
+#: src/login/org.freedesktop.login1.policy:56
+msgid "Authentication is required for an application to delay system sleep."
+msgstr "ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារសម្រាប់កម្មវិធីដើម្បីពន្យារពេលការគេងរបស់ប្រព័ន្ធ។"
+
+#: src/login/org.freedesktop.login1.policy:65
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "អនុញ្ញាតឱ្យកម្មវិធីរារាំងការផ្អាកប្រព័ន្ធស្វ័យប្រវត្តិ"
+
+#: src/login/org.freedesktop.login1.policy:66
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr "ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារសម្រាប់កម្មវិធីដើម្បីរារាំងការផ្អាកប្រព័ន្ធដោយស្វ័យប្រវត្តិ។"
+
+#: src/login/org.freedesktop.login1.policy:75
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr "អនុញ្ញាតឱ្យកម្មវិធីរារាំងការគ្រប់គ្រងប្រព័ន្ធនៃ power key"
+
+#: src/login/org.freedesktop.login1.policy:76
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr "ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារសម្រាប់កម្មវិធីដើម្បីរារាំងការគ្រប់គ្រងប្រព័ន្ធនៃ power key។"
+
+#: src/login/org.freedesktop.login1.policy:86
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr "អនុញ្ញាតឱ្យកម្មវិធីរារាំងការគ្រប់គ្រងប្រព័ន្ធនៃសោផ្អាក"
+
+#: src/login/org.freedesktop.login1.policy:87
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr "ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារសម្រាប់កម្មវិធីដើម្បីរារាំងការគ្រប់គ្រងប្រព័ន្ធនៃសោផ្អាក។"
+
+#: src/login/org.freedesktop.login1.policy:97
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr "អនុញ្ញាតឱ្យកម្មវិធីរារាំងការគ្រប់គ្រងប្រព័ន្ធនៃ hibernate key"
+
+#: src/login/org.freedesktop.login1.policy:98
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារសម្រាប់កម្មវិធីដើម្បីរារាំងការគ្រប់គ្រងប្រព័ន្ធនៃ hibernate key។"
+
+#: src/login/org.freedesktop.login1.policy:107
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr "អនុញ្ញាតឱ្យកម្មវិធីរារាំងការគ្រប់គ្រងប្រព័ន្ធនៃ lid switch"
+
+#: src/login/org.freedesktop.login1.policy:108
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr "ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារសម្រាប់កម្មវិធីដើម្បីរារាំងការគ្រប់គ្រងប្រព័ន្ធនៃ lid switch។"
+
+#: src/login/org.freedesktop.login1.policy:117
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr "អនុញ្ញាតឱ្យកម្មវិធីរារាំងការគ្រប់គ្រងប្រព័ន្ធនៃ reboot key"
+
+#: src/login/org.freedesktop.login1.policy:118
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr "ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារសម្រាប់កម្មវិធីដើម្បីរារាំងការគ្រប់គ្រងប្រព័ន្ធនៃ reboot key។"
+
+#: src/login/org.freedesktop.login1.policy:128
+msgid "Allow non-logged-in user to run programs"
+msgstr "អនុញ្ញាតឱ្យអ្នកប្រើប្រាស់ដែលមិនបាន logged in ចូលដំណើរការកម្មវិធី"
+
+#: src/login/org.freedesktop.login1.policy:129
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr ""
+"សំណើជាក់លាក់ត្រូវបានទាមទារដើម្បីដំណើរការកម្មវិធីជាអ្នកប្រើប្រាស់ដែលមិនបាន logged in ចូល។"
+
+#: src/login/org.freedesktop.login1.policy:138
+msgid "Allow non-logged-in users to run programs"
+msgstr "អនុញ្ញាតឱ្យអ្នកប្រើប្រាស់ដែលមិនបាន logged in ចូលដំណើរការកម្មវិធី"
+
+#: src/login/org.freedesktop.login1.policy:139
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr "Authentication គឺតម្រូវឱ្យដំណើរការកម្មវិធីជាអ្នកប្រើប្រាស់ non-logged-in។"
+
+#: src/login/org.freedesktop.login1.policy:148
+msgid "Allow attaching devices to seats"
+msgstr "អនុញ្ញាតឱ្យភ្ជាប់ឧបករណ៍ទៅ seats"
+
+#: src/login/org.freedesktop.login1.policy:149
+msgid "Authentication is required to attach a device to a seat."
+msgstr "Authentication គឺតម្រូវឱ្យភ្ជាប់ឧបករណ៍ទៅ seat។"
+
+#: src/login/org.freedesktop.login1.policy:159
+msgid "Flush device to seat attachments"
+msgstr "Flash ឧបករណ៍ទៅនឹង seat attachments"
+
+#: src/login/org.freedesktop.login1.policy:160
+msgid "Authentication is required to reset how devices are attached to seats."
+msgstr "Authentication គឺតម្រូវឱ្យកំណត់ឡើងវិញពីរបៀបដែលឧបករណ៍ត្រូវបានភ្ជាប់ទៅ seats។"
+
+#: src/login/org.freedesktop.login1.policy:169
+msgid "Power off the system"
+msgstr "បិទប្រព័ន្ធ"
+
+#: src/login/org.freedesktop.login1.policy:170
+msgid "Authentication is required to power off the system."
+msgstr "Authentication គឺតម្រូវឱ្យបិទប្រព័ន្ធ។"
+
+#: src/login/org.freedesktop.login1.policy:180
+msgid "Power off the system while other users are logged in"
+msgstr "បិទប្រព័ន្ធខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល"
+
+#: src/login/org.freedesktop.login1.policy:181
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr "Authentication តម្រូវឱ្យបិទប្រព័ន្ធ ខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល។"
+
+#: src/login/org.freedesktop.login1.policy:191
+msgid "Power off the system while an application is inhibiting this"
+msgstr "បិទប្រព័ន្ធខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា"
+
+#: src/login/org.freedesktop.login1.policy:192
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr "Authentication គឺតម្រូវឱ្យបិទប្រព័ន្ធ ខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា។"
+
+#: src/login/org.freedesktop.login1.policy:202
+msgid "Reboot the system"
+msgstr "ចាប់ផ្ដើមប្រព័ន្ធឡើងវិញ"
+
+#: src/login/org.freedesktop.login1.policy:203
+msgid "Authentication is required to reboot the system."
+msgstr "Authentication គឺតម្រូវឱ្យចាប់ផ្ដើមប្រព័ន្ធឡើងវិញ។"
+
+#: src/login/org.freedesktop.login1.policy:213
+msgid "Reboot the system while other users are logged in"
+msgstr "ចាប់ផ្ដើមប្រព័ន្ធឡើងវិញ ខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល"
+
+#: src/login/org.freedesktop.login1.policy:214
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr ""
+"Authentication គឺតម្រូវឱ្យចាប់ផ្ដើមប្រព័ន្ធឡើងវិញ ខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល។"
+
+#: src/login/org.freedesktop.login1.policy:224
+msgid "Reboot the system while an application is inhibiting this"
+msgstr "ចាប់ផ្ដើមប្រព័ន្ធឡើងវិញ ខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា"
+
+#: src/login/org.freedesktop.login1.policy:225
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr "Authentication គឺតម្រូវឱ្យចាប់ផ្ដើមប្រព័ន្ធឡើងវិញ ខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា។"
+
+#: src/login/org.freedesktop.login1.policy:235
+msgid "Halt the system"
+msgstr "បញ្ឈប់ប្រព័ន្ធ"
+
+#: src/login/org.freedesktop.login1.policy:236
+msgid "Authentication is required to halt the system."
+msgstr "Authentication គឺតម្រូវឱ្យបញ្ឈប់ប្រព័ន្ធ។"
+
+#: src/login/org.freedesktop.login1.policy:246
+msgid "Halt the system while other users are logged in"
+msgstr "បញ្ឈប់ប្រព័ន្ធខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល"
+
+#: src/login/org.freedesktop.login1.policy:247
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr "Authentication គឺតម្រូវឱ្យបញ្ឈប់ប្រព័ន្ធ ខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល។"
+
+#: src/login/org.freedesktop.login1.policy:257
+msgid "Halt the system while an application is inhibiting this"
+msgstr "បញ្ឈប់ប្រព័ន្ធខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា"
+
+#: src/login/org.freedesktop.login1.policy:258
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr "Authentication គឺតម្រូវឱ្យបញ្ឈប់ប្រព័ន្ធ ខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា។"
+
+#: src/login/org.freedesktop.login1.policy:268
+msgid "Suspend the system"
+msgstr "ផ្អាកប្រព័ន្ធ"
+
+#: src/login/org.freedesktop.login1.policy:269
+msgid "Authentication is required to suspend the system."
+msgstr "Authentication គឺតម្រូវឱ្យផ្អាកប្រព័ន្ធ។"
+
+#: src/login/org.freedesktop.login1.policy:278
+msgid "Suspend the system while other users are logged in"
+msgstr "ផ្អាកប្រព័ន្ធខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល"
+
+#: src/login/org.freedesktop.login1.policy:279
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr "Authentication គឺតម្រូវឱ្យផ្អាកប្រព័ន្ធ ខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល។"
+
+#: src/login/org.freedesktop.login1.policy:289
+msgid "Suspend the system while an application is inhibiting this"
+msgstr "ផ្អាកប្រព័ន្ធ ខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា"
+
+#: src/login/org.freedesktop.login1.policy:290
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr "Authentication គឺតម្រូវឱ្យផ្អាកប្រព័ន្ធ ខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា។"
+
+#: src/login/org.freedesktop.login1.policy:300
+msgid "Hibernate the system"
+msgstr "Hibernate ប្រព័ន្ធ"
+
+#: src/login/org.freedesktop.login1.policy:301
+msgid "Authentication is required to hibernate the system."
+msgstr "Authentication គឺតម្រូវឱ្យ hibernate ប្រព័ន្ធ។"
+
+#: src/login/org.freedesktop.login1.policy:310
+msgid "Hibernate the system while other users are logged in"
+msgstr "Hibernate ប្រព័ន្ធខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល"
+
+#: src/login/org.freedesktop.login1.policy:311
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr "Authentication គឺតម្រូវឱ្យ hibernate ប្រព័ន្ធខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល។"
+
+#: src/login/org.freedesktop.login1.policy:321
+msgid "Hibernate the system while an application is inhibiting this"
+msgstr "Hibernate ប្រព័ន្ធខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា"
+
+#: src/login/org.freedesktop.login1.policy:322
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr "Authentication ត្រូវបានទាមទារដើម្បីលាក់ប្រព័ន្ធខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា។"
+
+#: src/login/org.freedesktop.login1.policy:332
+msgid "Manage active sessions, users and seats"
+msgstr "គ្រប់គ្រង active sessions, អ្នកប្រើប្រាស់ និង seats"
+
+#: src/login/org.freedesktop.login1.policy:333
+msgid "Authentication is required to manage active sessions, users and seats."
+msgstr ""
+"Authentication ត្រូវបានទាមទារដើម្បីគ្រប់គ្រង active sessions អ្នកប្រើប្រាស់ និង seats។"
+
+#: src/login/org.freedesktop.login1.policy:342
+msgid "Lock or unlock active sessions"
+msgstr "ចាក់សោ ឬដោះសោ active sessions"
+
+#: src/login/org.freedesktop.login1.policy:343
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr "Authentication គឺតម្រូវឱ្យចាក់សោ ឬដោះសោ active sessions។"
+
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr "កំណត់ reboot \"reason\" នៅក្នុង kernel"
+
+#: src/login/org.freedesktop.login1.policy:353
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr "Authentication គឺតម្រូវឱ្យកំណត់ reboot \"reason\" នៅក្នុង kernel។"
+
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "ចង្អុលទៅ firmware ដើម្បីចាប់ផ្ដើមដំឡើង interface"
+
+#: src/login/org.freedesktop.login1.policy:364
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr "Authentication គឺតម្រូវឱ្យចង្អុលបង្ហាញទៅ firmware ដើម្បីចាប់ផ្ដើមទៅកាន់ interface។"
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr "ចង្អុលទៅ boot loader ដើម្បីចាប់ផ្ដើមទៅកាន់ម៉ឺនុយ boot loader"
+
+#: src/login/org.freedesktop.login1.policy:375
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យចង្អុលបង្ហាញទៅកាន់ boot loader ដើម្បីចាប់ផ្ដើមទៅកាន់ម៉ឺនុយ boot loader។"
+
+#: src/login/org.freedesktop.login1.policy:385
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr "ចង្អុលទៅ boot loader ដើម្បីចាប់ផ្ដើមធាតុជាក់លាក់មួយ"
+
+#: src/login/org.freedesktop.login1.policy:386
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យចង្អុលបង្ហាញទៅកាន់ boot loader "
+"ដើម្បីចាប់ផ្ដើមចូលទៅក្នុងធាតុកម្មវិធីចាប់ផ្ដើមប្រព័ន្ធជាក់លាក់មួយ។"
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Set a wall message"
+msgstr "កំណត់សារជញ្ជាំង"
+
+#: src/login/org.freedesktop.login1.policy:397
+msgid "Authentication is required to set a wall message."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់សារជញ្ជាំង។"
+
+#: src/login/org.freedesktop.login1.policy:406
+msgid "Change Session"
+msgstr "ផ្លាស់ប្តូរវគ្គ (session)"
+
+#: src/login/org.freedesktop.login1.policy:407
+msgid "Authentication is required to change the virtual terminal."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យផ្លាស់ប្តូរ virtual terminal។"
+
+#: src/machine/org.freedesktop.machine1.policy:22
+msgid "Log into a local container"
+msgstr "ចូលទៅក្នុង local container"
+
+#: src/machine/org.freedesktop.machine1.policy:23
+msgid "Authentication is required to log into a local container."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យចូលទៅក្នុង local container។"
+
+#: src/machine/org.freedesktop.machine1.policy:32
+msgid "Log into the local host"
+msgstr "ចូលទៅក្នុង local host"
+
+#: src/machine/org.freedesktop.machine1.policy:33
+msgid "Authentication is required to log into the local host."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យចូលទៅក្នុង local host។"
+
+#: src/machine/org.freedesktop.machine1.policy:42
+msgid "Acquire a shell in a local container"
+msgstr "ទទួលបាន shell នៅក្នុង local container"
+
+#: src/machine/org.freedesktop.machine1.policy:43
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យទទួលបាន shell នៅក្នុង local container។"
+
+#: src/machine/org.freedesktop.machine1.policy:53
+msgid "Acquire a shell on the local host"
+msgstr "ទទួលបាន shell នៅលើ local host"
+
+#: src/machine/org.freedesktop.machine1.policy:54
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យទទួលបាន shell នៅលើ local host។"
+
+#: src/machine/org.freedesktop.machine1.policy:64
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "ទទួលបាន pseudo TTY នៅក្នុង local container"
+
+#: src/machine/org.freedesktop.machine1.policy:65
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យទទួលបាន pseudo TTY នៅក្នុង local container។"
+
+#: src/machine/org.freedesktop.machine1.policy:74
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "ទទួលបាន pseudo TTY នៅលើ local host"
+
+#: src/machine/org.freedesktop.machine1.policy:75
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "ការផ្ទៀងផ្ទាត់តម្រូវឱ្យទទួលបាន pseudo TTY នៅលើ local host។"
+
+#: src/machine/org.freedesktop.machine1.policy:84
+msgid "Manage local virtual machines and containers"
+msgstr "គ្រប់គ្រង local ម៉ាស៊ីននិម្មិត និង containers"
+
+#: src/machine/org.freedesktop.machine1.policy:85
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr "ការផ្ទៀងផ្ទាត់គឺត្រូវបានទាមទារដើម្បីគ្រប់គ្រងម៉ាស៊ីននិម្មិតក្នុងតំបន់ និង containers។"
+
+#: src/machine/org.freedesktop.machine1.policy:95
+msgid "Create a local virtual machine or container"
+msgstr "បង្កើតម៉ាស៊ីននិម្មិត ឬ container"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបង្កើតម៉ាស៊ីននិម្មិតក្នុងស្រុក ឬ container។"
+
+#: src/machine/org.freedesktop.machine1.policy:106
+msgid "Register a local virtual machine or container"
+msgstr "ចុះឈ្មោះម៉ាស៊ីននិម្មិតក្នុងស្រុក ឬ container"
+
+#: src/machine/org.freedesktop.machine1.policy:107
+msgid ""
+"Authentication is required to register a local virtual machine or container."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យចុះឈ្មោះម៉ាស៊ីននិម្មិតក្នុងស្រុក ឬ container។"
+
+#: src/machine/org.freedesktop.machine1.policy:116
+msgid "Manage local virtual machine and container images"
+msgstr "គ្រប់គ្រងម៉ាស៊ីននិម្មិតក្នុងតំបន់ និង container images"
+
+#: src/machine/org.freedesktop.machine1.policy:117
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr "ការផ្ទៀងផ្ទាត់គឺទាមទារដើម្បីគ្រប់គ្រងម៉ាស៊ីននិម្មិតក្នុងតំបន់ និង container images។"
+
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr "កំណត់ម៉ាស៊ីនមេ NTP"
+
+#: src/network/org.freedesktop.network1.policy:23
+msgid "Authentication is required to set NTP servers."
+msgstr "ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារដើម្បីកំណត់ម៉ាស៊ីនមេ NTP ។"
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr "កំណត់ម៉ាស៊ីនមេ DNS"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+msgid "Authentication is required to set DNS servers."
+msgstr "ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារដើម្បីកំណត់ម៉ាស៊ីនមេ DNS ។"
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr "កំណត់ domains"
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+msgid "Authentication is required to set domains."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់ domains។"
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr "កំណត់ default route"
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+msgid "Authentication is required to set default route."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់ default route។"
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr "បើក/បិទ LLMNR"
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបើក ឬបិទ LLMNR ។"
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr "បើក/បិទ multicast DNS"
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបើក ឬបិទដំណើរការ multicase DNS។"
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr "បើក/បិទ DNS លើ TLS"
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបើក ឬបិទ DNS លើ TLS ។"
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr "បើក/បិទ DNSSEC"
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបើក ឬបិទ DNSSEC ។"
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr "កំណត់ DNSSEC Negative Trust Anchors"
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់ DNSSEC Negative Trust Anchors ។"
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr "ត្រឡប់ការកំណត់ NTP"
+
+#: src/network/org.freedesktop.network1.policy:122
+msgid "Authentication is required to reset NTP settings."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់ការកំណត់ NTP ឡើងវិញ។"
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr "ត្រឡប់ការកំណត់ DNS"
+
+#: src/network/org.freedesktop.network1.policy:133
+msgid "Authentication is required to reset DNS settings."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់DNS settings ឡើងវិញ។"
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr "ម៉ាស៊ីនមេ DHCP ផ្ញើ force renew message"
+
+#: src/network/org.freedesktop.network1.policy:144
+msgid "Authentication is required to send force renew message."
+msgstr "ការផ្ទៀងផ្ទាត់តម្រូវឱ្យផ្ញើ force renew message។"
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr "បន្តអាសយដ្ឋាន dynamic ថ្មី"
+
+#: src/network/org.freedesktop.network1.policy:155
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យ renew អាស័យដ្ឋាន dynamic ។"
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr "ផ្ទុកការកំណត់បណ្តាញឡើងវិញ"
+
+#: src/network/org.freedesktop.network1.policy:166
+msgid "Authentication is required to reload network settings."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យផ្ទុកការកំណត់បណ្តាញឡើងវិញ។"
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr "កំណត់រចនាសម្ព័ន្ធបណ្តាញ interface ឡើងវិញ"
+
+#: src/network/org.freedesktop.network1.policy:177
+msgid "Authentication is required to reconfigure network interface."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់រចនាសម្ព័ន្ធបណ្តាញ interface ឡើងវិញ។"
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr "បញ្ជាក់ថាតើ persistent storage សម្រាប់ systemd-networkd មានឬអត់"
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+"ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបញ្ជាក់ថាតើ persistent storage សម្រាប់ systemd-networkd "
+"អាចប្រើបានដែរឬទេ។"
+
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr "ពិនិត្យសេវារូបភាពចល័ត"
+
+#: src/portable/org.freedesktop.portable1.policy:14
+msgid "Authentication is required to inspect a portable service image."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យត្រួតពិនិត្យសេវារូបភាពចល័ត។"
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr "ភ្ជាប់ ឬផ្ដាច់សេវារូបភាពចល័ត"
+
+#: src/portable/org.freedesktop.portable1.policy:24
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr "ការផ្ទៀងផ្ទាត់តម្រូវឱ្យភ្ជាប់ ឬផ្ដាច់សេវារូបភាពចល័ត។"
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr "លុប ឬកែប្រែសេវារូបភាពចល័ត"
+
+#: src/portable/org.freedesktop.portable1.policy:35
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យលុប ឬកែប្រែសេវារូបភាពចល័ត។"
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr "ចុះឈ្មោះសេវាកម្ម DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+msgid "Authentication is required to register a DNS-SD service."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យចុះឈ្មោះសេវាកម្ម DNS-SD ។"
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+msgid "Unregister a DNS-SD service"
+msgstr "ដកការចុះឈ្មោះសេវាកម្ម DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+msgid "Authentication is required to unregister a DNS-SD service."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យលុបឈ្មោះសេវាកម្ម DNS-SD ។"
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "ត្រឡប់ការកំណត់ដំណោះស្រាយឈ្មោះ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to reset name resolution settings."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់ការកំណត់គុណភាពបង្ហាញឈ្មោះឡើងវិញ។"
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr "Subscribe លទ្ធផលនៃសំណួរ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+msgid "Authentication is required to subscribe query results."
+msgstr "តម្រូវឱ្យមានការផ្ទៀងផ្ទាត់ភាពត្រឹមត្រូវ ដើម្បី subscribe លទ្ធផលសំណួរ។"
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Subscribe to DNS configuration"
+msgstr "Subscribe ការកំណត់រចនាសម្ព័ន្ធ DNS"
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+msgid "Authentication is required to subscribe to DNS configuration."
+msgstr "តម្រូវឱ្យមានការផ្ទៀងផ្ទាត់ភាពត្រឹមត្រូវដើម្បី subscribe ការកំណត់រចនាសម្ព័ន្ធ DNS ។"
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump cache"
+msgstr "បោះចោល cache"
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+msgid "Authentication is required to dump cache."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបោះចោល cache។"
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump server state"
+msgstr "ទម្លាក់ចោល server state"
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+msgid "Authentication is required to dump server state."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបោះបង់ស្ថានភាពម៉ាស៊ីនមេ។"
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Dump statistics"
+msgstr "បោះចោលស្ថិតិ​"
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+msgid "Authentication is required to dump statistics."
+msgstr "តម្រូវឱ្យមានការផ្ទៀងផ្ទាត់ភាពត្រឹមត្រូវ ដើម្បីបោះបង់ស្ថិតិ។"
+
+#: src/resolve/org.freedesktop.resolve1.policy:198
+msgid "Reset statistics"
+msgstr "កំណត់ស្ថិតិឡើងវិញ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:199
+msgid "Authentication is required to reset statistics."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់ឡើងវិញនូវស្ថិតិ។"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr "ពិនិត្យមើលបច្ចុប្បន្នភាពនៃប្រព័ន្ធ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+msgid "Authentication is required to check for system updates."
+msgstr "តម្រូវឱ្យមានការផ្ទៀងផ្ទាត់ភាពត្រឹមត្រូវ ដើម្បីពិនិត្យមើលបច្ចុប្បន្នភាពនៃប្រព័ន្ធ។"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr "ដំឡើងបច្ចុប្បន្នភាពប្រព័ន្ធ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+msgid "Authentication is required to install system updates."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យដំឡើងបច្ចុប្បន្នភាពប្រព័ន្ធ។"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr "ដំឡើងកំណែប្រព័ន្ធជាក់លាក់"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "ការផ្ទៀងផ្ទាត់តម្រូវឱ្យធ្វើបច្ចុប្បន្នភាពប្រព័ន្ធទៅកំណែជាក់លាក់ (អាចចាស់)។"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr "សម្អាតបច្ចុប្បន្នភាពប្រព័ន្ធចាស់"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+msgid "Authentication is required to cleanup old system updates."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យសម្អាតបច្ចុប្បន្នភាពនៃប្រព័ន្ធចាស់។"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr "គ្រប់គ្រងមុខងារ optional"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+msgid "Authentication is required to manage optional features."
+msgstr "ការផ្ទៀងផ្ទាត់ត្រូវបានទាមទារដើម្បីគ្រប់គ្រងមុខងារ optional។"
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
+msgid "Set system time"
+msgstr "កំណត់ពេលវេលាប្រព័ន្ធ"
+
+#: src/timedate/org.freedesktop.timedate1.policy:23
+msgid "Authentication is required to set the system time."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់ម៉ោងរបស់ប្រព័ន្ធ។"
+
+#: src/timedate/org.freedesktop.timedate1.policy:33
+msgid "Set system timezone"
+msgstr "កំណត់តំបន់ពេលវេលារបស់ប្រព័ន្ធ"
+
+#: src/timedate/org.freedesktop.timedate1.policy:34
+msgid "Authentication is required to set the system timezone."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់តំបន់ពេលវេលារបស់ប្រព័ន្ធ។"
+
+#: src/timedate/org.freedesktop.timedate1.policy:43
+msgid "Set RTC to local timezone or UTC"
+msgstr "កំណត់ RTC ទៅតំបន់ពេលវេលាក្នុងស្រុក ឬ UTC"
+
+#: src/timedate/org.freedesktop.timedate1.policy:44
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យត្រួតពិនិត្យថាតើ RTC រក្សាទុកម៉ោងក្នុងស្រុក ឬ UTC ។"
+
+#: src/timedate/org.freedesktop.timedate1.policy:53
+msgid "Turn network time synchronization on or off"
+msgstr "បើកឬបិទការធ្វើសមកាលកម្មពេលវេលាបណ្តាញ"
+
+#: src/timedate/org.freedesktop.timedate1.policy:54
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យត្រួតពិនិត្យថាតើការធ្វើសមកាលកម្មពេលវេលាបណ្តាញនឹងត្រូវបានបើកដំណើរការដែរឬទេ។"
+
+#: src/core/dbus-unit.c:371
+msgid "Authentication is required to start '$(unit)'."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យចាប់ផ្តើម '$(unit)'។"
+
+#: src/core/dbus-unit.c:372
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបញ្ឈប់ '$(unit)'។"
+
+#: src/core/dbus-unit.c:373
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យផ្ទុក '$(unit)' ឡើងវិញ។"
+
+#: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យចាប់ផ្តើម '$(unit)' ឡើងវិញ។"
+
+#: src/core/dbus-unit.c:567
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
+msgstr "ការផ្ទៀងផ្ទាត់តម្រូវឱ្យផ្ញើសញ្ញា UNIX ទៅកាន់ដំណើរការនៃ '$(unit)'។"
+
+#: src/core/dbus-unit.c:620
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"subgroup of '$(unit)'."
+msgstr "ការផ្ទៀងផ្ទាត់តម្រូវឱ្យផ្ញើសញ្ញា UNIX ទៅកាន់ដំណើរការនៃក្រុមរងនៃ '$(unit)'។"
+
+#: src/core/dbus-unit.c:648
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr "ការផ្ទៀងផ្ទាត់តម្រូវឱ្យកំណត់ឡើងវិញនូវស្ថានភាព \"failed\" នៃ '$(unit)' ។"
+
+#: src/core/dbus-unit.c:678
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់លក្ខណសម្បត្តិនៅលើ '$(unit)'។"
+
+#: src/core/dbus-unit.c:775
+msgid ""
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យលុបឯកសារ និងថតឯកសារដែលពាក់ព័ន្ធជាមួយ '$(unit)'។"
+
+#: src/core/dbus-unit.c:812
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបង្កក ឬរលាយដំណើរការនៃឯកតា '$(unit)'។"

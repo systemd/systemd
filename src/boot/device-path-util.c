@@ -2,7 +2,14 @@
 
 #include "device-path-util.h"
 #include "efi-string.h"
+#include "string-util-fundamental.h"
 #include "util.h"
+
+static const EFI_DEVICE_PATH *device_path_find_end_node(const EFI_DEVICE_PATH *dp) {
+        while (!device_path_is_end(dp))
+                dp = device_path_next_node(dp);
+        return dp;
+}
 
 EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp) {
         EFI_STATUS err;
@@ -15,9 +22,7 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         if (err != EFI_SUCCESS)
                 return err;
 
-        EFI_DEVICE_PATH *end_node = dp;
-        while (!device_path_is_end(end_node))
-                end_node = device_path_next_node(end_node);
+        const EFI_DEVICE_PATH *end_node = device_path_find_end_node(dp);
 
         size_t file_size = strsize16(file);
         size_t dp_size = (uint8_t *) end_node - (uint8_t *) dp;
@@ -157,7 +162,9 @@ EFI_DEVICE_PATH *device_path_replace_node(
          * node. If new_node is provided, it is appended at the end of the new path. */
 
         assert(path);
-        assert(node);
+
+        if (!node)
+                node = device_path_find_end_node(path);
 
         size_t len = (uint8_t *) node - (uint8_t *) path;
         EFI_DEVICE_PATH *ret = xmalloc(len + (new_node ? new_node->Length : 0) + sizeof(EFI_DEVICE_PATH));
@@ -177,4 +184,8 @@ size_t device_path_size(const EFI_DEVICE_PATH *dp) {
                 ;
 
         return (const uint8_t*) i - (const uint8_t*) dp + sizeof(EFI_DEVICE_PATH);
+}
+
+EFI_DEVICE_PATH *device_path_dup(const EFI_DEVICE_PATH *dp) {
+        return xmemdup(ASSERT_PTR(dp), device_path_size(dp));
 }

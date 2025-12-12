@@ -2,6 +2,7 @@
 #pragma once
 
 #include "cgroup.h"
+#include "core-forward.h"
 #include "kill.h"
 #include "unit.h"
 

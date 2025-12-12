@@ -1,14 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-#include <sys/types.h>
-
-#include "fdset.h"
-#include "memory-util.h"
-
-typedef struct Manager Manager;
+#include "core-forward.h"
 
 /* Note that this object always allocates a pair of user and group under the same name, even if one of them isn't
  * used. This means, if you want to allocate a group and user pair, and they might have two different names, then you

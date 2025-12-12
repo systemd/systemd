@@ -3,8 +3,6 @@
 set -eux
 set -o pipefail
 
-systemd-analyze log-level debug
-
 test_directory() {
     local directory="$1"
     local path="$2"
@@ -25,7 +23,7 @@ test_directory() {
     (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"=zzz test -f "${path}"/zzz/test-missing)
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" test -d "${path}"/www
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" test -L "${path}"/ro
-    (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" sh -c "echo foo > ${path}/www/test-missing")
+    (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" bash -c "echo foo > ${path}/www/test-missing")
 
     test -d "${path}"/zzz
     test ! -L "${path}"/zzz
@@ -52,7 +50,7 @@ test_directory() {
     (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"=zzz test -f "${path}"/zzz/test-missing)
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"="www::ro www:ro:ro" test -d "${path}"/www
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"="www::ro www:ro:ro" test -L "${path}"/ro
-    (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"="www::ro www:ro:ro" sh -c "echo foo > ${path}/www/test-missing")
+    (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=1 -p "${directory}"="www::ro www:ro:ro" bash -c "echo foo > ${path}/www/test-missing")
 
     test -L "${path}"/zzz
     test -d "${path}"/private/zzz
@@ -78,7 +76,7 @@ test_directory() {
     (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"=zzz test -f "${path}"/zzz/test-missing)
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" test -d "${path}"/www
     systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" test -L "${path}"/ro
-    (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" sh -c "echo foo > ${path}/www/test-missing")
+    (! systemd-run --wait -p RuntimeDirectoryPreserve=yes -p DynamicUser=0 -p "${directory}"="www::ro www:ro:ro" bash -c "echo foo > ${path}/www/test-missing")
 
     test -d "${path}"/zzz
     test ! -L "${path}"/zzz
@@ -108,7 +106,7 @@ ExecStart=test -f ${path}/x:yz/test
 ExecStart=test -f ${path}/zzz/test
 ExecStart=test -d ${path}/www
 ExecStart=test -L ${path}/ro
-ExecStart=sh -c "! test -w ${path}/www"
+ExecStart=bash -c "! test -w ${path}/www"
 EOF
     systemctl daemon-reload
     systemctl start --wait testservice-34.service
@@ -180,7 +178,7 @@ PrivateUsers=yes
 TemporaryFileSystem=/run /var/opt /var/lib /vol
 UMask=0000
 StateDirectory=testidmapped:sampleservice
-ExecStart=/bin/bash -c ' \
+ExecStart=bash -c ' \
     set -eux; \
     set -o pipefail; \
     touch /var/lib/sampleservice/testfile; \
@@ -213,7 +211,7 @@ PrivateUsers=no
 TemporaryFileSystem=/run /var/opt /var/lib /vol
 UMask=0000
 StateDirectory=testidmapped:sampleservice
-ExecStart=/bin/bash -c ' \
+ExecStart=bash -c ' \
     set -eux; \
     set -o pipefail; \
     touch /var/lib/sampleservice/testfile; \
@@ -238,7 +236,5 @@ if systemd-analyze compare-versions "$(uname -r)" ge 5.12; then
     test_check_idmapped_mounts
     test_check_idmapped_mounts_root
 fi
-
-systemd-analyze log-level info
 
 touch /testok

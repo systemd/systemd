@@ -5,6 +5,5 @@ executables += [
                 'name' : 'systemd-gpt-auto-generator',
                 'conditions' : ['HAVE_BLKID'],
                 'sources' : files('gpt-auto-generator.c'),
-                'dependencies' : libblkid,
         },
 ]

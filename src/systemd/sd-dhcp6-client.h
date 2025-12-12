@@ -19,18 +19,17 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <net/ethernet.h>
-#include <sys/types.h>
-
 #include "_sd-common.h"
-#include "sd-device.h"
-#include "sd-dhcp-duid.h"
-#include "sd-dhcp6-lease.h"
-#include "sd-dhcp6-option.h"
-#include "sd-event.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct in6_addr;
+
+typedef struct sd_dhcp_duid sd_dhcp_duid;
+typedef struct sd_dhcp6_option sd_dhcp6_option;
+typedef struct sd_dhcp6_lease sd_dhcp6_lease;
+typedef struct sd_device sd_device;
+typedef struct sd_event sd_event;
 
 enum {
         SD_DHCP6_CLIENT_EVENT_STOP                      = 0,
@@ -50,10 +49,10 @@ int sd_dhcp6_client_set_callback(
 
 int sd_dhcp6_client_set_ifindex(
                 sd_dhcp6_client *client,
-                int interface_index);
+                int ifindex);
 int sd_dhcp6_client_set_ifname(
                 sd_dhcp6_client *client,
-                const char *interface_name);
+                const char *ifname);
 int sd_dhcp6_client_get_ifname(sd_dhcp6_client *client, const char **ret);
 int sd_dhcp6_client_set_local_address(
                 sd_dhcp6_client *client,

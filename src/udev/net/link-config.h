@@ -2,16 +2,13 @@
 #pragma once
 
 #include "sd-device.h"
-#include "sd-netlink.h"
 
-#include "condition.h"
-#include "conf-parser.h"
 #include "cpu-set-util.h"
+#include "ether-addr-util.h"
 #include "ethtool-util.h"
-#include "hashmap.h"
+#include "shared-forward.h"
 #include "list.h"
 #include "net-condition.h"
-#include "netif-naming-scheme.h"
 
 typedef struct LinkConfigContext LinkConfigContext;
 typedef struct LinkConfig LinkConfig;
@@ -114,7 +111,7 @@ struct LinkConfig {
         uint32_t eee_advertise[N_ADVERTISE];
 
         /* Rx RPS CPU mask */
-        CPUSet *rps_cpu_mask;
+        CPUSet rps_cpu_mask;
 
         /* SR-IOV */
         uint32_t sr_iov_num_vfs;
@@ -139,10 +136,10 @@ int link_get_config(LinkConfigContext *ctx, Link *link);
 int link_apply_config(LinkConfigContext *ctx, Link *link);
 
 const char* mac_address_policy_to_string(MACAddressPolicy p) _const_;
-MACAddressPolicy mac_address_policy_from_string(const char *p) _pure_;
+MACAddressPolicy mac_address_policy_from_string(const char *s) _pure_;
 
 /* gperf lookup function */
-const struct ConfigPerfItem* link_config_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* link_config_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_udev_property);
 CONFIG_PARSER_PROTOTYPE(config_parse_udev_property_name);

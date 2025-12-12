@@ -3,7 +3,7 @@
 
 #include <linux/nl80211.h>
 
-#include "conf-parser.h"
+#include "shared-forward.h"
 #include "netdev.h"
 
 typedef struct WLan {

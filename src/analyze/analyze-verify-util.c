@@ -1,18 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
+#include <unistd.h>
+
+#include "sd-bus.h"
 
 #include "all-units.h"
 #include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-verify-util.h"
 #include "bus-error.h"
-#include "bus-util.h"
+#include "errno-util.h"
 #include "log.h"
 #include "manager.h"
 #include "pager.h"
 #include "path-util.h"
+#include "set.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "unit-serialize.h"
@@ -357,9 +362,16 @@ int verify_units(
          * its direct dependencies. Hence, search for any of the filenames in the set and if found,
          * return a non-zero process exit status. */
         if (recursive_errors == RECURSIVE_ERRORS_ONE)
-                STRV_FOREACH(filename, filenames)
-                        if (set_contains(s, basename(*filename)))
+                STRV_FOREACH(filename, filenames) {
+                        _cleanup_free_ char *unit_file = NULL;
+
+                        r = path_extract_filename(*filename, &unit_file);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", *filename);
+
+                        if (set_contains(s, unit_file))
                                 return -ENOTRECOVERABLE;
+                }
 
         return 0;
 }

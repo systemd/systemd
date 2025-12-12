@@ -3,16 +3,25 @@
 #include <linux/ipv6.h>
 #include <netinet/icmp6.h>
 
+#include "sd-ndisc-protocol.h"
+
+#include "alloc-util.h"
+#include "dns-def.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
 #include "dns-resolver-internal.h"
 #include "ether-addr-util.h"
+#include "hash-funcs.h"
 #include "hostname-util.h"
+#include "icmp6-packet.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
-#include "missing_network.h"
 #include "ndisc-option.h"
 #include "network-common.h"
+#include "set.h"
+#include "siphash24.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
 
@@ -1662,6 +1671,14 @@ int ndisc_parse_options(ICMP6Packet *packet, Set **ret_options) {
         return 0;
 }
 
+sd_ndisc_option* ndisc_option_get(Set *options, const sd_ndisc_option *p) {
+        return set_get(options, ASSERT_PTR(p));
+}
+
+sd_ndisc_option* ndisc_option_get_by_type(Set *options, uint8_t type) {
+        return ndisc_option_get(options, &(const sd_ndisc_option) { .type = type });
+}
+
 int ndisc_option_get_mac(Set *options, uint8_t type, struct ether_addr *ret) {
         assert(IN_SET(type, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, SD_NDISC_OPTION_TARGET_LL_ADDRESS));
 
@@ -1672,6 +1689,10 @@ int ndisc_option_get_mac(Set *options, uint8_t type, struct ether_addr *ret) {
         if (ret)
                 *ret = p->mac;
         return 0;
+}
+
+void ndisc_option_remove(Set *options, const sd_ndisc_option *p) {
+        ndisc_option_free(set_remove(options, ASSERT_PTR(p)));
 }
 
 int ndisc_send(int fd, const struct in6_addr *dst, const struct icmp6_hdr *hdr, Set *options, usec_t timestamp) {

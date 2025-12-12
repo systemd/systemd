@@ -60,10 +60,10 @@ grep -q '^PRIORITY=6$' /tmp/output
 ID="$(systemd-id128 new)"
 echo -e 'HEAD\nTAIL\nTAIL' | systemd-cat -t "$ID"
 journalctl --sync
-journalctl -b -t "$ID" | grep -q HEAD
-journalctl -b -t "$ID" | grep -q TAIL
-journalctl -b -t "$ID" --truncate-newline | grep -q HEAD
-journalctl -b -t "$ID" --truncate-newline | grep -q -v TAIL
+journalctl -b -t "$ID" | grep HEAD >/dev/null
+journalctl -b -t "$ID" | grep TAIL >/dev/null
+journalctl -b -t "$ID" --truncate-newline | grep HEAD >/dev/null
+journalctl -b -t "$ID" --truncate-newline | grep -v TAIL >/dev/null
 
 # '-b all' negates earlier use of -b (-b and -m are otherwise exclusive)
 journalctl -b -1 -b all -m >/dev/null
@@ -93,7 +93,7 @@ grep -vq "^_PID=$PID" /tmp/output
 # https://github.com/systemd/systemd/issues/15654
 ID=$(systemd-id128 new)
 printf "This will\nusually fail\nand be truncated\n" >/tmp/expected
-systemd-cat -t "$ID" /bin/sh -c 'env echo -n "This will";echo;env echo -n "usually fail";echo;env echo -n "and be truncated";echo;'
+systemd-cat -t "$ID" bash -c 'env echo -n "This will"; echo; env echo -n "usually fail"; echo; env echo -n "and be truncated"; echo;'
 journalctl --sync
 journalctl -b -o cat -t "$ID" >/tmp/output
 diff /tmp/expected /tmp/output
@@ -104,15 +104,17 @@ diff /tmp/expected /tmp/output
 
 # test that LogLevelMax can also suppress logging about services, not only by services
 systemctl start silent-success
+journalctl --sync
 [[ -z "$(journalctl -b -q -u silent-success.service)" ]]
 
 # Test syslog identifiers exclusion
 systemctl start verbose-success.service
+journalctl --sync
 [[ -n "$(journalctl -b -q -u verbose-success.service -t systemd)" ]]
-[[ -n "$(journalctl -b -q -u verbose-success.service -t echo)" ]]
+[[ -n "$(journalctl -b -q -u verbose-success.service -t bash)" ]]
 [[ -n "$(journalctl -b -q -u verbose-success.service -T systemd)" ]]
-[[ -n "$(journalctl -b -q -u verbose-success.service -T echo)" ]]
-[[ -z "$(journalctl -b -q -u verbose-success.service -T echo -T '(echo)' -T sleep -T '(sleep)' -T systemd -T '(systemd)' -T systemd-executor)" ]]
+[[ -n "$(journalctl -b -q -u verbose-success.service -T bash)" ]]
+[[ -z "$(journalctl -b -q -u verbose-success.service -T bash -T '(bash)' -T systemd -T '(systemd)')" ]]
 
 # Exercise the matching machinery
 SYSTEMD_LOG_LEVEL=debug journalctl -b -n 1 /dev/null /dev/zero /dev/null /dev/null /dev/null
@@ -120,7 +122,7 @@ journalctl -b -n 1 /bin/true /bin/false
 journalctl -b -n 1 /bin/true + /bin/false
 journalctl -b -n 1 -r --unit "systemd*"
 
-systemd-run --user -M "testuser@.host" /bin/echo hello
+systemd-run --user -M "testuser@.host" echo hello
 journalctl --sync
 journalctl -b -n 1 -r --user-unit "*"
 
@@ -158,7 +160,7 @@ journalctl --header | grep system.journal
 journalctl --field _EXE | grep . >/dev/null
 journalctl --no-hostname --utc --catalog | grep . >/dev/null
 # Exercise executable_is_script() and the related code, e.g. `journalctl -b /path/to/a/script.sh` should turn
-# into ((_EXE=/bin/bash AND _COMM=script.sh) AND _BOOT_ID=c002e3683ba14fa8b6c1e12878386514)
+# into ((_EXE=/usr/bin/bash AND _COMM=script.sh) AND _BOOT_ID=c002e3683ba14fa8b6c1e12878386514)
 journalctl -b "$(readlink -f "$0")" | grep . >/dev/null
 journalctl -b "$(systemd-id128 boot-id)" | grep . >/dev/null
 journalctl --since yesterday --reverse | grep . >/dev/null
@@ -210,18 +212,16 @@ sleep 3
 [[ ! -f "/tmp/i-lose-my-logs" ]]
 systemctl stop forever-print-hola
 
-set +o pipefail
 # https://github.com/systemd/systemd/issues/15528
 journalctl --follow --file=/var/log/journal/*/* | head -n1 | grep .
 # https://github.com/systemd/systemd/issues/24565
 journalctl --follow --merge | head -n1 | grep .
-set -o pipefail
 
 # https://github.com/systemd/systemd/issues/26746
 rm -f /tmp/issue-26746-log /tmp/issue-26746-cursor
 ID="$(systemd-id128 new)"
 journalctl -t "$ID" --follow --cursor-file=/tmp/issue-26746-cursor | tee /tmp/issue-26746-log &
-systemd-cat -t "$ID" /bin/sh -c 'echo hogehoge'
+systemd-cat -t "$ID" bash -c 'echo hogehoge'
 # shellcheck disable=SC2016
 timeout 10 bash -c 'until [[ -f /tmp/issue-26746-log && "$(cat /tmp/issue-26746-log)" =~ hogehoge ]]; do sleep .5; done'
 pkill -TERM journalctl

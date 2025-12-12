@@ -149,7 +149,7 @@
 
         <listitem><para>Wait for a signal. Takes an object path, interface name, and signal name. To suppress
         output of the returned data, use the <option>--quiet</option> option. The service name may be
-        omitted, in which case busctl will match signals from any sender.</para>
+        omitted, in which case <command>busctl</command> will match signals from any sender.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>

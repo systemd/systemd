@@ -2,10 +2,9 @@
 
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-
 #include "sd-id128.h"
+
+#include "shared-forward.h"
 
 typedef enum Id128PrettyPrintMode {
         ID128_PRINT_ID128,

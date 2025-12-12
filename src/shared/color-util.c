@@ -3,7 +3,6 @@
 #include <math.h>
 
 #include "color-util.h"
-#include "macro.h"
 
 void rgb_to_hsv(double r, double g, double b,
                 double *ret_h, double *ret_s, double *ret_v) {

@@ -8,7 +8,7 @@
 # device, and not the (parent) PCI device, is tagged with 'master-of-seat'.
 #
 # Allowed properties are:
-#    ID_TAG_MASTER_OF_SEAT=1
+#    ID_TAG_MASTER_OF_SEAT=0|1
 
 #########################################
 # eXtreme Graphic Innovation (XGI)

@@ -10,3 +10,4 @@
 [Unit]
 Description=SSH Access Available
 Documentation=man:systemd.special(7)
+StopWhenUnneeded=yes

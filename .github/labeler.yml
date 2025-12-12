@@ -108,7 +108,7 @@ hwdb:
     - any-glob-to-any-file: '**/*hwdb*'
 import:
   - changed-files:
-    - any-glob-to-any-file: '**/*import*'
+    - any-glob-to-any-file: ['src/import/*', 'src/shared/*import*', 'units/**/*import*']
 integritysetup:
   - changed-files:
     - any-glob-to-any-file: '**/*integrity*'
@@ -132,7 +132,7 @@ login:
     - any-glob-to-any-file: ['src/login/*', '**/sd-login*/**']
 machine:
   - changed-files:
-    - any-glob-to-any-file: ['src/machine/*', 'units/*machine*']
+    - any-glob-to-any-file: ['src/machine/*', 'units/**/*machine*']
 meson:
   - changed-files:
     - any-glob-to-any-file: ['meson_options.txt', '**/meson.build']
@@ -195,7 +195,7 @@ run:
     - any-glob-to-any-file: ['src/run/*', 'man/systemd-run*']
 sd-boot/sd-stub/bootctl:
   - changed-files:
-    - any-glob-to-any-file: ['src/boot/**/*', 'man/bootctl*', 'man/systemd-boot.xml']
+    - any-glob-to-any-file: ['src/boot/**/*', 'src/bootctl/*', 'man/bootctl*', 'man/systemd-boot.xml']
 sd-bus:
   - changed-files:
     - any-glob-to-any-file: '**/sd-bus*/**'
@@ -226,9 +226,12 @@ sd-resolve:
 selinux:
   - changed-files:
     - any-glob-to-any-file: '**/*selinux*'
-shell-completion:
+shell completion:
   - changed-files:
-    - any-glob-to-any-file: 'shell-completion/*'
+    - any-glob-to-any-file: 'shell-completion/**'
+shell profile:
+  - changed-files:
+    - any-glob-to-any-file: 'profile.d/*'
 shutdown:
   - changed-files:
     - any-glob-to-any-file: ['src/shutdown/*', 'units/**/*shutdown*']

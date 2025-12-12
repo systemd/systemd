@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-image-policy.h"
+#include "ansi-color.h"
 #include "format-table.h"
 #include "image-policy.h"
-#include "terminal-util.h"
+#include "string-util.h"
 
 static int table_add_designator_line(Table *table, PartitionDesignator d, PartitionPolicyFlags f) {
         _cleanup_free_ char *q = NULL;
@@ -101,7 +103,7 @@ int verb_image_policy(int argc, char *argv[], void *userdata) {
                 else if (streq(argv[i], "@host"))
                         p = &image_policy_host;
                 else {
-                        r = image_policy_from_string(argv[i], &pbuf);
+                        r = image_policy_from_string(argv[i], /* graceful= */ false, &pbuf);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse image policy '%s': %m", argv[i]);
 
@@ -130,7 +132,7 @@ int verb_image_policy(int argc, char *argv[], void *userdata) {
                 if (!table)
                         return log_oom();
 
-                (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+                table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
                 for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
                         PartitionPolicyFlags f = image_policy_get_exhaustively(p, d);

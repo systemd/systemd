@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "bitfield.h"
+#include "extract-word.h"
 #include "logarithm.h"
 #include "networkd-address.h"
 #include "networkd-link.h"
@@ -12,9 +13,9 @@
 #include "networkd-route.h"
 #include "networkd-route-util.h"
 #include "parse-util.h"
+#include "set.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "strv.h"
 #include "sysctl-util.h"
 
 #define ROUTES_DEFAULT_MAX_PER_FAMILY 4096

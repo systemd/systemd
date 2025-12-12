@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <sys/epoll.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -12,19 +11,22 @@
 #include "dbus-unit.h"
 #include "device.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fstab-util.h"
+#include "glyph-util.h"
 #include "manager.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "swap.h"
 #include "unit.h"
 #include "unit-name.h"
@@ -406,8 +408,6 @@ static int swap_setup_unit(
                 s->what = strdup(what);
                 if (!s->what)
                         return log_oom();
-
-                unit_add_to_load_queue(u);
         }
 
         SwapParameters *p = &s->parameters_proc_swaps;
@@ -418,12 +418,14 @@ static int swap_setup_unit(
                         return log_oom();
         }
 
-        /* The unit is definitely around now, mark it as loaded if it was previously referenced but
-         * could not be loaded. After all we can load it now, from the data in /proc/swaps. */
+        /* The unit is definitely around now. When we previously fail to load the unit, let's reload the unit
+         * by resetting the load state and load error, and adding the unit to the load queue. */
         if (UNIT_IS_LOAD_ERROR(u->load_state)) {
-                u->load_state = UNIT_LOADED;
+                u->load_state = UNIT_STUB;
                 u->load_error = 0;
         }
+
+        unit_add_to_load_queue(u);
 
         if (set_flags) {
                 s->is_active = true;
@@ -779,7 +781,7 @@ static void swap_enter_activating(Swap *s) {
                 }
         }
 
-        r = exec_command_set(s->control_command, "/sbin/swapon", "--fixpgsz", NULL);
+        r = exec_command_set(s->control_command, SWAPON, "--fixpgsz", NULL);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to initialize swapon command line: %m");
                 goto fail;
@@ -824,7 +826,7 @@ static void swap_enter_deactivating(Swap *s) {
         s->control_command = s->exec_command + SWAP_EXEC_DEACTIVATE;
 
         r = exec_command_set(s->control_command,
-                             "/sbin/swapoff",
+                             SWAPOFF,
                              s->what,
                              NULL);
         if (r < 0) {
@@ -862,19 +864,6 @@ static int swap_start(Unit *u) {
         int r;
 
         assert(s);
-
-        /* We cannot fulfill this request right now, try again later please! */
-        if (IN_SET(s->state,
-                   SWAP_DEACTIVATING,
-                   SWAP_DEACTIVATING_SIGTERM,
-                   SWAP_DEACTIVATING_SIGKILL,
-                   SWAP_CLEANING))
-                return -EAGAIN;
-
-        /* Already on it! */
-        if (s->state == SWAP_ACTIVATING)
-                return 0;
-
         assert(IN_SET(s->state, SWAP_DEAD, SWAP_FAILED));
 
         if (detect_container() > 0)
@@ -1145,7 +1134,7 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
 
                 device_found_node(m, d, DEVICE_FOUND_SWAP, DEVICE_FOUND_SWAP);
 
-                (void) swap_process_new(m, d, prio, set_flags);
+                swap_process_new(m, d, prio, set_flags);
         }
 
         return 0;
@@ -1315,7 +1304,7 @@ static void swap_enumerate(Manager *m) {
                         if (errno == ENOENT)
                                 log_debug_errno(errno, "Not swap enabled, skipping enumeration.");
                         else
-                                log_warning_errno(errno, "Failed to open /proc/swaps, ignoring: %m");
+                                log_warning_errno(errno, "Failed to open %s, ignoring: %m", "/proc/swaps");
 
                         return;
                 }
@@ -1519,9 +1508,13 @@ static int swap_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&s->exec_context, ret);
 }
 
-static int swap_can_start(Unit *u) {
+static int swap_test_startable(Unit *u) {
         Swap *s = ASSERT_PTR(SWAP(u));
         int r;
+
+        /* It is already being started. */
+        if (s->state == SWAP_ACTIVATING)
+                return false;
 
         r = unit_test_start_limit(u);
         if (r < 0) {
@@ -1529,7 +1522,7 @@ static int swap_can_start(Unit *u) {
                 return r;
         }
 
-        return 1;
+        return true;
 }
 
 int swap_get_priority(const Swap *s) {
@@ -1650,7 +1643,7 @@ const UnitVTable swap_vtable = {
                 },
         },
 
-        .can_start = swap_can_start,
+        .test_startable = swap_test_startable,
 
         .notify_plymouth = true,
 };

@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "cgroup-util.h"
+#include "argv-util.h"
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -13,12 +14,10 @@
 #include "generator.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "mkdir-label.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "process-util.h"
 #include "special.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -26,10 +25,18 @@
 #include "tmpfile-util.h"
 #include "unit-name.h"
 
+static int symlink_unless_exists(const char *target, const char *linkpath) {
+        (void) mkdir_parents(linkpath, 0755);
+
+        if (symlink(target, linkpath) < 0 && errno != EEXIST)
+                return log_error_errno(errno, "Failed to create symlink %s: %m", linkpath);
+        return 0;
+}
+
 int generator_open_unit_file_full(
                 const char *dir,
                 const char *source,
-                const char *fn,
+                const char *filename,
                 FILE **ret_file,
                 char **ret_final_path,
                 char **ret_temp_path) {
@@ -53,9 +60,9 @@ int generator_open_unit_file_full(
 
                 *ret_temp_path = TAKE_PTR(p);
         } else {
-                assert(fn);
+                assert(filename);
 
-                p = path_join(dir, fn);
+                p = path_join(dir, filename);
                 if (!p)
                         return log_oom();
 
@@ -134,12 +141,7 @@ int generator_add_symlink_full(
         if (!to)
                 return log_oom();
 
-        (void) mkdir_parents_label(to, 0755);
-
-        if (symlink(from, to) < 0 && errno != EEXIST)
-                return log_error_errno(errno, "Failed to create symlink \"%s\": %m", to);
-
-        return 0;
+        return symlink_unless_exists(from, to);
 }
 
 static int generator_add_ordering(
@@ -159,7 +161,7 @@ static int generator_add_ordering(
         assert(order);
         assert(dst);
 
-        /* Adds in an explicit ordering dependency of type <order> from <src> to <dst>. If <instance> is
+        /* Adds an explicit ordering dependency of type <order> from <src> to <dst>. If <instance> is
          * specified, it is inserted into <dst>. */
 
         if (instance) {
@@ -250,7 +252,8 @@ static int write_fsck_sysroot_service(
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
                 "ExecStart=" SYSTEMD_FSCK_PATH " %6$s\n"
-                "TimeoutSec=infinity\n",
+                "TimeoutSec=infinity\n"
+                "ImportCredential=fsck.*\n",
                 escaped,
                 unit,
                 device,
@@ -330,19 +333,16 @@ int generator_write_fsck_deps(
         }
 
         if (path_equal(where, "/")) {
-                const char *lnk;
-
                 /* We support running the fsck instance for the root fs while it is already mounted, for
                  * compatibility with non-initrd boots. It's ugly, but it is how it is. Since – unlike for
                  * regular file systems – this means the ordering is reversed (i.e. mount *before* fsck) we
                  * have a separate fsck unit for this, independent of systemd-fsck@.service. */
 
-                lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/" SPECIAL_FSCK_ROOT_SERVICE);
+                const char *lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/" SPECIAL_FSCK_ROOT_SERVICE);
 
-                (void) mkdir_parents(lnk, 0755);
-                if (symlink(SYSTEM_DATA_UNIT_DIR "/" SPECIAL_FSCK_ROOT_SERVICE, lnk) < 0)
-                        return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
-
+                r = symlink_unless_exists(SYSTEM_DATA_UNIT_DIR "/" SPECIAL_FSCK_ROOT_SERVICE, lnk);
+                if (r < 0)
+                        return r;
         } else {
                 _cleanup_free_ char *_fsck = NULL;
                 const char *fsck, *dep;
@@ -1054,10 +1054,10 @@ int generator_write_veritysetup_service_section(
 void log_setup_generator(void) {
         if (invoked_by_systemd()) {
                 /* Disable talking to syslog/journal (i.e. the two IPC-based loggers) if we run in system context. */
-                if (cg_pid_get_owner_uid(0, NULL) == -ENXIO /* not running in a per-user slice */)
+                if (streq_ptr(getenv("SYSTEMD_SCOPE"), "system"))
                         log_set_prohibit_ipc(true);
 
-                /* This effectively means: journal for per-user generators, kmsg otherwise */
+                /* This effectively means: journal for per-user service manager generators, kmsg for per-system service manager generators */
                 log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
         } else
                 log_set_target(LOG_TARGET_AUTO);

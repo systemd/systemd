@@ -1,24 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "assert-util.h"
 #include "errno-util.h"
 #include "log.h"
 
-static bool assert_return_is_critical = BUILD_MODE_DEVELOPER;
-
 /* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
 static char *log_abort_msg = NULL;
-
-void log_set_assert_return_is_critical(bool b) {
-        assert_return_is_critical = b;
-}
-
-bool log_get_assert_return_is_critical(void) {
-        return assert_return_is_critical;
-}
 
 static void log_assert(
         int level,
@@ -55,8 +46,8 @@ _noreturn_ void log_assert_failed_unreachable(const char *file, int line, const 
 }
 
 void log_assert_failed_return(const char *text, const char *file, int line, const char *func) {
-
-        if (assert_return_is_critical)
+        /* log_get_assert_return_is_critical is a weak symbol. It may be NULL. */
+        if (log_get_assert_return_is_critical && log_get_assert_return_is_critical())
                 log_assert_failed(text, file, line, func);
 
         PROTECT_ERRNO;

@@ -43,6 +43,7 @@ touch /usr/lib/systemd/network/donotexist.network
 (! networkctl unmask "donotexist.network")
 rm /usr/lib/systemd/network/donotexist.network
 
+(! networkctl cat "/usr/lib/systemd/network/$NETWORK_NAME")
 networkctl cat "$NETWORK_NAME" | tail -n +2 | cmp - "/usr/lib/systemd/network/$NETWORK_NAME"
 
 cat >new <<EOF
@@ -50,6 +51,7 @@ cat >new <<EOF
 Name=test2
 EOF
 
+(! networkctl edit "/usr/lib/systemd/network/$NETWORK_NAME")
 EDITOR='mv new' script -ec 'networkctl edit --runtime "$NETWORK_NAME"' /dev/null
 (! networkctl mask --runtime "$NETWORK_NAME")
 printf '%s\n' '[Match]' 'Name=test2' | cmp - "/run/systemd/network/$NETWORK_NAME"

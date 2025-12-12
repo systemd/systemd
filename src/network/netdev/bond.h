@@ -1,13 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/if_bonding.h>
-#include <netinet/in.h>
-
 #include "bond-util.h"
-#include "macro.h"
+#include "shared-forward.h"
 #include "netdev.h"
-#include "ordered-set.h"
 
 typedef struct Bond {
         NetDev meta;

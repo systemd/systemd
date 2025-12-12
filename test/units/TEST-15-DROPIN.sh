@@ -116,16 +116,16 @@ testcase_basic_dropins() {
 
     echo "*** test service.d/ top level drop-in"
     create_services test15-a test15-b
-    check_ko test15-a ExecCondition "/bin/echo a"
-    check_ko test15-b ExecCondition "/bin/echo b"
+    check_ko test15-a ExecCondition "echo a"
+    check_ko test15-b ExecCondition "echo b"
     mkdir -p /run/systemd/system/service.d
     cat >/run/systemd/system/service.d/override.conf <<EOF
 [Service]
-ExecCondition=/bin/echo %n
+ExecCondition=echo %n
 EOF
     systemctl daemon-reload
-    check_ok test15-a ExecCondition "/bin/echo test15-a"
-    check_ok test15-b ExecCondition "/bin/echo test15-b"
+    check_ok test15-a ExecCondition "echo test15-a"
+    check_ok test15-b ExecCondition "echo test15-b"
     rm -rf /run/systemd/system/service.d
 
     clear_units test15-{a,b,c,c1}.service
@@ -335,7 +335,7 @@ testcase_transient_slice_dropins() {
     # FIXME: implement reloading of individual units.
     #
     # The settings here are loaded twice. For most settings it doesn't matter,
-    # but Documentation is not deduplicated, so we current get repeated entried
+    # but Documentation is not deduplicated, so we currently get repeated entries
     # which is a bug.
 
     mkdir -p /etc/systemd/system/slice.d

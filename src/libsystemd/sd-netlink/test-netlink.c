@@ -5,24 +5,28 @@
 #include <linux/if_macsec.h>
 #include <linux/l2tp.h>
 #include <linux/nl80211.h>
+#include <linux/unix_diag.h>
+#include <net/ethernet.h>
 #include <net/if.h>
-#include <netinet/ether.h>
 #include <netinet/in.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "ether-addr-util.h"
-#include "macro.h"
+#include "fd-util.h"
+#include "missing-network.h"
 #include "netlink-genl.h"
 #include "netlink-internal.h"
+#include "netlink-sock-diag.h"
 #include "netlink-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 
 TEST(message_newlink_bridge) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
@@ -379,14 +383,14 @@ TEST(message_container) {
 
         ASSERT_OK(sd_netlink_message_enter_container(m, IFLA_LINKINFO));
         ASSERT_OK(sd_netlink_message_read_string(m, IFLA_INFO_KIND, &string_data));
-        ASSERT_STREQ("vlan", string_data);
+        ASSERT_STREQ(string_data, "vlan");
 
         ASSERT_OK(sd_netlink_message_enter_container(m, IFLA_INFO_DATA));
         ASSERT_OK(sd_netlink_message_read_u16(m, IFLA_VLAN_ID, &u16_data));
         ASSERT_OK(sd_netlink_message_exit_container(m));
 
         ASSERT_OK(sd_netlink_message_read_string(m, IFLA_INFO_KIND, &string_data));
-        ASSERT_STREQ("vlan", string_data);
+        ASSERT_STREQ(string_data, "vlan");
         ASSERT_OK(sd_netlink_message_exit_container(m));
 
         ASSERT_FAIL(sd_netlink_message_read_u32(m, IFLA_LINKINFO, &u32_data));
@@ -697,6 +701,32 @@ TEST(rtnl_set_link_name) {
         ASSERT_OK_EQ(rtnl_resolve_link_alternative_name(&rtnl, "test-shortname3", &resolved), ifindex);
         ASSERT_STREQ(resolved, "test-shortname3");
         ASSERT_NULL(resolved = mfree(resolved));
+}
+
+TEST(sock_diag_unix) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
+        int r;
+
+        ASSERT_OK(sd_sock_diag_socket_open(&nl));
+
+        _cleanup_close_ int unix_fd = ASSERT_FD(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        ASSERT_OK(socket_autobind(unix_fd, /* ret_name= */ NULL));
+        ASSERT_OK_ERRNO(listen(unix_fd, 123));
+
+        struct stat st;
+        ASSERT_OK_ERRNO(fstat(unix_fd, &st));
+
+        uint64_t cookie;
+        ASSERT_OK(socket_get_cookie(unix_fd, &cookie));
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        ASSERT_OK(sd_sock_diag_message_new_unix(nl, &message, st.st_ino, cookie, UDIAG_SHOW_RQLEN));
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
+        r = sd_netlink_call(nl, message, /* timeout= */ 0, &reply);
+        if (r == -ENOENT)
+                return (void) log_tests_skipped("CONFIG_UNIX_DIAG disabled");
+        ASSERT_OK(r);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

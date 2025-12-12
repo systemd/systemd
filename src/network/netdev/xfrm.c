@@ -2,7 +2,9 @@
 
 #include <linux/if_arp.h>
 
-#include "missing_network.h"
+#include "sd-netlink.h"
+
+#include "missing-network.h"
 #include "networkd-link.h"
 #include "xfrm.h"
 

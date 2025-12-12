@@ -96,17 +96,22 @@
 
     <varlistentry id='pager'>
       <term><varname>$SYSTEMD_PAGER</varname></term>
+      <term><varname>$PAGER</varname></term>
 
-      <listitem><para>Pager to use when <option>--no-pager</option> is not given; overrides
-      <varname>$PAGER</varname>. If neither <varname>$SYSTEMD_PAGER</varname> nor <varname>$PAGER</varname> are set, a
-      set of well-known pager implementations are tried in turn, including
-      <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
-      <citerefentry project='man-pages'><refentrytitle>more</refentrytitle><manvolnum>1</manvolnum></citerefentry>, until one is found. If
-      no pager implementation is discovered no pager is invoked. Setting this environment variable to an empty string
-      or the value <literal>cat</literal> is equivalent to passing <option>--no-pager</option>.</para>
+      <listitem><para>Pager to use when <option>--no-pager</option> is not given.
+      <varname>$SYSTEMD_PAGER</varname> is used if set; otherwise <varname>$PAGER</varname> is used.
+      If neither <varname>$SYSTEMD_PAGER</varname> nor <varname>$PAGER</varname> are set, a set of well-known
+      pager implementations is tried in turn, including
+      <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      and
+      <citerefentry project='man-pages'><refentrytitle>more</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      until one is found. If no pager implementation is discovered, no pager is invoked. Setting those
+      environment variables to an empty string or the value <literal>cat</literal> is equivalent to passing
+      <option>--no-pager</option>.</para>
 
       <para>Note: if <varname>$SYSTEMD_PAGERSECURE</varname> is not set, <varname>$SYSTEMD_PAGER</varname>
-      (as well as <varname>$PAGER</varname>) will be silently ignored.</para></listitem>
+      and <varname>$PAGER</varname> can only be used to disable the pager (with <literal>cat</literal> or
+      <literal></literal>), and are otherwise ignored.</para></listitem>
     </varlistentry>
 
     <varlistentry id='less'>
@@ -167,28 +172,53 @@
     <varlistentry id='lesssecure'>
       <term><varname>$SYSTEMD_PAGERSECURE</varname></term>
 
-      <listitem><para>Takes a boolean argument. When true, the "secure" mode of the pager is enabled; if
-      false, disabled. If <varname>$SYSTEMD_PAGERSECURE</varname> is not set at all, secure mode is enabled
-      if the effective UID is not the same as the owner of the login session, see
-      <citerefentry project='man-pages'><refentrytitle>geteuid</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-      and <citerefentry><refentrytitle>sd_pid_get_owner_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-      In secure mode, <option>LESSSECURE=1</option> will be set when invoking the pager, and the pager shall
-      disable commands that open or create new files or start new subprocesses. When
-      <varname>$SYSTEMD_PAGERSECURE</varname> is not set at all, pagers which are not known to implement
-      secure mode will not be used. (Currently only
-      <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-      implements secure mode.)</para>
-
-      <para>Note: when commands are invoked with elevated privileges, for example under <citerefentry
+      <listitem>
+      <para>Common pager commands like <citerefentry
+      project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>, in
+      addition to "paging", i.e. scrolling through the output, support opening of or writing to other files
+      and running arbitrary shell commands. When commands are invoked with elevated privileges, for example
+      under <citerefentry
       project='man-pages'><refentrytitle>sudo</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
       <citerefentry
-      project='die-net'><refentrytitle>pkexec</refentrytitle><manvolnum>1</manvolnum></citerefentry>, care
-      must be taken to ensure that unintended interactive features are not enabled. "Secure" mode for the
-      pager may be enabled automatically as describe above. Setting <varname>SYSTEMD_PAGERSECURE=0</varname>
-      or not removing it from the inherited environment allows the user to invoke arbitrary commands. Note
-      that if the <varname>$SYSTEMD_PAGER</varname> or <varname>$PAGER</varname> variables are to be
-      honoured, <varname>$SYSTEMD_PAGERSECURE</varname> must be set too. It might be reasonable to completely
-      disable the pager using <option>--no-pager</option> instead.</para></listitem>
+      project='die-net'><refentrytitle>pkexec</refentrytitle><manvolnum>1</manvolnum></citerefentry>, the
+      pager becomes a security boundary. Care must be taken that only programs with strictly limited
+      functionality are used as pagers, and unintended interactive features like opening or creation of new
+      files or starting of subprocesses are not allowed. "Secure mode" for the pager may be enabled as
+      described below, <emphasis>if the pager supports that</emphasis> (most pagers are not written in a way
+      that takes this into consideration). It is recommended to either explicitly enable "secure mode" or to
+      completely disable the pager using <option>--no-pager</option> or <varname>PAGER=cat</varname> when
+      allowing untrusted users to execute commands with elevated privileges.</para>
+
+      <para>This option takes a boolean argument. When set to true, the "secure mode" of the pager is
+      enabled. In "secure mode", <option>LESSSECURE=1</option> will be set when invoking the pager, which
+      instructs the pager to disable commands that open or create new files or start new subprocesses.
+      Currently only <citerefentry
+      project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry> is known
+      to understand this variable and implement "secure mode".</para>
+
+      <para>When set to false, no limitation is placed on the pager. Setting
+      <varname>SYSTEMD_PAGERSECURE=0</varname> or not removing it from the inherited environment may allow
+      the user to invoke arbitrary commands.</para>
+
+      <para>When <varname>$SYSTEMD_PAGERSECURE</varname> is not set, systemd tools attempt to automatically
+      figure out if "secure mode" should be enabled and whether the pager supports it. "Secure mode" is
+      enabled if the effective UID is not the same as the owner of the login session, see
+      <citerefentry project='man-pages'><refentrytitle>geteuid</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+      and
+      <citerefentry><refentrytitle>sd_pid_get_owner_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      or when running under
+      <citerefentry><refentrytitle>sudo</refentrytitle><manvolnum>8</manvolnum></citerefentry> or similar
+      tools (<varname>$SUDO_UID</varname> is set <footnote>
+      <para>It is recommended for other tools to set and check <varname>$SUDO_UID</varname> as appropriate,
+      treating it is a common interface.</para></footnote>). In those cases,
+      <varname>SYSTEMD_PAGERSECURE=1</varname> will be set and pagers which are not known to implement
+      "secure mode" will not be used at all. Note that this autodetection only covers the most common
+      mechanisms to elevate privileges and is intended as convenience. It is recommended to explicitly set
+      <varname>$SYSTEMD_PAGERSECURE</varname> or disable the pager.</para>
+
+      <para>Note that if the <varname>$SYSTEMD_PAGER</varname> or <varname>$PAGER</varname> variables are to
+      be honoured, other than to disable the pager, <varname>$SYSTEMD_PAGERSECURE</varname> must be set
+      too.</para></listitem>
     </varlistentry>
 
     <varlistentry id='colors'>

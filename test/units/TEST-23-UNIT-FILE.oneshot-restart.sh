@@ -11,10 +11,8 @@ set -o pipefail
 # wait this many secs for each test service to succeed in what is being tested
 MAX_SECS=60
 
-systemctl log-level debug
-
 # test one: Restart=on-failure should restart the service
-(! systemd-run --unit=oneshot-restart-one -p Type=oneshot -p Restart=on-failure /bin/bash -c "exit 1")
+(! systemd-run --unit=oneshot-restart-one -p Type=oneshot -p Restart=on-failure bash -c "exit 1")
 
 for ((secs = 0; secs < MAX_SECS; secs++)); do
     [[ "$(systemctl show oneshot-restart-one.service -P NRestarts)" -le 0 ]] || break
@@ -35,7 +33,7 @@ TMP_FILE="/tmp/test-23-oneshot-restart-test$RANDOM"
         -p StartLimitBurst=3 \
         -p Type=oneshot \
         -p Restart=on-failure \
-        -p ExecStart="/bin/bash -c 'printf a >>$TMP_FILE'" /bin/bash -c "exit 1")
+        -p ExecStart="bash -c 'printf a >>$TMP_FILE'" bash -c "exit 1")
 
 # wait for at least 3 restarts
 for ((secs = 0; secs < MAX_SECS; secs++)); do
@@ -90,12 +88,10 @@ read -r x <"$FIFO_FILE"
 assert_eq "$x" "finished"
 
 cmp -b <(systemctl show "$UNIT_NAME" -p Result -p NRestarts -p SubState) <<EOF
+SubState=dead
 Result=success
 NRestarts=1
-SubState=dead
 EOF
 
 systemctl disable "$UNIT_NAME"
 rm "$TMP_FILE" /run/systemd/system/{"$UNIT_NAME","$ONSUCCESS_UNIT_NAME"} "$FIFO_FILE"
-
-systemctl log-level info

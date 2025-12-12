@@ -18,14 +18,16 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <net/ethernet.h>
-#include <netinet/in.h>
 #include <stdbool.h>
 
 #include "_sd-common.h"
-#include "sd-event.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct ether_addr;
+struct in_addr;
+
+typedef struct sd_event sd_event;
 
 enum {
         SD_IPV4ACD_EVENT_STOP           = 0,
@@ -43,9 +45,9 @@ int sd_ipv4acd_get_address(sd_ipv4acd *acd, struct in_addr *address);
 int sd_ipv4acd_set_callback(sd_ipv4acd *acd, sd_ipv4acd_callback_t cb, void *userdata);
 int sd_ipv4acd_set_check_mac_callback(sd_ipv4acd *acd, sd_ipv4acd_check_mac_callback_t cb, void *userdata);
 int sd_ipv4acd_set_mac(sd_ipv4acd *acd, const struct ether_addr *addr);
-int sd_ipv4acd_set_ifindex(sd_ipv4acd *acd, int interface_index);
+int sd_ipv4acd_set_ifindex(sd_ipv4acd *acd, int ifindex);
 int sd_ipv4acd_get_ifindex(sd_ipv4acd *acd);
-int sd_ipv4acd_set_ifname(sd_ipv4acd *acd, const char *interface_name);
+int sd_ipv4acd_set_ifname(sd_ipv4acd *acd, const char *ifname);
 int sd_ipv4acd_get_ifname(sd_ipv4acd *acd, const char **ret);
 int sd_ipv4acd_set_timeout(sd_ipv4acd *acd, uint64_t usec);
 int sd_ipv4acd_set_address(sd_ipv4acd *acd, const struct in_addr *address);

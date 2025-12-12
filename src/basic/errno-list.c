@@ -1,30 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "errno-list.h"
-#include "macro.h"
 
 static const struct errno_name* lookup_errno(register const char *str,
                                              register GPERF_LEN_TYPE len);
 
-#include "errno-from-name.h"
-
-#if !HAVE_STRERRORNAME_NP
-#include "errno-to-name.h"
-
-const char* errno_to_name(int id) {
-
-        if (id < 0)
-                id = -id;
-
-        if ((size_t) id >= ELEMENTSOF(errno_names))
-                return NULL;
-
-        return errno_names[id];
-}
-#endif
+#include "errno-from-name.inc"
 
 int errno_from_name(const char *name) {
         const struct errno_name *sc;
@@ -37,4 +22,33 @@ int errno_from_name(const char *name) {
 
         assert(sc->id > 0);
         return sc->id;
+}
+
+#if HAVE_STRERRORNAME_NP
+const char* errno_name_no_fallback(int id) {
+        if (id == 0) /* To stay in line with our implementation below.  */
+                return NULL;
+
+        return strerrorname_np(ABS(id));
+}
+#else
+#  include "errno-to-name.inc"
+
+const char* errno_name_no_fallback(int id) {
+        if (id < 0)
+                id = -id;
+
+        if ((size_t) id >= ELEMENTSOF(errno_names))
+                return NULL;
+
+        return errno_names[id];
+}
+#endif
+
+const char* errno_name(int id, char buf[static ERRNO_NAME_BUF_LEN]) {
+        const char *a = errno_name_no_fallback(id);
+        if (a)
+                return a;
+        snprintf(buf, ERRNO_NAME_BUF_LEN, "%d", abs(id));
+        return buf;
 }

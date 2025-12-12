@@ -67,7 +67,7 @@ _resolvectl() {
                 comps=$( __get_interfaces )
                 ;;
             --protocol|-p|--type|-t|--class|-c|--json)
-                comps=$( resolvectl --legend=no "$prev" help; echo help )
+                comps=$( resolvectl --legend=no "$prev" help 2>/dev/null; echo help )
                 ;;
             --raw)
                 comps="payload packet"
@@ -107,7 +107,7 @@ _resolvectl() {
             if __contains_word "${COMP_WORDS[i]}" ${ARGS[FAMILY]} &&
                     ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                 name=${COMP_WORDS[i]}
-                break;
+                break
             fi
         done
         if [[ -z $name ]]; then
@@ -122,7 +122,7 @@ _resolvectl() {
             if __contains_word "${COMP_WORDS[i]}" $interfaces &&
                     ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                 name=${COMP_WORDS[i]}
-                break;
+                break
             fi
         done
 
@@ -135,7 +135,7 @@ _resolvectl() {
                 if __contains_word "${COMP_WORDS[i]}" ${ARGS[RESOLVE]} &&
                         ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                     name=${COMP_WORDS[i]}
-                    break;
+                    break
                 fi
             done
 
@@ -151,7 +151,7 @@ _resolvectl() {
                 if __contains_word "${COMP_WORDS[i]}" ${ARGS[BOOLEAN]} &&
                         ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                     name=${COMP_WORDS[i]}
-                    break;
+                    break
                 fi
             done
 
@@ -167,7 +167,7 @@ _resolvectl() {
                 if __contains_word "${COMP_WORDS[i]}" ${ARGS[DNSSEC]} &&
                         ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                     name=${COMP_WORDS[i]}
-                    break;
+                    break
                 fi
             done
 
@@ -183,7 +183,7 @@ _resolvectl() {
                 if __contains_word "${COMP_WORDS[i]}" ${ARGS[DNSOVERTLS]} &&
                         ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                     name=${COMP_WORDS[i]}
-                    break;
+                    break
                 fi
             done
 

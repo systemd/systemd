@@ -21,9 +21,6 @@ at_exit() {
 
 trap at_exit EXIT
 
-systemd-analyze log-level debug
-systemd-analyze log-target journal
-
 # Log files
 straceLog='strace.log'
 journalLog='journal.log'
@@ -344,14 +341,12 @@ else
 
     systemd-run -p NUMAPolicy=local -p NUMAMask=0 -p CPUAffinity=numa --unit "$runUnit" sleep 1000
     systemctlCheckNUMAProperties "$runUnit" "local" ""
-    systemctl cat "$runUnit" | grep -q 'CPUAffinity=numa'
+    systemctl cat "$runUnit" | grep 'CPUAffinity=numa' >/dev/null
     pid1StopUnit "$runUnit"
 fi
 
 # Cleanup
 rm -rf "$confDir"
 systemctl daemon-reload
-
-systemd-analyze log-level info
 
 touch /testok

@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,12 +21,12 @@
 #include "main-func.h"
 #include "notify-recv.h"
 #include "parse-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "socket-util.h"
+#include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "time-util.h"
 #include "user-util.h"
 
@@ -521,7 +520,7 @@ static int action_fork(char *const *_command) {
                         /* stdio_fds= */ (const int[]) { -EBADF, -EBADF, STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
-                        /* flags= */ FORK_REARRANGE_STDIO,
+                        /* flags= */ FORK_REARRANGE_STDIO|FORK_LOG,
                         &child);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork child in order to execute '%s': %m", c);

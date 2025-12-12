@@ -1,16 +1,31 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <assert.h>
-#include <errno.h>
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/param.h>
-#include <sys/sysmacros.h>
-#include <sys/types.h>
+#include "macro-fundamental.h" /* IWYU pragma: export */
 
-#include "constants.h"
-#include "macro-fundamental.h"
+#if !defined(HAS_FEATURE_MEMORY_SANITIZER)
+#  if defined(__has_feature)
+#    if __has_feature(memory_sanitizer)
+#      define HAS_FEATURE_MEMORY_SANITIZER 1
+#    endif
+#  endif
+#  if !defined(HAS_FEATURE_MEMORY_SANITIZER)
+#    define HAS_FEATURE_MEMORY_SANITIZER 0
+#  endif
+#endif
+
+#if !defined(HAS_FEATURE_ADDRESS_SANITIZER)
+#  ifdef __SANITIZE_ADDRESS__
+#      define HAS_FEATURE_ADDRESS_SANITIZER 1
+#  elif defined(__has_feature)
+#    if __has_feature(address_sanitizer)
+#      define HAS_FEATURE_ADDRESS_SANITIZER 1
+#    endif
+#  endif
+#  if !defined(HAS_FEATURE_ADDRESS_SANITIZER)
+#    define HAS_FEATURE_ADDRESS_SANITIZER 0
+#  endif
+#endif
 
 /* Note: on GCC "no_sanitize_address" is a function attribute only, on llvm it may also be applied to global
  * variables. We define a specific macro which knows this. Note that on GCC we don't need this decorator so much, since
@@ -32,15 +47,6 @@
 
 /* test harness */
 #define EXIT_TEST_SKIP 77
-
-/* builtins */
-#if __SIZEOF_INT__ == 4
-#define BUILTIN_FFS_U32(x) __builtin_ffs(x);
-#elif __SIZEOF_LONG__ == 4
-#define BUILTIN_FFS_U32(x) __builtin_ffsl(x);
-#else
-#error "neither int nor long are four bytes long?!?"
-#endif
 
 static inline uint64_t u64_multiply_safe(uint64_t a, uint64_t b) {
         if (_unlikely_(a != 0 && b > (UINT64_MAX / a)))
@@ -67,29 +73,6 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
         return 1UL << (sizeof(u) * 8 - __builtin_clzl(u - 1UL));
 }
 
-static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
-        size_t m;
-
-        /* Round up allocation sizes a bit to some reasonable, likely larger value. This is supposed to be
-         * used for cases which are likely called in an allocation loop of some form, i.e. that repetitively
-         * grow stuff, for example strv_extend() and suchlike.
-         *
-         * Note the difference to GREEDY_REALLOC() here, as this helper operates on a single size value only,
-         * and rounds up to next multiple of 2, needing no further counter.
-         *
-         * Note the benefits of direct ALIGN_POWER2() usage: type-safety for size_t, sane handling for very
-         * small (i.e. <= 2) and safe handling for very large (i.e. > SSIZE_MAX) values. */
-
-        if (l <= 2)
-                return 2; /* Never allocate less than 2 of something.  */
-
-        m = ALIGN_POWER2(l);
-        if (m == 0) /* overflow? */
-                return l;
-
-        return m;
-}
-
 /*
  * container_of - cast a member of a structure out to the containing structure
  * @ptr: the pointer to the member.
@@ -102,12 +85,6 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
                 const typeof( ((type*)0)->member ) *UNIQ_T(A, uniq) = (ptr); \
                 (type*)( (char *)UNIQ_T(A, uniq) - offsetof(type, member) ); \
         })
-
-#define return_with_errno(r, err)                     \
-        do {                                          \
-                errno = abs(err);                     \
-                return r;                             \
-        } while (false)
 
 #define PTR_TO_INT(p) ((int) ((intptr_t) (p)))
 #define INT_TO_PTR(u) ((void *) ((intptr_t) (u)))
@@ -175,7 +152,7 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
         } while (false)
 
 #define STRV_MAKE(...) ((char**) ((const char*[]) { __VA_ARGS__, NULL }))
-#define STRV_MAKE_EMPTY ((char*[1]) { NULL })
+#define STRV_EMPTY ((char*[1]) { NULL })
 #define STRV_MAKE_CONST(...) ((const char* const*) ((const char*[]) { __VA_ARGS__, NULL }))
 
 /* Pointers range from NULL to POINTER_MAX */
@@ -229,3 +206,16 @@ static inline size_t size_add(size_t x, size_t y) {
         for (typeof(entry) _va_sentinel_[1] = {}, _entries_[] = { __VA_ARGS__ __VA_OPT__(,) _va_sentinel_[0] }, *_current_ = _entries_; \
              ((long)(_current_ - _entries_) < (long)(ELEMENTSOF(_entries_) - 1)) && ({ entry = *_current_; true; }); \
              _current_++)
+
+typedef void (*void_func_t)(void);
+
+static inline void dispatch_void_func(void_func_t *f) {
+        assert(f);
+        assert(*f);
+        (*f)();
+}
+
+/* Inspired by Go's "defer" construct, but much more basic. This basically just calls a void function when
+ * the current scope is left. Doesn't do function parameters (i.e. no closures). */
+#define DEFER_VOID_CALL(x) _DEFER_VOID_CALL(UNIQ, x)
+#define _DEFER_VOID_CALL(uniq, x) _unused_ _cleanup_(dispatch_void_func) void_func_t UNIQ_T(defer, uniq) = (x)

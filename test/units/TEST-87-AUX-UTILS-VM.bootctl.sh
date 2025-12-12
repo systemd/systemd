@@ -21,7 +21,42 @@ fi
 
 (! systemd-detect-virt -cq)
 
+restore_esp() {
+    if [ ! -d /tmp/esp.bak ]; then
+        return
+    fi
+
+    if [ -d /tmp/esp.bak/EFI/ ]; then
+        cp -r /tmp/esp.bak/EFI/* "$(bootctl --print-esp-path)/EFI/"
+    fi
+    if [ -d /tmp/esp.bak/loader/ ]; then
+        cp -r /tmp/esp.bak/loader/* "$(bootctl --print-esp-path)/loader/"
+    fi
+    rm -rf /tmp/esp.bak
+}
+
+backup_esp() {
+    if [ -d /tmp/esp.bak ]; then
+        return
+    fi
+
+    if [[ -d "$(bootctl --print-esp-path)/EFI" ]]; then
+        mkdir -p /tmp/esp.bak
+        cp -r "$(bootctl --print-esp-path)/EFI/" /tmp/esp.bak/
+    fi
+    if [[ -d "$(bootctl --print-esp-path)/loader" ]]; then
+        mkdir -p /tmp/esp.bak
+        cp -r "$(bootctl --print-esp-path)/loader/" /tmp/esp.bak/
+    fi
+}
+
 basic_tests() {
+    # Ensure the system's ESP (no --image/--root args) is still available for the next tests
+    if [ $# -eq 0 ]; then
+        backup_esp
+        trap restore_esp RETURN ERR
+    fi
+
     bootctl "$@" --help
     bootctl "$@" --version
 
@@ -123,6 +158,8 @@ EOF
 
     umount "${IMAGE_DIR}/root"
 
+    export SYSTEMD_DISSECT_FSTYPE_XBOOTLDR=ext4
+
     assert_eq "$(bootctl --image "${IMAGE_DIR}/image" --print-esp-path)" "/run/systemd/mount-rootfs/efi"
     assert_eq "$(bootctl --image "${IMAGE_DIR}/image" --print-esp-path --esp-path=/efi)" "/run/systemd/mount-rootfs/efi"
     assert_eq "$(bootctl --image "${IMAGE_DIR}/image" --print-boot-path)" "/run/systemd/mount-rootfs/boot"
@@ -132,6 +169,8 @@ EOF
     bootctl --image "${IMAGE_DIR}/image" --print-root-device || :
 
     basic_tests --image "${IMAGE_DIR}/image"
+
+    unset SYSTEMD_DISSECT_FSTYPE_XBOOTLDR
 }
 
 cleanup_raid() (
@@ -274,6 +313,10 @@ testcase_bootctl_varlink() {
 }
 
 testcase_bootctl_secure_boot_auto_enroll() {
+    # mkosi can also add keys here, so back them up and restored them
+    backup_esp
+    trap restore_esp RETURN ERR
+
     cat >/tmp/openssl.conf <<EOF
 [ req ]
 prompt = no
@@ -293,11 +336,32 @@ EOF
             -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
             -keyout /tmp/sb.key -out /tmp/sb.crt
 
+    # This will fail if there are already keys in the ESP, so we remove them first
+    rm -rf "$(bootctl --print-esp-path)/loader/keys/auto"
+
     bootctl install --make-entry-directory=yes --secure-boot-auto-enroll=yes --certificate /tmp/sb.crt --private-key /tmp/sb.key
     for var in PK KEK db; do
         test -f "$(bootctl --print-esp-path)/loader/keys/auto/$var.auth"
     done
     bootctl remove
+}
+
+# Order this first, as other test cases mess with the ESP and might break 'bootctl status' output
+testcase_00_secureboot() {
+    if [ ! -d /sys/firmware/efi ]; then
+        echo "Not booted with EFI, skipping secureboot tests."
+        return 0
+    fi
+
+    # Ensure secure boot is enabled and not in setup mode
+    cmp /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c <(printf '\6\0\0\0\1')
+    cmp /sys/firmware/efi/efivars/SetupMode-8be4df61-93ca-11d2-aa0d-00e098032b8c <(printf '\6\0\0\0\0')
+    bootctl status | grep "Secure Boot: enabled" >/dev/null
+
+    # Ensure the addon is fully loaded and parsed
+    bootctl status | grep "global-addon: loader/addons/test.addon.efi" >/dev/null
+    bootctl status | grep "cmdline" | grep addonfoobar >/dev/null
+    grep -q addonfoobar /proc/cmdline
 }
 
 run_testcases

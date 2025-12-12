@@ -1,19 +1,11 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-device.h"
 #include "sd-event.h"
-#include "sd-varlink.h"
 
-#include "hashmap.h"
 #include "list.h"
-#include "macro.h"
-#include "time-util.h"
 #include "udev-config.h"
-#include "udev-ctrl.h"
-#include "udev-def.h"
+#include "udev-forward.h"
 
 /* This should have a higher priority than the device monitor and inotify watch, to make device monitor and
  * inotify event source stopped as soon as possible when the signal is received. Otherwise, we may continue
@@ -40,16 +32,13 @@
 #define EVENT_PRIORITY_VARLINK        (SD_EVENT_PRIORITY_NORMAL + 2)
 #define EVENT_PRIORITY_CONTROL        (SD_EVENT_PRIORITY_NORMAL + 2)
 /* The event is intended to trigger the post-event source, hence can be the lowest priority. */
-#define EVENT_PRIORITY_RETRY_EVENT    (SD_EVENT_PRIORITY_NORMAL + 3)
-
-typedef struct Event Event;
-typedef struct UdevRules UdevRules;
-typedef struct Worker Worker;
+#define EVENT_PRIORITY_REQUEUE_EVENT  (SD_EVENT_PRIORITY_NORMAL + 3)
 
 typedef struct Manager {
         sd_event *event;
         Hashmap *workers;
         LIST_HEAD(Event, events);
+        Event *last_event;
         char *cgroup;
 
         UdevRules *rules;
@@ -67,6 +56,10 @@ typedef struct Manager {
         Set *synthesize_change_child_event_sources;
 
         sd_event_source *kill_workers_event;
+
+        Hashmap *locked_events_by_disk;
+        Prioq *locked_events_by_time;
+        sd_event_source *requeue_locked_events_timer_event_source;
 
         usec_t last_usec;
 
@@ -93,7 +86,8 @@ void manager_exit(Manager *manager);
 void notify_ready(Manager *manager);
 
 void manager_kill_workers(Manager *manager, int signo);
+int manager_reset_kill_workers_timer(Manager *manager);
 
 bool devpath_conflict(const char *a, const char *b);
 
-int event_queue_assume_block_device_unlocked(Manager *manager, sd_device *dev);
+int manager_requeue_locked_events_by_device(Manager *manager, sd_device *dev);

@@ -1,22 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/bpf.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <sys/syscall.h>
-
-#include "fdset.h"
-#include "list.h"
-#include "macro.h"
-
-typedef struct BPFProgram BPFProgram;
+#include "shared-forward.h"
 
 /* This encapsulates three different concepts: the loaded BPF program, the BPF code, and the attachment to a
  * cgroup. Typically our BPF programs go through all three stages: we build the code, we load it, and finally
  * we attach it, but it might happen that we operate with programs that aren't loaded or aren't attached, or
  * where we don't have the code. */
-struct BPFProgram {
+typedef struct BPFProgram {
         /* The loaded BPF program, if loaded */
         int kernel_fd;
         uint32_t prog_type;
@@ -31,13 +22,15 @@ struct BPFProgram {
         char *attached_path;
         int attached_type;
         uint32_t attached_flags;
-};
+} BPFProgram;
+
+int bpf_program_supported(void);
 
 int bpf_program_new(uint32_t prog_type, const char *prog_name, BPFProgram **ret);
 int bpf_program_new_from_bpffs_path(const char *path, BPFProgram **ret);
 BPFProgram *bpf_program_free(BPFProgram *p);
 
-int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *insn, size_t count);
+int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *instructions, size_t count);
 int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size);
 int bpf_program_load_from_bpf_fs(BPFProgram *p, const char *path);
 

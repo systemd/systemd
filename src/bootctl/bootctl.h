@@ -1,19 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-id128.h"
-#include "sd-json.h"
-
-#include "boot-entry.h"
-#include "image-policy.h"
-#include "openssl-util.h"
-#include "pager.h"
+#include "shared-forward.h"
 
 typedef enum InstallSource {
-        ARG_INSTALL_SOURCE_IMAGE,
-        ARG_INSTALL_SOURCE_HOST,
-        ARG_INSTALL_SOURCE_AUTO,
+        INSTALL_SOURCE_IMAGE,
+        INSTALL_SOURCE_HOST,
+        INSTALL_SOURCE_AUTO,
+        _INSTALL_SOURCE_MAX,
+        _INSTALL_SOURCE_INVALID = -EINVAL,
 } InstallSource;
+
+typedef enum GracefulMode {
+        ARG_GRACEFUL_NO,
+        ARG_GRACEFUL_YES,
+        ARG_GRACEFUL_FORCE,
+} GracefulMode;
 
 extern char *arg_esp_path;
 extern char *arg_xbootldr_path;
@@ -23,7 +25,6 @@ extern unsigned arg_print_root_device;
 extern int arg_touch_variables;
 extern bool arg_install_random_seed;
 extern PagerFlags arg_pager_flags;
-extern bool arg_graceful;
 extern bool arg_quiet;
 extern int arg_make_entry_directory; /* tri-state: < 0 for automatic logic */
 extern sd_id128_t arg_machine_id;
@@ -51,6 +52,8 @@ static inline const char* arg_dollar_boot_path(void) {
         /* $BOOT shall be the XBOOTLDR partition if it exists, and otherwise the ESP */
         return arg_xbootldr_path ?: arg_esp_path;
 }
+
+GracefulMode arg_graceful(void);
 
 int acquire_esp(int unprivileged_mode, bool graceful, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid, dev_t *ret_devid);
 int acquire_xbootldr(int unprivileged_mode, sd_id128_t *ret_uuid, dev_t *ret_devid);

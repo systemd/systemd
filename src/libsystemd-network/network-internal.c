@@ -1,19 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
-#include <linux/if.h>
-#include <netinet/ether.h>
-
-#include "sd-ndisc.h"
+#include <stdio.h>
 
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
+#include "dns-resolver-internal.h"
 #include "extract-word.h"
 #include "hexdecoct.h"
 #include "in-addr-util.h"
-#include "log.h"
 #include "network-internal.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 size_t serialize_in_addrs(FILE *f,
@@ -263,8 +261,7 @@ int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, const 
                 if (r == 0)
                         break;
 
-                if (!GREEDY_REALLOC(routes, size + 1))
-                        return -ENOMEM;
+                struct sd_dhcp_route route = {};
 
                 tok = word;
 
@@ -274,7 +271,7 @@ int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, const 
                         continue;
                 *tok_end = '\0';
 
-                r = inet_aton(tok, &routes[size].dst_addr);
+                r = inet_aton(tok, &route.dst_addr);
                 if (r == 0)
                         continue;
 
@@ -291,15 +288,18 @@ int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, const 
                 if (r < 0 || n > 32)
                         continue;
 
-                routes[size].dst_prefixlen = (uint8_t) n;
+                route.dst_prefixlen = (uint8_t) n;
                 tok = tok_end + 1;
 
                 /* get the gateway */
-                r = inet_aton(tok, &routes[size].gw_addr);
+                r = inet_aton(tok, &route.gw_addr);
                 if (r == 0)
                         continue;
 
-                size++;
+                if (!GREEDY_REALLOC(routes, size + 1))
+                        return -ENOMEM;
+
+                routes[size++] = route;
         }
 
         *ret_size = size;

@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <pthread.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -15,9 +14,9 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "macro.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 static int match_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Match triggered! destination=%s interface=%s member=%s",
@@ -46,13 +45,13 @@ static int object_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
         return 0;
 }
 
-static int server_init(sd_bus **ret_bus) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+static int server_init(sd_bus **ret) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *unique, *desc;
         sd_id128_t id;
         int r;
 
-        assert_se(ret_bus);
+        assert(ret);
 
         r = sd_bus_open_user_with_description(&bus, "my bus!");
         if (r < 0)
@@ -66,8 +65,8 @@ static int server_init(sd_bus **ret_bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get unique name: %m");
 
-        assert_se(sd_bus_get_description(bus, &desc) >= 0);
-        assert_se(streq(desc, "my bus!"));
+        ASSERT_OK(sd_bus_get_description(bus, &desc));
+        ASSERT_STREQ(desc, "my bus!");
 
         log_info("Peer ID is " SD_ID128_FORMAT_STR ".", SD_ID128_FORMAT_VAL(id));
         log_info("Unique ID: %s", unique);
@@ -95,12 +94,11 @@ static int server_init(sd_bus **ret_bus) {
 
         bus_match_dump(stdout, &bus->match_callbacks, 0);
 
-        *ret_bus = TAKE_PTR(bus);
+        *ret = TAKE_PTR(bus);
         return 0;
 }
 
-static int server(sd_bus *_bus) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = ASSERT_PTR(_bus);
+static int server(sd_bus *bus) {
         bool client1_gone = false, client2_gone = false;
         int r;
 
@@ -251,7 +249,7 @@ static void* client1(void *p) {
                 goto finish;
         }
 
-        assert_se(streq(hello, "hello"));
+        ASSERT_STREQ(hello, "hello");
 
         if (pipe2(pp, O_CLOEXEC|O_NONBLOCK) < 0) {
                 r = log_error_errno(errno, "Failed to allocate pipe: %m");
@@ -495,44 +493,30 @@ finish:
         return INT_TO_PTR(r);
 }
 
-int main(int argc, char *argv[]) {
+TEST(chat) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         pthread_t c1, c2;
-        sd_bus *bus;
         void *p;
-        int q, r;
+        int r;
 
         test_setup_logging(LOG_INFO);
 
         r = server_init(&bus);
         if (r < 0)
-                return log_tests_skipped("Failed to connect to bus");
+                return (void) log_tests_skipped_errno(r, "Failed to connect to bus: %m");
 
         log_info("Initialized...");
 
-        r = pthread_create(&c1, NULL, client1, bus);
-        if (r != 0)
-                return EXIT_FAILURE;
-
-        r = pthread_create(&c2, NULL, client2, bus);
-        if (r != 0)
-                return EXIT_FAILURE;
+        ASSERT_OK(-pthread_create(&c1, NULL, client1, NULL));
+        ASSERT_OK(-pthread_create(&c2, NULL, client2, NULL));
 
         r = server(bus);
 
-        q = pthread_join(c1, &p);
-        if (q != 0)
-                return EXIT_FAILURE;
-        if (PTR_TO_INT(p) < 0)
-                return EXIT_FAILURE;
-
-        q = pthread_join(c2, &p);
-        if (q != 0)
-                return EXIT_FAILURE;
-        if (PTR_TO_INT(p) < 0)
-                return EXIT_FAILURE;
-
-        if (r < 0)
-                return EXIT_FAILURE;
-
-        return EXIT_SUCCESS;
+        ASSERT_OK(-pthread_join(c1, &p));
+        ASSERT_OK(PTR_TO_INT(p));
+        ASSERT_OK(-pthread_join(c2, &p));
+        ASSERT_OK(PTR_TO_INT(p));
+        ASSERT_OK(r);
 }
+
+DEFINE_TEST_MAIN(LOG_INFO);

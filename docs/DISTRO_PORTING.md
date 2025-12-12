@@ -63,8 +63,11 @@ NTP servers.
 
 ## DNS Servers
 
-By default, systemd-resolved uses Cloudflare and Google Public DNS servers
-`1.1.1.1`, `8.8.8.8`, `1.0.0.1`, `8.8.4.4`, `2606:4700:4700::1111`, `2001:4860:4860::8888`, `2606:4700:4700::1001`, `2001:4860:4860::8844`
+By default, systemd-resolved uses Cloudflare, Google and Quad9 Public DNS servers
+`1.1.1.1`, `8.8.8.8`, `9.9.9.9`,
+`1.0.0.1`, `8.8.4.4`, `149.112.112.112`,
+`2606:4700:4700::1111`, `2001:4860:4860::8888`, `2620:fe::fe`,
+`2606:4700:4700::1001`, `2001:4860:4860::8844`, `2620:fe::9`
 as fallback, if no other DNS configuration is available.
 
 Use `-Ddns-servers=` to direct systemd-resolved to different fallback

@@ -17,9 +17,7 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 
 #include "_sd-common.h"
 
@@ -57,16 +55,16 @@ _SD_BEGIN_DECLARATIONS;
 
 /*
   Returns how many file descriptors have been passed, or a negative
-  errno code on failure. Optionally, removes the $LISTEN_FDS and
-  $LISTEN_PID file descriptors from the environment (recommended, but
-  problematic in threaded environments). If r is the return value of
-  this function you'll find the file descriptors passed as fds
-  SD_LISTEN_FDS_START to SD_LISTEN_FDS_START+r-1. Returns a negative
-  errno style error code on failure. This function call ensures that
-  the FD_CLOEXEC flag is set for the passed file descriptors, to make
-  sure they are not passed on to child processes. If FD_CLOEXEC shall
-  not be set, the caller needs to unset it after this call for all file
-  descriptors that are used.
+  errno code on failure. Optionally, removes the $LISTEN_FDS,
+  $LISTEN_PID, $LISTEN_PIDFDID, and $LISTEN_FDNAMES variables from the
+  environment (recommended, but problematic in threaded environments).
+  If r is the return value of this function you'll find the file
+  descriptors passed as fds SD_LISTEN_FDS_START to
+  SD_LISTEN_FDS_START+r-1. Returns a negative errno style error code on
+  failure. This function call ensures that the FD_CLOEXEC flag is set
+  for the passed file descriptors, to make sure they are not passed on
+  to child processes. If FD_CLOEXEC shall not be set, the caller needs
+  to unset it after this call for all file descriptors that are used.
 
   See sd_listen_fds(3) for more information.
 */
@@ -191,9 +189,9 @@ int sd_is_mq(int fd, const char *path);
                   that describes the daemon state. This is free-form
                   and can be used for various purposes: general state
                   feedback, fsck-like programs could pass completion
-                  percentages and failing programs could pass a human
-                  readable error message. Example: "STATUS=Completed
-                  66% of file system check..."
+                  percentages and failing programs could pass a
+                  human-readable error message. Example:
+                  "STATUS=Completed 66% of file system check..."
 
      NOTIFYACCESS=...
                   Reset the access to the service status notification socket.
@@ -312,6 +310,8 @@ int sd_notify_barrier(int unset_environment, uint64_t timeout);
   Just like sd_notify_barrier() but also takes a PID to send the barrier message from.
 */
 int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t timeout);
+
+int sd_pidfd_get_inode_id(int pidfd, uint64_t *ret);
 
 /*
   Returns > 0 if the system was booted with systemd. Returns < 0 on

@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-
-typedef struct Unit Unit;
+#include "core-forward.h"
 
 /* These functions are declared in the header to make them accessible to unit tests. */
 bool contains_instance_specifier_superset(const char *s);
@@ -103,6 +101,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_smack_process_label);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_families);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_preserve_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_directories);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_quota);
 CONFIG_PARSER_PROTOTYPE(config_parse_set_credential);
 CONFIG_PARSER_PROTOTYPE(config_parse_load_credential);
 CONFIG_PARSER_PROTOTYPE(config_parse_import_credential);
@@ -114,7 +113,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_private_users);
 CONFIG_PARSER_PROTOTYPE(config_parse_private_pids);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_control_groups);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_quota);
-CONFIG_PARSER_PROTOTYPE(config_parse_allowed_cpuset);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_cpu_set);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_home);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_system);
@@ -130,6 +129,11 @@ CONFIG_PARSER_PROTOTYPE(config_parse_bind_paths);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_keyring_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_proc);
 CONFIG_PARSER_PROTOTYPE(config_parse_proc_subset);
+CONFIG_PARSER_PROTOTYPE(config_parse_private_bpf);
+CONFIG_PARSER_PROTOTYPE(config_parse_bpf_delegate_commands);
+CONFIG_PARSER_PROTOTYPE(config_parse_bpf_delegate_maps);
+CONFIG_PARSER_PROTOTYPE(config_parse_bpf_delegate_programs);
+CONFIG_PARSER_PROTOTYPE(config_parse_bpf_delegate_attachments);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_timeout_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_running_timeout_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_log_extra_fields);
@@ -142,7 +146,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_oom_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_numa_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_numa_mask);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_filter_bpf_progs);
-CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity2);
 CONFIG_PARSER_PROTOTYPE(config_parse_show_status);
 CONFIG_PARSER_PROTOTYPE(config_parse_status_unit_format);
 CONFIG_PARSER_PROTOTYPE(config_parse_output_restricted);
@@ -151,6 +154,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_timeout_abort);
 CONFIG_PARSER_PROTOTYPE(config_parse_swap_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_mount_images);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_timestamping);
+CONFIG_PARSER_PROTOTYPE(config_parse_socket_defer_trigger);
 CONFIG_PARSER_PROTOTYPE(config_parse_extension_images);
 CONFIG_PARSER_PROTOTYPE(config_parse_bpf_foreign_program);
 CONFIG_PARSER_PROTOTYPE(config_parse_cgroup_socket_bind);

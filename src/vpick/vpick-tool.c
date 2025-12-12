@@ -1,28 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <dirent.h>
 #include <getopt.h>
 
+#include "alloc-util.h"
 #include "architecture.h"
 #include "build.h"
 #include "format-table.h"
-#include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
-#include "strv.h"
-#include "terminal-util.h"
 #include "vpick.h"
 
-static char *arg_filter_basename = NULL;
-static char *arg_filter_version = NULL;
-static Architecture arg_filter_architecture = _ARCHITECTURE_INVALID;
-static char *arg_filter_suffix = NULL;
-static uint32_t arg_filter_type_mask = 0;
-static enum {
+typedef enum {
         PRINT_PATH,
         PRINT_FILENAME,
         PRINT_VERSION,
@@ -30,13 +25,33 @@ static enum {
         PRINT_ARCHITECTURE,
         PRINT_TRIES,
         PRINT_ALL,
+        _PRINT_MAX,
         _PRINT_INVALID = -EINVAL,
-} arg_print = _PRINT_INVALID;
+} Print;
+
+static char *arg_filter_basename = NULL;
+static char *arg_filter_version = NULL;
+static Architecture arg_filter_architecture = _ARCHITECTURE_INVALID;
+static char *arg_filter_suffix = NULL;
+static uint32_t arg_filter_type_mask = 0;
+static Print arg_print = _PRINT_INVALID;
 static PickFlags arg_flags = PICK_ARCHITECTURE|PICK_TRIES;
 
 STATIC_DESTRUCTOR_REGISTER(arg_filter_basename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_version, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_suffix, freep);
+
+static const char *print_table[_PRINT_MAX] = {
+        [PRINT_PATH]         = "path",
+        [PRINT_FILENAME]     = "filename",
+        [PRINT_VERSION]      = "version",
+        [PRINT_TYPE]         = "type",
+        [PRINT_ARCHITECTURE] = "architecture",
+        [PRINT_TRIES]        = "tries",
+        [PRINT_ALL]          = "all",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(print, Print);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -173,22 +188,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'p':
-                        if (streq(optarg, "path"))
-                                arg_print = PRINT_PATH;
-                        else if (streq(optarg, "filename"))
-                                arg_print = PRINT_FILENAME;
-                        else if (streq(optarg, "version"))
-                                arg_print = PRINT_VERSION;
-                        else if (streq(optarg, "type"))
-                                arg_print = PRINT_TYPE;
-                        else if (STR_IN_SET(optarg, "arch", "architecture"))
+                        if (streq(optarg, "arch")) /* accept abbreviation too */
                                 arg_print = PRINT_ARCHITECTURE;
-                        else if (streq(optarg, "tries"))
-                                arg_print = PRINT_TRIES;
-                        else if (streq(optarg, "all"))
-                                arg_print = PRINT_ALL;
                         else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown --print= argument: %s", optarg);
+                                arg_print = print_from_string(optarg);
+                        if (arg_print < 0)
+                                        return log_error_errno(arg_print, "Unknown --print= argument: %s", optarg);
 
                         break;
 

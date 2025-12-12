@@ -13,15 +13,13 @@ at_exit() {
     set +e
 
     machinectl status long-running &>/dev/null && machinectl kill --signal=KILL long-running
-    mountpoint -q /var/lib/machines && timeout 10 sh -c "until umount /var/lib/machines; do sleep .5; done"
+    mountpoint -q /var/lib/machines && timeout 30 bash -c "until umount /var/lib/machines; do sleep .5; done"
     [[ -n "${NSPAWN_FRAGMENT:-}" ]] && rm -f "/etc/systemd/nspawn/$NSPAWN_FRAGMENT" "/var/lib/machines/$NSPAWN_FRAGMENT"
     rm -f /run/systemd/nspawn/*.nspawn
 }
 
 trap at_exit EXIT
 
-systemctl service-log-level systemd-machined debug
-systemctl service-log-level systemd-importd debug
 # per request in https://github.com/systemd/systemd/pull/35117
 systemctl edit --runtime --stdin 'systemd-nspawn@.service' --drop-in=debug.conf <<EOF
 [Service]
@@ -40,7 +38,7 @@ done
 # Create one "long running" container with some basic signal handling
 create_dummy_container /var/lib/machines/long-running
 cat >/var/lib/machines/long-running/sbin/init <<\EOF
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 set -x
 
@@ -50,6 +48,7 @@ trap 'touch /terminate; kill 0' RTMIN+3
 trap 'touch /poweroff' RTMIN+4
 trap 'touch /reboot' INT
 trap 'touch /trap' TRAP
+trap 'exit 0' TERM
 trap 'kill $PID' EXIT
 
 # We need to wait for the sleep process asynchronously in order to allow
@@ -120,22 +119,22 @@ machinectl disable long-running long-running long-running container1
 # Equivalent to machinectl kill --signal=SIGRTMIN+4 --kill-whom=leader
 rm -f /var/lib/machines/long-running/poweroff
 machinectl poweroff long-running
-timeout 10 bash -c "until test -e /var/lib/machines/long-running/poweroff; do sleep .5; done"
+timeout 30 bash -c "until test -e /var/lib/machines/long-running/poweroff; do sleep .5; done"
 # Equivalent to machinectl kill --signal=SIGINT --kill-whom=leader
 rm -f /var/lib/machines/long-running/reboot
 machinectl reboot long-running
-timeout 10 bash -c "until test -e /var/lib/machines/long-running/reboot; do sleep .5; done"
+timeout 30 bash -c "until test -e /var/lib/machines/long-running/reboot; do sleep .5; done"
 # Test for 'machinectl terminate'
 rm -f /var/lib/machines/long-running/terminate
 machinectl terminate long-running
-timeout 10 bash -c "until test -e /var/lib/machines/long-running/terminate; do sleep .5; done"
-timeout 10 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
+timeout 30 bash -c "until test -e /var/lib/machines/long-running/terminate; do sleep .5; done"
+timeout 30 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
 # Restart container
 long_running_machine_start
 # Test for 'machinectl kill'
 rm -f /var/lib/machines/long-running/trap
 machinectl kill --signal=SIGTRAP --kill-whom=leader long-running
-timeout 10 bash -c "until test -e /var/lib/machines/long-running/trap; do sleep .5; done"
+timeout 30 bash -c "until test -e /var/lib/machines/long-running/trap; do sleep .5; done"
 # Multiple machines at once
 machinectl poweroff long-running long-running long-running
 machinectl reboot long-running long-running long-running
@@ -223,7 +222,7 @@ machinectl import-fs /var/tmp/container.dir container-dir
 machinectl start container-dir
 rm -fr /var/tmp/container.dir
 
-timeout 10 bash -c "until machinectl clean --all; do sleep .5; done"
+timeout 30 bash -c "until machinectl clean --all; do sleep .5; done"
 
 NSPAWN_FRAGMENT="machinectl-test-$RANDOM.nspawn"
 cat >"/var/lib/machines/$NSPAWN_FRAGMENT" <<EOF
@@ -309,14 +308,14 @@ timeout 30 bash -c "while varlinkctl call /run/systemd/machine/io.systemd.Machin
 # test io.systemd.Machine.List with sshAddress and sshPrivateKeyPath fields
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Register '{"name": "registered-container", "class": "container", "sshAddress": "localhost", "sshPrivateKeyPath": "/non-existent"}'
 timeout 30 bash -c "until varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{\"name\":\"registered-container\"}'; do sleep 0.5; done"
-varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"registered-container"}' | jq '.sshAddress' | grep -q 'localhost'
-varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"registered-container"}' | jq '.sshPrivateKeyPath' | grep -q 'non-existent'
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"registered-container"}' | jq '.sshAddress' | grep 'localhost' >/dev/null
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"registered-container"}' | jq '.sshPrivateKeyPath' | grep 'non-existent' >/dev/null
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Unregister '{"name": "registered-container"}'
 
 # test io.systemd.Machine.List with addresses, OSRelease, and UIDShift fields
 create_dummy_container "/var/lib/machines/container-without-os-release"
 cat >>/var/lib/machines/container-without-os-release/sbin/init <<\EOF
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 set -x
 
@@ -327,6 +326,7 @@ ip address add 192.0.2.1/24 dev hoge
 PID=0
 
 trap 'kill 0' RTMIN+3
+trap 'exit 0' TERM
 trap 'kill $PID' EXIT
 
 # We need to wait for the sleep process asynchronously in order to allow
@@ -369,7 +369,7 @@ journalctl --sync
 (! journalctl -u systemd-machined.service --since="$TS" --grep 'Connection busy')
 machinectl terminate container-without-os-release
 
-(ip addr show lo | grep -q 192.168.1.100) || ip address add 192.168.1.100/24 dev lo
+(ip addr show lo | grep 192.168.1.100 >/dev/null) || ip address add 192.168.1.100/24 dev lo
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'addresses')
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'addresses'
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'OSRelease')
@@ -379,7 +379,7 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List 
 
 # test io.systemd.Machine.Open
 
-# Reducing log level here is to work-around check in end.service (end.sh). Read https://github.com/systemd/systemd/pull/34867 for more details
+# Reducing log level here is to work-around check in post.sh. Read https://github.com/systemd/systemd/pull/34867 for more details
 systemctl service-log-level systemd-machined info
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host"}')
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": ""}')
@@ -397,13 +397,13 @@ rm -f /tmp/none-existent-file
 # server side, to not generate early SIGHUP. Hence, let's just invoke "sleep
 # infinity" client side, once we acquired the fd (passing it to it), and kill
 # it once we verified everything worked.
-PID=$(systemd-notify --fork -- varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/bash", "args": ["/bin/bash", "-c", "echo $FOO > /tmp/none-existent-file"], "environment": ["FOO=BAR"]}' -- sleep infinity)
+PID=$(systemd-notify --fork -- varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/usr/bin/bash", "args": ["bash", "-c", "echo $FOO >/tmp/none-existent-file"], "environment": ["FOO=BAR"]}' -- sleep infinity)
 timeout 30 bash -c "until test -e /tmp/none-existent-file; do sleep .5; done"
 grep -q "BAR" /tmp/none-existent-file
 kill "$PID"
 
 # Test varlinkctl's --exec fd passing logic properly
-assert_eq "$(varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/bash", "args": ["/bin/bash", "-c", "echo $((7 + 8))"], "environment": ["TERM=dumb"]}' -- bash -c 'read -r -N 2 x <&3 ; echo "$x"')" 15
+assert_eq "$(varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/usr/bin/bash", "args": ["bash", "-c", "echo $((7 + 8))"], "environment": ["TERM=dumb"]}' -- bash -c 'read -r -N 2 x <&3 ; echo "$x"')" 15
 
 # test io.systemd.Machine.MapFrom
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapFrom '{"name": "long-running", "uid":0, "gid": 0}'
@@ -424,7 +424,7 @@ diff /tmp/foo /var/lib/machines/long-running/root/foo
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo"}') # FileExists
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo", "replace": true}'
 
-echo "sample-test-output" > /tmp/foo
+echo "sample-test-output" >/tmp/foo
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.CopyTo '{"name": "long-running", "source": "/tmp/foo", "destination": "/root/foo", "replace": true}'
 diff /tmp/foo /var/lib/machines/long-running/root/foo
 rm -f /tmp/foo /var/lib/machines/long-running/root/foo
@@ -441,9 +441,14 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.OpenR
 
 # Terminating machine, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
 machinectl terminate long-running
-# wait for the container being stopped, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
-timeout 10 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
-systemctl kill --signal=KILL systemd-nspawn@long-running.service || :
+# Wait for the container to stop, otherwise acquiring image metadata by io.systemd.MachineImage.List below
+# may fail.
+#
+# We need to wait until the systemd-nspawn process is completely stopped, as the lock is held for almost the
+# entire life of the process (see the run() function in nspawn.c). This means that the machine gets
+# unregistered _before_ this lock is lifted which makes `machinectl status` return non-zero EC earlier than
+# we need.
+timeout 30 bash -xec 'until [[ "$(systemctl show -P ActiveState systemd-nspawn@long-running.service)" == inactive ]]; do sleep .5; done'
 
 # test io.systemd.MachineImage.List
 varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{}' | grep 'long-running'

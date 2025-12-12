@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <unistd.h>
 
 #include "sd-device.h"
 
@@ -14,8 +12,8 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "main-func.h"
-#include "path-util.h"
-#include "pretty-print.h"
+#include "string-util.h"
+#include "strv.h"
 #include "udev-util.h"
 #include "verbs.h"
 
@@ -224,13 +222,13 @@ static int apply_solution_for_path(const char *path, const char *name) {
                   "\tio.cost.model: %s\n",
                   path, name, qos, model);
 
-        r = cg_set_attribute("io", NULL, "io.cost.qos", qos);
+        r = cg_set_attribute(/* path = */ NULL, "io.cost.qos", qos);
         if (r < 0) {
                 log_device_full_errno(device, r == -ENOENT ? LOG_DEBUG : LOG_ERR, r, "Failed to set io.cost.qos: %m");
                 return r == -ENOENT ? 0 : r;
         }
 
-        r = cg_set_attribute("io", NULL, "io.cost.model", model);
+        r = cg_set_attribute(/* path = */ NULL, "io.cost.model", model);
         if (r < 0) {
                 log_device_full_errno(device, r == -ENOENT ? LOG_DEBUG : LOG_ERR, r, "Failed to set io.cost.model: %m");
                 return r == -ENOENT ? 0 : r;

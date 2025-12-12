@@ -1,23 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-json.h"
 #include "sd-varlink.h"
 
-#include "btrfs-util.h"
 #include "bus-polkit.h"
 #include "discover-image.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "image.h"
 #include "image-varlink.h"
 #include "io-util.h"
 #include "json-util.h"
-#include "machine.h"
-#include "machine-pool.h"
 #include "machined.h"
 #include "operation.h"
 #include "process-util.h"
-#include "string-util.h"
 
 typedef struct ImageUpdateParameters {
         const char *name;
@@ -66,15 +65,17 @@ int vl_method_update_image(sd_varlink *link, sd_json_variant *parameters, sd_var
         if (r < 0)
                 return r;
 
-        r = varlink_verify_polkit_async(
-                        link,
-                        manager->bus,
-                        "org.freedesktop.machine1.manage-images",
-                        (const char**) STRV_MAKE("image", image->name,
-                                                 "verb", "update"),
-                        &manager->polkit_registry);
-        if (r <= 0)
-                return r;
+        if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                manager->system_bus,
+                                "org.freedesktop.machine1.manage-images",
+                                (const char**) STRV_MAKE("image", image->name,
+                                                         "verb", "update"),
+                                &manager->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
 
         if (p.new_name) {
                 r = rename_image_and_update_cache(manager, image, p.new_name);
@@ -83,7 +84,7 @@ int vl_method_update_image(sd_varlink *link, sd_json_variant *parameters, sd_var
         }
 
         if (p.read_only >= 0) {
-                r = image_read_only(image, p.read_only);
+                r = image_read_only(image, p.read_only, manager->runtime_scope);
                 if (r < 0)
                         RET_GATHER(ret, log_debug_errno(r, "Failed to toggle image read only, ignoring: %m"));
         }
@@ -139,16 +140,18 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r < 0)
                 return r;
 
-        r = varlink_verify_polkit_async(
-                        link,
-                        manager->bus,
-                        "org.freedesktop.machine1.manage-images",
-                        (const char**) STRV_MAKE("image", image->name,
-                                                 "verb", "clone",
-                                                 "new_name", p.new_name),
-                        &manager->polkit_registry);
-        if (r <= 0)
-                return r;
+        if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                manager->system_bus,
+                                "org.freedesktop.machine1.manage-images",
+                                (const char**) STRV_MAKE("image", image->name,
+                                                         "verb", "clone",
+                                                         "new_name", p.new_name),
+                                &manager->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return log_debug_errno(errno, "Failed to open pipe: %m");
@@ -207,15 +210,17 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
         if (r < 0)
                 return r;
 
-        r = varlink_verify_polkit_async(
-                        link,
-                        manager->bus,
-                        "org.freedesktop.machine1.manage-images",
-                        (const char**) STRV_MAKE("image", image->name,
-                                                 "verb", "remove"),
-                        &manager->polkit_registry);
-        if (r <= 0)
-                return r;
+        if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                manager->system_bus,
+                                "org.freedesktop.machine1.manage-images",
+                                (const char**) STRV_MAKE("image", image->name,
+                                                         "verb", "remove"),
+                                &manager->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return log_debug_errno(errno, "Failed to open pipe: %m");
@@ -225,7 +230,7 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
                 return log_debug_errno(r, "Failed to fork: %m");
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
-                r = image_remove(image);
+                r = image_remove(image, manager->runtime_scope);
                 report_errno_and_exit(errno_pipe_fd[1], r);
         }
 
@@ -262,21 +267,27 @@ int vl_method_set_pool_limit(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (!FILE_SIZE_VALID_OR_INFINITY(limit))
                 return sd_varlink_error_invalid_parameter_name(link, "limit");
 
-        r = varlink_verify_polkit_async(
-                        link,
-                        manager->bus,
-                        "org.freedesktop.machine1.manage-images",
-                        (const char**) STRV_MAKE("verb", "set_pool_limit"),
-                        &manager->polkit_registry);
-        if (r <= 0)
-                return r;
+        if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                manager->system_bus,
+                                "org.freedesktop.machine1.manage-images",
+                                (const char**) STRV_MAKE("verb", "set_pool_limit"),
+                                &manager->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
 
         /* Set up the machine directory if necessary */
-        r = setup_machine_directory(/* error = */ NULL, /* use_btrfs_subvol= */ true, /* use_btrfs_quota= */ true);
+        r = image_setup_pool(
+                        manager->runtime_scope,
+                        IMAGE_MACHINE,
+                        /* use_btrfs_subvol= */ true,
+                        /* use_btrfs_quota= */ true);
         if (r < 0)
                 return r;
 
-        r = image_set_pool_limit(IMAGE_MACHINE, limit);
+        r = image_set_pool_limit(manager->runtime_scope, IMAGE_MACHINE, limit);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NOT_SUPPORTED, NULL);
         if (r < 0)
@@ -394,15 +405,17 @@ int vl_method_clean_pool(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        r = varlink_verify_polkit_async(
-                        link,
-                        manager->bus,
-                        "org.freedesktop.machine1.manage-images",
-                        (const char**) STRV_MAKE("mode", image_clean_pool_mode_to_string(mode),
-                                                 "verb", "clean_pool"),
-                        &manager->polkit_registry);
-        if (r <= 0)
-                return r;
+        if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                manager->system_bus,
+                                "org.freedesktop.machine1.manage-images",
+                                (const char**) STRV_MAKE("mode", image_clean_pool_mode_to_string(mode),
+                                                         "verb", "clean_pool"),
+                                &manager->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
 
         Operation *op;
         r = image_clean_pool_operation(manager, mode, &op);

@@ -5,13 +5,12 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include "sd-dhcp-client.h"
+#include "sd-dhcp-lease.h"
 
-#include "alloc-util.h"
 #include "dhcp-client-id-internal.h"
 #include "dhcp-option.h"
+#include "sd-forward.h"
 #include "list.h"
-#include "time-util.h"
 
 struct sd_dhcp_route {
         struct in_addr dst_addr;
@@ -67,7 +66,8 @@ struct sd_dhcp_lease {
 
         char *domainname;
         char **search_domains;
-        char *hostname;
+        char *hostname; /* SD_DHCP_OPTION_HOST_NAME (12) */
+        char *fqdn;     /* SD_DHCP_OPTION_FQDN (81) */
         char *root_path;
         char *captive_portal;
 

@@ -6,12 +6,14 @@
 #include "sd-dhcp-client.h"
 #include "sd-ipv4acd.h"
 
+#include "hashmap.h"
 #include "ipvlan.h"
 #include "networkd-address.h"
 #include "networkd-dhcp4.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "string-util.h"
 
 DEFINE_PRIVATE_HASH_OPS_FULL(
         ipv4acd_hash_ops,

@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <uchar.h>
-
-#include "tpm2-util.h"
+#include "shared-forward.h"
+#include "tpm2-util.h"          /* IWYU pragma: keep */
 
 /* Definitions as per "TCG PC Client Specific Platform Firmware Profile Specification"
  * (https://trustedcomputinggroup.org/resource/pc-client-specific-platform-firmware-profile-specification/),

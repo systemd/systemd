@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-
-typedef struct Manager Manager;
+#include "resolved-forward.h"
 
 typedef enum ResolveConfigSource {
         RESOLVE_CONFIG_SOURCE_FILE,
@@ -15,7 +13,7 @@ typedef enum ResolveConfigSource {
 
 int manager_parse_config_file(Manager *m);
 
-const struct ConfigPerfItem* resolved_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* resolved_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_servers);
 CONFIG_PARSER_PROTOTYPE(config_parse_search_domains);

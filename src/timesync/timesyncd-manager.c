@@ -1,27 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <math.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <resolv.h>
-#include <stdlib.h>
-#include <sys/timerfd.h>
 #include <sys/timex.h>
-#include <sys/types.h>
+#include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-messages.h"
+#include "sd-network.h"
 
 #include "alloc-util.h"
-#include "bus-polkit.h"
 #include "clock-util.h"
 #include "common-signal.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "list.h"
 #include "log.h"
 #include "logarithm.h"
@@ -33,10 +34,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
 #include "timesyncd-server.h"
-#include "user-util.h"
 
 #ifndef ADJ_SETOFFSET
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */
@@ -338,7 +337,9 @@ static bool manager_sample_spike_detection(Manager *m, double offset, double del
         j = 0;
         FOREACH_ELEMENT(sample, m->samples)
                 j += pow(sample->offset - m->samples[idx_min].offset, 2);
-        m->samples_jitter = sqrt(j / (ELEMENTSOF(m->samples) - 1));
+
+        size_t n = ELEMENTSOF(m->samples);
+        m->samples_jitter = sqrt(j / (n - 1));
 
         /* ignore samples when resyncing */
         if (m->poll_resync)
@@ -912,7 +913,7 @@ void manager_disconnect(Manager *m) {
         (void) sd_notify(false, "STATUS=Idle.");
 }
 
-void manager_flush_server_names(Manager  *m, ServerType t) {
+void manager_flush_server_names(Manager *m, ServerType t) {
         assert(m);
 
         if (t == SERVER_SYSTEM)
@@ -967,19 +968,19 @@ Manager* manager_free(Manager *m) {
         return mfree(m);
 }
 
-static int manager_network_read_link_servers(Manager *m) {
+static bool manager_network_read_link_servers(Manager *m) {
         _cleanup_strv_free_ char **ntp = NULL;
         bool changed = false;
         int r;
 
         assert(m);
 
+        bool existing = m->link_servers;
+
         r = sd_network_get_ntp(&ntp);
-        if (r < 0 && r != -ENODATA) {
-                if (r == -ENOMEM)
-                        log_oom();
-                else
-                        log_debug_errno(r, "Failed to get link NTP servers: %m");
+        if (r < 0) {
+                if (!IN_SET(r, -ENOENT, -ENODATA))
+                        log_error_errno(r, "Failed to get link NTP servers: %m");
                 goto clear;
         }
 
@@ -1026,7 +1027,7 @@ static int manager_network_read_link_servers(Manager *m) {
 
 clear:
         manager_flush_server_names(m, SERVER_LINK);
-        return r;
+        return existing; /* return true if there were existing servers. */
 }
 
 static bool manager_is_connected(Manager *m) {
@@ -1044,7 +1045,6 @@ static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t re
 
         sd_network_monitor_flush(m->network_monitor);
 
-        /* When manager_network_read_link_servers() failed, we assume that the servers are changed. */
         changed = manager_network_read_link_servers(m);
 
         /* check if the machine is online */
@@ -1138,13 +1138,13 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to install SIGRTMIN+18 signal handler, ignoring: %m");
 
         r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+                log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
         r = sd_event_set_watchdog(m->event, true);
         if (r < 0)

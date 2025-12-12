@@ -1,11 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-
-#include "bus-unit-util.h"
-#include "format-table.h"
 #include "systemctl.h"
+
+/* The init script exit codes for the LSB 'status' verb. (This is different from the 'start' verb, whose exit
+   codes are defined in exit-status.h.)
+
+   0       program is running or service is OK
+   1       program is dead and /var/run pid file exists
+   2       program is dead and /var/lock lock file exists
+   3       program is not running
+   4       program or service status is unknown
+   5-99    reserved for future LSB use
+   100-149 reserved for distribution use
+   150-199 reserved for application use
+   200-254 reserved
+
+   https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
+*/
+enum {
+        EXIT_PROGRAM_RUNNING_OR_SERVICE_OK        = 0,
+        EXIT_PROGRAM_DEAD_AND_PID_EXISTS          = 1,
+        EXIT_PROGRAM_DEAD_AND_LOCK_FILE_EXISTS    = 2,
+        EXIT_PROGRAM_NOT_RUNNING                  = 3,
+        EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN   = 4,
+};
 
 typedef enum BusFocus {
         BUS_FULL,      /* The full bus indicated via --system or --user */
@@ -50,7 +69,16 @@ int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret);
 const char* unit_type_suffix(const char *unit);
 bool output_show_unit(const UnitInfo *u, char **patterns);
 
-bool install_client_side(void);
+typedef enum InstallClientSide {
+        INSTALL_CLIENT_SIDE_NO = 0,
+        INSTALL_CLIENT_SIDE_OVERRIDE,
+        INSTALL_CLIENT_SIDE_ARG_ROOT,
+        INSTALL_CLIENT_SIDE_OFFLINE,
+        INSTALL_CLIENT_SIDE_NOT_BOOTED,
+        INSTALL_CLIENT_SIDE_GLOBAL_SCOPE,
+} InstallClientSide;
+
+InstallClientSide install_client_side(void);
 
 int output_table(Table *table);
 

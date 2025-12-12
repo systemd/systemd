@@ -4,8 +4,14 @@
 
 #include <linux/nexthop.h>
 #include <net/if.h>
+#include <stdio.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "conf-parser.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -14,9 +20,10 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
-#include "stdio-util.h"
+#include "siphash24.h"
 #include "string-util.h"
 
 static void nexthop_detach_from_group_members(NextHop *nexthop) {
@@ -1116,7 +1123,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 log_warning_errno(r, "rtnl: could not get NHA_ID attribute, ignoring: %m");
                 return 0;
         } else if (id == 0) {
-                log_warning("rtnl: received nexthop message with invalid nexthop ID, ignoring: %m");
+                log_warning("rtnl: received nexthop message with invalid nexthop ID, ignoring.");
                 return 0;
         }
 
@@ -1279,6 +1286,7 @@ static int nexthop_section_verify(NextHop *nh) {
 
 int network_drop_invalid_nexthops(Network *network) {
         _cleanup_hashmap_free_ Hashmap *nexthops = NULL;
+        _cleanup_set_free_ Set *duplicated_nexthops = NULL;
         NextHop *nh;
         int r;
 
@@ -1301,8 +1309,13 @@ int network_drop_invalid_nexthops(Network *network) {
                                     dup->section->filename,
                                     nh->id, nh->section->line,
                                     dup->section->line, dup->section->line);
-                        /* nexthop_detach() will drop the nexthop from nexthops_by_section. */
-                        nexthop_detach(dup);
+
+                        /* Do not call nexthop_detach() for 'dup' now, as we can remove only the current
+                         * entry in the loop. We will drop the nexthop from nexthops_by_section later. */
+                        r = set_ensure_put(&duplicated_nexthops, &nexthop_hash_ops, dup);
+                        if (r < 0)
+                                return log_oom();
+                        assert(r > 0);
                 }
 
                 r = hashmap_ensure_put(&nexthops, NULL, UINT32_TO_PTR(nh->id), nh);

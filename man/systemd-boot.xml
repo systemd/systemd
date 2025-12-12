@@ -39,12 +39,12 @@
 
     <itemizedlist>
       <listitem><para>Boot entries defined with <ulink
-      url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> Type #1
+      url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> Type #1
       description files located in <filename>/loader/entries/</filename> on the ESP and the Extended Boot
       Loader Partition. These usually describe Linux kernel images with associated initrd images, but
       alternatively may also describe other arbitrary EFI executables.</para></listitem>
 
-      <listitem><para>Unified kernel images, <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot
+      <listitem><para>Unified kernel images, <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot
       Loader Specification</ulink> Type #2, which are executable EFI binaries in
       <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader Partition.</para></listitem>
 
@@ -149,6 +149,8 @@
         <term><keycap>d</keycap></term>
         <listitem><para>Make selected entry the default</para>
 
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -164,6 +166,8 @@
         <term><keycap>t</keycap></term>
         <listitem><para>Increase the timeout before default entry is booted</para>
 
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -172,6 +176,8 @@
         <term><keycap>T</keycap></term>
         <listitem><para>Decrease the timeout</para>
 
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -179,12 +185,16 @@
         <term><keycap>r</keycap></term>
         <listitem><para>Change screen resolution, skipping any unsupported modes.</para>
 
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>R</keycap></term>
         <listitem><para>Reset screen resolution to firmware or configuration file default.</para>
+
+        <para>An EFI variable is set to allow this setting to persist.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
@@ -280,15 +290,15 @@
     </variablelist>
 
     <para>The boot menu is shown when a non-zero menu timeout has been configured. If the menu timeout has
-    been set to zero, it is sufficient to press any key — before the boot loader initializes — to bring up
-    the boot menu, except for the keys listed immediately above as they directly boot into the selected boot
-    menu item. Note that depending on the firmware implementation the time window where key presses are
-    accepted before the boot loader initializes might be short. If the window is missed, reboot and try
-    again, possibly pressing a suitable key (e.g. the space bar) continuously; on most systems it should be
-    possible to hit the time window after a few attempts. To avoid this problem, consider setting a non-zero
-    timeout, thus showing the boot menu unconditionally. Some desktop environments might offer an option to
-    directly boot into the boot menu, to avoid the problem altogether. Alternatively, use the command line
-    <command>systemctl reboot --boot-loader-menu=0</command> from the shell.</para>
+    been set to zero, hold down a key (<keycap>space</keycap> is recommended) before the boot loader
+    initializes to bring up the boot menu. Note that depending on the firmware implementation the time window
+    where key presses are accepted before the boot loader initializes might be short. If the window is
+    missed, reboot and try again, possibly repeatedly pressing a suitable key; on most systems it should be
+    possible to hit the time window after a few attempts. Keys other than the space bar may be used, except
+    for the keys listed above. If showing the menu on demand doesn't work well, consider setting a non-zero
+    timeout to show the boot menu unconditionally. Some desktop environments might offer an option to boot
+    directly into the boot menu, which also avoids the problem altogether. Alternatively, use the command
+    line <command>systemctl reboot --boot-loader-menu=</command> with a non-zero value from the shell.</para>
 
     <para>In the editor, most keys simply insert themselves, but the following keys
     may be used to perform additional actions:</para>
@@ -363,42 +373,43 @@
     <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>Boot entry description files following the <ulink
-    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> are read from
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> are read from
     <filename>/loader/entries/</filename> on the ESP and the Extended Boot Loader partition.</para>
 
     <para>Unified kernel boot entries following the <ulink
-    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> are read from
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> are read from
     <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader partition.</para>
 
     <para>Optionally, a random seed for early boot entropy pool provisioning is stored in
     <filename>/loader/random-seed</filename> in the ESP.</para>
 
-    <para>During initialization, <command>sd-boot</command> automatically loads all driver files placed in
-    the <filename>/EFI/systemd/drivers/</filename> directory of the ESP. The files placed there must have an
-    extension of the EFI architecture ID followed by <filename>.efi</filename> (e.g. for x86-64 this means a
-    suffix of <filename>x64.efi</filename>). This may be used to automatically load file system drivers and
+    <para>During initialization, <command>systemd-boot</command> automatically loads all driver files placed
+    in the <filename>/EFI/systemd/drivers/</filename> directory of the ESP. The files placed there must have
+    an extension of the EFI architecture ID followed by <filename>.efi</filename> (e.g. for x86-64 this means
+    a suffix of <filename>x64.efi</filename>). This may be used to automatically load file system drivers and
     similar, to extend the native firmware support.</para>
 
     <para>Enrollment of Secure Boot variables can be performed manually or automatically if files are available
     under <filename>/loader/keys/<replaceable>NAME</replaceable>/{db,dbx,KEK,PK}.auth</filename>, <replaceable>NAME</replaceable>
     being the display name for the set of variables in the menu. If one of the sets is named <filename>auto</filename>
-    then it might be enrolled automatically depending on whether <literal>secure-boot-enroll</literal> is set
-    to force or not.</para>
+    then it might be enrolled automatically depending on the execution environment and the value of the <literal>secure-boot-enroll</literal> option.
+    See
+    <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
     <title>EFI Variables</title>
 
-    <para>The following EFI variables are defined, set and read by <command>systemd-boot</command>, under the
-    vendor UUID <literal>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</literal>, for communication between the boot
-    loader and the OS:</para>
+    <para>The following EFI variables are defined, and may be set or read by <command>systemd-boot</command>
+    for communication between the boot loader and the OS. The vendor UUID
+    <literal>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</literal> is used in all cases.</para>
 
     <variablelist class='efi-variables'>
       <varlistentry>
         <term><varname>LoaderBootCountPath</varname></term>
-        <listitem><para>If boot counting is enabled, contains the path to the file in whose name the boot counters are
-        encoded. Set by the boot
-        loader. <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <listitem><para>If boot counting is enabled, contains the path to the file in whose name the boot
+        counters are encoded. Set by the boot loader.
+        <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         uses this information to mark a boot as successful as determined by the successful activation of the
         <filename>boot-complete.target</filename> target unit.</para>
 
@@ -430,9 +441,10 @@
         <term><varname>LoaderDevicePartUUID</varname></term>
 
         <listitem><para>Contains the partition UUID of the partition the boot loader has been started from on
-        the current boot (usually a EFI System Partition). Set by the boot loader. (Note that
-        <command>systemd-stub</command> will set this too, if not set yet, to support systems that directly
-        boot into a unified kernel image, bypassing any boot loader.)
+        the current boot (usually an EFI System Partition). Set by the boot loader. (Note that
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> will
+        set this too, if not set yet, to support systems that boot directly into a unified kernel image,
+        bypassing any boot loader.)
         <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         uses this information to automatically find the disk booted from, in order to discover various other
         partitions on the same disk automatically.</para>
@@ -461,15 +473,16 @@
 
       <varlistentry>
         <term><varname>LoaderEntryDefault</varname></term>
+        <term><varname>LoaderEntrySysFail</varname></term>
         <term><varname>LoaderEntryOneShot</varname></term>
 
-        <listitem><para>The identifier of the default boot loader entry. Set primarily by the OS and read by the boot
+        <listitem><para>The identifier of the default boot loader entry. Can be set in the OS and the boot
         loader. <varname>LoaderEntryOneShot</varname> sets the default entry for the next boot only, while
-        <varname>LoaderEntryDefault</varname> sets it persistently for all future
-        boots. <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-        <option>set-default</option> and <option>set-oneshot</option> commands make use of these variables. The boot
-        loader modifies <varname>LoaderEntryDefault</varname> on request, when the <keycap>d</keycap> key is used, see
-        above.</para>
+        <varname>LoaderEntryDefault</varname> sets it persistently for all future boots.
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <option>set-default</option> and <option>set-oneshot</option> commands make use of these variables.
+        The boot loader modifies <varname>LoaderEntryDefault</varname> on request, when the
+        <keycap>d</keycap> key is used, see above.</para>
 
         <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
@@ -523,6 +536,18 @@
         data.</para>
 
         <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderTpm2ActivePcrBanks</varname></term>
+
+        <listitem><para>Hexadecimal string representation of a bitmask with values defined by the TCG EFI
+        Protocol Specification for TPM 2.0 as EFI_TCG2_BOOT_HASH_ALG_*. If no TPM2 support or no active
+        banks were detected, will be set to <constant>0</constant>. Set by the boot loader. Use
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        to view this data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -616,6 +641,16 @@ uki-url http://example.com/somedir/fooos.efi</programlisting>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.boot.loglevel</varname></term>
+        <listitem><para>If set, the value of this string is used as log level. Valid values (from most to
+        least critical) are <literal>emerg</literal>, <literal>alert</literal>, <literal>crit</literal>,
+        <literal>err</literal>, <literal>warning</literal>, <literal>notice</literal>, <literal>info</literal>,
+        and <literal>debug</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -623,7 +658,7 @@ uki-url http://example.com/somedir/fooos.efi</programlisting>
     <title>Boot Counting</title>
 
     <para><command>systemd-boot</command> implements a simple boot counting mechanism on top of the <ulink
-    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>, for automatic and unattended
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>, for automatic and unattended
     fallback to older kernel versions/boot loader entries when a specific entry continuously fails. Any boot loader
     entry file and unified kernel image file that contains a <literal>+</literal> followed by one or two numbers (if
     two they need to be separated by a <literal>-</literal>), before the <filename>.conf</filename> or
@@ -677,18 +712,26 @@ uki-url http://example.com/somedir/fooos.efi</programlisting>
   <refsect1>
     <title>Using <command>systemd-boot</command> in virtual machines</title>
 
-    <para>When using qemu with OVMF (UEFI Firmware for virtual machines) the <option>-kernel</option> switch
-    works not only for linux kernels, but for any EFI binary, including sd-boot and unified linux
-    kernels. Example command line for loading <command>systemd-boot</command> on x64:</para>
+    <para>When using <ulink url="https://www.qemu.org/docs/master/">qemu</ulink> with
+    <ulink url="https://www.linux-kvm.org/downloads/lersek/ovmf-whitepaper-c770f8c.txt">OVMF</ulink>
+    (UEFI Firmware for virtual machines) the <option>-kernel</option> switch works not only for linux
+    kernels, but for any EFI binary, including <filename>systemd-boot</filename> and unified linux kernels
+    (UKIs). Example command line for loading <command>systemd-boot</command> on x64:</para>
 
     <para>
-      <command>qemu-system-x86_64 <replaceable>[ ... ]</replaceable>
-      -kernel /usr/lib/systemd/boot/efi/systemd-bootx64.efi</command>
+      <command>qemu-system-x86_64
+      -drive if=pflash,format=qcow2,readonly=on,file=/usr/share/edk2/ovmf/OVMF_CODE_4M.qcow2
+      -kernel /usr/lib/systemd/boot/efi/systemd-bootx64.efi
+      -drive file=<replaceable>...</replaceable>
+      <replaceable>[ ... ]</replaceable>
+      </command>
     </para>
 
-    <para>systemd-boot will detect that it was started directly instead of being loaded from ESP and will
-    search for the ESP in that case, taking into account boot order information from the hypervisor (if
-    available).</para>
+    <para>(The path to the firmware file might need to be adjusted depending on the distribution.)
+    <filename>systemd-boot</filename> will detect that it was started directly instead of being loaded from
+    ESP and will search for the ESP in that case, taking into account boot order information from the
+    hypervisor (if available). Note that for this to yield a useful result, another <option>-drive</option>
+    argument needs to be used to attach an actual disk image with an ESP.</para>
   </refsect1>
 
   <refsect1>
@@ -700,7 +743,7 @@ uki-url http://example.com/somedir/fooos.efi</programlisting>
       <member><citerefentry><refentrytitle>systemd-boot-random-seed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
-      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink></member>
+      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink></member>
       <member><ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink></member>
       <member><ulink url="https://systemd.io/TPM2_PCR_MEASUREMENTS">TPM2 PCR Measurements Made by systemd</ulink></member>
     </simplelist></para>

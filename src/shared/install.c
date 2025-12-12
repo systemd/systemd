@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
-#include <limits.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -16,17 +12,16 @@
 #include "conf-parser.h"
 #include "constants.h"
 #include "dirent-util.h"
-#include "errno-list.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "install.h"
 #include "install-printf.h"
-#include "locale-util.h"
 #include "log.h"
-#include "macro.h"
 #include "mkdir-label.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -38,6 +33,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-file.h"
+#include "unit-name.h"
 
 #define UNIT_FILE_FOLLOW_SYMLINK_MAX 64
 
@@ -1782,9 +1778,9 @@ static int install_info_add_auto(
         assert(name_or_path);
 
         if (path_is_absolute(name_or_path)) {
-                const char *pp;
-
-                pp = prefix_roota(lp->root_dir, name_or_path);
+                _cleanup_free_ char *pp = path_join(lp->root_dir, name_or_path);
+                if (!pp)
+                        return -ENOMEM;
 
                 return install_info_add(ctx, NULL, pp, lp->root_dir, /* auxiliary= */ false, ret);
         } else
@@ -3287,22 +3283,41 @@ static int split_pattern_into_name_and_instances(const char *pattern, char **out
         return 0;
 }
 
-static int presets_find_config(RuntimeScope scope, const char *root_dir, char ***files) {
+static int presets_find_config(RuntimeScope scope, const char *root_dir, char ***ret) {
+        static const char* const initrd_dirs[] = { CONF_PATHS("systemd/initrd-preset"), NULL };
         static const char* const system_dirs[] = { CONF_PATHS("systemd/system-preset"), NULL };
         static const char* const user_dirs[] = { CONF_PATHS("systemd/user-preset"), NULL };
         const char* const* dirs;
+        int r;
 
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
 
-        if (scope == RUNTIME_SCOPE_SYSTEM)
+        if (scope == RUNTIME_SCOPE_SYSTEM) {
+                r = chase_and_access("/etc/initrd-release", root_dir, CHASE_PREFIX_ROOT, F_OK, /* ret_path= */ NULL);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+
+                /* Make sure that we fall back to the system preset directories if we're operating on a root
+                 * directory without initrd preset directories. This makes sure that we don't regress when
+                 * using a newer systemctl to operate on a root directory with an older version of systemd
+                 * installed that doesn't yet known about initrd preset directories. */
+                if (r >= 0)
+                        STRV_FOREACH(d, initrd_dirs) {
+                                r = chase_and_access(*d, root_dir, CHASE_PREFIX_ROOT, F_OK, /* ret_path= */ NULL);
+                                if (r >= 0)
+                                        return conf_files_list_strv(ret, ".preset", root_dir, 0, initrd_dirs);
+                                if (r != -ENOENT)
+                                        return r;
+                        }
+
                 dirs = system_dirs;
-        else if (IN_SET(scope, RUNTIME_SCOPE_GLOBAL, RUNTIME_SCOPE_USER))
+        } else if (IN_SET(scope, RUNTIME_SCOPE_GLOBAL, RUNTIME_SCOPE_USER))
                 dirs = user_dirs;
         else
                 assert_not_reached();
 
-        return conf_files_list_strv(files, ".preset", root_dir, 0, dirs);
+        return conf_files_list_strv(ret, ".preset", root_dir, 0, dirs);
 }
 
 static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePresets *presets) {
@@ -3348,8 +3363,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                         if (strchr(COMMENTS, line[0]))
                                 continue;
 
-                        parameter = first_word(line, "enable");
-                        if (parameter) {
+                        if ((parameter = first_word(line, "enable"))) {
                                 char *unit_name;
                                 char **instances = NULL;
 
@@ -3365,10 +3379,8 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                         .action = PRESET_ENABLE,
                                         .instances = instances,
                                 };
-                        }
 
-                        parameter = first_word(line, "disable");
-                        if (parameter) {
+                        } else if ((parameter = first_word(line, "disable"))) {
                                 char *pattern;
 
                                 pattern = strdup(parameter);
@@ -3379,10 +3391,8 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                         .pattern = pattern,
                                         .action = PRESET_DISABLE,
                                 };
-                        }
 
-                        parameter = first_word(line, "ignore");
-                        if (parameter) {
+                        } else if ((parameter = first_word(line, "ignore"))) {
                                 char *pattern;
 
                                 pattern = strdup(parameter);
@@ -3395,7 +3405,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                 };
                         }
 
-                        if (rule.action) {
+                        if (rule.action != 0) {
                                 if (!GREEDY_REALLOC(ps.rules, ps.n_rules + 1))
                                         return -ENOMEM;
 

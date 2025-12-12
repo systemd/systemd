@@ -277,6 +277,10 @@
     effective way to fully disable a unit, making it impossible to
     start it even manually.</para>
 
+    <para>Files (including directories) with names that match certain patterns are
+    generally ignored. This includes names that start with a <literal>.</literal> or
+    end with a <literal>.ignore</literal>.</para>
+
     <para>The unit file format is covered by the
     <ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface
     Portability and Stability Promise</ulink>.</para>
@@ -597,19 +601,21 @@
     <variablelist class='unit-directives'>
       <varlistentry>
         <term><varname>Description=</varname></term>
-        <listitem><para>A short human readable title of the unit. This may be used by
-        <command>systemd</command> (and other UIs) as a user-visible label for the unit, so this string
-        should identify the unit rather than describe it, despite the name. This string also should not just
-        repeat the unit name. <literal>Apache2 Web Server</literal> is a good example. Bad examples are
-        <literal>high-performance lightweight HTTP server</literal> (too generic) or
-        <literal>Apache2</literal> (meaningless for people who do not know Apache, duplicates the unit
-        name). <command>systemd</command> may use this string as a noun in status messages (<literal>Starting
-        <replaceable>description</replaceable>...</literal>, <literal>Started
-        <replaceable>description</replaceable>.</literal>, <literal>Reached target
-        <replaceable>description</replaceable>.</literal>, <literal>Failed to start
-        <replaceable>description</replaceable>.</literal>), so it should be capitalized, and should not be a
-        full sentence, or a phrase with a continuous verb. Bad examples include <literal>exiting the
-        container</literal> or <literal>updating the database once per day.</literal>.</para>
+        <listitem><para>A brief, meaningful, human-readable text identifying the unit. This may be used by
+        <command>systemd</command> (and suitable UIs) as a user-visible label for the unit, so this string
+        should identify the unit rather than just describe it, despite the name. This string also should not
+        just repeat the unit name. <literal>Apache HTTP Server</literal> or <literal>Postfix Mail
+        Server</literal> are good examples. Bad examples are <literal>high-performance lightweight HTTP
+        server</literal> (too generic) or <literal>Apache</literal> (meaningless for people who do not know
+        the Apache HTTP server project, duplicates the unit name). <command>systemd</command> may use this
+        string as a noun in status messages (<literal>Starting
+        <replaceable>Description</replaceable>...</literal>, <literal>Started
+        <replaceable>Description</replaceable>.</literal>, <literal>Reached target
+        <replaceable>Description</replaceable>.</literal>, <literal>Failed to start
+        <replaceable>Description</replaceable>.</literal>), so it should be capitalized, and should not be a
+        full sentence, or a phrase with a verb conjugated in the present continuous, or end in a full
+        stop. Bad examples include <literal>exiting the container</literal>, <literal>updating the database
+        once per day.</literal>, or <literal>OpenSSH server second instance daemon</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v201"/>
         </listitem>
@@ -715,9 +721,10 @@
         <term><varname>BindsTo=</varname></term>
 
         <listitem><para>Configures requirement dependencies, very similar in style to
-        <varname>Requires=</varname>. However, this dependency type is stronger: in addition to the effect of
-        <varname>Requires=</varname> it declares that if the unit bound to is stopped, this unit will be stopped
-        too. This means a unit bound to another unit that suddenly enters inactive state will be stopped too.
+        <varname>Requires=</varname>. However, this dependency type is stronger: in addition to the effects of
+        <varname>Requires=</varname>, which already stops (or restarts) the configuring unit when a listed unit is
+        explicitly stopped (or restarted), it also does so when a listed unit stops unexpectedly (which includes when it
+        fails).
         Units can suddenly, unexpectedly enter inactive state for different reasons: the main process of a service unit
         might terminate on its own choice, the backing device of a device unit might be unplugged or the mount point of
         a mount unit might be unmounted without involvement of the system and service manager.</para>
@@ -1584,7 +1591,8 @@
                 </row>
                 <row>
                   <entry>tpm2</entry>
-                  <entry>Trusted Platform Module 2.0 (TPM2)</entry>
+                  <entry>Trusted Platform Module 2.0 (TPM2) (with full UEFI support, including the TCG PC Client
+                  Platform Firmware Profile)</entry>
                 </row>
                 <row>
                   <entry>cvm</entry>
@@ -2563,7 +2571,7 @@ ExecStart=/usr/sbin/foo-daemon
       the following contents:</para>
 
       <programlisting>[Unit]
-Description=Some HTTP server
+Description=Some HTTP Server
 After=remote-fs.target sqldb.service
 Requires=sqldb.service
 AssertPathExists=/srv/webserver
@@ -2595,7 +2603,7 @@ WantedBy=multi-user.target</programlisting>
       change the chosen settings:</para>
 
       <programlisting>[Unit]
-Description=Some HTTP server
+Description=Some HTTP Server
 After=remote-fs.target sqldb.service <emphasis>memcached.service</emphasis>
 Requires=sqldb.service <emphasis>memcached.service</emphasis>
 AssertPathExists=<emphasis>/srv/www</emphasis>
@@ -2653,7 +2661,7 @@ PrivateTmp=yes</programlisting>
       <filename index='false'>/etc/systemd/system/failure-handler@.service</filename>:</para>
 
       <programlisting>[Unit]
-Description=My failure handler for %i
+Description=My Failure Handler For %i
 
 [Service]
 Type=oneshot

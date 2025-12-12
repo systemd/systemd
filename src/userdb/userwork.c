@@ -1,22 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <poll.h>
-#include <sys/wait.h>
 
 #include "sd-daemon.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
+#include "argv-util.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "group-record.h"
 #include "io-util.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "process-util.h"
-#include "strv.h"
+#include "pidref.h"
+#include "string-util.h"
 #include "time-util.h"
 #include "user-record.h"
-#include "user-record-nss.h"
 #include "user-util.h"
 #include "userdb.h"
 #include "varlink-io.systemd.UserDatabase.h"
@@ -118,8 +119,8 @@ static int build_user_json(sd_varlink *link, UserRecord *ur, sd_json_variant **r
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v)),
-                        SD_JSON_BUILD_PAIR("incomplete", SD_JSON_BUILD_BOOLEAN(stripped->incomplete)));
+                        SD_JSON_BUILD_PAIR_VARIANT("record", v),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", stripped->incomplete));
 }
 
 static int userdb_flags_from_service(sd_varlink *link, const char *service, UserDBFlags *ret) {
@@ -148,6 +149,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 { "dispositionMask", SD_JSON_VARIANT_ARRAY,         json_dispatch_dispositions_mask,     offsetof(LookupParameters, match.disposition_mask), 0             },
                 { "uidMin",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, match.uid_min),          0             },
                 { "uidMax",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, match.uid_max),          0             },
+                { "uuid",            SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,              offsetof(LookupParameters, match.uuid),             0             },
                 {}
         };
 
@@ -278,8 +280,8 @@ static int build_group_json(sd_varlink *link, GroupRecord *gr, sd_json_variant *
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v)),
-                        SD_JSON_BUILD_PAIR("incomplete", SD_JSON_BUILD_BOOLEAN(stripped->incomplete)));
+                        SD_JSON_BUILD_PAIR_VARIANT("record", v),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", stripped->incomplete));
 }
 
 static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -292,6 +294,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 { "dispositionMask", SD_JSON_VARIANT_ARRAY,         json_dispatch_dispositions_mask,     offsetof(LookupParameters, match.disposition_mask), 0             },
                 { "gidMin",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, match.gid_min),          0             },
                 { "gidMax",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, match.gid_max),          0             },
+                { "uuid",            SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,              offsetof(LookupParameters, match.uuid),             0             },
                 {}
         };
 
@@ -434,8 +437,8 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
 
                         r = sd_varlink_notifybo(
                                         link,
-                                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
-                                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name)));
+                                        SD_JSON_BUILD_PAIR_STRING("userName", last_user_name),
+                                        SD_JSON_BUILD_PAIR_STRING("groupName", last_group_name));
                         if (r < 0)
                                 return r;
                 }
@@ -453,8 +456,8 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
 
         return sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(last_user_name)),
-                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(last_group_name)));
+                        SD_JSON_BUILD_PAIR_STRING("userName", last_user_name),
+                        SD_JSON_BUILD_PAIR_STRING("groupName", last_group_name));
 }
 
 static int process_connection(sd_varlink_server *server, int _fd) {

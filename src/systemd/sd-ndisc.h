@@ -19,21 +19,18 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <inttypes.h>
-#include <net/ethernet.h>
-#include <netinet/in.h>
-#include <sys/types.h>
-
 #include "_sd-common.h"
-#include "sd-event.h"
-#include "sd-ndisc-neighbor.h"
-#include "sd-ndisc-protocol.h"
-#include "sd-ndisc-redirect.h"
-#include "sd-ndisc-router.h"
+#include "sd-ndisc-neighbor.h"  /* IWYU pragma: export */
+#include "sd-ndisc-protocol.h"  /* IWYU pragma: export */
+#include "sd-ndisc-redirect.h"  /* IWYU pragma: export */
+#include "sd-ndisc-router.h"    /* IWYU pragma: export */
 
 _SD_BEGIN_DECLARATIONS;
 
+struct ether_addr;
+struct in6_addr;
+
+typedef struct sd_event sd_event;
 typedef struct sd_ndisc sd_ndisc;
 
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_ndisc_event_t) {
@@ -61,9 +58,9 @@ int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority);
 int sd_ndisc_detach_event(sd_ndisc *nd);
 sd_event *sd_ndisc_get_event(sd_ndisc *nd);
 
-int sd_ndisc_set_callback(sd_ndisc *nd, sd_ndisc_callback_t cb, void *userdata);
-int sd_ndisc_set_ifindex(sd_ndisc *nd, int interface_index);
-int sd_ndisc_set_ifname(sd_ndisc *nd, const char *interface_name);
+int sd_ndisc_set_callback(sd_ndisc *nd, sd_ndisc_callback_t callback, void *userdata);
+int sd_ndisc_set_ifindex(sd_ndisc *nd, int ifindex);
+int sd_ndisc_set_ifname(sd_ndisc *nd, const char *ifname);
 int sd_ndisc_get_ifname(sd_ndisc *nd, const char **ret);
 int sd_ndisc_set_link_local_address(sd_ndisc *nd, const struct in6_addr *addr);
 int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr);

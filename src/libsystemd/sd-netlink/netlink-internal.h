@@ -2,14 +2,11 @@
 #pragma once
 
 #include <linux/netlink.h>
+#include <sys/socket.h>
 
-#include "sd-netlink.h"
-
+#include "sd-forward.h"
 #include "list.h"
 #include "netlink-types.h"
-#include "ordered-set.h"
-#include "prioq.h"
-#include "time-util.h"
 
 #define NETLINK_DEFAULT_TIMEOUT_USEC ((usec_t) (25 * USEC_PER_SEC))
 
@@ -40,7 +37,7 @@ typedef enum NetlinkSlotType {
         _NETLINK_SLOT_INVALID = -EINVAL,
 } NetlinkSlotType;
 
-struct sd_netlink_slot {
+typedef struct sd_netlink_slot {
         unsigned n_ref;
         NetlinkSlotType type:8;
         bool floating;
@@ -56,9 +53,14 @@ struct sd_netlink_slot {
                 struct reply_callback reply_callback;
                 struct match_callback match_callback;
         };
-};
+} sd_netlink_slot;
 
-struct sd_netlink {
+typedef struct NetlinkIgnoredSerial {
+        uint32_t serial;
+        usec_t timeout_usec; /* timestamp in CLOCK_MONOTONIC */
+} NetlinkIgnoredSerial;
+
+typedef struct sd_netlink {
         unsigned n_ref;
 
         int fd;
@@ -81,6 +83,7 @@ struct sd_netlink {
         bool processing:1;
 
         uint32_t serial;
+        Hashmap *ignored_serials;
 
         struct Prioq *reply_callbacks_prioq;
         Hashmap *reply_callbacks;
@@ -98,7 +101,7 @@ struct sd_netlink {
 
         Hashmap *genl_family_by_name;
         Hashmap *genl_family_by_id;
-};
+} sd_netlink;
 
 struct netlink_attribute {
         size_t offset; /* offset from hdr to attribute */
@@ -113,7 +116,7 @@ struct netlink_container {
         uint16_t max_attribute; /* the maximum attribute in container */
 };
 
-struct sd_netlink_message {
+typedef struct sd_netlink_message {
         unsigned n_ref;
 
         int protocol;
@@ -125,16 +128,17 @@ struct sd_netlink_message {
         bool sealed:1;
 
         sd_netlink_message *next; /* next in a chain of multi-part messages */
-};
+} sd_netlink_message;
 
 int message_new_empty(sd_netlink *nl, sd_netlink_message **ret);
 int message_new_full(
                 sd_netlink *nl,
                 uint16_t nlmsg_type,
+                uint16_t nlmsg_flags,
                 const NLAPolicySet *policy_set,
                 size_t header_size,
                 sd_netlink_message **ret);
-int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type);
+int message_new(sd_netlink *nl, sd_netlink_message **ret, uint16_t type, uint16_t flags);
 int message_new_synthetic_error(sd_netlink *nl, int error, uint32_t serial, sd_netlink_message **ret);
 
 static inline uint32_t message_get_serial(sd_netlink_message *m) {
@@ -177,14 +181,13 @@ int sd_nfnl_socket_open(sd_netlink **ret);
 int sd_nfnl_send_batch(
                 sd_netlink *nfnl,
                 sd_netlink_message **messages,
-                size_t msgcount,
+                size_t n_messages,
                 uint32_t **ret_serials);
 int sd_nfnl_call_batch(
                 sd_netlink *nfnl,
                 sd_netlink_message **messages,
                 size_t n_messages,
-                uint64_t usec,
-                sd_netlink_message ***ret_messages);
+                uint64_t usec);
 int sd_nfnl_message_new(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
@@ -201,7 +204,7 @@ int sd_nfnl_nft_message_new_rule(sd_netlink *nfnl, sd_netlink_message **ret,
                                  int nfproto, const char *table, const char *chain);
 int sd_nfnl_nft_message_new_set(sd_netlink *nfnl, sd_netlink_message **ret,
                                 int nfproto, const char *table, const char *set_name,
-                                uint32_t setid, uint32_t klen);
+                                uint32_t set_id, uint32_t klen);
 int sd_nfnl_nft_message_new_setelems(sd_netlink *nfnl, sd_netlink_message **ret,
                                      int add, int nfproto, const char *table, const char *set_name);
 int sd_nfnl_nft_message_append_setelem(sd_netlink_message *m,

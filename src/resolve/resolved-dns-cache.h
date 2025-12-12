@@ -1,22 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-json.h"
-
-#include "hashmap.h"
-#include "in-addr-util.h"
-#include "list.h"
-#include "prioq.h"
-#include "resolve-util.h"
-#include "time-util.h"
-
-typedef enum DnsProtocol DnsProtocol;
-typedef enum DnssecResult DnssecResult;
-
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsPacket DnsPacket;
-typedef struct DnsResourceKey DnsResourceKey;
-typedef struct DnsResourceRecord DnsResourceRecord;
+#include "resolved-forward.h"
 
 typedef struct DnsCache {
         Hashmap *by_key;

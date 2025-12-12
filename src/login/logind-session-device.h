@@ -2,11 +2,7 @@
 #pragma once
 
 #include "list.h"
-#include "memory-util.h"
-
-typedef struct Device Device;
-typedef struct Session Session;
-typedef struct SessionDevice SessionDevice;
+#include "logind-forward.h"
 
 typedef enum DeviceType {
         DEVICE_TYPE_UNKNOWN,
@@ -15,7 +11,7 @@ typedef enum DeviceType {
         DEVICE_TYPE_HIDRAW,
 } DeviceType;
 
-struct SessionDevice {
+typedef struct SessionDevice {
         Session *session;
         Device *device;
 
@@ -27,7 +23,7 @@ struct SessionDevice {
         bool pushed_fd:1;
 
         LIST_FIELDS(struct SessionDevice, sd_by_device);
-};
+} SessionDevice;
 
 int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **ret);
 SessionDevice *session_device_free(SessionDevice *sd);

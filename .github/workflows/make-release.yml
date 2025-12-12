@@ -1,0 +1,24 @@
+name: Make a Github release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    if: github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Release
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
+        with:
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          draft: ${{ github.repository == 'systemd/systemd' }}

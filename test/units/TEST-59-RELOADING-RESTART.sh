@@ -3,11 +3,6 @@
 set -eux
 set -o pipefail
 
-fail() {
-    systemd-analyze log-level info
-    exit 1
-}
-
 # Wait for a service to enter a state within a timeout period, if it doesn't
 # enter the desired state within the timeout period then this function will
 # exit the test case with a non zero exit code.
@@ -26,9 +21,6 @@ wait_on_state_or_fail() {
         state=$(systemctl show "$service" --property=ActiveState --value)
     done
 }
-
-systemd-analyze log-level debug
-
 
 cat >/run/systemd/system/testservice-fail-59.service <<EOF
 [Unit]
@@ -83,8 +75,6 @@ systemctl start testservice-abort-restart-59.service
 systemctl --signal=SIGABRT kill testservice-abort-restart-59.service
 wait_on_state_or_fail "testservice-abort-restart-59.service" "failed" "30"
 
-systemd-analyze log-level info
-
 # Test that rate-limiting daemon-reload works
 mkdir -p /run/systemd/system.conf.d/
 cat >/run/systemd/system.conf.d/50-test-59-reload.conf <<EOF
@@ -99,6 +89,9 @@ systemctl daemon-reload
 # The timeout will hit (and the test will fail) if the reloads are not rate-limited
 timeout 15 bash -c 'while systemctl daemon-reload --no-block; do true; done'
 
+# Same for varlink, rate limiting is shared
+timeout 15 bash -c 'while varlinkctl call --timeout=1 /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}'; do true; done'
+
 # Rate limit should reset after 9s
 sleep 10
 
@@ -106,6 +99,7 @@ systemctl daemon-reload
 
 # Same test for reexec, but we wait here
 timeout 15 bash -c 'while systemctl daemon-reexec; do true; done'
+timeout 15 bash -c 'while varlinkctl call --timeout=infinity /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}'; do true; done'
 
 # Rate limit should reset after 9s
 sleep 10
@@ -152,8 +146,6 @@ EOF
 
 chmod +x /run/notify-reload-test.sh
 
-systemd-analyze log-level debug
-
 systemd-run --unit notify-reload-test -p Type=notify-reload -p KillMode=process /run/notify-reload-test.sh
 systemctl reload notify-reload-test
 systemctl stop notify-reload-test
@@ -162,8 +154,6 @@ test "$(systemctl show -p ExecMainStatus --value notify-reload-test)" = 109
 
 systemctl reset-failed notify-reload-test
 rm /run/notify-reload-test.sh
-
-systemd-analyze log-level info
 
 # Ensure that, with system log level info, we get debug level messages when a unit fails to start and is
 # restarted with RestartMode=debug
@@ -184,6 +174,6 @@ systemctl daemon-reload
 systemctl start testservice-fail-restart-debug-59.service
 wait_on_state_or_fail "testservice-fail-restart-debug-59.service" "failed" "15"
 journalctl --sync
-journalctl -b | grep -q "Failed to follow symlinks on /nonexistent-debug-59: No such file or directory"
+journalctl -b | grep "Failed to follow symlinks on /nonexistent-debug-59: No such file or directory" >/dev/null
 
 touch /testok

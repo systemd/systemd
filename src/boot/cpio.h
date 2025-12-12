@@ -2,7 +2,6 @@
 #pragma once
 
 #include "efi.h"
-#include "iovec-util-fundamental.h"
 #include "proto/loaded-image.h"
 
 EFI_STATUS pack_cpio(

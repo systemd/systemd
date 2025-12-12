@@ -2,8 +2,6 @@
 
 #include <sys/stat.h>
 #include <sys/statvfs.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "coredump-vacuum.h"
@@ -12,7 +10,6 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "stat-util.h"
 #include "string-util.h"

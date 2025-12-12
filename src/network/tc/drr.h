@@ -2,6 +2,7 @@
  * Copyright © 2020 VMware, Inc. */
 #pragma once
 
+#include "shared-forward.h"
 #include "qdisc.h"
 #include "tclass.h"
 

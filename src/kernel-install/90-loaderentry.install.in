@@ -26,7 +26,11 @@ ENTRY_DIR_ABS="${3:?}"
 KERNEL_IMAGE="$4"
 INITRD_OPTIONS_SHIFT=4
 
-[ "$KERNEL_INSTALL_LAYOUT" = "bls" ] || exit 0
+if [ "$KERNEL_INSTALL_LAYOUT" != "bls" ]; then
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+        echo "KERNEL_INSTALL_LAYOUT=$KERNEL_INSTALL_LAYOUT, quitting."
+    exit 0
+fi
 
 MACHINE_ID="${KERNEL_INSTALL_MACHINE_ID:?}"
 ENTRY_TOKEN="${KERNEL_INSTALL_ENTRY_TOKEN:?}"
@@ -45,6 +49,11 @@ LOADER_ENTRY="$BOOT_ROOT/loader/entries/$ENTRY_TOKEN-$KERNEL_VERSION.conf"
 
 case "$COMMAND" in
     remove)
+        if [ -f "/lib/modules/$KERNEL_VERSION/vmlinuz" ] && [ "$KERNEL_INSTALL_BOOT_ENTRY_TYPE" = "type2" ]; then
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                echo "BOOT_ENTRY_TYPE=type2, not removing loader entries."
+            exit 0
+        fi
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Removing ${LOADER_ENTRY%.conf}*.conf"
         exec rm -f \

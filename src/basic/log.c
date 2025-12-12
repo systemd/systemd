@@ -1,16 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <limits.h>
-#include <stdarg.h>
-#include <stddef.h>
 #include <sys/signalfd.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <sys/uio.h>
-#include <sys/un.h>
 #include <threads.h>
 #include <unistd.h>
 
@@ -21,14 +14,13 @@
 #include "argv-util.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "iovec-util.h"
 #include "list.h"
 #include "log.h"
 #include "log-context.h"
-#include "macro.h"
-#include "missing_syscall.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -958,8 +950,6 @@ int log_format_iovec(
                 const char *format,
                 va_list ap) {
 
-        static const char nl = '\n';
-
         while (format && *n + 1 < iovec_len) {
                 va_list aq;
                 char *m;
@@ -983,7 +973,7 @@ int log_format_iovec(
 
                 iovec[(*n)++] = IOVEC_MAKE_STRING(m);
                 if (newline_separator)
-                        iovec[(*n)++] = IOVEC_MAKE((char *)&nl, 1);
+                        iovec[(*n)++] = IOVEC_MAKE_STRING("\n");
 
                 format = va_arg(ap, char *);
         }
@@ -1408,6 +1398,12 @@ int log_get_max_level(void) {
         return log_max_level;
 }
 
+int log_get_target_max_level(LogTarget target) {
+        assert(target >= 0);
+        assert(target < _LOG_TARGET_SINGLE_MAX);
+        return log_target_max_level[target];
+}
+
 void log_show_color(bool b) {
         show_color = b;
 }
@@ -1509,7 +1505,7 @@ DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);
 void log_received_signal(int level, const struct signalfd_siginfo *si) {
         assert(si);
 
-        if (pid_is_valid(si->ssi_pid)) {
+        if (si_code_from_process(si->ssi_code) && pid_is_valid(si->ssi_pid)) {
                 _cleanup_free_ char *p = NULL;
 
                 (void) pid_get_comm(si->ssi_pid, &p);

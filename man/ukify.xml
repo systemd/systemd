@@ -45,11 +45,19 @@
     <title>Description</title>
 
     <para><command>ukify</command> is a tool whose primary purpose is to combine components (usually a
-    kernel, an initrd, and a UEFI boot stub) to create a
-    <ulink url="https://uapi-group.org/specifications/specs/unified_kernel_image/">Unified Kernel Image (UKI)</ulink>
-    — a PE binary that can be executed by the firmware to start the embedded linux kernel.
-    See <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    for details about the stub.</para>
+    kernel, an initrd, and the
+    <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> UEFI
+    stub) to create a <ulink url="https://uapi-group.org/specifications/specs/unified_kernel_image/">UAPI.5 Unified
+    Kernel Image (UKI)</ulink> — a single PE binary that boots the system. When the UKI is executed, the stub
+    extracts and boots the embedded linux kernel. The UKI can be started directly by the firmware or through
+    a boot loader. When used with <ulink url="https://www.qemu.org/docs/master/">qemu</ulink>, a UKI can also
+    be executed through "direct kernel boot", see example below.</para>
+
+    <para><command>ukify</command> can also be used generate other types of UKI-like images, in particular
+    extensions. See the description of the <command>build</command> verb below. <command>ukify</command> can
+    also generate certificates and keys for SecureBoot and PCR signing, see the description of the
+    <command>genkey</command> verb below. <command>ukify</command> can also print detailed information about
+    unified kernel images, see the description of <command>inspect</command> verb below.</para>
   </refsect1>
 
   <refsect1>
@@ -107,9 +115,10 @@
       describing separate boot phases. If one of
       <varname>SigningEngine=</varname>/<option>--signing-engine=</option> or
       <varname>SigningProvider=</varname>/<option>--signing-provider=</option> is specified, then the private
-      key arguments will be passed verbatim to OpenSSL as URIs, and the public key arguments will be loaded
-      as X.509 certificates, so that signing can be performed with an OpenSSL engine or provider
-      respectively.</para>
+      key arguments will be passed verbatim to
+      <citerefentry project='openssl'><refentrytitle>openssl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      as URIs, and the public key arguments will be loaded as X.509 certificates, so that signing can be
+      performed with an OpenSSL engine or provider respectively.</para>
 
       <para>If a SecureBoot signing key is provided via the
       <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> option, the resulting
@@ -529,7 +538,8 @@
           <varname>SigningEngine=</varname>/<option>--signing-engine=</option> or
           <varname>SigningProvider=</varname>/<option>--signing-provider=</option> option is used, this may
           also be an engine or provider specific designation. This option is required by
-          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para>
+          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option> and
+          <varname>SecureBootSigningTool=systemd-sbsign</varname>/<option>--signtool=systemd-sbsign</option>. </para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
@@ -542,7 +552,8 @@
           <varname>SigningEngine=</varname>/<option>--signing-engine=</option> or
           <varname>SigningProvider=</varname>/<option>--signing-provider=</option> option is used, this may
           also be an engine or provider specific designation. This option is required by
-          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para>
+          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option> and
+          <varname>SecureBootSigningTool=systemd-sbsign</varname>/<option>--signtool=systemd-sbsign</option>. </para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
@@ -582,7 +593,9 @@
           <term><varname>SigningEngine=<replaceable>ENGINE</replaceable></varname></term>
           <term><option>--signing-engine=<replaceable>ENGINE</replaceable></option></term>
 
-          <listitem><para>An OpenSSL engine to be used for signing the resulting binary and PCR measurements.
+          <listitem><para>An OpenSSL engine to be used for signing the resulting binary and PCR measurements,
+          see
+          <citerefentry project='openssl'><refentrytitle>openssl-engine</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
@@ -593,8 +606,10 @@
           <term><option>--signing-provider=<replaceable>PROVIDER</replaceable></option></term>
 
           <listitem><para>An OpenSSL provider to be used for signing the resulting binary and PCR
-          measurements. This option can only be used when using <command>systemd-sbsign</command> as the
-          signing tool.</para>
+          measurements, see
+          <citerefentry project='openssl'><refentrytitle>provider</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          This option can only be used when <command>systemd-sbsign</command> is used as the signing
+          tool.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
@@ -604,8 +619,10 @@
           <term><option>--certificate-provider=<replaceable>PROVIDER</replaceable></option></term>
 
           <listitem><para>An OpenSSL provider to be used for loading the certificate used to sign the
-          resulting binary and PCR measurements. This option can only be used when using
-          <command>systemd-sbsign</command> as the signing tool.</para>
+          resulting binary and PCR measurements, see
+          <citerefentry project='openssl'><refentrytitle>provider</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          This option can only be used when <command>systemd-sbsign</command> is used as the signing
+          tool.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
@@ -708,6 +725,27 @@
 </programlisting>
 
       <para>This creates an unsigned UKI <filename>./vmlinuz.unsigned.efi</filename>.</para>
+    </example>
+
+    <example>
+      <title>Direct kernel boot in a virtual machine</title>
+
+      <para>When using <ulink url="https://www.qemu.org/docs/master/">qemu</ulink> with
+      <ulink url="https://www.linux-kvm.org/downloads/lersek/ovmf-whitepaper-c770f8c.txt">OVMF</ulink>
+      (UEFI Firmware for virtual machines) the <option>-kernel</option> switch can be used directly with a
+      UKI. Example:</para>
+
+      <para>
+        <command>qemu-kvm
+        -drive if=pflash,format=qcow2,readonly=on,file=/usr/share/edk2/ovmf/OVMF_CODE_4M.qcow2
+        -kernel <filename index='false'>./vmlinuz.unsigned.efi</filename>
+        <replaceable>[ ... ]</replaceable>
+        </command>
+      </para>
+
+      <para>(The path to the firmware file might need to be adjusted depending on the distribution.) Usually,
+      another <option>-drive</option> argument would to be used to attach an actual disk image, but this
+      is not required.</para>
     </example>
 
     <example>
@@ -844,7 +882,7 @@ Writing public key for PCR signing to /etc/systemd/tpm2-pcr-public-key-system.pe
       <programlisting>$ ukify build \
       --profile='TITLE=Boot into Storage Target Mode
 ID=storagetm' \
-      --cmdline='quiet rw rd.systemd.unit=stroage-target-mode.target' \
+      --cmdline='quiet rw rd.systemd.unit=storage-target-mode.target' \
       --output=profile1.efi
 </programlisting>
 

@@ -2,20 +2,16 @@
 
 #include <arpa/inet.h>
 #include <linux/if_tunnel.h>
-#include <linux/ip.h>
-#include <net/if.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-netlink.h"
 
-#include "macro.h"
 #include "module-util.h"
 #include "tests.h"
 
 static int load_module(const char *mod_name) {
-        _cleanup_(sym_kmod_unrefp) struct kmod_ctx *ctx = NULL;
-        _cleanup_(sym_kmod_module_unref_listp) struct kmod_list *list = NULL;
+        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        _cleanup_(kmod_module_unref_listp) struct kmod_list *list = NULL;
         struct kmod_list *l;
         int r;
 
@@ -32,7 +28,7 @@ static int load_module(const char *mod_name) {
                 return r;
 
         sym_kmod_list_foreach(l, list) {
-                _cleanup_(sym_kmod_module_unrefp) struct kmod_module *mod = NULL;
+                _cleanup_(kmod_module_unrefp) struct kmod_module *mod = NULL;
 
                 mod = sym_kmod_module_get_module(l);
 

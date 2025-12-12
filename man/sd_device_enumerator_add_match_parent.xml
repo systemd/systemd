@@ -1,0 +1,223 @@
+<?xml version="1.0"?>
+<!DOCTYPE refentries PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_device_enumerator_add_match_parent" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>sd_device_enumerator_add_match_parent</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_device_enumerator_add_match_parent</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_device_enumerator_add_match_parent</refname>
+    <refname>sd_device_enumerator_add_match_property</refname>
+    <refname>sd_device_enumerator_add_match_property_required</refname>
+    <refname>sd_device_enumerator_add_match_subsystem</refname>
+    <refname>sd_device_enumerator_add_match_sysattr</refname>
+    <refname>sd_device_enumerator_add_match_sysname</refname>
+    <refname>sd_device_enumerator_add_nomatch_sysname</refname>
+    <refname>sd_device_enumerator_add_match_tag</refname>
+    <refname>sd_device_enumerator_allow_uninitialized</refname>
+    <refname>sd_device_enumerator_add_all_parents</refname>
+    <refpurpose>Add a filter to the device enumerator</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+    <funcsynopsisinfo>#include &lt;systemd/sd-device.h&gt;</funcsynopsisinfo>
+
+    <funcprototype>
+      <funcdef>int <function>sd_device_enumerator_add_match_parent</function></funcdef>
+      <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      <paramdef>sd_device *<parameter>parent</parameter></paramdef>
+    </funcprototype>
+
+    <funcprototype>
+      <funcdef>int <function>sd_device_enumerator_add_match_property</function></funcdef>
+      <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      <paramdef>const char *<parameter>property</parameter></paramdef>
+      <paramdef>const char *<parameter>value</parameter></paramdef>
+    </funcprototype>
+
+    <funcprototype>
+      <funcdef>int <function>sd_device_enumerator_add_match_property_required</function></funcdef>
+      <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      <paramdef>const char *<parameter>property</parameter></paramdef>
+      <paramdef>const char *<parameter>value</parameter></paramdef>
+    </funcprototype>
+
+    <funcprototype>
+      <funcdef>int <function>sd_device_enumerator_add_match_subsystem</function></funcdef>
+      <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      <paramdef>const char *<parameter>subsystem</parameter></paramdef>
+      <paramdef>int <parameter>match</parameter></paramdef>
+    </funcprototype>
+
+    <funcprototype>
+      <funcdef>int <function>sd_device_enumerator_add_match_sysattr</function></funcdef>
+      <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      <paramdef>const char *<parameter>sysattr</parameter></paramdef>
+      <paramdef>const char *<parameter>value</parameter></paramdef>
+      <paramdef>int <parameter>match</parameter></paramdef>
+    </funcprototype>
+
+    <funcprototype>
+      <funcdef>int <function>sd_device_enumerator_add_match_sysname</function></funcdef>
+      <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      <paramdef>const char *<parameter>sysname</parameter></paramdef>
+    </funcprototype>
+
+    <funcprototype>
+      <funcdef>int <function>sd_device_enumerator_add_nomatch_sysname</function></funcdef>
+      <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      <paramdef>const char *<parameter>sysname</parameter></paramdef>
+    </funcprototype>
+
+    <funcprototype>
+      <funcdef>int <function>sd_device_enumerator_add_match_tag</function></funcdef>
+      <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      <paramdef>const char *<parameter>tag</parameter></paramdef>
+    </funcprototype>
+
+    <funcprototype>
+      <funcdef>int <function>sd_device_enumerator_allow_uninitialized</function></funcdef>
+      <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+    </funcprototype>
+
+    <funcprototype>
+      <funcdef>int <function>sd_device_enumerator_add_all_parents</function></funcdef>
+      <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+    </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>The <function>sd_device_enumerator_add_match_parent()</function> function adds a filter to
+    the <parameter>enumerator</parameter> so that only devices under the tree of the specified
+    <parameter>parent</parameter> device are enumerated. If this is called multiple times the
+    previously set <parameter>parent</parameter> device is cleared and only the last call takes an
+    effect.</para>
+
+    <para>The <function>sd_device_enumerator_add_match_property()</function> function adds a filter to
+    the <parameter>enumerator</parameter> so that only devices with the specified
+    <parameter>property</parameter> equals to the <parameter>value</parameter> are enumerated.
+    Both <parameter>property</parameter> and <parameter>value</parameter> can be a glob pattern.
+    When this is called multiple times, devices that have at least one of the specified
+    properties with matching values are enumerated. That is, filters are ORed.</para>
+
+    <para>The <function>sd_device_enumerator_add_match_property_required()</function> function adds a
+    filter to the <parameter>enumerator</parameter> so that only devices with the specified
+    <parameter>property</parameter> equals to the <parameter>value</parameter> are enumerated.
+    This function is similar to <function>sd_device_enumerator_add_match_property()</function>, but when
+    this is called multiple times, devices that have <emphasis>all</emphasis> specified properties
+    with matching values are enumerated. That is, filters are ANDed.</para>
+
+    <para>The <function>sd_device_enumerator_add_match_subsystem()</function> function adds a filter
+    to the <parameter>enumerator</parameter> so that all devices in the specified
+    <parameter>subsystem</parameter>, when <parameter>match</parameter> is <constant>true</constant>.
+    When <parameter>match</parameter> is <constant>false</constant>, then all devices except those in
+    the specified <parameter>subsystem</parameter> are enumerated. When called multiple times,
+    positive filters are ORed, and negative ones are ANDed.</para>
+
+    <para>The <function>sd_device_enumerator_add_match_sysattr()</function> function adds a filter on
+    the sysfs attribute <parameter>sysattr</parameter> matching <parameter>value</parameter>.
+    <parameter>value</parameter> can be a glob pattern. If <parameter>value</parameter> is
+    <constant>NULL</constant>, devices that either have (if <parameter>match</parameter>
+    is <constant>true</constant>) or do not have (if <parameter>match</parameter> is
+    <constant>false</constant>) the specified <parameter>sysattr</parameter> are included, regardless
+    of its value. That is, <constant>NULL</constant> is mostly equivalent to <literal>*</literal>.
+    When this function is called multiple times, only devices that match all specified
+    <parameter>sysattr</parameter> filters are enumerated. That is, these filters are ANDed.</para>
+
+    <para>The <function>sd_device_enumerator_add_match_sysname()</function> function adds a filter so
+    that only devices whose sysname equals to <parameter>sysname</parameter> are enumerated.
+    <parameter>sysname</parameter> can be a glob pattern. When called multiple times, filters are ORed.</para>
+
+    <para>The <function>sd_device_enumerator_add_nomatch_sysname()</function> function adds a filter
+    so that devices whose sysname equals to <parameter>sysname</parameter> are excluded from the
+    enumeration. This is useful for excluding specific devices from the enumeration process.
+    When called multiple times, features are ANDed.</para>
+
+    <para>The <function>sd_device_enumerator_add_match_tag()</function> function adds a filter so that
+    only devices tagged with <parameter>tag</parameter> are enumerated. When called multiple times,
+    filters are ORed.</para>
+
+    <para>The <function>sd_device_enumerator_allow_uninitialized()</function> function allows devices
+    that have not yet been initialized by udev to be included in the enumeration.</para>
+
+    <para>The <function>sd_device_enumerator_add_all_parents()</function> function enumerates all parent
+    devices of the matching devices. This is useful for cases where you want to include all parent
+    devices in the enumeration, such as when you are interested in the entire device tree leading up
+    to a specific device.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>All functions return <constant>0</constant> or a positive integer on success, or a negative
+    errno-style error code on failure.</para>
+
+    <refsect2>
+    <title>Errors</title>
+
+    <para>Returned errors may indicate the following problems:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>-ENOMEM</constant></term>
+
+        <listitem><para>Memory allocation failed.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para>One of the arguments is invalid.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect2>
+  </refsect1>
+
+  <refsect1>
+  <title>Examples</title>
+
+  <example>
+    <title>Detect Removable USB Devices (Using Match and Exclude)</title>
+    <programlisting><xi:include href="sd_device_enumerator_add_match_parent-example.c" parse="text"/></programlisting>
+  </example>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_device_enumerator_add_match_parent()</function>,
+    <function>sd_device_enumerator_add_match_property()</function>,
+    <function>sd_device_enumerator_add_match_subsystem()</function>,
+    <function>sd_device_enumerator_add_match_sysattr()</function>,
+    <function>sd_device_enumerator_add_match_sysname()</function>,
+    <function>sd_device_enumerator_add_match_tag()</function>, and
+    <function>sd_device_enumerator_allow_uninitialized()</function> were added in version 240.</para>
+
+    <para><function>sd_device_enumerator_add_nomatch_sysname()</function> was added in version 251.</para>
+
+    <para><function>sd_device_enumerator_add_match_property_required()</function> was added in version 255.</para>
+
+    <para><function>sd_device_enumerator_add_all_parents()</function> was added in version 258.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>sd_device_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_device_enumerator_new</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_device_enumerator_get_device_first</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

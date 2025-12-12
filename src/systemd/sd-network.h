@@ -17,10 +17,6 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-
 #include "_sd-common.h"
 
 /*
@@ -43,6 +39,8 @@
  */
 
 _SD_BEGIN_DECLARATIONS;
+
+struct stat;
 
 /* Get overall operational state
  * Possible states: down, up, dormant, carrier, degraded, routable

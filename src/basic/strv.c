@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fnmatch.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "env-util.h"
@@ -12,9 +9,9 @@
 #include "extract-word.h"
 #include "fileio.h"
 #include "gunicode.h"
+#include "hashmap.h"
 #include "log.h"
 #include "memory-util.h"
-#include "nulstr-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -162,17 +159,17 @@ void strv_free_many(char ***strvs, size_t n) {
         free(strvs);
 }
 
-char** strv_copy_n(char * const *l, size_t m) {
+char** strv_copy_n(char * const *l, size_t n) {
         _cleanup_strv_free_ char **result = NULL;
         char **k;
 
-        result = new(char*, MIN(strv_length(l), m) + 1);
+        result = new(char*, MIN(strv_length(l), n) + 1);
         if (!result)
                 return NULL;
 
         k = result;
         STRV_FOREACH(i, l) {
-                if (m == 0)
+                if (n == 0)
                         break;
 
                 *k = strdup(*i);
@@ -180,8 +177,8 @@ char** strv_copy_n(char * const *l, size_t m) {
                         return NULL;
                 k++;
 
-                if (m != SIZE_MAX)
-                        m--;
+                if (n != SIZE_MAX)
+                        n--;
         }
 
         *k = NULL;
@@ -405,6 +402,15 @@ int strv_split_newlines_full(char ***ret, const char *s, ExtractFlags flags) {
         return n;
 }
 
+char** strv_split_newlines(const char *s) {
+        char **ret;
+
+        if (strv_split_newlines_full(&ret, s, 0) < 0)
+                return NULL;
+
+        return ret;
+}
+
 int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags) {
         _cleanup_strv_free_ char **l = NULL;
         size_t n = 0;
@@ -440,6 +446,15 @@ int strv_split_full(char ***t, const char *s, const char *separators, ExtractFla
         return (int) n;
 }
 
+char** strv_split(const char *s, const char *separators) {
+        char **ret;
+
+        if (strv_split_full(&ret, s, separators, EXTRACT_RETAIN_ESCAPE) < 0)
+                return NULL;
+
+        return ret;
+}
+
 int strv_split_and_extend_full(char ***t, const char *s, const char *separators, bool filter_duplicates, ExtractFlags flags) {
         char **l;
         int r;
@@ -456,6 +471,10 @@ int strv_split_and_extend_full(char ***t, const char *s, const char *separators,
                 return r;
 
         return (int) strv_length(*t);
+}
+
+int strv_split_and_extend(char ***t, const char *s, const char *separators, bool filter_duplicates) {
+        return strv_split_and_extend_full(t, s, separators, filter_duplicates, 0);
 }
 
 int strv_split_colon_pairs(char ***t, const char *s) {
@@ -887,7 +906,7 @@ void strv_print_full(char * const *l, const char *prefix) {
                 printf("%s%s\n", strempty(prefix), *s);
 }
 
-int strv_extendf(char ***l, const char *format, ...) {
+int strv_extendf_with_size(char ***l, size_t *n, const char *format, ...) {
         va_list ap;
         char *x;
         int r;
@@ -899,12 +918,24 @@ int strv_extendf(char ***l, const char *format, ...) {
         if (r < 0)
                 return -ENOMEM;
 
-        return strv_consume(l, x);
+        return strv_consume_with_size(l, n, x);
 }
 
-char* startswith_strv(const char *s, char * const *l) {
+int strv_extend_joined_with_size_sentinel(char ***l, size_t *n, ...) {
+        va_list ap;
+
+        va_start(ap, n);
+        char *x = strextendv_with_separator(/* x= */ NULL, /* separator=*/ NULL, ap);
+        va_end(ap);
+        if (!x)
+                return -ENOMEM;
+
+        return strv_consume_with_size(l, n, x);
+}
+
+char* startswith_strv_internal(const char *s, char * const *l) {
         STRV_FOREACH(i, l) {
-                char *found = startswith(s, *i);
+                char *found = (char*) startswith(s, *i);
                 if (found)
                         return found;
         }
@@ -912,9 +943,9 @@ char* startswith_strv(const char *s, char * const *l) {
         return NULL;
 }
 
-char* endswith_strv(const char *s, char * const *l) {
+char* endswith_strv_internal(const char *s, char * const *l) {
         STRV_FOREACH(i, l) {
-                char *found = endswith(s, *i);
+                char *found = (char*) endswith(s, *i);
                 if (found)
                         return found;
         }
@@ -1083,6 +1114,10 @@ void string_strv_hashmap_remove(Hashmap *h, const char *key, const char *value) 
         strv_free(hashmap_remove2(h, key, (void**) &key_free));
 }
 
+void string_strv_ordered_hashmap_remove(OrderedHashmap *h, const char *key, const char *value) {
+        string_strv_hashmap_remove(PLAIN_HASHMAP(h), key, value);
+}
+
 static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const char *value) {
         char **l;
         int r;
@@ -1126,28 +1161,28 @@ static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const c
         return 1;
 }
 
-int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS) {
+int string_strv_hashmap_put(Hashmap **h, const char *key, const char *value) {
         int r;
 
         assert(h);
         assert(key);
         assert(value);
 
-        r = _hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free  HASHMAP_DEBUG_PASS_ARGS);
+        r = hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free);
         if (r < 0)
                 return r;
 
         return string_strv_hashmap_put_internal(*h, key, value);
 }
 
-int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS) {
+int string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value) {
         int r;
 
         assert(h);
         assert(key);
         assert(value);
 
-        r = _ordered_hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free  HASHMAP_DEBUG_PASS_ARGS);
+        r = ordered_hashmap_ensure_allocated(h, &string_hash_ops_free_strv_free);
         if (r < 0)
                 return r;
 

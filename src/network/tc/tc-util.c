@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2019 VMware, Inc. */
 
+#include <stdio.h>
+
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "fileio.h"

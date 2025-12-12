@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -10,9 +8,9 @@
 #include "env-util.h"
 #include "errno-list.h"
 #include "format-ifname.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
 #include "log.h"
@@ -21,8 +19,9 @@
 #include "nss-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
+#include "seccomp-util.h"
 #include "socket-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -119,7 +118,7 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
                          fname, name,
                          nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
                          pat ? (uintptr_t) pat - (uintptr_t) buffer : 0,
-                         errno1, errno_to_name(errno1) ?: "---",
+                         errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                          errno2, hstrerror(errno2),
                          ttl);
                 n = print_gaih_addrtuples(pat);
@@ -128,7 +127,7 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
                          fname, name,
                          nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
                          pat,
-                         errno1, errno_to_name(errno1) ?: "---",
+                         errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                          errno2, hstrerror(errno2));
                 n = 0;
         }
@@ -179,7 +178,7 @@ static void test_gethostbyname3_r(void *handle, const char *module, const char *
         log_info("%s(\"%s\", %s) → status=%s%-20serrno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
                  fname, name, af_to_string(af, family_name, sizeof family_name),
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                  errno2, hstrerror(errno2),
                  ttl);
         if (status == NSS_STATUS_SUCCESS)
@@ -208,7 +207,7 @@ static void test_gethostbyname2_r(void *handle, const char *module, const char *
         log_info("%s(\"%s\", %s) → status=%s%-20serrno=%d/%s h_errno=%d/%s",
                  fname, name, af_to_string(af, family_name, sizeof family_name),
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                  errno2, hstrerror(errno2));
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_hostent(&host, NULL);
@@ -235,7 +234,7 @@ static void test_gethostbyname_r(void *handle, const char *module, const char *n
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s",
                  fname, name,
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                  errno2, hstrerror(errno2));
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_hostent(&host, NULL);
@@ -272,7 +271,7 @@ static void test_gethostbyaddr2_r(void *handle,
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
                  fname, addr_pretty,
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                  errno2, hstrerror(errno2),
                  ttl);
         if (status == NSS_STATUS_SUCCESS)
@@ -309,7 +308,7 @@ static void test_gethostbyaddr_r(void *handle,
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s",
                  fname, addr_pretty,
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                  errno2, hstrerror(errno2));
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_hostent(&host, NULL);
@@ -476,13 +475,41 @@ static int run(int argc, char **argv) {
         int n_addresses = 0;
         int r;
 
-        test_setup_logging(LOG_INFO);
+        test_setup_logging(LOG_DEBUG);
 
         r = parse_argv(argc, argv, &modules, &names, &addresses, &n_addresses);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse arguments: %m");
 
         assert_se(path_extract_directory(argv[0], &dir) >= 0);
+
+#if HAVE_SECCOMP
+        if (geteuid() != 0 || !is_seccomp_available())
+                log_tests_skipped("Not privileged or seccomp is not available");
+        else {
+                /* Testing with several syscalls filtered, and check if the nss modules gracefully handle failures in
+                 * masked syscalls. See issue #38582. */
+
+                ASSERT_OK(r = safe_fork("(with-seccomp)", FORK_LOG | FORK_WAIT, /* ret_pid = */ NULL));
+                if (r == 0) {
+                        _cleanup_hashmap_free_ Hashmap *filter = NULL;
+                        ASSERT_NOT_NULL(filter = hashmap_new(NULL));
+                        FOREACH_STRING(s, "uname", "olduname", "oldolduname", "sigprocmask", "rt_sigprocmask", "osf_sigprocmask")
+                                ASSERT_OK(seccomp_filter_set_add_by_name(filter, /* add = */ true, s));
+                        ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, filter, SCMP_ACT_ERRNO(ENOSYS), /* log_missing = */ true));
+
+                        /* To make assert_return() and friends not call abort(), even built as developer mode. */
+                        ASSERT_OK_ERRNO(setenv("SYSTEMD_ASSERT_RETURN_IS_CRITICAL", "0", /* overwrite = */ true));
+                        /* Let's also make nss modules output debugging logs. */
+                        ASSERT_OK_ERRNO(setenv("SYSTEMD_LOG_LEVEL", "debug", /* overwrite = */ true));
+
+                        STRV_FOREACH(module, modules)
+                                ASSERT_OK(test_one_module(dir, *module, names, addresses, n_addresses));
+
+                        _exit(EXIT_SUCCESS);
+                }
+        }
+#endif
 
         STRV_FOREACH(module, modules) {
                 r = test_one_module(dir, *module, names, addresses, n_addresses);

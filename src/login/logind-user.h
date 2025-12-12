@@ -1,15 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
-#include "conf-parser.h"
 #include "list.h"
-#include "user-record.h"
-
-typedef struct Manager Manager;
-typedef struct Session Session;
-typedef struct User User;
+#include "logind-forward.h"
+#include "time-util.h"
 
 typedef enum UserState {
         USER_OFFLINE,    /* Not logged in at all */
@@ -29,7 +23,7 @@ typedef enum UserGCMode {
         _USER_GC_MODE_INVALID = -EINVAL,
 } UserGCMode;
 
-struct User {
+typedef struct User {
         Manager *manager;
 
         UserRecord *user_record;
@@ -66,7 +60,7 @@ struct User {
 
         LIST_HEAD(Session, sessions);
         LIST_FIELDS(User, gc_queue);
-};
+} User;
 
 int user_new(Manager *m, UserRecord *ur, User **ret);
 User *user_free(User *u);

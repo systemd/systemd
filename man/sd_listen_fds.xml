@@ -93,10 +93,10 @@
 
     <para>If the <parameter>unset_environment</parameter> parameter is
     non-zero, <function>sd_listen_fds()</function> will unset the
-    <varname>$LISTEN_FDS</varname>, <varname>$LISTEN_PID</varname> and
-    <varname>$LISTEN_FDNAMES</varname> environment variables before
-    returning (regardless of whether the function call itself
-    succeeded or not). Further calls to
+    <varname>$LISTEN_FDS</varname>, <varname>$LISTEN_PID</varname>,
+    <varname>$LISTEN_PIDFDID</varname>, and <varname>$LISTEN_FDNAMES</varname>
+    environment variables before returning (regardless of whether the function
+    call itself succeeded or not). Further calls to
     <function>sd_listen_fds()</function> will then return zero, but the
     variables are no longer inherited by child processes.</para>
 
@@ -175,8 +175,9 @@
     <para>On failure, these calls returns a negative errno-style error
     code. If
     <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname> was
-    not set or was not correctly set for this daemon and hence no file
-    descriptors were received, 0 is returned. Otherwise, the number of
+    not set, or one of those variables or <varname>$LISTEN_PIDFDID</varname>
+    was not correctly set for this daemon, no file
+    descriptors were received and 0 is returned. Otherwise, the number of
     file descriptors passed is returned. The application may find them
     starting with file descriptor SD_LISTEN_FDS_START, i.e. file
     descriptor 3.</para>
@@ -190,7 +191,10 @@
 
     <para>Internally, <function>sd_listen_fds()</function> checks
     whether the <varname>$LISTEN_PID</varname> environment variable
-    equals the daemon PID. If not, it returns immediately. Otherwise,
+    equals the daemon PID. If not, it returns immediately. Since version 259,
+    if the <varname>$LISTEN_PIDFDID</varname> environment variable is set,
+    it also checks whether it matches the inode of this process' pidfd.
+    If both of these checks pass,
     it parses the number passed in the <varname>$LISTEN_FDS</varname>
     environment variable, then sets the FD_CLOEXEC flag for the parsed
     number of file descriptors starting from SD_LISTEN_FDS_START.
@@ -209,6 +213,7 @@
     <variablelist class='environment-variables'>
       <varlistentry>
         <term><varname>$LISTEN_PID</varname></term>
+        <term><varname>$LISTEN_PIDFDID</varname></term>
         <term><varname>$LISTEN_FDS</varname></term>
         <term><varname>$LISTEN_FDNAMES</varname></term>
 

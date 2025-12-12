@@ -1,16 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
 #include <linux/if_arp.h>
+#include <linux/rtnetlink.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <stdio.h>
+
+#include "sd-dhcp-protocol.h"
+#include "sd-ipv4ll.h"
 
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "device-private.h"
 #include "dhcp-client-internal.h"
+#include "errno-util.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
-#include "network-internal.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp4.h"
@@ -26,9 +30,11 @@
 #include "networkd-setlink.h"
 #include "networkd-state-file.h"
 #include "parse-util.h"
+#include "set.h"
+#include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
-#include "sysctl-util.h"
 
 void network_adjust_dhcp4(Network *network) {
         assert(network);
@@ -1492,6 +1498,11 @@ static int dhcp4_configure(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to allocate DHCPv4 client: %m");
 
+        r = sd_dhcp_client_set_bootp(link->dhcp_client, link->network->dhcp_use_bootp);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to %s BOOTP: %m",
+                                            enable_disable(link->network->dhcp_use_bootp));
+
         r = sd_dhcp_client_attach_event(link->dhcp_client, link->manager->event, 0);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to attach event to DHCPv4 client: %m");
@@ -1682,7 +1693,7 @@ static int dhcp4_configure(Link *link) {
         if (link->network->dhcp_fallback_lease_lifetime_usec > 0) {
                 r = sd_dhcp_client_set_fallback_lease_lifetime(link->dhcp_client, link->network->dhcp_fallback_lease_lifetime_usec);
                 if (r < 0)
-                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed set to lease lifetime: %m");
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set fallback lease lifetime: %m");
         }
 
         return dhcp4_set_client_identifier(link);
@@ -1751,7 +1762,13 @@ int dhcp4_start_full(Link *link, bool set_ipv6_connectivity) {
         int r;
 
         assert(link);
+        assert(link->manager);
         assert(link->network);
+
+        /* On stopping/restarting networkd, we may drop IPv6 connectivity (which depends on KeepConfiguration=
+         * setting). Do not (re)start DHCPv4 client in that case. See issue #39299. */
+        if (link->manager->state != MANAGER_RUNNING)
+                return 0;
 
         if (!link->dhcp_client)
                 return 0;
@@ -1849,7 +1866,7 @@ int link_request_dhcp4_client(Link *link) {
 }
 
 int link_drop_dhcp4_config(Link *link, Network *network) {
-        int ret = 0;
+        int r, ret = 0;
 
         assert(link);
         assert(link->network);
@@ -1866,6 +1883,17 @@ int link_drop_dhcp4_config(Link *link, Network *network) {
                  * .network file may match to the interface, and DHCPv4 client may be disabled. In that case,
                  * the DHCPv4 client is not running, hence sd_dhcp_client_stop() in the above does nothing. */
                 RET_GATHER(ret, dhcp4_remove_address_and_routes(link, /* only_marked = */ false));
+        }
+
+        if (link->dhcp_client && link->network->dhcp_use_bootp &&
+            network && !network->dhcp_use_bootp && network->dhcp_send_release) {
+                /* If the client was enabled as a DHCP client, and is now enabled as a BOOTP client, release
+                 * the previous lease. Note, this can be easily fail, e.g. when the interface is down. Hence,
+                 * ignore any failures here. */
+                r = sd_dhcp_client_send_release(link->dhcp_client);
+                if (r < 0)
+                        log_link_full_errno(link, ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                            "Failed to send DHCP RELEASE, ignoring: %m");
         }
 
         /* Even if the client is currently enabled and also enabled in the new .network file, detailed

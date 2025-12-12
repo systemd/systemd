@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "nulstr-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
@@ -419,17 +420,10 @@ TEST(hashmap_remove_and_replace) {
 
 TEST(hashmap_ensure_allocated) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
-        int r;
 
-        r = hashmap_ensure_allocated(&m, &string_hash_ops);
-        assert_se(r == 1);
-
-        r = hashmap_ensure_allocated(&m, &string_hash_ops);
-        assert_se(r == 0);
-
-        /* different hash ops shouldn't matter at this point */
-        r = hashmap_ensure_allocated(&m, &trivial_hash_ops);
-        assert_se(r == 0);
+        ASSERT_OK_POSITIVE(hashmap_ensure_allocated(&m, &string_hash_ops));
+        ASSERT_OK_ZERO(hashmap_ensure_allocated(&m, &string_hash_ops));
+        ASSERT_SIGNAL(hashmap_ensure_allocated(&m, &trivial_hash_ops), SIGABRT);
 }
 
 TEST(hashmap_foreach_key) {

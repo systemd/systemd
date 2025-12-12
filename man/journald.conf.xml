@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="journald.conf"
@@ -82,8 +85,9 @@
         <filename>/var/log/journal</filename> directory exists, and <literal>volatile</literal> otherwise
         (the existence of the directory controls the storage mode). <literal>none</literal> turns off all
         storage, all log data received will be dropped (but forwarding to other targets, such as the console,
-        the kernel log buffer, or a syslog socket will still work). Defaults to <literal>auto</literal> in
-        the default journal namespace, and <literal>persistent</literal> in all others.</para>
+        the kernel log buffer, or a syslog socket will still work). Defaults to
+        <literal>&JOURNAL_STORAGE_DEFAULT;</literal> in the default journal namespace (this value is
+        determined at compilation time), and <literal>persistent</literal> in all others.</para>
 
         <para>Note that journald will initially use volatile storage, until a call to
         <command>journalctl --flush</command> (or sending <constant>SIGUSR1</constant> to journald) will cause
@@ -277,7 +281,7 @@
         and use the smaller of the two values.</para>
 
         <para>The first pair defaults to 10% and the second to 15% of
-        the size of the respective file system, but each value is
+        the size of the respective file system, but each of the calculated default values is
         capped to 4G. If the file system is nearly full and either
         <varname>SystemKeepFree=</varname> or
         <varname>RuntimeKeepFree=</varname> are violated when
@@ -478,11 +482,14 @@
       <varlistentry>
         <term><varname>Audit=</varname></term>
 
-        <listitem><para>Takes a boolean value. If enabled <command>systemd-journald</command> will turn on
-        kernel auditing on start-up. If disabled it will turn it off. If unset it will neither enable nor
-        disable it, leaving the previous state unchanged.  This means if another tool turns on auditing even
-        if <command>systemd-journald</command> left it off, it will still collect the generated
-        messages. Defaults to on.</para>
+        <listitem><para>Takes a boolean value or special value <literal>keep</literal>. If enabled
+        <command>systemd-journald</command> will turn on kernel auditing on start-up. If disabled it will
+        turn it off. When <literal>keep</literal> it will neither enable nor disable it, leaving the previous
+        state unchanged. This means if another tool turns on auditing even if
+        <command>systemd-journald</command> left it off, it will still collect the generated messages.
+        Defaults to yes in the default journal namespace, and <literal>keep</literal> otherwise.</para>
+
+        <!-- Explicit assignment of an empty string is equivalent to 'keep', for backward compatibility. -->
 
         <para>Note that this option does not control whether <command>systemd-journald</command> collects
         generated audit records, it just controls whether it tells the kernel to generate them. If you need

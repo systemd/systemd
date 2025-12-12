@@ -1,14 +1,19 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <sys/file.h>
+
+#include "alloc-util.h"
 #include "blockdev-util.h"
 #include "device-util.h"
 #include "dissect-image.h"
-#include "fd-util.h"
+#include "errno-util.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "initrd-util.h"
 #include "loop-util.h"
 #include "proc-cmdline.h"
+#include "string-util.h"
+#include "strv.h"
 #include "udev-builtin.h"
 
 static ImagePolicy *arg_image_policy = NULL;
@@ -29,7 +34,7 @@ static int acquire_image_policy(ImagePolicy **ret) {
                 return 0;
         }
 
-        r = image_policy_from_string(value, ret);
+        r = image_policy_from_string(value, /* graceful= */ false, ret);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse image policy '%s': %m", value);
 
@@ -69,7 +74,7 @@ static int acquire_verity_settings(VeritySettings *ret) {
         }
 
         if (h) {
-                r = unhexmem(h, &verity.root_hash, &verity.root_hash_size);
+                r = unhexmem(h, &verity.root_hash.iov_base, &verity.root_hash.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse root hash from kernel command line switch: %m");
         }
@@ -118,6 +123,11 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                 log_device_debug(dev, "Must be invoked on whole block device (was invoked in '%s), ignoring.", devnode);
                 return 0;
         }
+
+        uint64_t diskseq;
+        r = sd_device_get_diskseq(dev, &diskseq);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get diskseq of '%s': %m", devnode);
 
         r = blockdev_partscan_enabled(dev);
         if (r < 0)
@@ -255,13 +265,24 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                 }
 
                 /* Indicate whether this partition has verity protection */
-                PartitionDesignator dv = partition_verity_of(d);
+                PartitionDesignator dv = partition_verity_hash_of(d);
                 if (dv >= 0 && image->partitions[dv].found) {
+                        /* Add one property that indicates as a boolean whether Verity is available at all for this */
                         _cleanup_free_ char *f = NULL;
                         if (asprintf(&f, "ID_DISSECT_PART%i_HAS_VERITY", p->partno) < 0)
                                 return log_oom_debug();
 
                         (void) udev_builtin_add_property(event, f, "1");
+
+                        /* Add a second property that indicates where the block device is found with the
+                         * Verity data. We maintain this in an independent property, since Verity data might
+                         * be available from other sources too, not just block devices, and we'd like to keep
+                         * the props somewhat open for that. */
+                        f = mfree(f);
+                        if (asprintf(&f, "ID_DISSECT_PART%i_VERITY_DEVICE", p->partno) < 0)
+                                return log_oom_debug();
+
+                        (void) udev_builtin_add_propertyf(event, f, "/dev/disk/by-diskseq/%" PRIu64 "-part%i", diskseq, image->partitions[dv].partno);
                 }
 
                 dv = partition_verity_sig_of(d);
@@ -271,28 +292,34 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                                 return log_oom_debug();
 
                         (void) udev_builtin_add_property(event, f, "1");
+
+                        f = mfree(f);
+                        if (asprintf(&f, "ID_DISSECT_PART%i_VERITY_SIG_DEVICE", p->partno) < 0)
+                                return log_oom_debug();
+
+                        (void) udev_builtin_add_propertyf(event, f, "/dev/disk/by-diskseq/%" PRIu64 "-part%i", diskseq, image->partitions[dv].partno);
                 }
 
                 if (d == verity.designator) {
-                        if (verity.root_hash_size > 0) {
+                        if (iovec_is_set(&verity.root_hash)) {
                                 _cleanup_free_ char *f = NULL;
                                 if (asprintf(&f, "ID_DISSECT_PART%i_ROOTHASH", p->partno) < 0)
                                         return log_oom_debug();
 
-                                _cleanup_free_ char *h = hexmem(verity.root_hash, verity.root_hash_size);
+                                _cleanup_free_ char *h = hexmem(verity.root_hash.iov_base, verity.root_hash.iov_len);
                                 if (!h)
                                         return log_oom_debug();
 
                                 (void) udev_builtin_add_property(event, f, h);
                         }
 
-                        if (verity.root_hash_sig_size > 0) {
+                        if (iovec_is_set(&verity.root_hash_sig)) {
                                 _cleanup_free_ char *f = NULL;
                                 if (asprintf(&f, "ID_DISSECT_PART%i_ROOTHASH_SIG", p->partno) < 0)
                                         return log_oom_debug();
 
                                 _cleanup_free_ char *h = NULL;
-                                if (base64mem(verity.root_hash_sig, verity.root_hash_sig_size, &h) < 0)
+                                if (base64mem(verity.root_hash_sig.iov_base, verity.root_hash_sig.iov_len, &h) < 0)
                                         return log_oom_debug();
 
                                 (void) udev_builtin_add_property(event, f, h);
@@ -317,27 +344,34 @@ static int verb_copy(UdevEvent *event, sd_device *dev) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device node: %m");
 
-        if (!device_in_subsystem(dev, "block"))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invoked on non-block device '%s', refusing: %m", devnode);
-        if (!device_is_devtype(dev, "partition"))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invoked on non-partition block device '%s', refusing: %m", devnode);
+        r = device_is_subsystem_devtype(dev, "block", "partition");
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to check if the device '%s' is a partition, refusing: %m", devnode);
+        if (r == 0)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invoked on non-partition device '%s', refusing.", devnode);
 
         sd_device *parent;
         r = sd_device_get_parent(dev, &parent);
         if (r < 0)
                 return log_error_errno(r, "Failed to get parent of device '%s': %m", devnode);
 
-        if (!device_in_subsystem(parent, "block"))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Parent of block device '%s' is not a block device, refusing: %m", devnode);
-        if (!device_is_devtype(parent, "disk"))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Parent of block device '%s' is not a whole block device, refusing: %m", devnode);
+        r = device_is_subsystem_devtype(parent, "block", "disk");
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to check if the parent of block device '%s' is a whole block device, refusing: %m", devnode);
+        if (r == 0)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Parent of block device '%s' is not a whole block device, refusing.", devnode);
 
         const char *partn;
         r = sd_device_get_property_value(dev, "PARTN", &partn);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get partition number of partition block device '%s': %m", devnode);
 
-        FOREACH_STRING(f, "_DESIGNATOR", "_ARCHITECTURE", "_HAS_VERITY", "_HAS_VERITY_SIG", "_ROOTHASH", "_ROOTHASH_SIG") {
+        FOREACH_STRING(f,
+                       "_DESIGNATOR", "_ARCHITECTURE",
+                       "_HAS_VERITY", "_HAS_VERITY_SIG",
+                       "_ROOTHASH", "_ROOTHASH_SIG",
+                       "_VERITY_DEVICE", "_VERITY_SIG_DEVICE") {
+
                 /* The property on the parent device contains the partition number */
                 _cleanup_free_ char *p = strjoin("ID_DISSECT_PART", partn, f);
                 if (!p)

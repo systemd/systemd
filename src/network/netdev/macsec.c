@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/genetlink.h>
 #include <linux/if_arp.h>
-#include <linux/if_ether.h>
 #include <linux/if_macsec.h>
-#include <netinet/in.h>
 
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -15,8 +15,7 @@
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "parse-helpers.h"
-#include "socket-util.h"
-#include "string-table.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "unaligned.h"
 
@@ -999,7 +998,7 @@ static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
 
         if (key_len != MACSEC_KEYID_LEN)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "Invalid key length (%zu bytes), ignoring: %m", key_len);
+                                              "Invalid key length (%zu bytes), ignoring.", key_len);
 
         explicit_bzero_safe(sa->key, sa->key_len);
         free_and_replace(sa->key, key);

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/time.h>
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -8,17 +8,16 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-type.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "glyph-util.h"
 #include "log.h"
-#include "macro.h"
 #include "pcapng.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
 
 static char* indent(unsigned level, uint64_t flags) {
         if (FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY) && level > 0)
@@ -583,7 +582,7 @@ int bus_pcap_header(size_t snaplen, const char *os, const char *info, FILE *f) {
 }
 
 int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
-        struct bus_body_part *part;
+        BusMessageBodyPart *part;
         size_t msglen, caplen, pad;
         uint32_t length;
         uint64_t ts;

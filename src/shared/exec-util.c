@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <dirent.h>
-#include <errno.h>
 #include <stdio.h>
-#include <sys/prctl.h>
-#include <sys/types.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -18,18 +15,16 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
-#include "macro.h"
-#include "missing_syscall.h"
+#include "log.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
-#include "set.h"
-#include "signal-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 
 #define EXIT_SKIP_REMAINING 77
 
@@ -248,13 +243,13 @@ int execute_strv(
         pid_t executor_pid;
         int r;
 
+        assert(name);
         assert(!FLAGS_SET(flags, EXEC_DIR_PARALLEL | EXEC_DIR_SKIP_REMAINING));
 
         if (strv_isempty(paths))
                 return 0;
 
         if (callbacks) {
-                assert(name);
                 assert(callbacks[STDOUT_GENERATE]);
                 assert(callbacks[STDOUT_COLLECT]);
                 assert(callbacks[STDOUT_CONSUME]);
@@ -262,14 +257,16 @@ int execute_strv(
 
                 fd = open_serialization_fd(name);
                 if (fd < 0)
-                        return log_error_errno(fd, "Failed to open serialization file: %m");
+                        return log_error_errno(fd, "Failed to open serialization file for %s: %m", name);
         }
 
         /* Executes all binaries in the directories serially or in parallel and waits for
          * them to finish. Optionally a timeout is applied. If a file with the same name
          * exists in more than one directory, the earliest one wins. */
 
-        r = safe_fork("(sd-exec-strv)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &executor_pid);
+        const char *process_name = strjoina("(", name, ")");
+
+        r = safe_fork(process_name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &executor_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -277,7 +274,7 @@ int execute_strv(
                 _exit(r < 0 ? EXIT_FAILURE : r);
         }
 
-        r = wait_for_terminate_and_check("(sd-exec-strv)", executor_pid, 0);
+        r = wait_for_terminate_and_check(process_name, executor_pid, 0);
         if (r < 0)
                 return r;
         if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
@@ -288,16 +285,17 @@ int execute_strv(
 
         r = finish_serialization_fd(fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to finish serialization fd: %m");
+                return log_error_errno(r, "Failed to finish serialization fd for %s: %m", name);
 
         r = callbacks[STDOUT_CONSUME](TAKE_FD(fd), callback_args[STDOUT_CONSUME]);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse returned data: %m");
+                return log_error_errno(r, "Failed to parse returned data for %s: %m", name);
 
         return 0;
 }
 
 int execute_directories(
+                const char *name,
                 const char * const *directories,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
@@ -307,24 +305,23 @@ int execute_directories(
                 ExecDirFlags flags) {
 
         _cleanup_strv_free_ char **paths = NULL;
-        _cleanup_free_ char *name = NULL;
         int r;
 
+        assert(name);
         assert(!strv_isempty((char* const*) directories));
 
-        r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, directories);
+        r = conf_files_list_strv(
+                        &paths,
+                        /* suffix= */ NULL,
+                        /* root= */ NULL,
+                        CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                        directories);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate executables: %m");
+                return log_error_errno(r, "%s: failed to enumerate executables: %m", name);
 
         if (strv_isempty(paths)) {
-                log_debug("No executables found.");
+                log_debug("%s: no executables found.", name);
                 return 0;
-        }
-
-        if (callbacks) {
-                r = path_extract_filename(directories[0], &name);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract file name from '%s': %m", directories[0]);
         }
 
         return execute_strv(name, paths, /* root = */ NULL, timeout, callbacks, callback_args, argv, envp, flags);
@@ -487,6 +484,7 @@ static const char* const exec_command_strings[] = {
         "privileged",     /* EXEC_COMMAND_FULLY_PRIVILEGED */
         "no-setuid",      /* EXEC_COMMAND_NO_SETUID */
         "no-env-expand",  /* EXEC_COMMAND_NO_ENV_EXPAND */
+        "via-shell",      /* EXEC_COMMAND_VIA_SHELL */
 };
 
 assert_cc((1 << ELEMENTSOF(exec_command_strings)) - 1 == _EXEC_COMMAND_FLAGS_ALL);
@@ -505,7 +503,7 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
         if (streq(s, "ambient")) /* Compatibility with ambient hack, removed in v258, map to no bits set */
                 return 0;
 
-        idx = string_table_lookup(exec_command_strings, ELEMENTSOF(exec_command_strings), s);
+        idx = string_table_lookup_from_string(exec_command_strings, ELEMENTSOF(exec_command_strings), s);
         if (idx < 0)
                 return _EXEC_COMMAND_FLAGS_INVALID;
 
@@ -525,22 +523,23 @@ int fexecve_or_execve(int executable_fd, const char *executable, char *const arg
 
         execveat(executable_fd, "", argv, envp, AT_EMPTY_PATH);
 
-        if (IN_SET(errno, ENOSYS, ENOENT) || ERRNO_IS_PRIVILEGE(errno))
-                /* Old kernel or a script or an overzealous seccomp filter? Let's fall back to execve().
-                 *
-                 * fexecve(3): "If fd refers to a script (i.e., it is an executable text file that names a
-                 * script interpreter with a first line that begins with the characters #!) and the
-                 * close-on-exec flag has been set for fd, then fexecve() fails with the error ENOENT. This
-                 * error occurs because, by the time the script interpreter is executed, fd has already been
-                 * closed because of the close-on-exec flag. Thus, the close-on-exec flag can't be set on fd
-                 * if it refers to a script."
-                 *
-                 * Unfortunately, if we unset close-on-exec, the script will be executed just fine, but (at
-                 * least in case of bash) the script name, $0, will be shown as /dev/fd/nnn, which breaks
-                 * scripts which make use of $0. Thus, let's fall back to execve() in this case.
-                 */
+        /* Old kernel or a script or an overzealous seccomp filter? Let's fall back to execve().
+         *
+         * fexecve(3): "If fd refers to a script (i.e., it is an executable text file that names a
+         * script interpreter with a first line that begins with the characters #!) and the
+         * close-on-exec flag has been set for fd, then fexecve() fails with the error ENOENT. This
+         * error occurs because, by the time the script interpreter is executed, fd has already been
+         * closed because of the close-on-exec flag. Thus, the close-on-exec flag can't be set on fd
+         * if it refers to a script."
+         *
+         * Unfortunately, if we unset close-on-exec, the script will be executed just fine, but (at
+         * least in case of bash) the script name, $0, will be shown as /dev/fd/nnn, which breaks
+         * scripts which make use of $0. Thus, let's fall back to execve() in this case.
+         */
+        if (!IN_SET(errno, ENOSYS, ENOENT) && !ERRNO_IS_PRIVILEGE(errno))
+                return -errno;
 #endif
-                execve(executable, argv, envp);
+        execve(executable, argv, envp);
         return -errno;
 }
 
@@ -561,10 +560,10 @@ int shall_fork_agent(void) {
         return true;
 }
 
-int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
+int _fork_agent(const char *name, char * const *argv, const int except[], size_t n_except, pid_t *ret_pid) {
         int r;
 
-        assert(path);
+        assert(!strv_isempty(argv));
 
         /* Spawns a temporary TTY agent, making sure it goes away when we go away */
 
@@ -594,7 +593,7 @@ int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *re
                  * stdin around. */
                 fd = open_terminal("/dev/tty", stdin_is_tty ? O_WRONLY : (stdout_is_tty && stderr_is_tty) ? O_RDONLY : O_RDWR);
                 if (fd < 0) {
-                        log_error_errno(fd, "Failed to open /dev/tty: %m");
+                        log_error_errno(fd, "Failed to open %s: %m", "/dev/tty");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -617,8 +616,11 @@ int _fork_agent(const char *name, const int except[], size_t n_except, pid_t *re
         }
 
         /* Count arguments */
-        char **l = strv_from_stdarg_alloca(path);
-        execv(path, l);
-        log_error_errno(errno, "Failed to execute %s: %m", path);
+        execv(argv[0], argv);
+
+        /* Let's treat missing agent binary as a graceful issue (in order to support splitting out the Polkit
+         * or password agents into separate, optional distro packages), and not complain loudly. */
+        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
+                       "Failed to execute %s: %m", argv[0]);
         _exit(EXIT_FAILURE);
 }

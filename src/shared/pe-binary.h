@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
-
-#include "macro-fundamental.h"
 #include "openssl-util.h"
 #include "sparse-endian.h"
 #include "uki.h"
@@ -152,9 +149,13 @@ bool pe_is_uki(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections);
 bool pe_is_addon(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections);
 
 bool pe_is_native(const PeHeader *pe_header);
+int pe_is_native_fd(int fd);
 
+#if HAVE_OPENSSL
 int pe_hash(int fd, const EVP_MD *md, void **ret_hash, size_t *ret_hash_size);
 
+/* This does not depend on OpenSSL, but is currently only used by sbsign which requires OpenSSL. */
 int pe_checksum(int fd, uint32_t *ret);
 
 int uki_hash(int fd, const EVP_MD *md, void *ret_hashes[static _UNIFIED_SECTION_MAX], size_t *ret_hash_size);
+#endif

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cgroup.h"
-#include "log.h"
 #include "tests.h"
+#include "time-util.h"
 
 TEST(group_cpu_adjust_period) {
         /* Period 1ms, quota 40% -> Period 2.5ms */

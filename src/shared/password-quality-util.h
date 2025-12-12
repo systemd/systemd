@@ -5,11 +5,11 @@
 
 #if HAVE_PASSWDQC
 
-#include "password-quality-util-passwdqc.h"
+#include "password-quality-util-passwdqc.h" /* IWYU pragma: export */
 
 #elif HAVE_PWQUALITY
 
-#include "password-quality-util-pwquality.h"
+#include "password-quality-util-pwquality.h" /* IWYU pragma: export */
 
 #else
 

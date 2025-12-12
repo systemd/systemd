@@ -2,7 +2,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
-#include "macro.h"
+#include "in-addr-util.h"
 #include "string-util.h"
 #include "tests.h"
 
@@ -654,6 +654,9 @@ TEST(dns_name_change_suffix) {
         test_dns_name_change_suffix_one("", "", "piff.paff", 1, "piff.paff");
         test_dns_name_change_suffix_one("", "", "", 1, ".");
         test_dns_name_change_suffix_one("a", "b", "c", 0, NULL);
+        test_dns_name_change_suffix_one("wau.wau", "wau", NULL, 1, "wau");
+        test_dns_name_change_suffix_one("wau.wau", NULL, "wau", 1, "wau.wau.wau");
+        test_dns_name_change_suffix_one("wau.wau", NULL, NULL, 1, "wau.wau");
 }
 
 static void test_dns_name_suffix_one(const char *name, unsigned n_labels, const char *result, int ret) {
@@ -840,6 +843,42 @@ TEST(dns_name_dot_suffixed) {
         assert_se(dns_name_dot_suffixed("foo.bar.") > 0);
         assert_se(dns_name_dot_suffixed("foo.bar\\.\\.\\..") > 0);
         assert_se(dns_name_dot_suffixed("foo.bar\\.\\.\\.\\.") == 0);
+}
+
+TEST(dns_name_parent) {
+        const char *name = "hoge.hoge.foo.bar.example.com";
+
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN("hoge"));
+        ASSERT_STREQ(name, "hoge.foo.bar.example.com");
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN("hoge"));
+        ASSERT_STREQ(name, "foo.bar.example.com");
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN("foo"));
+        ASSERT_STREQ(name, "bar.example.com");
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN("bar"));
+        ASSERT_STREQ(name, "example.com");
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN("example"));
+        ASSERT_STREQ(name, "com");
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN("com"));
+        ASSERT_STREQ(name, "");
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN(""));
+        ASSERT_STREQ(name, "");
+
+        name = "hoge.hoge.foo.bar.example.com.";
+
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN("hoge"));
+        ASSERT_STREQ(name, "hoge.foo.bar.example.com.");
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN("hoge"));
+        ASSERT_STREQ(name, "foo.bar.example.com.");
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN("foo"));
+        ASSERT_STREQ(name, "bar.example.com.");
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN("bar"));
+        ASSERT_STREQ(name, "example.com.");
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN("example"));
+        ASSERT_STREQ(name, "com.");
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN("com"));
+        ASSERT_STREQ(name, ""); /* The trailint dot is suppressed. */
+        ASSERT_OK_EQ(dns_name_parent(&name), (int) STRLEN(""));
+        ASSERT_STREQ(name, "");
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -306,8 +306,7 @@
 
         <listitem><para>The pidfd inode number of the new main process (specified through <varname>MAINPID=</varname>).
         This information can be acquired through
-        <citerefentry project='man-pages'><refentrytitle>name_to_handle_at</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        or <citerefentry project='man-pages'><refentrytitle>fstat</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>sd_pidfd_get_inode_id</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         on the pidfd and is used to identify the process in a race-free fashion. Alternatively,
         a pidfd can be sent directly to the service manager (see <varname>MAINPIDFD=1</varname> below).</para>
 

@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/resource.h>
+#include <unistd.h>
 #if HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
 #endif
 
 #include "alloc-util.h"
 #include "capability-util.h"
-#include "macro.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "string-util.h"
@@ -29,14 +29,14 @@ static void test_rlimit_parse_format_one(int resource, const char *string, rlim_
         if (ret < 0)
                 return;
 
-        assert_se(rl.rlim_cur == soft);
-        assert_se(rl.rlim_max == hard);
+        ASSERT_EQ(rl.rlim_cur, soft);
+        ASSERT_EQ(rl.rlim_max, hard);
 
-        assert_se(rlimit_format(&rl, &f) >= 0);
+        ASSERT_OK(rlimit_format(&rl, &f));
         ASSERT_STREQ(formatted, f);
 
-        assert_se(rlimit_parse(resource, formatted, &rl2) >= 0);
-        assert_se(memcmp(&rl, &rl2, sizeof(struct rlimit)) == 0);
+        ASSERT_OK(rlimit_parse(resource, formatted, &rl2));
+        ASSERT_EQ(memcmp(&rl, &rl2, sizeof(struct rlimit)), 0);
 }
 
 TEST(rlimit_parse_format) {
@@ -61,6 +61,9 @@ TEST(rlimit_parse_format) {
         test_rlimit_parse_format_one(RLIMIT_NICE, "+19", 1, 1, 0, "1");
         test_rlimit_parse_format_one(RLIMIT_NICE, "+20", 0, 0, -ERANGE, "0");
         test_rlimit_parse_format_one(RLIMIT_NICE, "+0", 20, 20, 0, "20");
+        test_rlimit_parse_format_one(RLIMIT_NICE, "+0", 20, 20, 0, "20");
+        test_rlimit_parse_format_one(RLIMIT_RTTIME, "25min:13h", 25*USEC_PER_MINUTE, 13*USEC_PER_HOUR, 0, "1500000000:46800000000");
+        test_rlimit_parse_format_one(RLIMIT_RTTIME, "infinity", RLIM_INFINITY, RLIM_INFINITY, 0, "infinity");
 }
 
 TEST(rlimit_from_string) {

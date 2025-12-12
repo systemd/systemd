@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/rtnetlink.h>
+
+#include "alloc-util.h"
 #include "bitfield.h"
-#include "condition.h"
 #include "conf-parser.h"
 #include "escape.h"
 #include "logarithm.h"

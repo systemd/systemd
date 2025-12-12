@@ -1,11 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <linux/if_arp.h>
 #include <linux/if_vlan.h>
-#include <net/if.h>
 
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
+#include "extract-word.h"
 #include "parse-util.h"
+#include "set.h"
+#include "siphash24.h"
+#include "string-util.h"
 #include "vlan.h"
 #include "vlan-util.h"
 

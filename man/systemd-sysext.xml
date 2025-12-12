@@ -74,7 +74,12 @@
     <para>System extension images are strictly read-only by default. On mutable host file systems,
     <filename>/usr/</filename> and <filename>/opt/</filename> hierarchies become read-only while extensions
     are merged, unless mutability is enabled. Mutability may be enabled via the <option>--mutable=</option>
-    option; see "Mutability" below for more information.</para>
+    option and the <varname>Mutable=</varname> option in the configuration file;
+    see "Mutability" below for more information.</para>
+
+    <para>Various command options can be configured globally via configuration files. See
+    <citerefentry><refentrytitle>sysext.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details.</para>
 
     <para>System extensions are supposed to be purely additive, i.e. they are supposed to include only files
     that do not exist in the underlying basic OS image. However, the underlying mechanism (overlayfs) also
@@ -85,7 +90,7 @@
     <orderedlist>
       <listitem><para>Plain directories or btrfs subvolumes containing the OS tree</para></listitem>
       <listitem><para>Disk images with a GPT disk label, following the <ulink
-      url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink></para></listitem>
+      url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions Specification</ulink></para></listitem>
       <listitem><para>Disk images lacking a partition table, with a naked Linux file system (e.g. erofs,
       squashfs or ext4)</para></listitem>
     </orderedlist>
@@ -384,8 +389,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--mutable=<replaceable>BOOL</replaceable>|<replaceable>auto</replaceable>|<replaceable>import</replaceable></option></term>
-        <listitem><para>Set mutable mode.</para>
+        <term><option>--mutable=<replaceable>BOOL</replaceable>|<replaceable>auto</replaceable>|<replaceable>import</replaceable>|<replaceable>ephemeral</replaceable>|<replaceable>ephemeral-import</replaceable>|<replaceable>help</replaceable></option></term>
+        <listitem><para>Set mutable mode. The special value <literal>help</literal> will list the known values.</para>
 
         <variablelist>
           <varlistentry>
@@ -433,6 +438,12 @@
             with the modifications made to the host file system being discarded after unmerge.</para>
             <xi:include href="version-info.xml" xpointer="v256"/></listitem>
           </varlistentry>
+
+          <varlistentry>
+            <term><option>help</option></term>
+            <listitem><para>list known values and exit immediately.</para>
+            <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+          </varlistentry>
         </variablelist>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
@@ -477,6 +488,7 @@
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysext.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

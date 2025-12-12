@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+#include <time.h>
+
 #include "alloc-util.h"
 #include "calendarspec.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 static void _test_one(int line, const char *input, const char *output) {
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
@@ -40,12 +44,9 @@ static void _test_one(int line, const char *input, const char *output) {
 static void _test_next(int line, const char *input, const char *new_tz, usec_t after, usec_t expect) {
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
         usec_t u;
-        char *old_tz;
         int r;
 
-        old_tz = getenv("TZ");
-        if (old_tz)
-                old_tz = strdupa_safe(old_tz);
+        SAVE_TIMEZONE;
 
         if (!isempty(new_tz) && !strchr(new_tz, ','))
                 new_tz = strjoina(":", new_tz);
@@ -64,9 +65,6 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
                 assert_se(r >= 0 && u == expect);
         else
                 assert_se(r == -ENOENT);
-
-        assert_se(set_unset_env("TZ", old_tz, true) == 0);
-        tzset();
 }
 #define test_next(input, new_tz, after, expect) _test_next(__LINE__, input,new_tz,after,expect)
 
@@ -186,16 +184,16 @@ TEST(calendar_spec_one) {
 TEST(calendar_spec_next) {
         test_next("2016-03-27 03:17:00", "", 12345, 1459048620000000);
         test_next("2016-03-27 03:17:00", "Europe/Berlin", 12345, 1459041420000000);
-        test_next("2016-03-27 03:17:00", "Europe/Kyiv", 12345, -1);
+        test_next("2016-03-27 03:17:00", "Europe/Helsinki", 12345, -1);
         test_next("2016-03-27 03:17:00 UTC", NULL, 12345, 1459048620000000);
         test_next("2016-03-27 03:17:00 UTC", "", 12345, 1459048620000000);
         test_next("2016-03-27 03:17:00 UTC", "Europe/Berlin", 12345, 1459048620000000);
-        test_next("2016-03-27 03:17:00 UTC", "Europe/Kyiv", 12345, 1459048620000000);
-        test_next("2016-03-27 03:17:00.420000001 UTC", "Europe/Kyiv", 12345, 1459048620420000);
-        test_next("2016-03-27 03:17:00.4200005 UTC", "Europe/Kyiv", 12345, 1459048620420001);
-        test_next("2015-11-13 09:11:23.42", "Europe/Kyiv", 12345, 1447398683420000);
-        test_next("2015-11-13 09:11:23.42/1.77", "Europe/Kyiv", 1447398683420000, 1447398685190000);
-        test_next("2015-11-13 09:11:23.42/1.77", "Europe/Kyiv", 1447398683419999, 1447398683420000);
+        test_next("2016-03-27 03:17:00 UTC", "Europe/Helsinki", 12345, 1459048620000000);
+        test_next("2016-03-27 03:17:00.420000001 UTC", "Europe/Helsinki", 12345, 1459048620420000);
+        test_next("2016-03-27 03:17:00.4200005 UTC", "Europe/Helsinki", 12345, 1459048620420001);
+        test_next("2015-11-13 09:11:23.42", "Europe/Helsinki", 12345, 1447398683420000);
+        test_next("2015-11-13 09:11:23.42/1.77", "Europe/Helsinki", 1447398683420000, 1447398685190000);
+        test_next("2015-11-13 09:11:23.42/1.77", "Europe/Helsinki", 1447398683419999, 1447398683420000);
         test_next("Sun 16:00:00", "Europe/Berlin", 1456041600123456, 1456066800000000);
         test_next("*-04-31", "", 12345, -1);
         test_next("2016-02~01 UTC", "", 12345, 1456704000000000);
@@ -215,7 +213,7 @@ TEST(calendar_spec_next) {
         test_next("2017-04-02 03:30:00 Pacific/Auckland", "", 12345, 1491060600000000);
         /* Confirm that timezones in the Spec work regardless of current timezone */
         test_next("2017-09-09 20:42:00 Pacific/Auckland", "", 12345, 1504946520000000);
-        test_next("2017-09-09 20:42:00 Pacific/Auckland", "Europe/Kyiv", 12345, 1504946520000000);
+        test_next("2017-09-09 20:42:00 Pacific/Auckland", "Europe/Helsinki", 12345, 1504946520000000);
         /* Check that we don't start looping if mktime() moves us backwards */
         test_next("Sun *-*-* 01:00:00 Europe/Dublin", "", 1616412478000000, 1617494400000000);
         test_next("Sun *-*-* 01:00:00 Europe/Dublin", "IST", 1616412478000000, 1617494400000000);

@@ -3,6 +3,6 @@
 OnFailure=restart-on-failure.service
 
 [Service]
-ExecStart=/bin/sleep infinity
+ExecStart=sleep infinity
 Restart=on-failure
 RestartMode=direct

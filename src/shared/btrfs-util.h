@@ -1,19 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <sys/types.h>
-
 #include "sd-id128.h"
 
-#include "btrfs.h"
-#include "copy.h"
-#include "time-util.h"
+#include "btrfs.h"      /* IWYU pragma: export */
+#include "shared-forward.h"
 
 typedef struct BtrfsSubvolInfo {
         uint64_t subvol_id;
-        usec_t otime;
+        usec_t otime; /* creation time */
+        usec_t ctime; /* change time */
 
         sd_id128_t uuid;
         sd_id128_t parent_uuid;
@@ -95,17 +91,17 @@ int btrfs_subvol_get_id(int fd, const char *subvolume, uint64_t *ret);
 int btrfs_subvol_get_id_fd(int fd, uint64_t *ret);
 int btrfs_subvol_get_parent(int fd, uint64_t subvol_id, uint64_t *ret);
 
-int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *info);
+int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret);
 
 int btrfs_subvol_find_subtree_qgroup(int fd, uint64_t subvol_id, uint64_t *ret);
 
-int btrfs_subvol_get_subtree_quota(const char *path, uint64_t subvol_id, BtrfsQuotaInfo *quota);
-int btrfs_subvol_get_subtree_quota_fd(int fd, uint64_t subvol_id, BtrfsQuotaInfo *quota);
+int btrfs_subvol_get_subtree_quota(const char *path, uint64_t subvol_id, BtrfsQuotaInfo *ret);
+int btrfs_subvol_get_subtree_quota_fd(int fd, uint64_t subvol_id, BtrfsQuotaInfo *ret);
 
 int btrfs_subvol_set_subtree_quota_limit(const char *path, uint64_t subvol_id, uint64_t referenced_max);
 int btrfs_subvol_set_subtree_quota_limit_fd(int fd, uint64_t subvol_id, uint64_t referenced_max);
 
-int btrfs_subvol_auto_qgroup_fd(int fd, uint64_t subvol_id, bool new_qgroup);
+int btrfs_subvol_auto_qgroup_fd(int fd, uint64_t subvol_id, bool insert_intermediary_qgroup);
 int btrfs_subvol_auto_qgroup(const char *path, uint64_t subvol_id, bool create_intermediary_qgroup);
 
 int btrfs_subvol_make_default(const char *path);
@@ -127,20 +123,12 @@ int btrfs_qgroup_unassign(int fd, uint64_t child, uint64_t parent);
 
 int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret);
 
-int btrfs_qgroup_get_quota_fd(int fd, uint64_t qgroupid, BtrfsQuotaInfo *quota);
-int btrfs_qgroup_get_quota(const char *path, uint64_t qgroupid, BtrfsQuotaInfo *quota);
+int btrfs_qgroup_get_quota_fd(int fd, uint64_t qgroupid, BtrfsQuotaInfo *ret);
+int btrfs_qgroup_get_quota(const char *path, uint64_t qgroupid, BtrfsQuotaInfo *ret);
 
 int btrfs_log_dev_root(int level, int ret, const char *p);
 
-static inline bool btrfs_might_be_subvol(const struct stat *st) {
-        if (!st)
-                return false;
-
-        /* Returns true if this 'struct stat' looks like it could refer to a btrfs subvolume. To make a final
-         * decision, needs to be combined with an fstatfs() check to see if this is actually btrfs. */
-
-        return S_ISDIR(st->st_mode) && st->st_ino == 256;
-}
+bool btrfs_might_be_subvol(const struct stat *st) _pure_;
 
 int btrfs_forget_device(const char *path);
 

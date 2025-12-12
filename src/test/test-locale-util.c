@@ -3,7 +3,6 @@
 #include "glyph-util.h"
 #include "kbd-util.h"
 #include "locale-util.h"
-#include "macro.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -82,7 +81,7 @@ TEST(keymaps) {
 
 #define dump_glyph(x) log_info(STRINGIFY(x) ": %s", glyph(x))
 TEST(dump_glyphs) {
-        assert_cc(GLYPH_HOME + 1 == _GLYPH_MAX);
+        assert_cc(GLYPH_SHELL + 1 == _GLYPH_MAX);
 
         log_info("is_locale_utf8: %s", yes_no(is_locale_utf8()));
 
@@ -136,6 +135,12 @@ TEST(dump_glyphs) {
         dump_glyph(GLYPH_SUPERHERO);
         dump_glyph(GLYPH_IDCARD);
         dump_glyph(GLYPH_HOME);
+        dump_glyph(GLYPH_ROCKET);
+        dump_glyph(GLYPH_BROOM);
+        dump_glyph(GLYPH_KEYBOARD);
+        dump_glyph(GLYPH_CLOCK);
+        dump_glyph(GLYPH_LABEL);
+        dump_glyph(GLYPH_SHELL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

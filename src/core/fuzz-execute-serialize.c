@@ -18,13 +18,15 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 
-#include "alloc-util.h"
+#include "cgroup.h"
 #include "dynamic-user.h"
 #include "execute-serialize.h"
+#include "execute.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "fuzz.h"
-#include "service.h"
 
 static void exec_fuzz_one(FILE *f, FDSet *fdset) {
         _cleanup_(exec_params_deep_clear) ExecParameters params = EXEC_PARAMETERS_INIT(/* flags= */ 0);
@@ -33,6 +35,7 @@ static void exec_fuzz_one(FILE *f, FDSet *fdset) {
         DynamicCreds dynamic_creds = {};
         ExecCommand command = {};
         ExecSharedRuntime shared = {
+                .userns_storage_socket = EBADF_PAIR,
                 .netns_storage_socket = EBADF_PAIR,
                 .ipcns_storage_socket = EBADF_PAIR,
         };
@@ -46,6 +49,7 @@ static void exec_fuzz_one(FILE *f, FDSet *fdset) {
         cgroup_context_init(&cgroup_context);
 
         (void) exec_deserialize_invocation(f, fdset, &exec_context, &command, &params, &runtime, &cgroup_context);
+        exec_context.private_var_tmp = PRIVATE_TMP_DISCONNECTED; /* The deserialization in the above may set an invalid value. */
         (void) exec_serialize_invocation(f, fdset, &exec_context, &command, &params, &runtime, &cgroup_context);
         (void) exec_deserialize_invocation(f, fdset, &exec_context, &command, &params, &runtime, &cgroup_context);
 
@@ -55,12 +59,13 @@ static void exec_fuzz_one(FILE *f, FDSet *fdset) {
         params.stdin_fd = -EBADF;
         params.stdout_fd = -EBADF;
         params.stderr_fd = -EBADF;
+        params.root_directory_fd = -EBADF;
         params.exec_fd = -EBADF;
         params.user_lookup_fd = -EBADF;
         params.bpf_restrict_fs_map_fd = -EBADF;
         if (!params.fds)
-                params.n_socket_fds = params.n_storage_fds = params.n_extra_fds = 0;
-        for (size_t i = 0; params.fds && i < params.n_socket_fds + params.n_storage_fds + params.n_extra_fds; i++)
+                params.n_socket_fds = params.n_stashed_fds = 0;
+        for (size_t i = 0; params.fds && i < params.n_socket_fds + params.n_stashed_fds; i++)
                 params.fds[i] = -EBADF;
 
         exec_command_done_array(&command, /* n= */ 1);

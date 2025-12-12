@@ -1,13 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <getopt.h>
-#include <limits.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdlib.h>
 #include <sys/file.h>
 #include <sysexits.h>
 #include <time.h>
@@ -33,6 +28,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -43,10 +39,8 @@
 #include "io-util.h"
 #include "label-util.h"
 #include "log.h"
-#include "macro.h"
+#include "loop-util.h"
 #include "main-func.h"
-#include "missing_fs.h"
-#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -64,12 +58,11 @@
 #include "sort-util.h"
 #include "specifier.h"
 #include "stat-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
-#include "terminal-util.h"
+#include "time-util.h"
 #include "umask-util.h"
 #include "user-util.h"
 #include "verbs.h"
@@ -472,7 +465,7 @@ static int load_unix_sockets(Context *c) {
         f = fopen("/proc/net/unix", "re");
         if (!f)
                 return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                                      "Failed to open /proc/net/unix, ignoring: %m");
+                                      "Failed to open %s, ignoring: %m", "/proc/net/unix");
 
         /* Skip header */
         r = read_line(f, LONG_LINE_MAX, NULL);
@@ -1067,6 +1060,12 @@ static int fd_set_perms(
         }
 
 shortcut:
+        if (arg_dry_run) {
+                log_debug("Would relabel \"%s\"", path);
+                return 0;
+        }
+
+        log_debug("Relabelling \"%s\"", path);
         return label_fix_full(fd, /* inode_path= */ NULL, /* label_path= */ path, 0);
 }
 
@@ -1272,22 +1271,26 @@ static int parse_acl_cond_exec(
         assert(cond_exec);
         assert(ret);
 
+        r = dlopen_libacl();
+        if (r < 0)
+                return r;
+
         if (!S_ISDIR(st->st_mode)) {
                 _cleanup_(acl_freep) acl_t old = NULL;
 
-                old = acl_get_file(path, ACL_TYPE_ACCESS);
+                old = sym_acl_get_file(path, ACL_TYPE_ACCESS);
                 if (!old)
                         return -errno;
 
                 has_exec = false;
 
-                for (r = acl_get_entry(old, ACL_FIRST_ENTRY, &entry);
+                for (r = sym_acl_get_entry(old, ACL_FIRST_ENTRY, &entry);
                      r > 0;
-                     r = acl_get_entry(old, ACL_NEXT_ENTRY, &entry)) {
+                     r = sym_acl_get_entry(old, ACL_NEXT_ENTRY, &entry)) {
 
                         acl_tag_t tag;
 
-                        if (acl_get_tag_type(entry, &tag) < 0)
+                        if (sym_acl_get_tag_type(entry, &tag) < 0)
                                 return -errno;
 
                         if (tag == ACL_MASK)
@@ -1297,10 +1300,10 @@ static int parse_acl_cond_exec(
                         if (!append && IN_SET(tag, ACL_USER, ACL_GROUP))
                                 continue;
 
-                        if (acl_get_permset(entry, &permset) < 0)
+                        if (sym_acl_get_permset(entry, &permset) < 0)
                                 return -errno;
 
-                        r = acl_get_perm(permset, ACL_EXECUTE);
+                        r = sym_acl_get_perm(permset, ACL_EXECUTE);
                         if (r < 0)
                                 return -errno;
                         if (r > 0) {
@@ -1313,14 +1316,14 @@ static int parse_acl_cond_exec(
 
                 /* Check if we're about to set the execute bit in acl_access */
                 if (!has_exec && access) {
-                        for (r = acl_get_entry(access, ACL_FIRST_ENTRY, &entry);
+                        for (r = sym_acl_get_entry(access, ACL_FIRST_ENTRY, &entry);
                              r > 0;
-                             r = acl_get_entry(access, ACL_NEXT_ENTRY, &entry)) {
+                             r = sym_acl_get_entry(access, ACL_NEXT_ENTRY, &entry)) {
 
-                                if (acl_get_permset(entry, &permset) < 0)
+                                if (sym_acl_get_permset(entry, &permset) < 0)
                                         return -errno;
 
-                                r = acl_get_perm(permset, ACL_EXECUTE);
+                                r = sym_acl_get_perm(permset, ACL_EXECUTE);
                                 if (r < 0)
                                         return -errno;
                                 if (r > 0) {
@@ -1334,28 +1337,28 @@ static int parse_acl_cond_exec(
         } else
                 has_exec = true;
 
-        _cleanup_(acl_freep) acl_t parsed = access ? acl_dup(access) : acl_init(0);
+        _cleanup_(acl_freep) acl_t parsed = access ? sym_acl_dup(access) : sym_acl_init(0);
         if (!parsed)
                 return -errno;
 
-        for (r = acl_get_entry(cond_exec, ACL_FIRST_ENTRY, &entry);
+        for (r = sym_acl_get_entry(cond_exec, ACL_FIRST_ENTRY, &entry);
              r > 0;
-             r = acl_get_entry(cond_exec, ACL_NEXT_ENTRY, &entry)) {
+             r = sym_acl_get_entry(cond_exec, ACL_NEXT_ENTRY, &entry)) {
 
                 acl_entry_t parsed_entry;
 
-                if (acl_create_entry(&parsed, &parsed_entry) < 0)
+                if (sym_acl_create_entry(&parsed, &parsed_entry) < 0)
                         return -errno;
 
-                if (acl_copy_entry(parsed_entry, entry) < 0)
+                if (sym_acl_copy_entry(parsed_entry, entry) < 0)
                         return -errno;
 
                 /* We substituted 'X' with 'x' in parse_acl(), so drop execute bit here if not applicable. */
                 if (!has_exec) {
-                        if (acl_get_permset(parsed_entry, &permset) < 0)
+                        if (sym_acl_get_permset(parsed_entry, &permset) < 0)
                                 return -errno;
 
-                        if (acl_delete_perm(permset, ACL_EXECUTE) < 0)
+                        if (sym_acl_delete_perm(permset, ACL_EXECUTE) < 0)
                                 return -errno;
                 }
         }
@@ -1387,6 +1390,10 @@ static int path_set_acl(
 
         assert(c);
 
+        r = dlopen_libacl();
+        if (r < 0)
+                return r;
+
         /* Returns 0 for success, positive error if already warned, negative error otherwise. */
 
         if (modify) {
@@ -1398,7 +1405,7 @@ static int path_set_acl(
                 if (r < 0)
                         return r;
         } else {
-                dup = acl_dup(acl);
+                dup = sym_acl_dup(acl);
                 if (!dup)
                         return -errno;
 
@@ -1409,14 +1416,14 @@ static int path_set_acl(
         if (r < 0)
                 return r;
 
-        t = acl_to_any_text(dup, NULL, ',', TEXT_ABBREVIATE);
+        t = sym_acl_to_any_text(dup, NULL, ',', TEXT_ABBREVIATE);
         log_action("Would set", "Setting",
                    "%s %s ACL %s on %s",
                    type == ACL_TYPE_ACCESS ? "access" : "default",
                    strna(t), pretty);
 
         if (!arg_dry_run &&
-            acl_set_file(path, type, dup) < 0) {
+            sym_acl_set_file(path, type, dup) < 0) {
                 if (ERRNO_IS_NOT_SUPPORTED(errno))
                         /* No error if filesystem doesn't support ACLs. Return negative. */
                         return -errno;
@@ -1460,8 +1467,8 @@ static int fd_set_acls(
                                        "Refusing to set ACLs on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.",
                                        path);
 
-        if (S_ISLNK(st->st_mode)) {
-                log_debug("Skipping ACL fix for symlink %s.", path);
+        if (!inode_type_can_acl(st->st_mode)) {
+                log_debug("Skipping ACL fix for '%s' (inode type does not support ACLs).", path);
                 return 0;
         }
 
@@ -1659,7 +1666,7 @@ static int fd_set_attribute(
                                     "previous=0x%08x, current=0x%08x, expected=0x%08x, ignoring.",
                                     path, previous, current, (previous & ~item->attribute_mask) | (f & item->attribute_mask));
                 else if (r < 0)
-                        log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                        log_full_errno(ERRNO_IS_IOCTL_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Cannot set file attributes for '%s', value=0x%08x, mask=0x%08x, ignoring: %m",
                                        path, item->attribute_value, item->attribute_mask);
         }
@@ -2416,11 +2423,13 @@ static int create_symlink(Context *c, Item *i) {
                 r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path = */ NULL, /* ret_fd = */ NULL);
                 if (r == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
-                        log_info("Symlink source path '%s' does not exist, skipping line.", prefix_roota(arg_root, i->argument));
+                        log_info("Symlink source path '%s/%s' does not exist, skipping line.",
+                                 empty_to_root(arg_root), skip_leading_slash(i->argument));
                         return 0;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "Failed to check if symlink source path '%s' exists: %m", prefix_roota(arg_root, i->argument));
+                        return log_error_errno(r, "Failed to check if symlink source path '%s/%s' exists: %m",
+                                               empty_to_root(arg_root), skip_leading_slash(i->argument));
         }
 
         r = path_extract_filename(i->path, &bn);
@@ -2475,17 +2484,13 @@ static int create_symlink(Context *c, Item *i) {
 
                 fd = safe_close(fd);
 
-                mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                r = symlinkat_atomic_full(i->argument, pfd, bn, /* make_relative= */ false);
-                mac_selinux_create_file_clear();
+                r = symlinkat_atomic_full(i->argument, pfd, bn, SYMLINK_LABEL);
                 if (IN_SET(r, -EISDIR, -EEXIST, -ENOTEMPTY)) {
                         r = rm_rf_child(pfd, bn, REMOVE_PHYSICAL);
                         if (r < 0)
                                 return log_error_errno(r, "rm -rf %s failed: %m", i->path);
 
-                        mac_selinux_create_file_prepare(i->path, S_IFLNK);
-                        r = RET_NERRNO(symlinkat(i->argument, pfd, i->path));
-                        mac_selinux_create_file_clear();
+                        r = symlinkat_atomic_full(i->argument, pfd, bn, SYMLINK_LABEL);
                 }
                 if (r < 0)
                         return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
@@ -2578,23 +2583,21 @@ finish:
 }
 
 static int glob_item(Context *c, Item *i, action_t action) {
-        _cleanup_globfree_ glob_t g = {
-                .gl_opendir = (void *(*)(const char *)) opendir_nomod,
-        };
+        _cleanup_strv_free_ char **paths = NULL;
         int r;
 
         assert(c);
         assert(i);
         assert(action);
 
-        r = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
+        r = safe_glob_full(i->path, GLOB_NOSORT|GLOB_BRACE, opendir_nomod, &paths);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to glob '%s': %m", i->path);
 
         r = 0;
-        STRV_FOREACH(fn, g.gl_pathv)
+        STRV_FOREACH(fn, paths)
                 /* We pass CREATION_EXISTING here, since if we are globbing for it, it always has to exist */
                 RET_GATHER(r, action(c, i, *fn, CREATION_EXISTING));
 
@@ -2606,23 +2609,21 @@ static int glob_item_recursively(
                 Item *i,
                 fdaction_t action) {
 
-        _cleanup_globfree_ glob_t g = {
-                .gl_opendir = (void *(*)(const char *)) opendir_nomod,
-        };
+        _cleanup_strv_free_ char **paths = NULL;
         int r;
 
         assert(c);
         assert(i);
         assert(action);
 
-        r = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
+        r = safe_glob_full(i->path, GLOB_NOSORT|GLOB_BRACE, opendir_nomod, &paths);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to glob '%s': %m", i->path);
 
         r = 0;
-        STRV_FOREACH(fn, g.gl_pathv) {
+        STRV_FOREACH(fn, paths) {
                 _cleanup_close_ int fd = -EBADF;
 
                 /* Make sure we won't trigger/follow file object (such as device nodes, automounts, ...)
@@ -3302,13 +3303,13 @@ static void item_free_contents(Item *i) {
 
 #if HAVE_ACL
         if (i->acl_access)
-                acl_free(i->acl_access);
+                sym_acl_free(i->acl_access);
 
         if (i->acl_access_exec)
-                acl_free(i->acl_access_exec);
+                sym_acl_free(i->acl_access_exec);
 
         if (i->acl_default)
-                acl_free(i->acl_default);
+                sym_acl_free(i->acl_default);
 #endif
 }
 
@@ -3991,7 +3992,8 @@ static int parse_line(
                         missing_user_or_group = true;
                 } else if (r < 0) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve user '%s': %m", u);
+                        return log_syntax(NULL, LOG_ERR, fname, line, r,
+                                          "Failed to resolve user '%s': %s", u, STRERROR_USER(r));
                 } else
                         i.uid_set = true;
         }
@@ -4012,7 +4014,8 @@ static int parse_line(
                         missing_user_or_group = true;
                 } else if (r < 0) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve group '%s': %m", g);
+                        return log_syntax(NULL, LOG_ERR, fname, line, r,
+                                          "Failed to resolve group '%s': %s", g, STRERROR_GROUP(r));
                 } else
                         i.gid_set = true;
         }

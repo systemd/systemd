@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
+#include "dns-packet.h"
 #include "dns-resolver-internal.h"
-#include "log.h"
-#include "macro.h"
+#include "errno-util.h"
+#include "siphash24.h"
 #include "socket-netlink.h"
-#include "stdio-util.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
@@ -151,29 +151,6 @@ void siphash24_compress_resolver(const sd_dns_resolver *res, struct siphash *sta
         siphash24_compress_typesafe(res->family, state);
         FOREACH_ARRAY(addr, res->addrs, res->n_addrs)
                 siphash24_compress_typesafe(*addr, state);
-}
-
-static const char* const dns_svc_param_key_table[_DNS_SVC_PARAM_KEY_MAX_DEFINED] = {
-        [DNS_SVC_PARAM_KEY_MANDATORY]       = "mandatory",
-        [DNS_SVC_PARAM_KEY_ALPN]            = "alpn",
-        [DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN] = "no-default-alpn",
-        [DNS_SVC_PARAM_KEY_PORT]            = "port",
-        [DNS_SVC_PARAM_KEY_IPV4HINT]        = "ipv4hint",
-        [DNS_SVC_PARAM_KEY_ECH]             = "ech",
-        [DNS_SVC_PARAM_KEY_IPV6HINT]        = "ipv6hint",
-        [DNS_SVC_PARAM_KEY_DOHPATH]         = "dohpath",
-        [DNS_SVC_PARAM_KEY_OHTTP]           = "ohttp",
-};
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_svc_param_key, int);
-
-const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]) {
-        assert(buf);
-
-        const char *p = dns_svc_param_key_to_string(i);
-        if (p)
-                return p;
-
-        return snprintf_ok(buf, DECIMAL_STR_MAX(uint16_t)+3, "key%i", i);
 }
 
 int dns_resolver_transports_to_strv(sd_dns_alpn_flags transports, char ***ret) {

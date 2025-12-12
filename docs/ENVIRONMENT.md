@@ -123,8 +123,12 @@ All tools:
 * `$SYSTEMD_NETLINK_DEFAULT_TIMEOUT` — specifies the default timeout of waiting
   replies for netlink messages from the kernel. Defaults to 25 seconds.
 
-* `$SYSTEMD_VERITY_SHARING=0` — if set, sharing dm-verity devices by
-  using a stable `<ROOTHASH>-verity` device mapper name will be disabled.
+* `$SYSTEMD_VERITY_SHARING=` — takes a boolean. If set, overrides whether
+  dm-verity devices shall be shared between multiple components by using a
+  stable `<ROOTHASH>-verity` device mapper name. The default for this depends
+  on the subsystem in question. Usually,
+  RootImage=/ExtensionImages=/MountImages= in unit files default to enabled,
+  while other uses default to disabled for this.
 
 `systemctl`:
 
@@ -230,7 +234,7 @@ All tools:
   file may be checked for by services run during system shutdown in order to
   request the appropriate operation from the boot loader in an alternative
   fashion. Note that by default only boot loader entries which follow the
-  [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification)
+  [UAPI.1 Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification)
   and are placed in the ESP or the Extended Boot Loader partition may be
   selected this way. However, if a directory `/run/boot-loader-entries/`
   exists, the entries are loaded from there instead. The directory should
@@ -294,6 +298,9 @@ All tools:
   first existing unit listed in the environment variable, and
   `timedatectl set-ntp off` disables and stops all listed units.
 
+* `$SYSTEMD_ETC_ADJTIME` - override the path to the hardware clock settings
+  file. The default is `/etc/adjtime`.
+
 `systemd-sulogin-shell`:
 
 * `$SYSTEMD_SULOGIN_FORCE=1` — This skips asking for the root password if the
@@ -350,12 +357,13 @@ All tools:
   default is not appropriate for a given system. Defaults to `5`, accepts
   positive integers.
 
-* `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_INTERVAL_SEC` — can be set to override the mount
-  units interval rate limit for parsing `/proc/self/mountinfo`. Similar to
-  `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST`, the interval limit maybe adjusted when
-  the default is not appropriate for a given system. The default value is 1 and the
-  default application time unit is second, and the time unit can beoverriden as usual
-  by specifying it explicitly, see the systemd.time(7) man page.
+* `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_INTERVAL_SEC` — can be set to override the
+  mount units interval rate limit for parsing `/proc/self/mountinfo`. Similar
+  to `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST`, the interval limit maybe
+  adjusted when the default is not appropriate for a given system. The default
+  value is 1, the default application time unit is second, and the time unit
+  can be overridden as usual by specifying it explicitly, see the
+  systemd.time(7) man page.
 
 `systemd-remount-fs`:
 
@@ -375,6 +383,9 @@ All tools:
   directories. The directories must be absolute and normalized. If unset, the
   default keymap directories (/usr/share/keymaps/, /usr/share/kbd/keymaps/, and
   /usr/lib/kbd/keymaps/) will be used.
+
+* `$SYSTEMD_XKB_DIRECTORY=` — The directory must be absolute and normalized.
+  If unset, the default XKB directory (/usr/share/X11/xkb) will be used.
 
 `systemd-resolved`:
 
@@ -401,6 +412,14 @@ All tools:
   command line still overrides the effect of the environment
   variable. Similarly, `$SYSTEMD_CONFEXT_MUTABLE_MODE` works for confext images
   and supports the systemd-confext multi-call functionality of sysext.
+
+* `$SYSTEMD_SYSEXT_OVERLAYFS_MOUNT_OPTIONS` — this variable may be used to
+  override the overlayfs mount options applied for hierarchies managed by
+  `systemd-sysext`. Similarly, `$SYSTEMD_CONFEXT_OVERLAYFS_MOUNT_OPTIONS` works
+  for confext images and supports the systemd-confext multi-call functionality
+  of sysext. Read-only hierarchies have no mount options added by
+  default. Mutable hierarchies have the following mount options added by
+  default: `redirect_dir=on,noatime,metacopy=off,index=off`.
 
 `systemd-tmpfiles`:
 
@@ -450,6 +469,9 @@ systemd tests:
   causes all non-matching test functions to be skipped. Only applies to tests
   using our regular test boilerplate.
 
+* `$SYSTEMD_ASSERT_RETURN_IS_CRITICAL` — Takes a boolean to control if
+  `assert_return()` and friends call `abort()`.
+
 fuzzers:
 
 * `$SYSTEMD_FUZZ_OUTPUT` — A boolean that specifies whether to write output to
@@ -496,7 +518,7 @@ disk images with `--image=` or similar:
   to load the embedded Verity signature data. If enabled (which is the
   default), Verity root hash information and a suitable signature is
   automatically acquired from a signature partition, following the
-  [Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification).
+  [UAPI.2 Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification).
   If disabled any such partition is ignored. Note that this only disables
   discovery of the root hash and its signature, the Verity data partition
   itself is still searched in the GPT image.
@@ -515,6 +537,15 @@ disk images with `--image=` or similar:
   systems that may be mounted for automatically dissected disk images. If not
   specified defaults to something like: `ext4:btrfs:xfs:vfat:erofs:squashfs`
 
+* `$SYSTEMD_DISSECT_FSTYPE_<DESIGNATOR>=` – overrides the file system time to
+  use when mounting the partition of the indicated designator. The
+  `<DESIGNATOR>` string shall be one of `ROOT`, `USR`, `HOME`, `SRV`, `ESP`,
+  `XBOOTLDR`, `TMP`, `VAR` as per the [UAPI.2 Discoverable Partitions
+  Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification/). If
+  unspecified the image dissection logic will automatically probe the file
+  system type (subject to `$SYSTEMD_DISSECT_FILE_SYSTEMS`, see above), except
+  for ESP and XBOOTLDR where the file system type is set to VFAT.
+
 * `$SYSTEMD_LOOP_DIRECT_IO` – takes a boolean, which controls whether to enable
   `LO_FLAGS_DIRECT_IO` (i.e. direct IO + asynchronous IO) on loopback block
   devices when opening them. Defaults to on, set this to "0" to disable this
@@ -529,8 +560,8 @@ disk images with `--image=` or similar:
 * `$SYSTEMD_DISSECT_VERITY_GUESS` – takes a boolean. Controls whether to guess
   the Verity root hash from the partition UUIDs of a suitable pair of data
   partition and matching Verity partition: the UUIDs two are simply joined and
-  used as root hash, in accordance with the recommendations in [Discoverable
-  Partitions
+  used as root hash, in accordance with the recommendations in [UAPI.2
+  Discoverable Partitions
   Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification). Defaults
   to true.
 
@@ -547,8 +578,8 @@ disk images with `--image=` or similar:
   environment variable to the build directory and you are set. This variable
   is only supported when systemd is compiled in developer mode.
 
-Various tools that read passwords from the TTY, such as `systemd-cryptenroll`
-and `homectl`:
+Various tools that read passwords from the TTY, such as `systemd-cryptenroll`,
+`systemd-dissect` and `homectl`:
 
 * `$PASSWORD` — takes a string: the literal password to use. If this
   environment variable is set it is used as password instead of prompting the
@@ -688,6 +719,9 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   work, ProtectSystem=strict in systemd-networkd.service needs to be downgraded
   or disabled.
 
+* `$SYSTEMD_LLDP_SEND_MACHINE_ID` - takes a boolean, If true, systemd-networkd
+  sends machine ID as chassis ID through LLDP protocol.
+
 `systemd-storagetm`:
 
 * `$SYSTEMD_NVME_MODEL`, `$SYSTEMD_NVME_FIRMWARE`, `$SYSTEMD_NVME_SERIAL`,
@@ -749,15 +783,14 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 
 `systemd-run`, `run0`, `systemd-nspawn`, `systemd-vmspawn`:
 
-* `$SYSTEMD_TINT_BACKGROUND` – Takes a boolean. When false the automatic
-  tinting of the background for containers, VMs, and interactive `systemd-run`
-  and `run0` invocations is turned off. Note that this environment variable has
-  no effect if the background color is explicitly selected via the relevant
-  `--background=` switch of the tool.
+* `$SYSTEMD_TINT_BACKGROUND` – Takes a boolean. When false the automatic and
+  explicit tinting of the background (via `--background=`) for containers, VMs,
+  `systemd-pty-forward` and interactive  `systemd-run` and `run0` invocations is
+  turned off.
 
 * `$SYSTEMD_ADJUST_TERMINAL_TITLE` – Takes a boolean. When false the terminal
-  window title will not be updated for interactive invocation of the mentioned
-  tools.
+  window title will not be updated for interactive invocation of the tools
+  mentioned above.
 
 `systemd-hostnamed`, `systemd-importd`, `systemd-localed`, `systemd-machined`,
 `systemd-portabled`, `systemd-timedated`:
@@ -784,3 +817,32 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   `systemd.factory_reset=` kernel command line option: if set to false,
   requesting a TPM clearing is skipped, and the command immediately exits
   successfully.
+
+`systemd-timedated`, `systemd-firstboot`, `systemd`:
+
+* `$SYSTEMD_ETC_LOCALTIME` - override the path to the timezone symlink. The
+  default is `/etc/localtime`. The directory of the path should exist and not
+  be removed.
+
+`systemd-hostnamed`, `systemd-firstboot`:
+
+* `$SYSTEMD_ETC_HOSTNAME` - override the path to local system name
+  configuration file. The default is `/etc/hostname`.
+
+* `$SYSTEMD_ETC_MACHINE_INFO` - override the path to the machine metadata file. The
+  default is `/etc/machine-info`.
+
+`systemd-localed`, `systemd-firstboot`:
+
+* `$SYSTEMD_ETC_LOCALE_CONF` - override the path to the system-wide locale
+  configuration file. The default is `/etc/locale.conf`.
+
+* `$SYSTEMD_ETC_VCONSOLE_CONF` - override the path to the virtual console
+  configuration file. The default is `/etc/vconsole.conf`.
+
+`systemd-modules-load`:
+
+* `$SYSTEMD_MODULES_LOAD_NUM_THREADS` - takes a number, which controls the
+  overall number of threads used to load modules by `systemd-modules-load`.
+  If unset, the default number of threads is equal to the number of online CPUs,
+  with a maximum of 16. If set to `0`, multi-threaded loading is disabled.

@@ -3,12 +3,18 @@
 #include <linux/nl80211.h>
 #include <net/if_arp.h>
 
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-util.h"
+#include "hashmap.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-wiphy.h"
-#include "parse-util.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "udev-util.h"
 #include "wifi-util.h"
 
@@ -125,7 +131,10 @@ static int link_get_wiphy(Link *link, Wiphy **ret) {
         if (!link->dev)
                 return -ENODEV;
 
-        if (!device_is_devtype(link->dev, "wlan"))
+        r = device_is_devtype(link->dev, "wlan");
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -EOPNOTSUPP;
 
         r = sd_device_new_child(&phy, link->dev, "phy80211");
@@ -400,8 +409,7 @@ int manager_genl_process_nl80211_wiphy(sd_netlink *genl, sd_netlink_message *mes
         (void) wiphy_get_by_index(manager, index, &w);
 
         switch (cmd) {
-        case NL80211_CMD_NEW_WIPHY: {
-
+        case NL80211_CMD_NEW_WIPHY:
                 if (!w) {
                         r = wiphy_new(manager, message, &w);
                         if (r < 0) {
@@ -423,11 +431,10 @@ int manager_genl_process_nl80211_wiphy(sd_netlink *genl, sd_netlink_message *mes
                         log_wiphy_warning_errno(w, r, "Failed to update wiphy, ignoring: %m");
 
                 break;
-        }
-        case NL80211_CMD_DEL_WIPHY:
 
+        case NL80211_CMD_DEL_WIPHY:
                 if (!w) {
-                        log_debug("The kernel removes wiphy we do not know, ignoring: %m");
+                        log_debug("The kernel removed wiphy we do not know, ignoring.");
                         return 0;
                 }
 
@@ -436,7 +443,7 @@ int manager_genl_process_nl80211_wiphy(sd_netlink *genl, sd_netlink_message *mes
                 break;
 
         default:
-                log_wiphy_debug(w, "nl80211: received %s(%u) message.",
+                log_wiphy_debug(w, "nl80211: received %s(%u) message, ignoring.",
                                 strna(nl80211_cmd_to_string(cmd)), cmd);
         }
 

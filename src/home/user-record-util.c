@@ -1,22 +1,29 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/xattr.h>
+#include <unistd.h>
 
+#include "sd-bus.h"
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "group-record.h"
+#include "hashmap.h"
 #include "home-util.h"
-#include "id128-util.h"
 #include "json-util.h"
 #include "libcrypt-util.h"
 #include "log.h"
-#include "memory-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "recovery-key.h"
 #include "sha256.h"
 #include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
+#include "user-record.h"
 #include "user-record-util.h"
 #include "user-util.h"
 
@@ -87,16 +94,16 @@ int user_record_synthesize(
 
         r = sd_json_buildo(
                         &h->json,
-                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
+                        SD_JSON_BUILD_PAIR_STRING("userName", user_name),
                         SD_JSON_BUILD_PAIR_CONDITION(!!rr, "realm", SD_JSON_BUILD_STRING(realm)),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("regular")),
                         SD_JSON_BUILD_PAIR("binding", SD_JSON_BUILD_OBJECT(
                                                            SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
-                                                                                              SD_JSON_BUILD_PAIR("imagePath", SD_JSON_BUILD_STRING(image_path)),
-                                                                                              SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(hd)),
-                                                                                              SD_JSON_BUILD_PAIR("storage", SD_JSON_BUILD_STRING(user_storage_to_string(storage))),
-                                                                                              SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
-                                                                                              SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)))))));
+                                                                                              SD_JSON_BUILD_PAIR_STRING("imagePath", image_path),
+                                                                                              SD_JSON_BUILD_PAIR_STRING("homeDirectory", hd),
+                                                                                              SD_JSON_BUILD_PAIR_STRING("storage", user_storage_to_string(storage)),
+                                                                                              SD_JSON_BUILD_PAIR_UNSIGNED("uid", uid),
+                                                                                              SD_JSON_BUILD_PAIR_UNSIGNED("gid", gid))))));
         if (r < 0)
                 return r;
 
@@ -147,9 +154,9 @@ int group_record_synthesize(GroupRecord *g, UserRecord *h) {
 
         r = sd_json_buildo(
                         &g->json,
-                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(un)),
+                        SD_JSON_BUILD_PAIR_STRING("groupName", un),
                         SD_JSON_BUILD_PAIR_CONDITION(!!rr, "realm", SD_JSON_BUILD_STRING(rr)),
-                        SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(description)),
+                        SD_JSON_BUILD_PAIR_STRING("description", description),
                         SD_JSON_BUILD_PAIR("binding", SD_JSON_BUILD_OBJECT(
                                                            SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
                                                                                               SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(user_record_gid(h))))))),
@@ -341,7 +348,7 @@ int user_record_add_binding(
 
         r = sd_json_buildo(
                         &new_binding_entry,
-                        SD_JSON_BUILD_PAIR("blobDirectory", SD_JSON_BUILD_STRING(blob)),
+                        SD_JSON_BUILD_PAIR_STRING("blobDirectory", blob),
                         SD_JSON_BUILD_PAIR_CONDITION(!!image_path, "imagePath", SD_JSON_BUILD_STRING(image_path)),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(partition_uuid))),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(luks_uuid))),
@@ -1015,8 +1022,11 @@ int user_record_set_fido2_user_presence_permitted(UserRecord *h, int b) {
 
         if (sd_json_variant_is_blank_object(w))
                 r = sd_json_variant_filter(&h->json, STRV_MAKE("secret"));
-        else
+        else {
+                sd_json_variant_sensitive(w);
+
                 r = sd_json_variant_set_field(&h->json, "secret", w);
+        }
         if (r < 0)
                 return r;
 
@@ -1043,8 +1053,11 @@ int user_record_set_fido2_user_verification_permitted(UserRecord *h, int b) {
 
         if (sd_json_variant_is_blank_object(w))
                 r = sd_json_variant_filter(&h->json, STRV_MAKE("secret"));
-        else
+        else {
+                sd_json_variant_sensitive(w);
+
                 r = sd_json_variant_set_field(&h->json, "secret", w);
+        }
         if (r < 0)
                 return r;
 

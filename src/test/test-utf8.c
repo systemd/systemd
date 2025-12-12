@@ -239,9 +239,4 @@ TEST(utf8_last_length) {
         ASSERT_EQ(utf8_last_length("koff👊", SIZE_MAX), strlen("👊"));
 }
 
-static int intro(void) {
-        log_show_color(true);
-        return EXIT_SUCCESS;
-}
-
-DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);
+DEFINE_TEST_MAIN(LOG_INFO);

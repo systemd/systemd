@@ -1,10 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <gshadow.h>
+
+#include "sd-json.h"
+
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "format-util.h"
+#include "group-record.h"
 #include "libcrypt-util.h"
 #include "log.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
+#include "user-record.h"
 #include "user-record-nss.h"
 #include "user-util.h"
 #include "utf8.h"
@@ -140,13 +149,13 @@ int nss_passwd_to_user_record(
         hr->json = sd_json_variant_unref(hr->json);
         r = sd_json_buildo(
                         &hr->json,
-                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(hr->user_name)),
-                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(hr->uid)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(user_record_gid(hr))),
+                        SD_JSON_BUILD_PAIR_STRING("userName", hr->user_name),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("uid", hr->uid),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", user_record_gid(hr)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!hr->real_name, "realName", SD_JSON_BUILD_STRING(hr->real_name)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!hr->home_directory, "homeDirectory", SD_JSON_BUILD_STRING(hr->home_directory)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!hr->shell, "shell", SD_JSON_BUILD_STRING(hr->shell)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(hr->hashed_password), "privileged", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRV(hr->hashed_password)))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(hr->hashed_password), "privileged", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRV("hashedPassword", hr->hashed_password))),
                         SD_JSON_BUILD_PAIR_CONDITION(hr->locked >= 0, "locked", SD_JSON_BUILD_BOOLEAN(hr->locked)),
                         SD_JSON_BUILD_PAIR_CONDITION(hr->not_after_usec != UINT64_MAX, "notAfterUSec", SD_JSON_BUILD_UNSIGNED(hr->not_after_usec)),
                         SD_JSON_BUILD_PAIR_CONDITION(hr->password_change_now >= 0, "passwordChangeNow", SD_JSON_BUILD_BOOLEAN(hr->password_change_now)),
@@ -176,9 +185,9 @@ int nss_spwd_for_passwd(const struct passwd *pwd, struct spwd *ret_spwd, char **
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
-                struct spwd spwd, *result;
+                struct spwd spwd = {}, *result = NULL;
 
-                buf = malloc(buflen);
+                buf = malloc0(buflen);
                 if (!buf)
                         return -ENOMEM;
 
@@ -322,10 +331,10 @@ int nss_group_to_group_record(
 
         r = sd_json_buildo(
                         &g->json,
-                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(g->group_name)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(g->gid)),
+                        SD_JSON_BUILD_PAIR_STRING("groupName", g->group_name),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", g->gid),
                         SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(g->members), "members", SD_JSON_BUILD_STRV(g->members)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(g->hashed_password), "privileged", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRV(g->hashed_password)))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(g->hashed_password), "privileged", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRV("hashedPassword", g->hashed_password))),
                         SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(g->administrators), "administrators", SD_JSON_BUILD_STRV(g->administrators)));
         if (r < 0)
                 return r;
@@ -348,9 +357,9 @@ int nss_sgrp_for_group(const struct group *grp, struct sgrp *ret_sgrp, char **re
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
-                struct sgrp sgrp, *result;
+                struct sgrp sgrp = {}, *result = NULL;
 
-                buf = malloc(buflen);
+                buf = malloc0(buflen);
                 if (!buf)
                         return -ENOMEM;
 

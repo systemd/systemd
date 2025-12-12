@@ -1,18 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
-#include <errno.h>
-#include <limits.h>
+#include <fcntl.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
+#include <mqueue.h>
 #include <net/if.h>
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <poll.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
@@ -20,32 +16,28 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-ifname.h"
+#include "format-util.h"
+#include "in-addr-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "socket-util.h"
+#include "sparse-endian.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
-#include "user-util.h"
-#include "utf8.h"
 
 #if ENABLE_IDN
 #  define IDN_FLAGS NI_IDN
 #else
 #  define IDN_FLAGS 0
-#endif
-
-/* From the kernel's include/net/scm.h */
-#ifndef SCM_MAX_FD
-#  define SCM_MAX_FD 253
 #endif
 
 static const char* const socket_address_type_table[] = {
@@ -677,26 +669,6 @@ static const char* const netlink_family_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(netlink_family, int, INT_MAX);
 
-static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX] = {
-        [SOCKET_ADDRESS_DEFAULT] = "default",
-        [SOCKET_ADDRESS_BOTH] = "both",
-        [SOCKET_ADDRESS_IPV6_ONLY] = "ipv6-only"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
-
-SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *n) {
-        int r;
-
-        r = parse_boolean(n);
-        if (r > 0)
-                return SOCKET_ADDRESS_IPV6_ONLY;
-        if (r == 0)
-                return SOCKET_ADDRESS_BOTH;
-
-        return socket_address_bind_ipv6_only_from_string(n);
-}
-
 bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b) {
         assert(a);
         assert(b);
@@ -1291,12 +1263,10 @@ int flush_accept(int fd) {
                 int cfd;
 
                 r = fd_wait_for_event(fd, POLLIN, 0);
-                if (r < 0) {
-                        if (r == -EINTR)
-                                continue;
-
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
                         return r;
-                }
                 if (r == 0)
                         return 0;
 
@@ -1316,6 +1286,52 @@ int flush_accept(int fd) {
                 }
 
                 safe_close(cfd);
+        }
+}
+
+ssize_t flush_mqueue(int fd) {
+        _cleanup_free_ char *buf = NULL;
+        struct mq_attr attr;
+        ssize_t count = 0;
+        int r;
+
+        assert(fd >= 0);
+
+        /* Similar to flush_fd() but flushes all messages from a POSIX message queue. */
+
+        for (;;) {
+                ssize_t l;
+
+                r = fd_wait_for_event(fd, POLLIN, /* timeout= */ 0);
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return count;
+
+                if (!buf) {
+                        /* Buffer must be at least as large as mq_msgsize. */
+                        if (mq_getattr(fd, &attr) < 0)
+                                return -errno;
+
+                        buf = malloc(attr.mq_msgsize);
+                        if (!buf)
+                                return -ENOMEM;
+                }
+
+                l = mq_receive(fd, buf, attr.mq_msgsize, /* msg_prio = */ NULL);
+                if (l < 0) {
+                        if (errno == EINTR)
+                                continue;
+
+                        if (errno == EAGAIN)
+                                return count;
+
+                        return -errno;
+                }
+
+                count += l;
         }
 }
 
@@ -1484,6 +1500,22 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
         }
 }
 
+int getsockopt_int(int fd, int level, int optname, int *ret) {
+        int v;
+        socklen_t sl = sizeof(v);
+
+        assert(fd >= 0);
+        assert(ret);
+
+        if (getsockopt(fd, level, optname, &v, &sl) < 0)
+                return negative_errno();
+        if (sl != sizeof(v))
+                return -EIO;
+
+        *ret = v;
+        return 0;
+}
+
 int socket_bind_to_ifname(int fd, const char *ifname) {
         assert(fd >= 0);
 
@@ -1511,7 +1543,6 @@ int socket_autobind(int fd, char **ret_name) {
          * "autobind" feature, but uses 64-bit random number internally. */
 
         assert(fd >= 0);
-        assert(ret_name);
 
         random = random_u64();
 
@@ -1528,7 +1559,8 @@ int socket_autobind(int fd, char **ret_name) {
         if (bind(fd, &sa.sa, r) < 0)
                 return -errno;
 
-        *ret_name = TAKE_PTR(name);
+        if (ret_name)
+                *ret_name = TAKE_PTR(name);
         return 0;
 }
 
@@ -1748,6 +1780,24 @@ int socket_address_parse_unix(SocketAddress *ret_address, const char *s) {
         return 0;
 }
 
+int socket_address_equal_unix(const char *a, const char *b) {
+        SocketAddress socket_a, socket_b;
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = socket_address_parse_unix(&socket_a, a);
+        if (r < 0)
+                return r;
+
+        r = socket_address_parse_unix(&socket_b, b);
+        if (r < 0)
+                return r;
+
+        return sockaddr_equal(&socket_a.sockaddr, &socket_b.sockaddr);
+}
+
 int vsock_parse_port(const char *s, unsigned *ret) {
         int r;
 
@@ -1795,7 +1845,7 @@ int vsock_parse_cid(const char *s, unsigned *ret) {
 int socket_address_parse_vsock(SocketAddress *ret_address, const char *s) {
         /* AF_VSOCK socket in vsock:cid:port notation */
         _cleanup_free_ char *n = NULL;
-        char *e, *cid_start;
+        const char *e, *cid_start;
         unsigned port, cid;
         int type, r;
 
@@ -1851,12 +1901,22 @@ int vsock_get_local_cid(unsigned *ret) {
 
         vsock_fd = open("/dev/vsock", O_RDONLY|O_CLOEXEC);
         if (vsock_fd < 0)
-                return log_debug_errno(errno, "Failed to open /dev/vsock: %m");
+                return log_debug_errno(errno, "Failed to open %s: %m", "/dev/vsock");
 
         unsigned tmp;
-        if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, ret ?: &tmp) < 0)
+        if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, &tmp) < 0)
                 return log_debug_errno(errno, "Failed to query local AF_VSOCK CID: %m");
+        log_debug("Local AF_VSOCK CID: %u", tmp);
 
+        /* If ret == NULL, we're just want to check if AF_VSOCK is available, so accept
+         * any address. Otherwise, filter out special addresses that are cannot be used
+         * to identify _this_ machine from the outside. */
+        if (ret && IN_SET(tmp, VMADDR_CID_LOCAL, VMADDR_CID_HOST))
+                return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                       "IOCTL_VM_SOCKETS_GET_LOCAL_CID returned special value (%u), ignoring.", tmp);
+
+        if (ret)
+                *ret = tmp;
         return 0;
 }
 
@@ -1891,4 +1951,37 @@ finalize:
                 *ret_groups = TAKE_PTR(groups);
 
         return 0;
+}
+
+int socket_get_cookie(int fd, uint64_t *ret) {
+        assert(fd >= 0);
+
+        uint64_t cookie = 0;
+        socklen_t cookie_len = sizeof(cookie);
+        if (getsockopt(fd, SOL_SOCKET, SO_COOKIE, &cookie, &cookie_len) < 0)
+                return -errno;
+
+        assert(cookie_len == sizeof(cookie));
+        if (ret)
+                *ret = cookie;
+
+        return 0;
+}
+
+void cmsg_close_all(struct msghdr *mh) {
+        assert(mh);
+
+        struct cmsghdr *cmsg;
+        CMSG_FOREACH(cmsg, mh) {
+                if (cmsg->cmsg_level != SOL_SOCKET)
+                        continue;
+
+                if (cmsg->cmsg_type == SCM_RIGHTS)
+                        close_many(CMSG_TYPED_DATA(cmsg, int),
+                                   (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
+                else if (cmsg->cmsg_type == SCM_PIDFD) {
+                        assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
+                        safe_close(*CMSG_TYPED_DATA(cmsg, int));
+                }
+        }
 }

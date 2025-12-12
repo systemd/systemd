@@ -3,21 +3,21 @@
 #include <fcntl.h>
 #include <linux/vt.h>
 #include <sys/ioctl.h>
-#include <sys/types.h>
 
+#include "sd-bus.h"
 #include "sd-device.h"
 
 #include "alloc-util.h"
 #include "battery-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "bus-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "device-util.h"
 #include "efi-loader.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "limits-util.h"
 #include "logind.h"
 #include "logind-button.h"
@@ -25,9 +25,7 @@
 #include "logind-seat.h"
 #include "logind-session.h"
 #include "logind-user.h"
-#include "logind-utmp.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "strv.h"
@@ -44,7 +42,7 @@ void manager_reset_config(Manager *m) {
         m->remove_ipc = true;
         m->inhibit_delay_max = 5 * USEC_PER_SEC;
         m->user_stop_delay = 10 * USEC_PER_SEC;
-        m->enable_wall_messages = true;
+        m->wall_messages = true;
 
         m->handle_action_sleep_mask = HANDLE_ACTION_SLEEP_MASK_DEFAULT;
 
@@ -246,11 +244,14 @@ int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret) {
 
 int manager_add_button(Manager *m, const char *name, Button **ret_button) {
         Button *b;
+        bool is_new;
 
         assert(m);
         assert(name);
 
         b = hashmap_get(m->buttons, name);
+        is_new = !b;
+
         if (!b) {
                 b = button_new(m, name);
                 if (!b)
@@ -260,7 +261,7 @@ int manager_add_button(Manager *m, const char *name, Button **ret_button) {
         if (ret_button)
                 *ret_button = b;
 
-        return 0;
+        return is_new;
 }
 
 int manager_process_seat_device(Manager *m, sd_device *d) {
@@ -289,8 +290,9 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
                 bool master;
                 Seat *seat;
 
-                if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
-                        sn = "seat0";
+                r = device_get_seat(d, &sn);
+                if (r < 0)
+                        return r;
 
                 if (!seat_name_is_valid(sn)) {
                         log_device_warning(d, "Device with invalid seat name %s found, ignoring.", sn);
@@ -329,7 +331,7 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
         return 0;
 }
 
-int manager_process_button_device(Manager *m, sd_device *d) {
+int manager_process_button_device(Manager *m, sd_device *d, Button **ret_button) {
         const char *sysname;
         Button *b;
         int r;
@@ -341,33 +343,68 @@ int manager_process_button_device(Manager *m, sd_device *d) {
                 return r;
 
         if (device_for_action(d, SD_DEVICE_REMOVE) ||
-            sd_device_has_current_tag(d, "power-switch") <= 0)
+            sd_device_has_current_tag(d, "power-switch") <= 0) {
 
-                button_free(hashmap_get(m->buttons, sysname));
-
-        else {
-                const char *sn;
-
-                r = manager_add_button(m, sysname, &b);
-                if (r < 0)
-                        return r;
-
-                if (sd_device_get_property_value(d, "ID_SEAT", &sn) < 0 || isempty(sn))
-                        sn = "seat0";
-
-                button_set_seat(b, sn);
-
-                r = button_open(b);
-                if (r < 0) /* event device doesn't have any keys or switches relevant to us? (or any other error
-                            * opening the device?) let's close the button again. */
-                        button_free(b);
+                b = hashmap_get(m->buttons, sysname);
+                goto unwatch;
         }
+
+        r = manager_add_button(m, sysname, &b);
+        if (r < 0)
+                return r;
+        bool is_new = r > 0;
+
+        const char *sn;
+        r = device_get_seat(d, &sn);
+        if (r < 0)
+                return r;
+
+        button_set_seat(b, sn);
+
+        r = button_open(b);
+        if (r < 0) /* event device doesn't have any keys or switches relevant to us? (or any other error
+                    * opening the device?) let's close the button again. */
+                goto unwatch;
+
+        if (ret_button)
+                *ret_button = b;
+
+        return is_new;
+
+unwatch:
+        button_free(b);
+
+        if (ret_button)
+                *ret_button = NULL;
 
         return 0;
 }
 
 int manager_get_session_by_pidref(Manager *m, const PidRef *pid, Session **ret) {
         _cleanup_free_ char *unit = NULL;
+        Session *s = NULL;
+        int r;
+
+        assert(m);
+
+        if (!pidref_is_set(pid))
+                return -EINVAL;
+
+        r = manager_get_session_by_leader(m, pid, ret);
+        if (r != 0)
+                return r;
+
+        r = cg_pidref_get_unit(pid, &unit);
+        if (r >= 0)
+                s = hashmap_get(m->session_units, unit);
+
+        if (ret)
+                *ret = s;
+
+        return !!s;
+}
+
+int manager_get_session_by_leader(Manager *m, const PidRef *pid, Session **ret) {
         Session *s;
         int r;
 
@@ -381,10 +418,6 @@ int manager_get_session_by_pidref(Manager *m, const PidRef *pid, Session **ret) 
                 r = pidref_verify(pid);
                 if (r < 0)
                         return r;
-        } else {
-                r = cg_pidref_get_unit(pid, &unit);
-                if (r >= 0)
-                        s = hashmap_get(m->session_units, unit);
         }
 
         if (ret)
@@ -608,7 +641,6 @@ static int manager_count_external_displays(Manager *m) {
                 return r;
 
         FOREACH_DEVICE(e, d) {
-                const char *status, *enabled, *dash, *nn;
                 sd_device *p;
 
                 if (sd_device_get_parent(d, &p) < 0)
@@ -617,17 +649,22 @@ static int manager_count_external_displays(Manager *m) {
                 /* If the parent shares the same subsystem as the
                  * device we are looking at then it is a connector,
                  * which is what we are interested in. */
-                if (!device_in_subsystem(p, "drm"))
+                r = device_in_subsystem(p, "drm");
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
-                if (sd_device_get_sysname(d, &nn) < 0)
-                        continue;
+                const char *nn;
+                r = sd_device_get_sysname(d, &nn);
+                if (r < 0)
+                        return r;
 
                 /* Ignore internal displays: the type is encoded in the sysfs name, as the second dash
                  * separated item (the first is the card name, the last the connector number). We implement a
                  * deny list of external displays here, rather than an allow list of internal ones, to ensure
                  * we don't block suspends too eagerly. */
-                dash = strchr(nn, '-');
+                const char *dash = strchr(nn, '-');
                 if (!dash)
                         continue;
 
@@ -639,12 +676,21 @@ static int manager_count_external_displays(Manager *m) {
                         continue;
 
                 /* Ignore ports that are not enabled */
-                if (sd_device_get_sysattr_value(d, "enabled", &enabled) < 0 || !streq(enabled, "enabled"))
+                const char *enabled;
+                r = sd_device_get_sysattr_value(d, "enabled", &enabled);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+                if (!streq(enabled, "enabled"))
                         continue;
 
-                /* We count any connector which is not explicitly
-                 * "disconnected" as connected. */
-                if (sd_device_get_sysattr_value(d, "status", &status) < 0 || !streq(status, "disconnected"))
+                /* We count any connector which is not explicitly "disconnected" as connected. */
+                const char *status = NULL;
+                r = sd_device_get_sysattr_value(d, "status", &status);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                if (!streq_ptr(status, "disconnected"))
                         n++;
         }
 
@@ -726,14 +772,13 @@ int manager_read_efi_boot_loader_entries(Manager *m) {
                 return 0;
 
         r = efi_loader_get_entries(&m->efi_boot_loader_entries);
-        if (r < 0) {
-                if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r)) {
-                        log_debug_errno(r, "Boot loader reported no entries.");
-                        m->efi_boot_loader_entries_set = true;
-                        return 0;
-                }
-                return log_error_errno(r, "Failed to determine entries reported by boot loader: %m");
+        if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                log_debug_errno(r, "Boot loader reported no entries.");
+                m->efi_boot_loader_entries_set = true;
+                return 0;
         }
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine entries reported by boot loader: %m");
 
         m->efi_boot_loader_entries_set = true;
         return 1;

@@ -1,18 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
+#include <linux/bpf.h>
 #include <linux/bpf_insn.h>
+#include <sys/stat.h>
 
+#include "alloc-util.h"
 #include "bpf-devices.h"
 #include "bpf-program.h"
+#include "cgroup.h"
 #include "devnum-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing_bpf.h"
+#include "log.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 
 #define PASS_JUMP_OFF 4096
@@ -233,7 +236,7 @@ int bpf_devices_apply_policy(
         if (r < 0)
                 return log_error_errno(r, "Extending device control BPF program failed: %m");
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, NULL, &controller_path);
+        r = cg_get_path(cgroup_path, /* suffix = */ NULL, &controller_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine cgroup path: %m");
 
@@ -249,51 +252,6 @@ int bpf_devices_apply_policy(
                 *prog_installed = TAKE_PTR(*prog);
         }
         return 0;
-}
-
-int bpf_devices_supported(void) {
-        const struct bpf_insn trivial[] = {
-                BPF_MOV64_IMM(BPF_REG_0, 1),
-                BPF_EXIT_INSN()
-        };
-
-        _cleanup_(bpf_program_freep) BPFProgram *program = NULL;
-        static int supported = -1;
-        int r;
-
-        /* Checks whether BPF device controller is supported. For this, we check two things:
-         *
-         * a) whether we are privileged
-         * b) the BPF implementation in the kernel supports BPF_PROG_TYPE_CGROUP_DEVICE programs, which we require
-         */
-
-        if (supported >= 0)
-                return supported;
-
-        if (geteuid() != 0) {
-                log_debug("Not enough privileges, BPF device control is not supported.");
-                return supported = 0;
-        }
-
-        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_DEVICE, "sd_devices", &program);
-        if (r < 0) {
-                log_debug_errno(r, "Can't allocate CGROUP DEVICE BPF program, BPF device control is not supported: %m");
-                return supported = 0;
-        }
-
-        r = bpf_program_add_instructions(program, trivial, ELEMENTSOF(trivial));
-        if (r < 0) {
-                log_debug_errno(r, "Can't add trivial instructions to CGROUP DEVICE BPF program, BPF device control is not supported: %m");
-                return supported = 0;
-        }
-
-        r = bpf_program_load_kernel(program, NULL, 0);
-        if (r < 0) {
-                log_debug_errno(r, "Can't load kernel CGROUP DEVICE BPF program, BPF device control is not supported: %m");
-                return supported = 0;
-        }
-
-        return supported = 1;
 }
 
 static int allow_list_device_pattern(

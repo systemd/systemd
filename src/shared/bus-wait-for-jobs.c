@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "log.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-def.h"
 
@@ -41,7 +45,7 @@ BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d) {
         return mfree(d);
 }
 
-static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         assert(m);
 
         log_warning("D-Bus connection terminated while waiting for jobs.");
@@ -50,7 +54,7 @@ static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *e
         return 0;
 }
 
-static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         BusWaitForJobs *d = ASSERT_PTR(userdata);
         _cleanup_free_ char *job_found = NULL;
         const char *path, *unit, *result;
@@ -157,24 +161,31 @@ static int bus_job_get_service_result(BusWaitForJobs *d, char **ret) {
                                           ret);
 }
 
-static void log_job_error_with_service_result(const char* service, const char *result, const char* const* extra_args) {
+static int log_job_error_with_service_result(
+                const char* service,
+                const char *result,
+                bool quiet,
+                const char* const* extra_args) {
 
         static const struct {
-                const char *result, *explanation;
+                const char *result;
+                int error;
+                const char *explanation;
         } explanations[] = {
-                { "resources",       "of unavailable resources or another system error"                      },
-                { "protocol",        "the service did not take the steps required by its unit configuration" },
-                { "timeout",         "a timeout was exceeded"                                                },
-                { "exit-code",       "the control process exited with error code"                            },
-                { "signal",          "a fatal signal was delivered to the control process"                   },
-                { "core-dump",       "a fatal signal was delivered causing the control process to dump core" },
-                { "watchdog",        "the service failed to send watchdog ping"                              },
-                { "start-limit-hit", "start of the service was attempted too often"                          },
-                { "oom-kill",        "of an out-of-memory (OOM) siutation"                                   },
+                { "resources",       EMFILE,          "of unavailable resources or another system error"                      },
+                { "protocol",        EPROTONOSUPPORT, "the service did not take the steps required by its unit configuration" },
+                { "timeout",         ETIMEDOUT,       "a timeout was exceeded"                                                },
+                { "exit-code",       EBADE,           "the control process exited with error code"                            },
+                { "signal",          ENOTRECOVERABLE, "a fatal signal was delivered to the control process"                   },
+                { "core-dump",       ECONNABORTED,    "a fatal signal was delivered causing the control process to dump core" },
+                { "watchdog",        ECONNRESET,      "the service failed to send watchdog ping"                              },
+                { "start-limit-hit", EBUSY,           "start of the service was attempted too often"                          },
+                { "oom-kill",        ENOMEM,          "of an out-of-memory (OOM) situation"                                   },
         };
 
         _cleanup_free_ char *service_shell_quoted = NULL;
         const char *systemctl = "systemctl", *journalctl = "journalctl";
+        int r;
 
         assert(service);
 
@@ -191,27 +202,34 @@ static void log_job_error_with_service_result(const char* service, const char *r
         if (!isempty(result))
                 FOREACH_ELEMENT(i, explanations)
                         if (streq(result, i->result)) {
-                                log_error("Job for %s failed because %s.\n"
-                                          "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
-                                          service, i->explanation,
-                                          systemctl, service_shell_quoted ?: "<service>",
-                                          journalctl, service_shell_quoted ?: "<service>");
+                                r = log_full_errno(quiet ? LOG_DEBUG : LOG_ERR,
+                                                   SYNTHETIC_ERRNO(i->error),
+                                                   "Job for %s failed because %s.\n"
+                                                   "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
+                                                   service, i->explanation,
+                                                   systemctl, service_shell_quoted ?: "<service>",
+                                                   journalctl, service_shell_quoted ?: "<service>");
                                 goto extra;
                         }
 
-        log_error("Job for %s failed.\n"
-                  "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
-                  service,
-                  systemctl, service_shell_quoted ?: "<service>",
-                  journalctl, service_shell_quoted ?: "<service>");
+        r = log_full_errno(quiet ? LOG_DEBUG : LOG_ERR,
+                           SYNTHETIC_ERRNO(ENOMEDIUM),
+                           "Job for %s failed.\n"
+                           "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
+                           service,
+                           systemctl, service_shell_quoted ?: "<service>",
+                           journalctl, service_shell_quoted ?: "<service>");
 
 extra:
         /* For some results maybe additional explanation is required */
         if (streq_ptr(result, "start-limit-hit"))
-                log_info("To force a start use \"%1$s reset-failed %2$s\"\n"
+                log_full(quiet ? LOG_DEBUG : LOG_INFO,
+                         "To force a start use \"%1$s reset-failed %2$s\"\n"
                          "followed by \"%1$s start %2$s\" again.",
                          systemctl,
                          service_shell_quoted ?: "<service>");
+
+        return r;
 }
 
 static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
@@ -222,74 +240,58 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
         assert(d->result);
 
         if (streq(d->result, "done")) {
-                if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS))
-                        log_info("Job for %s finished.", d->name);
+                log_full(FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS) ? LOG_INFO : LOG_DEBUG,
+                         "Job for %s finished.", d->name);
 
                 return 0;
         } else if (streq(d->result, "skipped")) {
-                if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS))
-                        log_info("Job for %s was skipped.", d->name);
+                log_full(FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS) ? LOG_INFO : LOG_DEBUG,
+                         "Job for %s was skipped.", d->name);
 
                 return 0;
         }
 
-        if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR)) {
-                if (streq(d->result, "canceled"))
-                        log_error("Job for %s canceled.", d->name);
-                else if (streq(d->result, "timeout"))
-                        log_error("Job for %s timed out.", d->name);
-                else if (streq(d->result, "dependency"))
-                        log_error("A dependency job for %s failed. See 'journalctl -xe' for details.", d->name);
-                else if (streq(d->result, "invalid"))
-                        log_error("%s is not active, cannot reload.", d->name);
-                else if (streq(d->result, "assert"))
-                        log_error("Assertion failed on job for %s.", d->name);
-                else if (streq(d->result, "unsupported"))
-                        log_error("Operation on or unit type of %s not supported on this system.", d->name);
-                else if (streq(d->result, "collected"))
-                        log_error("Queued job for %s was garbage collected.", d->name);
-                else if (streq(d->result, "once"))
-                        log_error("Unit %s was started already once and can't be started again.", d->name);
-                else if (streq(d->result, "frozen"))
-                        log_error("Cannot perform operation on frozen unit %s.", d->name);
-                else if (streq(d->result, "concurrency"))
-                        log_error("Concurrency limit of a slice unit %s is contained in has been reached.", d->name);
-                else if (endswith(d->name, ".service")) {
-                        /* Job result is unknown. For services, let's also try Result property. */
-                        _cleanup_free_ char *result = NULL;
+        int priority = FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR) ? LOG_ERR : LOG_DEBUG;
 
-                        r = bus_job_get_service_result(d, &result);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to get Result property of unit %s, ignoring: %m",
-                                                d->name);
+        if (streq(d->result, "canceled"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ECANCELED), "Job for %s canceled.", d->name);
+        if (streq(d->result, "timeout"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ETIME), "Job for %s timed out.", d->name);
+        if (streq(d->result, "dependency"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(EIO), "A dependency job for %s failed. See 'journalctl -xe' for details.", d->name);
+        if (streq(d->result, "invalid"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ENOEXEC), "%s is not active, cannot reload.", d->name);
+        if (streq(d->result, "assert"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(EPROTO), "Assertion failed on job for %s.", d->name);
+        if (streq(d->result, "unsupported"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(EOPNOTSUPP), "Operation on or unit type of %s not supported on this system.", d->name);
+        if (streq(d->result, "collected"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ECANCELED), "Queued job for %s was garbage collected.", d->name);
+        if (streq(d->result, "once"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ESTALE), "Unit %s was started already once and can't be started again.", d->name);
+        if (streq(d->result, "frozen"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(EDEADLK), "Cannot perform operation on frozen unit %s.", d->name);
+        if (streq(d->result, "concurrency"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ETOOMANYREFS), "Concurrency limit of a slice unit %s is contained in has been reached.", d->name);
 
-                        log_job_error_with_service_result(d->name, result, extra_args);
-                } else /* Otherwise we just show a generic message. */
-                        log_error("Job failed. See \"journalctl -xe\" for details.");
-        }
+        if (!streq(d->result, "failed"))
+                log_debug("Unexpected job result '%s' for unit '%s', assuming server side newer than us.",
+                          d->result, d->name);
 
-        if (STR_IN_SET(d->result, "canceled", "collected"))
-                return -ECANCELED;
-        else if (streq(d->result, "timeout"))
-                return -ETIME;
-        else if (streq(d->result, "dependency"))
-                return -EIO;
-        else if (streq(d->result, "invalid"))
-                return -ENOEXEC;
-        else if (streq(d->result, "assert"))
-                return -EPROTO;
-        else if (streq(d->result, "unsupported"))
-                return -EOPNOTSUPP;
-        else if (streq(d->result, "once"))
-                return -ESTALE;
-        else if (streq(d->result, "frozen"))
-                return -EDEADLK;
-        else if (streq(d->result, "concurrency"))
-                return -ETOOMANYREFS;
+        /* Job is failed, or result is unknown. For non-service units, just show a generic message. */
+        if (!endswith(d->name, ".service"))
+                return log_full_errno(priority, SYNTHETIC_ERRNO(ENOMEDIUM), "Job failed. See \"journalctl -xe\" for details.");
 
-        return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
-                               "Unexpected job result '%s' for unit '%s', assuming server side newer than us.",
-                               d->result, d->name);
+        /* For services, let's also try Result property. */
+        _cleanup_free_ char *result = NULL;
+        r = bus_job_get_service_result(d, &result);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get Result property of unit %s, ignoring: %m", d->name);
+
+        return log_job_error_with_service_result(
+                        d->name, result,
+                        /* quiet= */ !FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR),
+                        extra_args);
 }
 
 int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {

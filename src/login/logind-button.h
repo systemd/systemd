@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-event.h"
-
-typedef struct Manager Manager;
+#include "logind-forward.h"
 
 typedef enum ButtonModifierMask {
         BUTTON_MODIFIER_NONE        = 0,

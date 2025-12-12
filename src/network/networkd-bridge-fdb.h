@@ -5,15 +5,11 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <inttypes.h>
 #include <linux/neighbour.h>
+#include <net/ethernet.h>
 
-#include "conf-parser.h"
-#include "ether-addr-util.h"
 #include "in-addr-util.h"
-
-typedef struct Link Link;
-typedef struct Network Network;
+#include "networkd-forward.h"
 
 typedef enum NeighborCacheEntryFlags {
         NEIGHBOR_CACHE_ENTRY_FLAGS_USE = NTF_USE,

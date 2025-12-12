@@ -1,33 +1,29 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <linux/kcmp.h>
-#include <linux/magic.h>
+#include <linux/fs.h>
 #include <sys/ioctl.h>
+#include <sys/kcmp.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
-#include "io-util.h"
 #include "log.h"
-#include "macro.h"
-#include "missing_fcntl.h"
-#include "missing_fs.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "socket-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 
 /* The maximum number of iterations in the loop to close descriptors in the fallback case
  * when /proc/self/fd/ is inaccessible. */
@@ -251,7 +247,7 @@ int get_max_fd(void) {
         return (int) (m - 1);
 }
 
-static int close_all_fds_frugal(const int except[], size_t n_except) {
+int close_all_fds_frugal(const int except[], size_t n_except) {
         int max_fd, r = 0;
 
         assert(except || n_except == 0);
@@ -279,6 +275,42 @@ static int close_all_fds_frugal(const int except[], size_t n_except) {
 
                 q = close_nointr(fd);
                 if (q != -EBADF)
+                        RET_GATHER(r, q);
+        }
+
+        return r;
+}
+
+int close_all_fds_by_proc(const int except[], size_t n_except) {
+        _cleanup_closedir_ DIR *d = NULL;
+        int r = 0;
+
+        d = opendir("/proc/self/fd");
+        if (!d)
+                return close_all_fds_frugal(except, n_except); /* ultimate fallback if /proc/ is not available */
+
+        FOREACH_DIRENT(de, d, return -errno) {
+                int fd = -EBADF, q;
+
+                if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
+                        continue;
+
+                fd = parse_fd(de->d_name);
+                if (fd < 0)
+                        /* Let's better ignore this, just in case */
+                        continue;
+
+                if (fd < 3)
+                        continue;
+
+                if (fd == dirfd(d))
+                        continue;
+
+                if (fd_in_set(fd, except, n_except))
+                        continue;
+
+                q = close_nointr(fd);
+                if (q != -EBADF) /* Valgrind has its own FD and doesn't want to have it closed */
                         RET_GATHER(r, q);
         }
 
@@ -351,8 +383,7 @@ int close_all_fds_without_malloc(const int except[], size_t n_except) {
 }
 
 int close_all_fds(const int except[], size_t n_except) {
-        _cleanup_closedir_ DIR *d = NULL;
-        int r = 0;
+        int r;
 
         assert(n_except == 0 || except);
 
@@ -362,104 +393,73 @@ int close_all_fds(const int except[], size_t n_except) {
         if (r > 0) /* special case worked! */
                 return 0;
 
-        if (have_close_range) {
-                _cleanup_free_ int *sorted_malloc = NULL;
-                size_t n_sorted;
-                int *sorted;
+        if (!have_close_range)
+                return close_all_fds_by_proc(except, n_except);
 
-                /* In the best case we have close_range() to close all fds between a start and an end fd,
-                 * which we can use on the "inverted" exception array, i.e. all intervals between all
-                 * adjacent pairs from the sorted exception array. This changes loop complexity from O(n)
-                 * where n is number of open fds to O(m⋅log(m)) where m is the number of fds to keep
-                 * open. Given that we assume n ≫ m that's preferable to us. */
+        _cleanup_free_ int *sorted_malloc = NULL;
+        size_t n_sorted;
+        int *sorted;
 
-                assert(n_except < SIZE_MAX);
-                n_sorted = n_except + 1;
+        /* In the best case we have close_range() to close all fds between a start and an end fd, which we
+         * can use on the "inverted" exception array, i.e. all intervals between all adjacent pairs from the
+         * sorted exception array. This changes loop complexity from O(n) where n is number of open fds to
+         * O(m⋅log(m)) where m is the number of fds to keep open. Given that we assume n ≫ m that's
+         * preferable to us. */
 
-                if (n_sorted > 64) /* Use heap for large numbers of fds, stack otherwise */
-                        sorted = sorted_malloc = new(int, n_sorted);
-                else
-                        sorted = newa(int, n_sorted);
+        assert(n_except < SIZE_MAX);
+        n_sorted = n_except + 1;
 
-                if (sorted) {
-                        memcpy(sorted, except, n_except * sizeof(int));
+        if (n_sorted > ALLOCA_MAX / sizeof(int)) /* Use heap for large numbers of fds, stack otherwise */
+                sorted = sorted_malloc = new(int, n_sorted);
+        else
+                sorted = newa(int, n_sorted);
 
-                        /* Let's add fd 2 to the list of fds, to simplify the loop below, as this
-                         * allows us to cover the head of the array the same way as the body */
-                        sorted[n_sorted-1] = 2;
+        if (!sorted) /* Fallback on OOM. */
+                return close_all_fds_by_proc(except, n_except);
 
-                        typesafe_qsort(sorted, n_sorted, cmp_int);
+        memcpy(sorted, except, n_except * sizeof(int));
 
-                        for (size_t i = 0; i < n_sorted-1; i++) {
-                                int start, end;
+        /* Let's add fd 2 to the list of fds, to simplify the loop below, as this
+         * allows us to cover the head of the array the same way as the body */
+        sorted[n_sorted-1] = 2;
 
-                                start = MAX(sorted[i], 2); /* The first three fds shall always remain open */
-                                end = MAX(sorted[i+1], 2);
+        typesafe_qsort(sorted, n_sorted, cmp_int);
 
-                                assert(end >= start);
+        for (size_t i = 0; i < n_sorted-1; i++) {
+                int start, end;
 
-                                if (end - start <= 1)
-                                        continue;
+                start = MAX(sorted[i], 2); /* The first three fds shall always remain open */
+                end = MAX(sorted[i+1], 2);
 
-                                /* Close everything between the start and end fds (both of which shall stay open) */
-                                if (close_range(start + 1, end - 1, 0) < 0) {
-                                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
-                                                return -errno;
+                assert(end >= start);
 
-                                        have_close_range = false;
-                                        break;
-                                }
-                        }
+                if (end - start <= 1)
+                        continue;
 
-                        if (have_close_range) {
-                                /* The loop succeeded. Let's now close everything beyond the end */
+                /* Close everything between the start and end fds (both of which shall stay open) */
+                if (close_range(start + 1, end - 1, 0) < 0) {
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                                return -errno;
 
-                                if (sorted[n_sorted-1] >= INT_MAX) /* Dont let the addition below overflow */
-                                        return 0;
-
-                                if (close_range(sorted[n_sorted-1] + 1, INT_MAX, 0) >= 0)
-                                        return 0;
-
-                                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
-                                        return -errno;
-
-                                have_close_range = false;
-                        }
+                        have_close_range = false;
+                        return close_all_fds_by_proc(except, n_except);
                 }
-
-                /* Fallback on OOM or if close_range() is not supported */
         }
 
-        d = opendir("/proc/self/fd");
-        if (!d)
-                return close_all_fds_frugal(except, n_except); /* ultimate fallback if /proc/ is not available */
+        /* The loop succeeded. Let's now close everything beyond the end */
 
-        FOREACH_DIRENT(de, d, return -errno) {
-                int fd = -EBADF, q;
+        if (sorted[n_sorted-1] >= INT_MAX) /* Dont let the addition below overflow */
+                return 0;
 
-                if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
-                        continue;
+        if (close_range(sorted[n_sorted-1] + 1, INT_MAX, 0) < 0) {
+                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                        return -errno;
 
-                fd = parse_fd(de->d_name);
-                if (fd < 0)
-                        /* Let's better ignore this, just in case */
-                        continue;
-
-                if (fd < 3)
-                        continue;
-
-                if (fd == dirfd(d))
-                        continue;
-
-                if (fd_in_set(fd, except, n_except))
-                        continue;
-
-                q = close_nointr(fd);
-                if (q < 0 && q != -EBADF && r >= 0) /* Valgrind has its own FD and doesn't want to have it closed */
-                        r = q;
+                have_close_range = false;
+                return close_all_fds_by_proc(except, n_except);
         }
 
-        return r;
+        return 0;
 }
 
 int pack_fds(int fds[], size_t n_fds) {
@@ -605,24 +605,6 @@ int same_fd(int a, int b) {
                 return -errno;
 
         return fa == fb;
-}
-
-void cmsg_close_all(struct msghdr *mh) {
-        assert(mh);
-
-        struct cmsghdr *cmsg;
-        CMSG_FOREACH(cmsg, mh) {
-                if (cmsg->cmsg_level != SOL_SOCKET)
-                        continue;
-
-                if (cmsg->cmsg_type == SCM_RIGHTS)
-                        close_many(CMSG_TYPED_DATA(cmsg, int),
-                                   (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
-                else if (cmsg->cmsg_type == SCM_PIDFD) {
-                        assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
-                        safe_close(*CMSG_TYPED_DATA(cmsg, int));
-                }
-        }
 }
 
 bool fdname_is_valid(const char *s) {
@@ -978,6 +960,59 @@ int fd_is_opath(int fd) {
         return FLAGS_SET(r, O_PATH);
 }
 
+int fd_vet_accmode(int fd, int mode) {
+        int flags;
+
+        /* Check if fd is opened with desired access mode.
+         *
+         * Returns > 0 on strict match, == 0 if opened for both reading and writing (partial match),
+         * -EPROTOTYPE otherwise. O_PATH fds are always refused with -EBADFD.
+         *
+         * Note that while on O_DIRECTORY -EISDIR will be returned, this should not be relied upon as
+         * the flag might not have been specified when open() was called originally. */
+
+        assert(fd >= 0);
+        assert(IN_SET(mode, O_RDONLY, O_WRONLY, O_RDWR));
+
+        flags = fcntl(fd, F_GETFL);
+        if (flags < 0)
+                return -errno;
+
+        /* O_TMPFILE in userspace is defined with O_DIRECTORY OR'ed in, so explicitly permit it.
+         *
+         * C.f. https://elixir.bootlin.com/linux/v6.17.7/source/include/uapi/asm-generic/fcntl.h#L92 */
+        if (FLAGS_SET(flags, O_DIRECTORY) && !FLAGS_SET(flags, O_TMPFILE))
+                return -EISDIR;
+
+        if (FLAGS_SET(flags, O_PATH))
+                return -EBADFD;
+
+        flags &= O_ACCMODE_STRICT;
+
+        if (flags == mode)
+                return 1;
+
+        if (flags == O_RDWR)
+                return 0;
+
+        return -EPROTOTYPE;
+}
+
+int fd_is_writable(int fd) {
+        int r;
+
+        assert(fd >= 0);
+
+        r = fd_vet_accmode(fd, O_WRONLY);
+        if (r >= 0)
+                return true;
+
+        if (IN_SET(r, -EPROTOTYPE, -EBADFD, -EISDIR))
+                return false;
+
+        return r;
+}
+
 int fd_verify_safe_flags_full(int fd, int extra_flags) {
         int flags, unexpected_flags;
 
@@ -990,7 +1025,7 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
          *             and since we refuse O_PATH it should be safe.
          *
          * RAW_O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl.
-         *                  See comment in missing_fcntl.h for more details about this.
+         *                  See comment in src/basic/include/fcntl.h for more details about this.
          *
          * If 'extra_flags' is specified as non-zero the included flags are also allowed.
          */
@@ -1010,7 +1045,7 @@ int fd_verify_safe_flags_full(int fd, int extra_flags) {
         return flags & (O_ACCMODE_STRICT | extra_flags); /* return the flags variable, but remove the noise */
 }
 
-int read_nr_open(void) {
+unsigned read_nr_open(void) {
         _cleanup_free_ char *nr_open = NULL;
         int r;
 
@@ -1021,9 +1056,9 @@ int read_nr_open(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to read /proc/sys/fs/nr_open, ignoring: %m");
         else {
-                int v;
+                unsigned v;
 
-                r = safe_atoi(nr_open, &v);
+                r = safe_atou(nr_open, &v);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse /proc/sys/fs/nr_open value '%s', ignoring: %m", nr_open);
                 else
@@ -1031,7 +1066,7 @@ int read_nr_open(void) {
         }
 
         /* If we fail, fall back to the hard-coded kernel limit of 1024 * 1024. */
-        return 1024 * 1024;
+        return NR_OPEN_DEFAULT;
 }
 
 int fd_get_diskseq(int fd, uint64_t *ret) {
@@ -1056,10 +1091,9 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
 }
 
 int path_is_root_at(int dir_fd, const char *path) {
-        _cleanup_close_ int fd = -EBADF, pfd = -EBADF;
-
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
+        _cleanup_close_ int fd = -EBADF;
         if (!isempty(path)) {
                 fd = openat(dir_fd, path, O_PATH|O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0)
@@ -1068,19 +1102,19 @@ int path_is_root_at(int dir_fd, const char *path) {
                 dir_fd = fd;
         }
 
-        pfd = openat(dir_fd, "..", O_PATH|O_DIRECTORY|O_CLOEXEC);
-        if (pfd < 0)
-                return errno == ENOTDIR ? false : -errno;
+        _cleanup_close_ int root_fd = openat(AT_FDCWD, "/", O_PATH|O_DIRECTORY|O_CLOEXEC);
+        if (root_fd < 0)
+                return -errno;
 
-        /* Even if the parent directory has the same inode, the fd may not point to the root directory "/",
-         * and we also need to check that the mount ids are the same. Otherwise, a construct like the
-         * following could be used to trick us:
+        /* Even if the root directory has the same inode as our fd, the fd may not point to the root
+         * directory "/", and we also need to check that the mount ids are the same. Otherwise, a construct
+         * like the following could be used to trick us:
          *
-         * $ mkdir /tmp/x /tmp/x/y
-         * $ mount --bind /tmp/x /tmp/x/y
+         * $ mkdir /tmp/x
+         * $ mount --bind / /tmp/x
          */
 
-        return fds_are_same_mount(dir_fd, pfd);
+        return fds_are_same_mount(dir_fd, root_fd);
 }
 
 int fds_are_same_mount(int fd1, int fd2) {
@@ -1129,6 +1163,13 @@ int fds_are_same_mount(int fd1, int fd2) {
         }
 
         return statx_mount_same(&sx1, &sx2);
+}
+
+char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
+        assert(buf);
+        assert(fd >= 0);
+        assert_se(snprintf_ok(buf, PROC_FD_PATH_MAX, "/proc/self/fd/%i", fd));
+        return buf;
 }
 
 const char* accmode_to_string(int flags) {

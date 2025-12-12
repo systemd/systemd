@@ -6,16 +6,17 @@
 #include <sys/socket.h>
 
 #include "alloc-util.h"
+#include "dns-def.h"
 #include "dns-domain.h"
 #include "glyph-util.h"
-#include "hashmap.h"
+#include "hash-funcs.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "idn-util.h"
 #include "in-addr-util.h"
 #include "log.h"
-#include "macro.h"
 #include "parse-util.h"
+#include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
@@ -26,7 +27,12 @@ int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags f
         int r = 0;
 
         assert(name);
-        assert(*name);
+
+        if (isempty(*name)) {
+                if (dest && sz >= 1)
+                        dest[0] = 0;
+                return 0;
+        }
 
         n = *name;
         d = dest;
@@ -289,6 +295,10 @@ int dns_label_escape_new(const char *p, size_t l, char **ret) {
         *ret = TAKE_PTR(s);
 
         return r;
+}
+
+int dns_name_parent(const char **name) {
+        return dns_label_unescape(name, NULL, DNS_LABEL_MAX, 0);
 }
 
 #if HAVE_LIBIDN
@@ -644,12 +654,10 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
         int r, q;
 
         assert(name);
-        assert(old_suffix);
-        assert(new_suffix);
         assert(ret);
 
         n = name;
-        s = old_suffix;
+        s = strempty(old_suffix);
 
         for (;;) {
                 char ln[DNS_LABEL_MAX+1], ls[DNS_LABEL_MAX+1];
@@ -748,12 +756,12 @@ int dns_name_reverse(int family, const union in_addr_union *a, char **ret) {
         return 0;
 }
 
-int dns_name_address(const char *p, int *ret_family, union in_addr_union *ret_address) {
+int dns_name_address(const char *p, int *ret_family, union in_addr_union *ret) {
         int r;
 
         assert(p);
         assert(ret_family);
-        assert(ret_address);
+        assert(ret);
 
         r = dns_name_endswith(p, "in-addr.arpa");
         if (r < 0)
@@ -782,7 +790,7 @@ int dns_name_address(const char *p, int *ret_family, union in_addr_union *ret_ad
                         return r;
 
                 *ret_family = AF_INET;
-                ret_address->in.s_addr = htobe32(((uint32_t) a[3] << 24) |
+                ret->in.s_addr = htobe32(((uint32_t) a[3] << 24) |
                                                  ((uint32_t) a[2] << 16) |
                                                  ((uint32_t) a[1] << 8) |
                                                  (uint32_t) a[0]);
@@ -826,12 +834,12 @@ int dns_name_address(const char *p, int *ret_family, union in_addr_union *ret_ad
                         return r;
 
                 *ret_family = AF_INET6;
-                ret_address->in6 = a;
+                ret->in6 = a;
                 return 1;
         }
 
         *ret_family = AF_UNSPEC;
-        *ret_address = IN_ADDR_NULL;
+        *ret = IN_ADDR_NULL;
 
         return 0;
 }

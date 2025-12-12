@@ -1,19 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <dirent.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <linux/sockios.h>
-#include <net/if.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include "libudev.h"
@@ -22,10 +8,9 @@
 #include "alloc-util.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "libudev-device-internal.h"
 #include "libudev-list-internal.h"
-#include "parse-util.h"
-#include "time-util.h"
 
 /**
  * SECTION:libudev-device

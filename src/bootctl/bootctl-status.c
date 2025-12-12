@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mman.h>
+#include <fnmatch.h>
 #include <unistd.h>
 
+#include "sd-varlink.h"
+
+#include "alloc-util.h"
 #include "bootctl.h"
 #include "bootctl-status.h"
 #include "bootctl-util.h"
@@ -12,14 +15,17 @@
 #include "dirent-util.h"
 #include "efi-api.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
-#include "find-esp.h"
+#include "hashmap.h"
+#include "log.h"
+#include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "recurse-dir.h"
-#include "terminal-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "tpm2-util.h"
 
 static int boot_config_load_and_select(
@@ -48,7 +54,7 @@ static int boot_config_load_and_select(
                 else if (r < 0)
                         log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
                 else
-                        (void) boot_config_augment_from_loader(config, efi_entries, /* only_auto= */ false);
+                        (void) boot_config_augment_from_loader(config, efi_entries, /* auto_only= */ false);
         }
 
         return boot_config_select_special_entries(config, /* skip_efivars= */ !!arg_root);
@@ -61,26 +67,42 @@ static int status_entries(
                 const char *xbootldr_path,
                 sd_id128_t xbootldr_partition_uuid) {
 
-        sd_id128_t dollar_boot_partition_uuid;
-        const char *dollar_boot_path;
         int r;
 
         assert(config);
         assert(esp_path || xbootldr_path);
 
-        if (xbootldr_path) {
-                dollar_boot_path = xbootldr_path;
-                dollar_boot_partition_uuid = xbootldr_partition_uuid;
-        } else {
-                dollar_boot_path = esp_path;
-                dollar_boot_partition_uuid = esp_partition_uuid;
+        printf("%sBoot Loader Entry Locations:%s\n", ansi_underline(), ansi_normal());
+
+        printf("          ESP: %s (", esp_path);
+        if (!sd_id128_is_null(esp_partition_uuid))
+                printf("/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "",
+                       SD_ID128_FORMAT_VAL(esp_partition_uuid));
+        if (!xbootldr_path)
+                /* ESP is $BOOT if XBOOTLDR not present. */
+                printf(", %s$BOOT%s", ansi_green(), ansi_normal());
+        printf(")");
+
+        if (config->loader_conf_status != 0) {
+                assert(esp_path);
+                printf("\n       config: %s%s/%s%s",
+                       ansi_grey(), esp_path, ansi_normal(), "/loader/loader.conf");
+                if (config->loader_conf_status < 0)
+                        printf(": %s%s%s",
+                               config->loader_conf_status == -ENOENT ? ansi_grey() : ansi_highlight_yellow(),
+                               STRERROR(config->loader_conf_status),
+                               ansi_normal());
         }
 
-        printf("%sBoot Loader Entries:%s\n"
-               "        $BOOT: %s", ansi_underline(), ansi_normal(), dollar_boot_path);
-        if (!sd_id128_is_null(dollar_boot_partition_uuid))
-                printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")",
-                       SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
+        if (xbootldr_path) {
+                printf("\n     XBOOTLDR: %s (", xbootldr_path);
+                if (!sd_id128_is_null(xbootldr_partition_uuid))
+                        printf("/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ", ",
+                               SD_ID128_FORMAT_VAL(xbootldr_partition_uuid));
+                /* XBOOTLDR is always $BOOT if present. */
+                printf("%s$BOOT%s)", ansi_green(), ansi_normal());
+        }
+
         if (settle_entry_token() >= 0)
                 printf("\n        token: %s", arg_entry_token);
         printf("\n\n");
@@ -94,7 +116,7 @@ static int status_entries(
                                 boot_config_default_entry(config),
                                 /* show_as_default= */ false,
                                 /* show_as_selected= */ false,
-                                /* show_discovered= */ false);
+                                /* show_reported= */ false);
                 if (r > 0)
                         /* < 0 is already logged by the function itself, let's just emit an extra warning if
                            the default entry is broken */
@@ -137,7 +159,8 @@ static int print_efi_option(uint16_t id, int *n_printed, bool in_order) {
         printf("       Status: %sactive%s\n", active ? "" : "in", in_order ? ", boot-order" : "");
         printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                SD_ID128_FORMAT_VAL(partition));
-        printf("         File: %s%s\n", glyph(GLYPH_TREE_RIGHT), path);
+        printf("         File: %s%s%s/%s%s\n",
+               glyph(GLYPH_TREE_RIGHT), ansi_grey(), arg_esp_path, ansi_normal(), path);
         printf("\n");
 
         (*n_printed)++;
@@ -199,11 +222,11 @@ static int enumerate_binaries(
         assert(previous);
         assert(is_first);
 
-        r = chase_and_opendir(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &p, &d);
+        r = chase_and_opendir(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, &p, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to read \"%s/%s\": %m", esp_path, path);
+                return log_error_errno(r, "Failed to read \"%s/%s\": %m", esp_path, skip_leading_slash(path));
 
         FOREACH_DIRENT(de, d, break) {
                 _cleanup_free_ char *v = NULL, *filename = NULL;
@@ -222,7 +245,6 @@ static int enumerate_binaries(
                         return log_error_errno(errno, "Failed to open file for reading: %m");
 
                 r = get_file_version(fd, &v);
-
                 if (r < 0 && r != -ESRCH)
                         return r;
 
@@ -239,9 +261,12 @@ static int enumerate_binaries(
                  * variable, because we only will know the tree glyph to print (branch or final edge) once we
                  * read one more entry */
                 if (r == -ESRCH) /* No systemd-owned file but still interesting to print */
-                        r = asprintf(previous, "/%s/%s", path, de->d_name);
+                        r = asprintf(previous, "%s%s/%s/%s/%s",
+                                     ansi_grey(), esp_path, ansi_normal(), path, de->d_name);
                 else /* if (r >= 0) */
-                        r = asprintf(previous, "/%s/%s (%s%s%s)", path, de->d_name, ansi_highlight(), v, ansi_normal());
+                        r = asprintf(previous, "%s%s/%s/%s/%s (%s%s%s)",
+                                     ansi_grey(), esp_path, ansi_normal(), path, de->d_name,
+                                     ansi_highlight(), v, ansi_normal());
                 if (r < 0)
                         return log_oom();
 
@@ -399,6 +424,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_REPORT_URL,              "Loader reports network boot URL"       },
                         { EFI_LOADER_FEATURE_TYPE1_UKI,               "Support Type #1 uki field"             },
                         { EFI_LOADER_FEATURE_TYPE1_UKI_URL,           "Support Type #1 uki-url field"         },
+                        { EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS,   "Loader reports TPM2 active PCR banks"  },
                 };
                 static const struct {
                         uint64_t flag;
@@ -418,7 +444,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
-                        *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL;
+                        *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL, *sysfail_entry = NULL, *sysfail_reason = NULL;
                 uint64_t loader_features = 0, stub_features = 0;
                 int have;
 
@@ -433,6 +459,8 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntrySelected"), &current_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryOneShot"), &oneshot_entry);
                 (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"), &default_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"), &sysfail_entry);
+                (void) efi_get_variable_string_and_warn(EFI_LOADER_VARIABLE_STR("LoaderSysFailReason"), &sysfail_reason);
 
                 SecureBootMode secure = efi_get_secure_boot_mode();
                 printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
@@ -482,7 +510,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
 
                 if (loader) {
                         printf("%sCurrent Boot Loader:%s\n", ansi_underline(), ansi_normal());
-                        printf("      Product: %s%s%s\n", ansi_highlight(), loader, ansi_normal());
+                        printf("       Product: %s%s%s\n", ansi_highlight(), loader, ansi_normal());
                         for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++)
                                 print_yes_no_line(i == 0, FLAGS_SET(loader_features, loader_flags[i].flag), loader_flags[i].name);
 
@@ -500,23 +528,29 @@ int verb_status(int argc, char *argv[], void *userdata) {
                                                SD_ID128_FORMAT_VAL(loader_partition_uuid),
                                                SD_ID128_FORMAT_VAL(esp_uuid));
 
-                                printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
+                                printf("     Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                        SD_ID128_FORMAT_VAL(loader_partition_uuid));
                         } else if (loader_path)
-                                printf("    Partition: n/a\n");
+                                printf("     Partition: n/a\n");
 
                         if (loader_path)
-                                printf("       Loader: %s%s\n", glyph(GLYPH_TREE_RIGHT), strna(loader_path));
+                                printf("        Loader: %s%s%s/%s%s\n",
+                                       glyph(GLYPH_TREE_RIGHT), ansi_grey(), arg_esp_path, ansi_normal(), loader_path);
 
                         if (loader_url)
-                                printf(" Net Boot URL: %s\n", loader_url);
+                                printf("  Net Boot URL: %s\n", loader_url);
+
+                        if (sysfail_entry)
+                                printf("SysFail Reason: %s\n", sysfail_reason);
 
                         if (current_entry)
-                                printf("Current Entry: %s\n", current_entry);
+                                printf(" Current Entry: %s\n", current_entry);
                         if (default_entry)
-                                printf("Default Entry: %s\n", default_entry);
+                                printf(" Default Entry: %s\n", default_entry);
                         if (oneshot_entry && !streq_ptr(oneshot_entry, default_entry))
-                                printf("OneShot Entry: %s\n", oneshot_entry);
+                                printf(" OneShot Entry: %s\n", oneshot_entry);
+                        if (sysfail_entry)
+                                printf(" SysFail Entry: %s\n", sysfail_entry);
 
                         printf("\n");
                 }
@@ -538,7 +572,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                                  * to _either_ of them, print a warning. */
                                 if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(stub_partition_uuid, esp_uuid) &&
                                     !sd_id128_is_null(xbootldr_uuid) && !sd_id128_equal(stub_partition_uuid, xbootldr_uuid))
-                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP and XBOOTDLR partitions "
+                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP and XBOOTLDR partitions "
                                                "("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
                                                SD_ID128_FORMAT_VAL(stub_partition_uuid),
                                                SD_ID128_FORMAT_VAL(esp_uuid),
@@ -659,7 +693,7 @@ static void deref_unlink_file(Hashmap **known_files, const char *fn, const char 
                 return;
 
         if (arg_dry_run) {
-                r = chase_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, &path);
+                r = chase_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, F_OK, &path);
                 if (r < 0)
                         log_info_errno(r, "Unable to determine whether \"%s\" exists, ignoring: %m", fn);
                 else
@@ -667,7 +701,7 @@ static void deref_unlink_file(Hashmap **known_files, const char *fn, const char 
                 return;
         }
 
-        r = chase_and_unlink(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, 0, &path);
+        r = chase_and_unlink(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, 0, &path);
         if (r >= 0)
                 log_info("Removed \"%s\"", path);
         else if (r != -ENOENT)
@@ -675,7 +709,7 @@ static void deref_unlink_file(Hashmap **known_files, const char *fn, const char 
 
         _cleanup_free_ char *d = NULL;
         if (path_extract_directory(fn, &d) >= 0 && !path_equal(d, "/")) {
-                r = chase_and_unlink(d, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, AT_REMOVEDIR, NULL);
+                r = chase_and_unlink(d, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, AT_REMOVEDIR, NULL);
                 if (r < 0 && !IN_SET(r, -ENOTEMPTY, -ENOENT))
                         log_warning_errno(r, "Failed to remove directory \"%s\", ignoring: %m", d);
         }
@@ -698,6 +732,9 @@ static int count_known_files(const BootConfig *config, const char* root, Hashmap
                 if (r < 0)
                         return r;
                 r = ref_file(&known_files, e->efi, +1);
+                if (r < 0)
+                        return r;
+                r = ref_file(&known_files, e->uki, +1);
                 if (r < 0)
                         return r;
                 STRV_FOREACH(s, e->initrd) {
@@ -747,7 +784,7 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
 
         r = boot_config_find_in(config, root, id);
         if (r < 0)
-                return r;
+                return 0; /* There is nothing to remove. */
 
         if (r == config->default_entry)
                 log_warning("%s is the default boot entry", id);
@@ -758,6 +795,7 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
 
         deref_unlink_file(&known_files, e->kernel, e->root);
         deref_unlink_file(&known_files, e->efi, e->root);
+        deref_unlink_file(&known_files, e->uki, e->root);
         STRV_FOREACH(s, e->initrd)
                 deref_unlink_file(&known_files, *s, e->root);
         deref_unlink_file(&known_files, e->device_tree, e->root);
@@ -767,7 +805,9 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
         if (arg_dry_run)
                 log_info("Would remove \"%s\"", e->path);
         else {
-                r = chase_and_unlink(e->path, root, CHASE_PROHIBIT_SYMLINKS, 0, NULL);
+                r = chase_and_unlink(e->path, root, CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, 0, NULL);
+                if (r == -ENOENT)
+                        return 0; /* Already removed? */
                 if (r < 0)
                         return log_error_errno(r, "Failed to remove \"%s\": %m", e->path);
 
@@ -799,7 +839,8 @@ static int list_remove_orphaned_file(
         if (arg_dry_run)
                 log_info("Would remove %s", path);
         else if (unlinkat(dir_fd, de->d_name, 0) < 0)
-                log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", path);
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                               "Failed to remove \"%s\", ignoring: %m", path);
         else
                 log_info("Removed %s", path);
 
@@ -828,12 +869,12 @@ static int cleanup_orphaned_files(
         if (r < 0)
                 return log_error_errno(r, "Failed to count files in %s: %m", root);
 
-        dir_fd = chase_and_open(arg_entry_token, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS,
+        dir_fd = chase_and_open(arg_entry_token, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS,
                         O_DIRECTORY|O_CLOEXEC, &full);
         if (dir_fd == -ENOENT)
                 return 0;
         if (dir_fd < 0)
-                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, arg_entry_token);
+                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, skip_leading_slash(arg_entry_token));
 
         p = path_join("/", arg_entry_token);
         if (!p)
@@ -886,17 +927,10 @@ int verb_list(int argc, char *argv[], void *userdata) {
                 return cleanup_orphaned_files(&config, arg_esp_path);
         } else {
                 assert(streq(argv[0], "unlink"));
-                if (arg_xbootldr_path && xbootldr_devid != esp_devid) {
+                if (arg_xbootldr_path && xbootldr_devid != esp_devid)
                         r = unlink_entry(&config, arg_xbootldr_path, argv[1]);
-                        if (r == 0 || r != -ENOENT)
-                                return r;
-                }
-                return unlink_entry(&config, arg_esp_path, argv[1]);
+                return RET_GATHER(r, unlink_entry(&config, arg_esp_path, argv[1]));
         }
-}
-
-int verb_unlink(int argc, char *argv[], void *userdata) {
-        return verb_list(argc, argv, userdata);
 }
 
 int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

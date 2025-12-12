@@ -1,32 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
-#include "sd-id128.h"
+#include "sd-bus.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "async.h"
 #include "cgroup.h"
+#include "condition.h"
 #include "dbus.h"
 #include "dbus-job.h"
 #include "escape.h"
-#include "fileio.h"
 #include "job.h"
 #include "log.h"
-#include "macro.h"
 #include "manager.h"
 #include "parse-util.h"
+#include "prioq.h"
 #include "serialize.h"
 #include "set.h"
 #include "sort-util.h"
 #include "special.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "unit.h"
 #include "virt.h"
 
@@ -440,13 +436,11 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) {
         switch (a) {
 
         case JOB_START:
-                return IN_SET(b, UNIT_ACTIVE, UNIT_RELOADING, UNIT_REFRESHING);
+        case JOB_VERIFY_ACTIVE:
+                return UNIT_IS_ACTIVE_OR_RELOADING(b);
 
         case JOB_STOP:
-                return IN_SET(b, UNIT_INACTIVE, UNIT_FAILED);
-
-        case JOB_VERIFY_ACTIVE:
-                return IN_SET(b, UNIT_ACTIVE, UNIT_RELOADING, UNIT_REFRESHING);
+                return UNIT_IS_INACTIVE_OR_FAILED(b);
 
         case JOB_RELOAD:
                 /* Reload jobs are never considered redundant/duplicate. Refer to jobs_may_late_merge() for
@@ -776,8 +770,8 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
                 /* No message on the console if the job did not actually do anything due to unmet condition. */
                 if (console_only)
                         return;
-                else
-                        do_console = false;
+
+                do_console = false;
         }
 
         if (!console_only) {  /* Skip printing if output goes to the console, and job_print_status_message()
@@ -1112,6 +1106,10 @@ finish:
         unit_submit_to_stop_when_bound_queue(u);
         unit_submit_to_stop_when_unneeded_queue(u);
 
+        /* All jobs might have finished, let's see */
+        if (u->manager->may_dispatch_stop_notify_queue == 0)
+                u->manager->may_dispatch_stop_notify_queue = -1;
+
         manager_check_finished(u->manager);
 
         return 0;
@@ -1199,7 +1197,7 @@ void job_add_to_run_queue(Job *j) {
 
         r = prioq_put(j->manager->run_queue, j, &j->run_queue_idx);
         if (r < 0)
-                log_warning_errno(r, "Failed put job in run queue, ignoring: %m");
+                log_warning_errno(r, "Failed to put job in run queue, ignoring: %m");
         else
                 j->in_run_queue = true;
 

@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "password-quality-util-passwdqc.h"
+
+#if HAVE_PASSWDQC
+
+#include <passwdqc.h>
+
+#include "alloc-util.h"
 #include "dlfcn-util.h"
 #include "errno-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
-#include "password-quality-util.h"
 #include "strv.h"
-
-#if HAVE_PASSWDQC
 
 static void *passwdqc_dl = NULL;
 
@@ -19,25 +22,11 @@ DLSYM_PROTOTYPE(passwdqc_params_free) = NULL;
 DLSYM_PROTOTYPE(passwdqc_check) = NULL;
 DLSYM_PROTOTYPE(passwdqc_random) = NULL;
 
-int dlopen_passwdqc(void) {
-        ELF_NOTE_DLOPEN("passwdqc",
-                        "Support for password quality checks",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libpasswdqc.so.1");
-
-        return dlopen_many_sym_or_warn(
-                        &passwdqc_dl, "libpasswdqc.so.1", LOG_DEBUG,
-                        DLSYM_ARG(passwdqc_params_reset),
-                        DLSYM_ARG(passwdqc_params_load),
-                        DLSYM_ARG(passwdqc_params_parse),
-                        DLSYM_ARG(passwdqc_params_free),
-                        DLSYM_ARG(passwdqc_check),
-                        DLSYM_ARG(passwdqc_random));
-}
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(passwdqc_params_t*, sym_passwdqc_params_free, passwdqc_params_freep, NULL);
 
 static int pwqc_allocate_context(passwdqc_params_t **ret) {
 
-        _cleanup_(sym_passwdqc_params_freep) passwdqc_params_t *params = NULL;
+        _cleanup_(passwdqc_params_freep) passwdqc_params_t *params = NULL;
         _cleanup_free_ char *load_reason = NULL;
         int r;
 
@@ -66,7 +55,7 @@ static int pwqc_allocate_context(passwdqc_params_t **ret) {
 
 int suggest_passwords(void) {
 
-        _cleanup_(sym_passwdqc_params_freep) passwdqc_params_t *params = NULL;
+        _cleanup_(passwdqc_params_freep) passwdqc_params_t *params = NULL;
         _cleanup_strv_free_erase_ char **suggestions = NULL;
         _cleanup_(erase_and_freep) char *joined = NULL;
         int r;
@@ -102,7 +91,7 @@ int check_password_quality(
                 const char *username,
                 char **ret_error) {
 
-        _cleanup_(sym_passwdqc_params_freep) passwdqc_params_t *params = NULL;
+        _cleanup_(passwdqc_params_freep) passwdqc_params_t *params = NULL;
         const char *check_reason;
         int r;
 
@@ -128,7 +117,7 @@ int check_password_quality(
 
                 check_reason = sym_passwdqc_check(&params->qc, password, old, &pw);
         } else
-                check_reason = sym_passwdqc_check(&params->qc, password, old, /* pw */ NULL);
+                check_reason = sym_passwdqc_check(&params->qc, password, old, /* pw = */ NULL);
 
         if (check_reason) {
                 if (ret_error) {
@@ -145,3 +134,23 @@ int check_password_quality(
 }
 
 #endif
+
+int dlopen_passwdqc(void) {
+#if HAVE_PASSWDQC
+        ELF_NOTE_DLOPEN("passwdqc",
+                        "Support for password quality checks",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libpasswdqc.so.1");
+
+        return dlopen_many_sym_or_warn(
+                        &passwdqc_dl, "libpasswdqc.so.1", LOG_DEBUG,
+                        DLSYM_ARG(passwdqc_params_reset),
+                        DLSYM_ARG(passwdqc_params_load),
+                        DLSYM_ARG(passwdqc_params_parse),
+                        DLSYM_ARG(passwdqc_params_free),
+                        DLSYM_ARG(passwdqc_check),
+                        DLSYM_ARG(passwdqc_random));
+#else
+        return -EOPNOTSUPP;
+#endif
+}

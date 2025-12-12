@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "efi.h"
 #include "proto/device-path.h"
-#include "util.h"
 
 EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp);
 EFI_STATUS make_url_device_path(const char16_t *url, EFI_DEVICE_PATH **ret);
@@ -30,6 +30,4 @@ static inline bool device_path_is_end(const EFI_DEVICE_PATH *dp) {
 
 size_t device_path_size(const EFI_DEVICE_PATH *dp);
 
-static inline EFI_DEVICE_PATH *device_path_dup(const EFI_DEVICE_PATH *dp) {
-        return xmemdup(ASSERT_PTR(dp), device_path_size(dp));
-}
+EFI_DEVICE_PATH *device_path_dup(const EFI_DEVICE_PATH *dp);

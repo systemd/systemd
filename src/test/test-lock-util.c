@@ -3,10 +3,12 @@
 #include <sys/file.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "lock-util.h"
 #include "rm-rf.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 TEST(make_lock_file) {

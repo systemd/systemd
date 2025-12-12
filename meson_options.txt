@@ -57,6 +57,9 @@ option('quotacheck-path', type : 'string', description : 'path to quotacheck')
 option('kmod-path', type : 'string', description : 'path to kmod')
 option('kexec-path', type : 'string', description : 'path to kexec')
 option('sulogin-path', type : 'string', description : 'path to sulogin')
+option('swapon-path', type : 'string', description : 'path to swapon')
+option('swapoff-path', type : 'string', description : 'path to swapoff')
+option('agetty-path', type : 'string', description : 'path to agetty')
 option('mount-path', type : 'string', description : 'path to mount')
 option('umount-path', type : 'string', description : 'path to umount')
 option('loadkeys-path', type : 'string', description : 'path to loadkeys')
@@ -136,6 +139,8 @@ option('timedated', type : 'boolean',
        description : 'install the systemd-timedated daemon')
 option('timesyncd', type : 'boolean',
        description : 'install the systemd-timesyncd daemon')
+option('journal-storage-default', type : 'combo', choices : ['persistent', 'auto', 'volatile', 'none'],
+       description : 'default storage mode for journald (main namespace)')
 option('remote', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'support for "journal over the network"')
 option('create-log-dirs', type : 'boolean',
@@ -256,6 +261,10 @@ option('system-uid-max', type : 'integer', value : 0,
        description : 'maximum system UID')
 option('system-gid-max', type : 'integer', value : 0,
        description : 'maximum system GID')
+option('greeter-uid-min', type : 'integer', value : 0x0000ECA2,
+       description : 'minimum greeter UID')
+option('greeter-uid-max', type : 'integer', value : 0x0000ED21,
+       description : 'maximum greeter UID')
 option('dynamic-uid-min', type : 'integer', value : 0x0000EF00,
        description : 'minimum dynamic UID')
 option('dynamic-uid-max', type : 'integer', value : 0x0000FFEF,
@@ -288,6 +297,8 @@ option('dialout-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "dialout" group')
 option('disk-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "disk" group')
+option('empower-gid', type : 'integer', value : 0,
+       description : 'soft-static allocation for the "empower" group')
 option('input-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "input" group')
 option('kmem-gid', type : 'integer', value : 0,
@@ -363,7 +374,7 @@ option('dns-over-tls', type : 'combo', choices : ['auto', 'gnutls', 'openssl', '
        description : 'DNS-over-TLS support')
 option('dns-servers', type : 'string',
        description : 'space-separated list of default DNS servers',
-       value : '1.1.1.1#cloudflare-dns.com 8.8.8.8#dns.google 1.0.0.1#cloudflare-dns.com 8.8.4.4#dns.google 2606:4700:4700::1111#cloudflare-dns.com 2001:4860:4860::8888#dns.google 2606:4700:4700::1001#cloudflare-dns.com 2001:4860:4860::8844#dns.google')
+       value : '1.1.1.1#cloudflare-dns.com 8.8.8.8#dns.google 9.9.9.9#dns.quad9.net 1.0.0.1#cloudflare-dns.com 8.8.4.4#dns.google 149.112.112.112#dns.quad9.net 2606:4700:4700::1111#cloudflare-dns.com 2001:4860:4860::8888#dns.google 2620:fe::fe#dns.quad9.net 2606:4700:4700::1001#cloudflare-dns.com 2001:4860:4860::8844#dns.google 2620:fe::9#dns.quad9.net')
 option('ntp-servers', type : 'string',
        description : 'space-separated list of default NTP servers',
        value : 'time1.google.com time2.google.com time3.google.com time4.google.com')
@@ -393,6 +404,8 @@ option('ima', type : 'boolean',
 option('ipe', type : 'boolean',
        description : 'IPE support')
 
+option('libc', type : 'combo', choices : ['glibc', 'musl'],
+       description : 'libc implementation to be used')
 option('acl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libacl support')
 option('audit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
@@ -425,7 +438,7 @@ option('libidn2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' :
        description : 'libidn2 support')
 option('libidn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libidn support')
-option('libiptc', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+option('libiptc', type : 'feature', deprecated : true,
        description : 'libiptc support')
 option('qrencode', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libqrencode support')
@@ -442,6 +455,8 @@ option('libfido2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' 
        description : 'FIDO2 support')
 option('tpm2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'TPM2 support')
+option('tpm2-nvpcr-base', type : 'integer', value: 0x01d10200,
+       description : 'Base for TPM2 nvindex based PCRs')
 option('elfutils', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'elfutils support')
 option('zlib', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
@@ -466,6 +481,8 @@ option('dbus', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'd
        description : 'libdbus support (for tests only)')
 option('libarchive', type : 'feature',
        description : 'libarchive support')
+option('libmount', type : 'feature',
+       description : 'libmount support')
 
 option('bootloader', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'sd-boot/stub and userspace tools')
@@ -503,8 +520,8 @@ option('tests', type : 'combo', choices : ['true', 'unsafe', 'false'],
        description : 'enable extra tests with =unsafe')
 option('slow-tests', type : 'boolean', value : false,
        description : 'run the slow tests by default')
-option('fuzz-tests', type : 'boolean', value : false,
-       description : 'run the fuzzer regression tests by default (with sanitizers)')
+option('fuzz-tests', type : 'boolean', value : true,
+       description : 'run the fuzzer regression tests')
 option('install-tests', type : 'boolean', value : false,
        description : 'install test executables')
 option('log-message-verification', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },

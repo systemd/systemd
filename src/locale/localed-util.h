@@ -4,9 +4,7 @@
 #include <sys/stat.h>
 #include <syslog.h>
 
-#include "sd-bus.h"
-
-#include "hashmap.h"
+#include "shared-forward.h"
 #include "locale-setup.h"
 #include "vconsole-util.h"
 

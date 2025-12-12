@@ -1,30 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "sd-bus.h"
-#include "sd-device.h"
 #include "sd-event.h"
-#include "sd-varlink.h"
 
 #include "cgroup.h"
-#include "cgroup-util.h"
 #include "common-signal.h"
-#include "emergency-action.h"
 #include "execute.h"
-#include "fdset.h"
-#include "hashmap.h"
-#include "job.h"
-#include "list.h"
+#include "core-forward.h"
+#include "log.h"
 #include "path-lookup.h"
-#include "prioq.h"
-#include "ratelimit.h"
 #include "show-status.h"
-#include "transaction.h"
 #include "unit.h"
-#include "unit-name.h"
 
 struct libmnt_monitor;
 
@@ -38,8 +24,6 @@ enum {
 };
 
 assert_cc((int) _MANAGER_SIGNAL_COMMAND_MAX <= (int) _COMMON_SIGNAL_COMMAND_PRIVATE_END);
-
-typedef struct Manager Manager;
 
 /* An externally visible state. We don't actually maintain this as state variable, but derive it from various fields
  * when requested */
@@ -149,15 +133,15 @@ typedef struct UnitDefaults {
 
         RateLimit start_limit;
 
-        bool cpu_accounting;
         bool memory_accounting;
         bool io_accounting;
-        bool blockio_accounting;
         bool tasks_accounting;
         bool ip_accounting;
 
         CGroupTasksMax tasks_max;
         usec_t timer_accuracy_usec;
+
+        bool restrict_suid_sgid;
 
         OOMPolicy oom_policy;
         int oom_score_adjust;
@@ -171,7 +155,7 @@ typedef struct UnitDefaults {
         struct rlimit *rlimit[_RLIMIT_MAX];
 } UnitDefaults;
 
-struct Manager {
+typedef struct Manager {
         /* Note that the set of units we know of is allowed to be
          * inconsistent. However the subset of it that is loaded may
          * not, and the list of jobs may neither. */
@@ -189,7 +173,7 @@ struct Manager {
         LIST_HEAD(Unit, load_queue); /* this is actually more a stack than a queue, but uh. */
 
         /* Jobs that need to be run */
-        struct Prioq *run_queue;
+        Prioq *run_queue;
 
         /* Units and jobs that have not yet been announced via
          * D-Bus. When something about a job changes it is added here
@@ -229,6 +213,9 @@ struct Manager {
         /* Units that have resources open, and where it might be good to check if they can be released now */
         LIST_HEAD(Unit, release_resources_queue);
 
+        /* Units that perform certain actions after some other unit deactivates */
+        LIST_HEAD(Unit, stop_notify_queue);
+
         sd_event *event;
 
         /* This maps PIDs we care about to units that are interested in them. We allow multiple units to be
@@ -248,6 +235,11 @@ struct Manager {
 
         /* A set which contains all currently failed units */
         Set *failed_units;
+
+        uint64_t last_transaction_id;
+
+        /* IDs of transactions that once encountered ordering cycle */
+        Set *transactions_with_cycle;
 
         sd_event_source *run_queue_event_source;
 
@@ -329,23 +321,22 @@ struct Manager {
         sd_id128_t bus_id, deserialized_bus_id;
 
         /* This is used during reloading: before the reload we queue
-         * the reply message here, and afterwards we send it */
-        sd_bus_message *pending_reload_message;
+         * the reply message here, and afterwards we send it.
+         * It can be either a D-Bus message or a Varlink message, but not both. */
+        sd_bus_message *pending_reload_message_dbus;
+        sd_varlink *pending_reload_message_vl;
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
 
-        bool send_reloading_done;
-
         uint32_t current_job_id;
-        uint32_t default_unit_job_id;
 
         /* Data specific to the Automount subsystem */
         int dev_autofs_fd;
 
         /* Data specific to the cgroup subsystem */
         Hashmap *cgroup_unit;
-        CGroupMask cgroup_supported;
         char *cgroup_root;
+        CGroupMask cgroup_supported;
 
         /* Notifications from cgroups, when the unified hierarchy is used is done via inotify. */
         int cgroup_inotify_fd;
@@ -376,6 +367,9 @@ struct Manager {
 
         /* Flags */
         bool dispatching_load_queue;
+        int may_dispatch_stop_notify_queue; /* tristate */
+
+        bool send_reloading_done;
 
         /* Have we already sent out the READY=1 notification? */
         bool ready_sent;
@@ -486,7 +480,7 @@ struct Manager {
         sd_event_source *memory_pressure_event_source;
 
         /* For NFTSet= */
-        FirewallContext *fw_ctx;
+        sd_netlink *nfnl;
 
         /* Pin the systemd-executor binary, so that it never changes until re-exec, ensuring we don't have
          * serialization/deserialization compatibility issues during upgrades. */
@@ -497,7 +491,7 @@ struct Manager {
 
         /* Original ambient capabilities when we were initialized */
         uint64_t saved_ambient_set;
-};
+} Manager;
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
         assert(m);
@@ -518,11 +512,9 @@ static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
 
 #define MANAGER_IS_TEST_RUN(m) ((m)->test_run_flags != 0)
 
-static inline usec_t manager_default_timeout(RuntimeScope scope) {
-        return scope == RUNTIME_SCOPE_SYSTEM ? DEFAULT_TIMEOUT_USEC : DEFAULT_USER_TIMEOUT_USEC;
-}
+usec_t manager_default_timeout(RuntimeScope scope);
 
-int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager **m);
+int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager **ret);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
@@ -546,17 +538,16 @@ int manager_add_job_full(
                 JobMode mode,
                 TransactionAddFlags extra_flags,
                 Set *affected_jobs,
-                sd_bus_error *error,
+                sd_bus_error *reterr_error,
                 Job **ret);
-static inline int manager_add_job(
+int manager_add_job(
                 Manager *m,
                 JobType type,
                 Unit *unit,
                 JobMode mode,
-                sd_bus_error *error,
-                Job **ret) {
-        return manager_add_job_full(m, type, unit, mode, 0, NULL, error, ret);
-}
+                sd_bus_error *reterr_error,
+                Job **ret);
+
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret);
 int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, Job **ret);
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e);
@@ -651,6 +642,8 @@ int manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor);
 int manager_override_watchdog_pretimeout_governor(Manager *m, const char *governor);
 
 LogTarget manager_get_executor_log_target(Manager *m);
+
+void manager_log_caller(Manager *manager, PidRef *caller, const char *method);
 
 int manager_allocate_idle_pipe(Manager *m);
 

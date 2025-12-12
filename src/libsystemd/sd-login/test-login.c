@@ -1,19 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <poll.h>
-#if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h>
-#endif
+#include <sys/socket.h>
 
 #include "sd-login.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "errno-list.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "missing_syscall.h"
-#include "mountpoint-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -38,9 +36,7 @@ static char* format_uids(char **buf, uid_t* uids, int count) {
         return *buf;
 }
 
-static const char *e(int r) {
-        return r == 0 ? "OK" : errno_to_name(r);
-}
+#define e(r) (r == 0 ? "OK" : ERRNO_NAME(r))
 
 TEST(login) {
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
@@ -62,6 +58,9 @@ TEST(login) {
         r = sd_pid_get_user_unit(0, &user_unit);
         log_info("sd_pid_get_user_unit(0, …) → %s / \"%s\"", e(r), strnull(user_unit));
         assert_se(IN_SET(r, 0, -ENODATA));
+
+        /* Coverage for https://github.com/systemd/systemd/issues/39949 */
+        assert_se(!unit || !user_unit || !streq(unit, user_unit));
 
         r = sd_pid_get_slice(0, &slice);
         log_info("sd_pid_get_slice(0, …) → %s / \"%s\"", e(r), strnull(slice));
@@ -331,8 +330,8 @@ TEST(monitor) {
 }
 
 static int intro(void) {
-        if (IN_SET(cg_unified(), -ENOENT, -ENOMEDIUM))
-                return log_tests_skipped("cgroupfs is not mounted");
+        if (cg_is_available() <= 0)
+                return log_tests_skipped("cgroupfs v2 is not mounted");
 
         log_info("/* Information printed is from the live system */");
         return EXIT_SUCCESS;

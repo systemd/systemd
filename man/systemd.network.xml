@@ -42,7 +42,7 @@
     <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
     or
     <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
-    files in conjuction with <filename>.network</filename> files when working with physical and virtual
+    files in conjunction with <filename>.network</filename> files when working with physical and virtual
     network devices respectively.</para>
 
     <para>The <filename>.network</filename> files are read from the files located in the system network
@@ -89,10 +89,11 @@
     <para>Note that any network interfaces that have the <varname>ID_NET_MANAGED_BY=</varname> udev property
     set will never be matched by any .network files – unless the property's value is the string
     <literal>io.systemd.Network</literal> – even if the [Match] section would otherwise match. This may be
-    used to exclude specific network interfaces from <command>systemd-networkd</command>'s management, while
-    keeping the [Match] section generic. The <varname>ID_NET_MANAGED_BY=</varname> property thus declares
-    intended <emphasis>ownership</emphasis> of the device, and permits ensuring that concurrent network
-    management implementations do not compete for management of specific devices.</para>
+    used to exclude specific network interfaces from
+    <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+    management, while keeping the [Match] section generic. The <varname>ID_NET_MANAGED_BY=</varname> property
+    thus declares intended <emphasis>ownership</emphasis> of the device, and permits ensuring that concurrent
+    network management implementations do not compete for management of specific devices.</para>
 
     <para>A network file is said to match a network interface if all matches specified by the [Match]
     section are satisfied. When a network file does not contain valid settings in [Match] section, then
@@ -214,7 +215,8 @@
         <term><varname>Multicast=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, the multicast flag on the device is enabled. Defaults
-          to unset.</para>
+          to unset and the flag is unchanged. When disabled, <varname>IPv6AcceptRA=</varname> and
+          <varname>IPv6SendRA=</varname> cannot be enabled.</para>
 
           <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
@@ -442,7 +444,7 @@
 
           <para>Even if this is enabled, the DHCP server will not be started automatically and wait for the
           persistent storage being ready to load/save leases in the storage, unless
-          <varname>RelayTarget=</varname> or <varname>PersistLeases=no</varname> are specified in the
+          <varname>RelayTarget=</varname> or <varname>PersistLeases=no/runtime</varname> are specified in the
           [DHCPServer] section. It will be started after
           <filename>systemd-networkd-persistent-storage.service</filename> is started, which calls
           <command>networkctl persistent-storage yes</command>. See
@@ -745,6 +747,9 @@ DuplicateAddressDetection=none</programlisting></para>
           This is a short-hand for a [Route] section only containing a <varname>Gateway=</varname> key.
           This option may be specified more than once.</para>
 
+          <para>If an empty string is specified, then the all previous assignments in both [Network] and
+          [Route] sections are cleared.</para>
+
           <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
@@ -941,10 +946,19 @@ DuplicateAddressDetection=none</programlisting></para>
           <para>Takes a boolean. Controls IPv6 Router Advertisement (RA) reception support for the interface.
           If true, RAs are accepted; if false, RAs are ignored. When RAs are accepted, they may trigger the
           start of the DHCPv6 client if the relevant flags are set in the RA data, or if no routers are found
-          on the link. Defaults to false for bridge devices, when <varname>IPv6Forwarding=</varname>,
-          <varname>IPv6SendRA=</varname>, or <varname>KeepMaster=</varname> is enabled. Otherwise, enabled by
-          default. Cannot be enabled on devices aggregated in a bond device or when link-local addressing is
-          disabled.</para>
+          on the link.</para>
+
+          <para>This cannot be enabled on devices aggregated in a bond device, or when IPv6 link-local
+          addressing (see <varname>LinkLocalAddressing=</varname>) or multicasting (see
+          <varname>Multicast=</varname>) is disabled. Note, multicasting is disabled by default for some
+          configurations, e.g. bridge ports. Hence, in that case <varname>Multicast=</varname> needs to be
+          explicitly enabled to make this feature usable. When <varname>IPv6SendRA=</varname>,
+          <varname>IPv6Forwarding=</varname>, or <varname>IPMasquerade=</varname> is enabled, this feature is
+          disabled by default, but can be overridden by explicitly enabling this setting. Note,
+          <varname>IPv6Forwarding=</varname> may be indirectly enabled when the global setting with the same
+          name is enabled, or when <varname>IPMasquerade=</varname> is enabled on <emphasis>any other
+          interfaces</emphasis>. See also <varname>IPv6Forwarding=</varname> and
+          <varname>IPMasquerade=</varname> for more details. Enabled by default otherwise.</para>
 
           <para>Further settings for the IPv6 RA support may be configured in the [IPv6AcceptRA]
           section, see below.</para>
@@ -1035,14 +1049,15 @@ DuplicateAddressDetection=none</programlisting></para>
           <filename>/proc/sys/net/ipv4/conf/<replaceable>INTERFACE</replaceable>/force_igmp_version</filename>.
           Takes one of <literal>no</literal>,
           <literal>v1</literal>, <literal>v2</literal>, or <literal>v3</literal>.
-          When <literal>no</literal>, no enforcement of an IGMP version will be applied, IGMPv1/v2 fallback are allowed, will back to
-          IGMPv3 mode again if all IGMPv1/v2 Querier Present timer expire.
-          When <literal>v1</literal>, use of IGMP version 1 will be enforced, and IGMPv1 report will be replied even if IGMPv2/v3
+          When <literal>no</literal>, no enforcement of an IGMP version is applied. IGMPv1/v2 fallbacks are allowed, and
+          <command>systemd-networkd</command> will return to
+          IGMPv3 mode after all IGMPv1/v2 Querier Present timers have expired.
+          When <literal>v1</literal>, use of IGMP version 1 is enforced. An IGMPv1 report will be returned even if IGMPv2/v3
           queries are received.
-          When <literal>v2</literal>, use of IGMP version 2 will be enforced, and IGMPv2 report will be replied if an IGMPv2/v3 query
-          is received, but fallback to IGMPv1 if an IGMPv1 query is received.
-          When <literal>v3</literal>, use of IGMP version 3 will be enforced, and the same reaction will be done as <literal>no</literal>.
-          Defaults to unset, and the sysctl value will be unchanged.
+          When <literal>v2</literal>, use of IGMP version 2 is enforced. An IGMPv2 report will be returned if an IGMPv2/v3 query
+          is received. <command>systemd-networkd</command> will fall back to IGMPv1 if an IGMPv1 query is received.
+          When <literal>v3</literal>, use of IGMP version 3 is enforced, and the response is the same as with <literal>no</literal>.
+          Defaults to unset — the sysctl is not set.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v257"/>
@@ -1332,7 +1347,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <para>Takes a boolean or one of <literal>static</literal>, <literal>dynamic-on-stop</literal>, and
           <literal>dynamic</literal>. When <literal>static</literal>, <command>systemd-networkd</command>
           will not drop statically configured addresses and routes on starting up process. When
-          <literal>dynamic-on-stop</literal>, the dynamically configurad addresses and routes, such as
+          <literal>dynamic-on-stop</literal>, the dynamically configured addresses and routes, such as
           DHCPv4, DHCPv6, SLAAC, and IPv4 link-local address, will not be dropped when
           <command>systemd-networkd</command> is being stopped. When <literal>dynamic</literal>, the
           dynamically configured addresses and routes will never be dropped, and the lifetime of DHCPv4
@@ -1528,7 +1543,7 @@ DuplicateAddressDetection=none</programlisting></para>
           and the per-interface configuration with <command>systemd-networkd</command> once the interfaces
           appear later. Currently this feature is only implemented for SELinux.</para>
 
-          <para>The option expects a single NetLabel label. The label must conform to lexical restrictions of
+          <para>The option expects a single NetLabel label. The label must conform to lexicographic restrictions of
           LSM labels. When an interface is configured with IP addresses, the addresses and subnetwork masks
           will be appended to the <ulink
           url="https://github.com/SELinuxProject/selinux-notebook/blob/main/src/network_support.md">NetLabel
@@ -1587,7 +1602,7 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <literal>prefix</literal> or <literal>ifindex</literal>), NFT address family (one of
           <literal>arp</literal>, <literal>bridge</literal>, <literal>inet</literal>, <literal>ip</literal>,
           <literal>ip6</literal>, or <literal>netdev</literal>), table name and set name. The names of tables
-          and sets must conform to lexical restrictions of NFT table names. The type of the element used in
+          and sets must conform to lexicographic restrictions of NFT table names. The type of the element used in
           the NFT filter must match the type implied by the directive (<literal>address</literal>,
           <literal>prefix</literal> or <literal>ifindex</literal>) and address type (IPv4 or IPv6) as shown
           in the table below.</para>
@@ -1801,8 +1816,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>GoTo=</varname></term>
         <listitem>
-          <para>Specifies the target priority used by <literal>goto</literal> type of rule. Takes an integer
-          in the range 1…4294967295. This must be larger than the priority of this rule specified in
+          <para>Specifies the target priority used by the <literal>goto</literal> type of rule. Takes an
+          integer in the range 1…4294967295. This must be larger than the priority of the rule specified in
           <varname>Priority=</varname>. When specified, <varname>Type=goto</varname> is implied. This is
           mandatory when <varname>Type=goto</varname>.</para>
 
@@ -2601,6 +2616,16 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>BOOTP=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When enabled, the DHCPv4 client will be configured to communicate with BOOTP
+          servers, rather than with DHCP servers. Defaults to off.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
       <!-- How to use the DHCP lease -->
 
       <varlistentry>
@@ -2972,7 +2997,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           prefix length after <literal>/</literal>. DHCP offers from servers in the list are accepted.
           </para>
           <para>Note that this filters only DHCP offers, so the filtering might not work when
-          <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> in the above.
+          <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> above.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
@@ -3221,6 +3246,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>UseDNS=</varname></term>
         <term><varname>UseDNR=</varname></term>
         <term><varname>UseNTP=</varname></term>
+        <term><varname>UseSIP=</varname></term>
         <term><varname>UseHostname=</varname></term>
         <term><varname>UseDomains=</varname></term>
         <term><varname>NetLabel=</varname></term>
@@ -3980,6 +4006,34 @@ ServerAddress=192.168.0.1/24</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>EmitDomain=</varname></term>
+
+        <listitem><para>Takes a boolean. Configures whether the DHCP leases handed out
+        to clients shall contain domain name information (DHCP option 15). Defaults to
+        <literal>no</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Domain=</varname></term>
+
+        <listitem><para>Takes a domain name (such as <literal>example.com</literal>)
+        to pass to DHCP clients. This configures the DNS default domain for DHCP clients.
+        When set, DHCP clients will use this as their DNS search domain.</para>
+
+        <para>When <varname>EmitDomain=yes</varname> is set but <varname>Domain=</varname>
+        is not configured, the domain name will be automatically derived from the system's
+        fully qualified hostname. For example, if the system's hostname is
+        <literal>host.example.com</literal>, the domain <literal>example.com</literal>
+        will be sent to clients. If the system's hostname does not contain a domain part
+        (e.g., hostname is just <literal>host</literal>), no domain name will be sent to
+        DHCP clients. When empty or unset, defaults to no domain name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>BootServerAddress=</varname></term>
 
         <listitem>
@@ -4128,17 +4182,42 @@ ServerAddress=192.168.0.1/24</programlisting>
       <varlistentry>
         <term><varname>PersistLeases=</varname></term>
         <listitem>
-          <para>Takes a boolean. When true, the DHCP server will load and save leases in the persistent
-          storage. When false, the DHCP server will neither load nor save leases in the persistent storage.
-          Hence, bound leases will be lost when the interface is reconfigured e.g. by
+          <para>Takes a boolean or special value <literal>runtime</literal>. When <literal>yes</literal>, the
+          DHCP server will load and save leases in the persistent storage. When <literal>runtime</literal>,
+          the DHCP server will load and save leases in the runtime storage, hence bound leases will be lost
+          when the runtime storage is cleared by e.g. by calling
+          <command>systemctl clean systemd-networkd.service</command> or the system is rebooted. When
+          <literal>no</literal>, the DHCP server will neither load nor save leases in the persistent storage,
+          hence bound leases will be lost when the interface is reconfigured e.g. by
           <command>networkctl reconfigure</command>, or
           <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          is restarted. That may cause address conflict on the network. So, please take an extra care when
-          disable this setting. When unspecified, the value specified in the same setting in
+          is restarted. Using <literal>runtime</literal> and <literal>no</literal> may cause address conflict
+          on the network after the leases are lost. So, please take an extra care when disable this setting.
+          When unspecified, the value specified in the same setting in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
           which defaults to <literal>yes</literal>, will be used.</para>
 
+          <para>When <varname>RelayTarget=</varname> is specified, this setting will be ignored and no leases
+          will be saved, as there will be no bound lease on the server.</para>
+
           <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LocalLeaseDomain=</varname></term>
+        <listitem>
+          <para>Takes a DNS domain name as argument. If specified,
+          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          will integrate with
+          <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          and ensure that the hostnames associated with each handed out DHCP lease may be resolved to the IP
+          addresses of the lease. The hostnames are suffixed with the specified domain name.</para>
+
+          <para>Note that this purely about hostname resolution on the local system, i.e. from programs with
+          access to the same <filename>systemd-resolved</filename> instances via D-Bus IPC, Varlink IPC, or
+          the local DNS stub.</para>
+          <xi:include href="version-info.xml" xpointer="v259"/>
         </listitem>
       </varlistentry>
 
@@ -4167,6 +4246,25 @@ ServerAddress=192.168.0.1/24</programlisting>
         <varname>MACAddress=</varname>. This key is mandatory.</para>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Hostname=</varname></term>
+
+        <listitem><para>The hostname to send to the client in DHCP replies. This can be either a simple
+        hostname (e.g., <literal>mydevice</literal>) or a fully qualified domain name (e.g.,
+        <literal>mydevice.example.com</literal>), following RFC 1123 naming conventions. Each label can be
+        up to 63 characters, with a total maximum length of 253 characters for FQDNs. When this option is
+        set, the DHCP server will include the hostname in DHCP replies (both OFFER and ACK) to the client
+        with the matched MAC address.</para>
+
+        <para>The server automatically selects the appropriate DHCP option based on the hostname format:
+        simple hostnames (single DNS label) are sent via option 12 (Host Name) per RFC 2132, while FQDNs
+        with multiple labels are sent via option 81 (Client FQDN) per RFC 4702 using DNS wire format
+        encoding. The configured hostname is sent unconditionally, any hostname requested by the client in
+        its DHCP message is ignored.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -6288,15 +6386,17 @@ ServerAddress=192.168.0.1/24</programlisting>
   <refsect1>
     <title>[BridgeVLAN] Section Options</title>
     <para>
-      The [BridgeVLAN] section manages the VLAN ID configurations of a bridge master or port, and accepts the
-      following keys. To make the settings in this section take an effect,
+      The [BridgeVLAN] section manages the VLAN ID configuration of a bridge master or enslaved device.
+      To make the settings in this section take an effect,
       <varname>VLANFiltering=</varname> option has to be enabled on the bridge master, see the [Bridge]
       section in
-      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-      If at least one valid settings specified in this section in a .network file for an interface, all
-      assigned VLAN IDs on the interface that are not configured in the .network file will be removed. If
+      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>, and
+      each enslaved device needs to define the relevant VLAN IDs in its own [BridgeVLAN] section, which it
+      has in common with the bridge master.
+      All assigned VLAN IDs on the interface that are not configured in the .network file will be removed. If
       VLAN IDs on an interface need to be managed by other tools, then the settings in this section cannot
-      be used in the matching .network file.
+      be used in the matching .network file and <varname>VLANFiltering=</varname> needs to be disabled on
+      the bridge master.
     </para>
 
     <variablelist class='network-directives'>
@@ -6357,7 +6457,7 @@ Gateway=192.168.0.1</programlisting>
     <example>
       <title>DHCP on ethernet links</title>
 
-      <programlisting># /etc/systemd/network/80-dhcp.network
+      <programlisting># /etc/systemd/network/60-dhcp.network
 [Match]
 Name=en*
 

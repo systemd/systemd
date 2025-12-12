@@ -1,28 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
 #include <sys/stat.h>
 
-#include "sd-bus.h"
-#include "sd-device.h"
-#include "sd-event.h"
-#include "sd-varlink.h"
-
 #include "calendarspec.h"
-#include "conf-parser.h"
-#include "hashmap.h"
 #include "list.h"
 #include "logind-action.h"
-#include "set.h"
-#include "time-util.h"
-#include "user-record.h"
-
-typedef struct Button Button;
-typedef struct Device Device;
-typedef struct Seat Seat;
-typedef struct Session Session;
-typedef struct User User;
+#include "logind-forward.h"
 
 typedef struct Manager {
         sd_event *event;
@@ -41,7 +25,11 @@ typedef struct Manager {
         LIST_HEAD(Session, session_gc_queue);
         LIST_HEAD(User, user_gc_queue);
 
-        sd_device_monitor *device_seat_monitor, *device_monitor, *device_vcsa_monitor, *device_button_monitor;
+        sd_device_monitor *device_seat_monitor;
+        sd_device_monitor *device_monitor;
+        sd_device_monitor *device_vcsa_monitor;
+        sd_device_monitor *device_button_monitor;
+        sd_device_monitor *device_uaccess_monitor;
 
         sd_event_source *console_active_event_source;
 
@@ -87,7 +75,7 @@ typedef struct Manager {
         bool unlink_nologin;
 
         char *wall_message;
-        bool enable_wall_messages;
+        bool wall_messages;
         sd_event_source *wall_message_timeout_source;
 
         bool shutdown_dry_run;
@@ -165,7 +153,7 @@ int manager_add_user_by_uid(Manager *m, uid_t uid, User **ret_user);
 int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret_inhibitor);
 
 int manager_process_seat_device(Manager *m, sd_device *d);
-int manager_process_button_device(Manager *m, sd_device *d);
+int manager_process_button_device(Manager *m, sd_device *d, Button **ret_button);
 
 int manager_spawn_autovt(Manager *m, unsigned vtnr);
 
@@ -173,8 +161,9 @@ bool manager_shall_kill(Manager *m, const char *user);
 
 int manager_get_idle_hint(Manager *m, dual_timestamp *t);
 
-int manager_get_user_by_pid(Manager *m, pid_t pid, User **user);
+int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret);
 int manager_get_session_by_pidref(Manager *m, const PidRef *pid, Session **ret);
+int manager_get_session_by_leader(Manager *m, const PidRef *pid, Session **ret);
 
 bool manager_is_lid_closed(Manager *m);
 bool manager_is_docked_or_external_displays(Manager *m);
@@ -182,7 +171,7 @@ bool manager_is_on_external_power(void);
 bool manager_all_buttons_ignored(Manager *m);
 
 /* gperf lookup function */
-const struct ConfigPerfItem* logind_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* logind_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 int manager_set_lid_switch_ignore(Manager *m, usec_t until);
 

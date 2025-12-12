@@ -5,7 +5,6 @@
 
 #include <linux/loop.h>
 #include <sys/ioctl.h>
-#include <unistd.h>
 
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>

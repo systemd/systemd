@@ -1,15 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <unistd.h>
+#include <fnmatch.h>
+#include <sched.h>
+#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
-#include "string-util.h"
+#include "pidref.h"
+#include "process-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -131,6 +133,71 @@ TEST(default_hostname) {
         ASSERT_NOT_NULL(m);
         log_info("get_default_hostname_raw: \"%s\"", m);
         ASSERT_TRUE(hostname_is_valid(m, VALID_HOSTNAME_QUESTION_MARK));
+}
+
+TEST(pidref_gethostname_full) {
+        int r;
+
+        if (geteuid() != 0)
+                return (void) log_tests_skipped("Not privileged");
+
+        _cleanup_free_ char *original = NULL, *original_short = NULL;
+        ASSERT_NOT_NULL(original = gethostname_malloc());
+        ASSERT_NOT_NULL(original_short = gethostname_short_malloc());
+
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        ASSERT_OK_ERRNO(pipe2(fds, O_CLOEXEC));
+
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork("(test-pidref-gethostname)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &pidref);
+        ASSERT_OK(r);
+        if (r == 0) {
+                fds[0] = safe_close(fds[0]);
+
+                ASSERT_OK_ERRNO(unshare(CLONE_NEWUTS));
+                ASSERT_OK(sethostname_idempotent("hogehoge.example.com"));
+
+                ASSERT_OK_EQ_ERRNO(write(fds[1], &(const char[]) { 'x' }, 1), 1);
+                freeze();
+        }
+
+        fds[1] = safe_close(fds[1]);
+
+        char x;
+        ASSERT_OK_EQ_ERRNO(read(fds[0], &x, 1), 1);
+        ASSERT_EQ(x, 'x');
+
+        _cleanup_free_ char *s = NULL;
+        ASSERT_OK(pidref_gethostname_full(&pidref, /* flags= */ 0, &s));
+        ASSERT_STREQ(s, "hogehoge.example.com");
+
+        s = mfree(s);
+
+        ASSERT_OK(pidref_gethostname_full(&pidref, GET_HOSTNAME_SHORT, &s));
+        ASSERT_STREQ(s, "hogehoge");
+
+        s = mfree(s);
+
+        _cleanup_(pidref_done) PidRef self = PIDREF_NULL;
+        ASSERT_OK(pidref_set_self(&self));
+
+        ASSERT_OK(pidref_gethostname_full(&self, /* flags= */ 0, &s));
+        ASSERT_STREQ(s, original);
+
+        s = mfree(s);
+
+        ASSERT_OK(pidref_gethostname_full(&self, GET_HOSTNAME_SHORT, &s));
+        ASSERT_STREQ(s, original_short);
+
+        s = mfree(s);
+
+        ASSERT_NOT_NULL(s = gethostname_malloc());
+        ASSERT_STREQ(s, original);
+
+        s = mfree(s);
+
+        ASSERT_NOT_NULL(s = gethostname_short_malloc());
+        ASSERT_STREQ(s, original_short);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

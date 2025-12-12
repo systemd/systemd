@@ -1,27 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
 #include <linux/if_ether.h>
 #include <linux/if_infiniband.h>
 #include <linux/if_packet.h>
 #include <linux/netlink.h>
 #include <linux/vm_sockets.h>
 #include <netinet/in.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <string.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/un.h>
 
-#include "errno-util.h"
-#include "in-addr-util.h"
-#include "macro.h"
-#include "missing_network.h"
-#include "missing_socket.h"
-#include "pidref.h"
-#include "sparse-endian.h"
+#include "basic-forward.h"
+#include "memory-util.h"
+#include "missing-network.h"
 
 union sockaddr_union {
         /* The minimal, abstract version */
@@ -62,14 +53,6 @@ typedef struct SocketAddress {
         int protocol;
 } SocketAddress;
 
-typedef enum SocketAddressBindIPv6Only {
-        SOCKET_ADDRESS_DEFAULT,
-        SOCKET_ADDRESS_BOTH,
-        SOCKET_ADDRESS_IPV6_ONLY,
-        _SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX,
-        _SOCKET_ADDRESS_BIND_IPV6_ONLY_INVALID = -EINVAL,
-} SocketAddressBindIPv6Only;
-
 #define socket_address_family(a) ((a)->sockaddr.sa.sa_family)
 
 const char* socket_address_type_to_string(int t) _const_;
@@ -83,21 +66,8 @@ static inline int socket_address_unlink(const SocketAddress *a) {
 
 bool socket_address_can_accept(const SocketAddress *a) _pure_;
 
-int socket_address_listen(
-                const SocketAddress *a,
-                int flags,
-                int backlog,
-                SocketAddressBindIPv6Only only,
-                const char *bind_to_device,
-                bool reuse_port,
-                bool free_bind,
-                bool transparent,
-                mode_t directory_mode,
-                mode_t socket_mode,
-                const char *label);
-
 int socket_address_verify(const SocketAddress *a, bool strict) _pure_;
-int socket_address_print(const SocketAddress *a, char **p);
+int socket_address_print(const SocketAddress *a, char **ret);
 bool socket_address_matches_fd(const SocketAddress *a, int fd);
 
 bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) _pure_;
@@ -117,11 +87,7 @@ int getsockname_pretty(int fd, char **ret);
 
 int socknameinfo_pretty(const struct sockaddr *sa, socklen_t salen, char **_ret);
 
-const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
-SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s) _pure_;
-SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *s);
-
-int netlink_family_to_string_alloc(int b, char **s);
+int netlink_family_to_string_alloc(int i, char **ret);
 int netlink_family_from_string(const char *s) _pure_;
 
 bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b);
@@ -135,7 +101,7 @@ static inline int fd_increase_rxbuf(int fd, size_t n) {
         return fd_set_rcvbuf(fd, n, true);
 }
 
-int ip_tos_to_string_alloc(int i, char **s);
+int ip_tos_to_string_alloc(int i, char **ret);
 int ip_tos_from_string(const char *s);
 
 typedef enum {
@@ -144,12 +110,12 @@ typedef enum {
         IFNAME_VALID_SPECIAL     = 1 << 2, /* Allow the special names "all" and "default" */
         _IFNAME_VALID_ALL        = IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC | IFNAME_VALID_SPECIAL,
 } IfnameValidFlags;
-bool ifname_valid_char(char a);
-bool ifname_valid_full(const char *p, IfnameValidFlags flags);
+bool ifname_valid_char(char a) _const_;
+bool ifname_valid_full(const char *p, IfnameValidFlags flags) _pure_;
 static inline bool ifname_valid(const char *p) {
         return ifname_valid_full(p, 0);
 }
-bool address_label_valid(const char *p);
+bool address_label_valid(const char *p) _pure_;
 
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
@@ -199,6 +165,7 @@ int receive_many_fds(int transport_fd, int **ret_fds_array, size_t *ret_n_fds_ar
 ssize_t next_datagram_size_fd(int fd);
 
 int flush_accept(int fd);
+ssize_t flush_mqueue(int fd);
 
 #define CMSG_FOREACH(cmsg, mh)                                          \
         for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))
@@ -255,45 +222,20 @@ static inline int setsockopt_int(int fd, int level, int optname, int value) {
         return 0;
 }
 
-static inline int getsockopt_int(int fd, int level, int optname, int *ret) {
-        int v;
-        socklen_t sl = sizeof(v);
-
-        if (getsockopt(fd, level, optname, &v, &sl) < 0)
-                return negative_errno();
-        if (sl != sizeof(v))
-                return -EIO;
-
-        *ret = v;
-        return 0;
-}
+int getsockopt_int(int fd, int level, int optname, int *ret);
 
 int socket_bind_to_ifname(int fd, const char *ifname);
 int socket_bind_to_ifindex(int fd, int ifindex);
 
 int socket_autobind(int fd, char **ret_name);
 
-/* Define a 64-bit version of timeval/timespec in any case, even on 32-bit userspace. */
-struct timeval_large {
-        uint64_t tvl_sec, tvl_usec;
-};
-struct timespec_large {
-        uint64_t tvl_sec, tvl_nsec;
-};
-
 /* glibc duplicates timespec/timeval on certain 32-bit arches, once in 32-bit and once in 64-bit.
  * See __convert_scm_timestamps() in glibc source code. Hence, we need additional buffer space for them
  * to prevent truncating control msg (recvmsg() MSG_CTRUNC). */
 #define CMSG_SPACE_TIMEVAL                                              \
-        ((sizeof(struct timeval) == sizeof(struct timeval_large)) ?     \
-         CMSG_SPACE(sizeof(struct timeval)) :                           \
-         CMSG_SPACE(sizeof(struct timeval)) +                           \
-         CMSG_SPACE(sizeof(struct timeval_large)))
+        (CMSG_SPACE(sizeof(struct timeval)) + CMSG_SPACE(2 * sizeof(uint64_t)))
 #define CMSG_SPACE_TIMESPEC                                             \
-        ((sizeof(struct timespec) == sizeof(struct timespec_large)) ?   \
-         CMSG_SPACE(sizeof(struct timespec)) :                          \
-         CMSG_SPACE(sizeof(struct timespec)) +                          \
-         CMSG_SPACE(sizeof(struct timespec_large)))
+        (CMSG_SPACE(sizeof(struct timespec)) + CMSG_SPACE(2 * sizeof(uint64_t)))
 
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags);
 
@@ -341,6 +283,7 @@ int vsock_parse_cid(const char *s, unsigned *ret);
  * protocol mismatch. */
 int socket_address_parse_unix(SocketAddress *ret_address, const char *s);
 int socket_address_parse_vsock(SocketAddress *ret_address, const char *s);
+int socket_address_equal_unix(const char *a, const char *b);
 
 /* libc's SOMAXCONN is defined to 128 or 4096 (at least on glibc). But actually, the value can be much
  * larger. In our codebase we want to set it to the max usually, since nowadays socket memory is properly
@@ -352,3 +295,7 @@ int socket_address_parse_vsock(SocketAddress *ret_address, const char *s);
 int vsock_get_local_cid(unsigned *ret);
 
 int netlink_socket_get_multicast_groups(int fd, size_t *ret_len, uint32_t **ret_groups);
+
+int socket_get_cookie(int fd, uint64_t *ret);
+
+void cmsg_close_all(struct msghdr *mh);

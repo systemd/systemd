@@ -2,9 +2,7 @@
  * Copyright © 2019 VMware, Inc. */
 #pragma once
 
-#include "conf-parser.h"
 #include "qdisc.h"
-#include "time-util.h"
 
 typedef struct ControlledDelay {
         QDisc meta;
@@ -19,6 +17,6 @@ typedef struct ControlledDelay {
 DEFINE_QDISC_CAST(CODEL, ControlledDelay);
 extern const QDiscVTable codel_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_controlled_delay_u32);
-CONFIG_PARSER_PROTOTYPE(config_parse_controlled_delay_usec);
-CONFIG_PARSER_PROTOTYPE(config_parse_controlled_delay_bool);
+CONFIG_PARSER_PROTOTYPE(config_parse_codel_u32);
+CONFIG_PARSER_PROTOTYPE(config_parse_codel_usec);
+CONFIG_PARSER_PROTOTYPE(config_parse_codel_bool);

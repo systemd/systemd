@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <fcntl.h>
 #include <locale.h>
 #include <unistd.h>
 
@@ -10,12 +8,8 @@
 #include "alloc-util.h"
 #include "catalog.h"
 #include "fd-util.h"
-#include "fs-util.h"
+#include "hashmap.h"
 #include "log.h"
-#include "macro.h"
-#include "path-util.h"
-#include "string-util.h"
-#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -37,7 +31,7 @@ static OrderedHashmap* test_import(const char* contents, ssize_t size, int code)
         assert_se(fd >= 0);
         assert_se(write(fd, contents, size) == size);
 
-        assert_se(catalog_import_file(&h, name) == code);
+        assert_se(catalog_import_file(&h, fd, name) == code);
 
         return h;
 }

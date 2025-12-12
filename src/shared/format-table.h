@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-#include <sys/types.h>
-
 #include "sd-json.h"
 
-#include "macro.h"
-#include "memory-util.h"
+#include "shared-forward.h"
+#include "log.h"
 #include "pager.h"
 
 typedef enum TableDataType {
@@ -20,6 +16,7 @@ typedef enum TableDataType {
         TABLE_STRV_WRAPPED,
         TABLE_PATH,
         TABLE_PATH_BASENAME,       /* like TABLE_PATH, but display only last path element (i.e. the "basename") in regular output */
+        TABLE_VERSION,             /* just like TABLE_STRING, but uses version comparison when sorting */
         TABLE_BOOLEAN,
         TABLE_BOOLEAN_CHECKMARK,
         TABLE_TIMESTAMP,
@@ -43,8 +40,10 @@ typedef enum TableDataType {
         TABLE_UINT16,
         TABLE_UINT32,
         TABLE_UINT32_HEX,
+        TABLE_UINT32_HEX_0x,
         TABLE_UINT64,
         TABLE_UINT64_HEX,
+        TABLE_UINT64_HEX_0x,
         TABLE_PERCENT,
         TABLE_IFINDEX,
         TABLE_IN_ADDR,  /* Takes a union in_addr_union (or a struct in_addr) */
@@ -100,11 +99,11 @@ Table *table_unref(Table *t);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Table*, table_unref);
 
-int table_add_cell_full(Table *t, TableCell **ret_cell, TableDataType type, const void *data, size_t minimum_width, size_t maximum_width, unsigned weight, unsigned align_percent, unsigned ellipsize_percent);
-static inline int table_add_cell(Table *t, TableCell **ret_cell, TableDataType type, const void *data) {
-        return table_add_cell_full(t, ret_cell, type, data, SIZE_MAX, SIZE_MAX, UINT_MAX, UINT_MAX, UINT_MAX);
+int table_add_cell_full(Table *t, TableCell **ret_cell, TableDataType dt, const void *data, size_t minimum_width, size_t maximum_width, unsigned weight, unsigned align_percent, unsigned ellipsize_percent);
+static inline int table_add_cell(Table *t, TableCell **ret_cell, TableDataType dt, const void *data) {
+        return table_add_cell_full(t, ret_cell, dt, data, SIZE_MAX, SIZE_MAX, UINT_MAX, UINT_MAX, UINT_MAX);
 }
-int table_add_cell_stringf_full(Table *t, TableCell **ret_cell, TableDataType type, const char *format, ...) _printf_(4, 5);
+int table_add_cell_stringf_full(Table *t, TableCell **ret_cell, TableDataType dt, const char *format, ...) _printf_(4, 5);
 #define table_add_cell_stringf(t, ret_cell, format, ...) table_add_cell_stringf_full(t, ret_cell, TABLE_STRING, format, __VA_ARGS__)
 
 int table_fill_empty(Table *t, size_t until_column);

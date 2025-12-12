@@ -179,29 +179,9 @@ CPUWeight=20   DisableControllers=cpu              /          \
 
     <para>Units of the types listed above can have settings for resource control configuration:</para>
 
-    <refsect2><title>CPU Accounting and Control</title>
+    <refsect2><title>CPU Control</title>
 
     <variablelist class='unit-directives'>
-
-      <varlistentry>
-        <term><varname>CPUAccounting=</varname></term>
-
-        <listitem>
-          <para>Turn on CPU usage accounting for this unit. Takes a
-          boolean argument. Note that turning on CPU accounting for
-          one unit will also implicitly turn it on for all units
-          contained in the same slice and for all its parent slices
-          and the units contained therein. The system default for this
-          setting may be controlled with
-          <varname>DefaultCPUAccounting=</varname> in
-          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-
-          <para>Under the unified cgroup hierarchy, CPU accounting is available for all units and this
-          setting has no effect.</para>
-
-          <xi:include href="version-info.xml" xpointer="v208"/>
-        </listitem>
-      </varlistentry>
 
       <varlistentry>
         <term><varname>CPUWeight=<replaceable>weight</replaceable></varname></term>
@@ -583,7 +563,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
           an absolute number of tasks or a percentage value that is taken relative to the configured maximum
           number of tasks on the system. If assigned the special value <literal>infinity</literal>, no tasks
           limit is applied. This controls the <literal>pids.max</literal> control group attribute. For
-          details about this control group attribute, the
+          details about this control group attribute, see the
           <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#pid">pids controller
           </ulink>.
           The effective configuration is reported as <varname>EffectiveTasksMax=</varname>.</para>
@@ -1059,7 +1039,7 @@ RestrictNetworkInterfaces=~eth1</programlisting>
           <literal>user</literal> or <literal>group</literal>), NFT address family (one of
           <literal>arp</literal>, <literal>bridge</literal>, <literal>inet</literal>, <literal>ip</literal>,
           <literal>ip6</literal>, or <literal>netdev</literal>), table name and set name. The names of tables
-          and sets must conform to lexical restrictions of NFT table names. The type of the element used in
+          and sets must conform to lexicographic restrictions of NFT table names. The type of the element used in
           the NFT filter must match the type implied by the directive (<literal>cgroup</literal>,
           <literal>user</literal> or <literal>group</literal>) as shown in the table below. When a control
           group or a unit is realized, the corresponding ID will be appended to the NFT sets and it will be
@@ -1169,7 +1149,7 @@ NFTSet=cgroup:inet:filter:my_service user:inet:filter:serviceuser
           one more restricted, depending on the use case.</para>
 
           <para>Note that these settings might not be supported on some systems (for example if eBPF control group
-          support is not enabled in the underlying kernel or container manager). These settings will fail the service in
+          support is not enabled in the underlying kernel or container manager). These settings will have no effect in
           that case. If compatibility with such systems is desired it is hence recommended to attach your filter manually
           (requires <varname>Delegate=</varname><constant>yes</constant>) instead of using this setting.</para>
 
@@ -1689,7 +1669,8 @@ DeviceAllow=/dev/loop-control
       <variablelist>
         <varlistentry>
           <term>systemd 252</term>
-          <listitem><para> Options for controlling the Legacy Control Group Hierarchy (<ulink
+
+          <listitem><para>Options for controlling the Legacy Control Group Hierarchy (<ulink
           url="https://docs.kernel.org/admin-guide/cgroup-v1/index.html">Control Groups version 1</ulink>)
           are now fully deprecated:
           <varname>CPUShares=<replaceable>weight</replaceable></varname>,
@@ -1703,9 +1684,16 @@ DeviceAllow=/dev/loop-control
           <varname>BlockIOReadBandwidth=<replaceable>device</replaceable>
           <replaceable>bytes</replaceable></varname>,
           <varname>BlockIOWriteBandwidth=<replaceable>device</replaceable> <replaceable>bytes</replaceable></varname>.
-          Please switch to the unified cgroup hierarchy.</para>
+          Please switch to the unified cgroup hierarchy.</para></listitem>
+        </varlistentry>
+      </variablelist>
 
- <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      <variablelist>
+        <varlistentry>
+          <term>systemd 258</term>
+
+          <listitem><para><varname>CPUAccounting=</varname> setting is deprecated, because it is always available
+          on the unified cgroup hierarchy and such setting has no effect.</para></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>

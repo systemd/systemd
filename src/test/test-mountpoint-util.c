@@ -1,22 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
+#include <stdlib.h>
 #include <sys/mount.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "constants.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "log.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "virt.h"
 
 static void test_mount_propagation_flag_one(const char *name, int ret, unsigned long expected) {
         unsigned long flags;
@@ -273,7 +276,7 @@ TEST(path_is_mount_point) {
 
 TEST(is_mount_point_at) {
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
-        _cleanup_free_ char *pwd = NULL;
+        _cleanup_free_ char *pwd = NULL, *tmpdir_basename = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -298,8 +301,9 @@ TEST(is_mount_point_at) {
         assert_se(fd >= 0);
 
         assert_se(mkdtemp_malloc("/tmp/not-mounted-XXXXXX", &tmpdir) >= 0);
-        assert_se(is_mount_point_at(fd, basename(tmpdir), 0) == 0);
-        assert_se(is_mount_point_at(fd, strjoina(basename(tmpdir), "/"), 0) == 0);
+        ASSERT_OK(path_extract_filename(tmpdir, &tmpdir_basename));
+        ASSERT_OK_ZERO(is_mount_point_at(fd, tmpdir_basename, 0));
+        ASSERT_OK_ZERO(is_mount_point_at(fd, strjoina(tmpdir_basename, "/"), 0));
 
         safe_close(fd);
         fd = open("/proc", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
@@ -452,6 +456,12 @@ TEST(path_get_mnt_id_at_null) {
 static int intro(void) {
         /* let's move into our own mount namespace with all propagation from the host turned off, so
          * that /proc/self/mountinfo is static and constant for the whole time our test runs. */
+
+        if (running_in_chroot() != 0) {
+                /* We cannot remount file system with MS_PRIVATE when running in chroot. */
+                log_notice("Running in chroot, proceeding in originating mount namespace.");
+                return EXIT_SUCCESS;
+        }
 
         if (unshare(CLONE_NEWNS) < 0) {
                 if (!ERRNO_IS_PRIVILEGE(errno))

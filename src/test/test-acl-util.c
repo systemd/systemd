@@ -9,9 +9,9 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "path-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
@@ -93,30 +93,6 @@ TEST_RET(fd_acl_make_read_only) {
 
         ASSERT_OK_ERRNO(fstat(fd, &st));
         ASSERT_TRUE(FLAGS_SET(st.st_mode, 0200));
-
-        cmd = strjoina("getfacl -p ", fn);
-        ASSERT_OK_ZERO_ERRNO(system(cmd));
-
-        cmd = strjoina("stat ", fn);
-        ASSERT_OK_ZERO_ERRNO(system(cmd));
-
-        log_info("read-only");
-        ASSERT_OK_POSITIVE(fd_acl_make_read_only(fd));
-
-        ASSERT_OK_ERRNO(fstat(fd, &st));
-        ASSERT_EQ(st.st_mode & 0222, 0000u);
-
-        cmd = strjoina("getfacl -p ", fn);
-        ASSERT_OK_ZERO_ERRNO(system(cmd));
-
-        cmd = strjoina("stat ", fn);
-        ASSERT_OK_ZERO_ERRNO(system(cmd));
-
-        log_info("writable");
-        ASSERT_OK_POSITIVE(fd_acl_make_writable(fd));
-
-        ASSERT_OK_ERRNO(fstat(fd, &st));
-        ASSERT_EQ(st.st_mode & 0222, 0200u);
 
         cmd = strjoina("getfacl -p ", fn);
         ASSERT_OK_ZERO_ERRNO(system(cmd));

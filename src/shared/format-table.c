@@ -1,28 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ctype.h>
-#include <net/if.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "devnum-util.h"
-#include "fd-util.h"
 #include "fileio.h"
 #include "format-ifname.h"
 #include "format-table.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "glyph-util.h"
 #include "gunicode.h"
-#include "id128-util.h"
 #include "in-addr-util.h"
-#include "log.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "pager.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -30,6 +24,7 @@
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "time-util.h"
@@ -292,6 +287,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_PATH_BASENAME:
         case TABLE_FIELD:
         case TABLE_HEADER:
+        case TABLE_VERSION:
                 return strlen(data) + 1;
 
         case TABLE_STRV:
@@ -317,12 +313,14 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_INT64:
         case TABLE_UINT64:
         case TABLE_UINT64_HEX:
+        case TABLE_UINT64_HEX_0x:
         case TABLE_BPS:
                 return sizeof(uint64_t);
 
         case TABLE_INT32:
         case TABLE_UINT32:
         case TABLE_UINT32_HEX:
+        case TABLE_UINT32_HEX_0x:
                 return sizeof(uint32_t);
 
         case TABLE_INT16:
@@ -459,7 +457,7 @@ static TableData *table_data_new(
 int table_add_cell_full(
                 Table *t,
                 TableCell **ret_cell,
-                TableDataType type,
+                TableDataType dt,
                 const void *data,
                 size_t minimum_width,
                 size_t maximum_width,
@@ -472,12 +470,12 @@ int table_add_cell_full(
         TableData *p;
 
         assert(t);
-        assert(type >= 0);
-        assert(type < _TABLE_DATA_TYPE_MAX);
+        assert(dt >= 0);
+        assert(dt < _TABLE_DATA_TYPE_MAX);
 
         /* Special rule: patch NULL data fields to the empty field */
         if (!data)
-                type = TABLE_EMPTY;
+                dt = TABLE_EMPTY;
 
         /* Determine the cell adjacent to the current one, but one row up */
         if (t->n_cells >= t->n_columns)
@@ -501,15 +499,15 @@ int table_add_cell_full(
         assert(align_percent <= 100);
         assert(ellipsize_percent <= 100);
 
-        uppercase = type == TABLE_HEADER;
+        uppercase = dt == TABLE_HEADER;
 
         /* Small optimization: Pretty often adjacent cells in two subsequent lines have the same data and
          * formatting. Let's see if we can reuse the cell data and ref it once more. */
 
-        if (p && table_data_matches(p, type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase))
+        if (p && table_data_matches(p, dt, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase))
                 d = table_data_ref(p);
         else {
-                d = table_data_new(type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase);
+                d = table_data_new(dt, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase);
                 if (!d)
                         return -ENOMEM;
         }
@@ -531,7 +529,7 @@ int table_add_cell_stringf_full(Table *t, TableCell **ret_cell, TableDataType dt
         int r;
 
         assert(t);
-        assert(IN_SET(dt, TABLE_STRING, TABLE_PATH, TABLE_PATH_BASENAME, TABLE_FIELD, TABLE_HEADER));
+        assert(IN_SET(dt, TABLE_STRING, TABLE_PATH, TABLE_PATH_BASENAME, TABLE_FIELD, TABLE_HEADER, TABLE_VERSION));
 
         va_start(ap, format);
         r = vasprintf(&buffer, format, ap);
@@ -939,6 +937,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_PATH_BASENAME:
                 case TABLE_FIELD:
                 case TABLE_HEADER:
+                case TABLE_VERSION:
                         data = va_arg(ap, const char *);
                         break;
 
@@ -1031,12 +1030,14 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
 
                 case TABLE_UINT32:
                 case TABLE_UINT32_HEX:
+                case TABLE_UINT32_HEX_0x:
                         buffer.uint32 = va_arg(ap, uint32_t);
                         data = &buffer.uint32;
                         break;
 
                 case TABLE_UINT64:
                 case TABLE_UINT64_HEX:
+                case TABLE_UINT64_HEX_0x:
                         buffer.uint64 = va_arg(ap, uint64_t);
                         data = &buffer.uint64;
                         break;
@@ -1400,6 +1401,9 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_PATH_BASENAME:
                         return path_compare(a->string, b->string);
 
+                case TABLE_VERSION:
+                        return strverscmp_improved(a->string, b->string);
+
                 case TABLE_STRV:
                 case TABLE_STRV_WRAPPED:
                         return strv_compare(a->strv, b->strv);
@@ -1455,10 +1459,12 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 
                 case TABLE_UINT32:
                 case TABLE_UINT32_HEX:
+                case TABLE_UINT32_HEX_0x:
                         return CMP(a->uint32, b->uint32);
 
                 case TABLE_UINT64:
                 case TABLE_UINT64_HEX:
+                case TABLE_UINT64_HEX_0x:
                         return CMP(a->uint64, b->uint64);
 
                 case TABLE_PERCENT:
@@ -1584,7 +1590,8 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         case TABLE_PATH:
         case TABLE_PATH_BASENAME:
         case TABLE_FIELD:
-        case TABLE_HEADER: {
+        case TABLE_HEADER:
+        case TABLE_VERSION: {
                 _cleanup_free_ char *bn = NULL;
                 const char *s;
 
@@ -1858,6 +1865,18 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 break;
         }
 
+        case TABLE_UINT32_HEX_0x: {
+                _cleanup_free_ char *p = NULL;
+
+                p = new(char, 2 + 8 + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "0x%" PRIx32, d->uint32);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
         case TABLE_UINT64: {
                 _cleanup_free_ char *p = NULL;
 
@@ -1878,6 +1897,18 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                         return NULL;
 
                 sprintf(p, "%" PRIx64, d->uint64);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_UINT64_HEX_0x: {
+                _cleanup_free_ char *p = NULL;
+
+                p = new(char, 2 + 16 + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "0x%" PRIx64, d->uint64);
                 d->formatted = TAKE_PTR(p);
                 break;
         }
@@ -2758,6 +2789,7 @@ static int table_data_to_json(TableData *d, sd_json_variant **ret) {
         case TABLE_PATH_BASENAME:
         case TABLE_FIELD:
         case TABLE_HEADER:
+        case TABLE_VERSION:
                 return sd_json_variant_new_string(ret, d->string);
 
         case TABLE_STRV:
@@ -2820,10 +2852,12 @@ static int table_data_to_json(TableData *d, sd_json_variant **ret) {
 
         case TABLE_UINT32:
         case TABLE_UINT32_HEX:
+        case TABLE_UINT32_HEX_0x:
                 return sd_json_variant_new_unsigned(ret, d->uint32);
 
         case TABLE_UINT64:
         case TABLE_UINT64_HEX:
+        case TABLE_UINT64_HEX_0x:
                 return sd_json_variant_new_unsigned(ret, d->uint64);
 
         case TABLE_PERCENT:

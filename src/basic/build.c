@@ -7,9 +7,7 @@
 #include "build.h"
 #include "extract-word.h"
 #include "log.h"
-#include "macro.h"
 #include "string-util.h"
-#include "terminal-util.h"
 #include "version.h"
 
 const char* const systemd_features =
@@ -126,12 +124,6 @@ const char* const systemd_features =
         " +IDN"
 #else
         " -IDN"
-#endif
-
-#if HAVE_LIBIPTC
-        " +IPTC"
-#else
-        " -IPTC"
 #endif
 
 #if HAVE_KMOD

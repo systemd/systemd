@@ -1,22 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/timex.h>
-
-#include "sd-bus.h"
-#include "sd-event.h"
-#include "sd-network.h"
-#include "sd-resolve.h"
-
-#include "hashmap.h"
 #include "list.h"
 #include "ratelimit.h"
 #include "time-util.h"
+#include "timesyncd-forward.h"
 #include "timesyncd-ntp-message.h"
-
-typedef enum ServerType ServerType;
-typedef struct ServerAddress ServerAddress;
-typedef struct ServerName ServerName;
 
 /*
  * "A client MUST NOT under any conditions use a poll interval less

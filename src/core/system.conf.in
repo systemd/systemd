@@ -54,7 +54,6 @@
 #DefaultStartLimitIntervalSec=10s
 #DefaultStartLimitBurst=5
 #DefaultEnvironment=
-#DefaultCPUAccounting=yes
 #DefaultIOAccounting=no
 #DefaultIPAccounting=no
 #DefaultMemoryAccounting={{ 'yes' if MEMORY_ACCOUNTING_DEFAULT else 'no' }}
@@ -80,5 +79,6 @@
 #DefaultMemoryPressureWatch=auto
 #DefaultOOMPolicy=stop
 #DefaultSmackProcessLabel=
+#DefaultRestrictSUIDSGID=
 #ReloadLimitIntervalSec=
 #ReloadLimitBurst=

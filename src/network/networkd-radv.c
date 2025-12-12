@@ -3,10 +3,13 @@
   Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
-#include <arpa/inet.h>
 #include <netinet/icmp6.h>
 
+#include "sd-radv.h"
+
+#include "conf-parser.h"
 #include "dns-domain.h"
+#include "extract-word.h"
 #include "ndisc-router-internal.h"
 #include "networkd-address.h"
 #include "networkd-address-generation.h"
@@ -17,8 +20,10 @@
 #include "networkd-queue.h"
 #include "networkd-radv.h"
 #include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
 #include "radv-internal.h"
+#include "set.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -26,10 +31,10 @@
 bool link_radv_enabled(Link *link) {
         assert(link);
 
-        if (!link_may_have_ipv6ll(link, /* check_multicast = */ true))
+        if (!link_multicast_enabled(link))
                 return false;
 
-        if (link->hw_addr.length != ETH_ALEN)
+        if (!link_ipv6ll_enabled_harder(link))
                 return false;
 
         return link->network->router_prefix_delegation;

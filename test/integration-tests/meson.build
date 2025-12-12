@@ -4,7 +4,7 @@
 add_test_setup('integration')
 add_test_setup('shell', env : {'TEST_SHELL' : '1'})
 
-integration_test_wrapper = find_program('integration-test-wrapper.py')
+integration_test_wrapper = files('integration-test-wrapper.py')
 integration_tests = []
 integration_test_template = {
         'mkosi-args' : [],
@@ -43,6 +43,7 @@ foreach dirname : [
         'TEST-07-PID1',
         'TEST-08-INITRD',
         'TEST-09-REBOOT',
+        'TEST-10-MOUNT',
         'TEST-13-NSPAWN',
         'TEST-15-DROPIN',
         'TEST-16-EXTEND-TIMEOUT',
@@ -69,7 +70,7 @@ foreach dirname : [
         'TEST-46-HOMED',
         'TEST-50-DISSECT',
         'TEST-52-HONORFIRSTSHUTDOWN',
-        'TEST-53-ISSUE-16347',
+        'TEST-53-TIMER',
         'TEST-54-CREDS',
         'TEST-55-OOMD',
         'TEST-58-REPART',
@@ -89,7 +90,6 @@ foreach dirname : [
         'TEST-73-LOCALE',
         'TEST-74-AUX-UTILS',
         'TEST-75-RESOLVED',
-        'TEST-76-SYSCTL',
         'TEST-78-SIGQUEUE',
         'TEST-79-MEMPRESS',
         'TEST-80-NOTIFYACCESS',
@@ -100,6 +100,8 @@ foreach dirname : [
         'TEST-85-NETWORK',
         'TEST-86-MULTI-PROFILE-UKI',
         'TEST-87-AUX-UTILS-VM',
+        'TEST-88-UPGRADE',
+        'TEST-89-RESOLVED-MDNS',
 ]
         subdir(dirname)
 endforeach

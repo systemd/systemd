@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Manager Manager;
+#include "networkd-forward.h"
 
-int manager_connect_varlink(Manager *m);
-void manager_varlink_done(Manager *m);
+int manager_varlink_init(Manager *m, int fd);

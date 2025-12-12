@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/socket.h>
+
 #include "af-list.h"
+#include "alloc-util.h"
 #include "extract-word.h"
 #include "ip-protocol-list.h"
 #include "log.h"
@@ -8,6 +11,7 @@
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "utf8.h"
 
 static bool validate_api_vfs(const char *path, PathSimplifyWarnFlags flags) {

@@ -1,35 +1,31 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include "apparmor-setup.h"
+
+#if HAVE_APPARMOR
 #include <unistd.h>
 
-#include "apparmor-setup.h"
+#include "alloc-util.h"
 #include "apparmor-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "macro.h"
 #include "string-util.h"
 #include "strv.h"
+#endif
 
 int mac_apparmor_setup(void) {
 #if HAVE_APPARMOR
-        _cleanup_(sym_aa_policy_cache_unrefp) aa_policy_cache *policy_cache = NULL;
-        _cleanup_(sym_aa_features_unrefp) aa_features *features = NULL;
+        _cleanup_(aa_policy_cache_unrefp) aa_policy_cache *policy_cache = NULL;
+        _cleanup_(aa_features_unrefp) aa_features *features = NULL;
         _cleanup_free_ char *current_profile = NULL, *cache_dir_path = NULL;
         int r;
 
         if (!mac_apparmor_use()) {
-                log_debug("Skipping AppArmor initialization: not supported by the kernel or disabled.");
+                log_debug("Skipping AppArmor initialization: not supported by the kernel, disabled, or libapparmor not installed.");
                 return 0;
         }
-
-        r = dlopen_libapparmor();
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to load libapparmor: %m");
 
         /* To honor LSM stacking, check per-LSM subdirectory first, and then the generic one as fallback. */
         FOREACH_STRING(current_file, "/proc/self/attr/apparmor/current", "/proc/self/attr/current") {

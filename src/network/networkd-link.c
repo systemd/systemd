@@ -5,38 +5,39 @@
 #include <linux/if_link.h>
 #include <linux/netdevice.h>
 #include <net/if.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+#include "sd-dhcp-client.h"
+#include "sd-dhcp-server.h"
+#include "sd-dhcp6-client.h"
+#include "sd-dhcp6-lease.h"
+#include "sd-ipv4ll.h"
+#include "sd-lldp-rx.h"
+#include "sd-ndisc.h"
+#include "sd-netlink.h"
+#include "sd-radv.h"
+
 #include "alloc-util.h"
 #include "arphrd-util.h"
-#include "batadv.h"
 #include "bitfield.h"
-#include "bond.h"
-#include "bridge.h"
-#include "bus-util.h"
-#include "device-private.h"
 #include "device-util.h"
-#include "dhcp-lease-internal.h"
-#include "env-file.h"
+#include "dns-domain.h"
+#include "errno-util.h"
 #include "ethtool-util.h"
 #include "event-util.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "format-ifname.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "logarithm.h"
-#include "missing_network.h"
+#include "netif-util.h"
 #include "netlink-util.h"
-#include "network-internal.h"
 #include "networkd-address.h"
 #include "networkd-address-label.h"
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
 #include "networkd-bridge-vlan.h"
-#include "networkd-can.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
@@ -53,6 +54,7 @@
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
+#include "networkd-resolve-hook.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
@@ -61,15 +63,15 @@
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
+#include "ordered-set.h"
+#include "parse-util.h"
 #include "set.h"
 #include "socket-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tc.h"
-#include "tuntap.h"
 #include "udev-util.h"
-#include "vrf.h"
 
 void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *ret) {
         assert(link);
@@ -133,7 +135,7 @@ bool link_ipv6_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
-        if (link_may_have_ipv6ll(link, /* check_multicast = */ false))
+        if (link_ipv6ll_enabled(link))
                 return true;
 
         if (network_has_static_ipv6_configurations(link->network))
@@ -380,7 +382,7 @@ void link_set_state(Link *link, LinkState state) {
 
         link->state = state;
 
-        link_send_changed(link, "AdministrativeState", NULL);
+        link_send_changed(link, "AdministrativeState");
         link_dirty(link);
 }
 
@@ -1070,6 +1072,8 @@ static Link *link_drop(Link *link) {
 
         assert(link->manager);
 
+        bool notify = link_has_local_lease_domain(link);
+
         link_set_state(link, LINK_STATE_LINGER);
 
         /* Drop all references from other links and manager. Note that async netlink calls may have
@@ -1098,6 +1102,10 @@ static Link *link_drop(Link *link) {
 
         /* The following must be called at last. */
         assert_se(hashmap_remove(link->manager->links_by_index, INT_TO_PTR(link->ifindex)) == link);
+
+        if (notify)
+                manager_notify_hook_filters(link->manager);
+
         return link_unref(link);
 }
 
@@ -1351,6 +1359,8 @@ static void link_enter_unmanaged(Link *link) {
         if (link->state == LINK_STATE_UNMANAGED)
                 return;
 
+        bool notify = link_has_local_lease_domain(link);
+
         log_link_full(link, link->state == LINK_STATE_INITIALIZED ? LOG_DEBUG : LOG_INFO,
                       "Unmanaging interface.");
 
@@ -1367,6 +1377,35 @@ static void link_enter_unmanaged(Link *link) {
 
         link->network = network_unref(link->network);
         link_set_state(link, LINK_STATE_UNMANAGED);
+
+        if (notify)
+                manager_notify_hook_filters(link->manager);
+}
+
+static int link_managed_by_us(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->dev)
+                return true;
+
+        const char *s;
+        r = sd_device_get_property_value(link->dev, "ID_NET_MANAGED_BY", &s);
+        if (r == -ENOENT)
+                return true;
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get ID_NET_MANAGED_BY udev property: %m");
+
+        if (streq(s, "io.systemd.Network"))
+                return true;
+
+        if (link->state == LINK_STATE_UNMANAGED)
+                return false; /* Already in unmanaged state */
+
+        log_link_debug(link, "Interface is requested to be managed by '%s', unmanaging the interface.", s);
+        link_set_state(link, LINK_STATE_UNMANAGED);
+        return false;
 }
 
 int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
@@ -1383,6 +1422,10 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
 
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
                 return 0;
+
+        r = link_managed_by_us(link);
+        if (r <= 0)
+                return r;
 
         r = link_get_network(link, &network);
         if (r == -ENOENT) {
@@ -1436,7 +1479,7 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
         } else {
                 /* Otherwise, stop DHCP client and friends unconditionally, and drop all dynamic
                  * configurations like DHCP address and routes. */
-                r = link_stop_engines(link, /* may_keep_dhcp = */ false);
+                r = link_stop_engines(link, /* may_keep_dynamic = */ false);
                 if (r < 0)
                         return r;
 
@@ -1621,6 +1664,10 @@ static int link_initialized(Link *link, sd_device *device) {
          * or sysattrs) may be outdated. */
         device_unref_and_replace(link->dev, device);
 
+        r = link_managed_by_us(link);
+        if (r <= 0)
+                return r;
+
         if (link->dhcp_client) {
                 r = sd_dhcp_client_attach_device(link->dhcp_client, link->dev);
                 if (r < 0)
@@ -1688,7 +1735,6 @@ int link_check_initialized(Link *link) {
 
 int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t action) {
         int r, ifindex;
-        const char *s;
         Link *link;
 
         assert(m);
@@ -1720,15 +1766,6 @@ int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t 
                 /* TODO:
                  * What happens when a device is initialized, then soon renamed after that? When we detect
                  * such, maybe we should cancel or postpone all queued requests for the interface. */
-                return 0;
-        }
-
-        r = sd_device_get_property_value(device, "ID_NET_MANAGED_BY", &s);
-        if (r < 0 && r != -ENOENT)
-                log_device_debug_errno(device, r, "Failed to get ID_NET_MANAGED_BY udev property, ignoring: %m");
-        if (r >= 0 && !streq(s, "io.systemd.Network")) {
-                log_device_debug(device, "Interface is requested to be managed by '%s', not managing the interface.", s);
-                link_set_state(link, LINK_STATE_UNMANAGED);
                 return 0;
         }
 
@@ -2097,6 +2134,22 @@ void link_update_operstate(Link *link, bool also_update_master) {
         }
 }
 
+bool link_has_carrier(Link *link) {
+        assert(link);
+        return netif_has_carrier(link->kernel_operstate, link->flags);
+}
+
+bool link_multicast_enabled(Link *link) {
+        assert(link);
+
+        /* If Multicast= is specified, use the value. */
+        if (link->network && link->network->multicast >= 0)
+                return link->network->multicast;
+
+        /* Otherwise, return the current state. */
+        return FLAGS_SET(link->flags, IFF_MULTICAST);
+}
+
 #define FLAG_STRING(string, flag, old, new)                      \
         (((old ^ new) & flag)                                    \
          ? ((old & flag) ? (" -" string) : (" +" string))        \
@@ -2185,7 +2238,7 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
         if (!had_carrier && link_has_carrier(link))
                 r = link_carrier_gained(link);
         else if (had_carrier && !link_has_carrier(link))
-                link_carrier_lost(link);
+                r = link_carrier_lost(link);
         if (r < 0)
                 return r;
 
@@ -2200,8 +2253,8 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
 
         r = sd_netlink_message_read_u32(message, IFLA_MASTER, (uint32_t*) &master_ifindex);
         if (r == -ENODATA)
-                return 0;
-        if (r < 0)
+                master_ifindex = 0; /* no master interface */
+        else if (r < 0)
                 return log_link_debug_errno(link, r, "rtnl: failed to read master ifindex: %m");
 
         if (master_ifindex == link->ifindex)
@@ -2218,6 +2271,9 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
 
                 link_drop_from_master(link);
                 link->master_ifindex = master_ifindex;
+
+                /* Updating master ifindex may cause operational state change, e.g. carrier <-> enslaved */
+                link_dirty(link);
         }
 
         r = link_append_to_master(link);
@@ -3018,3 +3074,12 @@ static const char * const kernel_operstate_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(kernel_operstate, int);
+
+bool link_has_local_lease_domain(Link *link) {
+        assert(link);
+
+        return link->dhcp_server &&
+                link->network &&
+                link->network->dhcp_server_local_lease_domain &&
+                !dns_name_is_root(link->network->dhcp_server_local_lease_domain);
+}

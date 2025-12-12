@@ -3,19 +3,21 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <arpa/inet.h>
-#include <linux/if.h>
 #include <linux/if_arp.h>
+#include <linux/rtnetlink.h>
 #include <netinet/icmp6.h>
 
 #include "sd-ndisc.h"
 
+#include "conf-parser.h"
+#include "errno-util.h"
 #include "event-util.h"
-#include "missing_network.h"
+#include "missing-network.h"
 #include "ndisc-router-internal.h"
 #include "networkd-address.h"
 #include "networkd-address-generation.h"
 #include "networkd-dhcp6.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-nexthop.h"
@@ -23,7 +25,10 @@
 #include "networkd-route.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
-#include "sort-util.h"
+#include "ordered-set.h"
+#include "set.h"
+#include "siphash24.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -41,6 +46,10 @@
 
 static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t timestamp_usec);
 
+char* ndisc_dnssl_domain(const NDiscDNSSL *n) {
+        return ((char*) n) + ALIGN(sizeof(NDiscDNSSL));
+}
+
 bool link_ndisc_enabled(Link *link) {
         assert(link);
 
@@ -56,7 +65,10 @@ bool link_ndisc_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (!link_may_have_ipv6ll(link, /* check_multicast = */ true))
+        if (!link_multicast_enabled(link))
+                return false;
+
+        if (!link_ipv6ll_enabled_harder(link))
                 return false;
 
         /* Honor explicitly specified value. */
@@ -1850,11 +1862,11 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt, bool zero
 }
 
 static void ndisc_dnssl_hash_func(const NDiscDNSSL *x, struct siphash *state) {
-        siphash24_compress_string(NDISC_DNSSL_DOMAIN(x), state);
+        siphash24_compress_string(ndisc_dnssl_domain(x), state);
 }
 
 static int ndisc_dnssl_compare_func(const NDiscDNSSL *a, const NDiscDNSSL *b) {
-        return strcmp(NDISC_DNSSL_DOMAIN(a), NDISC_DNSSL_DOMAIN(b));
+        return strcmp(ndisc_dnssl_domain(a), ndisc_dnssl_domain(b));
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
@@ -1901,7 +1913,7 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt, bool zero
                 if (!s)
                         return log_oom();
 
-                strcpy(NDISC_DNSSL_DOMAIN(s), *j);
+                strcpy(ndisc_dnssl_domain(s), *j);
 
                 if (lifetime_usec == 0) {
                         /* The entry is outdated. */
@@ -2186,7 +2198,7 @@ static int ndisc_dnr_compare_func(const NDiscDNR *a, const NDiscDNR *b) {
                 strcmp_ptr(a->resolver.dohpath, b->resolver.dohpath) ||
                 CMP(a->resolver.family, b->resolver.family) ||
                 CMP(a->resolver.n_addrs, b->resolver.n_addrs) ||
-                memcmp(a->resolver.addrs, b->resolver.addrs, sizeof(a->resolver.addrs[0]) * a->resolver.n_addrs);
+                memcmp(a->resolver.addrs, b->resolver.addrs, sizeof(a->resolver.addrs[0]) * a->resolver.n_addrs) != 0;
 }
 
 static void ndisc_dnr_hash_func(const NDiscDNR *x, struct siphash *state) {

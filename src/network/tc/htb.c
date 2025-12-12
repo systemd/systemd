@@ -2,10 +2,10 @@
 
 #include <linux/pkt_sched.h>
 
-#include "alloc-util.h"
-#include "conf-parser.h"
+#include "sd-netlink.h"
+
 #include "htb.h"
-#include "netlink-util.h"
+#include "log-link.h"
 #include "networkd-link.h"
 #include "parse-util.h"
 #include "qdisc.h"
@@ -45,7 +45,7 @@ static int hierarchy_token_bucket_fill_message(Link *link, QDisc *qdisc, sd_netl
         return 0;
 }
 
-int config_parse_hierarchy_token_bucket_default_class(
+int config_parse_htb_default_class(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -97,7 +97,7 @@ int config_parse_hierarchy_token_bucket_default_class(
         return 0;
 }
 
-int config_parse_hierarchy_token_bucket_u32(
+int config_parse_htb_u32(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -239,7 +239,7 @@ static int hierarchy_token_bucket_class_fill_message(Link *link, TClass *tclass,
         return 0;
 }
 
-int config_parse_hierarchy_token_bucket_class_u32(
+int config_parse_htb_class_u32(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -292,7 +292,7 @@ int config_parse_hierarchy_token_bucket_class_u32(
         return 0;
 }
 
-int config_parse_hierarchy_token_bucket_class_size(
+int config_parse_htb_class_size(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -375,7 +375,7 @@ int config_parse_hierarchy_token_bucket_class_size(
         return 0;
 }
 
-int config_parse_hierarchy_token_bucket_class_rate(
+int config_parse_htb_class_rate(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -470,6 +470,8 @@ static int hierarchy_token_bucket_class_verify(TClass *tclass) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read /proc/net/psched: %m");
 
+        /* Kernel would never hand us 0 Hz. */
+        assert(hz > 0);
         if (htb->buffer == 0)
                 htb->buffer = htb->rate / hz + htb->mtu;
         if (htb->ceil_buffer == 0)

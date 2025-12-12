@@ -1,14 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
-#include "sd-bus.h"
-
-#include "macro.h"
-
-typedef struct Manager Manager;
-typedef struct Operation Operation;
+#include "machine-forward.h"
 
 typedef enum ImageCleanPoolMode {
         IMAGE_CLEAN_POOL_REMOVE_ALL,

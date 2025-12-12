@@ -1,15 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
+
 #include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
-#include "copy.h"
+#include "dissect-image.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
-#include "fs-util.h"
-#include "hostname-util.h"
+#include "format-util.h"
 #include "import-common.h"
 #include "import-compress.h"
 #include "import-tar.h"
@@ -17,19 +18,19 @@
 #include "install-file.h"
 #include "io-util.h"
 #include "log.h"
-#include "machine-pool.h"
-#include "missing_fs.h"
 #include "mkdir-label.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "qcow2-util.h"
 #include "ratelimit.h"
 #include "rm-rf.h"
 #include "string-util.h"
+#include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
-struct TarImport {
+typedef struct TarImport {
         sd_event *event;
 
         char *image_root;
@@ -45,12 +46,14 @@ struct TarImport {
 
         int input_fd;
         int tar_fd;
+        int tree_fd;
+        int userns_fd;
 
         ImportCompress compress;
 
         sd_event_source *input_event_source;
 
-        uint8_t buffer[16*1024];
+        uint8_t buffer[IMPORT_BUFFER_SIZE];
         size_t buffer_size;
 
         uint64_t written_compressed;
@@ -58,11 +61,11 @@ struct TarImport {
 
         struct stat input_stat;
 
-        pid_t tar_pid;
+        PidRef tar_pid;
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
-};
+} TarImport;
 
 TarImport* tar_import_unref(TarImport *i) {
         if (!i)
@@ -70,16 +73,20 @@ TarImport* tar_import_unref(TarImport *i) {
 
         sd_event_source_unref(i->input_event_source);
 
-        if (i->tar_pid > 1)
-                sigkill_wait(i->tar_pid);
+        pidref_done_sigkill_wait(&i->tar_pid);
 
-        rm_rf_subvolume_and_free(i->temp_path);
+        if (i->temp_path) {
+                import_remove_tree(i->temp_path, &i->userns_fd, i->flags);
+                free(i->temp_path);
+        }
 
         import_compress_free(&i->compress);
 
         sd_event_unref(i->event);
 
         safe_close(i->tar_fd);
+        safe_close(i->tree_fd);
+        safe_close(i->userns_fd);
 
         free(i->final_path);
         free(i->image_root);
@@ -112,11 +119,14 @@ int tar_import_new(
         *i = (TarImport) {
                 .input_fd = -EBADF,
                 .tar_fd = -EBADF,
+                .tree_fd = -EBADF,
+                .userns_fd = -EBADF,
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .last_percent = UINT_MAX,
                 .image_root = TAKE_PTR(root),
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
+                .tar_pid = PIDREF_NULL,
         };
 
         if (event)
@@ -172,20 +182,24 @@ static int tar_import_finish(TarImport *i) {
 
         assert(i);
         assert(i->tar_fd >= 0);
+        assert(i->tree_fd >= 0);
 
         i->tar_fd = safe_close(i->tar_fd);
 
-        if (i->tar_pid > 0) {
-                r = wait_for_terminate_and_check("tar", TAKE_PID(i->tar_pid), WAIT_LOG);
+        if (pidref_is_set(&i->tar_pid)) {
+                r = pidref_wait_for_terminate_and_check("tar", &i->tar_pid, WAIT_LOG);
                 if (r < 0)
                         return r;
+
+                pidref_done(&i->tar_pid);
+
                 if (r != EXIT_SUCCESS)
                         return -EPROTO;
         }
 
         assert_se(d = i->temp_path ?: i->local);
 
-        r = import_mangle_os_tree(d);
+        r = import_mangle_os_tree_fd(i->tree_fd, i->userns_fd, i->flags);
         if (r < 0)
                 return r;
 
@@ -193,8 +207,8 @@ static int tar_import_finish(TarImport *i) {
                         AT_FDCWD, d,
                         AT_FDCWD, i->final_path,
                         (i->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
-                        (i->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY : 0) |
-                        (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS : 0));
+                        (i->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY|INSTALL_GRACEFUL : 0) |
+                        (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS|INSTALL_GRACEFUL : 0));
         if (r < 0)
                 return log_error_errno(r, "Failed to move '%s' into place: %m", i->final_path ?: i->local);
 
@@ -212,6 +226,7 @@ static int tar_import_fork_tar(TarImport *i) {
         assert(!i->final_path);
         assert(!i->temp_path);
         assert(i->tar_fd < 0);
+        assert(i->tree_fd < 0);
 
         if (i->flags & IMPORT_DIRECT) {
                 d = i->local;
@@ -236,22 +251,41 @@ static int tar_import_fork_tar(TarImport *i) {
         if (FLAGS_SET(i->flags, IMPORT_DIRECT|IMPORT_FORCE))
                 (void) rm_rf(d, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
-        if (i->flags & IMPORT_BTRFS_SUBVOL)
-                r = btrfs_subvol_make_fallback(AT_FDCWD, d, 0755);
-        else
-                r = RET_NERRNO(mkdir(d, 0755));
-        if (r == -EEXIST && (i->flags & IMPORT_DIRECT)) /* EEXIST is OK if in direct mode, but not otherwise,
-                                                         * because in that case our temporary path collided */
-                r = 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to create directory/subvolume %s: %m", d);
-        if (r > 0 && (i->flags & IMPORT_BTRFS_QUOTA)) { /* actually btrfs subvol */
-                if (!(i->flags & IMPORT_DIRECT))
-                        (void) import_assign_pool_quota_and_warn(root);
-                (void) import_assign_pool_quota_and_warn(d);
+        if (FLAGS_SET(i->flags, IMPORT_FOREIGN_UID)) {
+                r = import_make_foreign_userns(&i->userns_fd);
+                if (r < 0)
+                        return r;
+
+                _cleanup_close_ int directory_fd = -EBADF;
+                r = mountfsd_make_directory(d, /* flags= */ 0, &directory_fd);
+                if (r < 0)
+                        return r;
+
+                r = mountfsd_mount_directory_fd(directory_fd, i->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &i->tree_fd);
+                if (r < 0)
+                        return r;
+        } else {
+                if (i->flags & IMPORT_BTRFS_SUBVOL)
+                        r = btrfs_subvol_make_fallback(AT_FDCWD, d, 0755);
+                else
+                        r = RET_NERRNO(mkdir(d, 0755));
+                if (r == -EEXIST && (i->flags & IMPORT_DIRECT)) /* EEXIST is OK if in direct mode, but not otherwise,
+                                                                 * because in that case our temporary path collided */
+                        r = 0;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create directory/subvolume %s: %m", d);
+                if (r > 0 && (i->flags & IMPORT_BTRFS_QUOTA)) { /* actually btrfs subvol */
+                        if (!(i->flags & IMPORT_DIRECT))
+                                (void) import_assign_pool_quota_and_warn(root);
+                        (void) import_assign_pool_quota_and_warn(d);
+                }
+
+                i->tree_fd = open(d, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                if (i->tree_fd < 0)
+                        return log_error_errno(errno, "Failed to open '%s': %m", d);
         }
 
-        i->tar_fd = import_fork_tar_x(d, &i->tar_pid);
+        i->tar_fd = import_fork_tar_x(i->tree_fd, i->userns_fd, &i->tar_pid);
         if (i->tar_fd < 0)
                 return i->tar_fd;
 

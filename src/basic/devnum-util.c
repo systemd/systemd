@@ -2,11 +2,14 @@
 
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 
+#include "alloc-util.h"
 #include "chase.h"
 #include "devnum-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 
 int parse_devnum(const char *s, dev_t *ret) {
@@ -132,4 +135,8 @@ int device_path_parse_major_minor(const char *path, mode_t *ret_mode, dev_t *ret
                 *ret_devnum = devnum;
 
         return 0;
+}
+
+char* format_devnum(dev_t d, char buf[static DEVNUM_STR_MAX]) {
+        return ASSERT_PTR(snprintf_ok(buf, DEVNUM_STR_MAX, DEVNUM_FORMAT_STR, DEVNUM_FORMAT_VAL(d)));
 }

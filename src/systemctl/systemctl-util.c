@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/reboot.h>
+#include <fnmatch.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -11,23 +11,31 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "chase.h"
 #include "dropin.h"
 #include "env-util.h"
 #include "exit-status.h"
-#include "fs-util.h"
+#include "format-table.h"
+#include "format-util.h"
 #include "glob-util.h"
-#include "macro.h"
+#include "install.h"
+#include "output-mode.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "polkit-agent.h"
 #include "process-util.h"
 #include "reboot-util.h"
+#include "runtime-scope.h"
 #include "set.h"
 #include "stat-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
 #include "systemctl-util.h"
-#include "terminal-util.h"
+#include "unit-file.h"
+#include "unit-name.h"
 #include "verbs.h"
 
 static sd_bus *buses[_BUS_FOCUS_MAX] = {};
@@ -516,7 +524,7 @@ int unit_find_paths(
 
         /* Go via the bus to acquire the path, unless we are explicitly told not to, or when the unit name is a template */
         if (!force_client_side &&
-            !install_client_side() &&
+            install_client_side() == INSTALL_CLIENT_SIDE_NO &&
             !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *load_state = NULL, *dbus_path = NULL;
@@ -582,6 +590,13 @@ int unit_find_paths(
                         return log_error_errno(r, "Failed to find fragment for '%s': %m", unit_name);
 
                 if (_path) {
+                        /* Check if unit is masked (symlinked to /dev/null or empty) */
+                        r = null_or_empty_path(_path);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to check if '%s' is masked: %m", unit_name);
+                        if (r > 0)
+                                return -ERFKILL; /* special case: no logging */
+
                         path = strdup(_path);
                         if (!path)
                                 return log_oom();
@@ -873,26 +888,27 @@ bool output_show_unit(const UnitInfo *u, char **patterns) {
         return true;
 }
 
-bool install_client_side(void) {
-        /* Decides when to execute enable/disable/... operations client-side rather than server-side. */
-
-        if (running_in_chroot_or_offline())
-                return true;
-
-        if (sd_booted() <= 0)
-                return true;
-
-        if (!isempty(arg_root))
-                return true;
-
-        if (arg_runtime_scope == RUNTIME_SCOPE_GLOBAL)
-                return true;
+InstallClientSide install_client_side(void) {
+        /* Decides whether to execute enable/disable/… client-side offline operation rather than
+         * server-side. */
 
         /* Unsupported environment variable, mostly for debugging purposes */
         if (getenv_bool("SYSTEMCTL_INSTALL_CLIENT_SIDE") > 0)
-                return true;
+                return INSTALL_CLIENT_SIDE_OVERRIDE;
 
-        return false;
+        if (!isempty(arg_root))
+                return INSTALL_CLIENT_SIDE_ARG_ROOT;
+
+        if (running_in_chroot_or_offline())
+                return INSTALL_CLIENT_SIDE_OFFLINE;
+
+        if (sd_booted() <= 0)
+                return INSTALL_CLIENT_SIDE_NOT_BOOTED;
+
+        if (arg_runtime_scope == RUNTIME_SCOPE_GLOBAL)
+                return INSTALL_CLIENT_SIDE_GLOBAL_SCOPE;
+
+        return INSTALL_CLIENT_SIDE_NO;
 }
 
 int output_table(Table *table) {

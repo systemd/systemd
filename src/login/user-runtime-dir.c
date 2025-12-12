@@ -1,30 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdint.h>
+#include <linux/magic.h>
 #include <sys/mount.h>
 
 #include "sd-bus.h"
 
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "dev-setup.h"
 #include "devnum-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "label-util.h"
 #include "limits-util.h"
+#include "log.h"
 #include "main-func.h"
-#include "missing_magic.h"
-#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "quota-util.h"
 #include "rm-rf.h"
-#include "selinux-util.h"
+#include "set.h"
 #include "smack-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -210,6 +210,11 @@ static int apply_tmpfs_quota(
         assert(uid_is_valid(uid));
 
         STRV_FOREACH(p, paths) {
+                if (limit == UINT64_MAX && scale == UINT32_MAX) {
+                        log_debug("No disk quota on '%s' is requested.", *p);
+                        continue;
+                }
+
                 _cleanup_close_ int fd = open(*p, O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0) {
                         log_warning_errno(errno, "Failed to open '%s' in order to set quota, ignoring: %m", *p);
@@ -284,7 +289,8 @@ static int apply_tmpfs_quota(
                         log_debug_errno(r, "Lacking privileges to set UID quota on %s, skipping: %m", *p);
                         continue;
                 } else if (r < 0) {
-                        log_warning_errno(r, "Failed to set disk quota limit to '%s' on %s for UID " UID_FMT ", ignoring: %m", FORMAT_BYTES(v), *p, uid);
+                        log_warning_errno(r, "Failed to set disk quota limit to %s on %s for UID " UID_FMT ", ignoring: %m",
+                                          FORMAT_BYTES(v * QIF_DQBLKSIZE), *p, uid);
                         continue;
                 }
 
@@ -342,10 +348,8 @@ static int run(int argc, char *argv[]) {
         if (streq(verb, "start")) {
                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
                 r = userdb_by_name(user, /* match= */ NULL, USERDB_PARSE_NUMERIC|USERDB_SUPPRESS_SHADOW, &ur);
-                if (r == -ESRCH)
-                        return log_error_errno(r, "User '%s' does not exist: %m", user);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve user '%s': %m", user);
+                        return log_error_errno(r, "Failed to resolve user '%s': %s", user, STRERROR_USER(r));
 
                 /* We do two things here: mount the per-user XDG_RUNTIME_DIR, and set up tmpfs quota on /tmp/
                  * and /dev/shm/. */

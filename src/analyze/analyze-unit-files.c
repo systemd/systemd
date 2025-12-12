@@ -1,9 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
+#include <fnmatch.h>
+
+#include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-unit-files.h"
+#include "hashmap.h"
+#include "log.h"
 #include "path-lookup.h"
 #include "strv.h"
+#include "unit-file.h"
 
 static bool strv_fnmatch_strv_or_empty(char* const* patterns, char **strv, int flags) {
         STRV_FOREACH(s, strv)

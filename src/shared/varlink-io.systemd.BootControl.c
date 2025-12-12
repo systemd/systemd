@@ -2,7 +2,7 @@
 
 #include "varlink-io.systemd.BootControl.h"
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 BootEntryType,
                 SD_VARLINK_FIELD_COMMENT("Boot Loader Specification Type #1 entries (.conf files)"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(type1),
@@ -13,9 +13,27 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Automatically generated entries"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(auto));
 
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                BootEntrySource,
+                SD_VARLINK_FIELD_COMMENT("Boot entry found in EFI system partition (ESP)"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(esp),
+                SD_VARLINK_FIELD_COMMENT("Boot entry found in XBOOTLDR partition"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(xbootldr));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                BootEntryAddon,
+                SD_VARLINK_FIELD_COMMENT("The location of the global addon."),
+                SD_VARLINK_DEFINE_FIELD(globalAddon, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The location of the local addon."),
+                SD_VARLINK_DEFINE_FIELD(localAddon, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The command line options by the addon."),
+                SD_VARLINK_DEFINE_FIELD(options, SD_VARLINK_STRING, 0));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 BootEntry,
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(type, BootEntryType, 0),
+                SD_VARLINK_FIELD_COMMENT("The source of the entry"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(source, BootEntrySource, 0),
                 SD_VARLINK_FIELD_COMMENT("The string identifier of the entry"),
                 SD_VARLINK_DEFINE_FIELD(id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(path, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -29,6 +47,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(options, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(linux, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(efi, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(uki, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(profile, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(initrd, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_DEFINE_FIELD(devicetree, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(devicetreeOverlay, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
@@ -41,7 +61,11 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Indicates whether this entry is the default entry."),
                 SD_VARLINK_DEFINE_FIELD(isDefault, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Indicates whether this entry has been booted."),
-                SD_VARLINK_DEFINE_FIELD(isSelected, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(isSelected, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Addon images of the entry."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(addons, BootEntryAddon, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Command line options of the entry."),
+                SD_VARLINK_DEFINE_FIELD(cmdline, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 ListBootEntries,
@@ -71,6 +95,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_INTERFACE_COMMENT("Boot Loader control APIs"),
                 SD_VARLINK_SYMBOL_COMMENT("The type of a boot entry"),
                 &vl_type_BootEntryType,
+                SD_VARLINK_SYMBOL_COMMENT("The source of a boot entry"),
+                &vl_type_BootEntrySource,
+                SD_VARLINK_SYMBOL_COMMENT("A structure encapsulating an addon of a boot entry"),
+                &vl_type_BootEntryAddon,
                 SD_VARLINK_SYMBOL_COMMENT("A structure encapsulating a boot entry"),
                 &vl_type_BootEntry,
                 SD_VARLINK_SYMBOL_COMMENT("Enumerates boot entries. Method call must be called with 'more' flag set. Each response returns one entry. If no entries are defined returns the NoSuchBootEntry error."),

@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "sd-id128.h"
 
-#include "macro.h"
-#include "memory-util.h"
+#include "shared-forward.h"
 
 typedef struct KernelHibernateLocation KernelHibernateLocation;
 

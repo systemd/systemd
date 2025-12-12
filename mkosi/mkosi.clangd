@@ -9,7 +9,7 @@ else
 fi
 
 exec "${SPAWN[@]}" \
-    mkosi sandbox -- \
+    mkosi box -- \
         clangd \
             --compile-commands-dir=build \
             --path-mappings="\

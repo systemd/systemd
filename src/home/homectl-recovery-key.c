@@ -9,10 +9,8 @@
 #include "log.h"
 #include "memory-util.h"
 #include "qrcode-util.h"
-#include "random-util.h"
 #include "recovery-key.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static int add_privileged(sd_json_variant **v, const char *hashed) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL, *w = NULL, *l = NULL;
@@ -22,7 +20,7 @@ static int add_privileged(sd_json_variant **v, const char *hashed) {
         assert(hashed);
 
         r = sd_json_buildo(&e, SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("modhex64")),
-                           SD_JSON_BUILD_PAIR("hashedPassword", SD_JSON_BUILD_STRING(hashed)));
+                           SD_JSON_BUILD_PAIR_STRING("hashedPassword", hashed));
         if (r < 0)
                 return log_error_errno(r, "Failed to build recover key JSON object: %m");
 
@@ -33,7 +31,7 @@ static int add_privileged(sd_json_variant **v, const char *hashed) {
 
         r = sd_json_variant_append_array(&l, e);
         if (r < 0)
-                return log_error_errno(r, "Failed append recovery key: %m");
+                return log_error_errno(r, "Failed to append recovery key: %m");
 
         r = sd_json_variant_set_field(&w, "recoveryKey", l);
         if (r < 0)
@@ -95,6 +93,8 @@ static int add_secret(sd_json_variant **v, const char *password) {
         r = sd_json_variant_set_field(&w, "password", l);
         if (r < 0)
                 return log_error_errno(r, "Failed to update password field: %m");
+
+        sd_json_variant_sensitive(w);
 
         r = sd_json_variant_set_field(v, "secret", w);
         if (r < 0)

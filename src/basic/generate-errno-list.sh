@@ -6,6 +6,9 @@ set -o pipefail
 # In kernel's arch/parisc/include/uapi/asm/errno.h, ECANCELLED and EREFUSED are defined as aliases of
 # ECANCELED and ECONNREFUSED, respectively. Let's drop them.
 
-${1:?} -dM -include errno.h - </dev/null | \
+CC=${1:?}
+shift
+
+$CC -dM -include errno.h "$@" - </dev/null | \
        grep -Ev '^#define[[:space:]]+(ECANCELLED|EREFUSED)' | \
        awk '/^#define[ \t]+E[^ _]+[ \t]+/ { print $2; }'

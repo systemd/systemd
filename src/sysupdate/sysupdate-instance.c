@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-#include <sys/stat.h>
-
+#include "alloc-util.h"
 #include "log.h"
 #include "sysupdate-instance.h"
 

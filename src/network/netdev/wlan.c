@@ -8,6 +8,7 @@
 #include "networkd-manager.h"
 #include "networkd-wiphy.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "wifi-util.h"
 #include "wlan.h"
 

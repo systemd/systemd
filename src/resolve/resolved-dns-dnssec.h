@@ -1,15 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "time-util.h"
-
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsResourceKey DnsResourceKey;
-typedef struct DnsResourceRecord DnsResourceRecord;
+#include "resolved-forward.h"
 
 typedef enum DnssecResult {
         /* These six are returned by dnssec_verify_rrset() */
@@ -66,8 +58,6 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
 int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds);
 
 int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key);
-
-uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke);
 
 int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret);
 

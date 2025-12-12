@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdio.h>
-
-#include "errno-list.h"
-#include "macro.h"
+#include "shared-forward.h"
 #include "main-func.h"
 
-int generator_open_unit_file_full(const char *dest, const char *source, const char *name, FILE **ret_file, char **ret_final_path, char **ret_temp_path);
-static inline int generator_open_unit_file(const char *dest, const char *source, const char *name, FILE **ret_file) {
-        return generator_open_unit_file_full(dest, source, name, ret_file, NULL, NULL);
+int generator_open_unit_file_full(const char *dir, const char *source, const char *filename, FILE **ret_file, char **ret_final_path, char **ret_temp_path);
+static inline int generator_open_unit_file(const char *dir, const char *source, const char *filename, FILE **ret_file) {
+        return generator_open_unit_file_full(dir, source, filename, ret_file, NULL, NULL);
 }
 
 int generator_add_symlink_full(const char *dir, const char *dst, const char *dep_type, const char *src, const char *instance);
@@ -88,7 +85,7 @@ int generator_write_cryptsetup_service_section(
                 FILE *f,
                 const char *name,
                 const char *what,
-                const char *password,
+                const char *key_file,
                 const char *options);
 
 int generator_write_veritysetup_unit_section(FILE *f, const char *source);
@@ -118,7 +115,6 @@ bool generator_soft_rebooted(void);
                 impl(argv[1],                                           \
                      argv[argc == 4 ? 2 : 1],                           \
                      argv[argc == 4 ? 3 : 1]),                          \
-                exit_failure_if_negative,                               \
                 exit_failure_if_negative)
 
 typedef enum GptAutoRoot {

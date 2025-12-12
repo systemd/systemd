@@ -1,33 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
-#include "bus-message.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "constants.h"
 #include "daemon-util.h"
-#include "kbd-util.h"
+#include "hashmap.h"
+#include "label-util.h"
 #include "localed-util.h"
 #include "log.h"
-#include "macro.h"
 #include "main-func.h"
-#include "path-util.h"
-#include "selinux-util.h"
 #include "service-util.h"
-#include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
 
 static int vconsole_reload(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -640,6 +635,7 @@ static int run(int argc, char *argv[]) {
                                "Manage system locale settings and key mappings.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
+                               /* runtime_scope= */ NULL,
                                argc, argv);
         if (r <= 0)
                 return r;

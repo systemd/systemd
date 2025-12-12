@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "time-util.h"
 #include "udev-def.h"
+#include "udev-forward.h"
 
 extern bool arg_daemonize;
-
-typedef struct Manager Manager;
 
 typedef struct UdevConfig {
         int log_level;

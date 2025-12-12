@@ -4,12 +4,12 @@
 #include "sd-resolve.h"
 
 int resolve_getaddrinfo_with_destroy_callback(
-                sd_resolve *resolve, sd_resolve_query **q,
+                sd_resolve *resolve, sd_resolve_query **ret,
                 const char *node, const char *service, const struct addrinfo *hints,
                 sd_resolve_getaddrinfo_handler_t callback,
                 sd_resolve_destroy_t destroy_callback, void *userdata);
 int resolve_getnameinfo_with_destroy_callback(
-                sd_resolve *resolve, sd_resolve_query **q,
+                sd_resolve *resolve, sd_resolve_query **ret,
                 const struct sockaddr *sa, socklen_t salen, int flags, uint64_t get,
                 sd_resolve_getnameinfo_handler_t callback,
                 sd_resolve_destroy_t destroy_callback, void *userdata);

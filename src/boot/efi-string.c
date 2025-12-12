@@ -753,7 +753,7 @@ static bool handle_format_specifier(FormatContext *ctx, SpecifierContext *sp) {
          * otherwise warn about fetching smaller types. */
         assert_cc(sizeof(int) == 4);
         assert_cc(sizeof(wchar_t) <= sizeof(int));
-        assert_cc(sizeof(intmax_t) <= sizeof(long long));
+        assert_cc(sizeof(long long) == sizeof(intmax_t));
 
         assert(ctx);
         assert(sp);
@@ -917,6 +917,37 @@ static bool handle_format_specifier(FormatContext *ctx, SpecifierContext *sp) {
         }
 }
 
+#if SD_BOOT
+static void output_string_safe(EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *this, const char16_t *s) {
+        assert(this);
+        assert(s);
+
+        /* This is a color-conscious version of ST->ConOut->OutputString(). Whenever it encounters a newline
+         * character, it will reset the color to our default, because some UEFI implementations/terminals
+         * reset the color in that case, and we want our default color to remain in effect */
+
+        int32_t saved_attribute = ST->ConOut->Mode->Attribute;
+        for (;;) {
+                const char16_t *nl = strchr16(s, '\n');
+                if (!nl) /* No further newline */
+                        return (void) ST->ConOut->OutputString(ST->ConOut, (char16_t*) s);
+
+                if (nl[1] == 0) { /* Newline is at the end of the string */
+                        (void) ST->ConOut->OutputString(ST->ConOut, (char16_t*) s);
+                        set_attribute_safe(saved_attribute);
+                        return;
+                }
+
+                /* newline is in the middle of the string */
+                _cleanup_free_ char16_t *x = xstrndup16(s, nl - s + 1);
+                (void) ST->ConOut->OutputString(ST->ConOut, x);
+                set_attribute_safe(saved_attribute);
+
+                s = nl + 1;
+        }
+}
+#endif
+
 /* printf_internal is largely compatible to userspace vasprintf. Any features omitted should trigger asserts.
  *
  * Supported:
@@ -983,7 +1014,7 @@ _printf_(2, 0) static char16_t *printf_internal(EFI_STATUS status, const char *f
         }
 
 #if SD_BOOT
-        ST->ConOut->OutputString(ST->ConOut, ctx.buf);
+        output_string_safe(ST->ConOut, ctx.buf);
 #endif
 
         return mfree(ctx.dyn_buf);
@@ -1024,6 +1055,7 @@ _used_ void *memcpy(void * restrict dest, const void * restrict src, size_t n);
 _used_ void *memset(void *p, int c, size_t n);
 #else
 /* And for userspace unit testing we need to give them an efi_ prefix. */
+#  undef memchr
 #  define memchr efi_memchr
 #  define memcmp efi_memcmp
 #  define memcpy efi_memcpy

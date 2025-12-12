@@ -1,23 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <sched.h>
 #include <signal.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/resource.h>
-#include <sys/types.h>
 
-#include "alloc-util.h"
-#include "assert-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "macro.h"
-#include "pidref.h"
-#include "time-util.h"
+#include "basic-forward.h"
+#include "string-util.h"
 
 #define procfs_file_alloca(pid, field)                                  \
         ({                                                              \
@@ -97,7 +86,7 @@ int kill_and_sigcont(pid_t pid, int sig);
 int pid_is_kernel_thread(pid_t pid);
 int pidref_is_kernel_thread(const PidRef *pid);
 
-int getenv_for_pid(pid_t pid, const char *field, char **_value);
+int getenv_for_pid(pid_t pid, const char *field, char **ret);
 
 int pid_is_alive(pid_t pid);
 int pidref_is_alive(const PidRef *pidref);
@@ -132,7 +121,7 @@ int opinionated_personality(unsigned long *ret);
 const char* sigchld_code_to_string(int i) _const_;
 int sigchld_code_from_string(const char *s) _pure_;
 
-int sched_policy_to_string_alloc(int i, char **s);
+int sched_policy_to_string_alloc(int i, char **ret);
 int sched_policy_from_string(const char *s);
 
 static inline pid_t PTR_TO_PID(const void *p) {
@@ -147,17 +136,10 @@ void valgrind_summary_hack(void);
 
 int pid_compare_func(const pid_t *a, const pid_t *b);
 
-static inline bool nice_is_valid(int n) {
-        return n >= PRIO_MIN && n < PRIO_MAX;
-}
+bool nice_is_valid(int n) _const_;
 
-static inline bool sched_policy_is_valid(int i) {
-        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR);
-}
-
-static inline bool sched_priority_is_valid(int i) {
-        return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
-}
+bool sched_policy_is_valid(int i) _const_;
+bool sched_priority_is_valid(int i) _const_;
 
 #define PID_AUTOMATIC ((pid_t) INT_MIN) /* special value indicating "acquire pid from connection peer" */
 
@@ -205,7 +187,8 @@ typedef enum ForkFlags {
         FORK_NEW_NETNS          = 1 << 20, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_NEW_PIDNS          = 1 << 21, /* Run child in its own PID namespace                                 💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_FREEZE             = 1 << 22, /* Don't return in child, just call freeze() instead */
-        FORK_PID_ONLY           = 1 << 23, /* Don't open a pidfd referencing the child process */
+
+        _FORK_PID_ONLY          = 1 << 23, /* Don't open a pidfd referencing the child process */
 } ForkFlags;
 
 int pidref_safe_fork_full(

@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "time-util.h"
+#include "basic-forward.h"
 
 typedef enum ImageClass {
         IMAGE_MACHINE,
@@ -31,6 +28,7 @@ int path_is_extension_tree(ImageClass image_class, const char *path, const char 
 static inline int path_is_os_tree(const char *path) {
         return path_is_extension_tree(_IMAGE_CLASS_INVALID, path, NULL, false);
 }
+int fd_is_os_tree(int fd);
 
 int open_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, int *ret_fd);
 int open_extension_release_at(int rfd, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, int *ret_fd);

@@ -30,16 +30,16 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-timesyncd</filename> is a system service that may be used to synchronize the
-    local system clock with a remote Network Time Protocol (NTP) server. It also saves the local time to disk
-    every time the clock has been synchronized and uses this to possibly advance the system realtime clock on
-    subsequent reboots to ensure it (roughly) monotonically advances even if the system lacks a
+    <para><filename>systemd-timesyncd.service</filename> is a system service that may be used to synchronize
+    the local system clock with a remote Network Time Protocol (NTP) server. It also saves the local time to
+    disk every time the clock has been synchronized and uses this to possibly advance the system realtime
+    clock on subsequent reboots to ensure it (roughly) monotonically advances even if the system lacks a
     battery-buffered RTC chip.</para>
 
-    <para>The <filename>systemd-timesyncd</filename> service implements SNTP only. This minimalistic service
-    will step the system clock for large offsets or slowly adjust it for smaller deltas. Complex use cases
-    that require full NTP support (and where SNTP is not sufficient) are not covered by
-    <filename>systemd-timesyncd</filename>.</para>
+    <para>The <filename>systemd-timesyncd.service</filename> service implements SNTP only. This minimalistic
+    service will step the system clock for large offsets or slowly adjust it for smaller deltas. Complex use
+    cases that require full NTP support (and where SNTP is not sufficient) are not covered by
+    <filename>systemd-timesyncd.service</filename>.</para>
 
     <para>The NTP servers contacted are determined from the global settings in
     <citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, the
@@ -56,8 +56,8 @@
     <command>timesync-status</command> or <command>show-timesync</command> command can be used to show the
     current status of this service.</para>
 
-    <para><filename>systemd-timesyncd</filename> initialization delays the start of units that are ordered
-    after <filename>time-set.target</filename> (see
+    <para>Initialization of <filename>systemd-timesyncd.service</filename> delays the start of units that are
+    ordered after <filename>time-set.target</filename> (see
     <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
     details) until the local time has been updated from <filename>/var/lib/systemd/timesync/clock</filename>
     (see below) in order to make it roughly monotonic. It does not delay other units until synchronization
@@ -67,13 +67,13 @@
     <filename>time-sync.target</filename> until synchronization to an accurate reference clock is
     reached.</para>
 
-    <para><filename>systemd</filename> and <filename>systemd-timesyncd</filename> advance the system clock to
+    <para><command>systemd</command> and <command>systemd-timesyncd</command> advance the system clock to
     the "epoch" (the lowest date above which the system clock time is assumed to be set correctly). See
     "System clock epoch" section in
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details.
-    <filename>systemd</filename> will set the clock when initializing, but
+    <command>systemd</command> will set the clock when initializing, but
     <filename>/var/lib/systemd/timesync/clock</filename> might not yet be available at that point.
-    <filename>systemd-timesyncd</filename> will advance the clock when it is started and notices that the
+    <command>systemd-timesyncd</command> will advance the clock when it is started and notices that the
     system clock is before the modification time of <filename>/var/lib/systemd/timesync/clock</filename>.
     </para>
   </refsect1>
@@ -104,8 +104,8 @@
 
         <listitem>
           <para>A file that is touched on each successful synchronization to assist
-          <filename>systemd-time-wait-sync</filename> and other applications in detecting synchronization to
-          an accurate reference clock.</para>
+          <citerefentry><refentrytitle>systemd-time-wait-sync.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          service and other applications in detecting synchronization to an accurate reference clock.</para>
 
           <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>

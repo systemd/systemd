@@ -1,29 +1,35 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
+#include <unistd.h>
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "build.h"
 #include "copy.h"
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "pager.h"
 #include "parse-argument.h"
-#include "parse-util.h"
 #include "pretty-print.h"
 #include "recurse-dir.h"
 #include "socket-util.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "uid-classification.h"
 #include "uid-range.h"
 #include "umask-util.h"
@@ -33,14 +39,16 @@
 #include "verbs.h"
 #include "virt.h"
 
-static enum {
+typedef enum {
         OUTPUT_CLASSIC,
         OUTPUT_TABLE,
         OUTPUT_FRIENDLY,
         OUTPUT_JSON,
+        _OUTPUT_MAX,
         _OUTPUT_INVALID = -EINVAL,
-} arg_output = _OUTPUT_INVALID;
+} Output;
 
+static Output arg_output = _OUTPUT_INVALID;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static char** arg_services = NULL;
@@ -50,12 +58,22 @@ static bool arg_chain = false;
 static uint64_t arg_disposition_mask = UINT64_MAX;
 static uid_t arg_uid_min = 0;
 static uid_t arg_uid_max = UID_INVALID-1;
+static sd_id128_t arg_uuid = SD_ID128_NULL;
 static bool arg_fuzzy = false;
 static bool arg_boundaries = true;
 static sd_json_variant *arg_from_file = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_services, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_from_file, sd_json_variant_unrefp);
+
+static const char *output_table[_OUTPUT_MAX] = {
+        [OUTPUT_CLASSIC]  = "classic",
+        [OUTPUT_TABLE]    = "table",
+        [OUTPUT_FRIENDLY] = "friendly",
+        [OUTPUT_JSON]     = "json",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(output, Output);
 
 static const char *user_disposition_to_color(UserDisposition d) {
         assert(d >= 0);
@@ -167,6 +185,12 @@ static const struct {
                 .last = SYSTEM_UID_MAX,
                 .name = "system",
                 .disposition = USER_SYSTEM,
+        },
+        {
+                .first = GREETER_UID_MIN,
+                .last = GREETER_UID_MAX,
+                .name = "dynamic greeter",
+                .disposition = USER_DYNAMIC,
         },
         {
                 .first = DYNAMIC_UID_MIN,
@@ -389,7 +413,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
 
         if (arg_output < 0)
-                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
+                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) || !sd_id128_is_null(arg_uuid) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
                 table = table_new(" ", "name", "disposition", "uid", "gid", "realname", "home", "shell", "order");
@@ -409,6 +433,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 .disposition_mask = arg_disposition_mask,
                 .uid_min = arg_uid_min,
                 .uid_max = arg_uid_max,
+                .uuid = arg_uuid,
         };
 
         if (arg_from_file) {
@@ -480,7 +505,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected user database service is not available for this request.");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed acquire next user: %m");
+                                        return log_error_errno(r, "Failed to acquire next user: %m");
 
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -516,7 +541,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 if (!table_isempty(table)) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                         if (r < 0)
-                                return table_log_print_error(r);
+                                return r;
                 }
 
                 if (arg_legend) {
@@ -731,7 +756,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
 
         if (arg_output < 0)
-                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
+                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) || !sd_id128_is_null(arg_uuid) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
                 table = table_new(" ", "name", "disposition", "gid", "description", "order");
@@ -750,6 +775,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 .disposition_mask = arg_disposition_mask,
                 .gid_min = arg_uid_min,
                 .gid_max = arg_uid_max,
+                .uuid = arg_uuid,
         };
 
         if (arg_from_file) {
@@ -820,7 +846,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected group database service is not available for this request.");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed acquire next group: %m");
+                                        return log_error_errno(r, "Failed to acquire next group: %m");
 
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -855,7 +881,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 if (!table_isempty(table)) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                         if (r < 0)
-                                return table_log_print_error(r);
+                                return r;
                 }
 
                 if (arg_legend) {
@@ -892,8 +918,8 @@ static int show_membership(const char *user, const char *group, Table *table) {
 
                 r = sd_json_buildo(
                                 &v,
-                                SD_JSON_BUILD_PAIR("user", SD_JSON_BUILD_STRING(user)),
-                                SD_JSON_BUILD_PAIR("group", SD_JSON_BUILD_STRING(group)));
+                                SD_JSON_BUILD_PAIR_STRING("user", user),
+                                SD_JSON_BUILD_PAIR_STRING("group", group));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -967,7 +993,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected membership database service is not available for this request.");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed acquire next membership: %m");
+                                        return log_error_errno(r, "Failed to acquire next membership: %m");
 
                                 r = show_membership(user, group, table);
                                 if (r < 0)
@@ -994,7 +1020,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected membership database service is not available for this request.");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed acquire next membership: %m");
+                                        return log_error_errno(r, "Failed to acquire next membership: %m");
 
                                 r = show_membership(user, group, table);
                                 if (r < 0)
@@ -1007,7 +1033,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                 if (!table_isempty(table)) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                         if (r < 0)
-                                return table_log_print_error(r);
+                                return r;
                 }
 
                 if (arg_legend) {
@@ -1036,7 +1062,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
                         return 0;
                 }
 
-                return log_error_errno(errno, "Failed to open /run/systemd/userdb/: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/run/systemd/userdb/");
         }
 
         t = table_new("service", "listening");
@@ -1059,7 +1085,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
 
                 r = connect_unix_path(fd, dirfd(d), de->d_name);
                 if (r < 0) {
-                        no = strjoin("No (", errno_to_name(r), ")");
+                        no = strjoin("No (", ERRNO_NAME(r), ")");
                         if (!no)
                                 return log_oom();
                 }
@@ -1075,7 +1101,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
         if (!table_isempty(t)) {
                 r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
-                        return table_log_print_error(r);
+                        return r;
         }
 
         if (arg_legend && arg_output != OUTPUT_JSON) {
@@ -1171,17 +1197,66 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int load_credential_one(int credential_dir_fd, const char *name, int userdb_dir_fd) {
+static int write_membership(int dir_fd, const char *dir, const char *user, const char *group) {
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(dir);
+        assert(user);
+        assert(group);
+
+        _cleanup_free_ char *membership = strjoin(user, ":", group, ".membership");
+        if (!membership)
+                return log_oom();
+
+        _cleanup_close_ int fd = openat(dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create %s/%s: %m", dir, membership);
+
+        r = loop_write(fd, "{}\n", SIZE_MAX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write empty JSON object into %s/%s: %m", dir, membership);
+
+        log_info("Installed %s/%s from credential.", dir, membership);
+
+        return 0;
+}
+
+static int load_credential_one(
+                int credential_dir_fd,
+                const char *name,
+                int *userdb_dir_persist_fd,
+                int *userdb_dir_transient_fd) {
+
         int r;
 
         assert(credential_dir_fd >= 0);
         assert(name);
-        assert(userdb_dir_fd >= 0);
+        assert(userdb_dir_persist_fd);
+        assert(userdb_dir_transient_fd);
 
-        const char *user = startswith(name, "userdb.user.");
-        const char *group = startswith(name, "userdb.group.");
+        const char *suffix = startswith(name, "userdb.");
+        if (!suffix)
+                return 0;
+
+        const char *transient = startswith(suffix, "transient."),
+                *user = startswith(transient ?: suffix, "user."),
+                *group = startswith(transient ?: suffix, "group.");
         if (!user && !group)
                 return 0;
+
+        const char *userdb_dir = transient ? "/run/userdb" : "/etc/userdb";
+
+        int *userdb_dir_fd = transient ? userdb_dir_transient_fd : userdb_dir_persist_fd;
+        if (*userdb_dir_fd == -EBADF) {
+                *userdb_dir_fd = xopenat_full(AT_FDCWD, userdb_dir,
+                                              /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
+                                              /* xopen_flags= */ XO_LABEL,
+                                              /* mode= */ 0755);
+                if (*userdb_dir_fd < 0)
+                        return log_error_errno(*userdb_dir_fd, "Failed to open '%s/': %m", userdb_dir);
+        } else if (*userdb_dir_fd < 0)
+                return log_debug_errno(*userdb_dir_fd, "Previous attempt to open '%s/' failed, skipping.", userdb_dir);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         unsigned line = 0, column = 0;
@@ -1338,14 +1413,14 @@ static int load_credential_one(int credential_dir_fd, const char *name, int user
         if (r < 0)
                 return log_error_errno(r, "Failed to format JSON record: %m");
 
-        r = write_string_file_at(userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = write_string_file_at(*userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
-                return log_error_errno(r, "Failed to write JSON record to /etc/userdb/%s: %m", fn);
+                return log_error_errno(r, "Failed to write JSON record to %s/%s: %m", userdb_dir, fn);
 
-        if (symlinkat(fn, userdb_dir_fd, link) < 0)
-                return log_error_errno(errno, "Failed to create symlink from %s to %s", link, fn);
+        if (symlinkat(fn, *userdb_dir_fd, link) < 0)
+                return log_error_errno(errno, "Failed to create symlink from %s to %s: %m", link, fn);
 
-        log_info("Installed /etc/userdb/%s from credential.", fn);
+        log_info("Installed %s/%s from credential.", userdb_dir, fn);
 
         if ((ur && !sd_json_variant_is_blank_object(ur_privileged->json)) ||
             (gr && !sd_json_variant_is_blank_object(gr_privileged->json))) {
@@ -1359,9 +1434,9 @@ static int load_credential_one(int credential_dir_fd, const char *name, int user
                 if (r < 0)
                         return log_error_errno(r, "Failed to format JSON record: %m");
 
-                r = write_string_file_at(userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
+                r = write_string_file_at(*userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to write JSON record to /etc/userdb/%s: %m", fn);
+                        return log_error_errno(r, "Failed to write JSON record to %s/%s: %m", userdb_dir, fn);
 
                 link = mfree(link);
 
@@ -1373,35 +1448,23 @@ static int load_credential_one(int credential_dir_fd, const char *name, int user
                                 return log_oom();
                 }
 
-                if (symlinkat(fn, userdb_dir_fd, link) < 0)
-                        return log_error_errno(errno, "Failed to create symlink from %s to %s", link, fn);
+                if (symlinkat(fn, *userdb_dir_fd, link) < 0)
+                        return log_error_errno(errno, "Failed to create symlink from %s to %s: %m", link, fn);
 
-                log_info("Installed /etc/userdb/%s from credential.", fn);
+                log_info("Installed %s/%s from credential.", userdb_dir, fn);
         }
 
         if (ur)
                 STRV_FOREACH(g, ur->member_of) {
-                        _cleanup_free_ char *membership = strjoin(ur->user_name, ":", *g);
-                        if (!membership)
-                                return log_oom();
-
-                        _cleanup_close_ int fd = openat(userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
-                        if (fd < 0)
-                                return log_error_errno(errno, "Failed to create %s: %m", membership);
-
-                        log_info("Installed /etc/userdb/%s from credential.", membership);
+                        r = write_membership(*userdb_dir_fd, userdb_dir, ur->user_name, *g);
+                        if (r < 0)
+                                return r;
                 }
         else
                 STRV_FOREACH(u, gr->members) {
-                        _cleanup_free_ char *membership = strjoin(*u, ":", gr->group_name);
-                        if (!membership)
-                                return log_oom();
-
-                        _cleanup_close_ int fd = openat(userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
-                        if (fd < 0)
-                                return log_error_errno(errno, "Failed to create %s: %m", membership);
-
-                        log_info("Installed /etc/userdb/%s from credential.", membership);
+                        r = write_membership(*userdb_dir_fd, userdb_dir, *u, gr->group_name);
+                        if (r < 0)
+                                return r;
                 }
 
         if (ur && user_record_disposition(ur) == USER_REGULAR) {
@@ -1451,13 +1514,7 @@ static int load_credentials(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate credentials: %m");
 
-        _cleanup_close_ int userdb_dir_fd = xopenat_full(
-                AT_FDCWD, "/etc/userdb",
-                /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
-                /* xopen_flags= */ XO_LABEL,
-                /* mode= */ 0755);
-        if (userdb_dir_fd < 0)
-                return log_error_errno(userdb_dir_fd, "Failed to open '/etc/userdb/': %m");
+        _cleanup_close_ int userdb_persist_dir_fd = -EBADF, userdb_transient_dir_fd = -EBADF;
 
         FOREACH_ARRAY(i, des->entries, des->n_entries) {
                 struct dirent *de = *i;
@@ -1465,7 +1522,11 @@ static int load_credentials(int argc, char *argv[], void *userdata) {
                 if (de->d_type != DT_REG)
                         continue;
 
-                RET_GATHER(r, load_credential_one(credential_dir_fd, de->d_name, userdb_dir_fd));
+                RET_GATHER(r, load_credential_one(
+                                credential_dir_fd,
+                                de->d_name,
+                                &userdb_persist_dir_fd,
+                                &userdb_transient_dir_fd));
         }
 
         return r;
@@ -1544,6 +1605,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CHAIN,
                 ARG_UID_MIN,
                 ARG_UID_MAX,
+                ARG_UUID,
                 ARG_DISPOSITION,
                 ARG_BOUNDARIES,
         };
@@ -1564,6 +1626,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "chain",        no_argument,       NULL, ARG_CHAIN        },
                 { "uid-min",      required_argument, NULL, ARG_UID_MIN      },
                 { "uid-max",      required_argument, NULL, ARG_UID_MAX      },
+                { "uuid",         required_argument, NULL, ARG_UUID         },
                 { "fuzzy",        no_argument,       NULL, 'z'              },
                 { "disposition",  required_argument, NULL, ARG_DISPOSITION  },
                 { "boundaries",   required_argument, NULL, ARG_BOUNDARIES   },
@@ -1620,24 +1683,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_OUTPUT:
-                        if (isempty(optarg))
-                                arg_output = _OUTPUT_INVALID;
-                        else if (streq(optarg, "classic"))
-                                arg_output = OUTPUT_CLASSIC;
-                        else if (streq(optarg, "friendly"))
-                                arg_output = OUTPUT_FRIENDLY;
-                        else if (streq(optarg, "json"))
-                                arg_output = OUTPUT_JSON;
-                        else if (streq(optarg, "table"))
-                                arg_output = OUTPUT_TABLE;
-                        else if (streq(optarg, "help")) {
-                                puts("classic\n"
-                                     "friendly\n"
-                                     "json\n"
-                                     "table");
-                                return 0;
-                        } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid --output= mode: %s", optarg);
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(output, Output, _OUTPUT_MAX);
+
+                        arg_output = output_from_string(optarg);
+                        if (arg_output < 0)
+                                return log_error_errno(arg_output, "Invalid --output= mode: %s", optarg);
 
                         arg_json_format_flags = arg_output == OUTPUT_JSON ? SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO : SD_JSON_FORMAT_OFF;
                         break;
@@ -1757,6 +1808,12 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_uid(optarg, &arg_uid_max);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --uid-max= value: %s", optarg);
+                        break;
+
+                case ARG_UUID:
+                        r = sd_id128_from_string(optarg, &arg_uuid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --uuid= value: %s", optarg);
                         break;
 
                 case 'z':

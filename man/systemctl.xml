@@ -225,8 +225,8 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
 
           <listitem>
             <para>Check whether any of the specified units is in the "failed" state. If no unit is specified,
-            check whether there are any failed units, which corresponds to the <literal>degraded</literal> state
-            returned by <command>is-system-running</command>. Returns an exit code <constant>0</constant>
+            check whether there are any failed units or ordering cycles, which corresponds to the <literal>degraded</literal>
+            state returned by <command>is-system-running</command>. Returns an exit code <constant>0</constant>
             if at least one has failed, non-zero otherwise. Unless <option>--quiet</option> is specified, this
             will also print the current unit or system state to standard output.</para>
 
@@ -377,7 +377,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <varlistentry>
           <term>
             <command>list-dependencies</command>
-            <optional><replaceable>UNIT</replaceable>...</optional>
+            <optional><replaceable>UNIT</replaceable>…</optional>
           </term>
 
           <listitem>
@@ -558,7 +558,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>clean <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
-            <para>Remove the configuration, state, cache, logs or runtime data of the specified units. Use
+            <para>Remove the configuration, state, cache, logs, runtime or file descriptor store data of the specified units. Use
             <option>--what=</option> to select which kind of resource to remove. For service units this may
             be used to remove the directories configured with <varname>ConfigurationDirectory=</varname>,
             <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>,
@@ -573,7 +573,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             command only applies to units that use either of these settings. If <option>--what=</option> is
             not specified, the cache and runtime data as well as the file descriptor store are removed (as
             these three types of resources are generally redundant and reproducible on the next invocation of
-            the unit). Note that the specified units must be stopped to invoke this operation.</para>
+            the unit). Multiple values can be separated by commas. Note that the specified units must be stopped
+            to invoke this operation.</para>
 
             <table>
               <title>
@@ -615,6 +616,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                   <row>
                     <entry><literal>all</literal></entry>
                     <entry>All of the above</entry>
+                  </row>
+                  <row>
+                    <entry><literal>help</literal></entry>
+                    <entry>Show the supported values and exit</entry>
                   </row>
                 </tbody>
               </tgroup>
@@ -1750,7 +1755,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             </para>
 
             <para>To load a kernel, an enumeration is performed following the
-            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>,
+            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>,
             and the default boot entry is loaded. For this step to succeed, the system must be using UEFI
             and the boot loader entries must be configured appropriately. <command>bootctl list</command>
             may be used to list boot entries, see
@@ -2192,6 +2197,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <listitem>
           <para>When queuing a new job, this option controls how to deal with
           already queued jobs. It takes one of <literal>fail</literal>,
+          <literal>lenient</literal>,
           <literal>replace</literal>,
           <literal>replace-irreversibly</literal>,
           <literal>isolate</literal>,
@@ -2204,10 +2210,12 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <command>isolate</command> command is used which implies the
           <literal>isolate</literal> job mode.</para>
 
-          <para>If <literal>fail</literal> is specified and a requested
-          operation conflicts with a pending job (more specifically:
-          causes an already pending start job to be reversed into a stop
-          job or vice versa), cause the operation to fail.</para>
+          <para>If <literal>fail</literal> is specified and a requested operation on weak dependencies
+          conflicts with a pending job (more specifically: causes an already pending start job to be reversed
+          into a stop job or vice versa), cause the operation to fail.</para>
+
+          <para>If <literal>lenient</literal> is specified and a requested operation conflicts with any
+          active/activating unit, cause the operation to fail.</para>
 
           <para>If <literal>replace</literal> (the default) is
           specified, any conflicting pending job will be replaced, as
@@ -2293,11 +2301,13 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <listitem>
           <para>When system shutdown or sleep state is requested, this option controls checking of inhibitor
-          locks. It takes one of <literal>auto</literal>, <literal>yes</literal> or
-          <literal>no</literal>. Defaults to <literal>auto</literal>, which means logind will perform the
-          check and respect active inhibitor locks, but systemctl will only do a client-side check for
-          interactive invocations (i.e. from a TTY), so that a more friendly and informative error can be
-          returned to users. <literal>no</literal> disables both the systemctl and logind checks.</para>
+          locks. It takes one of <literal>auto</literal>, <literal>yes</literal>, and <literal>no</literal>.
+          Defaults to <literal>auto</literal>, which means logind will perform the check and respect active
+          inhibitor locks, but <command>systemctl</command> will only do a client-side check for interactive
+          invocations (i.e. from a TTY), so that a more friendly and informative error can be returned to
+          users. <literal>no</literal> disables the checks both in <command>systemctl</command> and
+          <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          </para>
 
           <para>Applications can establish inhibitor locks to prevent certain important operations (such as
           CD burning) from being interrupted by system shutdown or sleep. Any user may take these locks and
@@ -2345,6 +2355,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           suppress output of commands for which the printed output is
           the only result (like <command>show</command>). Errors are
           always printed.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-v</option></term>
+        <term><option>--verbose</option></term>
+
+        <listitem>
+          <para>Display unit log output while executing unit operations.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
 
@@ -2460,23 +2481,25 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <listitem>
           <para>When used with <command>kill</command>, choose which processes to send a UNIX process signal
-          to. Must be one of <option>main</option>, <option>control</option> or <option>all</option> to
-          select whether to kill only the main process, the control process or all processes of the unit. The
-          main process of the unit is the one that defines the life-time of it. A control process of a unit
-          is one that is invoked by the manager to induce state changes of it. For example, all processes
-          started due to the <varname>ExecStartPre=</varname>, <varname>ExecStop=</varname> or
-          <varname>ExecReload=</varname> settings of service units are control processes. Note that there is
-          only one control process per unit at a time, as only one state change is executed at a time. For
-          services of type <varname>Type=forking</varname>, the initial process started by the manager for
+          to. Must be one of <option>main</option>, <option>control</option>, <option>cgroup</option> or
+          <option>all</option> to select whether to kill only the main process, the control process, all
+          processes in the unit's control group or all processes of the unit. The main process of the unit is
+          the one that defines the life-time of it. A control process of a unit is one that is invoked by the
+          manager to induce state changes of it. For example, all processes started due to the
+          <varname>ExecStartPre=</varname>, <varname>ExecStop=</varname> or <varname>ExecReload=</varname>
+          settings of service units are control processes. Note that there is only one control process per
+          unit at a time, as only one state change is executed at a time. For services of type
+          <varname>Type=forking</varname>, the initial process started by the manager for
           <varname>ExecStart=</varname> is a control process, while the process ultimately forked off by that
           one is then considered the main process of the unit (if it can be determined). This is different
           for service units of other types, where the process forked off by the manager for
           <varname>ExecStart=</varname> is always the main process itself. A service unit consists of zero or
-          one main process, zero or one control process plus any number of additional processes. Not all unit
-          types manage processes of these types however. For example, for mount units, control processes are
-          defined (which are the invocations of <filename>&MOUNT_PATH;</filename> and
-          <filename>&UMOUNT_PATH;</filename>), but no main process is defined. If omitted, defaults to
-          <option>all</option>.</para>
+          one main process, zero or one control process plus any number of additional processes part of the
+          unit's control group. Not all unit types manage processes of these types however. For example, for
+          mount units, control processes are defined (which are the invocations of
+          <filename>&MOUNT_PATH;</filename> and <filename>&UMOUNT_PATH;</filename>), but no main process is
+          defined. If omitted, defaults to <option>all</option>, except if <option>--kill-subgroup=</option>
+          is used in which case defaults to <option>cgroup</option>.</para>
 
           <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
@@ -2501,6 +2524,28 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         affect main and control processes but no other processes.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kill-subgroup=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>Takes a control group sub-path to send signals to, for use with the
+        <command>kill</command> command. By default the chosen signal is delivered to all processes of the
+        unit's cgroups (as well as the main/control processes (if outside) – subject to
+        <option>--kill-whom=</option>). But with this option a subgroup can be selelected instead. This
+        functionality is only available if <literal>cgroup</literal> or <literal>cgroup-fail</literal> are
+        used with <option>--kill-whom=</option>, and in fact the former is the default if
+        <option>--kill-subgroup=</option> is used.</para>
+
+        <para>The specified path may, but doesn't have to be prefixed with a slash, and its absence or
+        presence has no effect, the path is either way taken relative to the unit's main control group
+        path.</para>
+
+        <para>This functionality is only available on units where control group delegation is enabled (see
+        <varname>Delegate=</varname> in
+        <member><citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="signal" />
@@ -2601,7 +2646,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         are applied to file system in the indicated disk image. This option is similar to
         <option>--root=</option>, but operates on file systems stored in disk images or block devices. The
         disk image should either contain just a file system or a set of file systems within a GPT partition
-        table, following the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
+        table, following the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         switch of the same name.</para>

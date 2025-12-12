@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "macro.h"
+#include "core-forward.h"
 
 typedef enum KillMode {
         /* The kill mode is a property of a unit. */
@@ -34,6 +31,8 @@ typedef enum KillWhom {
         KILL_MAIN_FAIL,
         KILL_CONTROL_FAIL,
         KILL_ALL_FAIL,
+        KILL_CGROUP,
+        KILL_CGROUP_FAIL,
         _KILL_WHOM_MAX,
         _KILL_WHOM_INVALID = -EINVAL,
 } KillWhom;

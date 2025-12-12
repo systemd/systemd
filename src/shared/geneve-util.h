@@ -3,7 +3,7 @@
 
 #include <linux/if_link.h>
 
-#include "conf-parser.h"
+#include "shared-forward.h"
 
 typedef enum GeneveDF {
         NETDEV_GENEVE_DF_UNSET    = GENEVE_DF_UNSET,
@@ -14,4 +14,4 @@ typedef enum GeneveDF {
 } GeneveDF;
 
 const char* geneve_df_to_string(GeneveDF d) _const_;
-GeneveDF geneve_df_from_string(const char *d) _pure_;
+GeneveDF geneve_df_from_string(const char *s) _pure_;

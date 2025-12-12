@@ -1,21 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "sd-bus.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "bus-log-control-api.h"
-#include "bus-polkit.h"
+#include "bus-object.h"
+#include "bus-util.h"
 #include "common-signal.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "hashmap.h"
+#include "log.h"
 #include "main-func.h"
 #include "portabled.h"
-#include "portabled-bus.h"
-#include "portabled-image-bus.h"
-#include "process-util.h"
 #include "service-util.h"
 #include "signal-util.h"
 
@@ -44,13 +44,13 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
         r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+                log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
         (void) sd_event_set_watchdog(m->event, true);
 
@@ -133,6 +133,7 @@ static int run(int argc, char *argv[]) {
                                "Manage registrations of portable images.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
+                               /* runtime_scope= */ NULL,
                                argc, argv);
         if (r <= 0)
                 return r;

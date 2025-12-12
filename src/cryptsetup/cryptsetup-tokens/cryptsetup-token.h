@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stddef.h>
-
-struct crypt_device;
+#include "shared-forward.h"
 
 /* for more information see libcryptsetup.h crypt-tokens section */
 

@@ -1,15 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
 #include <linux/if_arp.h>
 #include <netinet/in.h>
 
 #include "sd-dhcp-server.h"
 
+#include "conf-parser.h"
 #include "dhcp-protocol.h"
 #include "dhcp-server-lease-internal.h"
+#include "dns-domain.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
+#include "hostname-setup.h"
 #include "network-common.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-server.h"
@@ -20,9 +25,10 @@
 #include "networkd-network.h"
 #include "networkd-ntp.h"
 #include "networkd-queue.h"
+#include "networkd-resolve-hook.h"
 #include "networkd-route-util.h"
-#include "parse-util.h"
 #include "path-util.h"
+#include "set.h"
 #include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -148,13 +154,13 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
         return 0;
 }
 
-static bool dhcp_server_persist_leases(Link *link) {
+static DHCPServerPersistLeases link_get_dhcp_server_persist_leases(Link *link) {
         assert(link);
         assert(link->manager);
         assert(link->network);
 
         if (in4_addr_is_set(&link->network->dhcp_server_relay_target))
-                return false; /* On relay mode. Nothing saved in the persistent storage. */
+                return DHCP_SERVER_PERSIST_LEASES_NO; /* On relay mode. Nothing saved in the persistent storage. */
 
         if (link->network->dhcp_server_persist_leases >= 0)
                 return link->network->dhcp_server_persist_leases;
@@ -162,9 +168,47 @@ static bool dhcp_server_persist_leases(Link *link) {
         return link->manager->dhcp_server_persist_leases;
 }
 
+static int link_get_dhcp_server_lease_file(Link *link, int *ret_dir_fd, char **ret_path) {
+        assert(link);
+        assert(link->ifname);
+        assert(ret_dir_fd);
+        assert(ret_path);
+
+        /* This does not copy fd. Do not close fd stored in ret_dir_fd. */
+
+        switch (link_get_dhcp_server_persist_leases(link)) {
+        case DHCP_SERVER_PERSIST_LEASES_NO:
+                *ret_dir_fd = -EBADF;
+                *ret_path = NULL;
+                return 0;
+
+        case DHCP_SERVER_PERSIST_LEASES_YES: {
+                if (link->manager->persistent_storage_fd < 0)
+                        return -EBUSY; /* persistent storage is not ready. */
+
+                char *p = path_join("dhcp-server-lease", link->ifname);
+                if (!p)
+                        return -ENOMEM;
+
+                *ret_dir_fd = link->manager->persistent_storage_fd;
+                *ret_path = p;
+                return 1;
+        }
+        case DHCP_SERVER_PERSIST_LEASES_RUNTIME: {
+                char *p = path_join("/run/systemd/netif/dhcp-server-lease", link->ifname);
+                if (!p)
+                        return -ENOMEM;
+
+                *ret_dir_fd = AT_FDCWD;
+                *ret_path = p;
+                return 1;
+        }
+        default:
+                assert_not_reached();
+        }
+}
+
 int address_acquire_from_dhcp_server_leases_file(Link *link, const Address *address, union in_addr_union *ret) {
-        struct in_addr a;
-        uint8_t prefixlen;
         int r;
 
         assert(link);
@@ -183,18 +227,18 @@ int address_acquire_from_dhcp_server_leases_file(Link *link, const Address *addr
         if (!link_dhcp4_server_enabled(link))
                 return -ENOENT;
 
-        if (!dhcp_server_persist_leases(link))
+        _cleanup_free_ char *lease_file = NULL;
+        int dir_fd;
+        r = link_get_dhcp_server_lease_file(link, &dir_fd, &lease_file);
+        if (r < 0)
+                return r;
+        if (r == 0) /* persistent leases is disabled */
                 return -ENOENT;
 
-        if (link->manager->persistent_storage_fd < 0)
-                return -EBUSY; /* The persistent storage is not ready, try later again. */
-
-        _cleanup_free_ char *lease_file = path_join("dhcp-server-lease", link->ifname);
-        if (!lease_file)
-                return -ENOMEM;
-
+        struct in_addr a;
+        uint8_t prefixlen;
         r = dhcp_server_leases_file_get_server_address(
-                        link->manager->persistent_storage_fd,
+                        dir_fd,
                         lease_file,
                         &a,
                         &prefixlen);
@@ -232,16 +276,15 @@ int link_start_dhcp4_server(Link *link) {
         /* TODO: Maybe, also check the system time is synced. If the system does not have RTC battery, then
          * the realtime clock in not usable in the early boot stage, and all saved leases may be wrongly
          * handled as expired and dropped. */
-        if (dhcp_server_persist_leases(link)) {
-
-                if (link->manager->persistent_storage_fd < 0)
-                        return 0; /* persistent storage is not ready. */
-
-                _cleanup_free_ char *lease_file = path_join("dhcp-server-lease", link->ifname);
-                if (!lease_file)
-                        return -ENOMEM;
-
-                r = sd_dhcp_server_set_lease_file(link->dhcp_server, link->manager->persistent_storage_fd, lease_file);
+        _cleanup_free_ char *lease_file = NULL;
+        int dir_fd;
+        r = link_get_dhcp_server_lease_file(link, &dir_fd, &lease_file);
+        if (r == -EBUSY)
+                return 0; /* persistent storage is not ready. */
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                r = sd_dhcp_server_set_lease_file(link->dhcp_server, dir_fd, lease_file);
                 if (r < 0)
                         return r;
         }
@@ -263,7 +306,7 @@ void manager_toggle_dhcp4_server_state(Manager *manager, bool start) {
         HASHMAP_FOREACH(link, manager->links_by_index) {
                 if (!link->dhcp_server)
                         continue;
-                if (!dhcp_server_persist_leases(link))
+                if (link_get_dhcp_server_persist_leases(link) != DHCP_SERVER_PERSIST_LEASES_YES)
                         continue;
 
                 /* Even if 'start' is true, first we need to stop the server. Otherwise, we cannot (re)set
@@ -488,6 +531,36 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
         return sd_dhcp_server_set_dns(link->dhcp_server, addresses, n_addresses);
 }
 
+static int dhcp_server_set_domain(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->dhcp_server);
+
+        if (!link->network->dhcp_server_emit_domain)
+                return 0;
+
+        if (link->network->dhcp_server_domain)
+                return sd_dhcp_server_set_domain_name(link->dhcp_server, link->network->dhcp_server_domain);
+
+        /* When domain is not specified, use the domain part of the current hostname. */
+        _cleanup_free_ char *hostname = NULL;
+        r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST | GET_HOSTNAME_FALLBACK_DEFAULT, &hostname);
+        if (r < 0)
+                return r;
+
+        const char *domain = hostname;
+        r = dns_name_parent(&domain);
+        if (r < 0)
+                return r;
+
+        if (isempty(domain))
+                return -ENXIO;
+
+        return sd_dhcp_server_set_domain_name(link->dhcp_server, domain);
+}
+
 static int dhcp4_server_configure(Link *link) {
         bool acquired_uplink = false;
         sd_dhcp_option *p;
@@ -638,6 +711,12 @@ static int dhcp4_server_configure(Link *link) {
                 }
         }
 
+        r = dhcp_server_set_domain(link);
+        if (r == -ENXIO)
+                log_link_warning_errno(link, r, "Cannot get domain from the current hostname, DHCP server will not emit domain option.");
+        else if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set domain name for DHCP server: %m");
+
         ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_options) {
                 r = sd_dhcp_server_add_option(link->dhcp_server, p);
                 if (r == -EEXIST)
@@ -655,7 +734,12 @@ static int dhcp4_server_configure(Link *link) {
         }
 
         HASHMAP_FOREACH(static_lease, link->network->dhcp_static_leases_by_section) {
-                r = sd_dhcp_server_set_static_lease(link->dhcp_server, &static_lease->address, static_lease->client_id, static_lease->client_id_size);
+                r = sd_dhcp_server_set_static_lease(
+                                link->dhcp_server,
+                                &static_lease->address,
+                                static_lease->client_id,
+                                static_lease->client_id_size,
+                                static_lease->hostname);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 static lease for DHCP server: %m");
         }
@@ -663,6 +747,8 @@ static int dhcp4_server_configure(Link *link) {
         r = link_start_dhcp4_server(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");
+
+        manager_notify_hook_filters(link->manager);
 
         return 0;
 }
@@ -746,7 +832,6 @@ int config_parse_dhcp_server_relay_agent_suboption(
                 void *userdata) {
 
         char **suboption_value = data;
-        char* p;
 
         assert(filename);
         assert(lvalue);
@@ -757,7 +842,7 @@ int config_parse_dhcp_server_relay_agent_suboption(
                 return 0;
         }
 
-        p = startswith(rvalue, "string:");
+        const char *p = startswith(rvalue, "string:");
         if (!p) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse %s=%s'. Invalid format, ignoring.", lvalue, rvalue);
@@ -914,3 +999,19 @@ int config_parse_dhcp_server_ipv6_only_preferred(
         *usec = t;
         return 0;
 }
+
+static const char* const dhcp_server_persist_leases_table[_DHCP_SERVER_PERSIST_LEASES_MAX] = {
+        [DHCP_SERVER_PERSIST_LEASES_NO]      = "no",
+        [DHCP_SERVER_PERSIST_LEASES_YES]     = "yes",
+        [DHCP_SERVER_PERSIST_LEASES_RUNTIME] = "runtime",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(
+                dhcp_server_persist_leases,
+                DHCPServerPersistLeases,
+                DHCP_SERVER_PERSIST_LEASES_YES);
+
+DEFINE_CONFIG_PARSE_ENUM(
+                config_parse_dhcp_server_persist_leases,
+                dhcp_server_persist_leases,
+                DHCPServerPersistLeases);

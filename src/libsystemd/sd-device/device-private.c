@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <net/if.h>
-#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 
@@ -10,21 +10,22 @@
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "macro.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 
@@ -441,7 +442,10 @@ static int device_verify(sd_device *device) {
                 return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
                                               "sd-device: Device created from strv or nulstr lacks devpath, subsystem, action or seqnum.");
 
-        if (device_in_subsystem(device, "drivers")) {
+        r = device_in_subsystem(device, "drivers");
+        if (r < 0)
+                return log_device_debug_errno(device, r, "sd-device: Failed to check if the device is a driver: %m");
+        if (r > 0) {
                 r = device_set_drivers_subsystem(device);
                 if (r < 0)
                         return log_device_debug_errno(device, r,
@@ -740,22 +744,16 @@ static int device_tag(sd_device *device, const char *tag, bool add) {
 }
 
 int device_tag_index(sd_device *device, sd_device *device_old, bool add) {
-        int r = 0, k;
+        int r = 0;
 
         if (add && device_old)
                 /* delete possible left-over tags */
                 FOREACH_DEVICE_TAG(device_old, tag)
-                        if (!sd_device_has_tag(device, tag)) {
-                                k = device_tag(device_old, tag, false);
-                                if (r >= 0 && k < 0)
-                                        r = k;
-                        }
+                        if (!sd_device_has_tag(device, tag))
+                                RET_GATHER(r, device_tag(device_old, tag, false));
 
-        FOREACH_DEVICE_TAG(device, tag) {
-                k = device_tag(device, tag, add);
-                if (r >= 0 && k < 0)
-                        r = k;
-        }
+        FOREACH_DEVICE_TAG(device, tag)
+                RET_GATHER(r, device_tag(device, tag, add));
 
         return r;
 }

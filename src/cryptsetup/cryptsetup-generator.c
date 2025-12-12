@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <fcntl.h>
+#include <stdlib.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
@@ -23,6 +21,7 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "unit-name.h"
 
 typedef struct crypto_device {
@@ -799,10 +798,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 static int add_crypttab_device(const char *name, const char *device, const char *keyspec, const char *options) {
         _cleanup_free_ char *keyfile = NULL, *keydev = NULL, *headerdev = NULL, *filtered_header = NULL;
         crypto_device *d = NULL;
-        char *uuid;
         int r;
 
-        uuid = startswith(device, "UUID=");
+        const char *uuid = startswith(device, "UUID=");
         if (!uuid)
                 uuid = path_startswith(device, "/dev/disk/by-uuid/");
         if (!uuid)

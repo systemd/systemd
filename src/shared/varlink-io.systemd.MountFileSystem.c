@@ -3,7 +3,7 @@
 #include "bus-polkit.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 PartitionDesignator,
                 SD_VARLINK_DEFINE_ENUM_VALUE(root),
                 SD_VARLINK_DEFINE_ENUM_VALUE(usr),
@@ -60,6 +60,14 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(password, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Takes an image policy string (see systemd.image-policy(7) for details) to apply while mounting the image"),
                 SD_VARLINK_DEFINE_INPUT(imagePolicy, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to automatically reuse already set up dm-verity devices that share the same roothash."),
+                SD_VARLINK_DEFINE_INPUT(veritySharing, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("File descriptor of the file containing the dm-verity data, if the image is a bare filesystem rather than a DDI."),
+                SD_VARLINK_DEFINE_INPUT(verityDataFileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The expected dm-verity root hash as an hex encoded string, if the image is a bare filesystem rather than a DDI."),
+                SD_VARLINK_DEFINE_INPUT(verityRootHash, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The expected signature for the dm-verity root hash as a Base64 encoded string, if the image is a bare filesystem rather than a DDI."),
+                SD_VARLINK_DEFINE_INPUT(verityRootHashSignature, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("An array with information about contained partitions that have been prepared for mounting, as well as their mount file descriptors."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(partitions, PartitionInfo, SD_VARLINK_ARRAY),
@@ -99,12 +107,25 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The freshly allocated mount file descriptor for the mount."),
                 SD_VARLINK_DEFINE_OUTPUT(mountFileDescriptor, SD_VARLINK_INT, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                MakeDirectory,
+                SD_VARLINK_FIELD_COMMENT("File descriptor of the directory to create the new directory in. Must be a regular, i.e. non-O_PATH file descriptor."),
+                SD_VARLINK_DEFINE_INPUT(parentFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Name of the directory to create."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                VARLINK_DEFINE_POLKIT_INPUT,
+                SD_VARLINK_FIELD_COMMENT("File descriptor referencing the newly created directory."),
+                SD_VARLINK_DEFINE_OUTPUT(directoryFileDescriptor, SD_VARLINK_INT, 0));
+
 static SD_VARLINK_DEFINE_ERROR(IncompatibleImage);
 static SD_VARLINK_DEFINE_ERROR(MultipleRootPartitionsFound);
 static SD_VARLINK_DEFINE_ERROR(RootPartitionNotFound);
 static SD_VARLINK_DEFINE_ERROR(DeniedByImagePolicy);
 static SD_VARLINK_DEFINE_ERROR(KeyNotFound);
 static SD_VARLINK_DEFINE_ERROR(VerityFailure);
+static SD_VARLINK_DEFINE_ERROR(BadFileDescriptorFlags,
+                               SD_VARLINK_FIELD_COMMENT("Name of the parameter referencing the file descriptor with one or more bad flags."),
+                               SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, 0));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_MountFileSystem,
@@ -120,6 +141,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_MountImage,
                 SD_VARLINK_SYMBOL_COMMENT("Takes a directory file descriptor as input, returns a mount file descriptor."),
                 &vl_method_MountDirectory,
+                SD_VARLINK_SYMBOL_COMMENT("Creates an empty directory, owned by the foreign UID/GID range's root user, returns an open file descriptor to the directory. Access mode will be set to 0700."),
+                &vl_method_MakeDirectory,
                 SD_VARLINK_SYMBOL_COMMENT("Disk image is not compatible with this service."),
                 &vl_error_IncompatibleImage,
                 SD_VARLINK_SYMBOL_COMMENT("Multiple suitable root partitions found."),
@@ -131,4 +154,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("The authentication key for this image is not available."),
                 &vl_error_KeyNotFound,
                 SD_VARLINK_SYMBOL_COMMENT("Verity could not be set up."),
-                &vl_error_VerityFailure);
+                &vl_error_VerityFailure,
+                SD_VARLINK_SYMBOL_COMMENT("A passed file descriptor has unexpected/forbidden flags set."),
+                &vl_error_BadFileDescriptorFlags);

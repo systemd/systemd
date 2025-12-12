@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdio.h>
+#include <stdio.h>      /* IWYU pragma: keep */
 
-#include "alloc-util.h"
-#include "macro.h"
+#include "sd-forward.h"
 
 const char* audit_type_to_string(int type);
 int audit_type_from_string(const char *s);

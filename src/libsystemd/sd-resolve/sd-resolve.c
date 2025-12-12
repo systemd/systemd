@@ -1,18 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <netdb.h>
 #include <poll.h>
 #include <pthread.h>
-#include <resolv.h>
 #include <signal.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/prctl.h>
 #include <threads.h>
 #include <unistd.h>
 
+#include "sd-event.h"
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
@@ -22,9 +19,7 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "list.h"
-#include "log.h"
 #include "memory-util.h"
-#include "missing_syscall.h"
 #include "process-util.h"
 #include "resolve-private.h"
 #include "socket-util.h"
@@ -1016,7 +1011,7 @@ static int getaddrinfo_done(sd_resolve_query* q) {
 
 int resolve_getnameinfo_with_destroy_callback(
                 sd_resolve *resolve,
-                sd_resolve_query **ret_query,
+                sd_resolve_query **ret,
                 const struct sockaddr *sa, socklen_t salen,
                 int flags,
                 uint64_t get,
@@ -1038,7 +1033,7 @@ int resolve_getnameinfo_with_destroy_callback(
         assert_return(callback, -EINVAL);
         assert_return(!resolve_pid_changed(resolve), -ECHILD);
 
-        r = alloc_query(resolve, !ret_query, &q);
+        r = alloc_query(resolve, !ret, &q);
         if (r < 0)
                 return r;
 
@@ -1073,8 +1068,8 @@ int resolve_getnameinfo_with_destroy_callback(
         resolve->n_outstanding++;
         q->destroy_callback = destroy_callback;
 
-        if (ret_query)
-                *ret_query = q;
+        if (ret)
+                *ret = q;
 
         TAKE_PTR(q);
 

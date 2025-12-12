@@ -1,19 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <errno.h>
 #include <getopt.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "creds-util.h"
 #include "errno-util.h"
 #include "log.h"
 #include "parse-argument.h"
 #include "parse-util.h"
-#include "process-util.h"
 #include "static-destruct.h"
 #include "strv.h"
 #include "syslog-util.h"

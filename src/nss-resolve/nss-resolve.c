@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <netdb.h>
 #include <nss.h>
 #include <pthread.h>
-#include <stdlib.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-varlink.h"
@@ -15,30 +12,12 @@
 #include "glyph-util.h"
 #include "in-addr-util.h"
 #include "json-util.h"
-#include "macro.h"
 #include "nss-util.h"
 #include "resolved-def.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
-
-static sd_json_dispatch_flags_t json_dispatch_flags = SD_JSON_ALLOW_EXTENSIONS;
-
-static void setup_logging(void) {
-        log_parse_environment_variables();
-
-        if (DEBUG_LOGGING)
-                json_dispatch_flags = SD_JSON_LOG;
-}
-
-static void setup_logging_once(void) {
-        static pthread_once_t once = PTHREAD_ONCE_INIT;
-        assert_se(pthread_once(&once, setup_logging) == 0);
-}
-
-#define NSS_ENTRYPOINT_BEGIN                    \
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);       \
-        setup_logging_once()
+#include "time-util.h"
 
 NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
@@ -237,8 +216,8 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
         r = sd_json_buildo(
                         &cparams,
-                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(name)),
-                        SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(query_flags())));
+                        SD_JSON_BUILD_PAIR_STRING("name", name),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", query_flags()));
         if (r < 0)
                 goto fail;
 
@@ -261,7 +240,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 goto not_found;
         }
 
-        r = sd_json_dispatch(rparams, resolve_hostname_reply_dispatch_table, json_dispatch_flags, &p);
+        r = sd_json_dispatch(rparams, resolve_hostname_reply_dispatch_table, nss_json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
         if (sd_json_variant_is_blank_object(p.addresses))
@@ -271,7 +250,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         JSON_VARIANT_ARRAY_FOREACH(entry, p.addresses) {
                 AddressParameters q = {};
 
-                r = sd_json_dispatch(entry, address_parameters_dispatch_table, json_dispatch_flags, &q);
+                r = sd_json_dispatch(entry, address_parameters_dispatch_table, nss_json_dispatch_flags, &q);
                 if (r < 0)
                         goto fail;
 
@@ -309,7 +288,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         JSON_VARIANT_ARRAY_FOREACH(entry, p.addresses) {
                 AddressParameters q = {};
 
-                r = sd_json_dispatch(entry, address_parameters_dispatch_table, json_dispatch_flags, &q);
+                r = sd_json_dispatch(entry, address_parameters_dispatch_table, nss_json_dispatch_flags, &q);
                 if (r < 0)
                         goto fail;
 
@@ -405,9 +384,9 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         r = sd_json_buildo(
                         &cparams,
-                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(name)),
-                        SD_JSON_BUILD_PAIR("family", SD_JSON_BUILD_INTEGER(af)),
-                        SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(query_flags())));
+                        SD_JSON_BUILD_PAIR_STRING("name", name),
+                        SD_JSON_BUILD_PAIR_INTEGER("family", af),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", query_flags()));
         if (r < 0)
                 goto fail;
 
@@ -425,7 +404,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 goto not_found;
         }
 
-        r = sd_json_dispatch(rparams, resolve_hostname_reply_dispatch_table, json_dispatch_flags, &p);
+        r = sd_json_dispatch(rparams, resolve_hostname_reply_dispatch_table, nss_json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
         if (sd_json_variant_is_blank_object(p.addresses))
@@ -435,11 +414,11 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         JSON_VARIANT_ARRAY_FOREACH(entry, p.addresses) {
                 AddressParameters q = {};
 
-                r = sd_json_dispatch(entry, address_parameters_dispatch_table, json_dispatch_flags, &q);
+                r = sd_json_dispatch(entry, address_parameters_dispatch_table, nss_json_dispatch_flags, &q);
                 if (r < 0)
                         goto fail;
 
-                if (!IN_SET(q.family, AF_INET, AF_INET6))
+                if (q.family != af)
                         continue;
 
                 if (q.address_size != FAMILY_ADDRESS_SIZE(q.family)) {
@@ -481,7 +460,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         JSON_VARIANT_ARRAY_FOREACH(entry, p.addresses) {
                 AddressParameters q = {};
 
-                r = sd_json_dispatch(entry, address_parameters_dispatch_table, json_dispatch_flags, &q);
+                r = sd_json_dispatch(entry, address_parameters_dispatch_table, nss_json_dispatch_flags, &q);
                 if (r < 0)
                         goto fail;
 
@@ -625,9 +604,9 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         r = sd_json_buildo(
                         &cparams,
-                        SD_JSON_BUILD_PAIR("address", SD_JSON_BUILD_BYTE_ARRAY(addr, len)),
-                        SD_JSON_BUILD_PAIR("family", SD_JSON_BUILD_INTEGER(af)),
-                        SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(query_flags())));
+                        SD_JSON_BUILD_PAIR_BYTE_ARRAY("address", addr, len),
+                        SD_JSON_BUILD_PAIR_INTEGER("family", af),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", query_flags()));
         if (r < 0)
                 goto fail;
 
@@ -643,7 +622,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 goto not_found;
         }
 
-        r = sd_json_dispatch(rparams, resolve_address_reply_dispatch_table, json_dispatch_flags, &p);
+        r = sd_json_dispatch(rparams, resolve_address_reply_dispatch_table, nss_json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
         if (sd_json_variant_is_blank_object(p.names))
@@ -654,7 +633,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         JSON_VARIANT_ARRAY_FOREACH(entry, p.names) {
                 _cleanup_(name_parameters_destroy) NameParameters q = {};
 
-                r = sd_json_dispatch(entry, name_parameters_dispatch_table, json_dispatch_flags, &q);
+                r = sd_json_dispatch(entry, name_parameters_dispatch_table, nss_json_dispatch_flags, &q);
                 if (r < 0)
                         goto fail;
 
@@ -695,7 +674,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         JSON_VARIANT_ARRAY_FOREACH(entry, p.names) {
                 _cleanup_(name_parameters_destroy) NameParameters q = {};
 
-                r = sd_json_dispatch(entry, name_parameters_dispatch_table, json_dispatch_flags, &q);
+                r = sd_json_dispatch(entry, name_parameters_dispatch_table, nss_json_dispatch_flags, &q);
                 if (r < 0)
                         goto fail;
 

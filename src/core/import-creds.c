@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "confidential-virt.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -13,6 +16,7 @@
 #include "import-creds.h"
 #include "initrd-util.h"
 #include "io-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -21,6 +25,8 @@
 #include "proc-cmdline.h"
 #include "recurse-dir.h"
 #include "smbios11.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "virt.h"
 
@@ -60,19 +66,19 @@
  * Net result: the service manager can pick up trusted credentials from $CREDENTIALS_DIRECTORY afterwards,
  * and untrusted ones from $ENCRYPTED_CREDENTIALS_DIRECTORY. */
 
-typedef struct ImportCredentialContext {
+typedef struct ImportCredentialsContext {
         int target_dir_fd;
         size_t size_sum;
         unsigned n_credentials;
-} ImportCredentialContext;
+} ImportCredentialsContext;
 
-static void import_credentials_context_free(ImportCredentialContext *c) {
+static void import_credentials_context_done(ImportCredentialsContext *c) {
         assert(c);
 
-        c->target_dir_fd = safe_close(c->target_dir_fd);
+        safe_close(c->target_dir_fd);
 }
 
-static int acquire_credential_directory(ImportCredentialContext *c, const char *path, bool with_mount) {
+static int acquire_credential_directory(ImportCredentialsContext *c, const char *path, bool with_mount) {
         int r;
 
         assert(c);
@@ -97,7 +103,7 @@ static int acquire_credential_directory(ImportCredentialContext *c, const char *
                 (void) mount_nofollow_verbose(LOG_WARNING, NULL, path, NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ false), NULL);
         else if (with_mount)
                 /* If not a mount point yet, and the credentials are not encrypted, then let's try to mount a no-swap fs there */
-                (void) mount_credentials_fs(path, CREDENTIALS_TOTAL_SIZE_MAX, /* ro= */ false);
+                (void) mount_credentials_fs(path);
 
         c->target_dir_fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
         if (c->target_dir_fd < 0)
@@ -124,7 +130,7 @@ static int open_credential_file_for_write(int target_dir_fd, const char *dir_nam
         return fd;
 }
 
-static bool credential_size_ok(ImportCredentialContext *c, const char *name, uint64_t size) {
+static bool credential_size_ok(const ImportCredentialsContext *c, const char *name, uint64_t size) {
         assert(c);
         assert(name);
 
@@ -163,7 +169,7 @@ static int finalize_credentials_dir(const char *dir, const char *envvar) {
 }
 
 static int import_credentials_boot(void) {
-        _cleanup_(import_credentials_context_free) ImportCredentialContext context = {
+        _cleanup_(import_credentials_context_done) ImportCredentialsContext context = {
                 .target_dir_fd = -EBADF,
         };
         int r;
@@ -279,7 +285,7 @@ static int import_credentials_boot(void) {
 }
 
 static int proc_cmdline_callback(const char *key, const char *value, void *data) {
-        ImportCredentialContext *c = ASSERT_PTR(data);
+        ImportCredentialsContext *c = ASSERT_PTR(data);
         _cleanup_free_ void *binary = NULL;
         _cleanup_free_ char *n = NULL;
         _cleanup_close_ int nfd = -EBADF;
@@ -354,7 +360,7 @@ static int proc_cmdline_callback(const char *key, const char *value, void *data)
         return 0;
 }
 
-static int import_credentials_proc_cmdline(ImportCredentialContext *c) {
+static int import_credentials_proc_cmdline(ImportCredentialsContext *c) {
         int r;
 
         assert(c);
@@ -368,7 +374,7 @@ static int import_credentials_proc_cmdline(ImportCredentialContext *c) {
 
 #define QEMU_FWCFG_PATH "/sys/firmware/qemu_fw_cfg/by_name/opt/io.systemd.credentials"
 
-static int import_credentials_qemu(ImportCredentialContext *c) {
+static int import_credentials_qemu(ImportCredentialsContext *c) {
         _cleanup_free_ DirectoryEntries *de = NULL;
         _cleanup_close_ int source_dir_fd = -EBADF;
         int r;
@@ -398,8 +404,8 @@ static int import_credentials_qemu(ImportCredentialContext *c) {
                 return 0;
         }
 
-        for (size_t i = 0; i < de->n_entries; i++) {
-                const struct dirent *d = de->entries[i];
+        FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                const struct dirent *d = *i;
                 _cleanup_close_ int vfd = -EBADF, rfd = -EBADF, nfd = -EBADF;
                 _cleanup_free_ char *szs = NULL;
                 uint64_t sz;
@@ -465,7 +471,7 @@ static int import_credentials_qemu(ImportCredentialContext *c) {
         return 0;
 }
 
-static int parse_smbios_strings(ImportCredentialContext *c, const char *data, size_t size) {
+static int parse_smbios_strings(ImportCredentialsContext *c, const char *data, size_t size) {
         size_t left, skip;
         const char *p;
         int r;
@@ -567,8 +573,10 @@ static int parse_smbios_strings(ImportCredentialContext *c, const char *data, si
         return 0;
 }
 
-static int import_credentials_smbios(ImportCredentialContext *c) {
+static int import_credentials_smbios(ImportCredentialsContext *c) {
         int r;
+
+        assert(c);
 
         /* Parses DMI OEM strings fields (SMBIOS type 11), as settable with qemu's -smbios type=11,value=… switch. */
 
@@ -601,7 +609,7 @@ static int import_credentials_smbios(ImportCredentialContext *c) {
         return 0;
 }
 
-static int import_credentials_initrd(ImportCredentialContext *c) {
+static int import_credentials_initrd(ImportCredentialsContext *c) {
         _cleanup_free_ DirectoryEntries *de = NULL;
         _cleanup_close_ int source_dir_fd = -EBADF;
         int r;
@@ -621,7 +629,7 @@ static int import_credentials_initrd(ImportCredentialContext *c) {
                 if (errno == ENOENT)
                         log_debug_errno(errno, "No credentials passed from initrd.");
                 else
-                        log_warning_errno(errno, "Failed to open '/run/credentials/@initrd', ignoring: %m");
+                        log_warning_errno(errno, "Failed to open '%s', ignoring: %m", "/run/credentials/@initrd");
                 return 0;
         }
 
@@ -694,35 +702,33 @@ static int import_credentials_initrd(ImportCredentialContext *c) {
 }
 
 static int import_credentials_trusted(void) {
-        _cleanup_(import_credentials_context_free) ImportCredentialContext c = {
+        _cleanup_(import_credentials_context_done) ImportCredentialsContext c = {
                 .target_dir_fd = -EBADF,
         };
-        int q, w, r, y;
+        int r, ret = 0;
 
         /* This is invoked during early boot when no credentials have been imported so far. (Specifically, if
          * the $CREDENTIALS_DIRECTORY or $ENCRYPTED_CREDENTIALS_DIRECTORY environment variables are not set
          * yet.) */
 
-        r = import_credentials_qemu(&c);
-        w = import_credentials_smbios(&c);
-        q = import_credentials_proc_cmdline(&c);
-        y = import_credentials_initrd(&c);
+        RET_GATHER(ret, import_credentials_qemu(&c));
+        RET_GATHER(ret, import_credentials_smbios(&c));
+        RET_GATHER(ret, import_credentials_proc_cmdline(&c));
+        RET_GATHER(ret, import_credentials_initrd(&c));
 
         if (c.n_credentials > 0) {
-                int z;
-
                 log_debug("Imported %u credentials from kernel command line/smbios/fw_cfg/initrd.", c.n_credentials);
 
-                z = finalize_credentials_dir(SYSTEM_CREDENTIALS_DIRECTORY, "CREDENTIALS_DIRECTORY");
-                if (z < 0)
-                        return z;
+                r = finalize_credentials_dir(SYSTEM_CREDENTIALS_DIRECTORY, "CREDENTIALS_DIRECTORY");
+                if (r < 0)
+                        return r;
         }
 
-        return r < 0 ? r : w < 0 ? w : q < 0 ? q : y;
+        return ret;
 }
 
 static int merge_credentials_trusted(const char *creds_dir) {
-        _cleanup_(import_credentials_context_free) ImportCredentialContext c = {
+        _cleanup_(import_credentials_context_done) ImportCredentialsContext c = {
                 .target_dir_fd = -EBADF,
         };
         int r;
@@ -804,12 +810,10 @@ static int report_credentials_per_func(const char *title, int (*get_directory_fu
         assert(get_directory_func);
 
         r = get_directory_func(&d);
-        if (r < 0) {
-                if (r == -ENXIO) /* Env var not set */
-                        return 0;
-
+        if (r == -ENXIO) /* Env var not set */
+                return 0;
+        if (r < 0)
                 return log_warning_errno(r, "Failed to determine %s directory: %m", title);
-        }
 
         r = readdir_all_at(AT_FDCWD, d, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
         if (r < 0)

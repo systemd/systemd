@@ -4,5 +4,4 @@ Name=ip6tnl-external
 Kind=ip6tnl
 
 [Tunnel]
-Mode=ip6ip6
 External=yes

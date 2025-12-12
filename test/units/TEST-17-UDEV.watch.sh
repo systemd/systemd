@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -ex
 set -o pipefail
@@ -29,6 +29,8 @@ function check() {
         udevadm settle --timeout=30
 
         journalctl --sync
+        # Also rotate journal to make expected journal entries in an archived journal file.
+        journalctl --rotate
 
         # Check if the inotify watch fd is received from fd store.
         journalctl -n 1 -q -u systemd-udevd.service --invocation=0 --grep 'Received inotify fd \(\d+\) from service manager.'

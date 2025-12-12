@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/netdevice.h>
-#include <netinet/ether.h>
+#include <net/if_arp.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -9,29 +9,33 @@
 
 #include "alloc-util.h"
 #include "arphrd-util.h"
+#include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "constants.h"
 #include "creds-util.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "escape.h"
+#include "ether-addr-util.h"
 #include "ethtool-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "link-config.h"
 #include "log-link.h"
 #include "memory-util.h"
 #include "net-condition.h"
+#include "netif-naming-scheme.h"
 #include "netif-sriov.h"
 #include "netif-util.h"
 #include "netlink-util.h"
 #include "network-util.h"
 #include "parse-util.h"
-#include "path-lookup.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "random-util.h"
+#include "socket-util.h"
 #include "specifier.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -73,7 +77,7 @@ static LinkConfig* link_config_free(LinkConfig *config) {
         free(config->alias);
         free(config->wol_password_file);
         erase_and_free(config->wol_password);
-        cpu_set_free(config->rps_cpu_mask);
+        cpu_set_done(&config->rps_cpu_mask);
 
         ordered_hashmap_free(config->sr_iov_by_section);
 
@@ -225,7 +229,7 @@ static int link_adjust_wol_options(LinkConfig *config) {
 int link_load_one(LinkConfigContext *ctx, const char *filename) {
         _cleanup_(link_config_freep) LinkConfig *config = NULL;
         _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
-        _cleanup_free_ char *name = NULL;
+        _cleanup_free_ char *name = NULL, *file_basename = NULL;
         const char *dropin_dirname;
         int r;
 
@@ -271,7 +275,11 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
         FOREACH_ELEMENT(feature, config->features)
                 *feature = -1;
 
-        dropin_dirname = strjoina(basename(filename), ".d");
+        r = path_extract_filename(filename, &file_basename);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name of '%s': %m", filename);
+
+        dropin_dirname = strjoina(file_basename, ".d");
         r = config_parse_many(
                         STRV_MAKE_CONST(filename),
                         NETWORK_DIRS,
@@ -483,7 +491,7 @@ static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
                 return 0;
         }
 
-        r = ethtool_set_glinksettings(ethtool_fd, name,
+        r = ethtool_set_link_settings(ethtool_fd, name,
                                       config->autonegotiation, config->advertise,
                                       config->speed, config->duplex, config->port, config->mdi);
         if (r < 0) {
@@ -653,7 +661,7 @@ static int link_generate_new_hw_addr(Link *link, struct hw_addr_data *ret) {
                 memcpy(p, &result, len);
                 if (!hw_addr_is_valid(link, &hw_addr))
                         return log_link_warning_errno(link, SYNTHETIC_ERRNO(EINVAL),
-                                                      "Could not generate valid persistent MAC address: %m");
+                                                      "Could not generate valid persistent MAC address.");
         }
 
 finalize:
@@ -909,7 +917,7 @@ static int link_apply_sr_iov_config(Link *link) {
                 return 0;
         }
         if (n == 0) {
-                log_link_warning(link, "No SR-IOV virtual function exists, ignoring all [SR-IOV] sections: %m");
+                log_link_warning(link, "No SR-IOV virtual functions exist, ignoring all [SR-IOV] sections.");
                 return 0;
         }
 
@@ -945,10 +953,10 @@ static int link_apply_rps_cpu_mask(Link *link) {
         }
 
         /* Skip if the config is not specified. */
-        if (!config->rps_cpu_mask)
+        if (!config->rps_cpu_mask.set)
                 return 0;
 
-        mask_str = cpu_set_to_mask_string(config->rps_cpu_mask);
+        mask_str = cpu_set_to_mask_string(&config->rps_cpu_mask);
         if (!mask_str)
                 return log_oom();
 
@@ -1360,49 +1368,35 @@ int config_parse_rps_cpu_mask(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(cpu_set_freep) CPUSet *allocated = NULL;
-        CPUSet *mask, **rps_cpu_mask = ASSERT_PTR(data);
+        CPUSet *mask = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
-        assert(lvalue);
         assert(rvalue);
 
-        if (isempty(rvalue)) {
-                *rps_cpu_mask = cpu_set_free(*rps_cpu_mask);
-                return 0;
-        }
+        if (streq(rvalue, "disable")) {
+                _cleanup_(cpu_set_done) CPUSet c = {};
 
-        if (*rps_cpu_mask)
-                mask = *rps_cpu_mask;
-        else {
-                allocated = new0(CPUSet, 1);
-                if (!allocated)
+                r = cpu_set_realloc(&c, 1);
+                if (r < 0)
                         return log_oom();
 
-                mask = allocated;
+                return cpu_set_done_and_replace(*mask, c);
         }
 
-        if (streq(rvalue, "disable"))
-                cpu_set_reset(mask);
+        if (streq(rvalue, "all")) {
+                _cleanup_(cpu_set_done) CPUSet c = {};
 
-        else if (streq(rvalue, "all")) {
-                r = cpu_mask_add_all(mask);
+                r = cpu_set_add_all(&c);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to create CPU affinity mask representing \"all\" cpus, ignoring: %m");
                         return 0;
                 }
-        } else {
-                r = parse_cpu_set_extend(rvalue, mask, /* warn= */ true, unit, filename, line, lvalue);
-                if (r < 0)
-                        return 0;
+
+                return cpu_set_done_and_replace(*mask, c);
         }
 
-        if (allocated)
-                *rps_cpu_mask = TAKE_PTR(allocated);
-
-        return 0;
+        return config_parse_cpu_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
 
 static const char* const mac_address_policy_table[_MAC_ADDRESS_POLICY_MAX] = {

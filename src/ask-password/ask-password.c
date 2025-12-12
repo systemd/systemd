@@ -1,25 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
-#include <stddef.h>
 #include <unistd.h>
 
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "build.h"
 #include "bus-polkit.h"
 #include "constants.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
-#include "macro.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
 #include "varlink-io.systemd.AskPassword.h"
 #include "varlink-util.h"
 
@@ -371,7 +371,7 @@ static int vl_method_ask(sd_varlink *link, sd_json_variant *parameters, sd_varli
 
         sd_json_variant_sensitive(vl);
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR("passwords", SD_JSON_BUILD_VARIANT(vl)));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("passwords", vl));
 }
 
 static int vl_server(void) {

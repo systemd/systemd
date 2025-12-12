@@ -6,8 +6,6 @@ set -eux
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-systemd-analyze log-level debug
-
 run_with_cred_compare() (
     local cred="${1:?}"
     local exp="${2?}"
@@ -24,7 +22,7 @@ run_with_cred_compare() (
 )
 
 test_mount_with_credential() {
-    local credfile tmpdir unit
+    local credfile tmpdir unit mount_path mount_test
     credfile="/tmp/mount-cred"
     tmpdir="/tmp/test-54-mount"
     unit=$(systemd-escape --suffix mount --path "$tmpdir")
@@ -42,19 +40,21 @@ LoadCredential=loadcred:$credfile
 EOF
 
     # Set up test mount type
-    cat >/usr/sbin/mount.thisisatest <<EOF
+    mount_path="$(command -v mount 2>/dev/null)"
+    mount_test="${mount_path/\/bin/\/sbin}.thisisatest"
+    cat >"$mount_test" <<EOF
 #!/usr/bin/env bash
 # Mount after verifying credential file content
 if [ \$(cat \${CREDENTIALS_DIRECTORY}/loadcred) = "foo" ]; then
     mount -t tmpfs \$1 \$2
 fi
 EOF
-    chmod +x /usr/sbin/mount.thisisatest
+    chmod +x "$mount_test"
 
     # Verify mount succeeds
     systemctl daemon-reload
     systemctl start "$unit"
-    systemctl --no-pager show -p SubState --value "$unit" | grep -q mounted
+    systemctl --no-pager show -p SubState --value "$unit" | grep mounted >/dev/null
 
     # Verify mount fails with different credential file content
     echo bar >"$credfile"
@@ -62,7 +62,7 @@ EOF
 
     # Stop unit and delete files
     systemctl stop "$unit"
-    rm -f "$credfile" /run/systemd/system/"$unit" /usr/sbin/mount.thisisatest
+    rm -f "$credfile" /run/systemd/system/"$unit" "$mount_test"
     rm -rf "$tmpdir"
 }
 
@@ -334,7 +334,7 @@ systemd-run -p "ImportCredential=test.creds.*" \
             test ! -e '${CREDENTIALS_DIRECTORY}/test.creds.hoge:invalid'
 
 # Check if credentials with invalid names are not imported (with renaming).
-systemd-run -p "ImportCredentialEx=test.creds.*:renamed.creds." \
+systemd-run -p "ImportCredential=test.creds.*:renamed.creds." \
             --unit=test-54-ImportCredential.service \
             -p DynamicUser=1 \
             --wait \
@@ -352,8 +352,8 @@ systemd-run -p "ImportCredential=test.creds.*" \
                 '${CREDENTIALS_DIRECTORY}/test.creds.third' >/tmp/ts54-concat
 cmp /tmp/ts54-concat <(echo -n abc)
 
-# Check that ImportCredentialEx= works without renaming.
-systemd-run -p "ImportCredentialEx=test.creds.*" \
+# Check that ImportCredential= works without renaming.
+systemd-run -p "ImportCredential=test.creds.*" \
             --unit=test-54-ImportCredential.service \
             -p DynamicUser=1 \
             --wait \
@@ -364,7 +364,7 @@ systemd-run -p "ImportCredentialEx=test.creds.*" \
 cmp /tmp/ts54-concat <(echo -n abc)
 
 # Check that renaming with globs works as expected.
-systemd-run -p "ImportCredentialEx=test.creds.*:renamed.creds." \
+systemd-run -p "ImportCredential=test.creds.*:renamed.creds." \
             --unit=test-54-ImportCredential.service \
             -p DynamicUser=1 \
             --wait \
@@ -375,7 +375,7 @@ systemd-run -p "ImportCredentialEx=test.creds.*:renamed.creds." \
 cmp /tmp/ts54-concat <(echo -n abc)
 
 # Check that renaming without globs works as expected.
-systemd-run -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
+systemd-run -p "ImportCredential=test.creds.first:renamed.creds.first" \
             --unit=test-54-ImportCredential.service \
             -p DynamicUser=1 \
             --wait \
@@ -384,8 +384,8 @@ systemd-run -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
 cmp /tmp/ts54-concat <(echo -n a)
 
 # Test that multiple renames are processed in the correct order.
-systemd-run -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
-            -p "ImportCredentialEx=test.creds.second:renamed.creds.first" \
+systemd-run -p "ImportCredential=test.creds.first:renamed.creds.first" \
+            -p "ImportCredential=test.creds.second:renamed.creds.first" \
             --unit=test-54-ImportCredential.service \
             -p DynamicUser=1 \
             --wait \
@@ -394,6 +394,7 @@ systemd-run -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
 cmp /tmp/ts54-concat <(echo -n a)
 
 # Test that a credential can be imported multiple times with different names.
+# We use the deprecated name ImportCredentialEx= on purpose to check that it works.
 systemd-run -p "ImportCredentialEx=test.creds.first" \
             -p "ImportCredentialEx=test.creds.first:renamed.creds.first" \
             -p "ImportCredentialEx=test.creds.first:renamed.creds.second" \
@@ -407,7 +408,7 @@ systemd-run -p "ImportCredentialEx=test.creds.first" \
 cmp /tmp/ts54-concat <(echo -n aaa)
 
 # Now test encrypted credentials (only supported when built with OpenSSL though)
-if systemctl --version | grep -q -- +OPENSSL ; then
+if systemctl --version | grep -- +OPENSSL  >/dev/null; then
     echo -n $RANDOM >/tmp/test-54-plaintext
     systemd-creds encrypt --name=test-54 /tmp/test-54-plaintext /tmp/test-54-ciphertext
     systemd-creds decrypt --name=test-54 /tmp/test-54-ciphertext | cmp /tmp/test-54-plaintext
@@ -445,6 +446,13 @@ systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
             --service-type=oneshot --wait --pipe \
             true | cmp /etc/os-release
 
+# https://github.com/systemd/systemd/issues/35788
+systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
+            -p 'ExecCondition=systemd-creds cat os' \
+            --unit=test-54-exec-condition.service \
+            --service-type=oneshot --wait --pipe \
+            true | cmp /etc/os-release
+
 # https://github.com/systemd/systemd/pull/24734#issuecomment-1925440546
 # Also ExecStartPre= should be able to update creds
 dd if=/dev/urandom of=/tmp/cred-huge bs=600K count=1
@@ -476,18 +484,38 @@ if ! systemd-detect-virt -q -c ; then
     grep -q /injected /proc/self/mountinfo
 
     # Make sure the getty generator processed the credentials properly
-    systemctl -P Wants show getty.target | grep -q container-getty@idontexist.service
+    systemctl -P Wants show getty.target | grep container-getty@idontexist.service >/dev/null
 fi
 
 # Decrypt/encrypt via varlink
 
-echo '{"data":"Zm9vYmFyCg=="}' > /tmp/vlcredsdata
+DATA="Zm9vYmFyCg=="
+echo "{\"data\":\"$DATA\"}" >/tmp/vlcredsdata
 
 varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "$(cat /tmp/vlcredsdata)" | \
-    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt > /tmp/vlcredsdata2
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt >/tmp/vlcredsdata2
+
+cmp /tmp/vlcredsdata /tmp/vlcredsdata2
+rm /tmp/vlcredsdata2
+
+# Pick a key type explicitly
+varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "{\"data\":\"$DATA\",\"withKey\":\"host\"}" | \
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt >/tmp/vlcredsdata2
+
+cmp /tmp/vlcredsdata /tmp/vlcredsdata2
+rm /tmp/vlcredsdata2
+
+varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "{\"data\":\"$DATA\",\"withKey\":\"null\"}" | \
+    jq '.["allowNull"] = true' |
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt >/tmp/vlcredsdata2
 
 cmp /tmp/vlcredsdata /tmp/vlcredsdata2
 rm /tmp/vlcredsdata /tmp/vlcredsdata2
+
+# Ensure allowNull works
+(! varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "{\"data\":\"$DATA\",\"withKey\":\"null\"}" | \
+    jq '.["allowNull"] = false' |
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt )
 
 clean_usertest() {
     rm -f /tmp/usertest.data /tmp/usertest.data /tmp/brummbaer.data
@@ -526,6 +554,18 @@ run0 -u testuser --pipe mkdir -p /home/testuser/.config/credstore.encrypted
 run0 -u testuser --pipe systemd-creds encrypt --user --name=brummbaer - /home/testuser/.config/credstore.encrypted/brummbaer < /tmp/brummbaer.data
 run0 -u testuser --pipe systemd-run --user --pipe -p ImportCredential=brummbaer systemd-creds cat brummbaer | cmp /tmp/brummbaer.data
 
-systemd-analyze log-level info
+# https://github.com/systemd/systemd/pull/39651
+TESTUSER_CRED_DIR="/run/user/$(id -u testuser)/credentials"
+
+PID="$(systemd-notify --fork -- systemd-run -M testuser@ --user --wait --unit=brummbaer.service -p LoadCredential=brummbaer sleep infinity)"
+[[ -d "$TESTUSER_CRED_DIR/brummbaer.service" ]]
+[[ -f "$TESTUSER_CRED_DIR/brummbaer.service/brummbaer" ]]
+
+systemd-run -M testuser@ --user --wait -p PrivateMounts=yes -p ImportCredential=brummbaer \
+    bash -xec "[[ ! -d '$TESTUSER_CRED_DIR/brummbaer.service' ]] && [[ \$(stat -c %a /run/credentials) -eq 0 ]]"
+systemd-run -M testuser@ --user --wait -p ImportCredential=brummbaer \
+    test -d "$TESTUSER_CRED_DIR/brummbaer.service"
+
+kill "$PID"
 
 touch /testok

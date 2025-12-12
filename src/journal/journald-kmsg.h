@@ -1,16 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stddef.h>
-#include <sys/socket.h>
+#include "journald-forward.h"
 
-typedef struct Server Server;
+int manager_open_dev_kmsg(Manager *m);
+int manager_flush_dev_kmsg(Manager *m);
+int manager_reopen_dev_kmsg(Manager *m, bool old_read_kmsg);
 
-int server_open_dev_kmsg(Server *s);
-int server_flush_dev_kmsg(Server *s);
+void manager_forward_kmsg(Manager *m, int priority, const char *identifier, const char *message, const struct ucred *ucred);
 
-void server_forward_kmsg(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred);
+int manager_open_kernel_seqnum(Manager *m);
+void manager_close_kernel_seqnum(Manager *m);
 
-int server_open_kernel_seqnum(Server *s);
-
-void dev_kmsg_record(Server *s, char *p, size_t l);
+void dev_kmsg_record(Manager *m, char *p, size_t l);

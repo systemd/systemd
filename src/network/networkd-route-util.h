@@ -1,16 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-
-#include "conf-parser.h"
-#include "in-addr-util.h"
-
-typedef struct Link Link;
-typedef struct Manager Manager;
-typedef struct Address Address;
-typedef struct Route Route;
+#include "networkd-forward.h"
 
 unsigned routes_max(void);
 
@@ -53,7 +44,7 @@ int route_protocol_full_to_string_alloc(int t, char **ret);
 
 int route_flags_to_string_alloc(uint32_t flags, char **ret);
 
-int manager_get_route_table_from_string(const Manager *m, const char *table, uint32_t *ret);
+int manager_get_route_table_from_string(const Manager *m, const char *s, uint32_t *ret);
 int manager_get_route_table_to_string(const Manager *m, uint32_t table, bool append_num, char **ret);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_route_table_names);

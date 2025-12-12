@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <dlfcn.h>
-#include <stdlib.h>
-
+#include "acl-util.h"
 #include "apparmor-util.h"
+#include "blkid-util.h"
 #include "bpf-dlopen.h"
 #include "compress.h"
 #include "cryptsetup-util.h"
@@ -11,17 +10,29 @@
 #include "gcrypt-util.h"
 #include "idn-util.h"
 #include "libarchive-util.h"
+#include "libaudit-util.h"
 #include "libfido2-util.h"
-#include "macro.h"
+#include "libmount-util.h"
 #include "main-func.h"
 #include "module-util.h"
+#include "pam-util.h"
 #include "password-quality-util-passwdqc.h"
 #include "password-quality-util-pwquality.h"
 #include "pcre2-util.h"
 #include "pkcs11-util.h"
 #include "qrcode-util.h"
+#include "seccomp-util.h"
+#include "selinux-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
+
+#define ASSERT_DLOPEN(func, cond)                               \
+        do {                                                    \
+                if (cond)                                       \
+                        ASSERT_OK(func());                      \
+                else                                            \
+                        ASSERT_ERROR(func(), EOPNOTSUPP);       \
+        } while (false)
 
 static int run(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
@@ -30,78 +41,32 @@ static int run(int argc, char **argv) {
          * where .so versions change and distributions update, but systemd doesn't have the new so names
          * around yet. */
 
-#if HAVE_LIBIDN2 || HAVE_LIBIDN
-        assert_se(dlopen_idn() >= 0);
-#endif
-
-#if HAVE_LIBCRYPTSETUP
-        assert_se(dlopen_cryptsetup() >= 0);
-#endif
-
-#if HAVE_PASSWDQC
-        assert_se(dlopen_passwdqc() >= 0);
-#endif
-
-#if HAVE_PWQUALITY
-        assert_se(dlopen_pwquality() >= 0);
-#endif
-
-#if HAVE_QRENCODE
-        assert_se(dlopen_qrencode() >= 0);
-#endif
-
-#if HAVE_TPM2
-        assert_se(dlopen_tpm2() >= 0);
-#endif
-
-#if HAVE_LIBFIDO2
-        assert_se(dlopen_libfido2() >= 0);
-#endif
-
-#if HAVE_LIBBPF
-        assert_se(dlopen_bpf() >= 0);
-#endif
-
-#if HAVE_ELFUTILS
-        assert_se(dlopen_dw() >= 0);
-        assert_se(dlopen_elf() >= 0);
-#endif
-
-#if HAVE_PCRE2
-        assert_se(dlopen_pcre2() >= 0);
-#endif
-
-#if HAVE_P11KIT
-        assert_se(dlopen_p11kit() >= 0);
-#endif
-
-#if HAVE_LIBARCHIVE
-        assert_se(dlopen_libarchive() >= 0);
-#endif
-
-#if HAVE_LZ4
-        assert_se(dlopen_lz4() >= 0);
-#endif
-
-#if HAVE_ZSTD
-        assert_se(dlopen_zstd() >= 0);
-#endif
-
-#if HAVE_XZ
-        assert_se(dlopen_lzma() >= 0);
-#endif
-
-#if HAVE_GCRYPT
-        assert_se(initialize_libgcrypt(/* secmem= */ false) >= 0);
-#endif
-
-#if HAVE_KMOD
-        assert_se(dlopen_libkmod() >= 0);
-#endif
-
-#if HAVE_APPARMOR
-        assert_se(dlopen_libapparmor() >= 0);
-#endif
+        ASSERT_DLOPEN(dlopen_bpf, HAVE_LIBBPF);
+        ASSERT_DLOPEN(dlopen_cryptsetup, HAVE_LIBCRYPTSETUP);
+        ASSERT_DLOPEN(dlopen_dw, HAVE_ELFUTILS);
+        ASSERT_DLOPEN(dlopen_elf, HAVE_ELFUTILS);
+        ASSERT_DLOPEN(dlopen_gcrypt, HAVE_GCRYPT);
+        ASSERT_DLOPEN(dlopen_idn, HAVE_LIBIDN2 || HAVE_LIBIDN);
+        ASSERT_DLOPEN(dlopen_libacl, HAVE_ACL);
+        ASSERT_DLOPEN(dlopen_libapparmor, HAVE_APPARMOR);
+        ASSERT_DLOPEN(dlopen_libarchive, HAVE_LIBARCHIVE);
+        ASSERT_DLOPEN(dlopen_libaudit, HAVE_AUDIT);
+        ASSERT_DLOPEN(dlopen_libblkid, HAVE_BLKID);
+        ASSERT_DLOPEN(dlopen_libfido2, HAVE_LIBFIDO2);
+        ASSERT_DLOPEN(dlopen_libkmod, HAVE_KMOD);
+        ASSERT_DLOPEN(dlopen_libmount, HAVE_LIBMOUNT);
+        ASSERT_DLOPEN(dlopen_libpam, HAVE_PAM);
+        ASSERT_DLOPEN(dlopen_libseccomp, HAVE_SECCOMP);
+        ASSERT_DLOPEN(dlopen_libselinux, HAVE_SELINUX);
+        ASSERT_DLOPEN(dlopen_lz4, HAVE_LZ4);
+        ASSERT_DLOPEN(dlopen_lzma, HAVE_XZ);
+        ASSERT_DLOPEN(dlopen_p11kit, HAVE_P11KIT);
+        ASSERT_DLOPEN(dlopen_passwdqc, HAVE_PASSWDQC);
+        ASSERT_DLOPEN(dlopen_pcre2, HAVE_PCRE2);
+        ASSERT_DLOPEN(dlopen_pwquality, HAVE_PWQUALITY);
+        ASSERT_DLOPEN(dlopen_qrencode, HAVE_QRENCODE);
+        ASSERT_DLOPEN(dlopen_tpm2, HAVE_TPM2);
+        ASSERT_DLOPEN(dlopen_zstd, HAVE_ZSTD);
 
         return 0;
 }

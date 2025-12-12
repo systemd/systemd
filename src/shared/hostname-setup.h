@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "macro.h"
+#include "shared-forward.h"
 
 typedef enum HostnameSource {
         HOSTNAME_STATIC,     /* from /etc/hostname */
@@ -22,7 +18,7 @@ int sethostname_idempotent(const char *s);
 int shorten_overlong(const char *s, char **ret);
 
 int read_etc_hostname_stream(FILE *f, bool substitute_wildcards, char **ret);
-int read_etc_hostname(const char *path, bool substitue_wildcards, char **ret);
+int read_etc_hostname(const char *path, bool substitute_wildcards, char **ret);
 
 void hostname_update_source_hint(const char *hostname, HostnameSource source);
 int hostname_setup(bool really);
@@ -60,3 +56,5 @@ static inline char* gethostname_short_malloc(void) {
 
         return s;
 }
+
+int pidref_gethostname_full(PidRef *pidref, GetHostnameFlags flags, char **ret);

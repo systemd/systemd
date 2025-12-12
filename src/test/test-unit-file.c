@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
+#include "argv-util.h"
 #include "fileio.h"
 #include "initrd-util.h"
 #include "path-lookup.h"
@@ -10,6 +13,7 @@
 #include "special.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 #include "unit-file.h"
 
 TEST(unit_validate_alias_symlink_and_warn) {

@@ -1,25 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <sys/epoll.h>
-
+#include "sd-bus.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
-#include "dbus-device.h"
 #include "dbus-unit.h"
 #include "device.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "extract-word.h"
+#include "hashmap.h"
 #include "log.h"
 #include "manager.h"
-#include "parse-util.h"
 #include "path-util.h"
-#include "ratelimit.h"
 #include "serialize.h"
-#include "stat-util.h"
+#include "set.h"
 #include "string-util.h"
+#include "strv.h"
 #include "swap.h"
 #include "udev-util.h"
 #include "unit.h"
@@ -1278,7 +1276,7 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
         }
 
         /* Update the device unit's state, should it exist */
-        (void) device_update_found_by_name(m, node, found, mask);
+        device_update_found_by_name(m, node, found, mask);
 }
 
 bool device_shall_be_bound_by(Unit *device, Unit *u) {

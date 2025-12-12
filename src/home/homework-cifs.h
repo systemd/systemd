@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "homework.h"
-#include "user-record.h"
+#include "homework-forward.h"
 
 int home_setup_cifs(UserRecord *h, HomeSetupFlags flags, HomeSetup *setup);
 

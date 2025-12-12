@@ -1,22 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/fscrypt.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/xattr.h>
+#include <unistd.h>
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "hexdecoct.h"
 #include "homework-fscrypt.h"
 #include "homework-mount.h"
+#include "homework-password-cache.h"
 #include "homework-quota.h"
+#include "homework.h"
 #include "keyring-util.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing_fs.h"
-#include "missing_keyctl.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "nulstr-util.h"
@@ -26,8 +31,11 @@
 #include "random-util.h"
 #include "rm-rf.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "user-record-util.h"
+#include "user-record.h"
 #include "user-util.h"
 #include "xattr-util.h"
 
@@ -63,12 +71,10 @@ static int fscrypt_unlink_key(UserRecord *h) {
                 char *d;
 
                 r = keyring_describe(*key, &description);
-                if (r < 0) {
-                        if (r == -ENOKEY) /* Something else deleted it already, that's ok. */
-                                continue;
-
+                if (r == -ENOKEY) /* Something else deleted it already, that's ok. */
+                        continue;
+                if (r < 0)
                         return log_error_errno(r, "Failed to describe key id %d: %m", *key);
-                }
 
                 /* The description is the final element as per manpage. */
                 d = strrchr(description, ';');
@@ -407,7 +413,7 @@ int home_setup_fscrypt(
                               FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
                               NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed install encryption key in user's keyring: %m");
+                        return log_error_errno(r, "Failed to install encryption key in user's keyring: %m");
                 if (r == 0) {
                         /* Child */
 

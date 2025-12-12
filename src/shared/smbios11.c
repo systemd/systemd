@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "alloc-util.h"
 #include "fileio.h"
-#include "macro.h"
 #include "smbios11.h"
 #include "virt.h"
 
@@ -38,8 +39,7 @@ int read_smbios11_field(unsigned i, size_t max_size, char **ret_data, size_t *re
         r = read_full_file_full(
                         AT_FDCWD, p,
                         /* offset = */ UINT64_MAX,
-                        max_size >= SIZE_MAX - offsetof(struct dmi_field_header, contents) ? SIZE_MAX :
-                        sizeof(dmi_field_header) + max_size,
+                        size_add(offsetof(struct dmi_field_header, contents), max_size),
                         /* flags = */ 0,
                         /* bind_name = */ NULL,
                         (char**) &data, &size);

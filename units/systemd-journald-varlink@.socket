@@ -15,4 +15,4 @@ StopWhenUnneeded=yes
 [Socket]
 Service=systemd-journald@%i.service
 ListenStream=/run/systemd/journal.%i/io.systemd.journal
-SocketMode=0600
+SocketMode=0666

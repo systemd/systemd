@@ -5,24 +5,23 @@
 #include "sd-bus.h"
 #include "sd-device.h"
 
+#include "argv-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "chase.h"
 #include "device-util.h"
-#include "dirent-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "fstab-util.h"
 #include "libmount-util.h"
 #include "main-func.h"
-#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -31,12 +30,12 @@
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "sort-util.h"
+#include "runtime-scope.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
 #include "udev-util.h"
-#include "umask-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -92,7 +91,7 @@ static int parse_where(const char *input, char **ret_where) {
         assert(ret_where);
 
         if (arg_transport == BUS_TRANSPORT_LOCAL && arg_canonicalize) {
-                r = chase(input, /* root= */ NULL, CHASE_NONEXISTENT, ret_where, /* ret_fd= */ NULL);
+                r = chase(input, /* root= */ NULL, CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS, ret_where, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make path %s absolute: %m", input);
         } else {
@@ -280,8 +279,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_DISCOVER:
@@ -417,11 +417,11 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "At least one argument required.");
 
-                if (arg_transport != BUS_TRANSPORT_LOCAL)
+                if (arg_transport != BUS_TRANSPORT_LOCAL || !arg_canonicalize)
                         for (int i = optind; i < argc; i++)
                                 if (!path_is_absolute(argv[i]))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Path must be absolute when operating remotely: %s",
+                                                               "Path must be absolute when operating remotely or when canonicalization is turned off: %s",
                                                                argv[i]);
         } else {
                 if (optind >= argc)
@@ -476,7 +476,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 }
 
                                 if (arg_transport == BUS_TRANSPORT_LOCAL && arg_canonicalize) {
-                                        r = chase(p, /* root= */ NULL, /* flags= */ 0, &arg_mount_what, /* ret_fd= */ NULL);
+                                        r = chase(p, /* root= */ NULL, CHASE_TRIGGER_AUTOFS, &arg_mount_what, /* ret_fd= */ NULL);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to chase path '%s': %m", p);
                                 } else {
@@ -860,14 +860,14 @@ static int find_mount_points_by_source(const char *what, char ***ret) {
                 struct libmnt_fs *fs;
                 const char *source, *target;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
                         break;
                 if (r < 0)
                         return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                source = mnt_fs_get_source(fs);
-                target = mnt_fs_get_target(fs);
+                source = sym_mnt_fs_get_source(fs);
+                target = sym_mnt_fs_get_target(fs);
                 if (!source || !target)
                         continue;
 
@@ -1103,7 +1103,7 @@ static int action_umount(sd_bus *bus, int argc, char **argv) {
                         return log_oom();
 
                 _cleanup_close_ int fd = -EBADF;
-                r = chase(u, /* root= */ NULL, 0, &p, &fd);
+                r = chase(u, /* root= */ NULL, CHASE_TRIGGER_AUTOFS, &p, &fd);
                 if (r < 0) {
                         RET_GATHER(ret, log_error_errno(r, "Failed to chase path '%s': %m", u));
                         continue;
@@ -1301,6 +1301,7 @@ static int acquire_description(sd_device *d) {
 
 static int acquire_removable(sd_device *d) {
         const char *v;
+        int r;
 
         assert(d);
 
@@ -1312,10 +1313,16 @@ static int acquire_removable(sd_device *d) {
                 if (sd_device_get_sysattr_value(d, "removable", &v) >= 0)
                         break;
 
-                if (sd_device_get_parent(d, &d) < 0)
+                r = sd_device_get_parent(d, &d);
+                if (r == -ENODEV)
                         return 0;
+                if (r < 0)
+                        return r;
 
-                if (!device_in_subsystem(d, "block"))
+                r = device_in_subsystem(d, "block");
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         return 0;
         }
 

@@ -19,13 +19,14 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <net/ethernet.h>
-#include <netinet/in.h>
-
 #include "_sd-common.h"
-#include "sd-event.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct ether_addr;
+struct in_addr;
+
+typedef struct sd_event sd_event;
 
 enum {
         SD_IPV4LL_EVENT_STOP            = 0,
@@ -44,9 +45,9 @@ int sd_ipv4ll_set_callback(sd_ipv4ll *ll, sd_ipv4ll_callback_t cb, void *userdat
 int sd_ipv4ll_set_check_mac_callback(sd_ipv4ll *ll, sd_ipv4ll_check_mac_callback_t cb, void *userdata);
 int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr);
 int sd_ipv4ll_set_timeout(sd_ipv4ll *ll, uint64_t usec);
-int sd_ipv4ll_set_ifindex(sd_ipv4ll *ll, int interface_index);
+int sd_ipv4ll_set_ifindex(sd_ipv4ll *ll, int ifindex);
 int sd_ipv4ll_get_ifindex(sd_ipv4ll *ll);
-int sd_ipv4ll_set_ifname(sd_ipv4ll *ll, const char *interface_name);
+int sd_ipv4ll_set_ifname(sd_ipv4ll *ll, const char *ifname);
 int sd_ipv4ll_get_ifname(sd_ipv4ll *ll, const char **ret);
 int sd_ipv4ll_set_address(sd_ipv4ll *ll, const struct in_addr *address);
 int sd_ipv4ll_set_address_seed(sd_ipv4ll *ll, uint64_t seed);

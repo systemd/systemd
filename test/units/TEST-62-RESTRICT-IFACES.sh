@@ -4,8 +4,6 @@ set -ex
 set -o pipefail
 
 setup() {
-    systemd-analyze log-level debug
-
     for i in {0..3};
     do
         ip netns del "ns${i}" || true
@@ -30,8 +28,6 @@ teardown() {
         ip netns del "ns${i}"
         ip link del "veth${i}"
     done
-
-    systemd-analyze log-level info
 }
 
 if systemd-analyze compare-versions "$(uname -r)" lt 5.7; then
@@ -39,7 +35,7 @@ if systemd-analyze compare-versions "$(uname -r)" lt 5.7; then
     exit 77
 fi
 
-if systemctl --version | grep -q -F -- "-BPF_FRAMEWORK"; then
+if systemctl --version | grep -F -- "-BPF_FRAMEWORK" >/dev/null; then
     echo "bpf-framework is disabled" >>/skipped
     exit 77
 fi

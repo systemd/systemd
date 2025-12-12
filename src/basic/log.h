@@ -1,17 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <syslog.h>
 
-#include "macro.h"
-
-/* Some structures we reference but don't want to pull in headers for */
-struct iovec;
-struct signalfd_siginfo;
+#include "basic-forward.h"
 
 typedef enum LogTarget{
         LOG_TARGET_CONSOLE,
@@ -33,9 +27,9 @@ typedef enum LogTarget{
 #define LOG_NULL (LOG_EMERG - 1)
 assert_cc(LOG_NULL == -1);
 
-#define SYNTHETIC_ERRNO(num)                (abs(num) | (1 << 30))
+#define SYNTHETIC_ERRNO(num)                (ABS(num) | (1 << 30))
 #define IS_SYNTHETIC_ERRNO(val)             (((val) >> 30) == 1)
-#define ERRNO_VALUE(val)                    (abs(val) & ~(1 << 30))
+#define ERRNO_VALUE(val)                    (ABS(val) & ~(1 << 30))
 
 /* The callback function to be invoked when syntax warnings are seen
  * in the unit files. */
@@ -57,6 +51,7 @@ void log_settle_target(void);
 int log_set_max_level(int level);
 int log_set_max_level_from_string(const char *e);
 int log_get_max_level(void) _pure_;
+int log_get_target_max_level(LogTarget target);
 int log_max_levels_to_string(int level, char **ret);
 
 void log_set_facility(int facility);
@@ -95,8 +90,8 @@ int log_dispatch_internal(
                 const char *func,
                 const char *object_field,
                 const char *object,
-                const char *extra,
                 const char *extra_field,
+                const char *extra,
                 char *buffer);
 
 int log_internal(
@@ -197,15 +192,21 @@ int log_dump_internal(
 
 #if BUILD_MODE_DEVELOPER && !defined(TEST_CODE)
 #  define ASSERT_NON_ZERO(x) assert((x) != 0)
+#  define ASSERT_UNDERFLOW(x) assert((x) >= INT_MIN)
 #else
 #  define ASSERT_NON_ZERO(x)
+#  define ASSERT_UNDERFLOW(x)
 #endif
 
+/* We often call log macros with ssize_t instead of int, so check for underflows,
+ * as ssize_t is not guaranteed to be the same as int, and we usually do
+ * 'return log_errno...' from functions that return 'int' */
 #define log_full_errno(level, error, ...)                               \
         ({                                                              \
-                int _error = (error);                                   \
+                int64_t _error = (error);                               \
+                ASSERT_UNDERFLOW(_error);                               \
                 ASSERT_NON_ZERO(_error);                                \
-                log_full_errno_zerook(level, _error, __VA_ARGS__);      \
+                log_full_errno_zerook(level, (int)_error, __VA_ARGS__); \
         })
 
 #define log_full(level, fmt, ...)                                      \
@@ -286,18 +287,21 @@ bool log_on_console(void) _pure_;
 
 /* Helper to wrap the main message in structured logging. The macro doesn't do much,
  * except to provide visual grouping of the format string and its arguments. */
-#if LOG_MESSAGE_VERIFICATION || defined(__COVERITY__)
+#ifdef __COVERITY__
+/* Coverity does not like the concatenation of multiple formats and arguments. Let's replace each format
+ * string with a dummy string. The validity of the formats is hopefully checked by other CIs. */
+#  define LOG_ITEM(fmt, ...)    "dummy", NULL, ##__VA_ARGS__
+#elif LOG_MESSAGE_VERIFICATION
 /* Do a fake formatting of the message string to let the scanner verify the arguments against the format
  * message. The variable will never be set to true, but we don't tell the compiler that :) */
 extern bool _log_message_dummy;
 #  define LOG_ITEM(fmt, ...) "%.0d" fmt, (_log_message_dummy && printf(fmt, ##__VA_ARGS__)), ##__VA_ARGS__
-#  define LOG_MESSAGE(fmt, ...) LOG_ITEM("MESSAGE=" fmt, ##__VA_ARGS__)
 #else
 #  define LOG_ITEM(fmt, ...) fmt, ##__VA_ARGS__
-#  define LOG_MESSAGE(fmt, ...) "MESSAGE=" fmt, ##__VA_ARGS__
 #endif
 
-#define LOG_MESSAGE_ID(id) LOG_ITEM("MESSAGE_ID=" id)
+#define LOG_MESSAGE(fmt, ...) LOG_ITEM("MESSAGE=" fmt, ##__VA_ARGS__)
+#define LOG_MESSAGE_ID(id)    LOG_ITEM("MESSAGE_ID=" id)
 
 void log_received_signal(int level, const struct signalfd_siginfo *si);
 

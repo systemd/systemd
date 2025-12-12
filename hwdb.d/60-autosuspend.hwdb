@@ -14,18 +14,17 @@
 #   systemd-hwdb update
 #   udevadm trigger /dev/…
 #
-# If your changes are generally applicable, preferably send them as a pull
-# request to
+# If your changes are generally applicable, send them as a pull request to
 #   https://github.com/systemd/systemd
 # or create a bug report on https://github.com/systemd/systemd/issues and
 # include your new rules, a description of the device, and the output of
 #   udevadm info
-# the device.
+# for the device.
 #
 # Allowed properties are:
-#    ID_AUTOSUSPEND=1
+#    ID_AUTOSUSPEND=0|1
 #    ID_AUTOSUSPEND_DELAY_MS=####
-#    ID_PERSIST=0
+#    ID_PERSIST=0|1
 #
 # ID_AUTOSUSPEND_DELAY_MS adjusts the delay for autosuspend to something
 # different than the kernel default of 2000ms.
@@ -96,6 +95,10 @@ usb:v1199pA001*
 usb:v2CB7p0007*
  ID_AUTOSUSPEND=1
  ID_AUTOSUSPEND_DELAY_MS=7000
+
+# Dell Computer Corp. DW5826e Qualcomm Snapdragon X12 Global LTE-A
+usb:v413Cp8217*
+ ID_AUTOSUSPEND=1
 
 #########################################
 # Wacom

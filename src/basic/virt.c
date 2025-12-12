@@ -3,25 +3,24 @@
 #if defined(__i386__) || defined(__x86_64__)
 #include <cpuid.h>
 #endif
-#include <errno.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <threads.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "dirent-util.h"
+#include "dirent-util.h"        /* IWYU pragma: keep */
 #include "env-util.h"
-#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "macro.h"
 #include "namespace-util.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "virt.h"
 
 enum {
@@ -200,12 +199,10 @@ static Virtualization detect_vm_dmi_vendor(void) {
                 _cleanup_free_ char *s = NULL;
 
                 r = read_one_line_file(*vendor, &s);
-                if (r < 0) {
-                        if (r == -ENOENT)
-                                continue;
-
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
                         return r;
-                }
 
                 FOREACH_ELEMENT(dmi_vendor, dmi_vendor_table)
                         if (startswith(s, dmi_vendor->vendor)) {
@@ -255,7 +252,7 @@ static int detect_vm_smbios(void) {
 #endif /* defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64) */
 
 static Virtualization detect_vm_dmi(void) {
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64) || defined(__riscv)
 
         int r;
         r = detect_vm_dmi_vendor();
@@ -476,8 +473,14 @@ Virtualization detect_vm(void) {
                    VIRTUALIZATION_ORACLE,
                    VIRTUALIZATION_XEN,
                    VIRTUALIZATION_AMAZON,
-                   VIRTUALIZATION_PARALLELS,
-                   VIRTUALIZATION_GOOGLE)) {
+                   /* Unable to distinguish a GCE machine from a VM to bare-metal
+                    * for non-x86 architectures due to its necessity for cpuid
+                    * detection, which functions solely on x86 platforms. Report
+                    * as a VM for other architectures. */
+#if !defined(__i386__) && !defined(__x86_64__)
+                   VIRTUALIZATION_GOOGLE,
+#endif
+                   VIRTUALIZATION_PARALLELS)) {
                 v = dmi;
                 goto finish;
         }
@@ -516,6 +519,10 @@ Virtualization detect_vm(void) {
                 hyperv = true;
         else if (v == VIRTUALIZATION_VM_OTHER)
                 other = true;
+        else if (v == VIRTUALIZATION_KVM && dmi == VIRTUALIZATION_GOOGLE)
+                /* The DMI vendor tables in /sys/class/dmi/id don't help us distinguish between GCE
+                 * virtual machines and bare-metal instances, so we need to look at hypervisor. */
+                return VIRTUALIZATION_GOOGLE;
         else if (v != VIRTUALIZATION_NONE)
                 goto finish;
 
@@ -528,7 +535,9 @@ Virtualization detect_vm(void) {
                 return dmi;
         if (dmi == VIRTUALIZATION_VM_OTHER)
                 other = true;
-        else if (dmi != VIRTUALIZATION_NONE) {
+        else if (!IN_SET(dmi, VIRTUALIZATION_NONE, VIRTUALIZATION_GOOGLE)) {
+                /* At this point if GCE has been detected in dmi, do not report as a VM. It should
+                 * be a bare-metal machine */
                 v = dmi;
                 goto finish;
         }
@@ -805,18 +814,21 @@ int running_in_chroot(void) {
         if (getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
                 return 0;
 
-        r = pidref_from_same_root_fs(&PIDREF_MAKE_FROM_PID(1), NULL);
-        if (r == -ENOSYS) {
-                if (getpid_cached() == 1)
-                        return false; /* We will mount /proc, assuming we're not in a chroot. */
+        r = inode_same("/proc/1/root", "/", /* flags = */ 0);
+        if (r == -ENOENT) {
+                r = proc_mounted();
+                if (r == 0) {
+                        if (getpid_cached() == 1)
+                                return false; /* We will mount /proc, assuming we're not in a chroot. */
 
-                log_debug("/proc/ is not mounted, assuming we're in a chroot.");
-                return true;
+                        log_debug("/proc/ is not mounted, assuming we're in a chroot.");
+                        return true;
+                }
+                if (r > 0) /* If we have fake /proc/, we can't do the check properly. */
+                        return -ENOSYS;
         }
-        if (r == -ESRCH) /* We must have a fake /proc/, we can't do the check properly. */
-                return -ENOSYS;
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to check if /proc/1/root and / are the same inode: %m");
 
         return r == 0;
 }

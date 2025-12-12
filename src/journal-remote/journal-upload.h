@@ -3,13 +3,9 @@
 #pragma once
 
 #include <curl/curl.h>
-#include <inttypes.h>
 
-#include "sd-event.h"
-#include "sd-journal.h"
-
+#include "shared-forward.h"
 #include "journal-compression-util.h"
-#include "time-util.h"
 
 typedef enum {
         ENTRY_CURSOR = 0,           /* Nothing actually written yet. */

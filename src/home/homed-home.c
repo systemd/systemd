@@ -1,14 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mman.h>
-#include <sys/quota.h>
 #include <sys/vfs.h>
+#include <unistd.h>
+
+#include "sd-bus.h"
 
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
+#include "device-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
@@ -16,28 +18,29 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "filesystems.h"
-#include "fs-util.h"
+#include "format-util.h"
 #include "glyph-util.h"
 #include "home-util.h"
 #include "homed-home.h"
 #include "homed-home-bus.h"
 #include "homed-manager.h"
+#include "homed-operation.h"
 #include "json-util.h"
 #include "log.h"
 #include "memfd-util.h"
-#include "missing_magic.h"
-#include "missing_mman.h"
 #include "mkdir.h"
+#include "ordered-set.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "quota-util.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
-#include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "time-util.h"
 #include "uid-classification.h"
 #include "user-record.h"
 #include "user-record-password-quality.h"
@@ -81,7 +84,8 @@ static int suitable_home_record(UserRecord *hr) {
 
         /* Insist we are outside of the dynamic and system range */
         if (uid_is_system(hr->uid) || gid_is_system(user_record_gid(hr)) ||
-            uid_is_dynamic(hr->uid) || gid_is_dynamic(user_record_gid(hr)))
+            uid_is_dynamic(hr->uid) || gid_is_dynamic(user_record_gid(hr)) ||
+            uid_is_greeter(hr->uid))
                 return -EADDRNOTAVAIL;
 
         /* Insist that GID and UID match */
@@ -566,7 +570,7 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
                 return 0;
         }
 
-        if (lseek(fd, SEEK_SET, 0) < 0)
+        if (lseek(fd, 0, SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to seek to beginning of memfd: %m");
 
         f = take_fdopen(&fd, "r");
@@ -736,7 +740,7 @@ static void home_fixate_finish(Home *h, int ret, UserRecord *hr) {
         secret = TAKE_PTR(h->secret); /* Take possession */
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ false);
+                home_count_bad_authentication(h, ret, /* save= */ false);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_error_errno(ret, "Fixation failed: %m");
@@ -827,7 +831,7 @@ static void home_activate_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_ACTIVATING, HOME_ACTIVATING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -990,7 +994,7 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         flags = h->current_operation ? h->current_operation->call_flags : 0;
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -1065,7 +1069,7 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_UNLOCKING, HOME_UNLOCKING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -1101,7 +1105,7 @@ static void home_authenticating_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_AUTHENTICATING, HOME_AUTHENTICATING_WHILE_ACTIVE, HOME_AUTHENTICATING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -1155,7 +1159,7 @@ static int home_on_worker_process(sd_event_source *s, const siginfo_t *si, void 
         } else if (si->si_status != EXIT_SUCCESS) {
                 /* If we received an error code via sd_notify(), use it */
                 if (h->worker_error_code != 0)
-                        ret = log_debug_errno(h->worker_error_code, "Worker reported error code %s.", errno_to_name(h->worker_error_code));
+                        ret = log_debug_errno(h->worker_error_code, "Worker reported error code %s.", ERRNO_NAME(h->worker_error_code));
                 else
                         ret = log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Worker exited with exit code %i.", si->si_status);
         } else
@@ -1251,6 +1255,8 @@ static int home_start_work(
                 if (!sub)
                         return -ENOKEY;
 
+                sd_json_variant_sensitive(sub);
+
                 r = sd_json_variant_set_field(&v, "secret", sub);
                 if (r < 0)
                         return r;
@@ -1295,7 +1301,16 @@ static int home_start_work(
         if (stdin_fd < 0)
                 return stdin_fd;
 
-        log_debug("Sending to worker: %s", formatted);
+        if (DEBUG_LOGGING) {
+                _cleanup_(erase_and_freep) char *censored_text = NULL;
+
+                /* Suppress sensitive fields in the debug output */
+                r = sd_json_variant_format(v, /* flags= */ SD_JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
+                if (r < 0)
+                        return r;
+
+                log_debug("Sending to worker: %s", censored_text);
+        }
 
         stdout_fd = memfd_new("homework-stdout");
         if (stdout_fd < 0)
@@ -2174,7 +2189,7 @@ void home_process_notify(Home *h, char **l, int fd) {
                         return (void) log_debug_errno(r, "Failed to parse SYSTEMD_LUKS_LOCK_FD value: %m");
                 if (r > 0) {
                         if (taken_fd < 0)
-                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring: %m");
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring.");
 
                         close_and_replace(h->luks_lock_fd, taken_fd);
 
@@ -2184,7 +2199,7 @@ void home_process_notify(Home *h, char **l, int fd) {
                         home_maybe_close_luks_lock_fd(h, _HOME_STATE_INVALID);
                 } else {
                         if (taken_fd >= 0)
-                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=0 but fd passed, ignoring: %m");
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=0 but fd passed, ignoring.");
 
                         h->luks_lock_fd = safe_close(h->luks_lock_fd);
                 }
@@ -2672,7 +2687,7 @@ int home_augment_status(
                 disk_ceiling = USER_DISK_SIZE_MAX;
 
         r = sd_json_buildo(&status,
-                           SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(home_state_to_string(state))),
+                           SD_JSON_BUILD_PAIR_STRING("state", home_state_to_string(state)),
                            SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
                            SD_JSON_BUILD_PAIR("useFallback", SD_JSON_BUILD_BOOLEAN(!HOME_STATE_IS_ACTIVE(state))),
                            SD_JSON_BUILD_PAIR("fallbackShell", JSON_BUILD_CONST_STRING(BINDIR "/systemd-home-fallback-shell")),
@@ -3205,10 +3220,8 @@ static int home_get_image_path_seat(Home *h, char **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_device_get_property_value(d, "ID_SEAT", &seat);
-        if (r == -ENOENT) /* no property means seat0 */
-                seat = "seat0";
-        else if (r < 0)
+        r = device_get_seat(d, &seat);
+        if (r < 0)
                 return r;
 
         return strdup_to(ret, seat);

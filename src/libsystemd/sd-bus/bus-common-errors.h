@@ -63,6 +63,7 @@
 #define BUS_ERROR_NOT_YOUR_DEVICE              "org.freedesktop.login1.NotYourDevice"
 #define BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED \
                                                "org.freedesktop.login1.DesignatedMaintenanceTimeNotScheduled"
+#define BUS_ERROR_BLOCKED_BY_INHIBITOR_LOCK    "org.freedesktop.login1.BlockedByInhibitorLock"
 
 #define BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED  "org.freedesktop.timedate1.AutomaticTimeSyncEnabled"
 #define BUS_ERROR_NO_NTP_SUPPORT               "org.freedesktop.timedate1.NoNTPSupport"
@@ -84,6 +85,7 @@
 #define BUS_ERROR_STUB_LOOP                    "org.freedesktop.resolve1.StubLoop"
 #define BUS_ERROR_NO_SUCH_DNSSD_SERVICE        "org.freedesktop.resolve1.NoSuchDnssdService"
 #define BUS_ERROR_DNSSD_SERVICE_EXISTS         "org.freedesktop.resolve1.DnssdServiceExists"
+#define BUS_ERROR_NO_SUCH_DELEGATE             "org.freedesktop.resolve1.NoSuchDelegate"
 
 #define _BUS_ERROR_DNS                         "org.freedesktop.resolve1.DnsError."
 #define BUS_ERROR_DNS_FORMERR                  _BUS_ERROR_DNS "FORMERR"

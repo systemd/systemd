@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "fileio.h"
-#include "fs-util.h"
 #include "log.h"
 #include "mkdir.h"
 #include "os-util.h"
@@ -127,7 +127,7 @@ TEST(os_release_support_ended) {
 
         ASSERT_TRUE(os_release_support_ended("1999-01-01", false, NULL));
         ASSERT_FALSE(os_release_support_ended("2037-12-31", false, NULL));
-        assert_se(os_release_support_ended("-1-1-1", true, NULL) == -EINVAL);
+        ASSERT_ERROR(os_release_support_ended("1-1-1", true, NULL), ERANGE);
 
         r = os_release_support_ended(NULL, false, NULL);
         if (r < 0)

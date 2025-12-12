@@ -4,27 +4,26 @@
 #include <locale.h>
 
 #include "sd-bus.h"
+#include "sd-event.h"
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-label.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-util.h"
-#include "conf-files.h"
-#include "conf-parser.h"
-#include "errno-list.h"
-#include "fd-util.h"
-#include "fileio.h"
+#include "errno-util.h"
 #include "format-table.h"
-#include "fs-util.h"
+#include "hashmap.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "os-util.h"
 #include "pager.h"
-#include "path-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
+#include "runtime-scope.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sysupdate-update-set-flags.h"
 #include "sysupdate-util.h"
@@ -37,7 +36,7 @@ static bool arg_reboot = false;
 static bool arg_offline = false;
 static bool arg_now = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 
 #define SYSUPDATE_HOST_PATH "/org/freedesktop/sysupdate1/target/host"
 #define SYSUPDATE_TARGET_INTERFACE "org.freedesktop.sysupdate1.Target"
@@ -366,7 +365,7 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
         assert(sd_json_variant_is_object(json));
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "version",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(DescribeParams, v.version),     0 },
+                { "version",       SD_JSON_VARIANT_STRING,  json_dispatch_version,    offsetof(DescribeParams, v.version),     0 },
                 { "newest",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, newest),        0 },
                 { "available",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, available),     0 },
                 { "installed",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, installed),     0 },
@@ -656,7 +655,7 @@ static int check_describe_finished(sd_bus_message *reply, void *userdata, sd_bus
         _cleanup_(version_done) Version v = {};
         _cleanup_free_ char *update = NULL;
         const sd_bus_error *e;
-	sd_bus_error error = {};
+        sd_bus_error error = {};
         const char *lnk = NULL;
         char *current;
         int r;
@@ -965,7 +964,8 @@ static int update_interrupted(sd_event_source *source, void *userdata) {
                                op->job_path,
                                "org.freedesktop.sysupdate1.Job",
                                "Cancel",
-                               &error, /* reply= */ NULL,
+                               &error,
+                               /* ret_reply= */ NULL,
                                NULL);
         if (r < 0)
                 return log_bus_error(r, &error, NULL, "call Cancel");
@@ -1413,7 +1413,7 @@ static int verb_enable(int argc, char **argv, void *userdata) {
                                        SYSUPDATE_TARGET_INTERFACE,
                                        "SetFeatureEnabled",
                                        &error,
-                                       /* reply= */ NULL,
+                                       /* ret_reply= */ NULL,
                                        "sit",
                                        *feature,
                                        (int) enable,
@@ -1614,6 +1614,8 @@ static int run(int argc, char *argv[]) {
 
         if (arg_transport == BUS_TRANSPORT_LOCAL)
                 polkit_agent_open();
+
+        (void) sd_bus_set_allow_interactive_authorization(bus, true);
 
         return dispatch_verb(argc, argv, verbs, bus);
 }

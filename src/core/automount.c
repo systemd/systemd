@@ -1,21 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <linux/auto_dev-ioctl.h>
-#include <sys/epoll.h>
-#include <sys/mount.h>
+#include <sys/mount.h>                  /* IWYU pragma: keep */
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
-#include "async.h"
 #include "automount.h"
 #include "bus-error.h"
-#include "bus-util.h"
 #include "dbus-automount.h"
 #include "dbus-unit.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fstab-util.h"
@@ -30,6 +28,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -345,7 +344,7 @@ static int open_dev_autofs(Manager *m) {
 
         m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY);
         if (m->dev_autofs_fd < 0)
-                return log_error_errno(errno, "Failed to open /dev/autofs: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/dev/autofs");
 
         init_autofs_dev_ioctl(&param);
         r = RET_NERRNO(ioctl(m->dev_autofs_fd, AUTOFS_DEV_IOCTL_VERSION, &param));
@@ -661,7 +660,7 @@ static int asynchronous_expire(int dev_autofs_fd, int ioctl_fd) {
                            (int[]) { dev_autofs_fd, ioctl_fd },
                            /* n_except_fds= */ 2,
                            FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
-                           /* pid= */ NULL);
+                           /* ret_pid= */ NULL);
         if (r != 0)
                 return r;
 
@@ -1034,13 +1033,16 @@ static void automount_reset_failed(Unit *u) {
 static bool automount_supported(void) {
         static int supported = -1;
 
+        if (!unit_type_supported(UNIT_MOUNT))
+                return false;
+
         if (supported < 0)
                 supported = access("/dev/autofs", F_OK) >= 0;
 
         return supported;
 }
 
-static int automount_can_start(Unit *u) {
+static int automount_test_startable(Unit *u) {
         Automount *a = ASSERT_PTR(AUTOMOUNT(u));
         int r;
 
@@ -1050,7 +1052,7 @@ static int automount_can_start(Unit *u) {
                 return r;
         }
 
-        return 1;
+        return true;
 }
 
 static const char* const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
@@ -1116,5 +1118,5 @@ const UnitVTable automount_vtable = {
                 },
         },
 
-        .can_start = automount_can_start,
+        .test_startable = automount_test_startable,
 };

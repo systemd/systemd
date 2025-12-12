@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro.h"
-#include "memory-util.h"
+#include "shared-forward.h"
 
 typedef struct XdgAutostartService {
         char *name;

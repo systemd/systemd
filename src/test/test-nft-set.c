@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <assert.h>
 #include <unistd.h>
+
+#include "sd-netlink.h"
 
 #include "firewall-util.h"
 #include "in-addr-util.h"
-#include "log.h"
 #include "netlink-internal.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -27,9 +27,8 @@ int main(int argc, char **argv) {
 
         const char *table = argv[3], *set = argv[4];
 
-        FirewallContext *ctx;
-        r = fw_ctx_new(&ctx);
-        assert_se(r == 0);
+        _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
+        ASSERT_OK(sd_nfnl_socket_open(&nfnl));
 
         bool add;
         if (streq(argv[1], "add"))
@@ -43,7 +42,7 @@ int main(int argc, char **argv) {
                 r = safe_atou32(argv[6], &element);
                 assert_se(r == 0);
 
-                r = nft_set_element_modify_any(ctx, add, nfproto, table, set, &element, sizeof(element));
+                r = nft_set_element_modify_any(nfnl, add, nfproto, table, set, &element, sizeof(element));
                 assert_se(r == 0);
         } else if (streq(argv[5], "uint64")) {
                 uint64_t element;
@@ -51,7 +50,7 @@ int main(int argc, char **argv) {
                 r = safe_atou64(argv[6], &element);
                 assert_se(r == 0);
 
-                r = nft_set_element_modify_any(ctx, add, nfproto, table, set, &element, sizeof(element));
+                r = nft_set_element_modify_any(nfnl, add, nfproto, table, set, &element, sizeof(element));
                 assert_se(r == 0);
         } else if (streq(argv[5], "in_addr")) {
                 union in_addr_union addr;
@@ -60,7 +59,7 @@ int main(int argc, char **argv) {
                 r = in_addr_from_string_auto(argv[6], &af, &addr);
                 assert_se(r == 0);
 
-                r = nft_set_element_modify_ip(ctx, add, nfproto, af, table, set, &addr);
+                r = nft_set_element_modify_ip(nfnl, add, nfproto, af, table, set, &addr);
                 assert_se(r == 0);
         } else if (streq(argv[5], "network")) {
                 union in_addr_union addr;
@@ -70,7 +69,7 @@ int main(int argc, char **argv) {
                 r = in_addr_prefix_from_string_auto(argv[6], &af, &addr, &prefixlen);
                 assert_se(r == 0);
 
-                r = nft_set_element_modify_iprange(ctx, add, nfproto, af, table, set, &addr, prefixlen);
+                r = nft_set_element_modify_iprange(nfnl, add, nfproto, af, table, set, &addr, prefixlen);
                 assert_se(r == 0);
         }
 

@@ -1,16 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct VCan VCan;
-
-#include <linux/can/netlink.h>
-#include <netinet/in.h>
-
 #include "netdev.h"
 
-struct VCan {
+typedef struct VCan {
         NetDev meta;
-};
+} VCan;
 
 DEFINE_NETDEV_CAST(VCAN, VCan);
 

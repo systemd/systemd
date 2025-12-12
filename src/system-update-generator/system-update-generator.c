@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "fs-util.h"
 #include "generator.h"
 #include "initrd-util.h"
@@ -11,6 +11,7 @@
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit-file.h"
 
 /*

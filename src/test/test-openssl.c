@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "hexdecoct.h"
 #include "openssl-util.h"
 #include "tests.h"
 
@@ -43,7 +42,7 @@ TEST(rsa_pkey_n_e) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         assert_se(rsa_pkey_from_n_e(n, n_len, &e, sizeof(e), &pkey) >= 0);
 
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new((EVP_PKEY*) pkey, NULL);
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pkey, NULL);
         assert_se(ctx);
         assert_se(EVP_PKEY_verify_init(ctx) == 1);
 
@@ -70,7 +69,7 @@ TEST(ecc_pkey_curve_x_y) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         assert_se(ecc_pkey_from_curve_x_y(curveid, x, x_len, y, y_len, &pkey) >= 0);
 
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new((EVP_PKEY*) pkey, NULL);
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pkey, NULL);
         assert_se(ctx);
         assert_se(EVP_PKEY_verify_init(ctx) == 1);
 
@@ -423,7 +422,7 @@ TEST(openssl_cipher) {
                 "32c62bbaeb0decc5c874b8e0148f86475b5bb10a36f7078a75a6f11704c2f06a",
                 /* hex_iv= */ NULL,
                 /* data= */ NULL, /* n_data= */ 0,
-                /* expected= */ NULL);
+                /* hex_expected= */ NULL);
 
         check_cipher(
                 "aes", 128, "cfb",
@@ -451,14 +450,14 @@ TEST(openssl_cipher) {
                 "b8fe4b89f6f25dd58cadceb68c99d508",
                 /* hex_iv= */ NULL,
                 /* data= */ NULL, /* n_data= */ 0,
-                /* expected= */ NULL);
+                /* hex_expected= */ NULL);
 
         check_cipher(
                 "aes", 128, "cfb",
                 "b8fe4b89f6f25dd58cadceb68c99d508",
                 "00000000000000000000000000000000",
                 /* data= */ NULL, /* n_data= */ 0,
-                /* expected= */ NULL);
+                /* hex_expected= */ NULL);
 }
 
 TEST(ecc_ecdh) {

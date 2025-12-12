@@ -75,7 +75,7 @@ UDEV_TAG = Word(string.ascii_uppercase, alphanums + '_')
 TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
          'evdev':    ('name', 'atkbd', 'input'),
          'fb':       ('pci', 'vmbus'),
-         'id-input': ('modalias'),
+         'id-input': ('modalias', 'bluetooth', 'i2c', 'usb'),
          'touchpad': ('i8042', 'rmi', 'bluetooth', 'usb'),
          'joystick': ('i8042', 'rmi', 'bluetooth', 'usb'),
          'keyboard': ('name', ),
@@ -176,7 +176,11 @@ def property_grammar():
              ('ID_INPUT_TOUCHSCREEN', id_input_setting),
              ('ID_INPUT_TRACKBALL', id_input_setting),
              ('ID_SIGNAL_ANALYZER', Or((Literal('0'), Literal('1')))),
+             ('ID_MAKER_TOOL', Or((Literal('0'), Literal('1')))),
              ('ID_HARDWARE_WALLET', Or((Literal('0'), Literal('1')))),
+             ('ID_SOFTWARE_RADIO', Or((Literal('0'), Literal('1')))),
+             ('ID_MM_DEVICE_IGNORE', Or((Literal('0'), Literal('1')))),
+             ('ID_NET_AUTO_LINK_LOCAL_ONLY', Or((Literal('0'), Literal('1')))),
              ('POINTINGSTICK_SENSITIVITY', INTEGER),
              ('ID_INPUT_JOYSTICK_INTEGRATION', Or(('internal', 'external'))),
              ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
@@ -202,7 +206,7 @@ def property_grammar():
                    for name, val in props]
     kbd_props = [Regex(r'KEYBOARD_KEY_[0-9a-f]+')('NAME')
                  - Suppress('=') -
-                 ('!' ^ (Optional('!') - Word(alphanums + '_')))('VALUE')
+                 Group('!' ^ (Optional('!') - Word(alphanums + '_')))('VALUE')
                 ]
     abs_props = [Regex(r'EVDEV_ABS_[0-9a-f]{2}')('NAME')
                  - Suppress('=') -

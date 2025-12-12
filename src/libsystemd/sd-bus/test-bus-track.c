@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <sys/socket.h>
 
 #include "sd-bus.h"
+#include "sd-event.h"
 
-#include "macro.h"
 #include "tests.h"
 
 static bool track_cb_called_x = false;

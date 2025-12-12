@@ -1,47 +1,44 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <linux/loop.h>
 #include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "creds-util.h"
 #include "dissect-image.h"
-#include "exec-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "fstab-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
-#include "initrd-util.h"
-#include "label-util.h"
 #include "libmount-util.h"
 #include "log.h"
-#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
-#include "parse-util.h"
+#include "os-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
-#include "stdio-util.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 
 int umount_recursive_full(const char *prefix, int flags, char **keep) {
+#if HAVE_LIBMOUNT
         _cleanup_fclose_ FILE *f = NULL;
         int n = 0, r;
 
@@ -50,14 +47,14 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
 
         f = fopen("/proc/self/mountinfo", "re"); /* Pin the file, in case we unmount /proc/ as part of the logic here */
         if (!f)
-                return log_debug_errno(errno, "Failed to open /proc/self/mountinfo: %m");
+                return log_debug_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
 
         for (;;) {
                 _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
                 _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
                 bool again = false;
 
-                r = libmount_parse_mountinfo(f, &table, &iter);
+                r = libmount_parse_full("/proc/self/mountinfo", f, MNT_ITER_BACKWARD, &table, &iter);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -66,13 +63,13 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                         struct libmnt_fs *fs;
                         const char *path;
 
-                        r = mnt_table_next_fs(table, iter, &fs);
+                        r = sym_mnt_table_next_fs(table, iter, &fs);
                         if (r == 1)
                                 break;
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                        path = mnt_fs_get_target(fs);
+                        path = sym_mnt_fs_get_target(fs);
                         if (!path)
                                 continue;
 
@@ -114,9 +111,12 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
         }
 
         return n;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
-#define MS_CONVERTIBLE_FLAGS (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_NOSYMFOLLOW)
+#define MS_CONVERTIBLE_FLAGS (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_NOSYMFOLLOW|MS_RELATIME|MS_NOATIME|MS_STRICTATIME|MS_NODIRATIME)
 
 static uint64_t ms_flags_to_mount_attr(unsigned long a) {
         uint64_t f = 0;
@@ -136,6 +136,35 @@ static uint64_t ms_flags_to_mount_attr(unsigned long a) {
         if (FLAGS_SET(a, MS_NOSYMFOLLOW))
                 f |= MOUNT_ATTR_NOSYMFOLLOW;
 
+        if (FLAGS_SET(a, MS_RELATIME))
+                f |= MOUNT_ATTR_RELATIME;
+
+        if (FLAGS_SET(a, MS_NOATIME))
+                f |= MOUNT_ATTR_NOATIME;
+
+        if (FLAGS_SET(a, MS_STRICTATIME))
+                f |= MOUNT_ATTR_STRICTATIME;
+
+        if (FLAGS_SET(a, MS_NODIRATIME))
+                f |= MOUNT_ATTR_NODIRATIME;
+
+        return f;
+}
+
+static uint64_t ms_flags_to_mount_attr_clr(unsigned long a) {
+        uint64_t f = 0;
+
+        /* As per documentation, if relatime/noatime/strictatime are set, we need to clear the atime flag
+         * too, otherwise -EINVAL will be returned by the kernel. */
+        if (FLAGS_SET(a, MS_RELATIME))
+                f |= MOUNT_ATTR__ATIME;
+
+        if (FLAGS_SET(a, MS_NOATIME))
+                f |= MOUNT_ATTR__ATIME;
+
+        if (FLAGS_SET(a, MS_STRICTATIME))
+                f |= MOUNT_ATTR__ATIME;
+
         return f;
 }
 
@@ -149,11 +178,6 @@ int bind_remount_recursive_with_mountinfo(
                 unsigned long flags_mask,
                 char **deny_list,
                 FILE *proc_self_mountinfo) {
-
-        _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
-        _cleanup_set_free_ Set *done = NULL;
-        unsigned n_tries = 0;
-        int r;
 
         assert(prefix);
 
@@ -180,6 +204,12 @@ int bind_remount_recursive_with_mountinfo(
                 } else
                         return 0; /* Nice, this worked! */
         }
+
+#if HAVE_LIBMOUNT
+        _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
+        _cleanup_set_free_ Set *done = NULL;
+        unsigned n_tries = 0;
+        int r;
 
         if (!proc_self_mountinfo) {
                 r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo_opened);
@@ -224,20 +254,20 @@ int bind_remount_recursive_with_mountinfo(
                         unsigned long flags = 0;
                         struct libmnt_fs *fs;
 
-                        r = mnt_table_next_fs(table, iter, &fs);
+                        r = sym_mnt_table_next_fs(table, iter, &fs);
                         if (r == 1) /* EOF */
                                 break;
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                        path = mnt_fs_get_target(fs);
+                        path = sym_mnt_fs_get_target(fs);
                         if (!path)
                                 continue;
 
                         if (!path_startswith(path, prefix))
                                 continue;
 
-                        type = mnt_fs_get_fstype(fs);
+                        type = sym_mnt_fs_get_fstype(fs);
                         if (!type)
                                 continue;
 
@@ -275,9 +305,9 @@ int bind_remount_recursive_with_mountinfo(
                                         continue;
                         }
 
-                        opts = mnt_fs_get_vfs_options(fs);
+                        opts = sym_mnt_fs_get_vfs_options(fs);
                         if (opts) {
-                                r = mnt_optstr_get_flags(opts, &flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+                                r = sym_mnt_optstr_get_flags(opts, &flags, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP));
                                 if (r < 0)
                                         log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
                         }
@@ -379,6 +409,9 @@ int bind_remount_recursive_with_mountinfo(
                         log_trace("Remounted %s.", x);
                 }
         }
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int bind_remount_one_with_mountinfo(
@@ -386,12 +419,6 @@ int bind_remount_one_with_mountinfo(
                 unsigned long new_flags,
                 unsigned long flags_mask,
                 FILE *proc_self_mountinfo) {
-
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        unsigned long flags = 0;
-        struct libmnt_fs *fs;
-        const char *opts;
-        int r;
 
         assert(path);
         assert(proc_self_mountinfo);
@@ -413,17 +440,28 @@ int bind_remount_one_with_mountinfo(
                         return 0; /* Nice, this worked! */
         }
 
+#if HAVE_LIBMOUNT
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        unsigned long flags = 0;
+        struct libmnt_fs *fs;
+        const char *opts;
+        int r;
+
         rewind(proc_self_mountinfo);
 
-        table = mnt_new_table();
-        if (!table)
-                return -ENOMEM;
-
-        r = mnt_table_parse_stream(table, proc_self_mountinfo, "/proc/self/mountinfo");
+        r = dlopen_libmount();
         if (r < 0)
                 return r;
 
-        fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
+        table = sym_mnt_new_table();
+        if (!table)
+                return -ENOMEM;
+
+        r = sym_mnt_table_parse_stream(table, proc_self_mountinfo, "/proc/self/mountinfo");
+        if (r < 0)
+                return r;
+
+        fs = sym_mnt_table_find_target(table, path, MNT_ITER_FORWARD);
         if (!fs) {
                 r = access_nofollow(path, F_OK); /* Hmm, it's not in the mount table, but does it exist at all? */
                 if (r < 0)
@@ -432,9 +470,9 @@ int bind_remount_one_with_mountinfo(
                 return -EINVAL; /* Not a mount point we recognize */
         }
 
-        opts = mnt_fs_get_vfs_options(fs);
+        opts = sym_mnt_fs_get_vfs_options(fs);
         if (opts) {
-                r = mnt_optstr_get_flags(opts, &flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+                r = sym_mnt_optstr_get_flags(opts, &flags, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP));
                 if (r < 0)
                         log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
         }
@@ -452,6 +490,9 @@ int bind_remount_one_with_mountinfo(
         }
 
         return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask) {
@@ -459,7 +500,7 @@ int bind_remount_one(const char *path, unsigned long new_flags, unsigned long fl
 
         proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
         if (!proc_self_mountinfo)
-                return log_debug_errno(errno, "Failed to open /proc/self/mountinfo: %m");
+                return log_debug_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
 
         return bind_remount_one_with_mountinfo(path, new_flags, flags_mask, proc_self_mountinfo);
 }
@@ -830,6 +871,16 @@ int mount_option_mangle(
                 unsigned long *ret_mount_flags,
                 char **ret_remaining_options) {
 
+        assert(ret_mount_flags);
+        assert(ret_remaining_options);
+
+        if (!options) {
+                *ret_mount_flags = mount_flags;
+                *ret_remaining_options = NULL;
+                return 0;
+        }
+
+#if HAVE_LIBMOUNT
         const struct libmnt_optmap *map;
         _cleanup_free_ char *ret = NULL;
         int r;
@@ -847,10 +898,11 @@ int mount_option_mangle(
          * The validity of options stored in '*ret_remaining_options' is not checked.
          * If 'options' is NULL, this just copies 'mount_flags' to *ret_mount_flags. */
 
-        assert(ret_mount_flags);
-        assert(ret_remaining_options);
+        r = dlopen_libmount();
+        if (r < 0)
+                return r;
 
-        map = mnt_get_builtin_optmap(MNT_LINUX_MAP);
+        map = sym_mnt_get_builtin_optmap(MNT_LINUX_MAP);
         if (!map)
                 return -EINVAL;
 
@@ -889,6 +941,9 @@ int mount_option_mangle(
         *ret_remaining_options = TAKE_PTR(ret);
 
         return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 static int mount_in_namespace_legacy(
@@ -972,7 +1027,9 @@ static int mount_in_namespace_legacy(
                                 image_policy,
                                 /* image_filter= */ NULL,
                                 /* extension_release_data= */ NULL,
+                                /* required_class= */ _IMAGE_CLASS_INVALID,
                                 /* verity= */ NULL,
+                                RUNTIME_SCOPE_SYSTEM,
                                 /* ret_image= */ NULL);
         else
                 r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
@@ -1193,7 +1250,9 @@ static int mount_in_namespace(
                                 image_policy,
                                 /* image_filter= */ NULL,
                                 /* extension_release_data= */ NULL,
+                                /* required_class= */ _IMAGE_CLASS_INVALID,
                                 /* verity= */ NULL,
+                                RUNTIME_SCOPE_SYSTEM,
                                 &img);
                 if (r < 0)
                         return log_debug_errno(r,
@@ -1444,6 +1503,72 @@ int make_userns(uid_t uid_shift,
         return TAKE_FD(userns_fd);
 }
 
+int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned flags, struct mount_attr *attr) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(attr);
+
+        if (isempty(path)) {
+                path = "";
+                flags |= AT_EMPTY_PATH;
+        }
+
+        fd = open_tree_attr(dir_fd, path, flags, attr, sizeof(struct mount_attr));
+        if (fd >= 0)
+                return TAKE_FD(fd);
+        if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                return log_debug_errno(errno, "Failed to open tree and set mount attributes: %m");
+
+        if (attr->attr_clr & MOUNT_ATTR_IDMAP)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot clear idmap from mount without open_tree_attr()");
+
+        fd = open_tree(dir_fd, path, flags);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open tree: %m");
+
+        if (mount_setattr(fd, "", AT_EMPTY_PATH | (flags & AT_RECURSIVE), attr, sizeof(struct mount_attr)) < 0)
+                return log_debug_errno(errno, "Failed to change mount attributes: %m");
+
+        return TAKE_FD(fd);
+}
+
+int open_tree_try_drop_idmap(int dir_fd, const char *path, unsigned flags) {
+        /* Tries to drop MOUNT_ATTR_IDMAP while calling open_tree_attr(), but if that doesn't work just uses
+         * a regular open_tree() */
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        if (isempty(path)) {
+                path = "";
+                flags |= AT_EMPTY_PATH;
+        }
+
+        _cleanup_close_ int fd = open_tree_attr_with_fallback(
+                        dir_fd,
+                        path,
+                        flags,
+                        &(struct mount_attr) {
+                                .attr_clr = MOUNT_ATTR_IDMAP,
+                        });
+        if (fd < 0) {
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(fd))
+                        return log_debug_errno(fd, "Failed to clear idmap of directory with open_tree_attr(): %m");
+
+                log_debug_errno(fd, "Failed to clear idmap with open_tree_attr(), retrying open_tree() without clearing idmap: %m");
+
+                fd = RET_NERRNO(open_tree(dir_fd, path, flags));
+                if (fd < 0)
+                        return log_debug_errno(fd, "Both open_tree() and open_tree_attr() failed, giving up: %m");
+
+                log_debug("open_tree() without clearing idmap worked.");
+                return TAKE_FD(fd);
+        }
+
+        log_debug("Successfully acquired mount fd with cleared idmap.");
+        return TAKE_FD(fd);
+}
+
 int remount_idmap_fd(
                 char **paths,
                 int userns_fd,
@@ -1472,22 +1597,19 @@ int remount_idmap_fd(
         CLEANUP_ARRAY(mount_fds, n_mounts_fds, close_many_and_free);
 
         for (size_t i = 0; i < n; i++) {
-                int mntfd;
-
-                /* Clone the mount point */
-                mntfd = mount_fds[n_mounts_fds] = open_tree(-EBADF, paths[i], OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
-                if (mount_fds[n_mounts_fds] < 0)
-                        return log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", paths[i]);
-
-                n_mounts_fds++;
-
-                /* Set the user namespace mapping attribute on the cloned mount point */
-                if (mount_setattr(mntfd, "", AT_EMPTY_PATH,
-                                  &(struct mount_attr) {
+                /* Clone the mount point and et the user namespace mapping attribute on the cloned mount point. */
+                mount_fds[n_mounts_fds] = open_tree_attr_with_fallback(
+                                AT_FDCWD,
+                                paths[i],
+                                OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC,
+                                &(struct mount_attr) {
                                           .attr_set = MOUNT_ATTR_IDMAP | extra_mount_attr_set,
                                           .userns_fd = userns_fd,
-                                  }, sizeof(struct mount_attr)) < 0)
-                        return log_debug_errno(errno, "Failed to change bind mount attributes for clone of '%s': %m", paths[i]);
+                                });
+                if (mount_fds[n_mounts_fds] < 0)
+                        return mount_fds[n_mounts_fds];
+
+                n_mounts_fds++;
         }
 
         for (size_t i = n; i > 0; i--) { /* Unmount the paths right-to-left */
@@ -1540,6 +1662,7 @@ void sub_mount_array_free(SubMount *s, size_t n) {
         free(s);
 }
 
+#if HAVE_LIBMOUNT
 static int sub_mount_compare(const SubMount *a, const SubMount *b) {
         assert(a);
         assert(b);
@@ -1559,9 +1682,10 @@ static void sub_mount_drop(SubMount *s, size_t n) {
                         m = i;
         }
 }
+#endif
 
 int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts) {
-
+#if HAVE_LIBMOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         SubMount *mounts = NULL;
@@ -1585,20 +1709,20 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 const char *path;
                 int id1, id2;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
                         break; /* EOF */
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                path = mnt_fs_get_target(fs);
+                path = sym_mnt_fs_get_target(fs);
                 if (!path)
                         continue;
 
                 if (isempty(path_startswith(path, prefix)))
                         continue;
 
-                id1 = mnt_fs_get_id(fs);
+                id1 = sym_mnt_fs_get_id(fs);
                 r = path_get_mnt_id(path, &id2);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to get mount ID of '%s', ignoring: %m", path);
@@ -1638,6 +1762,9 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
         *ret_mounts = TAKE_PTR(mounts);
         *ret_n_mounts = n;
         return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int bind_mount_submounts(
@@ -1732,58 +1859,65 @@ unsigned long credentials_fs_mount_flags(bool ro) {
         return MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported()|(ro ? MS_RDONLY : 0);
 }
 
-int mount_credentials_fs(const char *path, size_t size, bool ro) {
-        _cleanup_free_ char *opts = NULL;
-        int r, noswap_supported;
+int fsmount_credentials_fs(int *ret_fsfd) {
+        _cleanup_close_ int fs_fd = -EBADF;
+        char size_str[DECIMAL_STR_MAX(uint64_t)];
 
         /* Mounts a file system we can place credentials in, i.e. with tight access modes right from the
          * beginning, and ideally swapping turned off. In order of preference:
          *
-         *      1. tmpfs if it supports "noswap"
+         *      1. tmpfs if it supports "noswap" (needs kernel >= 6.3)
          *      2. ramfs
-         *      3. tmpfs if it doesn't support "noswap"
+         *      3. tmpfs without "noswap"
          */
 
-        noswap_supported = mount_option_supported("tmpfs", "noswap", NULL); /* Check explicitly to avoid kmsg noise */
-        if (noswap_supported > 0) {
-                _cleanup_free_ char *noswap_opts = NULL;
+        fs_fd = fsopen("tmpfs", FSOPEN_CLOEXEC);
+        if (fs_fd < 0)
+                return -errno;
 
-                if (asprintf(&noswap_opts, "mode=0700,nr_inodes=1024,size=%zu,noswap", size) < 0)
-                        return -ENOMEM;
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "nr_inodes", "1024", 0) < 0)
+                return -errno;
 
-                /* Best case: tmpfs with noswap (needs kernel >= 6.3) */
+        xsprintf(size_str, "%" PRIu64, CREDENTIALS_TOTAL_SIZE_MAX);
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "size", size_str, 0) < 0)
+                return -errno;
 
-                r = mount_nofollow_verbose(
-                                LOG_DEBUG,
-                                "tmpfs",
-                                path,
-                                "tmpfs",
-                                credentials_fs_mount_flags(ro),
-                                noswap_opts);
-                if (r >= 0)
-                        return r;
+        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "noswap", NULL, 0) < 0) {
+                if (errno != EINVAL)
+                        return -errno;
+
+                int ramfs_fd = fsopen("ramfs", FSOPEN_CLOEXEC);
+                if (ramfs_fd >= 0)
+                        close_and_replace(fs_fd, ramfs_fd);
         }
 
-        r = mount_nofollow_verbose(
-                        LOG_DEBUG,
-                        "ramfs",
-                        path,
-                        "ramfs",
-                        credentials_fs_mount_flags(ro),
-                        "mode=0700");
-        if (r >= 0)
-                return r;
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "mode", "0700", 0) < 0)
+                return -errno;
 
-        if (asprintf(&opts, "mode=0700,nr_inodes=1024,size=%zu", size) < 0)
-                return -ENOMEM;
+        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
+                return -errno;
 
-        return mount_nofollow_verbose(
-                        LOG_DEBUG,
-                        "tmpfs",
-                        path,
-                        "tmpfs",
-                        credentials_fs_mount_flags(ro),
-                        opts);
+        int mfd = fsmount(fs_fd, FSMOUNT_CLOEXEC,
+                          ms_flags_to_mount_attr(credentials_fs_mount_flags(/* ro = */ false)));
+        if (mfd < 0)
+                return -errno;
+
+        if (ret_fsfd)
+                *ret_fsfd = TAKE_FD(fs_fd);
+
+        return mfd;
+}
+
+int mount_credentials_fs(const char *path) {
+        _cleanup_close_ int mfd = -EBADF;
+
+        assert(path);
+
+        mfd = fsmount_credentials_fs(/* ret_fsfd = */ NULL);
+        if (mfd < 0)
+                return mfd;
+
+        return RET_NERRNO(move_mount(mfd, "", AT_FDCWD, path, MOVE_MOUNT_F_EMPTY_PATH));
 }
 
 int make_fsmount(
@@ -1857,11 +1991,12 @@ int make_fsmount(
         if (mnt_fd < 0)
                 return log_full_errno(error_log_level, errno, "Failed to create mount fd for \"%s\" (\"%s\"): %m", what, type);
 
-        if (mount_setattr(mnt_fd, "", AT_EMPTY_PATH|AT_RECURSIVE,
-                          &(struct mount_attr) {
-                                  .attr_set = ms_flags_to_mount_attr(f) | (userns_fd >= 0 ? MOUNT_ATTR_IDMAP : 0),
-                                  .userns_fd = userns_fd,
-                          }, MOUNT_ATTR_SIZE_VER0) < 0)
+        struct mount_attr ma = {
+                .attr_clr = ms_flags_to_mount_attr_clr(f),
+                .attr_set = ms_flags_to_mount_attr(f) | (userns_fd >= 0 ? MOUNT_ATTR_IDMAP : 0),
+                .userns_fd = userns_fd,
+        };
+        if (ma.attr_set != 0 && mount_setattr(mnt_fd, "", AT_EMPTY_PATH|AT_RECURSIVE, &ma, MOUNT_ATTR_SIZE_VER0) < 0)
                 return log_full_errno(error_log_level,
                                       errno,
                                       "Failed to set mount flags for \"%s\" (\"%s\"): %m",
@@ -1869,6 +2004,25 @@ int make_fsmount(
                                       type);
 
         return TAKE_FD(mnt_fd);
+}
+
+char* umount_and_rmdir_and_free(char *p) {
+        if (!p)
+                return NULL;
+
+        PROTECT_ERRNO;
+        (void) umount_recursive(p, 0);
+        (void) rmdir(p);
+        return mfree(p);
+}
+
+char* umount_and_free(char *p) {
+        if (!p)
+                return NULL;
+
+        PROTECT_ERRNO;
+        (void) umount_recursive(p, 0);
+        return mfree(p);
 }
 
 char* umount_and_unlink_and_free(char *p) {
@@ -1881,12 +2035,14 @@ char* umount_and_unlink_and_free(char *p) {
         return mfree(p);
 }
 
-static int path_get_mount_info_at(
+int path_get_mount_info_at(
                 int dir_fd,
                 const char *path,
                 char **ret_fstype,
-                char **ret_options) {
+                char **ret_options,
+                char **ret_source) {
 
+#if HAVE_LIBMOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r, mnt_id;
@@ -1909,26 +2065,32 @@ static int path_get_mount_info_at(
         for (;;) {
                 struct libmnt_fs *fs;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
                         break; /* EOF */
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                if (mnt_fs_get_id(fs) != mnt_id)
+                if (sym_mnt_fs_get_id(fs) != mnt_id)
                         continue;
 
-                _cleanup_free_ char *fstype = NULL, *options = NULL;
+                _cleanup_free_ char *fstype = NULL, *options = NULL, *source = NULL;
 
                 if (ret_fstype) {
-                        fstype = strdup(strempty(mnt_fs_get_fstype(fs)));
+                        fstype = strdup(strempty(sym_mnt_fs_get_fstype(fs)));
                         if (!fstype)
                                 return log_oom_debug();
                 }
 
                 if (ret_options) {
-                        options = strdup(strempty(mnt_fs_get_options(fs)));
+                        options = strdup(strempty(sym_mnt_fs_get_options(fs)));
                         if (!options)
+                                return log_oom_debug();
+                }
+
+                if (ret_source) {
+                        source = strdup(strempty(sym_mnt_fs_get_source(fs)));
+                        if (!source)
                                 return log_oom_debug();
                 }
 
@@ -1936,11 +2098,16 @@ static int path_get_mount_info_at(
                         *ret_fstype = TAKE_PTR(fstype);
                 if (ret_options)
                         *ret_options = TAKE_PTR(options);
+                if (ret_source)
+                        *ret_source = TAKE_PTR(source);
 
                 return 0;
         }
 
         return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Cannot find mount ID %i from /proc/self/mountinfo.", mnt_id);
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int path_is_network_fs_harder_at(int dir_fd, const char *path) {
@@ -1958,7 +2125,7 @@ int path_is_network_fs_harder_at(int dir_fd, const char *path) {
                 return r;
 
         _cleanup_free_ char *fstype = NULL, *options = NULL;
-        r = path_get_mount_info_at(fd, /* path = */ NULL, &fstype, &options);
+        r = path_get_mount_info_at(fd, /* path = */ NULL, &fstype, &options, /* ret_source = */ NULL);
         if (r < 0)
                 return r;
 

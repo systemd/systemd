@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-
-#include "bus-object.h"
-#include "homed-home.h"
+#include "homed-forward.h"
 
 int bus_home_get_record_json(Home *h, sd_bus_message *message, char **ret, bool *ret_incomplete);
 

@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "architecture.h"
-#include "glyph-util.h"
 #include "gpt.h"
 #include "log.h"
 #include "pretty-print.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "tests.h"
 
 TEST(gpt_types_against_architectures) {
@@ -50,17 +48,20 @@ TEST(verity_mappings) {
         for (PartitionDesignator p = 0; p < _PARTITION_DESIGNATOR_MAX; p++) {
                 PartitionDesignator q;
 
-                q = partition_verity_of(p);
-                assert_se(q < 0 || partition_verity_to_data(q) == p);
+                q = partition_verity_hash_of(p);
+                assert_se(q < 0 || partition_verity_hash_to_data(q) == p);
 
                 q = partition_verity_sig_of(p);
                 assert_se(q < 0 || partition_verity_sig_to_data(q) == p);
 
-                q = partition_verity_to_data(p);
-                assert_se(q < 0 || partition_verity_of(q) == p);
+                q = partition_verity_hash_to_data(p);
+                assert_se(q < 0 || partition_verity_hash_of(q) == p);
 
                 q = partition_verity_sig_to_data(p);
                 assert_se(q < 0 || partition_verity_sig_of(q) == p);
+
+                q = partition_verity_to_data(p);
+                assert_se(q < 0 || partition_verity_hash_of(q) == p || partition_verity_sig_of(q) == p);
         }
 }
 

@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if.h>
-#include <netinet/in.h>
-#include <sys/capability.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-message-util.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "dns-domain.h"
 #include "log-link.h"
@@ -20,12 +21,14 @@
 #include "resolved-link.h"
 #include "resolved-link-bus.h"
 #include "resolved-llmnr.h"
+#include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "resolved-resolv-conf.h"
+#include "set.h"
 #include "socket-netlink.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET(property_get_dnssec_supported, "b", Link, link_dnssec_supported);
 static BUS_DEFINE_PROPERTY_GET2(property_get_dnssec_mode, "s", Link, link_get_dnssec_mode, dnssec_mode_to_string);
@@ -258,7 +261,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name, RESOLVE_CONFIG_SOURCE_DBUS);
+                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, /* delegate= */ NULL, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name, RESOLVE_CONFIG_SOURCE_DBUS);
                         if (r < 0) {
                                 dns_server_unlink_all(l->dns_servers);
                                 goto finalize;
@@ -266,7 +269,6 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
 
                         changed = true;
                 }
-
         }
 
         changed = dns_server_unlink_marked(l->dns_servers) || changed;
@@ -387,7 +389,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                 if (r > 0)
                         dns_search_domain_move_back_and_unmark(d);
                 else {
-                        r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, name);
+                        r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, /* delegate= */ NULL, name);
                         if (r < 0)
                                 goto clear;
 
@@ -675,10 +677,6 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         if (r < 0)
                 return r;
 
-        ns = set_new(&dns_name_hash_ops_free);
-        if (!ns)
-                return -ENOMEM;
-
         r = sd_bus_message_read_strv(message, &ntas);
         if (r < 0)
                 return r;
@@ -691,7 +689,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Invalid negative trust anchor domain: %s", *i);
 
-                r = set_put_strdup(&ns, *i);
+                r = set_put_strdup_full(&ns, &dns_name_hash_ops_free, *i);
                 if (r < 0)
                         return r;
 

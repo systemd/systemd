@@ -138,7 +138,7 @@
         <literal>short</literal> or <literal>off</literal>. If <literal>pretty</literal> human-friendly
         whitespace and newlines are inserted in the output to make the JSON data more readable. If
         <literal>short</literal> all superfluous whitespace is suppressed. If <literal>off</literal> (the
-        default) the user information is not shown in JSON format but in a friendly human readable formatting
+        default) the user information is not shown in JSON format but in a friendly human-readable formatting
         instead. The <option>-j</option> option picks <literal>pretty</literal> when run interactively and
         <literal>short</literal> otherwise.</para>
 
@@ -203,6 +203,56 @@
         defaults to true for <command>create</command> and false for <command>register</command>.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--prompt-new-user</option></term>
+
+        <listitem><para>If used in conjunction with <command>firstboot</command> and no regular user account
+        exists on the system so far the tool will interactively query for user information and create an
+        account.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--prompt-shell=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to interactively query for a login shell,
+        if <command>firstboot --prompt-new-user</command> is used. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--prompt-groups=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to interactively query for auxiliary
+        groups to add the new user to, if <command>firstboot --prompt-new-user</command> is used. Defaults to
+        true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--chrome=</option></term>
+
+        <listitem><para>Takes a boolean argument. By default the interactive user creation via
+        <command>firstboot --prompt-new-user</command> screen will show reverse color "chrome" bars at the
+        top and and the bottom of the terminal screen, which may be disabled by setting this option to
+        false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mute-console=</option></term>
+
+        <listitem><para>Takes a boolean argument. If true kernel log output and service manager status output
+        to the system console is temporarily disabled while <command>firstboot --prompt-new-user</command> is
+        running, so that its own output is not interrupted. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1424,9 +1474,10 @@ $ ssh lennart@targetsystem</programlisting>
 
         <listitem><para>This command is supposed to be invoked during the initial boot of the system. It
         checks whether any regular home area exists so far, and if not queries the user interactively on the
-        console for user name and password and creates one. Alternatively, if one or more service credentials
-        whose name starts with <literal>home.create.</literal> are passed to the command (containing a user
-        record in JSON format) these users are automatically created at boot.</para>
+        console for user name and password and creates one (only if <option>--prompt-new-user</option> is
+        specified). Alternatively, if one or more service credentials whose name starts with
+        <literal>home.create.</literal> are passed to the command (containing a user record in JSON format)
+        these users are automatically created at boot.</para>
 
         <para>This command is invoked by the <filename>systemd-homed-firstboot.service</filename> service
         unit.</para>
@@ -1583,6 +1634,13 @@ homectl update lafcadio --pkcs11-token-uri=auto</programlisting>
 
       <programlisting># Allow a FIDO2 security token to unlock the account of user 'nihilbaxter'.
 homectl update nihilbaxter --fido2-device=auto</programlisting>
+    </example>
+
+    <example>
+      <title>Add a recovery key to an existing user account:</title>
+
+      <programlisting># Generate and add a recovery key for user 'emily'.
+homectl update emily --recovery-key=yes</programlisting>
     </example>
   </refsect1>
 

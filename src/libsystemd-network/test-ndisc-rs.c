@@ -3,7 +3,6 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <arpa/inet.h>
 #include <netinet/icmp6.h>
 #include <unistd.h>
 
@@ -14,16 +13,14 @@
 #include "hexdecoct.h"
 #include "icmp6-packet.h"
 #include "icmp6-test-util.h"
+#include "in-addr-util.h"
 #include "ndisc-internal.h"
-#include "socket-util.h"
 #include "strv.h"
 #include "tests.h"
 
 static struct ether_addr mac_addr = {
         .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
 };
-
-static bool verbose = false;
 
 static void router_dump(sd_ndisc_router *rt) {
         struct in6_addr addr;
@@ -189,8 +186,7 @@ static int send_ra(uint8_t flags) {
         assert_se(write(test_fd[1], advertisement, sizeof(advertisement)) ==
                   sizeof(advertisement));
 
-        if (verbose)
-                printf("  sent RA with flag 0x%02x\n", flags);
+        log_debug("%s: Sent RA with flag 0x%02x", __func__, flags);
 
         return 0;
 }
@@ -220,8 +216,7 @@ static void test_callback_ra(sd_ndisc *nd, sd_ndisc_event_t event, void *message
         assert_se(flags == flags_array[idx]);
         idx++;
 
-        if (verbose)
-                printf("  got event 0x%02" PRIx64 "\n", flags);
+        log_debug("%s: Got event 0x%02" PRIx64, __func__, flags);
 
         if (idx < ELEMENTSOF(flags_array)) {
                 send_ra(flags_array[idx]);
@@ -310,13 +305,10 @@ static int send_ra_invalid_domain(uint8_t flags) {
 
         advertisement[5] = flags;
 
-        printf("sizeof(nd_router_advert)=%zu\n", sizeof(struct nd_router_advert));
-
         assert_se(write(test_fd[1], advertisement, sizeof(advertisement)) ==
                   sizeof(advertisement));
 
-        if (verbose)
-                printf("  sent RA with flag 0x%02x\n", flags);
+        log_debug("%s: Sent RA with flag 0x%02x", __func__, flags);
 
         return 0;
 }
@@ -392,8 +384,8 @@ static int send_na(uint32_t flags) {
         ((struct nd_neighbor_advert*) advertisement)->nd_na_flags_reserved = flags;
 
         assert_se(write(test_fd[1], advertisement, sizeof(advertisement)) == sizeof(advertisement));
-        if (verbose)
-                printf("  sent NA with flag 0x%02x\n", flags);
+
+        log_debug("%s: Sent NA with flag 0x%02x", __func__, flags);
 
         return 0;
 }
@@ -423,8 +415,7 @@ static void test_callback_na(sd_ndisc *nd, sd_ndisc_event_t event, void *message
         assert_se(flags == flags_array[idx]);
         idx++;
 
-        if (verbose)
-                printf("  got event 0x%02" PRIx32 "\n", flags);
+        log_debug("%s: Got event 0x%02" PRIx32, __func__, flags);
 
         if (idx < ELEMENTSOF(flags_array)) {
                 send_na(flags_array[idx]);

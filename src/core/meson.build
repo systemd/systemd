@@ -63,17 +63,17 @@ libcore_sources = files(
         'unit-serialize.c',
         'unit.c',
         'varlink.c',
+        'varlink-cgroup.c',
+        'varlink-common.c',
+        'varlink-dynamic-user.c',
+        'varlink-execute.c',
+        'varlink-manager.c',
+        'varlink-unit.c',
 )
 
-if conf.get('BPF_FRAMEWORK') == 1
-        libcore_sources += files(
-                'bpf-util.c',
-        )
-endif
-
-subdir('bpf/socket_bind')
-subdir('bpf/restrict_fs')
-subdir('bpf/restrict_ifaces')
+subdir('bpf/socket-bind')
+subdir('bpf/restrict-fs')
+subdir('bpf/restrict-ifaces')
 
 if conf.get('BPF_FRAMEWORK') == 1
         libcore_sources += [
@@ -82,46 +82,66 @@ if conf.get('BPF_FRAMEWORK') == 1
                 restrict_ifaces_skel_h]
 endif
 
+sources += libcore_sources
+
 load_fragment_gperf_gperf = custom_target(
-        'load-fragment-gperf.gperf',
         input : 'load-fragment-gperf.gperf.in',
         output: 'load-fragment-gperf.gperf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'])
 
 load_fragment_gperf_c = custom_target(
-        'load-fragment-gperf.c',
         input : load_fragment_gperf_gperf,
         output : 'load-fragment-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 awkscript = 'load-fragment-gperf-nulstr.awk'
 load_fragment_gperf_nulstr_c = custom_target(
-        'load-fragment-gperf-nulstr.c',
         input : [awkscript, load_fragment_gperf_gperf],
         output : 'load-fragment-gperf-nulstr.c',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-generated_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c]
+generate_bpf_delegate_configs = files('generate-bpf-delegate-configs.py')
+bpf_delegate_configs_inc = custom_target(
+        input : [generate_bpf_delegate_configs, bpf_delegate_sources],
+        output : 'bpf-delegate-configs.inc',
+        command : [python,
+                   generate_bpf_delegate_configs,
+                   'code',
+                   bpf_delegate_sources],
+        capture : true)
 
+bpf_delegate_xml = custom_target(
+        input : [generate_bpf_delegate_configs, bpf_delegate_sources],
+        output : 'bpf-delegate.xml',
+        command : [python,
+                   generate_bpf_delegate_configs,
+                   'doc',
+                   bpf_delegate_sources],
+        capture : true)
+man_page_depends += bpf_delegate_xml
+
+generated_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc]
+libcore_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc]
+libcore_build_dir = meson.current_build_dir()
 libcore_name = 'systemd-core-@0@'.format(shared_lib_tag)
+core_includes = [includes, include_directories('.')]
 
 libcore_static = static_library(
         libcore_name,
         libcore_sources,
-        load_fragment_gperf_c,
-        load_fragment_gperf_nulstr_c,
-        include_directories : includes,
+        include_directories : core_includes,
+        implicit_include_directories : false,
         c_args : ['-fvisibility=default'],
-        dependencies : [libacl,
-                        libaudit,
-                        libblkid,
+        dependencies : [libaudit_cflags,
+                        libbpf_cflags,
+                        libcryptsetup_cflags,
                         libdl,
                         libm,
-                        libmount,
+                        libmount_cflags,
                         librt,
-                        libseccomp,
-                        libselinux,
+                        libseccomp_cflags,
+                        libselinux_cflags,
                         threads,
                         userspace],
         build_by_default : false)
@@ -129,6 +149,7 @@ libcore_static = static_library(
 libcore = shared_library(
         libcore_name,
         c_args : ['-fvisibility=default'],
+        implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_depends : libshared_sym_path,
@@ -136,8 +157,6 @@ libcore = shared_library(
         link_with : libshared,
         install : true,
         install_dir : pkglibdir)
-
-core_includes = [includes, include_directories('.')]
 
 systemd_sources = files(
         'main.c',
@@ -162,6 +181,7 @@ executor_libs = get_option('link-executor-shared') ? \
                 libcore,
                 libshared,
         ] : [
+                libc_wrapper_static,
                 libcore_static,
                 libshared_static,
                 libbasic_static,
@@ -181,21 +201,24 @@ executables += [
                 'dependencies' : [
                         libapparmor_cflags,
                         libkmod_cflags,
-                        libseccomp,
-                        libselinux,
+                        libmount_cflags,
+                        libseccomp_cflags,
+                        libselinux_cflags,
                 ],
         },
         libexec_template + {
                 'name' : 'systemd-executor',
                 'public' : true,
                 'sources' : systemd_executor_sources,
-                'include_directories' : core_includes,
                 'link_with' : executor_libs,
                 'dependencies' : [
                         libapparmor_cflags,
-                        libpam,
-                        libseccomp,
-                        libselinux,
+                        libbpf_cflags,
+                        libcryptsetup_cflags,
+                        libmount_cflags,
+                        libpam_cflags,
+                        libseccomp_cflags,
+                        libselinux_cflags,
                 ],
         },
         fuzz_template + {
@@ -204,7 +227,7 @@ executables += [
                         libcore,
                         libshared
                 ],
-                'dependencies' : libmount,
+                'dependencies' : libmount_cflags,
         },
         fuzz_template + {
                 'sources' : files('fuzz-manager-serialize.c'),
@@ -231,7 +254,6 @@ foreach item : in_files
         dir = item[1]
 
         custom_target(
-                file,
                 input : file + '.in',
                 output: file,
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
@@ -240,7 +262,6 @@ foreach item : in_files
 endforeach
 
 systemd_pc = custom_target(
-        'systemd.pc',
         input : 'systemd.pc.in',
         output : 'systemd.pc',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

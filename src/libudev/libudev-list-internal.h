@@ -3,7 +3,7 @@
 
 #include "libudev.h"
 
-#include "memory-util.h"
+#include "shared-forward.h"
 
 struct udev_list;
 

@@ -3,9 +3,9 @@
 #include <getopt.h>
 
 #include "format-util.h"
+#include "hashmap.h"
 #include "offline-passwd.h"
 #include "tests.h"
-#include "user-util.h"
 
 static char *arg_root = NULL;
 

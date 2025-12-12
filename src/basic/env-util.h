@@ -1,19 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <unistd.h>
+#include "basic-forward.h"
 
-#include "macro.h"
-#include "string.h"
-
-static inline size_t sc_arg_max(void) {
-        long l = sysconf(_SC_ARG_MAX);
-        assert(l > 0);
-        return (size_t) l;
-}
+size_t sc_arg_max(void);
 
 bool env_name_is_valid(const char *e);
 bool env_value_is_valid(const char *e);
@@ -25,19 +15,19 @@ typedef enum ReplaceEnvFlags {
         REPLACE_ENV_ALLOW_EXTENDED  = 1 << 2,
 } ReplaceEnvFlags;
 
-int replace_env_full(const char *format, size_t n, char **env, ReplaceEnvFlags flags, char **ret, char ***ret_unset_variables, char ***ret_bad_variables);
+int replace_env_full(const char *format, size_t length, char **env, ReplaceEnvFlags flags, char **ret, char ***ret_unset_variables, char ***ret_bad_variables);
 static inline int replace_env(const char *format, char **env, ReplaceEnvFlags flags, char **ret) {
         return replace_env_full(format, SIZE_MAX, env, flags, ret, NULL, NULL);
 }
 
 int replace_env_argv(char **argv, char **env, char ***ret, char ***ret_unset_variables, char ***ret_bad_variables);
 
-bool strv_env_is_valid(char **e);
-#define strv_env_clean(l) strv_env_clean_with_callback(l, NULL, NULL)
-char** strv_env_clean_with_callback(char **l, void (*invalid_callback)(const char *p, void *userdata), void *userdata);
+bool strv_env_is_valid(char * const *e);
+bool strv_env_name_is_valid(char * const *l);
+bool strv_env_name_or_assignment_is_valid(char * const *l);
 
-bool strv_env_name_is_valid(char **l);
-bool strv_env_name_or_assignment_is_valid(char **l);
+char** strv_env_clean_with_callback(char **l, void (*invalid_callback)(const char *p, void *userdata), void *userdata);
+#define strv_env_clean(l) strv_env_clean_with_callback(l, NULL, NULL)
 
 char** _strv_env_merge(char **first, ...);
 #define strv_env_merge(first, ...) _strv_env_merge(first, __VA_ARGS__, POINTER_MAX)

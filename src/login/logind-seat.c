@@ -1,19 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
 
+#include "acl-util.h"
 #include "alloc-util.h"
-#include "devnode-acl.h"
+#include "device-util.h"
+#include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
+#include "id128-util.h"
+#include "log.h"
 #include "logind.h"
 #include "logind-device.h"
 #include "logind-seat.h"
@@ -23,12 +26,15 @@
 #include "logind-session-device.h"
 #include "logind-user.h"
 #include "mkdir-label.h"
-#include "parse-util.h"
 #include "path-util.h"
+#include "set.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
+#include "udev-util.h"
+#include "user-record.h"
 
 int seat_new(Manager *m, const char *id, Seat **ret) {
         _cleanup_(seat_freep) Seat *s = NULL;
@@ -78,6 +84,7 @@ Seat* seat_free(Seat *s) {
 
         hashmap_remove(s->manager->seats, s->id);
 
+        set_free(s->uevents);
         free(s->positions);
         free(s->state_file);
         free(s->id);
@@ -86,8 +93,6 @@ Seat* seat_free(Seat *s) {
 }
 
 int seat_save(Seat *s) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(s);
@@ -97,13 +102,16 @@ int seat_save(Seat *s) {
 
         r = mkdir_safe_label("/run/systemd/seats", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create /run/systemd/seats/: %m");
 
-        r = fopen_temporary(s->state_file, &f, &temp_path);
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable(s->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create state file '%s': %m", s->state_file);
 
-        (void) fchmod(fileno(f), 0644);
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to set access mode for state file '%s' to 0644: %m", s->state_file);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -142,21 +150,12 @@ int seat_save(Seat *s) {
                                 i->sessions_by_seat_next ? ' ' : '\n');
         }
 
-        r = fflush_and_check(f);
+        r = flink_tmpfile(f, temp_path, s->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to move '%s' into place: %m", s->state_file);
 
-        if (rename(temp_path, s->state_file) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        temp_path = mfree(temp_path);
+        temp_path = mfree(temp_path); /* disarm auto-destroy: temporary file does not exist anymore */
         return 0;
-
-fail:
-        (void) unlink(s->state_file);
-        return log_error_errno(r, "Failed to save seat data %s: %m", s->state_file);
 }
 
 int seat_load(Seat *s) {
@@ -207,24 +206,206 @@ int seat_preallocate_vts(Seat *s) {
         return r;
 }
 
-int seat_apply_acls(Seat *s, Session *old_active) {
+static void seat_triggered_uevents_done(Seat *s) {
+        assert(s);
+
+        if (!set_isempty(s->uevents)) {
+                log_debug("%s: waiting for %u events being processed by udevd.", s->id, set_size(s->uevents));
+                return;
+        }
+
+        Session *session = s->active;
+
+        if (session) {
+                session_save(session);
+                user_save(session->user);
+        }
+
+        if (session && session->started) {
+                session_send_changed(session, "Active");
+                session_device_resume_all(session);
+        }
+
+        if (!session || session->started)
+                seat_send_changed(s, "ActiveSession");
+}
+
+int manager_process_device_triggered_by_seat(Manager *m, sd_device *dev) {
+        int r;
+
+        assert(m);
+        assert(dev);
+
+        sd_id128_t uuid;
+        r = sd_device_get_trigger_uuid(dev, &uuid);
+        if (IN_SET(r, -ENOENT, -ENODATA))
+                return 0;
+        if (r < 0)
+                return r;
+
+        Seat *s;
+        HASHMAP_FOREACH(s, m->seats)
+                if (set_contains(s->uevents, &uuid))
+                        break;
+        if (!s)
+                return 0;
+
+        log_device_uevent(dev, "Received event processed by udevd");
+        free(ASSERT_PTR(set_remove(s->uevents, &uuid)));
+        seat_triggered_uevents_done(s);
+
+        const char *id;
+        r = device_get_seat(dev, &id);
+        if (r < 0)
+                return r;
+
+        if (!streq(id, s->id)) {
+                log_device_debug(dev, "ID_SEAT is changed in the triggered uevent: \"%s\" -> \"%s\"", s->id, id);
+                return 0;
+        }
+
+        return 1; /* The uevent is triggered by the relevant seat. */
+}
+
+static int seat_trigger_devices(Seat *s) {
         int r;
 
         assert(s);
 
-        r = devnode_acl_all(s->id,
-                            false,
-                            !!old_active, old_active ? old_active->user->user_record->uid : 0,
-                            !!s->active, s->active ? s->active->user->user_record->uid : 0);
+        set_clear(s->uevents);
 
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        r = sd_device_enumerator_new(&e);
         if (r < 0)
-                return log_error_errno(r, "Failed to apply ACLs: %m");
+                return r;
+
+        r = sd_device_enumerator_add_match_tag(e, "uaccess");
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, d) {
+                /* Verify that the tag is still in place. */
+                r = sd_device_has_current_tag(d, "uaccess");
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                /* In case people mistag devices without nodes, we need to ignore this. */
+                r = sd_device_get_devname(d, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                const char *id;
+                r = device_get_seat(d, &id);
+                if (r < 0)
+                        return r;
+
+                if (!streq(id, s->id))
+                        continue;
+
+                sd_id128_t uuid;
+                r = sd_device_trigger_with_uuid(d, SD_DEVICE_CHANGE, &uuid);
+                if (r < 0) {
+                        log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m");
+                        continue;
+                }
+
+                log_device_debug(d, "Triggered synthetic event (ACTION=change, UUID=%s).", SD_ID128_TO_UUID_STRING(uuid));
+
+                _cleanup_free_ sd_id128_t *copy = newdup(sd_id128_t, &uuid, 1);
+                if (!copy)
+                        return -ENOMEM;
+
+                r = set_ensure_consume(&s->uevents, &id128_hash_ops_free, TAKE_PTR(copy));
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
 
+static int static_node_acl(Seat *s) {
+#if HAVE_ACL
+        int r, ret = 0;
+        uid_t uid;
+
+        assert(s);
+
+        if (s->active)
+                uid = s->active->user->user_record->uid;
+        else
+                uid = 0;
+
+        _cleanup_closedir_ DIR *dir = opendir("/run/udev/static_node-tags/uaccess/");
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_debug_errno(errno, "Failed to open /run/udev/static_node-tags/uaccess/: %m");
+        }
+
+        FOREACH_DIRENT(de, dir, return -errno) {
+                _cleanup_close_ int fd = RET_NERRNO(openat(dirfd(dir), de->d_name, O_CLOEXEC|O_PATH));
+                if (ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(fd))
+                        continue;
+                if (fd < 0) {
+                        RET_GATHER(ret, log_debug_errno(fd, "Failed to open '/run/udev/static_node-tags/uaccess/%s': %m", de->d_name));
+                        continue;
+                }
+
+                struct stat st;
+                if (fstat(fd, &st) < 0) {
+                        RET_GATHER(ret, log_debug_errno(errno, "Failed to stat '/run/udev/static_node-tags/uaccess/%s': %m", de->d_name));
+                        continue;
+                }
+
+                r = stat_verify_device_node(&st);
+                if (r < 0) {
+                        RET_GATHER(ret, log_debug_errno(fd, "'/run/udev/static_node-tags/uaccess/%s' points to a non-device node: %m", de->d_name));
+                        continue;
+                }
+
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                r = sd_device_new_from_stat_rdev(&dev, &st);
+                if (r >= 0) {
+                        log_device_debug(dev, "'/run/udev/static_node-tags/uaccess/%s' points to a non-static device node, ignoring.", de->d_name);
+                        continue;
+                }
+                if (!ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(r))
+                        log_debug_errno(r, "Failed to check if '/run/udev/static_node-tags/uaccess/%s' points to a static device node, ignoring: %m", de->d_name);
+
+                r = devnode_acl(fd, uid);
+                if (r >= 0 || r == -ENOENT)
+                        continue;
+
+                /* de->d_name is escaped, like "snd\x2ftimer", hence let's use the path to node, if possible. */
+                _cleanup_free_ char *node = NULL;
+                (void) fd_get_path(fd, &node);
+
+                if (uid != 0) {
+                        RET_GATHER(ret, log_debug_errno(r, "Failed to apply ACL on '%s': %m", node ?: de->d_name));
+
+                        /* Better be safe than sorry and reset ACL */
+                        r = devnode_acl(fd, /* uid = */ 0);
+                        if (r >= 0 || r == -ENOENT)
+                                continue;
+                }
+                if (r < 0)
+                        RET_GATHER(ret, log_debug_errno(r, "Failed to flush ACL on '%s': %m", node ?: de->d_name));
+        }
+
+        return ret;
+#else
+        return 0;
+#endif
+}
+
 int seat_set_active(Seat *s, Session *session) {
         Session *old_active;
+        int r;
 
         assert(s);
         assert(!session || session->seat == s);
@@ -237,7 +418,7 @@ int seat_set_active(Seat *s, Session *session) {
          * Therefore, if the active session has executed session_leave_vt ,
          * A resume is required here. */
         if (session == s->active) {
-                if (session) {
+                if (session && set_isempty(s->uevents)) {
                         log_debug("Active session remains unchanged, resuming session devices.");
                         session_device_resume_all(session);
                 }
@@ -250,31 +431,21 @@ int seat_set_active(Seat *s, Session *session) {
         seat_save(s);
 
         if (old_active) {
-                session_device_pause_all(old_active);
-                session_send_changed(old_active, "Active", NULL);
-        }
-
-        (void) seat_apply_acls(s, old_active);
-
-        if (session && session->started) {
-                session_send_changed(session, "Active", NULL);
-                session_device_resume_all(session);
-        }
-
-        if (!session || session->started)
-                seat_send_changed(s, "ActiveSession", NULL);
-
-        if (session) {
-                session_save(session);
-                user_save(session->user);
-        }
-
-        if (old_active) {
+                user_save(old_active->user);
                 session_save(old_active);
-                if (!session || session->user != old_active->user)
-                        user_save(old_active->user);
+                session_device_pause_all(old_active);
+                session_send_changed(old_active, "Active");
         }
 
+        r = seat_trigger_devices(s);
+        if (r < 0)
+                return r;
+
+        r = static_node_acl(s);
+        if (r < 0)
+                return r;
+
+        seat_triggered_uevents_done(s);
         return 0;
 }
 
@@ -399,8 +570,8 @@ int seat_read_active_vt(Seat *s) {
         if (!seat_has_vts(s))
                 return 0;
 
-        if (lseek(s->manager->console_active_fd, SEEK_SET, 0) < 0)
-                return log_error_errno(errno, "lseek on console_active_fd failed: %m");
+        if (lseek(s->manager->console_active_fd, 0, SEEK_SET) < 0)
+                return log_error_errno(errno, "lseek() on console_active_fd failed: %m");
 
         errno = 0;
         k = read(s->manager->console_active_fd, t, sizeof(t)-1);
@@ -683,4 +854,12 @@ bool seat_name_is_valid(const char *name) {
                 return false;
 
         return true;
+}
+
+bool seat_is_self(const char *name) {
+        return isempty(name) || streq(name, "self");
+}
+
+bool seat_is_auto(const char *name) {
+        return streq_ptr(name, "auto");
 }

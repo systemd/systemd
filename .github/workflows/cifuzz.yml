@@ -22,8 +22,7 @@ on:
       - main
 jobs:
   Fuzzing:
-    # FIXME: Figure out why 32-bit applications fail to run in docker on Ubuntu 24.04.
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: github.repository == 'systemd/systemd'
     concurrency:
       group: ${{ github.workflow }}-${{ matrix.sanitizer }}-${{ matrix.architecture }}-${{ github.ref }}
@@ -68,7 +67,7 @@ jobs:
           path: ./out/artifacts
       - name: Upload Sarif
         if: always() && steps.build.outcome == 'success'
-        uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b4bf65d80d
+        uses: github/codeql-action/upload-sarif@51f77329afa6477de8c49fc9c7046c15b9a4e79d
         with:
           # Path to SARIF file relative to the root of the repository
           sarif_file: cifuzz-sarif/results.sarif

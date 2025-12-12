@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro.h"
-#include "memory-util.h"
+#include <signal.h>
+
+#include "basic-forward.h"
 
 /* An embeddable structure carrying a reference to a process. Supposed to be used when tracking processes
  * continuously. This combines a PID, a modern Linux pidfd and the 64bit inode number of the pidfd into one
@@ -54,6 +55,10 @@ static inline bool pidref_is_set(const PidRef *pidref) {
 
 bool pidref_is_automatic(const PidRef *pidref);
 
+static inline bool pidref_is_set_or_automatic(const PidRef *pidref) {
+        return pidref_is_set(pidref) || pidref_is_automatic(pidref);
+}
+
 static inline bool pidref_is_remote(const PidRef *pidref) {
         /* If the fd is set to -EREMOTE we assume PidRef does not refer to a local PID, but on another
          * machine (and we just got the PidRef initialized due to deserialization of some RPC message) */
@@ -67,6 +72,7 @@ bool pidref_equal(PidRef *a, PidRef *b);
  * PIDREF_MAKE_FROM_PID() above, which does not acquire a pidfd.) */
 int pidref_set_pid(PidRef *pidref, pid_t pid);
 int pidref_set_pidstr(PidRef *pidref, const char *pid);
+int pidref_set_pid_and_pidfd_id(PidRef *pidref, pid_t pid, uint64_t pidfd_id);
 int pidref_set_pidfd(PidRef *pidref, int fd);
 int pidref_set_pidfd_take(PidRef *pidref, int fd); /* takes ownership of the passed pidfd on success */
 int pidref_set_pidfd_consume(PidRef *pidref, int fd); /* takes ownership of the passed pidfd in both success and failure */
@@ -90,7 +96,7 @@ int pidref_kill(const PidRef *pidref, int sig);
 int pidref_kill_and_sigcont(const PidRef *pidref, int sig);
 int pidref_sigqueue(const PidRef *pidref, int sig, int value);
 
-int pidref_wait(PidRef *pidref, siginfo_t *siginfo, int options);
+int pidref_wait(PidRef *pidref, siginfo_t *ret, int options);
 int pidref_wait_for_terminate(PidRef *pidref, siginfo_t *ret);
 
 static inline void pidref_done_sigkill_wait(PidRef *pidref) {

@@ -17,10 +17,7 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <stddef.h>
 #include <stdio.h>
 
 #include "_sd-common.h"
@@ -132,7 +129,7 @@ void sd_json_variant_sensitive(sd_json_variant *v);
 int sd_json_variant_is_sensitive(sd_json_variant *v);
 int sd_json_variant_is_sensitive_recursive(sd_json_variant *v);
 
-int sd_json_variant_get_source(sd_json_variant *v, const char **ret_source, unsigned *ret_line, unsigned *reterr_column);
+int sd_json_variant_get_source(sd_json_variant *v, const char **ret_source, unsigned *ret_line, unsigned *ret_column);
 
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_json_format_flags_t) {
         SD_JSON_FORMAT_OFF              = 1 << 0,  /* disable json output, make json_variant_format() fail with -ENOEXEC */
@@ -341,7 +338,7 @@ int sd_json_variant_unhex(sd_json_variant *v, void **ret, size_t *ret_size);
 const char* sd_json_variant_type_to_string(sd_json_variant_type_t t);
 sd_json_variant_type_t sd_json_variant_type_from_string(const char *s);
 
-_sd_const_ static __inline__ int sd_json_format_enabled(sd_json_format_flags_t flags) {
+static __inline__ int sd_json_format_enabled(sd_json_format_flags_t flags) {
         return !(flags & SD_JSON_FORMAT_OFF);
 }
 

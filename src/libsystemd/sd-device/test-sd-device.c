@@ -1,26 +1,96 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "device-enumerator-private.h"
+#include "sd-event.h"
+
+#include "capability-util.h"
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
+#include "libmount-util.h"
+#include "mkdir.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "rm-rf.h"
+#include "set.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
-#include "time-util.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
+#include "virt.h"
+
+TEST(mdio_bus) {
+        int r;
+
+        /* For issue #37711 */
+
+        if (getuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return (void) log_tests_skipped("Not privileged");
+        if (running_in_chroot() > 0)
+                return (void) log_tests_skipped("Running in chroot");
+
+        ASSERT_OK(r = safe_fork("(mdio_bus)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL));
+        if (r == 0) {
+                const char *syspath = "/sys/bus/mdio_bus/drivers/Qualcomm Atheros AR8031!AR8033";
+                const char *id = "+drivers:mdio_bus:Qualcomm Atheros AR8031!AR8033";
+
+                struct {
+                        int (*getter)(sd_device*, const char**);
+                        const char *val;
+                } table[] = {
+                        { sd_device_get_syspath,          syspath                          },
+                        { sd_device_get_device_id,        id                               },
+                        { sd_device_get_subsystem,        "drivers"                        },
+                        { sd_device_get_driver_subsystem, "mdio_bus"                       },
+                        { sd_device_get_sysname,          "Qualcomm Atheros AR8031/AR8033" },
+                };
+
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_DEVICE_VERIFY_SYSFS", "0", /* overwrite = */ false));
+                ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", "/sys/bus/", "tmpfs", 0, NULL));
+                r = mkdir_p(syspath, 0755);
+                if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                        log_tests_skipped("Lacking privileges to create %s", syspath);
+                        _exit(EXIT_SUCCESS);
+                }
+                ASSERT_OK(r);
+
+                _cleanup_free_ char *uevent = path_join(syspath, "uevent");
+                ASSERT_NOT_NULL(uevent);
+                ASSERT_OK(touch(uevent));
+
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                ASSERT_OK(sd_device_new_from_syspath(&dev, syspath));
+
+                FOREACH_ELEMENT(t, table) {
+                        const char *v;
+
+                        ASSERT_OK(t->getter(dev, &v));
+                        ASSERT_STREQ(v, t->val);
+                }
+
+                dev = sd_device_unref(dev);
+                ASSERT_OK(sd_device_new_from_device_id(&dev, id));
+
+                FOREACH_ELEMENT(t, table) {
+                        const char *v;
+
+                        ASSERT_OK(t->getter(dev, &v));
+                        ASSERT_STREQ(v, t->val);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+}
 
 static void test_sd_device_one(sd_device *d) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
@@ -133,6 +203,18 @@ static void test_sd_device_one(sd_device *d) {
                         ASSERT_ERROR(r, ENOENT);
         }
 
+        if (streq(subsystem, "drm")) {
+                const char *edid_content;
+                size_t edid_size = 0;
+
+                r = sd_device_get_sysattr_value_with_size(d, "edid", &edid_content, &edid_size);
+                if (r < 0)
+                        ASSERT_ERROR(r, ENOENT);
+
+                /* at least 128 if monitor is connected, otherwise 0 */
+                ASSERT_TRUE(edid_size == 0 || edid_size >= 128);
+        }
+
         is_block = streq_ptr(subsystem, "block");
 
         r = sd_device_get_devname(d, &devname);
@@ -226,8 +308,12 @@ static void exclude_problematic_devices(sd_device_enumerator *e) {
          * disappear during running this test. Let's exclude them here for stability. */
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "bdi", false));
         ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
-        /* On CentOS CI, systemd-networkd-tests.py may be running when this test is invoked. The networkd
-         * test creates and removes many network interfaces, and may interfere with this test. */
+        /* On some CI environments, it seems dm block devices sometimes disappear during running this test.
+         * Let's exclude them here for stability. */
+        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "dm-*"));
+        /* Several other unit tests create and remove virtual network interfaces, e.g. test-netlink and
+         * test-local-addresses. When one of these tests run in parallel with this unit test, the enumerated
+         * device may disappear. Let's exclude them here for stability. */
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", false));
 }
 
@@ -263,7 +349,7 @@ static void test_sd_device_enumerator_filter_subsystem_one(
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, subsystem, true));
-        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
+        exclude_problematic_devices(e);
 
         FOREACH_DEVICE(e, d) {
                 const char *syspath;
@@ -488,8 +574,6 @@ TEST(sd_device_enumerator_add_match_parent) {
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
         exclude_problematic_devices(e);
 
-        ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "memory", false));
-
         if (!slow_tests_enabled())
                 ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
 
@@ -529,21 +613,21 @@ TEST(sd_device_enumerator_add_match_parent) {
 
 TEST(sd_device_enumerator_add_all_parents) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        int r;
 
         /* STEP 1: enumerate all block devices without all_parents() */
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        exclude_problematic_devices(e);
 
         /* filter in only a subsystem */
-        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
         ASSERT_OK(sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition"));
 
         unsigned devices_count_with_parents = 0;
         unsigned devices_count_without_parents = 0;
         FOREACH_DEVICE(e, dev) {
-                ASSERT_TRUE(device_in_subsystem(dev, "block"));
-                ASSERT_TRUE(device_is_devtype(dev, "partition"));
+                ASSERT_OK_POSITIVE(device_is_subsystem_devtype(dev, "block", "partition"));
                 devices_count_without_parents++;
         }
 
@@ -554,7 +638,8 @@ TEST(sd_device_enumerator_add_all_parents) {
 
         unsigned not_filtered_parent_count = 0;
         FOREACH_DEVICE(e, dev) {
-                if (!device_in_subsystem(dev, "block") || !device_is_devtype(dev, "partition"))
+                ASSERT_OK(r = device_is_subsystem_devtype(dev, "block", "partition"));
+                if (r == 0)
                         not_filtered_parent_count++;
                 devices_count_with_parents++;
         }
@@ -678,8 +763,9 @@ TEST(sd_device_new_from_path) {
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        exclude_problematic_devices(e);
+
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
-        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
         ASSERT_OK(sd_device_enumerator_add_match_property(e, "DEVNAME", "*"));
 
         FOREACH_DEVICE(e, dev) {
@@ -748,8 +834,14 @@ TEST(devname_from_devnum) {
 }
 
 static int intro(void) {
+        int r;
+
         if (path_is_mount_point("/sys") <= 0)
-                return log_tests_skipped("/sys is not mounted");
+                return log_tests_skipped("/sys/ is not mounted");
+
+        r = dlopen_libmount();
+        if (r < 0)
+                return log_tests_skipped("libmount not available.");
 
         return EXIT_SUCCESS;
 }

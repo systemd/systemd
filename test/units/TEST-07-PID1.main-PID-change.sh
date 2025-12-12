@@ -18,7 +18,7 @@ INTERNALPID=$!
 disown
 
 # Start a test process outside of our own cgroup
-systemd-run -p DynamicUser=1 --unit=test-sleep.service /bin/sleep infinity
+systemd-run -p DynamicUser=1 --unit=test-sleep.service sleep infinity
 EXTERNALPID="$(systemctl show -P MainPID test-sleep.service)"
 
 # Update our own main PID to the external test PID, this should work
@@ -162,11 +162,11 @@ chmod 755 /dev/shm/test-mainpid3.sh
 test "$(systemctl show -P Result test-mainpidsh3.service)" = timeout
 
 # Test that scope units work
-systemd-run --scope --unit test-true.scope /bin/true
+systemd-run --scope --unit test-true.scope true
 test "$(systemctl show -P Result test-true.scope)" = success
 
 # Test that user scope units work as well
 
 systemctl start user@4711.service
-runas testuser systemd-run --scope --user --unit test-true.scope /bin/true
+runas testuser systemd-run --scope --user --unit test-true.scope true
 test "$(systemctl show -P Result test-true.scope)" = success

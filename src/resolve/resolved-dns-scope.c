@@ -2,20 +2,25 @@
 
 #include <netinet/tcp.h>
 
+#include "sd-event.h"
+#include "sd-json.h"
+
 #include "af-list.h"
 #include "alloc-util.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
 #include "dns-type.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
-#include "missing_network.h"
+#include "log.h"
 #include "random-util.h"
-#include "resolved-dns-answer.h"
-#include "resolved-dns-packet.h"
+#include "resolved-dns-browse-services.h"
+#include "resolved-dns-delegate.h"
 #include "resolved-dns-query.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
@@ -28,8 +33,9 @@
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "resolved-timeouts.h"
+#include "set.h"
 #include "socket-util.h"
-#include "strv.h"
+#include "string-table.h"
 
 #define MULTICAST_RATELIMIT_INTERVAL_USEC (1*USEC_PER_SEC)
 #define MULTICAST_RATELIMIT_BURST 1000
@@ -38,11 +44,24 @@
 #define MULTICAST_RESEND_TIMEOUT_MIN_USEC (100 * USEC_PER_MSEC)
 #define MULTICAST_RESEND_TIMEOUT_MAX_USEC (1 * USEC_PER_SEC)
 
-int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int family) {
+int dns_scope_new(
+                Manager *m,
+                DnsScope **ret,
+                DnsScopeOrigin origin,
+                Link *link,
+                DnsDelegate *delegate,
+                DnsProtocol protocol,
+                int family) {
+
         DnsScope *s;
 
         assert(m);
         assert(ret);
+        assert(origin >= 0);
+        assert(origin < _DNS_SCOPE_ORIGIN_MAX);
+
+        assert(!!link == (origin == DNS_SCOPE_LINK));
+        assert(!!delegate == (origin == DNS_SCOPE_DELEGATE));
 
         s = new(DnsScope, 1);
         if (!s)
@@ -50,7 +69,9 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
 
         *s = (DnsScope) {
                 .manager = m,
-                .link = l,
+                .link = link,
+                .delegate = delegate,
+                .origin = origin,
                 .protocol = protocol,
                 .family = family,
                 .resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC,
@@ -66,9 +87,9 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                  * not update it from the on, even if the setting
                  * changes. */
 
-                if (l) {
-                        s->dnssec_mode = link_get_dnssec_mode(l);
-                        s->dns_over_tls_mode = link_get_dns_over_tls_mode(l);
+                if (link) {
+                        s->dnssec_mode = link_get_dnssec_mode(link);
+                        s->dns_over_tls_mode = link_get_dns_over_tls_mode(link);
                 } else {
                         s->dnssec_mode = manager_get_dnssec_mode(m);
                         s->dns_over_tls_mode = manager_get_dns_over_tls_mode(m);
@@ -84,7 +105,12 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
         dns_scope_llmnr_membership(s, true);
         dns_scope_mdns_membership(s, true);
 
-        log_debug("New scope on link %s, protocol %s, family %s", l ? l->ifname : "*", dns_protocol_to_string(protocol), family == AF_UNSPEC ? "*" : af_to_name(family));
+        log_debug("New scope on link %s, protocol %s, family %s, origin %s, delegate %s",
+                  link ? link->ifname : "*",
+                  dns_protocol_to_string(protocol),
+                  family == AF_UNSPEC ? "*" : af_to_name(family),
+                  dns_scope_origin_to_string(origin),
+                  s->delegate ? s->delegate->id : "n/a");
 
         *ret = s;
         return 0;
@@ -112,7 +138,12 @@ DnsScope* dns_scope_free(DnsScope *s) {
         if (!s)
                 return NULL;
 
-        log_debug("Removing scope on link %s, protocol %s, family %s", s->link ? s->link->ifname : "*", dns_protocol_to_string(s->protocol), s->family == AF_UNSPEC ? "*" : af_to_name(s->family));
+        log_debug("Removing scope on link %s, protocol %s, family %s, origin %s, delegate %s",
+                  s->link ? s->link->ifname : "*",
+                  dns_protocol_to_string(s->protocol),
+                  s->family == AF_UNSPEC ? "*" : af_to_name(s->family),
+                  dns_scope_origin_to_string(s->origin),
+                  s->delegate ? s->delegate->id : "n/a");
 
         dns_scope_llmnr_membership(s, false);
         dns_scope_mdns_membership(s, false);
@@ -133,6 +164,9 @@ DnsScope* dns_scope_free(DnsScope *s) {
         dns_cache_flush(&s->cache);
         dns_zone_flush(&s->zone);
 
+        /* Clear records of mDNS service browse subscriber, since cache bas been flushed */
+        dns_browse_services_purge(s->manager, s->family);
+
         LIST_REMOVE(scopes, s->manager->dns_scopes, s);
         return mfree(s);
 }
@@ -143,8 +177,11 @@ DnsServer *dns_scope_get_dns_server(DnsScope *s) {
         if (s->protocol != DNS_PROTOCOL_DNS)
                 return NULL;
 
-        if (s->link)
+        if (s->link) {
+                assert(!s->delegate);
                 return link_get_dns_server(s->link);
+        } else if (s->delegate)
+                return dns_delegate_get_dns_server(s->delegate);
         else
                 return manager_get_dns_server(s->manager);
 }
@@ -155,8 +192,11 @@ unsigned dns_scope_get_n_dns_servers(DnsScope *s) {
         if (s->protocol != DNS_PROTOCOL_DNS)
                 return 0;
 
-        if (s->link)
+        if (s->link) {
+                assert(!s->delegate);
                 return s->link->n_dns_servers;
+        } else if (s->delegate)
+                return s->delegate->n_dns_servers;
         else
                 return s->manager->n_dns_servers;
 }
@@ -172,6 +212,8 @@ void dns_scope_next_dns_server(DnsScope *s, DnsServer *if_current) {
 
         if (s->link)
                 link_next_dns_server(s->link, if_current);
+        else if (s->delegate)
+                dns_delegate_next_dns_server(s->delegate, if_current);
         else
                 manager_next_dns_server(s->manager, if_current);
 }
@@ -279,6 +321,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, int family, DnsPacket *p) {
                 if (fd < 0)
                         return fd;
 
+                assert(s->link);
                 r = manager_send(s->manager, fd, s->link->ifindex, family, &addr, LLMNR_PORT, NULL, p);
                 if (r < 0)
                         return r;
@@ -310,6 +353,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, int family, DnsPacket *p) {
                 if (fd < 0)
                         return fd;
 
+                assert(s->link);
                 r = manager_send(s->manager, fd, s->link->ifindex, family, &addr, p->destination_port ?: MDNS_PORT, NULL, p);
                 if (r < 0)
                         return r;
@@ -724,11 +768,6 @@ DnsScopeMatch dns_scope_good_domain(
                 if (!dns_scope_get_dns_server(s))
                         return DNS_SCOPE_NO;
 
-                /* Route DS requests to the parent */
-                const char *route_domain = domain;
-                if (dns_question_contains_key_type(question, DNS_TYPE_DS))
-                        (void) dns_name_parent(&route_domain);
-
                 /* Always honour search domains for routing queries, except if this scope lacks DNS servers. Note that
                  * we return DNS_SCOPE_YES here, rather than just DNS_SCOPE_MAYBE, which means other wildcard scopes
                  * won't be considered anymore. */
@@ -737,7 +776,7 @@ DnsScopeMatch dns_scope_good_domain(
                         if (!d->route_only && !dns_name_is_root(d->name))
                                 has_search_domains = true;
 
-                        if (dns_name_endswith(route_domain, d->name) > 0) {
+                        if (dns_name_endswith(domain, d->name) > 0) {
                                 int c;
 
                                 c = dns_name_count_labels(d->name);
@@ -1380,6 +1419,22 @@ void dns_scope_dump(DnsScope *s, FILE *f) {
                 fputs(af_to_name(s->family), f);
         }
 
+        fputs(" origin=", f);
+        fputs(dns_scope_origin_to_string(s->origin), f);
+
+        if (s->delegate) {
+                fputs(" id=", f);
+                fputs(s->delegate->id, f);
+        }
+
+        if (s->protocol == DNS_PROTOCOL_DNS) {
+                fputs(" DNSSEC=", f);
+                fputs(dnssec_mode_to_string(s->dnssec_mode), f);
+
+                fputs(" DNSOverTLS=", f);
+                fputs(dns_over_tls_mode_to_string(s->dns_over_tls_mode), f);
+        }
+
         fputs("]\n", f);
 
         if (!dns_zone_is_empty(&s->zone)) {
@@ -1401,6 +1456,8 @@ DnsSearchDomain *dns_scope_get_search_domains(DnsScope *s) {
 
         if (s->link)
                 return s->link->search_domains;
+        if (s->delegate)
+                return s->delegate->search_domains;
 
         return s->manager->search_domains;
 }
@@ -1607,18 +1664,18 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         return 0;
 }
 
-int dns_scope_add_dnssd_services(DnsScope *scope) {
-        DnssdService *service;
+int dns_scope_add_dnssd_registered_services(DnsScope *scope) {
+        DnssdRegisteredService *service;
         int r;
 
         assert(scope);
 
-        if (hashmap_isempty(scope->manager->dnssd_services))
+        if (hashmap_isempty(scope->manager->dnssd_registered_services))
                 return 0;
 
         scope->announced = false;
 
-        HASHMAP_FOREACH(service, scope->manager->dnssd_services) {
+        HASHMAP_FOREACH(service, scope->manager->dnssd_registered_services) {
                 service->withdrawn = false;
 
                 r = dns_zone_put(&scope->zone, scope, service->ptr_rr, false);
@@ -1645,9 +1702,9 @@ int dns_scope_add_dnssd_services(DnsScope *scope) {
         return 0;
 }
 
-int dns_scope_remove_dnssd_services(DnsScope *scope) {
+int dns_scope_remove_dnssd_registered_services(DnsScope *scope) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        DnssdService *service;
+        DnssdRegisteredService *service;
         int r;
 
         assert(scope);
@@ -1661,7 +1718,7 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(service, scope->manager->dnssd_services) {
+        HASHMAP_FOREACH(service, scope->manager->dnssd_registered_services) {
                 dns_zone_remove_rr(&scope->zone, service->ptr_rr);
                 dns_zone_remove_rr(&scope->zone, service->sub_ptr_rr);
                 dns_zone_remove_rr(&scope->zone, service->srv_rr);
@@ -1686,6 +1743,8 @@ static bool dns_scope_has_route_only_domains(DnsScope *scope) {
 
         if (scope->link)
                 first = scope->link->search_domains;
+        else if (scope->delegate)
+                first = scope->delegate->search_domains;
         else
                 first = scope->manager->search_domains;
 
@@ -1711,30 +1770,41 @@ bool dns_scope_is_default_route(DnsScope *scope) {
         if (scope->protocol != DNS_PROTOCOL_DNS)
                 return false;
 
-        /* The global DNS scope is always suitable as default route */
-        if (!scope->link)
+        if (scope->link) {
+
+                /* Honour whatever is explicitly configured. This is really the best approach, and trumps any
+                 * automatic logic. */
+                if (scope->link->default_route >= 0)
+                        return scope->link->default_route;
+
+                /* Otherwise check if we have any route-only domains, as a sensible heuristic: if so, let's not
+                 * volunteer as default route. */
+                return !dns_scope_has_route_only_domains(scope);
+
+        } else  if (scope->delegate) {
+
+                if (scope->delegate->default_route >= 0)
+                        return scope->delegate->default_route;
+
+                /* Delegates are by default not used as default route */
+                return false;
+        } else
+                /* The global DNS scope is always suitable as default route */
                 return true;
-
-        /* Honour whatever is explicitly configured. This is really the best approach, and trumps any
-         * automatic logic. */
-        if (scope->link->default_route >= 0)
-                return scope->link->default_route;
-
-        /* Otherwise check if we have any route-only domains, as a sensible heuristic: if so, let's not
-         * volunteer as default route. */
-        return !dns_scope_has_route_only_domains(scope);
 }
 
-int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret) {
+int dns_scope_to_json(DnsScope *scope, bool with_cache, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cache = NULL;
         int r;
 
         assert(scope);
         assert(ret);
 
-        r = dns_cache_dump_to_json(&scope->cache, &cache);
-        if (r < 0)
-                return r;
+        if (with_cache) {
+                r = dns_cache_dump_to_json(&scope->cache, &cache);
+                if (r < 0)
+                        return r;
+        }
 
         return sd_json_buildo(
                         ret,
@@ -1742,7 +1812,13 @@ int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_CONDITION(scope->family != AF_UNSPEC, "family", SD_JSON_BUILD_INTEGER(scope->family)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifindex", SD_JSON_BUILD_INTEGER(dns_scope_ifindex(scope))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifname", SD_JSON_BUILD_STRING(dns_scope_ifname(scope))),
-                        SD_JSON_BUILD_PAIR_VARIANT("cache", cache));
+                        SD_JSON_BUILD_PAIR_CONDITION(with_cache, "cache", SD_JSON_BUILD_VARIANT(cache)),
+                        SD_JSON_BUILD_PAIR_CONDITION(scope->protocol == DNS_PROTOCOL_DNS,
+                                                     "dnssec",
+                                                     SD_JSON_BUILD_STRING(dnssec_mode_to_string(scope->dnssec_mode))),
+                        SD_JSON_BUILD_PAIR_CONDITION(scope->protocol == DNS_PROTOCOL_DNS,
+                                                     "dnsOverTLS",
+                                                     SD_JSON_BUILD_STRING(dns_over_tls_mode_to_string(scope->dns_over_tls_mode))));
 }
 
 int dns_type_suitable_for_protocol(uint16_t type, DnsProtocol protocol) {
@@ -1806,3 +1882,11 @@ int dns_question_types_suitable_for_protocol(DnsQuestion *q, DnsProtocol protoco
 
         return false;
 }
+
+static const char* const dns_scope_origin_table[_DNS_SCOPE_ORIGIN_MAX] = {
+        [DNS_SCOPE_GLOBAL]   = "global",
+        [DNS_SCOPE_LINK]     = "link",
+        [DNS_SCOPE_DELEGATE] = "delegate",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(dns_scope_origin, DnsScopeOrigin);

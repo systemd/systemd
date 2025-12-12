@@ -4,40 +4,38 @@
 #include <linux/ipv6.h>
 #include <netinet/in.h>
 #include <poll.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
+
+#include "sd-bus.h"
+#include "sd-netlink.h"
+#include "sd-network.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
-#include "bus-polkit.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
-#include "idn-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "memstream-util.h"
-#include "missing_network.h"
-#include "missing_socket.h"
-#include "netlink-util.h"
+#include "missing-network.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "resolved-bus.h"
 #include "resolved-conf.h"
-#include "resolved-dns-answer.h"
-#include "resolved-dns-packet.h"
+#include "resolved-dns-delegate.h"
 #include "resolved-dns-query.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
@@ -53,11 +51,10 @@
 #include "resolved-socket-graveyard.h"
 #include "resolved-util.h"
 #include "resolved-varlink.h"
-#include "socket-netlink.h"
+#include "set.h"
 #include "socket-util.h"
-#include "string-table.h"
 #include "string-util.h"
-#include "utf8.h"
+#include "time-util.h"
 #include "varlink-util.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
@@ -232,7 +229,7 @@ static int manager_process_route(sd_netlink *rtnl, sd_netlink_message *mm, void 
 
         r = sd_netlink_message_get_type(mm, &type);
         if (r < 0) {
-                log_warning_errno(r, "Failed not get message type, ignoring: %m");
+                log_warning_errno(r, "Failed to get rtnl message type, ignoring: %m");
                 return 0;
         }
 
@@ -327,7 +324,7 @@ static int manager_rtnl_listen(Manager *m) {
         return r;
 }
 
-static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int on_network_event(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         Link *l;
         int r;
@@ -577,6 +574,10 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
         HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(servers, server, l->dns_servers)
                         dns_server_dump(server, f);
+        DnsDelegate *delegate;
+        HASHMAP_FOREACH(delegate, m->delegates)
+                LIST_FOREACH(servers, server, delegate->dns_servers)
+                        dns_server_dump(server, f);
 
         return memstream_dump(LOG_INFO, &ms);
 }
@@ -640,49 +641,57 @@ static void manager_set_defaults(Manager *m) {
         m->cache_from_localhost = false;
         m->stale_retention_usec = 0;
         m->refuse_record_types = set_free(m->refuse_record_types);
+        m->resolv_conf_stat = (struct stat) {};
 }
 
 static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        Link *l;
         int r;
 
         (void) notify_reloading();
 
-        manager_set_defaults(m);
-
         dns_server_unlink_on_reload(m->dns_servers);
         dns_server_unlink_on_reload(m->fallback_dns_servers);
         m->dns_extra_stub_listeners = ordered_set_free(m->dns_extra_stub_listeners);
-        dnssd_service_clear_on_reload(m->dnssd_services);
+        manager_dns_stub_stop(m);
+        dnssd_registered_service_clear_on_reload(m->dnssd_registered_services);
         m->unicast_scope = dns_scope_free(m->unicast_scope);
-
+        m->delegates = hashmap_free(m->delegates);
         dns_trust_anchor_flush(&m->trust_anchor);
+
+        manager_set_defaults(m);
 
         r = dns_trust_anchor_load(&m->trust_anchor);
         if (r < 0)
-                return r;
+                return sd_event_exit(sd_event_source_get_event(s), r);
 
         r = manager_parse_config_file(m);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse config file on reload: %m");
+                log_warning_errno(r, "Failed to parse configuration file on reload, ignoring: %m");
         else
                 log_info("Config file reloaded.");
 
-        r = dnssd_load(m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to load DNS-SD configuration files: %m");
+        (void) dnssd_load(m);
+        (void) manager_load_delegates(m);
 
         /* The default scope configuration is influenced by the manager's configuration (modes, etc.), so
          * recreate it on reload. */
-        r = dns_scope_new(m, &m->unicast_scope, NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
+        r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
-                return r;
+                return sd_event_exit(sd_event_source_get_event(s), r);
+
+        /* A link's unicast scope may also be influenced by the manager's configuration. I.e., DNSSEC= and DNSOverTLS=
+         * from the manager will be used if not explicitly configured on the link. Free the scopes here so that
+         * link_allocate_scopes() in on_network_event() re-creates them. */
+        HASHMAP_FOREACH(l, m->links)
+                l->unicast_scope = dns_scope_free(l->unicast_scope);
 
         /* The configuration has changed, so reload the per-interface configuration too in order to take
          * into account any changes (e.g.: enable/disable DNSSEC). */
-        r = on_network_event(/* sd_event_source= */ NULL, -EBADF, /* revents= */ 0, m);
+        r = on_network_event(/* source= */ NULL, -EBADF, /* revents= */ 0, m);
         if (r < 0)
-                log_warning_errno(r, "Failed to update network information: %m");
+                log_warning_errno(r, "Failed to update network information on reload, ignoring: %m");
 
         /* We have new configuration, which means potentially new servers, so close all connections and drop
          * all caches, so that we can start fresh. */
@@ -690,7 +699,11 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         manager_flush_caches(m, LOG_INFO);
         manager_verify_all(m);
 
-        (void) sd_notify(/* unset= */ false, NOTIFY_READY_MESSAGE);
+        r = manager_dns_stub_start(m);
+        if (r < 0)
+                return sd_event_exit(sd_event_source_get_event(s), r);
+
+        (void) sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
         return 0;
 }
 
@@ -729,7 +742,7 @@ int manager_new(Manager **ret) {
 
         r = manager_parse_config_file(m);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse configuration file: %m");
+                log_warning_errno(r, "Failed to parse configuration file, ignoring: %m");
 
 #if ENABLE_DNS_OVER_TLS
         r = dnstls_manager_init(m);
@@ -751,11 +764,10 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = dnssd_load(m);
-        if (r < 0)
-                log_warning_errno(r, "Failed to load DNS-SD configuration files: %m");
+        (void) dnssd_load(m);
+        (void) manager_load_delegates(m);
 
-        r = dns_scope_new(m, &m->unicast_scope, NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
+        r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
                 return r;
 
@@ -779,25 +791,25 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
         if (r < 0)
-                return log_debug_errno(r, "Failed install SIGHUP handler: %m");
+                return log_debug_errno(r, "Failed to install SIGHUP handler: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr1, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr1, m);
         if (r < 0)
-                return log_debug_errno(r, "Failed install SIGUSR1 handler: %m");
+                return log_debug_errno(r, "Failed to install SIGUSR1 handler: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr2, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, SIGUSR2 | SD_EVENT_SIGNAL_PROCMASK, manager_sigusr2, m);
         if (r < 0)
-                return log_debug_errno(r, "Failed install SIGUSR2 handler: %m");
+                return log_debug_errno(r, "Failed to install SIGUSR2 handler: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+1) | SD_EVENT_SIGNAL_PROCMASK, manager_sigrtmin1, m);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+1) | SD_EVENT_SIGNAL_PROCMASK, manager_sigrtmin1, m);
         if (r < 0)
-                return log_debug_errno(r, "Failed install SIGRTMIN+1 handler: %m");
+                return log_debug_errno(r, "Failed to install SIGRTMIN+1 handler: %m");
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, &m->sigrtmin18_info);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, &m->sigrtmin18_info);
         if (r < 0)
-                return log_debug_errno(r, "Failed install SIGRTMIN+18 handler: %m");
+                return log_debug_errno(r, "Failed to install SIGRTMIN+18 handler: %m");
 
         manager_cleanup_saved_user(m);
 
@@ -822,9 +834,10 @@ int manager_start(Manager *m) {
         return 0;
 }
 
-Manager *manager_free(Manager *m) {
+Manager* manager_free(Manager *m) {
         Link *l;
-        DnssdService *s;
+        DnssdRegisteredService *s;
+        DnsServiceBrowser *sb;
 
         if (!m)
                 return NULL;
@@ -836,12 +849,13 @@ Manager *manager_free(Manager *m) {
         while ((l = hashmap_first(m->links)))
                link_free(l);
 
+        m->delegates = hashmap_free(m->delegates);
+
         while (m->dns_queries)
                 dns_query_free(m->dns_queries);
 
         m->stub_queries_by_packet = hashmap_free(m->stub_queries_by_packet);
-
-        dns_scope_free(m->unicast_scope);
+        m->unicast_scope = dns_scope_free(m->unicast_scope);
 
         /* At this point only orphaned streams should remain. All others should have been freed already by their
          * owners */
@@ -894,12 +908,18 @@ Manager *manager_free(Manager *m) {
         free(m->llmnr_hostname);
         free(m->mdns_hostname);
 
-        while ((s = hashmap_first(m->dnssd_services)))
-               dnssd_service_free(s);
-        hashmap_free(m->dnssd_services);
+        while ((s = hashmap_first(m->dnssd_registered_services)))
+               dnssd_registered_service_free(s);
+        hashmap_free(m->dnssd_registered_services);
 
         dns_trust_anchor_flush(&m->trust_anchor);
         manager_etc_hosts_flush(m);
+
+        while ((sb = hashmap_first(m->dns_service_browsers)))
+                dns_service_browser_free(sb);
+        hashmap_free(m->dns_service_browsers);
+
+        hashmap_free(m->hooks);
 
         return mfree(m);
 }
@@ -1288,7 +1308,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
                 r = sd_json_variant_append_arraybo(
                                 &janswer,
                                 SD_JSON_BUILD_PAIR_CONDITION(!!v, "rr", SD_JSON_BUILD_VARIANT(v)),
-                                SD_JSON_BUILD_PAIR("raw", SD_JSON_BUILD_BASE64(rri->rr->wire_format, rri->rr->wire_format_size)),
+                                SD_JSON_BUILD_PAIR_BASE64("raw", rri->rr->wire_format, rri->rr->wire_format_size),
                                 SD_JSON_BUILD_PAIR_CONDITION(rri->ifindex > 0, "ifindex", SD_JSON_BUILD_INTEGER(rri->ifindex)));
                 if (r < 0)
                         return log_debug_errno(r, "Failed to append notification entry to array: %m");
@@ -1296,7 +1316,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
 
         r = varlink_many_notifybo(
                         m->varlink_query_results_subscription,
-                        SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(dns_transaction_state_to_string(q->state))),
+                        SD_JSON_BUILD_PAIR_STRING("state", dns_transaction_state_to_string(q->state)),
                         SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_DNSSEC_FAILED,
                                                      "result", SD_JSON_BUILD_STRING(dnssec_result_to_string(q->answer_dnssec_result))),
                         SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_RCODE_FAILURE,
@@ -1313,7 +1333,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
                                                             DNS_TRANSACTION_RCODE_FAILURE) &&
                                                      q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
                                                      "extendedDNSErrorMessage", SD_JSON_BUILD_STRING(q->answer_ede_msg)),
-                        SD_JSON_BUILD_PAIR("question", SD_JSON_BUILD_VARIANT(jquestion)),
+                        SD_JSON_BUILD_PAIR_VARIANT("question", jquestion),
                         SD_JSON_BUILD_PAIR_CONDITION(!!jcollected_questions,
                                                      "collectedQuestions", SD_JSON_BUILD_VARIANT(jcollected_questions)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!janswer,
@@ -1406,7 +1426,7 @@ int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_a
 
 void manager_refresh_rrs(Manager *m) {
         Link *l;
-        DnssdService *s;
+        DnssdRegisteredService *s;
 
         assert(m);
 
@@ -1419,7 +1439,7 @@ void manager_refresh_rrs(Manager *m) {
                 link_add_rrs(l, true);
 
         if (m->mdns_support == RESOLVE_SUPPORT_YES)
-                HASHMAP_FOREACH(s, m->dnssd_services)
+                HASHMAP_FOREACH(s, m->dnssd_registered_services)
                         if (dnssd_update_rrs(s) < 0)
                                 log_warning("Failed to refresh DNS-SD service '%s'", s->id);
 
@@ -1535,29 +1555,28 @@ bool manager_packet_from_our_transaction(Manager *m, DnsPacket *p) {
         return t->sent && dns_packet_equal(t->sent, p);
 }
 
-DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
+DnsScope* manager_find_scope_from_protocol(Manager *m, int ifindex, DnsProtocol protocol, int family) {
         Link *l;
 
         assert(m);
-        assert(p);
 
-        l = hashmap_get(m->links, INT_TO_PTR(p->ifindex));
+        l = hashmap_get(m->links, INT_TO_PTR(ifindex));
         if (!l)
                 return NULL;
 
-        switch (p->protocol) {
+        switch (protocol) {
         case DNS_PROTOCOL_LLMNR:
-                if (p->family == AF_INET)
+                if (family == AF_INET)
                         return l->llmnr_ipv4_scope;
-                else if (p->family == AF_INET6)
+                else if (family == AF_INET6)
                         return l->llmnr_ipv6_scope;
 
                 break;
 
         case DNS_PROTOCOL_MDNS:
-                if (p->family == AF_INET)
+                if (family == AF_INET)
                         return l->mdns_ipv4_scope;
-                else if (p->family == AF_INET6)
+                else if (family == AF_INET6)
                         return l->mdns_ipv6_scope;
 
                 break;
@@ -1600,20 +1619,20 @@ int manager_is_own_hostname(Manager *m, const char *name) {
         return 0;
 }
 
-int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
+int manager_compile_dns_servers(Manager *m, OrderedSet **servers) {
         Link *l;
         int r;
 
         assert(m);
-        assert(dns);
+        assert(servers);
 
-        r = ordered_set_ensure_allocated(dns, &dns_server_hash_ops);
+        r = ordered_set_ensure_allocated(servers, &dns_server_hash_ops);
         if (r < 0)
                 return r;
 
         /* First add the system-wide servers and domains */
         LIST_FOREACH(servers, s, m->dns_servers) {
-                r = ordered_set_put(*dns, s);
+                r = ordered_set_put(*servers, s);
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
@@ -1621,20 +1640,30 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
         }
 
         /* Then, add the per-link servers */
-        HASHMAP_FOREACH(l, m->links) {
+        HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(servers, s, l->dns_servers) {
-                        r = ordered_set_put(*dns, s);
+                        r = ordered_set_put(*servers, s);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)
                                 return r;
                 }
-        }
+
+        /* Third, add the delegate servers and domains */
+        DnsDelegate *d;
+        HASHMAP_FOREACH(d, m->delegates)
+                LIST_FOREACH(servers, s, d->dns_servers) {
+                        r = ordered_set_put(*servers, s);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
 
         /* If we found nothing, add the fallback servers */
-        if (ordered_set_isempty(*dns)) {
+        if (ordered_set_isempty(*servers)) {
                 LIST_FOREACH(servers, s, m->fallback_dns_servers) {
-                        r = ordered_set_put(*dns, s);
+                        r = ordered_set_put(*servers, s);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)
@@ -1651,7 +1680,6 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
  *   > 0 or true: return only domains which are for routing only
  */
 int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_route) {
-        Link *l;
         int r;
 
         assert(m);
@@ -1674,8 +1702,23 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_
                         return r;
         }
 
-        HASHMAP_FOREACH(l, m->links) {
+        DnsDelegate *delegate;
+        HASHMAP_FOREACH(delegate, m->delegates)
+                LIST_FOREACH(domains, d, delegate->search_domains) {
 
+                        if (filter_route >= 0 &&
+                            d->route_only != !!filter_route)
+                                continue;
+
+                        r = ordered_set_put(*domains, d->name);
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+
+        Link *l;
+        HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(domains, d, l->search_domains) {
 
                         if (filter_route >= 0 &&
@@ -1688,7 +1731,6 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_
                         if (r < 0)
                                 return r;
                 }
-        }
 
         return 0;
 }
@@ -1767,17 +1809,24 @@ void manager_flush_caches(Manager *m, int log_level) {
         LIST_FOREACH(scopes, scope, m->dns_scopes)
                 dns_cache_flush(&scope->cache);
 
+        dns_browse_services_purge(m, AF_UNSPEC); /* Clear records of DNS service browse subscriber, since caches are flushed */
+        dns_browse_services_restart(m);
+
         log_full(log_level, "Flushed all caches.");
 }
 
 void manager_reset_server_features(Manager *m) {
-        Link *l;
 
         dns_server_reset_features_all(m->dns_servers);
         dns_server_reset_features_all(m->fallback_dns_servers);
 
+        Link *l;
         HASHMAP_FOREACH(l, m->links)
                 dns_server_reset_features_all(l->dns_servers);
+
+        DnsDelegate *d;
+        HASHMAP_FOREACH(d, m->delegates)
+                dns_server_reset_features_all(d->dns_servers);
 
         log_info("Resetting learnt feature levels on all servers.");
 }
@@ -1830,13 +1879,13 @@ void manager_cleanup_saved_user(Manager *m) {
 }
 
 bool manager_next_dnssd_names(Manager *m) {
-        DnssdService *s;
+        DnssdRegisteredService *s;
         bool tried = false;
         int r;
 
         assert(m);
 
-        HASHMAP_FOREACH(s, m->dnssd_services) {
+        HASHMAP_FOREACH(s, m->dnssd_registered_services) {
                 _cleanup_free_ char * new_name = NULL;
 
                 if (!s->withdrawn)
@@ -1997,41 +2046,45 @@ void dns_manager_reset_statistics(Manager *m) {
 static int dns_configuration_json_append(
                 const char *ifname,
                 int ifindex,
+                const char *delegate,
                 int default_route,
                 DnsServer *current_dns_server,
                 DnsServer *dns_servers,
+                DnsServer *fallback_dns_servers,
                 DnsSearchDomain *search_domains,
+                Set *negative_trust_anchors,
+                Set *dns_scopes,
+                DnssecMode dnssec_mode,
+                DnsOverTlsMode dns_over_tls_mode,
+                ResolveSupport llmnr_support,
+                ResolveSupport mdns_support,
+                ResolvConfMode resolv_conf_mode,
                 sd_json_variant **configuration) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *dns_servers_json = NULL,
+                                                          *fallback_dns_servers_json = NULL,
                                                           *search_domains_json = NULL,
-                                                          *current_dns_server_json = NULL;
+                                                          *current_dns_server_json = NULL,
+                                                          *scopes_json = NULL;
+        DnsScope *scope;
         int r;
 
         assert(configuration);
 
-        if (dns_servers) {
-                r = sd_json_variant_new_array(&dns_servers_json, NULL, 0);
+        SET_FOREACH(scope, dns_scopes) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = dns_scope_to_json(scope, /* with_cache= */ false, &v);
                 if (r < 0)
                         return r;
-        }
 
-        if (search_domains) {
-                r = sd_json_variant_new_array(&search_domains_json, NULL, 0);
-                if (r < 0)
-                        return r;
-        }
-
-        if (current_dns_server) {
-                r = dns_server_dump_configuration_to_json(current_dns_server, &current_dns_server_json);
+                r = sd_json_variant_append_array(&scopes_json, v);
                 if (r < 0)
                         return r;
         }
 
         LIST_FOREACH(servers, s, dns_servers) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
-                assert(dns_servers_json);
 
                 r = dns_server_dump_configuration_to_json(s, &v);
                 if (r < 0)
@@ -2045,8 +2098,6 @@ static int dns_configuration_json_append(
         LIST_FOREACH(domains, d, search_domains) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                assert(search_domains_json);
-
                 r = dns_search_domain_dump_to_json(d, &v);
                 if (r < 0)
                         return r;
@@ -2056,46 +2107,179 @@ static int dns_configuration_json_append(
                         return r;
         }
 
+        LIST_FOREACH(servers, s, fallback_dns_servers) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = dns_server_dump_configuration_to_json(s, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&fallback_dns_servers_json, v);
+                if (r < 0)
+                        return r;
+        }
+
         return sd_json_variant_append_arraybo(
                         configuration,
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ifname", ifname),
                         SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_UNSIGNED(ifindex)),
-                        SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "defaultRoute", SD_JSON_BUILD_BOOLEAN(default_route > 0)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("delegate", delegate),
+                        JSON_BUILD_PAIR_TRISTATE_NON_NULL("defaultRoute", default_route),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("currentServer", current_dns_server_json),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("servers", dns_servers_json),
-                        JSON_BUILD_PAIR_VARIANT_NON_NULL("searchDomains", search_domains_json));
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("fallbackServers", fallback_dns_servers_json),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("searchDomains", search_domains_json),
+                        SD_JSON_BUILD_PAIR_CONDITION(!set_isempty(negative_trust_anchors),
+                                                     "negativeTrustAnchors",
+                                                     JSON_BUILD_STRING_SET(negative_trust_anchors)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("dnssec", dnssec_mode_to_string(dnssec_mode)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("dnsOverTLS", dns_over_tls_mode_to_string(dns_over_tls_mode)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("llmnr", resolve_support_to_string(llmnr_support)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("mDNS", resolve_support_to_string(mdns_support)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("resolvConfMode", resolv_conf_mode_to_string(resolv_conf_mode)),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("scopes", scopes_json));
+}
+
+static int global_dns_configuration_json_append(Manager *m, sd_json_variant **configuration) {
+        _cleanup_set_free_ Set *scopes = NULL;
+        int r;
+
+        assert(m);
+        assert(configuration);
+
+        r = set_ensure_put(&scopes, NULL, m->unicast_scope);
+        if (r < 0)
+                return r;
+
+        return dns_configuration_json_append(
+                        /* ifname = */ NULL,
+                        /* ifindex = */ 0,
+                        /* delegate = */ NULL,
+                        /* default_route = */ -1,
+                        manager_get_dns_server(m),
+                        m->dns_servers,
+                        m->fallback_dns_servers,
+                        m->search_domains,
+                        m->trust_anchor.negative_by_name,
+                        scopes,
+                        manager_get_dnssec_mode(m),
+                        manager_get_dns_over_tls_mode(m),
+                        m->llmnr_support,
+                        m->mdns_support,
+                        resolv_conf_mode(),
+                        configuration);
+}
+
+static int link_dns_configuration_json_append(Link *l, sd_json_variant **configuration) {
+        _cleanup_set_free_ Set *scopes = NULL;
+        int r;
+
+        assert(l);
+        assert(configuration);
+
+        if (l->unicast_scope) {
+                r = set_ensure_put(&scopes, NULL, l->unicast_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->llmnr_ipv4_scope) {
+                r = set_ensure_put(&scopes, NULL, l->llmnr_ipv4_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->llmnr_ipv6_scope) {
+                r = set_ensure_put(&scopes, NULL, l->llmnr_ipv6_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->mdns_ipv4_scope) {
+                r = set_ensure_put(&scopes, NULL, l->mdns_ipv4_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->mdns_ipv6_scope) {
+                r = set_ensure_put(&scopes, NULL, l->mdns_ipv6_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        return dns_configuration_json_append(
+                        l->ifname,
+                        l->ifindex,
+                        /* delegate = */ NULL,
+                        link_get_default_route(l),
+                        link_get_dns_server(l),
+                        l->dns_servers,
+                        /* fallback_dns_servers = */ NULL,
+                        l->search_domains,
+                        l->dnssec_negative_trust_anchors,
+                        scopes,
+                        link_get_dnssec_mode(l),
+                        link_get_dns_over_tls_mode(l),
+                        link_get_llmnr_support(l),
+                        link_get_mdns_support(l),
+                        /* resolv_conf_mode = */ _RESOLV_CONF_MODE_INVALID,
+                        configuration);
+}
+
+static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_variant **configuration) {
+        _cleanup_set_free_ Set *scopes = NULL;
+        int r;
+
+        assert(d);
+        assert(configuration);
+
+        r = set_ensure_put(&scopes, NULL, d->scope);
+        if (r < 0)
+                return r;
+
+        return dns_configuration_json_append(
+                        /* ifname = */ NULL,
+                        /* ifindex = */ 0,
+                        d->id,
+                        d->default_route > 0, /* Defaults to false. See dns_scope_is_default_route(). */
+                        dns_delegate_get_dns_server(d),
+                        d->dns_servers,
+                        /* fallback_dns_servers = */ NULL,
+                        d->search_domains,
+                        /* negative_trust_anchors = */ NULL,
+                        scopes,
+                        /* dnssec_mode = */ _DNSSEC_MODE_INVALID,
+                        /* dns_over_tls_mode = */ _DNS_OVER_TLS_MODE_INVALID,
+                        /* llmnr_support = */ _RESOLVE_SUPPORT_INVALID,
+                        /* mdns_support = */ _RESOLVE_SUPPORT_INVALID,
+                        /* resolv_conf_mode = */ _RESOLV_CONF_MODE_INVALID,
+                        configuration);
 }
 
 int manager_dump_dns_configuration_json(Manager *m, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
         Link *l;
+        DnsDelegate *d;
         int r;
 
         assert(m);
         assert(ret);
 
         /* Global DNS configuration */
-        r = dns_configuration_json_append(
-                        /* ifname = */ NULL,
-                        /* ifindex = */ 0,
-                        /* default_route = */ 0,
-                        manager_get_dns_server(m),
-                        m->dns_servers,
-                        m->search_domains,
-                        &configuration);
+        r = global_dns_configuration_json_append(m, &configuration);
         if (r < 0)
                 return r;
 
         /* Append configuration for each link */
         HASHMAP_FOREACH(l, m->links) {
-                r = dns_configuration_json_append(
-                                l->ifname,
-                                l->ifindex,
-                                link_get_default_route(l),
-                                link_get_dns_server(l),
-                                l->dns_servers,
-                                l->search_domains,
-                                &configuration);
+                r = link_dns_configuration_json_append(l, &configuration);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Append configuration for each delegate */
+        HASHMAP_FOREACH(d, m->delegates) {
+                r = delegate_dns_configuration_json_append(d, &configuration);
                 if (r < 0)
                         return r;
         }

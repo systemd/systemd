@@ -1,21 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdarg.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "escape.h"
 #include "extract-word.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "glyph-util.h"
 #include "gunicode.h"
 #include "locale-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
@@ -45,20 +38,6 @@ char* first_word(const char *s, const char *word) {
                 return NULL;
 
         return (char*) nw;
-}
-
-char* strprepend(char **x, const char *s) {
-        assert(x);
-
-        if (isempty(s) && *x)
-                return *x;
-
-        char *p = strjoin(strempty(s), *x);
-        if (!p)
-                return NULL;
-
-        free_and_replace(*x, p);
-        return *x;
 }
 
 char* strextendn(char **x, const char *s, size_t l) {
@@ -165,32 +144,32 @@ char ascii_toupper(char x) {
         return x;
 }
 
-char* ascii_strlower(char *t) {
-        assert(t);
+char* ascii_strlower(char *s) {
+        assert(s);
 
-        for (char *p = t; *p; p++)
+        for (char *p = s; *p; p++)
                 *p = ascii_tolower(*p);
 
-        return t;
+        return s;
 }
 
-char* ascii_strupper(char *t) {
-        assert(t);
+char* ascii_strupper(char *s) {
+        assert(s);
 
-        for (char *p = t; *p; p++)
+        for (char *p = s; *p; p++)
                 *p = ascii_toupper(*p);
 
-        return t;
+        return s;
 }
 
-char* ascii_strlower_n(char *t, size_t n) {
+char* ascii_strlower_n(char *s, size_t n) {
         if (n <= 0)
-                return t;
+                return s;
 
         for (size_t i = 0; i < n; i++)
-                t[i] = ascii_tolower(t[i]);
+                s[i] = ascii_tolower(s[i]);
 
-        return t;
+        return s;
 }
 
 int ascii_strcasecmp_n(const char *a, const char *b, size_t n) {
@@ -814,12 +793,11 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         return *ibuf;
 }
 
-char* strextend_with_separator_internal(char **x, const char *separator, ...) {
+char* strextendv_with_separator(char **x, const char *separator, va_list ap) {
         _cleanup_free_ char *buffer = NULL;
         size_t f, l, l_separator;
         bool need_separator;
         char *nr, *p;
-        va_list ap;
 
         if (!x)
                 x = &buffer;
@@ -829,11 +807,12 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
         need_separator = !isempty(*x);
         l_separator = strlen_ptr(separator);
 
-        va_start(ap, separator);
+        va_list aq;
+        va_copy(aq, ap);
         for (const char *t;;) {
                 size_t n;
 
-                t = va_arg(ap, const char *);
+                t = va_arg(aq, const char *);
                 if (!t)
                         break;
                 if (t == POINTER_MAX)
@@ -845,14 +824,14 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
                         n += l_separator;
 
                 if (n >= SIZE_MAX - l) {
-                        va_end(ap);
+                        va_end(aq);
                         return NULL;
                 }
 
                 l += n;
                 need_separator = true;
         }
-        va_end(ap);
+        va_end(aq);
 
         need_separator = !isempty(*x);
 
@@ -863,7 +842,6 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
         *x = nr;
         p = nr + f;
 
-        va_start(ap, separator);
         for (;;) {
                 const char *t;
 
@@ -880,7 +858,6 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
 
                 need_separator = true;
         }
-        va_end(ap);
 
         assert(p == nr + l);
         *p = 0;
@@ -891,6 +868,17 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
 
         /* Otherwise we extended the buffer: return the end */
         return p;
+}
+
+char* strextend_with_separator_internal(char **x, const char *separator, ...) {
+        va_list ap;
+        char *ret;
+
+        va_start(ap, separator);
+        ret = strextendv_with_separator(x, separator, ap);
+        va_end(ap);
+
+        return ret;
 }
 
 int strextendf_with_separator(char **x, const char *separator, const char *format, ...) {
@@ -1111,6 +1099,19 @@ bool string_is_safe(const char *p) {
         }
 
         return true;
+}
+
+bool string_is_safe_ascii(const char *p) {
+        return ascii_is_valid(p) && string_is_safe(p);
+}
+
+char* str_realloc(char *p) {
+        /* Reallocate *p to actual size. Ignore failure, and return the original string on error. */
+
+        if (!p)
+                return NULL;
+
+        return realloc(p, strlen(p) + 1) ?: p;
 }
 
 char* string_erase(char *x) {
@@ -1347,16 +1348,14 @@ char* strdupcspn(const char *a, const char *reject) {
         return strndup(a, strcspn(a, reject));
 }
 
-char* find_line_startswith(const char *haystack, const char *needle) {
-        char *p;
-
+char* find_line_startswith_internal(const char *haystack, const char *needle) {
         assert(haystack);
         assert(needle);
 
         /* Finds the first line in 'haystack' that starts with the specified string. Returns a pointer to the
          * first character after it */
 
-        p = strstr(haystack, needle);
+        char *p = (char*) strstr(haystack, needle);
         if (!p)
                 return NULL;
 
@@ -1368,6 +1367,42 @@ char* find_line_startswith(const char *haystack, const char *needle) {
                 }
 
         return p + strlen(needle);
+}
+
+char* find_line_internal(const char *haystack, const char *needle) {
+        assert(haystack);
+        assert(needle);
+
+        /* Finds the first line in 'haystack' that match the specified string. Returns a pointer to the
+         * beginning of the line */
+
+        char *p = (char*) find_line_startswith(haystack, needle);
+        if (!p)
+                return NULL;
+
+        if (*p == 0 || strchr(NEWLINE, *p))
+                return p - strlen(needle);
+
+        return NULL;
+}
+
+char* find_line_after_internal(const char *haystack, const char *needle) {
+        assert(haystack);
+        assert(needle);
+
+        /* Finds the first line in 'haystack' that match the specified string. Returns a pointer to the
+         * next line after it */
+
+        char *p = (char*) find_line_startswith(haystack, needle);
+        if (!p)
+                return NULL;
+
+        if (*p == 0)
+                return p;
+        if (strchr(NEWLINE, *p))
+                return p + 1;
+
+        return NULL;
 }
 
 bool version_is_valid(const char *s) {
@@ -1458,7 +1493,7 @@ ssize_t strlevenshtein(const char *x, const char *y) {
         return t1[yl];
 }
 
-char* strrstr(const char *haystack, const char *needle) {
+char* strrstr_internal(const char *haystack, const char *needle) {
         /* Like strstr() but returns the last rather than the first occurrence of "needle" in "haystack". */
 
         if (!haystack || !needle)
@@ -1467,7 +1502,7 @@ char* strrstr(const char *haystack, const char *needle) {
         /* Special case: for the empty string we return the very last possible occurrence, i.e. *after* the
          * last char, not before. */
         if (*needle == 0)
-                return strchr(haystack, 0);
+                return (char*) strchr(haystack, 0);
 
         for (const char *p = strstr(haystack, needle), *q; p; p = q) {
                 q = strstr(p + 1, needle);

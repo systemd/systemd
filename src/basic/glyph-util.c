@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "env-util.h"
 #include "glyph-util.h"
 #include "locale-util.h"
@@ -77,13 +79,23 @@ const char* glyph_full(Glyph code, bool force_utf) {
                         [GLYPH_SPARKLES]                = "*",
                         [GLYPH_LOW_BATTERY]             = "!",
                         [GLYPH_WARNING_SIGN]            = "!",
+                        [GLYPH_COMPUTER_DISK]           = "o",
+                        [GLYPH_WORLD]                   = "W",
                         [GLYPH_RED_CIRCLE]              = "o",
+                        [GLYPH_ORANGE_CIRCLE]           = "o",
                         [GLYPH_YELLOW_CIRCLE]           = "o",
                         [GLYPH_BLUE_CIRCLE]             = "o",
                         [GLYPH_GREEN_CIRCLE]            = "o",
                         [GLYPH_SUPERHERO]               = "S",
+                        [GLYPH_PUMPKIN]                 = "P",
                         [GLYPH_IDCARD]                  = "@",
                         [GLYPH_HOME]                    = "^",
+                        [GLYPH_ROCKET]                  = "^",
+                        [GLYPH_BROOM]                   = "/",
+                        [GLYPH_KEYBOARD]                = "K",
+                        [GLYPH_CLOCK]                   = "O",
+                        [GLYPH_LABEL]                   = "L",
+                        [GLYPH_SHELL]                   = "$",
                 },
 
                 /* UTF-8 */
@@ -151,14 +163,21 @@ const char* glyph_full(Glyph code, bool force_utf) {
                         [GLYPH_WARNING_SIGN]            = UTF8("⚠️"),
                         [GLYPH_COMPUTER_DISK]           = UTF8("💽"),
                         [GLYPH_WORLD]                   = UTF8("🌍"),
-
                         [GLYPH_RED_CIRCLE]              = UTF8("🔴"),
+                        [GLYPH_ORANGE_CIRCLE]           = UTF8("🟠"),
                         [GLYPH_YELLOW_CIRCLE]           = UTF8("🟡"),
                         [GLYPH_BLUE_CIRCLE]             = UTF8("🔵"),
                         [GLYPH_GREEN_CIRCLE]            = UTF8("🟢"),
                         [GLYPH_SUPERHERO]               = UTF8("🦸"),
+                        [GLYPH_PUMPKIN]                 = UTF8("🎃"),
                         [GLYPH_IDCARD]                  = UTF8("🪪"),
                         [GLYPH_HOME]                    = UTF8("🏠"),
+                        [GLYPH_ROCKET]                  = UTF8("🚀"),
+                        [GLYPH_BROOM]                   = UTF8("🧹"),
+                        [GLYPH_KEYBOARD]                = UTF8("⌨️"),
+                        [GLYPH_CLOCK]                   = UTF8("🕗"),
+                        [GLYPH_LABEL]                   = UTF8("🏷️"),
+                        [GLYPH_SHELL]                   = UTF8("🐚"),
                 },
         };
 

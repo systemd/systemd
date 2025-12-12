@@ -1,8 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-subdir('bpf/sysctl_monitor')
+subdir('bpf/sysctl-monitor')
 
-sources = files(
+systemd_networkd_sources = files(
+        'networkd.c'
+)
+systemd_networkd_extract_sources = files(
         'netdev/bareudp.c',
         'netdev/batadv.c',
         'netdev/bond.c',
@@ -71,6 +74,7 @@ sources = files(
         'networkd-ntp.c',
         'networkd-queue.c',
         'networkd-radv.c',
+        'networkd-resolve-hook.c',
         'networkd-route.c',
         'networkd-route-metric.c',
         'networkd-route-nexthop.c',
@@ -111,12 +115,10 @@ sources = files(
         'tc/teql.c',
 )
 
-systemd_networkd_sources = files('networkd.c')
-
 systemd_networkd_wait_online_sources = files(
         'wait-online/dns-configuration.c',
-        'wait-online/link.c',
-        'wait-online/manager.c',
+        'wait-online/wait-online-link.c',
+        'wait-online/wait-online-manager.c',
         'wait-online/wait-online.c',
 )
 
@@ -136,38 +138,30 @@ networkctl_sources = files(
         'networkctl-util.c',
 )
 
-network_generator_sources = files(
-        'generator/main.c',
-        'generator/network-generator.c',
-)
-
 networkd_network_gperf_gperf = files('networkd-network-gperf.gperf')
 networkd_netdev_gperf_gperf = files('netdev/netdev-gperf.gperf')
 
-if conf.get('HAVE_VMLINUX_H') == 1
-        sources += sysctl_monitor_skel_h
+if conf.get('ENABLE_SYSCTL_BPF') == 1
+        systemd_networkd_extract_sources += sysctl_monitor_skel_h
 endif
 
 networkd_gperf_c = custom_target(
-        'networkd-gperf.c',
         input : 'networkd-gperf.gperf',
         output : 'networkd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 networkd_network_gperf_c = custom_target(
-        'networkd-network-gperf.c',
         input : networkd_network_gperf_gperf,
         output : 'networkd-network-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 netdev_gperf_c = custom_target(
-        'netdev-gperf.c',
         input : networkd_netdev_gperf_gperf,
         output : 'netdev-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 generated_sources += [networkd_gperf_c, networkd_network_gperf_c, netdev_gperf_c]
-sources += [networkd_gperf_c, networkd_network_gperf_c, netdev_gperf_c]
+systemd_networkd_extract_sources += [networkd_gperf_c, networkd_network_gperf_c, netdev_gperf_c]
 
 if get_option('link-networkd-shared')
         networkd_link_with = [libshared]
@@ -178,27 +172,23 @@ endif
 
 network_includes = [libsystemd_network_includes, include_directories(['.', 'netdev', 'tc'])]
 
-libnetworkd_core = static_library(
-        'networkd-core',
-        sources,
-        include_directories : network_includes,
-        dependencies : userspace,
-        link_with : networkd_link_with,
-        build_by_default : false)
-
 network_test_template = test_template + {
+        'conditions' : ['ENABLE_NETWORKD'],
         'link_with' : [
-                libnetworkd_core,
+                networkd_link_with,
                 libsystemd_network,
         ],
+        'objects' : ['systemd-networkd'],
         'include_directories' : network_includes,
 }
 
 network_fuzz_template = fuzz_template + {
+        'conditions' : ['ENABLE_NETWORKD'],
         'link_with' : [
-                libnetworkd_core,
+                networkd_link_with,
                 libsystemd_network,
         ],
+        'objects' : ['systemd-networkd'],
         'dependencies' : threads,
         'include_directories' : network_includes,
 }
@@ -209,9 +199,9 @@ executables += [
                 'dbus' : true,
                 'conditions' : ['ENABLE_NETWORKD'],
                 'sources' : systemd_networkd_sources,
+                'extract' : systemd_networkd_extract_sources,
                 'include_directories' : network_includes,
                 'link_with' : [
-                        libnetworkd_core,
                         libsystemd_network,
                         networkd_link_with,
                 ],
@@ -237,14 +227,13 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-network-generator',
-                'sources' : network_generator_sources,
+                'sources' : files('generator/network-generator-main.c'),
+                'extract' : files('generator/network-generator.c'),
                 'link_with' : networkd_link_with,
         },
         test_template + {
-                'sources' : files(
-                        'generator/test-network-generator.c',
-                        'generator/network-generator.c',
-                ),
+                'sources' : files('generator/test-network-generator.c'),
+                'objects' : ['systemd-network-generator'],
                 'suite' : 'network',
         },
         network_test_template + {

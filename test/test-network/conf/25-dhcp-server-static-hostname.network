@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=veth-peer
+
+[Network]
+Address=10.1.1.1/24
+DHCPServer=yes
+IPv6AcceptRA=no
+
+[DHCPServer]
+PoolOffset=100
+PoolSize=50
+DefaultLeaseTimeSec=60
+
+# Scenario 1: Option 12
+# Matches veth99's default MAC (from 25-veth.netdev)
+[DHCPServerStaticLease]
+MACAddress=12:34:56:78:9a:bc
+Address=10.1.1.200
+Hostname=simple-host
+
+# Scenario 2: Option 81
+# Matches the MAC set by 25-dhcp-client-fqdn-hostname.network
+[DHCPServerStaticLease]
+MACAddress=92:12:01:87:11:19
+Address=10.1.1.201
+Hostname=fqdn.example.com

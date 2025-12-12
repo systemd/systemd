@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <linux/if_arp.h>
 #include <linux/veth.h>
-#include <net/if.h>
-#include <netinet/in.h>
+
+#include "sd-netlink.h"
 
 #include "netlink-util.h"
+#include "string-util.h"
 #include "veth.h"
 
 static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {

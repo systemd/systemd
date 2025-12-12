@@ -2,7 +2,12 @@
 
 #include "analyze.h"
 #include "analyze-architectures.h"
+#include "ansi-color.h"
+#include "architecture.h"
 #include "format-table.h"
+#include "log.h"
+#include "string-util.h"
+#include "strv.h"
 
 static int add_arch(Table *t, Architecture a) {
         const char *c, *color;
@@ -82,7 +87,7 @@ int verb_architectures(int argc, char *argv[], void *userdata) {
 
         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
         if (r < 0)
-                return log_error_errno(r, "Failed to output table: %m");
+                return r;
 
         return EXIT_SUCCESS;
 }

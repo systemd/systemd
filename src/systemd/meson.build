@@ -35,6 +35,7 @@ _not_installed_headers = [
         'sd-dhcp6-lease.h',
         'sd-dhcp6-option.h',
         'sd-dhcp6-protocol.h',
+        'sd-dns-resolver.h',
         'sd-ipv4acd.h',
         'sd-ipv4ll.h',
         'sd-lldp-rx.h',
@@ -51,6 +52,9 @@ _not_installed_headers = [
         'sd-radv.h',
         'sd-resolve.h',
 ]
+
+sources += systemd_headers
+sources += files(_not_installed_headers)
 
 install_headers(
         systemd_headers,

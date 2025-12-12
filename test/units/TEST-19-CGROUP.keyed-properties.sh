@@ -43,7 +43,7 @@ EOF
 testcase_iodevice_unitfile () {
     cat >/run/systemd/system/test1.service <<EOF
 [Service]
-ExecStart=/usr/bin/sleep inf
+ExecStart=sleep inf
 IOReadBandwidthMax=/dev/sda1 1M
 IOReadBandwidthMax=/dev/sda2 2M
 IOReadBandwidthMax=/dev/sda3 4M

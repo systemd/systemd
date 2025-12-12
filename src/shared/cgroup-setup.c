@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <unistd.h>
 
 #include "cgroup-setup.h"
@@ -7,14 +8,16 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "missing_magic.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "recurse-dir.h"
+#include "set.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "user-util.h"
@@ -75,7 +78,7 @@ int cg_trim(const char *path, bool delete_root) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(path, /* suffix = */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -112,7 +115,7 @@ int cg_create(const char *path) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        r = cg_get_path_and_check(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(path, /* suffix = */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -137,7 +140,7 @@ int cg_attach(const char *path, pid_t pid) {
         assert(path);
         assert(pid >= 0);
 
-        r = cg_get_path_and_check(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.procs", &fs);
+        r = cg_get_path(path, "cgroup.procs", &fs);
         if (r < 0)
                 return r;
 
@@ -213,7 +216,7 @@ int cg_set_access(
                 return 0;
 
         /* Configure access to the cgroup itself */
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(path, /* suffix = */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -286,7 +289,7 @@ int cg_set_access_recursive(
         if (!uid_is_valid(uid) && !gid_is_valid(gid))
                 return 0;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(path, /* suffix = */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -331,7 +334,7 @@ int cg_migrate(
 
                 done = true;
 
-                r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, from, &f);
+                r = cg_enumerate_processes(from, &f);
                 if (r < 0)
                         return RET_GATHER(ret, r);
 
@@ -364,6 +367,8 @@ int cg_migrate(
                         if (r < 0)
                                 return RET_GATHER(ret, r);
                 }
+                if (r == -ENODEV)
+                        continue;
                 if (r < 0)
                         return RET_GATHER(ret, r);
         } while (!done);
@@ -391,7 +396,7 @@ int cg_enable(
                 return 0;
         }
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, p, "cgroup.subtree_control", &fs);
+        r = cg_get_path(p, "cgroup.subtree_control", &fs);
         if (r < 0)
                 return r;
 

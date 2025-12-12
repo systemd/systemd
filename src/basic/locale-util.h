@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <libintl.h>
-#include <locale.h>
-#include <stdbool.h>
+#include <locale.h>     /* IWYU pragma: export */
 
-#include "macro.h"
+#include "basic-forward.h"
 
 typedef enum LocaleVariable {
         /* We don't list LC_ALL here on purpose. People should be
@@ -29,7 +27,7 @@ typedef enum LocaleVariable {
         _VARIABLE_LC_INVALID = -EINVAL,
 } LocaleVariable;
 
-int get_locales(char ***l);
+int get_locales(char ***ret);
 bool locale_is_valid(const char *name);
 int locale_is_installed(const char *name);
 

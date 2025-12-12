@@ -1,27 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/fib_rules.h>
-#include <net/if.h>
 
-#include "af-list.h"
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
 #include "conf-parser.h"
-#include "fileio.h"
-#include "format-util.h"
+#include "errno-util.h"
 #include "hashmap.h"
-#include "ip-protocol-list.h"
 #include "netlink-util.h"
 #include "network-util.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
-#include "socket-util.h"
+#include "set.h"
+#include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "strv.h"
 #include "user-util.h"
 
 static const char *const fr_act_type_table[__FR_ACT_MAX] = {

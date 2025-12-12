@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Daughter Service
+
+[Service]
+Slice=parent.slice
+Type=oneshot
+ExecStart=true

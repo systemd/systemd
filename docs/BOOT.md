@@ -67,7 +67,7 @@ options    root=PARTUUID=084917b7-8be2-4e86-838d-f771a9902e08
 title      My kernel with initrd
 linux      /bzImage
 initrd     /initrd.img
-options    root=PARTUUID=084917b7-8be2-4e86-838d-f771a9902e08 quiet`
+options    root=PARTUUID=084917b7-8be2-4e86-838d-f771a9902e08 quiet
 ```
 
 
@@ -102,6 +102,8 @@ Some EFI variables control the loader or exported the loaders state to the start
 | EFI Variables |
 |---------------|------------------------|-------------------------------|
 | LoaderEntryDefault | entry identifier to select as default at bootup  | non-volatile |
+| LoaderEntrySysFail | sysfail entry identifier | non-volatile |
+| LoaderSysFailReason | system failure reason | volatile |
 | LoaderConfigTimeout | timeout in seconds to show the menu | non-volatile |
 | LoaderEntryOneShot | entry identifier to select at the next and only the next bootup | non-volatile |
 | LoaderDeviceIdentifier | list of identifiers of the volume the loader was started from | volatile |

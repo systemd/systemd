@@ -3,9 +3,9 @@
 #include <sys/sendfile.h>
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 
 #include "alloc-util.h"
-#include "btrfs-util.h"
 #include "copy.h"
 #include "export-raw.h"
 #include "fd-util.h"
@@ -13,16 +13,15 @@
 #include "fs-util.h"
 #include "import-common.h"
 #include "log.h"
-#include "missing_fcntl.h"
 #include "pretty-print.h"
 #include "ratelimit.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
-#define COPY_BUFFER_SIZE (16*1024)
-
-struct RawExport {
+typedef struct RawExport {
         sd_event *event;
 
         RawExportFinished on_finished;
@@ -52,7 +51,7 @@ struct RawExport {
         bool eof;
         bool tried_reflink;
         bool tried_sendfile;
-};
+} RawExport;
 
 RawExport *raw_export_unref(RawExport *e) {
         if (!e)
@@ -161,7 +160,7 @@ static int raw_export_process(RawExport *e) {
 
         if (!e->tried_sendfile && e->compress.type == IMPORT_COMPRESS_UNCOMPRESSED) {
 
-                l = sendfile(e->output_fd, e->input_fd, NULL, COPY_BUFFER_SIZE);
+                l = sendfile(e->output_fd, e->input_fd, NULL, IMPORT_BUFFER_SIZE);
                 if (l < 0) {
                         if (errno == EAGAIN)
                                 return 0;
@@ -181,7 +180,7 @@ static int raw_export_process(RawExport *e) {
         }
 
         while (e->buffer_size <= 0) {
-                uint8_t input[COPY_BUFFER_SIZE];
+                uint8_t input[IMPORT_BUFFER_SIZE];
 
                 if (e->eof) {
                         r = 0;

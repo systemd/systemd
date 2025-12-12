@@ -46,7 +46,6 @@ node /org/freedesktop/machine1 {
                       out o machine);
       ListMachines(out a(ssso) machines);
       ListImages(out a(ssbttto) images);
-      @org.freedesktop.systemd1.Privileged("true")
       CreateMachine(in  s name,
                     in  ay id,
                     in  s service,
@@ -55,7 +54,6 @@ node /org/freedesktop/machine1 {
                     in  s root_directory,
                     in  a(sv) scope_properties,
                     out o path);
-      @org.freedesktop.systemd1.Privileged("true")
       CreateMachineWithNetwork(in  s name,
                                in  ay id,
                                in  s service,
@@ -65,7 +63,10 @@ node /org/freedesktop/machine1 {
                                in  ai ifindices,
                                in  a(sv) scope_properties,
                                out o path);
-      @org.freedesktop.systemd1.Privileged("true")
+      CreateMachineEx(in  s name,
+                      in  a(sv) properties,
+                      in  a(sv) scope_properties,
+                      out o path);
       RegisterMachine(in  s name,
                       in  ay id,
                       in  s service,
@@ -73,7 +74,6 @@ node /org/freedesktop/machine1 {
                       in  u leader,
                       in  s root_directory,
                       out o path);
-      @org.freedesktop.systemd1.Privileged("true")
       RegisterMachineWithNetwork(in  s name,
                                  in  ay id,
                                  in  s service,
@@ -82,6 +82,9 @@ node /org/freedesktop/machine1 {
                                  in  s root_directory,
                                  in  ai ifindices,
                                  out o path);
+      RegisterMachineEx(in  s name,
+                        in  a(sv) properties,
+                        out o path);
       UnregisterMachine(in  s name);
       TerminateMachine(in  s id);
       KillMachine(in  s name,
@@ -94,7 +97,6 @@ node /org/freedesktop/machine1 {
                         out s ssh_private_key_path);
       GetMachineOSRelease(in  s name,
                           out a{ss} fields);
-      @org.freedesktop.systemd1.Privileged("true")
       OpenMachinePTY(in  s name,
                      out h pty,
                      out s pty_path);
@@ -221,9 +223,13 @@ node /org/freedesktop/machine1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="CreateMachineWithNetwork()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="CreateMachineEx()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="RegisterMachine()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="RegisterMachineWithNetwork()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RegisterMachineEx()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="UnregisterMachine()"/>
 
@@ -341,7 +347,8 @@ node /org/freedesktop/machine1 {
       be either <literal>container</literal> or <literal>vm</literal> indicating whether the machine to
       register is of the respective class. The leader PID should be the host PID of the init process of the
       container or the encapsulating process of the VM. If the root directory of the container is known and
-      available in the host's hierarchy, it should be passed. Otherwise, pass the empty string instead. Finally, the
+      available in the host's hierarchy, it should be passed (note that this is for informational purposes
+      only, and will not be used otherwise). Otherwise, pass the empty string instead. Finally, the
       scope properties are passed as array in the same way as to PID1's
       <function>StartTransientUnit()</function> method. Calling this method will internally register a transient scope
       unit for the calling client (utilizing the passed scope_properties) and move the leader PID into
@@ -356,6 +363,31 @@ node /org/freedesktop/machine1 {
       registered. We recommend to only use this method for container or VM managers that are run
       multiple times, one instance for each container/VM they manage, and are invoked as system
       services.</para>
+
+      <para><function>RegisterMachineEx()</function> and <function>CreateMachineEx()</function> are similar
+      to the counterparts, but take a series of key/value pairs instead of a fixed number of parameters, to
+      allow for future extensions, and take a PIDFD instead of a PID for the leader parameter. The currently
+      supported parameters are:
+      <itemizedlist>
+        <listitem><para><literal>Id</literal> (<literal>ay</literal>): the machine UUID.</para></listitem>
+        <listitem><para><literal>Service</literal> (<literal>s</literal>): the service string.</para></listitem>
+        <listitem><para><literal>Class</literal> (<literal>s</literal>): the class string.</para></listitem>
+        <listitem><para><literal>LeaderPIDFD</literal> (<literal>h</literal>): A PIDFD for the leader process of the machine.
+        This parameter is optional. If it is specified, it is preferred over the combination of
+        <literal>LeaderPID</literal>
+        and <literal>LeaderPIDFDID</literal>.</para></listitem>
+        <listitem><para><literal>LeaderPID</literal> (<literal>u</literal>): A PID for the leader process of the
+        machine. This parameter is optional. Must be specified together with
+        <literal>LeaderPIDFDID</literal>.</para></listitem>
+        <listitem><para><literal>LeaderPIDFDID</literal> (<literal>t</literal>): A PIDFDID for the leader
+        process of the machine. This parameter is optional. Must be specified together with
+        <literal>LeaderPID</literal>.</para></listitem>
+        <listitem><para><literal>RootDirectory</literal> (<literal>s</literal>): The root directory of the container. This
+        parameter is optional and for informational purposes only.</para></listitem>
+        <listitem><para><literal>NetworkInterfaces</literal> (<literal>ai</literal>): An array of network
+        interface indices, as in
+        <function>CreateMachineWithNetwork()</function>. This parameter is optional.</para></listitem>
+      </itemizedlist></para>
 
       <para><function>CreateMachineWithNetwork()</function> and
       <function>RegisterMachineWithNetwork()</function> are similar to <function>CreateMachine()</function>
@@ -511,7 +543,15 @@ node /org/freedesktop/machine1/machine/rawhide {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Unit = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Subgroup = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u Leader = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t LeaderPIDFDId = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u Supervisor = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t SupervisorPIDFDId = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Class = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -526,6 +566,8 @@ node /org/freedesktop/machine1/machine/rawhide {
       readonly s SSHPrivateKeyPath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s State = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u UID = ...;
   };
   interface org.freedesktop.DBus.Peer { ... };
   interface org.freedesktop.DBus.Introspectable { ... };
@@ -601,7 +643,15 @@ node /org/freedesktop/machine1/machine/rawhide {
 
     <variablelist class="dbus-property" generated="True" extra-ref="Unit"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="Subgroup"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="Leader"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LeaderPIDFDId"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Supervisor"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SupervisorPIDFDId"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Class"/>
 
@@ -616,6 +666,8 @@ node /org/freedesktop/machine1/machine/rawhide {
     <variablelist class="dbus-property" generated="True" extra-ref="SSHPrivateKeyPath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="State"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UID"/>
 
     <!--End of Autogenerated section-->
 
@@ -648,7 +700,19 @@ node /org/freedesktop/machine1/machine/rawhide {
 
       <para><varname>Unit</varname> is the systemd scope or service unit name for the machine.</para>
 
-      <para><varname>Leader</varname> is the PID of the leader process of the machine.</para>
+      <para><varname>Leader</varname> is the PID of the leader process of the machine. (The leader process is the
+      top-level process of the payload of the machine, i.e. for containers PID 1 inside the container, and
+      for VMs the process encapsulating the VM. Its lifetime defines the lifetime of the machine.)</para>
+
+      <para><varname>LeaderPIDFDId</varname> encodes the Linux pidfd inode ID of the leader process of the
+      machine.</para>
+
+      <para><varname>Supervisor</varname> is the PID of the supervisor process of the machine. (The
+      supervisor process is the process that manages the machine, if there's a separate one for it. A
+      supervisor process is not always defined, and does not define the machine's lifetime.)</para>
+
+      <para><varname>SupervisorPIDFDId</varname> encodes the Linux pidfd inode ID of the supervisor process of the
+      machine.</para>
 
       <para><varname>Class</varname> is the class of the machine and is either the string "vm" (for real VMs
       based on virtualized hardware) or "container" (for lightweight userspace virtualization sharing the
@@ -674,6 +738,11 @@ node /org/freedesktop/machine1/machine/rawhide {
       <literal>running</literal>, or <literal>closing</literal>. Note that the state machine is not considered
       part of the API and states might be removed or added without this being considered API breakage.
       </para>
+
+      <para><varname>Subgroup</varname> contains the sub-control-group path this machine's processes reside
+      in, relative to the specified unit's control group.</para>
+
+      <para><varname>UID</varname> contains the numeric UNIX UID of the user who registered the machine.</para>
     </refsect2>
   </refsect1>
 
@@ -715,8 +784,13 @@ $ gdbus introspect --system \
       <title>Machine Objects</title>
       <para><function>CopyFromWithFlags()</function> and
       <function>CopyToWithFlags()</function> were added in version 252.</para>
-      <para><function>GetSSHInfo()</function>, <varname>VSockCID</varname>, <varname>SSHAddress</varname>
+      <para><function>GetSSHInfo()</function>, <varname>VSockCID</varname>, <varname>SSHAddress</varname>,
       and <varname>SSHPrivateKeyPath</varname> were added in version 256.</para>
+      <para><varname>LeaderPIDFDId</varname>, <varname>Supervisor</varname>,
+      <varname>SupervisorPIDFDId</varname>, <varname>Subgroup</varname>, and <varname>UID</varname> were added
+      in version 258.</para>
+      <para><function>CreateMachineEx()</function>, and <function>RegisterMachineEx()</function> were added
+      in version 259.</para>
     </refsect2>
   </refsect1>
 

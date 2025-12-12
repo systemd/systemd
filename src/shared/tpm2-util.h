@@ -1,17 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-json.h"
-
 #include "bitfield.h"
-#include "io-util.h"
-#include "macro.h"
+#include "shared-forward.h"
 #include "openssl-util.h"
-#include "ordered-set.h"
-#include "sha256.h"
-#include "tpm2-pcr.h"
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN     = 1 << 0,
@@ -47,15 +39,15 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 
 #define TPM2_N_HASH_ALGORITHMS 4U
 
-#if HAVE_TPM2
-
-#include <tss2/tss2_esys.h>
-#include <tss2/tss2_mu.h>
-#include <tss2/tss2_rc.h>
-
 int dlopen_tpm2(void);
 
-typedef struct {
+#if HAVE_TPM2
+
+#include <tss2/tss2_esys.h>     /* IWYU pragma: export */
+#include <tss2/tss2_mu.h>       /* IWYU pragma: export */
+#include <tss2/tss2_rc.h>       /* IWYU pragma: export */
+
+typedef struct Tpm2Context {
         unsigned n_ref;
 
         void *tcti_dl;
@@ -78,7 +70,7 @@ Tpm2Context *tpm2_context_ref(Tpm2Context *context);
 Tpm2Context *tpm2_context_unref(Tpm2Context *context);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Context*, tpm2_context_unref);
 
-typedef struct {
+typedef struct Tpm2Handle {
         Tpm2Context *tpm2_context;
         ESYS_TR esys_handle;
 
@@ -94,7 +86,7 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle);
 Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Handle*, tpm2_handle_free);
 
-typedef struct {
+typedef struct Tpm2PCRValue {
         unsigned index;
         TPMI_ALG_HASH hash;
         TPM2B_DIGEST value;
@@ -150,6 +142,10 @@ typedef enum Tpm2UserspaceEventType {
         TPM2_EVENT_FILESYSTEM,
         TPM2_EVENT_VOLUME_KEY,
         TPM2_EVENT_MACHINE_ID,
+        TPM2_EVENT_PRODUCT_ID,
+        TPM2_EVENT_KEYSLOT,
+        TPM2_EVENT_NVPCR_INIT,
+        TPM2_EVENT_NVPCR_SEPARATOR,
         _TPM2_USERSPACE_EVENT_TYPE_MAX,
         _TPM2_USERSPACE_EVENT_TYPE_INVALID = -EINVAL,
 } Tpm2UserspaceEventType;
@@ -157,7 +153,12 @@ typedef enum Tpm2UserspaceEventType {
 const char* tpm2_userspace_event_type_to_string(Tpm2UserspaceEventType type) _const_;
 Tpm2UserspaceEventType tpm2_userspace_event_type_from_string(const char *s) _pure_;
 
-int tpm2_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const void *data, size_t data_size, const void *secret, size_t secret_size, Tpm2UserspaceEventType event, const char *description);
+int tpm2_pcr_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event, const char *description);
+int tpm2_nvpcr_get_index(const char *name, uint32_t *ret);
+int tpm2_nvpcr_extend_bytes(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event_type, const char *description);
+int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary);
+int tpm2_nvpcr_initialize(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *anchor_secret);
+int tpm2_nvpcr_read(Tpm2Context *c, const Tpm2Handle *session, const char *name, struct iovec *ret, uint32_t *ret_nv_index);
 
 uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s);
 void tpm2_tpms_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash, TPMS_PCR_SELECTION *ret);
@@ -183,11 +184,11 @@ char* tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l);
 size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l);
 #define tpm2_tpml_pcr_selection_is_empty(l) (tpm2_tpml_pcr_selection_weight(l) == 0)
 
-int tpm2_digest_many(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const struct iovec data[], size_t count, bool extend);
+int tpm2_digest_many(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const struct iovec data[], size_t n_data, bool extend);
 static inline int tpm2_digest_buffer(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const void *data, size_t len, bool extend) {
         return tpm2_digest_many(alg, digest, &IOVEC_MAKE((void*) data, len), 1, extend);
 }
-int tpm2_digest_many_digests(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const TPM2B_DIGEST data[], size_t count, bool extend);
+int tpm2_digest_many_digests(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const TPM2B_DIGEST data[], size_t n_data, bool extend);
 static inline int tpm2_digest_rehash(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
         return tpm2_digest_many(alg, digest, NULL, 0, true);
 }
@@ -279,7 +280,7 @@ int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TP
 int tpm2_calculate_policy_super_pcr(Tpm2PCRPrediction *prediction, uint16_t algorithm, TPM2B_DIGEST *pcr_policy);
 int tpm2_calculate_policy_signed(TPM2B_DIGEST *digest, const TPM2B_NAME *name);
 int tpm2_calculate_serialize(TPM2_HANDLE handle, const TPM2B_NAME *name, const TPM2B_PUBLIC *public, void **ret_serialized, size_t *ret_serialized_size);
-int tpm2_calculate_sealing_policy(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, const TPM2B_PUBLIC *public, bool use_pin, const Tpm2PCRLockPolicy *policy, TPM2B_DIGEST *digest);
+int tpm2_calculate_sealing_policy(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, const TPM2B_PUBLIC *public, bool use_pin, const Tpm2PCRLockPolicy *pcrlock_policy, TPM2B_DIGEST *digest);
 int tpm2_calculate_seal(TPM2_HANDLE parent_handle, const TPM2B_PUBLIC *parent_public, const TPMA_OBJECT *attributes, const struct iovec *secret, const TPM2B_DIGEST *policy, const char *pin, struct iovec *ret_secret, struct iovec *ret_blob, struct iovec *ret_serialized_parent);
 
 int tpm2_get_srk_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template);
@@ -289,7 +290,10 @@ int tpm2_get_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_p
 int tpm2_get_or_create_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 
 int tpm2_seal(Tpm2Context *c, uint32_t seal_key_handle, const TPM2B_DIGEST policy_hash[], size_t n_policy, const char *pin, struct iovec *ret_secret, struct iovec **ret_blobs, size_t *ret_n_blobs, uint16_t *ret_primary_alg, struct iovec *ret_srk);
-int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, uint32_t pubkey_pcr_mask, sd_json_variant *signature, const char *pin, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec policy_hash[], size_t n_policy_hash, const struct iovec *srk, struct iovec *ret_secret);
+int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, uint32_t pubkey_pcr_mask, sd_json_variant *signature, const char *pin, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec known_policy_hash[], size_t n_known_policy_hash, const struct iovec *srk, struct iovec *ret_secret);
+
+/* tpm2_unseal() returns a bunch of different errors for various flavours of PCR issues, let's group them */
+#define ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r) IN_SET(r, -EREMCHG, -ENOANO, -EUCLEAN, -EPERM)
 
 #if HAVE_OPENSSL
 int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret);
@@ -301,13 +305,16 @@ int tpm2_tpm2b_public_to_fingerprint(const TPM2B_PUBLIC *public, void **ret_fing
 
 int tpm2_define_policy_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE requested_nv_index, const TPM2B_DIGEST *write_policy, TPM2_HANDLE *ret_nv_index, Tpm2Handle **ret_nv_handle, TPM2B_NV_PUBLIC *ret_nv_public);
 int tpm2_write_policy_nv_index(Tpm2Context *c, const Tpm2Handle *policy_session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, const TPM2B_DIGEST *policy_digest);
-int tpm2_undefine_policy_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle);
+int tpm2_define_nvpcr_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, TPMI_ALG_HASH algorithm, Tpm2Handle **ret_nv_handle);
+int tpm2_extend_nvpcr_nv_index(Tpm2Context *c, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, const struct iovec *digest);
+int tpm2_undefine_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle);
+int tpm2_read_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, struct iovec *ret_value);
 
 int tpm2_seal_data(Tpm2Context *c, const struct iovec *data, const Tpm2Handle *primary_handle, const Tpm2Handle *encryption_session, const TPM2B_DIGEST *policy, struct iovec *ret_public, struct iovec *ret_private);
 int tpm2_unseal_data(Tpm2Context *c, const struct iovec *public, const struct iovec *private, const Tpm2Handle *primary_handle, const Tpm2Handle *policy_session, const Tpm2Handle *encryption_session, struct iovec *ret_data);
 
-int tpm2_serialize(Tpm2Context *c, const Tpm2Handle *handle, void **ret_serialized, size_t *ret_serialized_size);
-int tpm2_deserialize(Tpm2Context *c, const void *serialized, size_t serialized_size, Tpm2Handle **ret_handle);
+int tpm2_serialize(Tpm2Context *c, const Tpm2Handle *handle, struct iovec *ret);
+int tpm2_deserialize(Tpm2Context *c, const struct iovec *serialized, Tpm2Handle **ret_handle);
 
 int tpm2_load_public_key_file(const char *path, TPM2B_PUBLIC *ret);
 
@@ -370,9 +377,9 @@ int tpm2_hmac_key_from_pin(Tpm2Context *c, const Tpm2Handle *session, const TPM2
         })
 
 #else /* HAVE_TPM2 */
-typedef struct {} Tpm2Context;
-typedef struct {} Tpm2Handle;
-typedef struct {} Tpm2PCRValue;
+typedef struct Tpm2Context {} Tpm2Context;
+typedef struct Tpm2Handle {} Tpm2Handle;
+typedef struct Tpm2PCRValue {} Tpm2PCRValue;
 
 #define TPM2_PCR_VALUE_MAKE(i, h, v) (Tpm2PCRValue) {}
 
@@ -440,7 +447,7 @@ char* tpm2_pcr_mask_to_string(uint32_t mask);
 
 extern const uint16_t tpm2_hash_algorithms[];
 
-typedef struct {
+typedef struct systemd_tpm2_plugin_params {
         uint32_t search_pcr_mask;
         const char *device;
         const char *signature_path;
@@ -458,11 +465,18 @@ typedef enum Tpm2Support {
         TPM2_SUPPORT_LIBRARIES    = 1 << 4,  /* we can dlopen the tpm2 libraries */
         TPM2_SUPPORT_API          = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_LIBRARIES,
 
-        /* Flags below are not returned by systemd-analyze has-tpm2 as exit status. */
-        TPM2_SUPPORT_LIBTSS2_ESYS = 1 << 5,  /* we can dlopen libtss2-esys.so.0 */
-        TPM2_SUPPORT_LIBTSS2_RC   = 1 << 6,  /* we can dlopen libtss2-rc.so.0 */
-        TPM2_SUPPORT_LIBTSS2_MU   = 1 << 7,  /* we can dlopen libtss2-mu.so.0 */
+        /* Flags below are used by pcrlock, to indicate hardware specific features. It's not used by systemd-analyze has-tpm2. */
+        TPM2_SUPPORT_AUTHORIZE_NV = 1 << 5,  /* chip supports PolicyAuthorizeNV */
+        TPM2_SUPPORT_SHA256       = 1 << 6,  /* chip supports SHA-256 */
+        TPM2_SUPPORT_API_PCRLOCK  = TPM2_SUPPORT_API | TPM2_SUPPORT_AUTHORIZE_NV | TPM2_SUPPORT_SHA256,
+
+        /* Flags below are not returned by systemd-analyze has-tpm2 nor by systemd-pcrlock as exit status. */
+        TPM2_SUPPORT_LIBTSS2_ESYS = 1 << 7,  /* we can dlopen libtss2-esys.so.0 */
+        TPM2_SUPPORT_LIBTSS2_RC   = 1 << 8,  /* we can dlopen libtss2-rc.so.0 */
+        TPM2_SUPPORT_LIBTSS2_MU   = 1 << 9,  /* we can dlopen libtss2-mu.so.0 */
         TPM2_SUPPORT_LIBTSS2_ALL  = TPM2_SUPPORT_LIBTSS2_ESYS|TPM2_SUPPORT_LIBTSS2_RC|TPM2_SUPPORT_LIBTSS2_MU,
+
+        /* Combined flags for generic (i.e. not tool-specific) support */
         TPM2_SUPPORT_FULL         = TPM2_SUPPORT_API|TPM2_SUPPORT_LIBTSS2_ALL,
 } Tpm2Support;
 
@@ -487,7 +501,7 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
                     size_t passlen,
                     const void *salt,
                     size_t saltlen,
-                    uint8_t res[static SHA256_DIGEST_SIZE]);
+                    uint8_t ret[static SHA256_DIGEST_SIZE]);
 
 enum {
         /* Additional defines for the PCR index naming enum from "fundamental/tpm2-pcr.h" */
@@ -508,3 +522,5 @@ const char* tpm2_pcr_index_to_string(int pcr) _const_;
 assert_cc(TPM2_NV_INDEX_UNASSIGNED_FIRST >= TPM2_NV_INDEX_FIRST);
 assert_cc(TPM2_NV_INDEX_UNASSIGNED_LAST <= TPM2_NV_INDEX_LAST);
 #endif
+
+bool tpm2_nvpcr_name_is_valid(const char *name);

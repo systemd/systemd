@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdint.h>
-
-#include "sd-dhcp-option.h"
+#include "sd-dhcp-option.h" /* IWYU pragma: export */
 
 #include "dhcp-protocol.h"
-#include "dns-resolver-internal.h"
+#include "sd-forward.h"
 #include "hash-funcs.h"
 
 struct sd_dhcp_option {
@@ -33,7 +31,7 @@ int dhcp_option_append(
                 size_t optlen,
                 const void *optval);
 int dhcp_option_find_option(uint8_t *options, size_t length, uint8_t wanted_code, size_t *ret_offset);
-int dhcp_option_remove_option(uint8_t *options, size_t buflen, uint8_t option_code);
+int dhcp_option_remove_option(uint8_t *options, size_t length, uint8_t option_code);
 
 typedef int (*dhcp_option_callback_t)(uint8_t code, uint8_t len, const void *option, void *userdata);
 

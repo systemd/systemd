@@ -62,7 +62,8 @@
     <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd-path</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     and
     <citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for information about different parts of the library interface.</para>

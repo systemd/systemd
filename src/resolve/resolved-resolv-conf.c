@@ -1,19 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <resolv.h>
+#include <resolv.h>                     /* IWYU pragma: keep */
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
-#include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "label-util.h"
+#include "log.h"
 #include "ordered-set.h"
 #include "path-util.h"
-#include "resolved-conf.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
@@ -109,7 +105,7 @@ int manager_read_resolv_conf(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                r = log_warning_errno(errno, "Failed to open /etc/resolv.conf: %m");
+                r = log_warning_errno(errno, "Failed to open %s: %m", "/etc/resolv.conf");
                 goto clear;
         }
 
@@ -380,7 +376,7 @@ int manager_write_resolv_conf(Manager *m) {
                 if (r < 0)
                         return log_warning_errno(r, "Failed to extract filename from path '" PRIVATE_UPLINK_RESOLV_CONF "', ignoring: %m");
 
-                r = symlink_atomic_label(fname, PRIVATE_STUB_RESOLV_CONF);
+                r = symlinkat_atomic_full(fname, AT_FDCWD, PRIVATE_STUB_RESOLV_CONF, SYMLINK_LABEL);
                 if (r < 0)
                         log_warning_errno(r, "Failed to symlink %s, ignoring: %m", PRIVATE_STUB_RESOLV_CONF);
         }

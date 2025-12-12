@@ -3,13 +3,14 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <net/if_arp.h>
 
 #include "sd-dhcp-server.h"
 #include "sd-event.h"
 
 #include "dhcp-server-internal.h"
+#include "hashmap.h"
+#include "siphash24.h"
 #include "tests.h"
 
 static void test_pool(struct in_addr *address, unsigned size, int ret) {
@@ -138,8 +139,12 @@ static void test_message_handler(void) {
 
         ASSERT_OK(sd_dhcp_server_new(&server, 1));
         ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
-        ASSERT_OK(sd_dhcp_server_set_static_lease(server, &static_lease_address, static_lease_client_id,
-                                                  ELEMENTSOF(static_lease_client_id)));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &static_lease_address,
+                        static_lease_client_id,
+                        ELEMENTSOF(static_lease_client_id),
+                        /* hostname= */ NULL));
         ASSERT_OK(sd_dhcp_server_attach_event(server, NULL, 0));
         ASSERT_OK(sd_dhcp_server_start(server));
 
@@ -213,6 +218,54 @@ static void test_message_handler(void) {
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 30);
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
 
+        /* add the static lease for the client ID */
+        ASSERT_OK(sd_dhcp_server_stop(server));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = htobe32(INADDR_LOOPBACK + 31) },
+                        (uint8_t[7]) { 0x01, 'A', 'B', 'C', 'D', 'E', 'F' },
+                        7,
+                        /* hostname= */ NULL));
+        ASSERT_OK(sd_dhcp_server_start(server));
+
+        /* discover */
+        test.option_type.type = DHCP_DISCOVER;
+        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+
+        /* request neither bound nor static address */
+        test.option_type.type = DHCP_REQUEST;
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 29);
+        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+
+        /* request the currently assigned address */
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 30);
+        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+
+        /* request the new static address */
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 31);
+        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+
+        /* release the bound static lease */
+        test.message.ciaddr = htobe32(INADDR_LOOPBACK + 31);
+        test.option_type.type = DHCP_RELEASE;
+        ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
+
+        /* drop the static lease for the client ID */
+        ASSERT_OK(sd_dhcp_server_stop(server));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        /* address= */ NULL,
+                        (uint8_t[7]) { 0x01, 'A', 'B', 'C', 'D', 'E', 'F' },
+                        7,
+                        /* hostname= */ NULL));
+        ASSERT_OK(sd_dhcp_server_start(server));
+
+        /* request a new non-static address */
+        test.message.ciaddr = 0;
+        test.option_type.type = DHCP_REQUEST;
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 29);
+        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+
         /* request address reserved for static lease (unmatching client ID) */
         test.option_client_id.id[6] = 'H';
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 42);
@@ -284,35 +337,116 @@ static void test_static_lease(void) {
 
         ASSERT_OK(sd_dhcp_server_new(&server, 1));
 
-        ASSERT_OK(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020304 },
-                                                  (uint8_t*) &(uint32_t) { 0x01020304 }, sizeof(uint32_t)));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = 0x01020304 },
+                        (uint8_t *) &(uint32_t) { 0x01020304 },
+                        sizeof(uint32_t),
+                        /* hostname= */ NULL));
         /* Duplicated entry. */
-        ASSERT_ERROR(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020304 },
-                                                     (uint8_t*) &(uint32_t) { 0x01020304 }, sizeof(uint32_t)), EEXIST);
+        ASSERT_ERROR(sd_dhcp_server_set_static_lease(
+                                     server,
+                                     &(struct in_addr) { .s_addr = 0x01020304 },
+                                     (uint8_t *) &(uint32_t) { 0x01020304 },
+                                     sizeof(uint32_t),
+                                     /* hostname= */ NULL),
+                     EEXIST);
         /* Address is conflicted. */
-        ASSERT_ERROR(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020304 },
-                                                     (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)), EEXIST);
+        ASSERT_ERROR(sd_dhcp_server_set_static_lease(
+                                     server,
+                                     &(struct in_addr) { .s_addr = 0x01020304 },
+                                     (uint8_t *) &(uint32_t) { 0x01020305 },
+                                     sizeof(uint32_t),
+                                     /* hostname= */ NULL),
+                     EEXIST);
         /* Client ID is conflicted. */
-        ASSERT_ERROR(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020305 },
-                                                     (uint8_t*) &(uint32_t) { 0x01020304 }, sizeof(uint32_t)), EEXIST);
+        ASSERT_ERROR(sd_dhcp_server_set_static_lease(
+                                     server,
+                                     &(struct in_addr) { .s_addr = 0x01020305 },
+                                     (uint8_t *) &(uint32_t) { 0x01020304 },
+                                     sizeof(uint32_t),
+                                     /* hostname= */ NULL),
+                     EEXIST);
 
-        ASSERT_OK(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020305 },
-                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = 0x01020305 },
+                        (uint8_t *) &(uint32_t) { 0x01020305 },
+                        sizeof(uint32_t),
+                        /* hostname= */ NULL));
         /* Remove the previous entry. */
-        ASSERT_OK(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x00000000 },
-                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = 0x00000000 },
+                        (uint8_t *) &(uint32_t) { 0x01020305 },
+                        sizeof(uint32_t),
+                        /* hostname= */ NULL));
         /* Then, set a different address. */
-        ASSERT_OK(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x01020306 },
-                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = 0x01020306 },
+                        (uint8_t *) &(uint32_t) { 0x01020305 },
+                        sizeof(uint32_t),
+                        /* hostname= */ NULL));
         /* Remove again. */
-        ASSERT_OK(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x00000000 },
-                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = 0x00000000 },
+                        (uint8_t *) &(uint32_t) { 0x01020305 },
+                        sizeof(uint32_t),
+                        /* hostname= */ NULL));
         /* Try to remove non-existent entry. */
-        ASSERT_OK(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x00000000 },
-                                                  (uint8_t*) &(uint32_t) { 0x01020305 }, sizeof(uint32_t)));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = 0x00000000 },
+                        (uint8_t *) &(uint32_t) { 0x01020305 },
+                        sizeof(uint32_t),
+                        /* hostname= */ NULL));
         /* Try to remove non-existent entry. */
-        ASSERT_OK(sd_dhcp_server_set_static_lease(server, &(struct in_addr) { .s_addr = 0x00000000 },
-                                                  (uint8_t*) &(uint32_t) { 0x01020306 }, sizeof(uint32_t)));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &(struct in_addr) { .s_addr = 0x00000000 },
+                        (uint8_t *) &(uint32_t) { 0x01020306 },
+                        sizeof(uint32_t),
+                        /* hostname= */ NULL));
+}
+
+static void test_domain_name(void) {
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+
+        log_debug("/* %s */", __func__);
+
+        ASSERT_OK(sd_dhcp_server_new(&server, 1));
+
+        /* Test setting domain name */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "example.com"));
+
+        /* Test setting same domain name (should return 0 - no change) */
+        ASSERT_OK_ZERO(sd_dhcp_server_set_domain_name(server, "example.com"));
+
+        /* Test changing domain name */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "test.local"));
+
+        /* Test clearing domain name */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, NULL));
+
+        /* Test clearing again (should return 0 - already cleared) */
+        ASSERT_OK_ZERO(sd_dhcp_server_set_domain_name(server, NULL));
+
+        /* Test invalid domain name */
+        ASSERT_ERROR(sd_dhcp_server_set_domain_name(server, "invalid..domain"), EINVAL);
+
+        /* Test empty string (treated differently from NULL) */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, ""));
+
+        /* Test clearing domain name with NULL */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, NULL));
+
+        /* Test valid domain with subdomain */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "sub.example.com"));
+
+        /* Test single-label domain */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "local"));
 }
 
 int main(int argc, char *argv[]) {
@@ -322,6 +456,7 @@ int main(int argc, char *argv[]) {
 
         test_client_id_hash();
         test_static_lease();
+        test_domain_name();
 
         r = test_basic(true);
         if (r < 0)

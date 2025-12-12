@@ -12,8 +12,6 @@ if [[ -n "${COVERAGE_BUILD_DIR:-}" ]]; then
     exit 77
 fi
 
-systemd-analyze log-level debug
-
 unit=TEST-38-FREEZER-sleep.service
 
 start_test_service() {
@@ -69,42 +67,18 @@ dbus_thaw_unit() {
            "$1"
 }
 
-dbus_can_freeze() {
-    local name object_path suffix
-
-    suffix="${1##*.}"
-    name="${1%".$suffix"}"
-    object_path="/org/freedesktop/systemd1/unit/${name//-/_2d}_2e${suffix}"
-
-    busctl get-property \
-           org.freedesktop.systemd1 \
-           "${object_path}" \
-           org.freedesktop.systemd1.Unit \
-           CanFreeze
-}
-
 check_freezer_state() {
-    local name object_path suffix
+    local name state expected
 
-    suffix="${1##*.}"
-    name="${1%".$suffix"}"
-    object_path="/org/freedesktop/systemd1/unit/${name//-/_2d}_2e${suffix}"
+    name="${1:?}"
+    expected="${2:?}"
 
-    for _ in {0..10}; do
-        state=$(busctl get-property \
-                       org.freedesktop.systemd1 \
-                       "${object_path}" \
-                       org.freedesktop.systemd1.Unit \
-                       FreezerState | cut -d " " -f2 | tr -d '"')
+    # Ignore the intermediate freezing & thawing states in case we check the unit state too quickly.
+    timeout 10 bash -c "while [[ \"\$(systemctl show \"$name\" --property FreezerState --value)\" =~ (freezing|thawing) ]]; do sleep .5; done"
 
-        # Ignore the intermediate freezing & thawing states in case we check
-        # the unit state too quickly
-        [[ "$state" =~ ^(freezing|thawing) ]] || break
-        sleep .5
-    done
-
-    [ "$state" = "$2" ] || {
-        echo "error: unexpected freezer state, expected: $2, actual: $state" >&2
+    state="$(systemctl show "$name" --property FreezerState --value)"
+    [[ "$state" = "$expected" ]] || {
+        echo "error: unexpected freezer state, expected: $expected, actual: $state" >&2
         exit 1
     }
 }
@@ -146,9 +120,8 @@ testcase_dbus_api() {
     check_cgroup_state "$unit" 0
     echo "[ OK ]"
 
-    echo -n "  - CanFreeze(): "
-    output=$(dbus_can_freeze "${unit}")
-    [ "$output" = "b true" ]
+    echo -n "  - CanFreeze: "
+    [[ "$(systemctl show "${unit}" --property=CanFreeze --value)" == 'yes' ]]
     echo "[ OK ]"
 
     echo
@@ -358,6 +331,50 @@ testcase_preserve_state() {
     systemctl stop "$slice"
 
     echo
+}
+
+testcase_watchdog() {
+    local unit="wd.service"
+
+    systemd-run --collect --unit "$unit" --property WatchdogSec=4s --property Type=notify \
+        bash -c 'systemd-notify --ready; while true; do systemd-notify WATCHDOG=1; sleep 1; done'
+
+    systemctl freeze "$unit"
+    check_freezer_state "$unit" "frozen"
+    sleep 6
+    check_freezer_state "$unit" "frozen"
+
+    systemctl thaw "$unit"
+    check_freezer_state "$unit" "running"
+    sleep 6
+    check_freezer_state "$unit" "running"
+    systemctl is-active "$unit"
+
+    systemctl freeze "$unit"
+    check_freezer_state "$unit" "frozen"
+    systemctl daemon-reload
+    sleep 6
+    check_freezer_state "$unit" "frozen"
+
+    systemctl thaw "$unit"
+    check_freezer_state "$unit" "running"
+    sleep 6
+    check_freezer_state "$unit" "running"
+    systemctl is-active "$unit"
+
+    systemctl freeze "$unit"
+    check_freezer_state "$unit" "frozen"
+    systemctl daemon-reexec
+    sleep 6
+    check_freezer_state "$unit" "frozen"
+
+    systemctl thaw "$unit"
+    check_freezer_state "$unit" "running"
+    sleep 6
+    check_freezer_state "$unit" "running"
+    systemctl is-active "$unit"
+
+    systemctl stop "$unit"
 }
 
 if [[ -e /sys/fs/cgroup/system.slice/cgroup.freeze ]]; then

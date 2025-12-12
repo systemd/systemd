@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <locale.h>
 
 #include "sd-journal.h"
 
 #include "build.h"
+#include "dissect-image.h"
+#include "extract-word.h"
 #include "glob-util.h"
 #include "id128-print.h"
 #include "image-policy.h"
@@ -14,15 +17,24 @@
 #include "journalctl-misc.h"
 #include "journalctl-show.h"
 #include "journalctl-varlink.h"
-#include "locale-util.h"
+#include "log.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "output-mode.h"
+#include "pager.h"
 #include "parse-argument.h"
+#include "parse-util.h"
+#include "pcre2-util.h"
 #include "pretty-print.h"
+#include "set.h"
 #include "static-destruct.h"
 #include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
+#include "time-util.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
@@ -93,7 +105,8 @@ Set *arg_output_fields = NULL;
 char *arg_pattern = NULL;
 pcre2_code *arg_compiled_pattern = NULL;
 PatternCompileCase arg_case = PATTERN_COMPILE_CASE_AUTO;
-static ImagePolicy *arg_image_policy = NULL;
+ImagePolicy *arg_image_policy = NULL;
+bool arg_synchronize_on_exit = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cursor, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cursor_file, freep);
@@ -113,7 +126,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_namespace, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_output_fields, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pattern, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, pattern_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, pcre2_code_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static int parse_id_descriptor(const char *x, sd_id128_t *ret_id, int *ret_offset) {
@@ -261,13 +274,15 @@ static int help(void) {
                "     --show-cursor           Print the cursor after all the entries\n"
                "     --utc                   Express time in Coordinated Universal Time (UTC)\n"
                "  -x --catalog               Add message explanations where available\n"
-               "     --no-hostname           Suppress output of hostname field\n"
+               "  -W --no-hostname           Suppress output of hostname field\n"
                "     --no-full               Ellipsize fields\n"
                "  -a --all                   Show all fields, including long and unprintable\n"
                "  -f --follow                Follow the journal\n"
                "     --no-tail               Show all lines, even in follow mode\n"
                "     --truncate-newline      Truncate entries by first newline character\n"
                "  -q --quiet                 Do not show info messages and privilege warning\n"
+               "     --synchronize-on-exit=BOOL\n"
+               "                             Wait for Journal synchronization before exiting\n"
                "\n%3$sPager Control Options:%4$s\n"
                "     --no-pager              Do not pipe output into a pager\n"
                "  -e --pager-end             Immediately jump to the end in the pager\n"
@@ -352,10 +367,10 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VACUUM_SIZE,
                 ARG_VACUUM_FILES,
                 ARG_VACUUM_TIME,
-                ARG_NO_HOSTNAME,
                 ARG_OUTPUT_FIELDS,
                 ARG_NAMESPACE,
                 ARG_LIST_NAMESPACES,
+                ARG_SYNCHRONIZE_ON_EXIT,
         };
 
         static const struct option options[] = {
@@ -425,10 +440,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "vacuum-size",          required_argument, NULL, ARG_VACUUM_SIZE          },
                 { "vacuum-files",         required_argument, NULL, ARG_VACUUM_FILES         },
                 { "vacuum-time",          required_argument, NULL, ARG_VACUUM_TIME          },
-                { "no-hostname",          no_argument,       NULL, ARG_NO_HOSTNAME          },
+                { "no-hostname",          no_argument,       NULL, 'W'                      },
                 { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
                 { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
                 { "list-namespaces",      no_argument,       NULL, ARG_LIST_NAMESPACES      },
+                { "synchronize-on-exit",  required_argument, NULL, ARG_SYNCHRONIZE_ON_EXIT  },
                 {}
         };
 
@@ -437,7 +453,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:T:u:INF:xrM:i:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:T:u:INF:xrM:i:W", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -460,10 +476,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
 
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0)
@@ -890,7 +904,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_LIST_FIELD_NAMES;
                         break;
 
-                case ARG_NO_HOSTNAME:
+                case 'W':
                         arg_no_hostname = true;
                         break;
 
@@ -972,6 +986,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case ARG_SYNCHRONIZE_ON_EXIT:
+                        r = parse_boolean_argument("--synchronize-on-exit", optarg, &arg_synchronize_on_exit);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1164,4 +1186,4 @@ static int run(int argc, char *argv[]) {
         }
 }
 
-DEFINE_MAIN_FUNCTION_WITH_POSITIVE_SIGNAL(run);
+DEFINE_MAIN_FUNCTION(run);

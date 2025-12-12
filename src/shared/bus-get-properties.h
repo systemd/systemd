@@ -1,18 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
+#include "sd-bus.h"     /* IWYU pragma: keep */
 
-#include "macro.h"
+#include "shared-forward.h"
 
-/* For deprecated properties. */
-int bus_property_get_bool_false(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
-int bus_property_get_uint64_max(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
-
-int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
-int bus_property_set_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *error);
-int bus_property_get_tristate(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
-int bus_property_get_id128(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
+int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
+int bus_property_set_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *reterr_error);
+int bus_property_get_tristate(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
+int bus_property_get_id128(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
 
 #define bus_property_get_usec ((sd_bus_property_get_t) NULL)
 #define bus_property_set_usec ((sd_bus_property_set_t) NULL)
@@ -28,15 +24,15 @@ assert_cc(sizeof(unsigned) == sizeof(uint32_t));
 #if __SIZEOF_SIZE_T__ == 8
 #define bus_property_get_size ((sd_bus_property_get_t) NULL)
 #else
-int bus_property_get_size(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
+int bus_property_get_size(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
 #endif
 
 #if __SIZEOF_LONG__ == 8
 #define bus_property_get_long ((sd_bus_property_get_t) NULL)
 #define bus_property_get_ulong ((sd_bus_property_get_t) NULL)
 #else
-int bus_property_get_long(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
-int bus_property_get_ulong(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
+int bus_property_get_long(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
+int bus_property_get_ulong(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
 #endif
 
 /* uid_t and friends on Linux 32 bit. This means we can just use the
@@ -54,9 +50,11 @@ assert_cc(sizeof(pid_t) == sizeof(uint32_t));
 assert_cc(sizeof(mode_t) == sizeof(uint32_t));
 #define bus_property_get_mode ((sd_bus_property_get_t) NULL)
 
-int bus_property_get_rlimit(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
+int bus_property_get_rlimit(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
 
-int bus_property_get_string_set(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
+int bus_property_get_string_set(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
+
+int bus_property_get_pidfdid(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
 
 #define BUS_DEFINE_PROPERTY_GET_GLOBAL(function, bus_type, val)         \
         int function(sd_bus *bus,                                       \
@@ -65,7 +63,7 @@ int bus_property_get_string_set(sd_bus *bus, const char *path, const char *inter
                      const char *property,                              \
                      sd_bus_message *reply,                             \
                      void *userdata,                                    \
-                     sd_bus_error *error) {                             \
+                     sd_bus_error *reterr_error) {                      \
                                                                         \
                 assert(bus);                                            \
                 assert(reply);                                          \
@@ -80,7 +78,7 @@ int bus_property_get_string_set(sd_bus *bus, const char *path, const char *inter
                      const char *property,                              \
                      sd_bus_message *reply,                             \
                      void *userdata,                                    \
-                     sd_bus_error *error) {                             \
+                     sd_bus_error *reterr_error) {                      \
                                                                         \
                 data_type *data = ASSERT_PTR(userdata);                 \
                                                                         \
@@ -105,3 +103,8 @@ int bus_property_get_string_set(sd_bus *bus, const char *path, const char *inter
 #define BUS_PROPERTY_DUAL_TIMESTAMP(name, offset, flags) \
         SD_BUS_PROPERTY(name, "t", bus_property_get_usec, (offset) + offsetof(struct dual_timestamp, realtime), (flags)), \
         SD_BUS_PROPERTY(name "Monotonic", "t", bus_property_get_usec, (offset) + offsetof(struct dual_timestamp, monotonic), (flags))
+
+/* For deprecated properties. */
+int bus_property_get_bool_false(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
+int bus_property_get_bool_true(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
+int bus_property_get_uint64_max(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);

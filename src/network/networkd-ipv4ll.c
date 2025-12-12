@@ -1,16 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
+#include <linux/rtnetlink.h>
 #include <netinet/in.h>
 
+#include "sd-event.h"
+#include "sd-ipv4ll.h"
+
+#include "errno-util.h"
 #include "netif-util.h"
 #include "networkd-address.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
-#include "networkd-queue.h"
 #include "parse-util.h"
+#include "set.h"
+#include "string-util.h"
 
 bool link_ipv4ll_enabled(Link *link) {
         assert(link);
@@ -150,7 +155,7 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
                 case SD_IPV4LL_EVENT_BIND:
                         r = ipv4ll_address_claimed(ll, link);
                         if (r < 0) {
-                                log_link_error(link, "Failed to configure ipv4ll address: %m");
+                                log_link_error_errno(link, r, "Failed to configure ipv4ll address: %m");
                                 link_enter_failed(link);
                                 return;
                         }
@@ -341,7 +346,7 @@ int ipv4ll_update_mac(Link *link) {
 }
 
 int config_parse_ipv4ll(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -382,7 +387,7 @@ int config_parse_ipv4ll(
 }
 
 int config_parse_ipv4ll_address(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,

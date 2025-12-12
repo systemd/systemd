@@ -13,10 +13,16 @@
 # are propagated into these environment variables by pam_systemd(8).
 
 if [ -n "${SHELL_PROMPT_PREFIX-}" ]; then
+    if [ -n "${BASH_VERSION-}" ] && [ "$PS1" = "\\s-\\v\\\$ " ]; then
+        PS1="[\u@\h \W]\\$ "
+    fi
     PS1="$SHELL_PROMPT_PREFIX$PS1"
 fi
 
 if [ -n "${SHELL_PROMPT_SUFFIX-}" ]; then
+    if [ -n "${BASH_VERSION-}" ] && [ "$PS1" = "\\s-\\v\\\$ " ]; then
+        PS1="[\u@\h \W]\\$ "
+    fi
     PS1="$PS1$SHELL_PROMPT_SUFFIX"
 fi
 

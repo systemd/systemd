@@ -1,22 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if_arp.h>
-#include <stdio.h>
 #include <unistd.h>
 
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "missing_socket.h"
-#include "parse-util.h"
+#include "path-lookup.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "varlink-util.h"
 
 static int process_vsock_cid(unsigned cid, const char *port) {
         int r;
@@ -138,23 +135,57 @@ static int process_vsock_mux(const char *path, const char *port) {
         return 0;
 }
 
-static int process_machine(const char *machine, const char *port) {
+static int fetch_machine(const char *machine, RuntimeScope scope, sd_json_variant **ret) {
+        int r;
+
+        assert(machine);
+        assert(ret);
+
+        _cleanup_free_ char *addr = NULL;
+        r = runtime_directory_generic(scope, "machine/io.systemd.Machine", &addr);
+        if (r < 0)
+                return r;
+
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, addr);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to machined on %s: %m", addr);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
+        const char *error_id;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.Machine.List",
+                        &result,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_STRING("name", machine));
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue io.systemd.Machine.List() varlink call: %m");
+        if (error_id) {
+                if (streq(error_id, "io.systemd.Machine.NoSuchMachine"))
+                        return -ESRCH;
+
+                r = sd_varlink_error_to_errno(error_id, result); /* If this is a system errno style error, output it with %m */
+                if (r != -EBADR)
+                        return log_error_errno(r, "Failed to issue io.systemd.Machine.List() varlink call: %m");
+
+                return log_error_errno(r, "Failed to issue io.systemd.Machine.List() varlink call: %s", error_id);
+        }
+
+        *ret = TAKE_PTR(result);
+        return 0;
+}
+
+static int process_machine(const char *machine, const char *port) {
         int r;
 
         assert(machine);
         assert(port);
 
-        r = sd_varlink_connect_address(&vl, "/run/systemd/machine/io.systemd.Machine");
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to machined on /run/systemd/machine/io.systemd.Machine: %m");
-
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
-        r = varlink_callbo_and_log(
-                        vl,
-                        "io.systemd.Machine.List",
-                        &result,
-                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(machine)));
+        r = fetch_machine(machine, RUNTIME_SCOPE_USER, &result);
+        if (r == -ESRCH)
+                r = fetch_machine(machine, RUNTIME_SCOPE_SYSTEM, &result);
         if (r < 0)
                 return r;
 
@@ -170,7 +201,7 @@ static int process_machine(const char *machine, const char *port) {
                 return log_error_errno(r, "Failed to parse Varlink reply: %m");
 
         if (cid == VMADDR_CID_ANY)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Machine has no AF_VSOCK CID assigned.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Machine %s has no AF_VSOCK CID assigned.", machine);
 
         return process_vsock_cid(cid, port);
 }

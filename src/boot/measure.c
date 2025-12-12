@@ -2,9 +2,8 @@
 
 #if ENABLE_TPM
 
-#include "macro-fundamental.h"
+#include "efi-log.h"
 #include "measure.h"
-#include "memory-util-fundamental.h"
 #include "proto/cc-measurement.h"
 #include "proto/tcg.h"
 #include "tpm2-pcr.h"
@@ -151,37 +150,66 @@ static EFI_CC_MEASUREMENT_PROTOCOL *cc_interface_check(void) {
         return cc;
 }
 
-static EFI_TCG2_PROTOCOL *tcg2_interface_check(void) {
-        EFI_TCG2_BOOT_SERVICE_CAPABILITY capability = {
-                .Size = sizeof(capability),
-        };
+static EFI_TCG2_PROTOCOL* tcg2_interface_check(EFI_TCG2_VERSION *ret_version) {
         EFI_STATUS err;
-        EFI_TCG2_PROTOCOL *tcg;
 
+        EFI_TCG2_PROTOCOL *tcg;
         err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_TCG2_PROTOCOL), NULL, (void **) &tcg);
         if (err != EFI_SUCCESS)
                 return NULL;
 
+        EFI_TCG2_BOOT_SERVICE_CAPABILITY capability = {
+                .Size = sizeof(capability),
+        };
         err = tcg->GetCapability(tcg, &capability);
         if (err != EFI_SUCCESS)
                 return NULL;
 
-        if (capability.StructureVersion.Major == 1 &&
-            capability.StructureVersion.Minor == 0) {
-                EFI_TCG_BOOT_SERVICE_CAPABILITY *caps_1_0 =
-                        (EFI_TCG_BOOT_SERVICE_CAPABILITY*) &capability;
-                if (caps_1_0->TPMPresentFlag)
-                        return tcg;
-        }
+        assert(capability.Size >= endoffsetof_field(EFI_TCG2_BOOT_SERVICE_CAPABILITY, Size));
+
+        /* This is a paranoia check, given these fields existed from day one of the spec. But the spec also
+         * suggests checking the structure size before accessing any fields, hence let's do so, for extra
+         * paranoia. */
+        if (capability.Size < CONST_MAX(endoffsetof_field(EFI_TCG2_BOOT_SERVICE_CAPABILITY, TPMPresentFlag),
+                                        endoffsetof_field(EFI_TCG2_BOOT_SERVICE_CAPABILITY, ProtocolVersion)))
+                return NULL;
 
         if (!capability.TPMPresentFlag)
                 return NULL;
+
+        if (ret_version)
+                *ret_version = capability.ProtocolVersion;
 
         return tcg;
 }
 
 bool tpm_present(void) {
-        return tcg2_interface_check();
+        return tcg2_interface_check(/* ret_version= */ NULL);
+}
+
+uint32_t tpm_get_active_pcr_banks(void) {
+        EFI_STATUS err;
+
+        EFI_TCG2_PROTOCOL *tpm2;
+        EFI_TCG2_VERSION version;
+        tpm2 = tcg2_interface_check(&version);
+        if (!tpm2)
+                return 0;
+
+        /* GetActivePcrBanks() was added only in version 1.1 of the spec */
+        if (version.Major < 1 || (version.Major == 1 && version.Minor < 1)) {
+                log_debug("TCG protocol too old for GetActivePcrBanks(), returning wildcard bank information.");
+                return UINT32_MAX;
+        }
+
+        uint32_t active_pcr_banks = 0;
+        err = tpm2->GetActivePcrBanks(tpm2, &active_pcr_banks);
+        if (err != EFI_SUCCESS) {
+                log_warning_status(err, "Failed to get TPM2 active PCR banks, assuming none: %m");
+                return 0;
+        }
+
+        return active_pcr_banks;
 }
 
 static EFI_STATUS tcg2_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
@@ -190,7 +218,7 @@ static EFI_STATUS tcg2_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buf
 
         assert(ret_measured);
 
-        tpm2 = tcg2_interface_check();
+        tpm2 = tcg2_interface_check(/* ret_version= */ NULL);
         if (!tpm2) {
                 *ret_measured = false;
                 return EFI_SUCCESS;
@@ -272,7 +300,7 @@ EFI_STATUS tpm_log_tagged_event(
         /* If EFI_SUCCESS is returned, will initialize ret_measured to true if we actually measured
          * something, or false if measurement was turned off. */
 
-        tpm2 = tcg2_interface_check();
+        tpm2 = tcg2_interface_check(/* ret_version= */ NULL);
         if (!tpm2 || pcrindex == UINT32_MAX) { /* PCR disabled? */
                 if (ret_measured)
                         *ret_measured = false;

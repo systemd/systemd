@@ -3,7 +3,6 @@
   Copyright © 2014 Axis Communications AB. All rights reserved.
 ***/
 
-#include <arpa/inet.h>
 #include <linux/filter.h>
 #include <netinet/if_ether.h>
 
@@ -11,6 +10,7 @@
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
+#include "socket-util.h"
 #include "unaligned.h"
 
 int arp_update_filter(int fd, const struct in_addr *a, const struct ether_addr *mac) {

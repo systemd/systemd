@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include <stdio.h>
 
 #include "alloc-util.h"
 #include "dbus-slice.h"
 #include "dbus-unit.h"
-#include "fd-util.h"
 #include "log.h"
 #include "manager.h"
 #include "serialize.h"
@@ -24,7 +23,6 @@ static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = {
 static void slice_init(Unit *u) {
         Slice *s = ASSERT_PTR(SLICE(u));
 
-        assert(u);
         assert(u->load_state == UNIT_STUB);
 
         u->ignore_on_isolate = true;
@@ -335,7 +333,6 @@ static void slice_enumerate_perpetual(Manager *m) {
                  * means the kernel will track CPU/tasks/memory for us anyway, and it is all available in /proc. Let's
                  * hence turn accounting on here, so that our APIs to query this data are available. */
 
-                s->cgroup_context.cpu_accounting = true;
                 s->cgroup_context.tasks_accounting = true;
                 s->cgroup_context.memory_accounting = true;
         }

@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <sys/types.h>
-
-#include "macro.h"
-#include "memory-util.h"
+#include "shared-forward.h"
 
 /* See source file for an API description. */
 
@@ -37,7 +32,7 @@ struct Barrier {
 
 #define BARRIER_NULL {-EBADF, -EBADF, {-EBADF, -EBADF}, 0}
 
-int barrier_create(Barrier *obj);
+int barrier_create(Barrier *b);
 Barrier* barrier_destroy(Barrier *b);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Barrier*, barrier_destroy);

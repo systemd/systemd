@@ -2,21 +2,13 @@
 
 #pragma once
 
-#include <errno.h>
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/types.h>
-
-#include "sd-json.h"
-
-#include "set.h"
-#include "string-util.h"
+#include "shared-forward.h"
 
 typedef enum BootEntryType {
-        BOOT_ENTRY_CONF,        /* Boot Loader Specification Type #1 entries: *.conf files */
-        BOOT_ENTRY_UNIFIED,     /* Boot Loader Specification Type #2 entries: *.efi files */
-        BOOT_ENTRY_LOADER,      /* Additional entries augmented from LoaderEntries EFI variable (regular entries) */
-        BOOT_ENTRY_LOADER_AUTO, /* Additional entries augmented from LoaderEntries EFI variable (special "automatic" entries) */
+        BOOT_ENTRY_TYPE1,     /* Boot Loader Specification Type #1 entries: *.conf files */
+        BOOT_ENTRY_TYPE2,     /* Boot Loader Specification Type #2 entries: *.efi files (UKIs) */
+        BOOT_ENTRY_LOADER,    /* Additional entries augmented from LoaderEntries EFI variable (regular entries) */
+        BOOT_ENTRY_AUTO,      /* Additional entries augmented from LoaderEntries EFI variable (special "automatic" entries) */
         _BOOT_ENTRY_TYPE_MAX,
         _BOOT_ENTRY_TYPE_INVALID = -EINVAL,
 } BootEntryType;
@@ -58,6 +50,8 @@ typedef struct BootEntry {
         const BootEntryAddons *global_addons; /* Backpointer into the BootConfig; we don't own this here */
         char *kernel;        /* linux is #defined to 1, yikes! */
         char *efi;
+        char *uki;
+        char *uki_url;
         char **initrd;
         char *device_tree;
         char **device_tree_overlay;
@@ -72,14 +66,18 @@ typedef struct BootEntry {
                 .source = (s),                  \
                 .tries_left = UINT_MAX,         \
                 .tries_done = UINT_MAX,         \
+                .profile = UINT_MAX,            \
         }
 
 typedef struct BootConfig {
+        int loader_conf_status;  /* 0 → before loading, 1 → loaded, negative → error. */
+
         char *default_pattern;
 
         char *entry_oneshot;
         char *entry_default;
         char *entry_selected;
+        char *entry_sysfail;
 
         BootEntry *entries;
         size_t n_entries;
@@ -98,11 +96,12 @@ typedef struct BootConfig {
                 .selected_entry = -1, \
         }
 
+const char* boot_entry_type_description_to_string(BootEntryType) _const_;
 const char* boot_entry_type_to_string(BootEntryType) _const_;
-const char* boot_entry_type_json_to_string(BootEntryType) _const_;
+BootEntryType boot_entry_type_from_string(const char *s) _pure_;
 
+const char* boot_entry_source_description_to_string(BootEntrySource) _const_;
 const char* boot_entry_source_to_string(BootEntrySource) _const_;
-const char* boot_entry_source_json_to_string(BootEntrySource) _const_;
 
 BootEntry* boot_config_find_entry(BootConfig *config, const char *id);
 
@@ -124,14 +123,14 @@ int boot_config_load_type1(
                 BootConfig *config,
                 FILE *f,
                 const char *root,
-                const BootEntrySource source,
+                BootEntrySource source,
                 const char *dir,
-                const char *id);
+                const char *filename);
 
 int boot_config_finalize(BootConfig *config);
 int boot_config_load(BootConfig *config, const char *esp_path, const char *xbootldr_path);
 int boot_config_load_auto(BootConfig *config, const char *override_esp_path, const char *override_xbootldr_path);
-int boot_config_augment_from_loader(BootConfig *config, char **list, bool only_auto);
+int boot_config_augment_from_loader(BootConfig *config, char **found_by_loader, bool auto_only);
 
 int boot_config_select_special_entries(BootConfig *config, bool skip_efivars);
 

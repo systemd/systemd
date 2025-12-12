@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "escape.h"
+#include "extract-word.h"       /* IWYU pragma: keep */
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "log.h"
 #include "serialize.h"
+#include "set.h"
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
@@ -110,7 +110,7 @@ TEST(serialize_strv) {
         log_info("/* %s (%s) */", __func__, fn);
 
         assert_se(serialize_strv(f, "strv1", NULL) == 0);
-        assert_se(serialize_strv(f, "strv2", STRV_MAKE_EMPTY) == 0);
+        assert_se(serialize_strv(f, "strv2", STRV_EMPTY) == 0);
         assert_se(serialize_strv(f, "strv3", strv) == 1);
         assert_se(serialize_strv(f, "strv4", STRV_MAKE(long_string)) == -EINVAL);
 

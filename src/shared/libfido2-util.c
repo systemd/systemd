@@ -10,10 +10,16 @@
 #include "dlfcn-util.h"
 #include "format-table.h"
 #include "glyph-util.h"
-#include "memory-util.h"
+#include "iovec-util.h"
 #include "plymouth-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unistd.h"
+
+/* Added in version 1.5.0 */
+#ifndef FIDO_ERR_UV_BLOCKED
+#define FIDO_ERR_UV_BLOCKED 0x3c
+#endif
 
 static void *libfido2_dl = NULL;
 
@@ -70,7 +76,10 @@ static void fido_log_propagate_handler(const char *s) {
         log_debug("libfido2: %s", strempty(s));
 }
 
+#endif
+
 int dlopen_libfido2(void) {
+#if HAVE_LIBFIDO2
         int r;
 
         ELF_NOTE_DLOPEN("fido2",
@@ -135,7 +144,12 @@ int dlopen_libfido2(void) {
         sym_fido_set_log_handler(fido_log_propagate_handler);
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
+
+#if HAVE_LIBFIDO2
 
 static int verify_features(
                 fido_dev_t *d,
@@ -262,11 +276,9 @@ static int fido2_common_assert_error_handle(int r) {
         case FIDO_ERR_PIN_AUTH_BLOCKED:
                 return log_error_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
                                        "PIN of security token is blocked, please remove/reinsert token.");
-#ifdef FIDO_ERR_UV_BLOCKED
         case FIDO_ERR_UV_BLOCKED:
                 return log_error_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
                                        "Verification of security token is blocked, please remove/reinsert token.");
-#endif
         case FIDO_ERR_PIN_INVALID:
                 return log_error_errno(SYNTHETIC_ERRNO(ENOLCK),
                                        "PIN of security token incorrect.");
@@ -928,11 +940,9 @@ int fido2_generate_hmac_hash(
         if (r == FIDO_ERR_PIN_AUTH_BLOCKED)
                 return log_notice_errno(SYNTHETIC_ERRNO(EPERM),
                                         "Token PIN is currently blocked, please remove and reinsert token.");
-#ifdef FIDO_ERR_UV_BLOCKED
         if (r == FIDO_ERR_UV_BLOCKED)
                 return log_notice_errno(SYNTHETIC_ERRNO(EPERM),
                                         "Token verification is currently blocked, please remove and reinsert token.");
-#endif
         if (r == FIDO_ERR_ACTION_TIMEOUT)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOSTR),
                                        "Token action timeout. (User didn't interact with token quickly enough.)");

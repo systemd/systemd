@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-with_runlevels = conf.get('HAVE_SYSV_COMPAT') == 1
-
 units = [
         { 'file' : 'basic.target' },
         { 'file' : 'blockdev@.target' },
@@ -51,7 +49,7 @@ units = [
         },
         {
           'file' : 'graphical.target',
-          'symlinks' : ['default.target'] + (with_runlevels ? ['runlevel5.target'] : []),
+          'symlinks' : ['default.target'],
         },
         { 'file' : 'halt.target' },
         {
@@ -144,20 +142,20 @@ units = [
           'conditions' : ['ENABLE_MACHINED'],
         },
         { 'file' : 'modprobe@.service' },
+        { 'file' : 'multi-user.target' },
         {
-          'file' : 'multi-user.target',
-          'symlinks' : with_runlevels ? ['runlevel2.target', 'runlevel3.target', 'runlevel4.target'] : [],
+          'file' : 'systemd-mute-console.socket',
+          'symlinks' : ['sockets.target.wants/']
         },
+        { 'file' : 'systemd-mute-console@.service' },
+        { 'file' : 'system-systemd\\x2dmute\\x2dconsole.slice' },
         { 'file' : 'network-online.target' },
         { 'file' : 'network-pre.target' },
         { 'file' : 'network.target' },
         { 'file' : 'nss-lookup.target' },
         { 'file' : 'nss-user-lookup.target' },
         { 'file' : 'paths.target' },
-        {
-          'file' : 'poweroff.target',
-          'symlinks' : with_runlevels ? ['runlevel0.target'] : [],
-        },
+        { 'file' : 'poweroff.target' },
         { 'file' : 'printer.target' },
         {
           'file' : 'proc-sys-fs-binfmt_misc.automount',
@@ -182,7 +180,7 @@ units = [
         },
         {
           'file' : 'reboot.target',
-          'symlinks' : ['ctrl-alt-del.target'] + (with_runlevels ? ['runlevel6.target'] : []),
+          'symlinks' : ['ctrl-alt-del.target'],
         },
         {
           'file' : 'remote-cryptsetup.target',
@@ -202,10 +200,7 @@ units = [
           'symlinks' : ['initrd-root-device.target.wants/'],
         },
         { 'file' : 'rescue.service.in' },
-        {
-          'file' : 'rescue.target',
-          'symlinks' : with_runlevels ? ['runlevel1.target'] : [],
-        },
+        { 'file' : 'rescue.target' },
         { 'file' : 'rpcbind.target' },
         { 'file' : 'serial-getty@.service.in' },
         { 'file' : 'shutdown.target' },
@@ -285,6 +280,10 @@ units = [
           'file' : 'systemd-boot-random-seed.service',
           'conditions' : ['ENABLE_BOOTLOADER'],
           'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
+          'file' : 'systemd-boot-clear-sysfail.service',
+          'conditions' : ['ENABLE_BOOTLOADER'],
         },
         {
           'file' : 'systemd-boot-update.service',
@@ -409,15 +408,6 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
-          'file' : 'systemd-initctl.service.in',
-          'conditions' : ['HAVE_SYSV_COMPAT'],
-        },
-        {
-          'file' : 'systemd-initctl.socket',
-          'conditions' : ['HAVE_SYSV_COMPAT'],
-          'symlinks' : ['sockets.target.wants/'],
-        },
-        {
           'file' : 'systemd-journal-catalog-update.service',
           'symlinks' : ['sysinit.target.wants/'],
         },
@@ -469,6 +459,11 @@ units = [
           'symlinks' : ['dbus-org.freedesktop.locale1.service'],
         },
         {
+          'file': 'systemd-logind-varlink.socket',
+          'conditions': ['ENABLE_LOGIND'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
           'file' : 'systemd-logind.service.in',
           'conditions' : ['ENABLE_LOGIND'],
           'symlinks' : ['multi-user.target.wants/', 'dbus-org.freedesktop.login1.service'],
@@ -496,6 +491,14 @@ units = [
         { 'file' : 'systemd-network-generator.service.in' },
         {
           'file' : 'systemd-networkd-persistent-storage.service',
+          'conditions' : ['ENABLE_NETWORKD'],
+        },
+        {
+          'file' : 'systemd-networkd-varlink.socket',
+          'conditions' : ['ENABLE_NETWORKD'],
+        },
+        {
+          'file' : 'systemd-networkd-resolve-hook.socket',
           'conditions' : ['ENABLE_NETWORKD'],
         },
         {
@@ -558,6 +561,11 @@ units = [
           'symlinks' : ['factory-reset.target.wants/'],
         },
         {
+          'file' : 'systemd-pcrproduct.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'systemd-pcrphase-initrd.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2', 'ENABLE_INITRD'],
           'symlinks' : ['initrd.target.wants/'],
@@ -574,6 +582,11 @@ units = [
         },
         {
           'file' : 'systemd-pcrphase.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
+          'file' : 'systemd-pcrnvdone.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
           'symlinks' : ['sysinit.target.wants/'],
         },
@@ -657,6 +670,15 @@ units = [
           'file' : 'systemd-repart.service',
           'conditions' : ['ENABLE_REPART'],
           'symlinks' : ['sysinit.target.wants/', 'initrd-root-fs.target.wants/'],
+        },
+        {
+          'file' : 'systemd-repart.socket',
+          'conditions' : ['ENABLE_REPART'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-repart@.service',
+          'conditions' : ['ENABLE_REPART'],
         },
         {
           'file' : 'systemd-resolved.service.in',
@@ -815,11 +837,6 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
-          'file' : 'systemd-update-utmp-runlevel.service.in',
-          'conditions' : ['ENABLE_UTMP', 'HAVE_SYSV_COMPAT'],
-          'symlinks' : ['multi-user.target.wants/', 'graphical.target.wants/', 'rescue.target.wants/'],
-        },
-        {
           'file' : 'systemd-update-utmp.service.in',
           'conditions' : ['ENABLE_UTMP'],
           'symlinks' : ['sysinit.target.wants/'],
@@ -925,7 +942,6 @@ foreach unit : units
 
         if needs_jinja
                 t = custom_target(
-                        name,
                         input : source,
                         output : name,
                         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
@@ -983,12 +999,6 @@ else
         meson.add_install_script(sh, '-c',
                 ln_s.format(dbussystemservicedir / 'org.freedesktop.systemd1.service',
                             dbussessionservicedir / 'org.freedesktop.systemd1.service'))
-endif
-
-if conf.get('HAVE_SYSV_COMPAT') == 1
-        foreach i : [1, 2, 3, 4, 5]
-                install_emptydir(systemunitdir / 'runlevel@0@.target.wants'.format(i))
-        endforeach
 endif
 
 subdir('user')

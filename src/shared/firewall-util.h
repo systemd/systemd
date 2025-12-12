@@ -1,31 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
+#include "conf-parser-forward.h"
+#include "shared-forward.h"
 
-#include "conf-parser.h"
-#include "in-addr-util.h"
-
-typedef struct FirewallContext FirewallContext;
-
-int fw_ctx_new(FirewallContext **ret);
-int fw_ctx_new_full(FirewallContext **ret, bool init_tables);
-FirewallContext *fw_ctx_free(FirewallContext *ctx);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(FirewallContext *, fw_ctx_free);
-
-size_t fw_ctx_get_reply_callback_count(FirewallContext *ctx);
-
-int fw_add_masquerade(
-                FirewallContext **ctx,
+int fw_nftables_add_masquerade(
+                sd_netlink *nfnl,
                 bool add,
                 int af,
                 const union in_addr_union *source,
                 unsigned source_prefixlen);
 
-int fw_add_local_dnat(
-                FirewallContext **ctx,
+int fw_nftables_add_local_dnat(
+                sd_netlink *nfnl,
                 bool add,
                 int af,
                 int protocol,
@@ -67,7 +54,7 @@ const char* nft_set_source_to_string(int i) _const_;
 int nft_set_source_from_string(const char *s) _pure_;
 
 int nft_set_element_modify_iprange(
-                FirewallContext *ctx,
+                sd_netlink *nfnl,
                 bool add,
                 int nfproto,
                 int af,
@@ -77,7 +64,7 @@ int nft_set_element_modify_iprange(
                 unsigned source_prefixlen);
 
 int nft_set_element_modify_ip(
-                FirewallContext *ctx,
+                sd_netlink *nfnl,
                 bool add,
                 int nfproto,
                 int af,
@@ -86,7 +73,7 @@ int nft_set_element_modify_ip(
                 const union in_addr_union *source);
 
 int nft_set_element_modify_any(
-                FirewallContext *ctx,
+                sd_netlink *nfnl,
                 bool add,
                 int nfproto,
                 const char *table,

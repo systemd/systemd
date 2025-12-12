@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "btrfs-util.h"
 #include "chattr-util.h"
@@ -9,7 +11,6 @@
 #include "fs-util.h"
 #include "install-file.h"
 #include "log.h"
-#include "missing_syscall.h"
 #include "rm-rf.h"
 #include "sync-util.h"
 
@@ -94,6 +95,11 @@ static int unlinkat_maybe_dir(int dirfd, const char *pathname) {
         return 0;
 }
 
+static bool need_opath(InstallFileFlags flags) {
+        /* Returns true when we need to pin the source file via an O_PATH fd */
+        return (flags & (INSTALL_FSYNC|INSTALL_FSYNC_FULL|INSTALL_SYNCFS|INSTALL_READ_ONLY)) != 0;
+}
+
 int install_file(int source_atfd, const char *source_name,
                  int target_atfd, const char *target_name,
                  InstallFileFlags flags) {
@@ -117,7 +123,7 @@ int install_file(int source_atfd, const char *source_name,
          * already in place, and only the syncing/read-only marking shall be applied. Note that with
          * target_name=NULL and flags=0 this call is a NOP */
 
-        if ((flags & (INSTALL_FSYNC|INSTALL_FSYNC_FULL|INSTALL_SYNCFS|INSTALL_READ_ONLY)) != 0) {
+        if (need_opath(flags)) {
                 _cleanup_close_ int pfd = -EBADF;
                 struct stat st;
 
@@ -136,23 +142,31 @@ int install_file(int source_atfd, const char *source_name,
                         _cleanup_close_ int regfd = -EBADF;
 
                         regfd = fd_reopen(pfd, O_RDONLY|O_CLOEXEC);
-                        if (regfd < 0)
-                                return regfd;
+                        if (regfd < 0) {
+                                if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
+                                        return log_debug_errno(regfd, "Failed to open referenced inode: %m");
 
-                        if ((flags & (INSTALL_FSYNC_FULL|INSTALL_SYNCFS)) != 0) {
-                                /* If this is just a regular file (as oppose to a fully populated directory)
-                                 * let's downgrade INSTALL_SYNCFS to INSTALL_FSYNC_FULL, after all this is
-                                 * going to be a single inode we install */
-                                r = fsync_full(regfd);
-                                if (r < 0)
-                                        return r;
-                        } else if (flags & INSTALL_FSYNC) {
-                                if (fsync(regfd) < 0)
-                                        return -errno;
+                                log_debug_errno(regfd, "Failed to open referenced inode, ignoring: %m");
+                        } else {
+                                if ((flags & (INSTALL_FSYNC_FULL|INSTALL_SYNCFS)) != 0)
+                                        /* If this is just a regular file (as opposed to a fully populated
+                                         * directory) let's downgrade INSTALL_SYNCFS to INSTALL_FSYNC_FULL,
+                                         * after all this is going to be a single inode we install */
+                                        r = fsync_full(regfd);
+                                else if (flags & INSTALL_FSYNC)
+                                        r = RET_NERRNO(fsync(regfd));
+                                else
+                                        r = 0;
+                                if (r < 0) {
+                                        if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
+                                                return log_debug_errno(r, "Failed to sync source inode: %m");
+
+                                        log_debug_errno(r, "Failed to sync source inode, ignoring: %m");
+                                }
+
+                                if (flags & INSTALL_READ_ONLY)
+                                        rofd = TAKE_FD(regfd);
                         }
-
-                        if (flags & INSTALL_READ_ONLY)
-                                rofd = TAKE_FD(regfd);
 
                         break;
                 }
@@ -161,23 +175,30 @@ int install_file(int source_atfd, const char *source_name,
                         _cleanup_close_ int dfd = -EBADF;
 
                         dfd = fd_reopen(pfd, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-                        if (dfd < 0)
-                                return dfd;
+                        if (dfd < 0) {
+                                if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
+                                        return log_debug_errno(dfd, "Failed to open referenced inode: %m");
 
-                        if (flags & INSTALL_SYNCFS) {
-                                if (syncfs(dfd) < 0)
-                                        return -errno;
-                        } else if (flags & INSTALL_FSYNC_FULL) {
-                                r = fsync_full(dfd);
-                                if (r < 0)
-                                        return r;
-                        } else if (flags & INSTALL_FSYNC) {
-                                if (fsync(dfd) < 0)
-                                        return -errno;
+                                log_debug_errno(dfd, "Failed to open referenced inode, ignoring: %m");
+                        } else {
+                                if (flags & INSTALL_SYNCFS)
+                                        r = RET_NERRNO(syncfs(dfd));
+                                else if (flags & INSTALL_FSYNC_FULL)
+                                        r = fsync_full(dfd);
+                                else if (flags & INSTALL_FSYNC)
+                                        r = RET_NERRNO(fsync(dfd));
+                                else
+                                        r = 0;
+                                if (r < 0) {
+                                        if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
+                                                return log_debug_errno(r, "Failed to sync source inode: %m");
+
+                                        log_debug_errno(r, "Failed to sync source inode, ignoring: %m");
+                                }
+
+                                if (flags & INSTALL_READ_ONLY)
+                                        rofd = TAKE_FD(dfd);
                         }
-
-                        if (flags & INSTALL_READ_ONLY)
-                                rofd = TAKE_FD(dfd);
 
                         break;
                 }
@@ -189,8 +210,12 @@ int install_file(int source_atfd, const char *source_name,
 
                         if (target_name && (flags & (INSTALL_FSYNC_FULL|INSTALL_SYNCFS)) != 0) {
                                 r = fsync_directory_of_file(pfd);
-                                if (r < 0)
-                                        return r;
+                                if (r < 0) {
+                                        if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
+                                                return log_debug_errno(r, "Failed to sync source inode: %m");
+
+                                        log_debug_errno(r, "Failed to sync source inode, ignoring: %m");
+                                }
                         }
 
                         break;
@@ -253,8 +278,12 @@ int install_file(int source_atfd, const char *source_name,
 
         if (rofd >= 0) {
                 r = fs_make_very_read_only(rofd);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
+                                return log_debug_errno(r, "Failed to make inode read-only: %m");
+
+                        log_debug_errno(r, "Failed to make inode read-only, ignoring: %m");
+                }
         }
 
         if ((flags & (INSTALL_FSYNC_FULL|INSTALL_SYNCFS)) != 0) {
@@ -262,8 +291,12 @@ int install_file(int source_atfd, const char *source_name,
                         r = fsync_parent_at(target_atfd, target_name);
                 else
                         r = fsync_parent_at(source_atfd, source_name);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        if (!FLAGS_SET(flags, INSTALL_GRACEFUL))
+                                return log_debug_errno(r, "Failed to sync inode: %m");
+
+                        log_debug_errno(r, "Failed to sync inode, ignoring: %m");
+                }
         }
 
         return 0;

@@ -8,19 +8,22 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Check battery level during early boot
+Description=Early Battery Level Check
 Documentation=man:systemd-battery-check.service(8)
+
 ConditionVirtualization=no
 ConditionDirectoryNotEmpty=/sys/class/power_supply/
 ConditionKernelCommandLine=!systemd.battery_check=0
 ConditionKernelCommandLine=!systemd.battery-check=0
 AssertPathExists=/etc/initrd-release
+
 DefaultDependencies=no
 After=plymouth-start.service
 Before=initrd-root-device.target systemd-hibernate-resume.service
+
+FailureAction=poweroff-force
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart={{LIBEXECDIR}}/systemd-battery-check
-FailureAction=poweroff-force

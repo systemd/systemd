@@ -1,16 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+#include "sd-event.h"
+
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "json-util.h"
+#include "logind-session.h"
 #include "logind.h"
 #include "logind-dbus.h"
 #include "logind-seat.h"
-#include "logind-session-dbus.h"
 #include "logind-user.h"
 #include "logind-varlink.h"
 #include "terminal-util.h"
+#include "user-record.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Login.h"
 #include "varlink-io.systemd.service.h"
@@ -77,9 +83,9 @@ static int manager_varlink_get_session_by_name(
 
         /* Resolves a session name to a session object. Supports resolving the special names "self" and "auto". */
 
-        if (SESSION_IS_SELF(name))
+        if (session_is_self(name))
                 return manager_varlink_get_session_by_peer(m, link, /* consult_display= */ false, ret);
-        if (SESSION_IS_AUTO(name))
+        if (session_is_auto(name))
                 return manager_varlink_get_session_by_peer(m, link, /* consult_display= */ true, ret);
 
         Session *session = hashmap_get(m->sessions, name);
@@ -322,8 +328,9 @@ static int vl_method_release_session(sd_varlink *link, sd_json_variant *paramete
         return sd_varlink_reply(link, NULL);
 }
 
-int manager_varlink_init(Manager *m) {
+int manager_varlink_init(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _unused_ _cleanup_close_ int fd_close = fd;
         int r;
 
         assert(m);
@@ -331,15 +338,14 @@ int manager_varlink_init(Manager *m) {
         if (m->varlink_server)
                 return 0;
 
-        r = sd_varlink_server_new(
+        r = varlink_server_new(
                         &s,
                         SD_VARLINK_SERVER_ACCOUNT_UID|
                         SD_VARLINK_SERVER_INHERIT_USERDATA|
-                        SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT);
+                        SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT,
+                        m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
-
-        sd_varlink_server_set_userdata(s, m);
 
         r = sd_varlink_server_add_interface_many(
                         s,
@@ -358,9 +364,14 @@ int manager_varlink_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
-        r = sd_varlink_server_listen_address(s, "/run/systemd/io.systemd.Login", 0666);
+        if (fd < 0)
+                r = sd_varlink_server_listen_address(s, "/run/systemd/io.systemd.Login", /* mode= */ 0666);
+        else
+                r = sd_varlink_server_listen_fd(s, fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to varlink socket '/run/systemd/io.systemd.Login': %m");
+
+        TAKE_FD(fd_close);
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)

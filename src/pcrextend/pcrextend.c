@@ -6,16 +6,17 @@
 #include "sd-messages.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "build.h"
 #include "efi-loader.h"
 #include "escape.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "openssl-util.h"
 #include "parse-argument.h"
-#include "parse-util.h"
 #include "pcrextend-util.h"
 #include "pretty-print.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
@@ -27,12 +28,17 @@ static char *arg_tpm2_device = NULL;
 static char **arg_banks = NULL;
 static char *arg_file_system = NULL;
 static bool arg_machine_id = false;
+static bool arg_product_id = false;
 static unsigned arg_pcr_index = UINT_MAX;
+static char *arg_nvpcr_name = NULL;
 static bool arg_varlink = false;
+static bool arg_early = false;
+static Tpm2UserspaceEventType arg_event_type = _TPM2_USERSPACE_EVENT_TYPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file_system, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_nvpcr_name, freep);
 
 #define EXTENSION_STRING_SAFE_LIMIT 1024
 
@@ -47,16 +53,21 @@ static int help(int argc, char *argv[], void *userdata) {
         printf("%1$s  [OPTIONS...] WORD\n"
                "%1$s  [OPTIONS...] --file-system=PATH\n"
                "%1$s  [OPTIONS...] --machine-id\n"
+               "%1$s  [OPTIONS...] --product-id\n"
                "\n%5$sExtend a TPM2 PCR with boot phase, machine ID, or file system ID.%6$s\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
                "     --version           Print version\n"
                "     --bank=DIGEST       Select TPM PCR bank (SHA1, SHA256)\n"
                "     --pcr=INDEX         Select TPM PCR index (0…23)\n"
+               "     --nvpcr=NAME        Select TPM PCR mode nvindex name\n"
                "     --tpm2-device=PATH  Use specified TPM2 device\n"
                "     --graceful          Exit gracefully if no TPM2 device is found\n"
                "     --file-system=PATH  Measure UUID/labels of file system into PCR 15\n"
                "     --machine-id        Measure machine ID into PCR 15\n"
+               "     --product-id        Measure SMBIOS product ID into NvPCR 'hardware'\n"
+               "     --early             Run in early boot mode, without access to /var/\n"
+               "     --event-type=TYPE   Event type to include in the event log\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -73,10 +84,14 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_BANK,
                 ARG_PCR,
+                ARG_NVPCR,
                 ARG_TPM2_DEVICE,
                 ARG_GRACEFUL,
                 ARG_FILE_SYSTEM,
                 ARG_MACHINE_ID,
+                ARG_PRODUCT_ID,
+                ARG_EARLY,
+                ARG_EVENT_TYPE,
         };
 
         static const struct option options[] = {
@@ -84,10 +99,14 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",     no_argument,       NULL, ARG_VERSION     },
                 { "bank",        required_argument, NULL, ARG_BANK        },
                 { "pcr",         required_argument, NULL, ARG_PCR         },
+                { "nvpcr",       required_argument, NULL, ARG_NVPCR       },
                 { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
                 { "graceful",    no_argument,       NULL, ARG_GRACEFUL    },
                 { "file-system", required_argument, NULL, ARG_FILE_SYSTEM },
                 { "machine-id",  no_argument,       NULL, ARG_MACHINE_ID  },
+                { "product-id",  no_argument,       NULL, ARG_PRODUCT_ID  },
+                { "early",       no_argument,       NULL, ARG_EARLY       },
+                { "event-type",  required_argument, NULL, ARG_EVENT_TYPE  },
                 {}
         };
 
@@ -127,6 +146,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_pcr_index = r;
                         break;
 
+                case ARG_NVPCR:
+                        if (!tpm2_nvpcr_name_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NvPCR name is not valid: %s", optarg);
+
+                        r = free_and_strdup_warn(&arg_nvpcr_name, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case ARG_TPM2_DEVICE: {
                         _cleanup_free_ char *device = NULL;
 
@@ -158,6 +186,23 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_machine_id = true;
                         break;
 
+                case ARG_PRODUCT_ID:
+                        arg_product_id = true;
+                        break;
+
+                case ARG_EARLY:
+                        arg_early = true;
+                        break;
+
+                case ARG_EVENT_TYPE:
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(tpm2_userspace_event_type, Tpm2UserspaceEventType, _TPM2_USERSPACE_EVENT_TYPE_MAX);
+
+                        arg_event_type = tpm2_userspace_event_type_from_string(optarg);
+                        if (arg_event_type < 0)
+                                return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", optarg);
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -165,18 +210,27 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (arg_file_system && arg_machine_id)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system= and --machine-id may not be combined.");
+        if (!!arg_file_system + arg_machine_id + arg_product_id > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system=, --machine-id, --product-id may not be combined.");
+
+        if (arg_pcr_index != UINT_MAX && arg_nvpcr_name)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--pcr= and --nvpcr= may not be combined.");
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         if (r > 0)
                 arg_varlink = true;
-        else if (arg_pcr_index == UINT_MAX)
-                arg_pcr_index = (arg_file_system || arg_machine_id) ?
-                        TPM2_PCR_SYSTEM_IDENTITY : /* → PCR 15 */
-                        TPM2_PCR_KERNEL_BOOT; /* → PCR 11 */
+        else if (arg_pcr_index == UINT_MAX && !arg_nvpcr_name) {
+                arg_pcr_index =
+                        (arg_file_system || arg_machine_id) ? TPM2_PCR_SYSTEM_IDENTITY : /* → PCR 15 */
+                                            !arg_product_id ? TPM2_PCR_KERNEL_BOOT :     /* → PCR 11 */
+                                                              UINT_MAX;
+
+                r = free_and_strdup_warn(&arg_nvpcr_name, arg_product_id ? "hardware" : NULL);
+                if (r < 0)
+                        return r;
+        }
 
         return 1;
 }
@@ -198,7 +252,34 @@ static int determine_banks(Tpm2Context *c, unsigned target_pcr_nr) {
         return 0;
 }
 
-static int extend_now(unsigned pcr, const void *data, size_t size, Tpm2UserspaceEventType event) {
+static int escape_and_truncate_data(const void *data, size_t size, char **ret) {
+        _cleanup_free_ char *safe = NULL;
+
+        assert(data || size == 0);
+
+        if (size > EXTENSION_STRING_SAFE_LIMIT) {
+                safe = cescape_length(data, EXTENSION_STRING_SAFE_LIMIT);
+                if (!safe)
+                        return -ENOMEM;
+
+                if (!strextend(&safe, "..."))
+                        return -ENOMEM;
+        } else {
+                safe = cescape_length(data, size);
+                if (!safe)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(safe);
+        return 0;
+}
+
+static int extend_pcr_now(
+                unsigned pcr,
+                const void *data,
+                size_t size,
+                Tpm2UserspaceEventType event) {
+
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         int r;
 
@@ -218,22 +299,12 @@ static int extend_now(unsigned pcr, const void *data, size_t size, Tpm2Userspace
                 return log_oom();
 
         _cleanup_free_ char *safe = NULL;
-        if (size > EXTENSION_STRING_SAFE_LIMIT) {
-                safe = cescape_length(data, EXTENSION_STRING_SAFE_LIMIT);
-                if (!safe)
-                        return log_oom();
-
-                if (!strextend(&safe, "..."))
-                        return log_oom();
-        } else {
-                safe = cescape_length(data, size);
-                if (!safe)
-                        return log_oom();
-        }
+        if (escape_and_truncate_data(data, size, &safe) < 0)
+                return log_oom();
 
         log_debug("Measuring '%s' into PCR index %u, banks %s.", safe, pcr, joined_banks);
 
-        r = tpm2_extend_bytes(c, arg_banks, pcr, data, size, /* secret= */ NULL, /* secret_size= */ 0, event, safe);
+        r = tpm2_pcr_extend_bytes(c, arg_banks, pcr, &IOVEC_MAKE(data, size), /* secret= */ NULL, event, safe);
         if (r < 0)
                 return log_error_errno(r, "Could not extend PCR: %m");
 
@@ -247,8 +318,55 @@ static int extend_now(unsigned pcr, const void *data, size_t size, Tpm2Userspace
         return 0;
 }
 
+static int extend_nvpcr_now(
+                const char *name,
+                const void *data,
+                size_t size,
+                Tpm2UserspaceEventType event) {
+
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        int r;
+
+        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *safe = NULL;
+        if (escape_and_truncate_data(data, size, &safe) < 0)
+                return log_oom();
+
+        log_debug("Measuring '%s' into NvPCR index '%s'.", safe, name);
+
+        r = tpm2_nvpcr_extend_bytes(c, /* session= */ NULL, name, &IOVEC_MAKE(data, size), /* secret= */ NULL, event, safe);
+        if (r == -ENETDOWN) {
+                /* NvPCR is not initialized yet. Let's do this now. */
+
+                _cleanup_(iovec_done_erase) struct iovec anchor_secret = {};
+                r = tpm2_nvpcr_acquire_anchor_secret(&anchor_secret, /* sync_secondary= */ !arg_early);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_nvpcr_initialize(c, /* session= */ NULL, name, &anchor_secret);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extend NvPCR index '%s' with anchor secret: %m", name);
+
+                r = tpm2_nvpcr_extend_bytes(c, /* session= */ NULL, name, &IOVEC_MAKE(data, size), /* secret= */ NULL, event, safe);
+        }
+        if (r < 0)
+                return log_error_errno(r, "Could not extend NvPCR: %m");
+
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_MESSAGE_TPM_NVPCR_EXTEND_STR,
+                   LOG_MESSAGE("Extended NvPCR index '%s' with '%s'.", name, safe),
+                   "MEASURING=%s", safe,
+                   "NVPCR=%s", name);
+
+        return 0;
+}
+
 typedef struct MethodExtendParameters {
         unsigned pcr;
+        const char *nvpcr;
         const char *text;
         struct iovec data;
 } MethodExtendParameters;
@@ -262,9 +380,10 @@ static void method_extend_parameters_done(MethodExtendParameters *p) {
 static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "pcr",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(MethodExtendParameters, pcr),  SD_JSON_MANDATORY },
-                { "text", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodExtendParameters, text), 0              },
-                { "data", SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,  offsetof(MethodExtendParameters, data), 0              },
+                { "pcr",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(MethodExtendParameters, pcr),   0 },
+                { "nvpcr", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodExtendParameters, nvpcr), 0 },
+                { "text",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodExtendParameters, text),  0 },
+                { "data",  SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,  offsetof(MethodExtendParameters, data),  0 },
                 {}
         };
         _cleanup_(method_extend_parameters_done) MethodExtendParameters p = {
@@ -278,19 +397,38 @@ static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_va
         if (r != 0)
                 return r;
 
-        if (!TPM2_PCR_INDEX_VALID(p.pcr))
+        if (p.nvpcr) {
+                /* Specifying both nvpcr name and pcr doesn't make sense */
+                if (p.pcr != UINT_MAX)
+                        return sd_varlink_error_invalid_parameter_name(link, "nvpcr");
+
+                if (!tpm2_nvpcr_name_is_valid(p.nvpcr))
+                        return sd_varlink_error_invalid_parameter_name(link, "nvpcr");
+
+        } else if (!TPM2_PCR_INDEX_VALID(p.pcr))
                 return sd_varlink_error_invalid_parameter_name(link, "pcr");
+
+        struct iovec *extend_iovec, text_iovec;
 
         if (p.text) {
                 /* Specifying both the text string and the binary data is not allowed */
                 if (p.data.iov_base)
                         return sd_varlink_error_invalid_parameter_name(link, "data");
 
-                r = extend_now(p.pcr, p.text, strlen(p.text), _TPM2_USERSPACE_EVENT_TYPE_INVALID);
+                text_iovec = IOVEC_MAKE_STRING(p.text);
+                extend_iovec = &text_iovec;
+
         } else if (p.data.iov_base)
-                r = extend_now(p.pcr, p.data.iov_base, p.data.iov_len, _TPM2_USERSPACE_EVENT_TYPE_INVALID);
+                extend_iovec = &p.data;
         else
                 return sd_varlink_error_invalid_parameter_name(link, "text");
+
+        if (p.nvpcr) {
+                r = extend_nvpcr_now(p.nvpcr, extend_iovec->iov_base, extend_iovec->iov_len, _TPM2_USERSPACE_EVENT_TYPE_INVALID);
+                if (r == -ENOENT)
+                        return sd_varlink_error(link, "io.systemd.PCRExtend.NoSuchNvPCR", NULL);
+        } else
+                r = extend_pcr_now(p.pcr, extend_iovec->iov_base, extend_iovec->iov_len, _TPM2_USERSPACE_EVENT_TYPE_INVALID);
         if (r < 0)
                 return r;
 
@@ -322,7 +460,7 @@ static int vl_server(void) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *word = NULL;
-        Tpm2UserspaceEventType event;
+        Tpm2UserspaceEventType event = _TPM2_USERSPACE_EVENT_TYPE_INVALID;
         int r;
 
         log_setup();
@@ -355,6 +493,16 @@ static int run(int argc, char *argv[]) {
 
                 event = TPM2_EVENT_MACHINE_ID;
 
+        } else if (arg_product_id)  {
+
+                if (optind != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected no argument.");
+
+                r = pcrextend_product_id_word(&word);
+                if (r < 0)
+                        return r;
+
+                event = TPM2_EVENT_PRODUCT_ID;
         } else {
                 if (optind+1 != argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected a single argument.");
@@ -372,6 +520,10 @@ static int run(int argc, char *argv[]) {
                 event = TPM2_EVENT_PHASE;
         }
 
+        /* Override with explicitly configured event type */
+        if (arg_event_type >= 0)
+                event = arg_event_type;
+
         if (arg_graceful && !tpm2_is_fully_supported()) {
                 log_notice("No complete TPM2 support detected, exiting gracefully.");
                 return EXIT_SUCCESS;
@@ -386,9 +538,12 @@ static int run(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        r = extend_now(arg_pcr_index, word, strlen(word), event);
+        if (arg_nvpcr_name)
+                r = extend_nvpcr_now(arg_nvpcr_name, word, strlen(word), event);
+        else
+                r = extend_pcr_now(arg_pcr_index, word, strlen(word), event);
         if (r < 0)
-                return log_error_errno(r, "Failed to create TPM2 context: %m");
+                return r;
 
         return EXIT_SUCCESS;
 }

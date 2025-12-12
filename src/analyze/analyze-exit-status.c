@@ -4,6 +4,8 @@
 #include "analyze-exit-status.h"
 #include "exit-status.h"
 #include "format-table.h"
+#include "log.h"
+#include "strv.h"
 
 int verb_exit_status(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -49,7 +51,7 @@ int verb_exit_status(int argc, char *argv[], void *userdata) {
 
         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
         if (r < 0)
-                return log_error_errno(r, "Failed to output table: %m");
+                return r;
 
-        return EXIT_SUCCESS;
+        return 0;
 }

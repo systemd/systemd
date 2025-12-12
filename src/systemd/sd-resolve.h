@@ -22,15 +22,15 @@
 #define _GNU_SOURCE 1
 #endif
 
-#include <inttypes.h>
-#include <netdb.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 
 #include "_sd-common.h"
-#include "sd-event.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct addrinfo;
+
+typedef struct sd_event sd_event;
 
 /* An opaque sd-resolve session structure */
 typedef struct sd_resolve sd_resolve;
@@ -90,7 +90,7 @@ sd_event *sd_resolve_get_event(sd_resolve *resolve);
  * getaddrinfo(3). The function returns a new query object. When the
  * query is completed, you may retrieve the results using
  * sd_resolve_getaddrinfo_done(). */
-int sd_resolve_getaddrinfo(sd_resolve *resolve, sd_resolve_query **q, const char *node, const char *service, const struct addrinfo *hints, sd_resolve_getaddrinfo_handler_t callback, void *userdata);
+int sd_resolve_getaddrinfo(sd_resolve *resolve, sd_resolve_query **ret, const char *node, const char *service, const struct addrinfo *hints, sd_resolve_getaddrinfo_handler_t callback, void *userdata);
 
 /* Issue an address-to-name query on the specified session. The
  * arguments are compatible with those of libc's
@@ -98,7 +98,7 @@ int sd_resolve_getaddrinfo(sd_resolve *resolve, sd_resolve_query **q, const char
  * query is completed, you may retrieve the results using
  * sd_resolve_getnameinfo_done(). Set gethost (resp. getserv) to non-zero
  * if you want to query the hostname (resp. the service name). */
-int sd_resolve_getnameinfo(sd_resolve *resolve, sd_resolve_query **q, const struct sockaddr *sa, socklen_t salen, int flags, uint64_t get, sd_resolve_getnameinfo_handler_t callback, void *userdata);
+int sd_resolve_getnameinfo(sd_resolve *resolve, sd_resolve_query **ret, const struct sockaddr *sa, socklen_t salen, int flags, uint64_t get, sd_resolve_getnameinfo_handler_t callback, void *userdata);
 
 sd_resolve_query *sd_resolve_query_ref(sd_resolve_query *q);
 sd_resolve_query *sd_resolve_query_unref(sd_resolve_query *q);

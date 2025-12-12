@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/icmp6.h>
-#include <netinet/ip6.h>
+#include <sys/uio.h>
 #include <unistd.h>
 
 #include "fd-util.h"
 #include "icmp6-test-util.h"
+#include "icmp6-util.h"
+#include "time-util.h"
 
 int test_fd[2] = EBADF_PAIR;
 
@@ -29,12 +30,12 @@ int icmp6_send(int fd, const struct in6_addr *dst, const struct iovec *iov, size
 
 int icmp6_receive(
                 int fd,
-                void *iov_base,
-                size_t iov_len,
+                void *buffer,
+                size_t size,
                 struct in6_addr *ret_sender,
                 triple_timestamp *ret_timestamp) {
 
-        assert_se(read (fd, iov_base, iov_len) == (ssize_t) iov_len);
+        assert_se(read(fd, buffer, size) == (ssize_t) size);
 
         if (ret_timestamp)
                 triple_timestamp_now(ret_timestamp);

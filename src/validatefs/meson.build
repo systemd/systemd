@@ -8,7 +8,7 @@ executables += [
                 ],
                 'sources' : files('validatefs.c'),
                 'dependencies' : [
-                        libblkid,
+                        libblkid_cflags,
                 ],
         },
 ]

@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Hsr Hsr;
-
 #include <linux/if_link.h>
 
 #include "netdev.h"
@@ -14,17 +12,17 @@ typedef enum HsrProtocol {
         _NETDEV_HSR_PROTOCOL_INVALID = -EINVAL,
 } HsrProtocol;
 
-struct Hsr {
+typedef struct Hsr {
         NetDev meta;
 
         char **ports;
         HsrProtocol protocol;
         uint8_t supervision;
-};
+} Hsr;
 
 DEFINE_NETDEV_CAST(HSR, Hsr);
 extern const NetDevVTable hsr_vtable;
 
-HsrProtocol hsr_protocol_from_string(const char *d) _pure_;
+HsrProtocol hsr_protocol_from_string(const char *s) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_hsr_protocol);

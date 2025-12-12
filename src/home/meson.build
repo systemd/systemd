@@ -4,29 +4,7 @@ if conf.get('ENABLE_HOMED') != 1
         subdir_done()
 endif
 
-systemd_homework_sources = files(
-        'home-util.c',
-        'homework-blob.c',
-        'homework-cifs.c',
-        'homework-directory.c',
-        'homework-fscrypt.c',
-        'homework-luks.c',
-        'homework-mount.c',
-        'homework-password-cache.c',
-        'homework-quota.c',
-        'homework.c',
-        'user-record-util.c',
-)
-
-if conf.get('HAVE_P11KIT') == 1
-        systemd_homework_sources += files('homework-pkcs11.c')
-endif
-if conf.get('HAVE_LIBFIDO2') == 1
-        systemd_homework_sources += files('homework-fido2.c')
-endif
-
 systemd_homed_sources = files(
-        'home-util.c',
         'homed-bus.c',
         'homed-conf.c',
         'homed-home-bus.c',
@@ -36,13 +14,29 @@ systemd_homed_sources = files(
         'homed-operation.c',
         'homed-varlink.c',
         'homed.c',
-        'user-record-password-quality.c',
         'user-record-sign.c',
+)
+systemd_homed_extract_sources = files(
+        'home-util.c',
+        'user-record-password-quality.c',
         'user-record-util.c',
 )
 
+systemd_homework_sources = files(
+        'homework.c',
+        'homework-blob.c',
+        'homework-cifs.c',
+        'homework-directory.c',
+        'homework-fido2.c',
+        'homework-fscrypt.c',
+        'homework-luks.c',
+        'homework-mount.c',
+        'homework-password-cache.c',
+        'homework-pkcs11.c',
+        'homework-quota.c',
+)
+
 homed_gperf_c = custom_target(
-        'homed_gperf.c',
         input : 'homed-gperf.gperf',
         output : 'homed-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
@@ -51,13 +45,10 @@ generated_sources += [homed_gperf_c]
 systemd_homed_sources += [homed_gperf_c]
 
 homectl_sources = files(
-        'home-util.c',
         'homectl-fido2.c',
         'homectl-pkcs11.c',
         'homectl-recovery-key.c',
         'homectl.c',
-        'user-record-password-quality.c',
-        'user-record-util.c',
 )
 
 pam_systemd_home_sources = files(
@@ -68,27 +59,10 @@ pam_systemd_home_sources = files(
 
 executables += [
         libexec_template + {
-                'name' : 'systemd-homework',
-                'sources' : systemd_homework_sources,
-                'link_with' : [
-                        libshared,
-                        libshared_fdisk
-                ],
-                'dependencies' : [
-                        libblkid,
-                        libcrypt,
-                        libfdisk,
-                        libopenssl,
-                        libp11kit_cflags,
-                        threads,
-                ],
-        },
-        libexec_template + {
                 'name' : 'systemd-homed',
                 'dbus' : true,
                 'sources' : systemd_homed_sources,
-                'include_directories' : includes +
-                                        include_directories('.'),
+                'extract' : systemd_homed_extract_sources,
                 'dependencies' : [
                         libcrypt,
                         libm,
@@ -96,10 +70,28 @@ executables += [
                         threads,
                 ],
         },
+        libexec_template + {
+                'name' : 'systemd-homework',
+                'sources' : systemd_homework_sources,
+                'objects' : ['systemd-homed'],
+                'link_with' : [
+                        libshared,
+                        libshared_fdisk
+                ],
+                'dependencies' : [
+                        libblkid_cflags,
+                        libcrypt,
+                        libfdisk,
+                        libopenssl,
+                        libp11kit_cflags,
+                        threads,
+                ],
+        },
         executable_template + {
                 'name' : 'homectl',
                 'public' : true,
                 'sources' : homectl_sources,
+                'objects' : ['systemd-homed'],
                 'dependencies' : [
                         libcrypt,
                         libdl,
@@ -121,6 +113,7 @@ modules += [
                 'sources' : pam_systemd_home_sources,
                 'dependencies' : [
                         libcrypt,
+                        libintl,
                         libpam_misc,
                         libpam,
                         threads,

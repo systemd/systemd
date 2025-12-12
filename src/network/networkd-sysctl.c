@@ -1,17 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
 #include <linux/if_arp.h>
-#include <netinet/in.h>
 
 #include "sd-messages.h"
 
 #include "af-list.h"
+#include "bpf-dlopen.h"
+#include "conf-parser.h"
+#include "alloc-util.h"
 #include "cgroup-util.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "missing_network.h"
+#include "hashmap.h"
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
@@ -19,15 +21,17 @@
 #include "networkd-network.h"
 #include "networkd-sysctl.h"
 #include "path-util.h"
+#include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "sysctl-util.h"
 
-#if HAVE_VMLINUX_H
+#if ENABLE_SYSCTL_BPF
 
 #include "bpf-link.h"
-#include "bpf/sysctl_monitor/sysctl-monitor-skel.h"
-#include "bpf/sysctl_monitor/sysctl-write-event.h"
+#include "bpf/sysctl-monitor/sysctl-monitor-skel.h"
+#include "bpf/sysctl-monitor/sysctl-write-event.h"
 
 static struct sysctl_monitor_bpf* sysctl_monitor_bpf_free(struct sysctl_monitor_bpf *obj) {
         sysctl_monitor_bpf__destroy(obj);
@@ -49,6 +53,8 @@ static int sysctl_event_handler(void *ctx, void *data, size_t data_sz) {
                                          "Unexpected sysctl event, disabling sysctl monitoring: %d", we->version);
 
         if (we->errorcode != 0) {
+                /* The log message is checked in test-network/systemd-networkd-tests.py. Please update the
+                 * test when the log message is changed. */
                 log_warning_errno(we->errorcode, "Sysctl monitor BPF returned error: %m");
                 return 0;
         }
@@ -65,6 +71,8 @@ static int sysctl_event_handler(void *ctx, void *data, size_t data_sz) {
                 return 0;
 
         if (!strneq(value, we->newvalue, sizeof(we->newvalue)))
+                /* The log message is checked in test-network/systemd-networkd-tests.py. Please update the
+                 * test when the log message is changed. */
                 log_struct(LOG_WARNING,
                            LOG_MESSAGE_ID(SD_MESSAGE_SYSCTL_CHANGED_STR),
                            LOG_ITEM("OBJECT_PID=" PID_FMT, we->pid),
@@ -106,11 +114,11 @@ int manager_install_sysctl_monitor(Manager *manager) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to load libbpf, not installing sysctl monitor: %m");
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
+        r = cg_pid_get_path(0, &cgroup);
         if (r < 0)
                 return log_warning_errno(r, "Failed to get cgroup path, ignoring: %m.");
 
-        root_cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
+        root_cgroup_fd = cg_path_open("/");
         if (root_cgroup_fd < 0)
                 return log_warning_errno(root_cgroup_fd, "Failed to open cgroup, ignoring: %m");
 
@@ -119,7 +127,7 @@ int manager_install_sysctl_monitor(Manager *manager) {
                 return log_full_errno(errno == EINVAL ? LOG_DEBUG : LOG_INFO, errno,
                                       "Unable to load sysctl monitor BPF program, ignoring: %m");
 
-        cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, cgroup);
+        cgroup_fd = cg_path_open(cgroup);
         if (cgroup_fd < 0)
                 return log_warning_errno(cgroup_fd, "Failed to open cgroup: %m");
 
@@ -374,6 +382,8 @@ static int link_set_ip_forwarding(Link *link, int family) {
         if (FLAGS_SET(link->network->ip_masquerade, AF_TO_ADDRESS_FAMILY(family)) &&
             link->manager->ip_forwarding[family == AF_INET6] < 0) {
 
+                log_link_notice(link, "IPMasquerade= is enabled on the interface, enabling the global IPv6Forwarding= setting, which may affect NDisc and DHCPv6 client on other interfaces.");
+
                 link->manager->ip_forwarding[family == AF_INET6] = true;
                 manager_set_ip_forwarding(link->manager, family);
 
@@ -588,7 +598,7 @@ static int link_set_ipv6_mtu_async_impl(Link *link) {
                         link->manager->event, &link->ipv6_mtu_wait_synced_event_source,
                         CLOCK_BOOTTIME, 100 * USEC_PER_MSEC, 0,
                         ipv6_mtu_wait_synced_handler, link,
-                        /* priority = */ 0, "ipv6-mtu-wait-synced", /* force = */ true);
+                        /* priority = */ 0, "ipv6-mtu-wait-synced", /* force_reset = */ true);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure timer event source for waiting for IPv6 MTU being synced: %m");
 
@@ -780,7 +790,7 @@ DEFINE_STRING_TABLE_LOOKUP(ip_reverse_path_filter, IPReversePathFilter);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ip_reverse_path_filter, ip_reverse_path_filter, IPReversePathFilter);
 
 int config_parse_ip_forward_deprecated(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,

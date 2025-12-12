@@ -1,23 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <sys/time.h>
 #include <sys/xattr.h>
 #include <threads.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "macro.h"
-#include "missing_syscall.h"
+#include "fs-util.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -482,4 +476,15 @@ int fd_setcrtime(int fd, usec_t usec) {
         return xsetxattr_full(fd, /* path = */ NULL, AT_EMPTY_PATH,
                               "user.crtime_usec", (const char*) &le, sizeof(le),
                               /* xattr_flags = */ 0);
+}
+
+bool xattr_is_acl(const char *name) {
+        return STR_IN_SET(
+                        ASSERT_PTR(name),
+                        "system.posix_acl_access",
+                        "system.posix_acl_default");
+}
+
+bool xattr_is_selinux(const char *name) {
+        return streq(ASSERT_PTR(name), "security.selinux");
 }

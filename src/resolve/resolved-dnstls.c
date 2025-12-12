@@ -8,8 +8,9 @@
 #include <openssl/err.h>
 #include <openssl/x509v3.h>
 
-#include "io-util.h"
+#include "alloc-util.h"
 #include "openssl-util.h"
+#include "log.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"

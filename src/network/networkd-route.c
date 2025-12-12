@@ -1,23 +1,31 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
 #include <linux/ipv6_route.h>
-#include <linux/nexthop.h>
+#include <net/if.h>
+#include <stdio.h>
+
+#include "sd-ndisc-protocol.h"
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "conf-parser.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-ipv4ll.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
+#include "set.h"
+#include "siphash24.h"
 #include "string-util.h"
-#include "strv.h"
 #include "vrf.h"
 #include "wireguard.h"
 
@@ -1999,6 +2007,12 @@ int config_parse_route_section(
 
         if (streq(section, "Network")) {
                 assert(streq_ptr(lvalue, "Gateway"));
+
+                /* Clear all previously defined routes when Gateway= (empty) is set in [Network] section */
+                if (isempty(rvalue)) {
+                        network->routes_by_section = hashmap_free(network->routes_by_section);
+                        return 0;
+                }
 
                 /* we are not in an Route section, so use line number instead */
                 r = route_new_static(network, filename, line, &route);

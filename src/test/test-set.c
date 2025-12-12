@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "random-util.h"
 #include "set.h"
 #include "strv.h"
@@ -123,10 +125,10 @@ TEST(set_put_strdupv) {
 TEST(set_ensure_allocated) {
         _cleanup_set_free_ Set *m = NULL;
 
-        assert_se(set_ensure_allocated(&m, &string_hash_ops) == 1);
-        assert_se(set_ensure_allocated(&m, &string_hash_ops) == 0);
-        assert_se(set_ensure_allocated(&m, NULL) == 0);
-        assert_se(set_isempty(m));
+        ASSERT_OK_POSITIVE(set_ensure_allocated(&m, &string_hash_ops));
+        ASSERT_OK_ZERO(set_ensure_allocated(&m, &string_hash_ops));
+        ASSERT_SIGNAL(set_ensure_allocated(&m, NULL), SIGABRT);
+        ASSERT_TRUE(set_isempty(m));
 }
 
 TEST(set_copy) {
@@ -159,13 +161,13 @@ TEST(set_copy) {
 TEST(set_ensure_put) {
         _cleanup_set_free_ Set *m = NULL;
 
-        assert_se(set_ensure_put(&m, &string_hash_ops, "a") == 1);
-        assert_se(set_ensure_put(&m, &string_hash_ops, "a") == 0);
-        assert_se(set_ensure_put(&m, NULL, "a") == 0);
-        assert_se(set_ensure_put(&m, &string_hash_ops, "b") == 1);
-        assert_se(set_ensure_put(&m, &string_hash_ops, "b") == 0);
-        assert_se(set_ensure_put(&m, &string_hash_ops, "a") == 0);
-        assert_se(set_size(m) == 2);
+        ASSERT_OK_POSITIVE(set_ensure_put(&m, &string_hash_ops, "a"));
+        ASSERT_OK_ZERO(set_ensure_put(&m, &string_hash_ops, "a"));
+        ASSERT_SIGNAL(set_ensure_put(&m, NULL, "a"), SIGABRT);
+        ASSERT_OK_POSITIVE(set_ensure_put(&m, &string_hash_ops, "b"));
+        ASSERT_OK_ZERO(set_ensure_put(&m, &string_hash_ops, "b"));
+        ASSERT_OK_ZERO(set_ensure_put(&m, &string_hash_ops, "a"));
+        ASSERT_EQ(set_size(m), 2u);
 }
 
 TEST(set_ensure_consume) {

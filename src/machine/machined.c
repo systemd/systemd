@@ -1,23 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
+
+#include "sd-bus.h"
+#include "sd-event.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
-#include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
-#include "bus-polkit.h"
-#include "cgroup-util.h"
+#include "bus-object.h"
+#include "bus-util.h"
 #include "common-signal.h"
+#include "constants.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
-#include "discover-image.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "format-util.h"
+#include "hash-funcs.h"
+#include "hashmap.h"
 #include "hostname-util.h"
 #include "machine.h"
 #include "machined.h"
@@ -25,18 +27,20 @@
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "operation.h"
-#include "process-util.h"
+#include "path-lookup.h"
 #include "service-util.h"
+#include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
+#include "string-util.h"
 
 static Manager* manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(machine_hash_ops, char, string_hash_func, string_compare_func, Machine, machine_free);
 
-static int manager_new(Manager **ret) {
+static int manager_new(RuntimeScope scope, Manager **ret) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
 
@@ -47,8 +51,12 @@ static int manager_new(Manager **ret) {
                 return -ENOMEM;
 
         *m = (Manager) {
-                .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+                .runtime_scope = scope,
         };
+
+        r = runtime_directory_generic(scope, "systemd/machines", &m->state_dir);
+        if (r < 0)
+                return r;
 
         m->machines = hashmap_new(&machine_hash_ops);
         if (!m->machines)
@@ -62,7 +70,7 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, /* ret_event_source= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
@@ -103,8 +111,13 @@ static Manager* manager_unref(Manager *m) {
 
         manager_varlink_done(m);
 
-        sd_bus_flush_close_unref(m->bus);
+        m->query_filter_subscriptions = set_free(m->query_filter_subscriptions);
+
+        sd_bus_flush_close_unref(m->api_bus);
+        sd_bus_flush_close_unref(m->system_bus);
         sd_event_unref(m->event);
+
+        free(m->state_dir);
 
         return mfree(m);
 }
@@ -116,6 +129,8 @@ static int manager_add_host_machine(Manager *m) {
         Machine *t;
         int r;
 
+        if (m->runtime_scope != RUNTIME_SCOPE_SYSTEM)
+                return 0;
         if (m->host_machine)
                 return 0;
 
@@ -172,12 +187,12 @@ static int manager_enumerate_machines(Manager *m) {
                 return r;
 
         /* Read in machine data stored on disk */
-        d = opendir("/run/systemd/machines");
+        d = opendir(m->state_dir);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/machines: %m");
+                return log_error_errno(errno, "Failed to open '%s': %m", m->state_dir);
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -196,15 +211,13 @@ static int manager_enumerate_machines(Manager *m) {
 
                 k = manager_add_machine(m, de->d_name, &machine);
                 if (k < 0) {
-                        r = log_error_errno(k, "Failed to add machine by file name %s: %m", de->d_name);
+                        RET_GATHER(r, log_error_errno(k, "Failed to add machine by file name %s: %m", de->d_name));
                         continue;
                 }
 
                 machine_add_to_gc_queue(machine);
 
-                k = machine_load(machine);
-                if (k < 0)
-                        r = k;
+                RET_GATHER(r, machine_load(machine));
         }
 
         return r;
@@ -214,26 +227,45 @@ static int manager_connect_bus(Manager *m) {
         int r;
 
         assert(m);
-        assert(!m->bus);
+        assert(!m->system_bus);
+        assert(!m->api_bus);
 
-        r = sd_bus_default_system(&m->bus);
+        r = sd_bus_default_system(&m->system_bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = bus_add_implementation(m->bus, &manager_object, m);
+        r = sd_bus_attach_event(m->system_bus, m->event, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach system bus to event loop: %m");
+
+        if (m->runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                m->api_bus = sd_bus_ref(m->system_bus);
+        else {
+                assert(m->runtime_scope == RUNTIME_SCOPE_USER);
+
+                r = sd_bus_default_user(&m->api_bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to user bus: %m");
+
+                r = sd_bus_attach_event(m->api_bus, m->event, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach user bus to event loop: %m");
+        }
+
+        r = bus_add_implementation(m->api_bus, &manager_object, m);
         if (r < 0)
                 return r;
 
-        r = bus_match_signal_async(m->bus, NULL, bus_systemd_mgr, "JobRemoved", match_job_removed, NULL, m);
+        r = bus_match_signal_async(m->api_bus, NULL, bus_systemd_mgr, "JobRemoved", match_job_removed, NULL, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match for JobRemoved: %m");
 
-        r = bus_match_signal_async(m->bus, NULL, bus_systemd_mgr, "UnitRemoved", match_unit_removed, NULL, m);
+        r = bus_match_signal_async(m->api_bus, NULL, bus_systemd_mgr, "UnitRemoved", match_unit_removed, NULL, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for UnitRemoved: %m");
 
         r = sd_bus_match_signal_async(
-                        m->bus,
+                        m->api_bus,
                         NULL,
                         "org.freedesktop.systemd1",
                         NULL,
@@ -243,25 +275,21 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for PropertiesChanged: %m");
 
-        r = bus_match_signal_async(m->bus, NULL, bus_systemd_mgr, "Reloading", match_reloading, NULL, m);
+        r = bus_match_signal_async(m->api_bus, NULL, bus_systemd_mgr, "Reloading", match_reloading, NULL, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for Reloading: %m");
 
-        r = bus_call_method_async(m->bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
+        r = bus_call_method_async(m->api_bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable subscription: %m");
 
-        r = bus_log_control_api_register(m->bus);
+        r = bus_log_control_api_register(m->api_bus);
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.machine1", 0, NULL, NULL);
+        r = sd_bus_request_name_async(m->api_bus, NULL, "org.freedesktop.machine1", 0, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
-
-        r = sd_bus_attach_event(m->bus, m->event, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         return 0;
 }
@@ -315,6 +343,7 @@ static bool check_idle(void *userdata) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
+        RuntimeScope scope = RUNTIME_SCOPE_SYSTEM;
         int r;
 
         log_set_facility(LOG_AUTH);
@@ -324,6 +353,7 @@ static int run(int argc, char *argv[]) {
                                "Manage registrations of local VMs and containers.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
+                               &scope,
                                argc, argv);
         if (r <= 0)
                 return r;
@@ -333,11 +363,12 @@ static int run(int argc, char *argv[]) {
         /* Always create the directories people can create inotify watches in. Note that some applications might check
          * for the existence of /run/systemd/machines/ to determine whether machined is available, so please always
          * make sure this check stays in. */
-        (void) mkdir_label("/run/systemd/machines", 0755);
+        if (scope == RUNTIME_SCOPE_SYSTEM)
+                (void) mkdir_label("/run/systemd/machines", 0755);
 
         assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGCHLD) >= 0);
 
-        r = manager_new(&m);
+        r = manager_new(scope, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate manager object: %m");
 
@@ -351,7 +382,7 @@ static int run(int argc, char *argv[]) {
 
         r = bus_event_loop_with_idle(
                         m->event,
-                        m->bus,
+                        m->api_bus,
                         "org.freedesktop.machine1",
                         DEFAULT_EXIT_USEC,
                         check_idle, m);

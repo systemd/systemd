@@ -17,17 +17,14 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
-#include <inttypes.h>
-#include <net/ethernet.h>
-#include <sys/types.h>
-
 #include "_sd-common.h"
-#include "sd-event.h"
-#include "sd-lldp.h"
+#include "sd-lldp.h"    /* IWYU pragma: export*/
 
 _SD_BEGIN_DECLARATIONS;
 
+struct ether_addr;
+
+typedef struct sd_event sd_event;
 typedef struct sd_lldp_rx sd_lldp_rx;
 typedef struct sd_lldp_neighbor sd_lldp_neighbor;
 
@@ -61,11 +58,11 @@ int sd_lldp_rx_set_ifname(sd_lldp_rx *lldp_rx, const char *ifname);
 int sd_lldp_rx_get_ifname(sd_lldp_rx *lldp_rx, const char **ret);
 
 /* Controls how much and what to store in the neighbors database */
-int sd_lldp_rx_set_neighbors_max(sd_lldp_rx *lldp_rx, uint64_t n);
+int sd_lldp_rx_set_neighbors_max(sd_lldp_rx *lldp_rx, uint64_t m);
 int sd_lldp_rx_match_capabilities(sd_lldp_rx *lldp_rx, uint16_t mask);
 int sd_lldp_rx_set_filter_address(sd_lldp_rx *lldp_rx, const struct ether_addr *address);
 
-int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***neighbors);
+int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret);
 
 sd_lldp_neighbor *sd_lldp_neighbor_ref(sd_lldp_neighbor *n);
 sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n);
@@ -87,6 +84,7 @@ int sd_lldp_neighbor_get_port_description(sd_lldp_neighbor *n, const char **ret)
 int sd_lldp_neighbor_get_mud_url(sd_lldp_neighbor *n, const char **ret);
 int sd_lldp_neighbor_get_system_capabilities(sd_lldp_neighbor *n, uint16_t *ret);
 int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint16_t *ret);
+int sd_lldp_neighbor_get_port_vlan_id(sd_lldp_neighbor *n, uint16_t *ret);
 
 /* Low-level, iterative TLV access. This is for everything else, it iteratively goes through all available TLVs
  * (including the ones covered with the calls above), and allows multiple TLVs for the same fields. */

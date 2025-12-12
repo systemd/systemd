@@ -7,7 +7,6 @@
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-swap.h"
-#include "string-util.h"
 #include "swap.h"
 #include "unit.h"
 
@@ -35,7 +34,7 @@ int bus_swap_set_property(
                 const char *name,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Swap *s = SWAP(u);
 
@@ -43,7 +42,7 @@ int bus_swap_set_property(
         assert(name);
         assert(message);
 
-        return bus_cgroup_set_property(u, &s->cgroup_context, name, message, flags, error);
+        return bus_cgroup_set_property(u, &s->cgroup_context, name, message, flags, reterr_error);
 }
 
 int bus_swap_commit_properties(Unit *u) {

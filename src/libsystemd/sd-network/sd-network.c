@@ -1,17 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <poll.h>
 #include <sys/inotify.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-network.h"
 
 #include "alloc-util.h"
 #include "env-file.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "inotify-util.h"
-#include "macro.h"
 #include "parse-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -378,12 +379,12 @@ static int monitor_add_inotify_watch(int fd) {
         return wd;
 }
 
-int sd_network_monitor_new(sd_network_monitor **m, const char *category) {
+int sd_network_monitor_new(sd_network_monitor **ret, const char *category) {
         _cleanup_close_ int fd = -EBADF;
         int k;
         bool good = false;
 
-        assert_return(m, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
         if (fd < 0)
@@ -400,7 +401,7 @@ int sd_network_monitor_new(sd_network_monitor **m, const char *category) {
         if (!good)
                 return -EINVAL;
 
-        *m = FD_TO_MONITOR(TAKE_FD(fd));
+        *ret = FD_TO_MONITOR(TAKE_FD(fd));
         return 0;
 }
 

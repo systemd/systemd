@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
-
 #include "ordered-set.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -93,18 +90,19 @@ TEST(set_put_string_set) {
         _cleanup_ordered_set_free_ OrderedSet *m = NULL, *q = NULL;
         _cleanup_free_ char **final = NULL; /* "just free" because the strings are in the set */
 
-        assert_se(ordered_set_put_strdup(&m, "1") == 1);
-        assert_se(ordered_set_put_strdup(&m, "22") == 1);
-        assert_se(ordered_set_put_strdup(&m, "333") == 1);
+        ASSERT_OK_POSITIVE(ordered_set_put_strdup(&m, "1"));
+        ASSERT_OK_POSITIVE(ordered_set_put_strdup(&m, "22"));
+        ASSERT_OK_POSITIVE(ordered_set_put_strdup(&m, "333"));
 
-        assert_se(ordered_set_put_strdup(&q, "11") == 1);
-        assert_se(ordered_set_put_strdup(&q, "22") == 1);
-        assert_se(ordered_set_put_strdup(&q, "33") == 1);
+        ASSERT_OK_POSITIVE(ordered_set_put_strdup(&q, "11"));
+        ASSERT_OK_POSITIVE(ordered_set_put_strdup(&q, "22"));
+        ASSERT_OK_POSITIVE(ordered_set_put_strdup(&q, "33"));
 
-        assert_se(ordered_set_put_string_set(&m, q) == 2);
+        ASSERT_OK_POSITIVE(ordered_set_put_string_set(&m, q));
+        ASSERT_OK_ZERO(ordered_set_put_string_set(&m, q));
 
-        assert_se(final = ordered_set_get_strv(m));
-        assert_se(strv_equal(final, STRV_MAKE("1", "22", "333", "11", "33")));
+        ASSERT_NOT_NULL(final = ordered_set_get_strv(m));
+        ASSERT_TRUE(strv_equal(final, STRV_MAKE("1", "22", "333", "11", "33")));
 
         ordered_set_print(stdout, "BAR=", m);
 }

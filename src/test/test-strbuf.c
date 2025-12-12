@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdlib.h>
-
 #include "nulstr-util.h"
 #include "strbuf.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 

@@ -1,29 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/loop.h>
+#include <stdlib.h>
 #include <sys/file.h>
 #include <sys/mount.h>
 #include <unistd.h>
 
-#include "sd-bus.h"
 #include "sd-varlink.h"
 
+#include "argv-util.h"
+#include "blkid-util.h"
 #include "blockdev-util.h"
 #include "build.h"
-#include "bus-error.h"
-#include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
 #include "chase.h"
-#include "constants.h"
+#include "conf-parser.h"
+#include "cryptsetup-util.h"
 #include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extension-util.h"
 #include "fd-util.h"
@@ -31,10 +32,13 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "image-policy.h"
 #include "initrd-util.h"
+#include "label-util.h"                 /* IWYU pragma: keep */
+#include "libmount-util.h"
 #include "log.h"
+#include "loop-util.h"
 #include "main-func.h"
-#include "missing_magic.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -46,12 +50,14 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "runtime-scope.h"
 #include "selinux-util.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "terminal-util.h"
-#include "user-util.h"
+#include "strv.h"
+#include "time-util.h"
 #include "varlink-io.systemd.sysext.h"
 #include "varlink-util.h"
 #include "verbs.h"
@@ -76,7 +82,7 @@ static const char* const mutable_mode_table[_MUTABLE_MAX] = {
         [MUTABLE_EPHEMERAL_IMPORT] = "ephemeral-import",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(mutable_mode, MutableMode, MUTABLE_YES);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(mutable_mode, MutableMode, MUTABLE_YES);
 
 static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for confext */
 static char *arg_root = NULL;
@@ -89,11 +95,16 @@ static int arg_noexec = -1;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_varlink = false;
 static MutableMode arg_mutable = MUTABLE_NO;
+static const char *arg_overlayfs_mount_options = NULL;
 
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
 static ImageClass arg_image_class = IMAGE_SYSEXT;
 
 #define MUTABLE_EXTENSIONS_BASE_DIR "/var/lib/extensions.mutable"
+
+/* redirect_dir=on and noatime prevent unnecessary upcopies, metacopy=off prevents broken
+ * files from partial upcopies after umount, index=off allows reuse of the upper/work dirs */
+#define MUTABLE_EXTENSIONS_MOUNT_OPTIONS "redirect_dir=on,noatime,metacopy=off,index=off"
 
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -111,6 +122,7 @@ static const struct {
         const char *scope_env;
         const char *name_env;
         const char *mode_env;
+        const char *opts_env;
         const ImagePolicy *default_image_policy;
         unsigned long default_mount_flags;
 } image_class_info[_IMAGE_CLASS_MAX] = {
@@ -124,6 +136,7 @@ static const struct {
                 .scope_env = "SYSEXT_SCOPE",
                 .name_env = "SYSTEMD_SYSEXT_HIERARCHIES",
                 .mode_env = "SYSTEMD_SYSEXT_MUTABLE_MODE",
+                .opts_env = "SYSTEMD_SYSEXT_OVERLAYFS_MOUNT_OPTIONS",
                 .default_image_policy = &image_policy_sysext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV,
         },
@@ -137,6 +150,7 @@ static const struct {
                 .scope_env = "CONFEXT_SCOPE",
                 .name_env = "SYSTEMD_CONFEXT_HIERARCHIES",
                 .mode_env = "SYSTEMD_CONFEXT_MUTABLE_MODE",
+                .opts_env = "SYSTEMD_CONFEXT_OVERLAYFS_MOUNT_OPTIONS",
                 .default_image_policy = &image_policy_confext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV|MS_NOSUID|MS_NOEXEC,
         }
@@ -144,6 +158,37 @@ static const struct {
 
 static int parse_mutable_mode(const char *p) {
         return mutable_mode_from_string(p);
+}
+
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_mutable_mode, mutable_mode, MutableMode);
+
+static int parse_config_file(ImageClass image_class) {
+        const char *section = image_class == IMAGE_SYSEXT ? "SysExt" : "ConfExt";
+        const ConfigTableItem items[] = {
+                { section, "Mutable",           config_parse_mutable_mode,      0,      &arg_mutable            },
+                { section, "ImagePolicy",       config_parse_image_policy,      0,      &arg_image_policy       },
+                {}
+        };
+        _cleanup_free_ char *config_file = NULL;
+        int r;
+
+        config_file = strjoin("systemd/", image_class_info[image_class].short_identifier, ".conf");
+        if (!config_file)
+                return log_oom();
+
+        r = config_parse_standard_file_with_dropins_full(
+                        arg_root,
+                        config_file,
+                        image_class == IMAGE_SYSEXT ? "SysExt\0" : "ConfExt\0",
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        /* userdata = */ NULL,
+                        /* ret_stats_by_path = */ NULL,
+                        /* ret_dropin_files = */ NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int is_our_mount_point(
@@ -252,7 +297,7 @@ static int need_reload(
                         const char *extension_reload_manager = NULL;
                         int b;
 
-                        r = load_extension_release_pairs(arg_root, image_class, *extension, /* relax_extension_release_check */ true, &extension_release);
+                        r = load_extension_release_pairs(arg_root, image_class, *extension, /* relax_extension_release_check = */ true, &extension_release);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to parse extension-release metadata of %s, ignoring: %m", *extension);
                                 continue;
@@ -481,6 +526,8 @@ static int unmerge(
         bool need_to_reload;
         int r;
 
+        (void) dlopen_libmount();
+
         r = need_reload(image_class, hierarchies, no_reload);
         if (r < 0)
                 return r;
@@ -699,7 +746,8 @@ static int mount_overlayfs(
                 const char *where,
                 char **layers,
                 const char *upper_dir,
-                const char *work_dir) {
+                const char *work_dir,
+                const char *mount_options) {
 
         _cleanup_free_ char *options = NULL;
         bool separator = false;
@@ -735,11 +783,14 @@ static int mount_overlayfs(
                 r = append_overlayfs_path_option(&options, ",", "workdir", work_dir);
                 if (r < 0)
                         return r;
-                /* redirect_dir=on and noatime prevent unnecessary upcopies, metacopy=off prevents broken
-                 * files from partial upcopies after umount, index=off allows reuse of the upper/work dirs */
-                if (!strextend(&options, ",redirect_dir=on,noatime,metacopy=off,index=off"))
-                        return log_oom();
+
+                if (!mount_options)
+                        mount_options = MUTABLE_EXTENSIONS_MOUNT_OPTIONS;
         }
+
+
+        if (!isempty(mount_options) && !strextend(&options, ",", mount_options))
+                return log_oom();
 
         /* Now mount the actual overlayfs */
         r = mount_nofollow_verbose(LOG_ERR, image_class_info[image_class].short_identifier, where, "overlay", flags, options);
@@ -1305,7 +1356,8 @@ static int mount_overlayfs_with_op(
                 ImageClass image_class,
                 int noexec,
                 const char *overlay_path,
-                const char *meta_path) {
+                const char *meta_path,
+                const char *mount_options) {
 
         int r;
         const char *top_layer = NULL;
@@ -1355,7 +1407,7 @@ static int mount_overlayfs_with_op(
         if (chmod(top_layer, op->hierarchy_mode) < 0)
                 return log_error_errno(errno, "Failed to set permissions of '%s' to %04o: %m", top_layer, op->hierarchy_mode);
 
-        r = mount_overlayfs(image_class, noexec, overlay_path, op->lower_dirs, op->upper_dir, op->work_dir);
+        r = mount_overlayfs(image_class, noexec, overlay_path, op->lower_dirs, op->upper_dir, op->work_dir, mount_options);
         if (r < 0)
                 return r;
 
@@ -1545,7 +1597,7 @@ static int store_info_in_meta(
 
         /* Make sure the top-level dir has an mtime marking the point we established the merge */
         if (utimensat(AT_FDCWD, meta_path, NULL, AT_SYMLINK_NOFOLLOW) < 0)
-                return log_error_errno(r, "Failed fix mtime of '%s': %m", meta_path);
+                return log_error_errno(r, "Failed to fix mtime of '%s': %m", meta_path);
 
         return 0;
 }
@@ -1630,7 +1682,7 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
-        r = mount_overlayfs_with_op(op, image_class, noexec, overlay_path, meta_path);
+        r = mount_overlayfs_with_op(op, image_class, noexec, overlay_path, meta_path, arg_overlayfs_mount_options);
         if (r < 0)
                 return r;
 
@@ -1658,14 +1710,20 @@ static const ImagePolicy *pick_image_policy(const Image *img) {
         if (arg_image_policy)
                 return arg_image_policy;
 
-        /* If located in /.extra/sysext/ in the initrd, then it was placed there by systemd-stub, and was
+        /* If located in /.extra/ in the initrd, then it was placed there by systemd-stub, and was
          * picked up from an untrusted ESP. Thus, require a stricter policy by default for them. (For the
-         * other directories we assume the appropriate level of trust was already established already.  */
+         * other directories we assume the appropriate level of trust was already established.)
+         * With --root= we default to the regular policy, though. (To change that, the check would need
+         * to prepend (or cut away) arg_root.) */
 
-        if (in_initrd()) {
+        if (in_initrd() && !arg_root) {
                 if (path_startswith(img->path, "/.extra/sysext/"))
                         return &image_policy_sysext_strict;
+                if (path_startswith(img->path, "/.extra/global_sysext/"))
+                        return &image_policy_sysext_strict;
                 if (path_startswith(img->path, "/.extra/confext/"))
+                        return &image_policy_confext_strict;
+                if (path_startswith(img->path, "/.extra/global_confext/"))
                         return &image_policy_confext_strict;
 
                 /* Better safe than sorry, refuse everything else passed in via the untrusted /.extra/ dir */
@@ -1684,7 +1742,9 @@ static int merge_subprocess(
                 Hashmap *images,
                 const char *workspace) {
 
-        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_api_level = NULL, *filename = NULL;
+        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_id_like = NULL,
+                        *host_os_release_version_id = NULL, *host_os_release_api_level = NULL,
+                        *filename = NULL;
         _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
@@ -1716,13 +1776,14 @@ static int merge_subprocess(
         r = parse_os_release(
                         arg_root,
                         "ID", &host_os_release_id,
+                        "ID_LIKE", &host_os_release_id_like,
                         "VERSION_ID", &host_os_release_version_id,
                         image_class_info[image_class].level_env, &host_os_release_api_level);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(arg_root));
         if (isempty(host_os_release_id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "'ID' field not found or empty in 'os-release' data of OS tree '%s': %m",
+                                       "'ID' field not found or empty in 'os-release' data of OS tree '%s'.",
                                        empty_to_root(arg_root));
 
         /* Let's now mount all images */
@@ -1821,10 +1882,7 @@ static int merge_subprocess(
                         if (r < 0)
                                 return r;
 
-                        r = dissected_image_decrypt_interactively(
-                                        m, NULL,
-                                        &verity_settings,
-                                        flags);
+                        r = dissected_image_decrypt(m, /* passphrase= */ NULL, &verity_settings, pick_image_policy(img), flags);
                         if (r < 0)
                                 return r;
 
@@ -1854,12 +1912,19 @@ static int merge_subprocess(
                 if (force)
                         log_debug("Force mode enabled, skipping version validation.");
                 else {
+                        bool is_initrd;
+                        r = chase_and_access("/etc/initrd-release", arg_root, CHASE_PREFIX_ROOT, F_OK, /* ret_path= */ NULL);
+                        if (r < 0 && r != -ENOENT)
+                                return log_error_errno(r, "Failed to check for /etc/initrd-release: %m");
+                        is_initrd = r >= 0;
+
                         r = extension_release_validate(
                                         img->name,
                                         host_os_release_id,
+                                        host_os_release_id_like,
                                         host_os_release_version_id,
                                         host_os_release_api_level,
-                                        in_initrd() ? "initrd" : "system",
+                                        is_initrd ? "initrd" : "system",
                                         image_extension_release(img, image_class),
                                         image_class);
                         if (r < 0)
@@ -2040,6 +2105,10 @@ static int merge(ImageClass image_class,
         pid_t pid;
         int r;
 
+        (void) dlopen_cryptsetup();
+        (void) dlopen_libblkid();
+        (void) dlopen_libmount();
+
         r = safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork off child: %m");
@@ -2076,30 +2145,25 @@ static int merge(ImageClass image_class,
         return 1;
 }
 
-static int image_discover_and_read_metadata(
-                ImageClass image_class,
-                Hashmap **ret_images) {
+static int image_discover_and_read_metadata(ImageClass image_class, Hashmap **ret_images) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         Image *img;
         int r;
 
         assert(ret_images);
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return log_oom();
-
-        r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, images);
+        r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, &images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover images: %m");
 
         HASHMAP_FOREACH(img, images) {
-                r = image_read_metadata(img, image_class_info[image_class].default_image_policy);
+                r = image_read_metadata(img, image_class_info[image_class].default_image_policy, RUNTIME_SCOPE_SYSTEM);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
         }
 
-        *ret_images = TAKE_PTR(images);
+        if (ret_images)
+                *ret_images = TAKE_PTR(images);
 
         return 0;
 }
@@ -2332,11 +2396,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
         Image *img;
         int r;
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return log_oom();
-
-        r = image_discover(RUNTIME_SCOPE_SYSTEM, arg_image_class, arg_root, images);
+        r = image_discover(RUNTIME_SCOPE_SYSTEM, arg_image_class, arg_root, &images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover images: %m");
 
@@ -2365,42 +2425,33 @@ static int verb_list(int argc, char **argv, void *userdata) {
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
-typedef struct MethodListParameters {
-        const char *class;
-} MethodListParameters;
-
 static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "class", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, offsetof(MethodListParameters, class), 0 },
+                { "class", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
                 {}
         };
-        MethodListParameters p = {
-        };
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
-        ImageClass image_class = arg_image_class;
-        Image *img;
         int r;
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        const char *class = NULL;
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &class);
         if (r != 0)
                 return r;
 
-        r = parse_image_class_parameter(link, p.class, &image_class, NULL);
+        ImageClass image_class = arg_image_class;
+        r = parse_image_class_parameter(link, class, &image_class, NULL);
         if (r < 0)
                 return r;
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, images);
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, &images);
         if (r < 0)
                 return r;
 
+        Image *img;
         HASHMAP_FOREACH(img, images) {
                 if (v) {
                         /* Send previous item with more=true */
@@ -2441,7 +2492,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "\n%3$sOptions:%4$s\n"
-               "     --mutable=yes|no|auto|import|ephemeral|ephemeral-import\n"
+               "     --mutable=yes|no|auto|import|ephemeral|ephemeral-import|help\n"
                "                          Specify a mutability mode of the merged hierarchy\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
@@ -2556,6 +2607,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MUTABLE:
+                        if (streq(optarg, "help")) {
+                                if (arg_legend)
+                                        puts("Known mutability modes:");
+
+                                return DUMP_STRING_TABLE(mutable_mode, MutableMode, _MUTABLE_MAX);
+                        }
+
                         r = parse_mutable_mode(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);
@@ -2578,6 +2636,34 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int parse_env(void) {
+        const char *env_var;
+        int r;
+
+        env_var = secure_getenv(image_class_info[arg_image_class].mode_env);
+        if (env_var) {
+                r = parse_mutable_mode(env_var);
+                if (r < 0)
+                        log_warning("Failed to parse %s environment variable value '%s'. Ignoring.",
+                                    image_class_info[arg_image_class].mode_env, env_var);
+                else
+                        arg_mutable = r;
+        }
+
+        env_var = secure_getenv(image_class_info[arg_image_class].opts_env);
+        if (env_var)
+                arg_overlayfs_mount_options = env_var;
+
+        /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
+         * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
+         * switch. */
+        r = parse_env_extension_hierarchies(&arg_hierarchies, image_class_info[arg_image_class].name_env);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s environment variable: %m", image_class_info[arg_image_class].name_env);
+
+        return 0;
+}
+
 static int sysext_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
@@ -2594,33 +2680,26 @@ static int sysext_main(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        const char *env_var;
         int r;
 
         log_setup();
 
         arg_image_class = invoked_as(argv, "systemd-confext") ? IMAGE_CONFEXT : IMAGE_SYSEXT;
 
-        env_var = getenv(image_class_info[arg_image_class].mode_env);
-        if (env_var) {
-                r = parse_mutable_mode(env_var);
-                if (r < 0)
-                        log_warning("Failed to parse %s environment variable value '%s'. Ignoring.",
-                                    image_class_info[arg_image_class].mode_env, env_var);
-                else
-                        arg_mutable = r;
-        }
+        /* Parse environment variables first */
+        r = parse_env();
+        if (r < 0)
+                return r;
 
+        /* Parse configuration file */
+        r = parse_config_file(arg_image_class);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse global config file, ignoring: %m");
+
+        /* Parse command line */
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
-
-        /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
-         * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
-         * switch. */
-        r = parse_env_extension_hierarchies(&arg_hierarchies, image_class_info[arg_image_class].name_env);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse environment variable: %m");
 
         if (arg_varlink) {
                 _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;

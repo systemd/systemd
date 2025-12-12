@@ -21,8 +21,19 @@ cleanup_test_user() (
 
 setup_test_user() {
     mkdir -p /var/spool/cron /var/spool/mail
-    useradd -m -s /bin/bash logind-test-user
+    useradd -m -s /usr/bin/bash logind-test-user
     trap cleanup_test_user EXIT
+}
+
+session_bus_path() {
+    local session
+
+    session=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
+    if ! [[ "${session?}" =~ c[0-9]* ]]; then
+        # When numeric, bus path is prefixed with '_3'
+        session="_3${session}"
+    fi
+    echo "/org/freedesktop/login1/session/${session}"
 }
 
 test_write_dropin() {
@@ -32,13 +43,15 @@ Environment=SYSTEMD_LOG_LEVEL=debug
 EOF
 
     # We test "coldplug" (completely stop and start logind) here. So we need to preserve
-    # the fdstore, which might contain session leader pidfds. This is extremely rare use case
-    # and shall not be considered fully supported.
+    # the fdstore, which might contain session leader pidfds, but only if pidfd id isn't
+    # a thing. This is extremely rare use case and shall not be considered fully supported.
     # See also: https://github.com/systemd/systemd/pull/30610#discussion_r1440507850
-    systemctl edit --runtime --stdin systemd-logind.service --drop-in=fdstore-preserve.conf <<EOF
+    if systemd-analyze compare-versions "$(uname -r)" lt 6.9; then
+        systemctl edit --runtime --stdin systemd-logind.service --drop-in=fdstore-preserve.conf <<EOF
 [Service]
 FileDescriptorStorePreserve=yes
 EOF
+    fi
 
     systemctl restart systemd-logind.service
 }
@@ -265,7 +278,8 @@ cleanup_session() (
 
     loginctl terminate-user logind-test-user
 
-    if ! timeout 30 bash -c "while loginctl --no-legend | grep -q logind-test-user; do sleep 1; done"; then
+    if ! timeout 30 bash -c "while loginctl --no-legend | grep logind-test-user >/dev/null; do sleep 1; done"; then
+        loginctl
         echo "WARNING: session for logind-test-user still active, ignoring."
     fi
 
@@ -298,7 +312,7 @@ teardown_session() (
 
     rm -f /run/udev/rules.d/70-logindtest-scsi_debug-user.rules
     udevadm control --reload
-    rmmod scsi_debug
+    rmmod scsi_debug || true
 
     return 0
 )
@@ -325,7 +339,7 @@ check_session() (
         return 1
     fi
 
-    if ! loginctl session-status "$session" | grep -q "Unit: session-${session}\.scope"; then
+    if ! loginctl session-status "$session" | grep "Unit: session-${session}\.scope" >/dev/null; then
         echo "cannot find scope unit for session $session" >&2
         return 1
     fi
@@ -351,7 +365,7 @@ create_session() {
 [Service]
 Type=simple
 ExecStart=
-ExecStart=-/sbin/agetty --autologin logind-test-user --noclear %I $TERM
+ExecStart=-agetty --autologin logind-test-user --noclear %I $TERM
 Restart=no
 EOF
     systemctl daemon-reload
@@ -446,7 +460,11 @@ EOF
 
     # coldplug: logind started with existing device
     systemctl stop systemd-logind.service
-    modprobe scsi_debug
+    if ! modprobe scsi_debug; then
+        echo "scsi_debug module not available, skipping test ${FUNCNAME[0]}."
+        systemctl start systemd-logind.service
+        return
+    fi
     timeout 30 bash -c 'until ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null; do sleep 1; done'
     dev=/dev/$(ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null)
     if [[ ! -b "$dev" ]]; then
@@ -498,7 +516,7 @@ testcase_lock_idle_action() {
         return
     fi
 
-    if loginctl --no-legend | grep -v manager | grep -q logind-test-user; then
+    if loginctl --no-legend | grep -v manager | grep logind-test-user >/dev/null; then
         echo >&2 "Session of the 'logind-test-user' is already present."
         exit 1
     fi
@@ -524,9 +542,7 @@ EOF
     # become idle again. 'Lock' signal is sent out for each session, we have at
     # least one session, so minimum of 2 "Lock" signals must have been sent.
     journalctl --sync
-    set +o pipefail
-    timeout -v 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m 1 -q 'Sent message type=signal .* member=Lock'
-    set -o pipefail
+    timeout -v 35 bash -c "journalctl -b -u systemd-logind.service --since='$ts' -n all --follow | grep -m 1 -q 'Sent message type=signal .* member=Lock'"
 
     # We need to know that a new message was sent after waking up,
     # so we must track how many happened before sleeping to check we have extra.
@@ -537,10 +553,8 @@ EOF
 
     # Wait again
     journalctl --sync
-    set +o pipefail
-    timeout -v 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m "$((locks + 1))" -q 'Sent message type=signal .* member=Lock'
-    timeout -v 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m 2 -q -F 'System idle. Will be locked now.'
-    set -o pipefail
+    timeout -v 35 bash -c "journalctl -b -u systemd-logind.service --since='$ts' -n all --follow | grep -m '$((locks + 1))' -q 'Sent message type=signal .* member=Lock'"
+    timeout -v 35 bash -c "journalctl -b -u systemd-logind.service --since='$ts' -n all --follow | grep -m 2 -q -F 'System idle. Will be locked now.'"
 }
 
 testcase_session_properties() {
@@ -554,12 +568,11 @@ testcase_session_properties() {
     trap cleanup_session RETURN
     create_session
 
-    s=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
-    /usr/lib/systemd/tests/unit-tests/manual/test-session-properties "/org/freedesktop/login1/session/_3${s?}" /dev/tty2
+    /usr/lib/systemd/tests/unit-tests/manual/test-session-properties "$(session_bus_path)" /dev/tty2
 }
 
 testcase_list_users_sessions_seats() {
-    local session seat
+    local path seat
 
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
@@ -572,11 +585,11 @@ testcase_list_users_sessions_seats() {
     # Activate the session
     loginctl activate "$(loginctl --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')"
 
-    session=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
+    path=$(session_bus_path)
     : check that we got a valid session id
-    busctl get-property org.freedesktop.login1 "/org/freedesktop/login1/session/_3${session?}" org.freedesktop.login1.Session Id
-    busctl get-property org.freedesktop.login1 "/org/freedesktop/login1/session/_3${session?}" org.freedesktop.login1.Session CanIdle
-    busctl get-property org.freedesktop.login1 "/org/freedesktop/login1/session/_3${session?}" org.freedesktop.login1.Session CanLock
+    busctl get-property org.freedesktop.login1 "$path" org.freedesktop.login1.Session Id
+    busctl get-property org.freedesktop.login1 "$path" org.freedesktop.login1.Session CanIdle
+    busctl get-property org.freedesktop.login1 "$path" org.freedesktop.login1.Session CanLock
     assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $2 }')" "$(id -ru logind-test-user)"
     seat=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $4 }')
     assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $6 }')" user
@@ -584,19 +597,22 @@ testcase_list_users_sessions_seats() {
     assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $8 }')" no
     assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $9 }')" '-'
 
-    loginctl list-seats --no-legend | grep -Fwq "${seat?}"
+    loginctl list-seats --no-legend | grep -Fw "${seat?}" >/dev/null
 
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $1 }')" "$(id -ru logind-test-user)"
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" no
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $4 }')" active
 
-    loginctl enable-linger logind-test-user
+    systemd-run --quiet --service-type=notify --unit=test-linger-signal-wait --pty \
+                -p Environment=SYSTEMD_LOG_LEVEL=debug \
+                -p ExecStartPost="loginctl enable-linger logind-test-user" \
+                busctl --timeout=30 wait "/org/freedesktop/login1/user/_$(id -ru logind-test-user)" org.freedesktop.DBus.Properties PropertiesChanged | grep -F '"Linger" b true' >/dev/null
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" yes
 
     for s in $(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }'); do
         loginctl terminate-session "$s"
     done
-    if ! timeout 30 bash -c "while loginctl --no-legend | grep tty | grep -q logind-test-user; do sleep 1; done"; then
+    if ! timeout 30 bash -c "while loginctl --no-legend | grep tty | grep logind-test-user >/dev/null; do sleep 1; done"; then
         echo "WARNING: session for logind-test-user still active, ignoring."
         return
     fi
@@ -669,7 +685,7 @@ testcase_ambient_caps() {
     TRANSIENTUNIT="capwakealarm$RANDOM.service"
     SCRIPT="/tmp/capwakealarm$RANDOM.sh"
 
-    cat > /etc/pam.d/"$PAMSERVICE" <<EOF
+    cat >/etc/pam.d/"$PAMSERVICE" <<EOF
 auth sufficient    pam_unix.so
 auth required      pam_deny.so
 account sufficient pam_unix.so
@@ -679,7 +695,7 @@ session required   pam_unix.so
 EOF
 
     cat > "$SCRIPT" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 typeset -i AMB MASK
 AMB="0x$(grep 'CapAmb:' /proc/self/status | cut -d: -f2 | tr -d '[:space:]')"
@@ -720,7 +736,7 @@ testcase_background() {
 
     trap background_at_return RETURN
 
-    cat > /etc/pam.d/"$PAMSERVICE" <<EOF
+    cat >/etc/pam.d/"$PAMSERVICE" <<EOF
 auth sufficient    pam_unix.so
 auth required      pam_deny.so
 account sufficient pam_unix.so
@@ -756,28 +772,28 @@ EOF
     systemd-sysusers --inline "u lightuser"
 
     systemd-run -u "$TRANSIENTUNIT3" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_TYPE=unspecified" -p Type=exec -p User=lightuser sleep infinity
-    loginctl | grep lightuser | grep -q background-light
+    loginctl | grep lightuser | grep -w background-light >/dev/null
     systemctl stop "$TRANSIENTUNIT3"
 
     systemd-run -u "$TRANSIENTUNIT4" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_TYPE=tty" -p Type=exec -p User=lightuser sleep infinity
-    loginctl | grep lightuser | grep -q user-light
+    loginctl | grep lightuser | grep -w user-light >/dev/null
     systemctl stop "$TRANSIENTUNIT4"
 
     # Now check that run0's session class control works
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT0" sleep infinity
-    loginctl | grep lightuser | grep -qw background-light
+    loginctl | grep lightuser | grep -w background-light >/dev/null
     systemctl stop "$RUN0UNIT0"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT1" --lightweight=yes sleep infinity
-    loginctl | grep lightuser | grep -qw background-light
+    loginctl | grep lightuser | grep -w background-light >/dev/null
     systemctl stop "$RUN0UNIT1"
 
     systemd-run --service-type=notify run0 -u lightuser --unit="$RUN0UNIT2" --lightweight=no sleep infinity
-    loginctl | grep lightuser | grep -qw background
+    loginctl | grep lightuser | grep -w background >/dev/null
     systemctl stop "$RUN0UNIT2"
 
     systemd-run --service-type=notify run0 -u root --unit="$RUN0UNIT3" sleep infinity
-    loginctl | grep root | grep -qw background-light
+    loginctl | grep root | grep -w background-light >/dev/null
     systemctl stop "$RUN0UNIT3"
 }
 
@@ -792,7 +808,7 @@ testcase_restart() {
 
     for c in $classes; do
         unit="user-sleeper-$c.service"
-        systemd-run --service-type=notify run0  --setenv XDG_SESSION_CLASS="$c" -u logind-test-user --unit="$unit" sleep infinity
+        systemd-run --service-type=notify run0 --setenv XDG_SESSION_CLASS="$c" -u logind-test-user --unit="$unit" sleep infinity
     done
 
     systemctl restart systemd-logind
@@ -800,7 +816,7 @@ testcase_restart() {
     for c in $classes; do
         unit="user-sleeper-$c.service"
         systemctl --quiet is-active "$unit"
-        loginctl | grep logind-test-user | grep -qw "$c"
+        loginctl | grep logind-test-user | grep -w "$c" >/dev/null
         systemctl kill "$unit"
     done
 }

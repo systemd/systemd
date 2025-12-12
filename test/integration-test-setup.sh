@@ -24,7 +24,7 @@ case "$1" in
                     pacman --upgrade --needed --noconfirm /work/build/*.pkg.tar
                     ;;
                 debian|ubuntu)
-                    apt-get install /work/build/*.deb
+                    DEBIAN_FRONTEND=noninteractive apt-get -y install /work/build/*.deb
                     ;;
                 opensuse*)
                     zypper --non-interactive install --allow-unsigned-rpm /work/build/*.rpm

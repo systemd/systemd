@@ -1,0 +1,99 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-ssh-issue"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-ssh-issue</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-ssh-issue</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-ssh-issue</refname>
+    <refpurpose>Generator for SSH login prompt drop-ins</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-ssh-issue <option>--make-vsock</option></command>
+      <command>/usr/lib/systemd/systemd-ssh-issue <option>--rm-vsock</option></command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-ssh-issue</command> is a small tool that generates a
+    <filename>/run/issue.d/50-ssh-vsock.issue</filename> drop-in file in case <constant>AF_VSOCK</constant>
+    support is available in the kernel and the VM environment. The file contains brief information about how
+    to contact the local system via SSH-over-<constant>AF_VSOCK</constant>, in particular it reports the
+    system's <constant>AF_VSOCK</constant> CID. The file is typically read and displayed by <citerefentry
+    project='man-pages'><refentrytitle>agetty</refentrytitle><manvolnum>8</manvolnum></citerefentry> on
+    console or serial login prompts.</para>
+
+    <para>This tool is automatically used by
+    <citerefentry><refentrytitle>systemd-ssh-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    in the <constant>AF_VSOCK</constant> socket units it generates.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--make-vsock</option></term>
+        <listitem><para>Generates the issue file. This command has no effect if called on systems lacking
+        <constant>AF_VSOCK</constant> support.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--rm-vsock</option></term>
+        <listitem><para>Removes the issue file if it exists.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--issue-path=</option></term>
+        <listitem><para>Changes the path to the issue file to write to/remove. If not specified, defaults to
+        <filename>/run/issue.d/50-ssh-vsock.issue</filename>. If specified as empty string or
+        <literal>-</literal> writes the issue file contents to standard output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help"/>
+      <xi:include href="standard-options.xml" xpointer="version"/>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code
+    otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-ssh-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project="man-pages"><refentrytitle>vsock</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project="man-pages"><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project="man-pages"><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>agetty</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

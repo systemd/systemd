@@ -1,10 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "netdev.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
+#include "ordered-set.h"
+#include "siphash24.h"
 #include "string-table.h"
 
 #define REPLY_CALLBACK_COUNT_THRESHOLD 128
@@ -288,7 +293,7 @@ int manager_process_requests(Manager *manager) {
                  * queued, then this event may make reply callback queue in sd-netlink full. */
                 if (netlink_get_reply_callback_count(manager->rtnl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
                     netlink_get_reply_callback_count(manager->genl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
-                    fw_ctx_get_reply_callback_count(manager->fw_ctx) >= REPLY_CALLBACK_COUNT_THRESHOLD)
+                    netlink_get_reply_callback_count(manager->nfnl) >= REPLY_CALLBACK_COUNT_THRESHOLD)
                         break;
 
                 /* Avoid the request and link freed by req->process() and request_detach(). */

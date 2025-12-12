@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-device.h"
-
-#include "macro.h"
+#include "shared-forward.h"
 
 /* So here's the deal: net_id is supposed to be an exercise in providing stable names for network devices. However, we
  * also want to keep updating the naming scheme used in future versions of net_id. These two goals of course are
@@ -46,6 +42,7 @@ typedef enum NamingSchemeFlags {
         NAMING_FIRMWARE_NODE_SUN         = 1 << 18, /* Use firmware_node/sun to get PCI slot number */
         NAMING_DEVICETREE_PORT_ALIASES   = 1 << 19, /* Include aliases of OF nodes of a netdev itself, not just its parent. See PR #33958. */
         NAMING_USE_INTERFACE_PROPERTY    = 1 << 20, /* Use INTERFACE udev property, rather than sysname, when no renaming is requested. */
+        NAMING_DEVICETREE_ALIASES_WLAN   = 1 << 21, /* Generate names from devicetree aliases for WLAN devices */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -67,6 +64,7 @@ typedef enum NamingSchemeFlags {
         NAMING_V255 = NAMING_V254 & ~NAMING_BRIDGE_MULTIFUNCTION_SLOT,
         NAMING_V257 = NAMING_V255 | NAMING_FIRMWARE_NODE_SUN | NAMING_DEVICETREE_PORT_ALIASES,
         NAMING_V258 = NAMING_V257 | NAMING_USE_INTERFACE_PROPERTY,
+        NAMING_V259 = NAMING_V258 | NAMING_DEVICETREE_ALIASES_WLAN,
 
         EXTRA_NET_NAMING_SCHEMES
 
@@ -98,10 +96,10 @@ typedef enum NamePolicy {
 } NamePolicy;
 
 const char* name_policy_to_string(NamePolicy p) _const_;
-NamePolicy name_policy_from_string(const char *p) _pure_;
+NamePolicy name_policy_from_string(const char *s) _pure_;
 
 const char* alternative_names_policy_to_string(NamePolicy p) _const_;
-NamePolicy alternative_names_policy_from_string(const char *p) _pure_;
+NamePolicy alternative_names_policy_from_string(const char *s) _pure_;
 
 int device_get_sysattr_int_filtered(sd_device *device, const char *sysattr, int *ret_value);
 int device_get_sysattr_unsigned_filtered(sd_device *device, const char *sysattr, unsigned *ret_value);

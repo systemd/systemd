@@ -5,6 +5,7 @@
 #
 # Match string formats:
 # id-input:modalias:<modalias>
+# id-input:<bus>:v<vid>p<pid>:name:<name>:*
 #
 # To add local entries, create a new file
 #   /etc/udev/hwdb.d/61-input-id-local.hwdb
@@ -14,12 +15,11 @@
 # where /dev/input/eventXX is the device in question. If in
 # doubt, simply use /dev/input/event* to reload all input rules.
 #
-# If your changes are generally applicable, preferably send them as a pull
-# request to
+# If your changes are generally applicable, send them as a pull request to
 #   https://github.com/systemd/systemd
 # or create a bug report on https://github.com/systemd/systemd/issues and
 # include your new rules, a description of the device, and the output of
-#   udevadm info /dev/input/eventXX.
+#   udevadm info /dev/input/eventXX
 #
 # This file must only be used where the input_id builtin assigns the wrong
 # properties or lacks the assignment of some properties. This is almost always
@@ -48,8 +48,19 @@
 # id-input:modalias:input:b0003v1234pABCD*
 #  ID_INPUT_TOUCHPAD=1
 #  ID_INPUT=1
+#
+# id-input:usb:v12abp34cd:name:SomeVendor *:*
+#  ID_INPUT_TOUCHPAD=1
+#  ID_INPUT=1
+#
+# For technical reasons the hexadecimal vid/pid in the modalias match are
+# uppercase but lowercase in the bus/vid/pid/name match.
 
 # Sort by brand, model
+
+# Any i2c device with a Mouse suffix in the name is not a pointing stick
+id-input:i2c:*:name:*Mouse:
+ ID_INPUT_POINTINGSTICK=0
 
 # Code Mercenaries Hard- und Software GmbH Virtual RC USB
 id-input:modalias:input:b0003v07C0p1125*
@@ -103,3 +114,7 @@ id-input:modalias:input:b0003v26CEp01A2*
  ID_INPUT_JOYSTICK=
  ID_INPUT_KEY=
  ID_INPUT=
+
+# Saitek PLC Pro Flight Rudder Pedals
+id-input:modalias:input:b0003v06A3p0763*
+ ID_INPUT_JOYSTICK=1

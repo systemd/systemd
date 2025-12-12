@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include "journal-file.h"
 #include "tests.h"
-#include "user-util.h"
 
 static void test_journal_file_parse_uid_from_filename_simple(
                 const char *path,

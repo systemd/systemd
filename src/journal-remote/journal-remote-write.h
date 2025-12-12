@@ -2,7 +2,6 @@
 #pragma once
 
 #include "journal-file.h"
-#include "journal-importer.h"
 
 typedef struct RemoteServer RemoteServer;
 
@@ -26,7 +25,7 @@ Writer* writer_unref(Writer *w);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Writer*, writer_unref);
 
-int writer_write(Writer *s,
+int writer_write(Writer *w,
                  const struct iovec_wrapper *iovw,
                  const dual_timestamp *ts,
                  const sd_id128_t *boot_id,

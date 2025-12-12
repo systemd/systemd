@@ -1,14 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <gnu/libc-version.h>
-#include <limits.h>
-#include <stdlib.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/utsname.h>
 #include <time.h>
 #include <unistd.h>
@@ -18,11 +13,10 @@
 #include "alloc-util.h"
 #include "apparmor-util.h"
 #include "architecture.h"
-#include "audit-util.h"
 #include "battery-util.h"
 #include "bitfield.h"
 #include "blockdev-util.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
 #include "compare-operator.h"
@@ -30,8 +24,8 @@
 #include "confidential-virt.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
-#include "efi-api.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "extract-word.h"
@@ -40,19 +34,20 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
 #include "initrd-util.h"
+#include "libaudit-util.h"
 #include "limits-util.h"
 #include "list.h"
-#include "macro.h"
+#include "log.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "psi-util.h"
@@ -62,6 +57,8 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
 #include "tomoyo-util.h"
 #include "tpm2-util.h"
 #include "uid-classification.h"
@@ -190,7 +187,6 @@ static int condition_test_version_cmp(const char *condition, const char *ver) {
         CompareOperator operator;
         bool first = true;
 
-        assert(condition);
         assert(ver);
 
         for (const char *p = condition;;) {
@@ -522,7 +518,7 @@ static int condition_test_firmware_devicetree_compatible(const char *dtcarg) {
         if (r < 0) {
                 /* if the path doesn't exist it is incompatible */
                 if (r != -ENOENT)
-                        log_debug_errno(r, "Failed to open() '%s', assuming machine is incompatible: %m", DTCOMPAT_FILE);
+                        log_debug_errno(r, "Failed to open '%s', assuming machine is incompatible: %m", DTCOMPAT_FILE);
                 return false;
         }
 
@@ -1095,7 +1091,7 @@ static int condition_test_psi(Condition *c, char **env) {
                         return log_debug_errno(r, "Cannot determine slice \"%s\" cgroup path: %m", slice);
 
                 /* We might be running under the user manager, so get the root path and prefix it accordingly. */
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &root_scope);
+                r = cg_pid_get_path(getpid_cached(), &root_scope);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get root cgroup path: %m");
 
@@ -1114,7 +1110,7 @@ static int condition_test_psi(Condition *c, char **env) {
                         free_and_replace(slice_path, slice_joined);
                 }
 
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, slice_path, controller, &pressure_path);
+                r = cg_get_path(slice_path, controller, &pressure_path);
                 if (r < 0)
                         return log_debug_errno(r, "Error getting cgroup pressure path from %s: %m", slice_path);
 
@@ -1405,6 +1401,10 @@ ConditionType condition_type_from_string(const char *s) {
         return _condition_type_from_string(s);
 }
 
+void condition_types_list(void) {
+        DUMP_STRING_TABLE(_condition_type, ConditionType, _CONDITION_TYPE_MAX);
+}
+
 static const char* const _assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ARCHITECTURE]             = "AssertArchitecture",
         [CONDITION_FIRMWARE]                 = "AssertFirmware",
@@ -1454,6 +1454,10 @@ ConditionType assert_type_from_string(const char *s) {
                 return CONDITION_VERSION;
 
         return _assert_type_from_string(s);
+}
+
+void assert_types_list(void) {
+        DUMP_STRING_TABLE(_assert_type, ConditionType, _CONDITION_TYPE_MAX);
 }
 
 static const char* const condition_result_table[_CONDITION_RESULT_MAX] = {

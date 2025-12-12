@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <malloc.h>
-#include <stdint.h>
 
 #include "alloc-util.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "random-util.h"
 #include "tests.h"

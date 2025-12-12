@@ -90,45 +90,50 @@ testcase_sanity() {
     # --template=
     root="$(mktemp -u -d /var/lib/machines/TEST-13-NSPAWN.sanity.XXX)"
     coverage_create_nspawn_dropin "$root"
-    (! systemd-nspawn --directory="$root" bash -xec 'echo hello')
+    (! systemd-nspawn --register=no --directory="$root" bash -xec 'echo hello')
     # Initialize $root from $template (the $root directory must not exist, hence
     # the `mktemp -u` above)
-    systemd-nspawn --directory="$root" --template="$template" bash -xec 'echo hello'
-    systemd-nspawn --directory="$root" bash -xec 'echo hello; touch /initialized'
+    systemd-nspawn --register=no --directory="$root" --template="$template" bash -xec 'echo hello'
+    systemd-nspawn --register=no --directory="$root" bash -xec 'echo hello; touch /initialized'
     test -e "$root/initialized"
     # Check if the $root doesn't get re-initialized once it's not empty
-    systemd-nspawn --directory="$root" --template="$template" bash -xec 'echo hello'
+    systemd-nspawn --register=no --directory="$root" --template="$template" bash -xec 'echo hello'
     test -e "$root/initialized"
 
-    systemd-nspawn --directory="$root" --ephemeral bash -xec 'touch /ephemeral'
+    systemd-nspawn --register=no --directory="$root" --ephemeral bash -xec 'touch /ephemeral'
     test ! -e "$root/ephemeral"
-    (! systemd-nspawn --directory="$root" \
+    (! systemd-nspawn --register=no \
+                      --directory="$root" \
                       --read-only \
                       bash -xec 'touch /nope')
     test ! -e "$root/nope"
-    systemd-nspawn --image="$image" bash -xec 'echo hello'
+    systemd-nspawn --register=no --image="$image" bash -xec 'echo hello'
 
     # --volatile=
     touch "$root/usr/has-usr"
     # volatile(=yes): rootfs is tmpfs, /usr/ from the OS tree is mounted read only
-    systemd-nspawn --directory="$root"\
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --volatile \
                    bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
     test ! -e "$root/nope"
     test ! -e "$root/usr/read-only"
-    systemd-nspawn --directory="$root"\
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --volatile=yes \
                    bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
     test ! -e "$root/nope"
     test ! -e "$root/usr/read-only"
     # volatile=state: rootfs is read-only, /var/ is tmpfs
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --volatile=state \
                    bash -xec 'test -e /usr/has-usr; mountpoint /var; touch /read-only && exit 1; touch /var/nope'
     test ! -e "$root/read-only"
     test ! -e "$root/var/nope"
     # volatile=overlay: tmpfs overlay is mounted over rootfs
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --volatile=overlay \
                    bash -xec 'test -e /usr/has-usr; touch /nope; touch /var/also-nope; touch /usr/nope-too'
     test ! -e "$root/nope"
@@ -138,27 +143,31 @@ testcase_sanity() {
     # --volatile= with -U
     touch "$root/usr/has-usr"
     # volatile(=yes): rootfs is tmpfs, /usr/ from the OS tree is mounted read only
-    systemd-nspawn --directory="$root"\
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --volatile \
                    -U \
                    bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
     test ! -e "$root/nope"
     test ! -e "$root/usr/read-only"
-    systemd-nspawn --directory="$root"\
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --volatile=yes \
                    -U \
                    bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
     test ! -e "$root/nope"
     test ! -e "$root/usr/read-only"
     # volatile=state: rootfs is read-only, /var/ is tmpfs
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --volatile=state \
                    -U \
                    bash -xec 'test -e /usr/has-usr; mountpoint /var; touch /read-only && exit 1; touch /var/nope'
     test ! -e "$root/read-only"
     test ! -e "$root/var/nope"
     # volatile=overlay: tmpfs overlay is mounted over rootfs
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --volatile=overlay \
                    -U \
                    bash -xec 'test -e /usr/has-usr; touch /nope; touch /var/also-nope; touch /usr/nope-too'
@@ -167,13 +176,16 @@ testcase_sanity() {
     test ! -e "$root/usr/nope-too"
 
     # --machine=, --hostname=
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --machine="foo-bar.baz" \
                    bash -xec '[[ $(hostname) == foo-bar.baz ]]'
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --hostname="hello.world.tld" \
                    bash -xec '[[ $(hostname) == hello.world.tld ]]'
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --machine="foo-bar.baz" \
                    --hostname="hello.world.tld" \
                    bash -xec '[[ $(hostname) == hello.world.tld ]]'
@@ -181,19 +193,20 @@ testcase_sanity() {
     # --uuid=
     rm -f "$root/etc/machine-id"
     uuid="deadbeef-dead-dead-beef-000000000000"
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --uuid="$uuid" \
                    bash -xec "[[ \$container_uuid == $uuid ]]"
 
     # --as-pid2
-    systemd-nspawn --directory="$root" bash -xec '[[ $$ -eq 1 ]]'
-    systemd-nspawn --directory="$root" --as-pid2 bash -xec '[[ $$ -eq 2 ]]'
+    systemd-nspawn --register=no --directory="$root" bash -xec '[[ $$ -eq 1 ]]'
+    systemd-nspawn --register=no --directory="$root" --as-pid2 bash -xec '[[ $$ -eq 2 ]]'
 
     # --user=
     # "Fake" getent passwd's bare minimum, so we don't have to pull it in
     # with all the DSO shenanigans
     cat >"$root/bin/getent" <<\EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [[ $# -eq 0 ]]; then
     :
@@ -208,28 +221,32 @@ EOF
     # bash will end up loading libnss_systemd.so which breaks when libnss_systemd.so is built with sanitizers
     # as bash isn't invoked with the necessary environment variables for that.
     useradd --root="$root" --uid 1000 --user-group --create-home testuser
-    systemd-nspawn --directory="$root" bash -xec '[[ $USER == root ]]'
-    systemd-nspawn --directory="$root" --user=testuser bash -xec '[[ $USER == testuser ]]'
+    systemd-nspawn --register=no --directory="$root" bash -xec '[[ $USER == root ]]'
+    systemd-nspawn --register=no --directory="$root" --user=testuser bash -xec '[[ $USER == testuser ]]'
 
     # --settings= + .nspawn files
     mkdir -p /run/systemd/nspawn/
     uuid="deadbeef-dead-dead-beef-000000000000"
     echo -ne "[Exec]\nMachineID=deadbeef-dead-dead-beef-111111111111" >/run/systemd/nspawn/foo-bar.nspawn
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --machine=foo-bar \
                    --settings=yes \
                    bash -xec '[[ $container_uuid == deadbeef-dead-dead-beef-111111111111 ]]'
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --machine=foo-bar \
                    --uuid="$uuid" \
                    --settings=yes \
                    bash -xec "[[ \$container_uuid == $uuid ]]"
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --machine=foo-bar \
                    --uuid="$uuid" \
                    --settings=override \
                    bash -xec '[[ $container_uuid == deadbeef-dead-dead-beef-111111111111 ]]'
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --machine=foo-bar \
                    --uuid="$uuid" \
                    --settings=trusted \
@@ -240,53 +257,70 @@ EOF
     touch "$tmpdir/1/one" "$tmpdir/2/two" "$tmpdir/3/three"
     touch "$tmpdir/foo"
     # --bind=
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
                    --bind="$tmpdir:/foo" \
                    --bind="$tmpdir:/also-foo:noidmap,norbind" \
                    bash -xec 'test -e /foo/foo; touch /foo/bar; test -e /also-foo/bar'
+    # --bind= recursive
+    rm -f "$tmpdir/bar"
+    mount --bind "$tmpdir/1" "$tmpdir/2"
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
+                   --bind="$tmpdir:/foo" \
+                   --bind="$tmpdir:/also-foo:noidmap,norbind" \
+                   bash -xec 'test -e /foo/2/one; ! test -e /foo/2/two; test -e /also-foo/2/two; ! test -e /also-foo/2/one; test -e /foo/foo; touch /foo/bar; test -e /also-foo/bar'
+    umount "$tmpdir/2"
     test -e "$tmpdir/bar"
     # --bind-ro=
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --bind-ro="$tmpdir:/foo" \
                    --bind-ro="$tmpdir:/bar:noidmap,norbind" \
                    bash -xec 'test -e /foo/foo; touch /foo/baz && exit 1; touch /bar && exit 1; true'
     # --inaccessible=
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --inaccessible=/var \
                    bash -xec 'touch /var/foo && exit 1; true'
     # --tmpfs=
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --tmpfs=/var:rw,nosuid,noexec \
                    bash -xec 'touch /var/nope'
     test ! -e "$root/var/nope"
     # --overlay=
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --overlay="$tmpdir/1:$tmpdir/2:$tmpdir/3:/var" \
                    bash -xec 'test -e /var/one; test -e /var/two; test -e /var/three; touch /var/foo'
     test -e "$tmpdir/3/foo"
     # --overlay-ro=
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --overlay-ro="$tmpdir/1:$tmpdir/2:$tmpdir/3:/var" \
                    bash -xec 'test -e /var/one; test -e /var/two; test -e /var/three; touch /var/nope && exit 1; true'
     test ! -e "$tmpdir/3/nope"
     rm -fr "$tmpdir"
 
     # --port (sanity only)
-    systemd-nspawn --network-veth --directory="$root" --port=80 --port=90 true
-    systemd-nspawn --network-veth --directory="$root" --port=80:8080 true
-    systemd-nspawn --network-veth --directory="$root" --port=tcp:80 true
-    systemd-nspawn --network-veth --directory="$root" --port=tcp:80:8080 true
-    systemd-nspawn --network-veth --directory="$root" --port=udp:80 true
-    systemd-nspawn --network-veth --directory="$root" --port=udp:80:8080 --port=tcp:80:8080 true
-    (! systemd-nspawn --network-veth --directory="$root" --port= true)
-    (! systemd-nspawn --network-veth --directory="$root" --port=-1 true)
-    (! systemd-nspawn --network-veth --directory="$root" --port=: true)
-    (! systemd-nspawn --network-veth --directory="$root" --port=icmp:80:8080 true)
-    (! systemd-nspawn --network-veth --directory="$root" --port=tcp::8080 true)
-    (! systemd-nspawn --network-veth --directory="$root" --port=8080: true)
+    systemd-nspawn --register=no --network-veth --directory="$root" --port=80 --port=90 true
+    systemd-nspawn --register=no --network-veth --directory="$root" --port=80:8080 true
+    systemd-nspawn --register=no --network-veth --directory="$root" --port=tcp:80 true
+    systemd-nspawn --register=no --network-veth --directory="$root" --port=tcp:80:8080 true
+    systemd-nspawn --register=no --network-veth --directory="$root" --port=udp:80 true
+    systemd-nspawn --register=no --network-veth --directory="$root" --port=udp:80:8080 --port=tcp:80:8080 true
+    (! systemd-nspawn --register=no --network-veth --directory="$root" --port= true)
+    (! systemd-nspawn --register=no --network-veth --directory="$root" --port=-1 true)
+    (! systemd-nspawn --register=no --network-veth --directory="$root" --port=: true)
+    (! systemd-nspawn --register=no --network-veth --directory="$root" --port=icmp:80:8080 true)
+    (! systemd-nspawn --register=no --network-veth --directory="$root" --port=tcp::8080 true)
+    (! systemd-nspawn --register=no --network-veth --directory="$root" --port=8080: true)
     # Exercise adding/removing ports from an interface
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --network-veth \
                    --port=6667 \
                    --port=80:8080 \
@@ -296,12 +330,14 @@ EOF
 
     # --load-credential=, --set-credential=
     echo "foo bar" >/tmp/cred.path
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --load-credential=cred.path:/tmp/cred.path \
                    --set-credential="cred.set:hello world" \
                    bash -xec '[[ "$(</run/host/credentials/cred.path)" == "foo bar" ]]; [[ "$(</run/host/credentials/cred.set)" == "hello world" ]]'
     # Combine with --user to ensure creds are still readable
-    systemd-nspawn --directory="$root" \
+    systemd-nspawn --register=no \
+                   --directory="$root" \
                    --user=testuser \
                    --no-new-privileges=yes \
                    --load-credential=cred.path:/tmp/cred.path \
@@ -310,8 +346,9 @@ EOF
     rm -f /tmp/cred.path
 
     # Assorted tests
-    systemd-nspawn --directory="$root" --suppress-sync=yes bash -xec 'echo hello'
+    systemd-nspawn --register=no --directory="$root" --suppress-sync=yes bash -xec 'echo hello'
     systemd-nspawn --capability=help
+    systemd-nspawn --register=no --directory="$root" --capability=all bash -xec 'echo hello'
     systemd-nspawn --resolv-conf=help
     systemd-nspawn --timezone=help
 
@@ -446,7 +483,7 @@ Port=tcp:60
 Port=udp:60:61
 EOF
     cat >"$root/entrypoint.sh" <<\EOF
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 
 env
@@ -579,6 +616,151 @@ testcase_bind_user() {
     rm -fr "$root"
 }
 
+testcase_bind_user_shell() {
+    local root
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.bind-user.XXX)"
+    create_dummy_container "$root"
+    useradd --create-home --user-group --shell=/usr/bin/bash nspawn-bind-user-1
+    useradd --create-home --user-group --shell=/usr/bin/sh   nspawn-bind-user-2
+    trap bind_user_cleanup RETURN
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-1.user'
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user-shell=no \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-1.user'
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user-shell=yes \
+                   bash -xec 'grep -q "\"shell\":\"/usr/bin/bash\"" /run/host/userdb/nspawn-bind-user-1.user'
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user-shell=/bin/bash \
+                   bash -xec 'grep -q "\"shell\":\"/bin/bash\"" /run/host/userdb/nspawn-bind-user-1.user'
+
+    (! systemd-nspawn --directory="$root" \
+                      --private-users=pick \
+                      --bind-user=nspawn-bind-user-1 \
+                      --bind-user-shell=bad-argument \
+                      bash -xec 'true')
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user=nspawn-bind-user-2 \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-1.user && grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user=nspawn-bind-user-2 \
+                   --bind-user-shell=yes \
+                   bash -xec 'grep -q "\"shell\":\"/usr/bin/bash\"" /run/host/userdb/nspawn-bind-user-1.user && grep -q "\"shell\":\"/usr/bin/sh\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user=nspawn-bind-user-2 \
+                   --bind-user-shell=/bin/sh \
+                   bash -xec 'grep -q "\"shell\":\"/bin/sh\"" /run/host/userdb/nspawn-bind-user-1.user && grep -q "\"shell\":\"/bin/sh\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    mach=$(basename "$root")
+    mkdir -p /run/systemd/nspawn
+    conf=/run/systemd/nspawn/"$mach".nspawn
+
+    cat <<'EOF' >"$conf"
+# [Files]
+# BindUserShell=no by default
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-2 \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+[Files]
+BindUserShell=no
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-2 \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+[Files]
+BindUserShell=yes
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-2 \
+                   bash -xec 'grep -q "\"shell\":\"/usr/bin/sh\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+[Files]
+BindUserShell=/bin/sh
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-2 \
+                   bash -xec 'grep -q "\"shell\":\"/bin/sh\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+# [Files]
+# BindUserShell=no default doesn't override
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --settings=override \
+                   --bind-user=nspawn-bind-user-2 \
+                   --bind-user-shell=yes \
+                   bash -xec 'grep -q "\"shell\":\"/usr/bin/sh\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+[Files]
+BindUserShell=no
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --settings=override \
+                   --bind-user=nspawn-bind-user-2 \
+                   --bind-user-shell=yes \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+[Files]
+BindUserShell=no
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --settings=override \
+                   --bind-user=nspawn-bind-user-2 \
+                   --bind-user-shell=/foo \
+                   bash -xec 'grep -qv "\"shell\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    cat <<'EOF' >"$conf"
+[Files]
+BindUserShell=/bin/sh
+EOF
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --settings=override \
+                   --bind-user=nspawn-bind-user-2 \
+                   --bind-user-shell=yes \
+                   bash -xec 'grep -q "\"shell\":\"/bin/sh\"" /run/host/userdb/nspawn-bind-user-2.user'
+
+    rm -fr "$root"
+}
+
 testcase_bind_tmp_path() {
     # https://github.com/systemd/systemd/issues/4789
     local root
@@ -689,7 +871,7 @@ testcase_owneridmap() {
     # "Fake" getent passwd's bare minimum, so we don't have to pull it in
     # with all the DSO shenanigans
     cat >"$root/bin/getent" <<\EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [[ $# -eq 0 ]]; then
     :
@@ -714,7 +896,7 @@ EOF
                            --user=testuser \
                            --bind=/tmp/owneridmap/bind:/home/testuser:owneridmap \
                            ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
-                           /usr/bin/bash -c "$cmd" |& tee nspawn.out; then
+                           bash -c "$cmd" |& tee nspawn.out; then
         if grep -q "Failed to map ids for bind mount.*: Function not implemented" nspawn.out; then
             echo "idmapped mounts are not supported, skipping the test..."
             return 0
@@ -751,7 +933,8 @@ testcase_os_release() {
     create_dummy_container "$root"
     entrypoint="$root/entrypoint.sh"
     cat >"$entrypoint" <<\EOF
-#!/usr/bin/bash -ex
+#!/usr/bin/env bash
+set -ex
 
 . /tmp/os-release
 [[ -n "${ID:-}" && "$ID" != "$container_host_id" ]] && exit 1
@@ -787,7 +970,7 @@ EOF
 
 testcase_machinectl_bind() {
     local service_path service_name root container_name ec
-    local cmd='for i in $(seq 1 20); do if test -f /tmp/marker && test -f /tmp/marker-varlink; then exit 0; fi; sleep .5; done; exit 1;'
+    local cmd="timeout 10 bash -c 'until [[ -f /tmp/marker ]] && [[ -f /tmp/marker-varlink ]]; do sleep .5; done'; sleep 3"
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.machinectl-bind.XXX)"
     create_dummy_container "$root"
@@ -798,7 +981,7 @@ testcase_machinectl_bind() {
     cat >"$service_path" <<EOF
 [Service]
 Type=notify
-ExecStart=systemd-nspawn --directory="$root" --notify-ready=no /usr/bin/bash -xec "$cmd"
+ExecStart=systemd-nspawn --directory="$root" --notify-ready=no bash -xec "$cmd"
 EOF
 
     systemctl daemon-reload
@@ -980,7 +1163,10 @@ testcase_check_os_release() {
     base="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.check_os_release_base.XXX)"
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.check_os_release.XXX)"
     create_dummy_container "$base"
-    cp -d "$base"/{bin,sbin,lib,lib64} "$root/"
+    cp -d "$base"/{bin,sbin,lib} "$root/"
+    if [ -d "$base"/lib64 ]; then
+        cp -d "$base"/lib64 "$root/"
+    fi
     common_opts=(
         --boot
         --register=no
@@ -1050,28 +1236,6 @@ EOF
     rm -fr "$root"
 }
 
-can_do_rootless_nspawn() {
-    # Our create_dummy_ddi() uses squashfs and openssl.
-    command -v mksquashfs &&
-    command -v openssl &&
-
-    # mountfsd must be enabled...
-    [[ -S /run/systemd/io.systemd.MountFileSystem ]] &&
-    # ...and have pidfd support for unprivileged operation.
-    systemd-analyze compare-versions "$(uname -r)" ge 6.5 &&
-    systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124 &&
-
-    # nsresourced must be enabled...
-    [[ -S /run/systemd/userdb/io.systemd.NamespaceResource ]] &&
-    # ...and must support the UserNamespaceInterface.
-    ! (SYSTEMD_LOG_TARGET=console varlinkctl call \
-           /run/systemd/userdb/io.systemd.NamespaceResource \
-           io.systemd.NamespaceResource.AllocateUserRange \
-           '{"name":"test-supported","size":65536,"userNamespaceFileDescriptor":0}' \
-           2>&1 || true) |
-        grep -q "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"
-}
-
 create_dummy_ddi() {
     local outdir="${1:?}"
     local container_name="${2:?}"
@@ -1122,20 +1286,20 @@ testcase_unpriv() {
     create_dummy_ddi "$tmpdir" "$name"
     chown --recursive testuser: "$tmpdir"
 
-    systemd-run \
+    run0 --pipe -u testuser systemd-run \
+        --user \
         --pipe \
-        --uid=testuser \
         --property=Delegate=yes \
         -- \
         systemd-nspawn --pipe --private-network --register=no --keep-unit --image="$tmpdir/$name.raw" echo hello >"$tmpdir/stdout.txt"
     echo hello | cmp "$tmpdir/stdout.txt" -
 
     # Make sure per-user search path logic works
-    systemd-run --pipe --uid=testuser mkdir -p /home/testuser/.local/state/machines
-    systemd-run --pipe --uid=testuser ln -s "$tmpdir/$name.raw" /home/testuser/.local/state/machines/"x$name.raw"
-    systemd-run \
+    run0 -u testuser --pipe mkdir -p /home/testuser/.local/state/machines
+    run0 -u testuser --pipe ln -s "$tmpdir/$name.raw" /home/testuser/.local/state/machines/"x$name.raw"
+    run0 --pipe -u testuser systemd-run \
+        --user \
         --pipe \
-        --uid=testuser \
         --property=Delegate=yes \
         -- \
         systemd-nspawn --pipe --private-network --register=no --keep-unit --machine="x$name" echo hello >"$tmpdir/stdout.txt"
@@ -1174,7 +1338,7 @@ testcase_fuse() {
     #    "cat: -: Operation not permitted"                   # pass the test; opened but not read
     #    "bash: line 1: /dev/fuse: Operation not permitted"  # fail the test; could not open
     #    ""                                                  # fail the test; reading worked
-    [[ "$(systemd-nspawn --pipe --directory="$root" \
+    [[ "$(systemd-nspawn --register=no --pipe --directory="$root" \
               bash -c 'cat <>/dev/fuse' 2>&1)" == 'cat: -: Operation not permitted' ]]
 
     rm -fr "$root"
@@ -1202,9 +1366,9 @@ testcase_unpriv_fuse() {
     create_dummy_ddi "$tmpdir" "$name"
     chown --recursive testuser: "$tmpdir"
 
-    [[ "$(systemd-run \
+    [[ "$(run0 -u testuser --pipe systemd-run \
+              --user \
               --pipe \
-              --uid=testuser \
               --property=Delegate=yes \
               --setenv=SYSTEMD_LOG_LEVEL \
               --setenv=SYSTEMD_LOG_TARGET \
@@ -1214,7 +1378,7 @@ testcase_unpriv_fuse() {
 }
 
 test_tun() {
-    systemd-nspawn "$@" bash -xec '[[ -c /dev/net/tun ]]; [[ "$(stat /dev/net/tun --format=%u)" == 0 ]]; [[ "$(stat /dev/net/tun --format=%g)" == 0 ]]'
+    systemd-nspawn --register=no "$@" bash -xec '[[ -c /dev/net/tun ]]; [[ "$(stat /dev/net/tun --format=%u)" == 0 ]]; [[ "$(stat /dev/net/tun --format=%g)" == 0 ]]'
 
     # check if the owner of the host device is unchanged, see issue #34243.
     [[ "$(stat /dev/net/tun --format=%u)" == 0 ]]
@@ -1223,7 +1387,7 @@ test_tun() {
     # Without DeviceAllow= for /dev/net/tun, see issue #35116.
     systemd-run \
         --wait -p Environment=SYSTEMD_LOG_LEVEL=debug -p DevicePolicy=closed -p DeviceAllow="char-pts rw" \
-        systemd-nspawn "$@" bash -xec '[[ ! -e /dev/net/tun ]]'
+        systemd-nspawn --register=no "$@" bash -xec '[[ ! -e /dev/net/tun ]]'
 
     [[ "$(stat /dev/net/tun --format=%u)" == 0 ]]
     [[ "$(stat /dev/net/tun --format=%g)" == 0 ]]
@@ -1286,6 +1450,87 @@ testcase_unpriv_dir() {
     chown root:root "$root/.."
 
     rm -rf "$root"
+}
+
+testcase_link_journal_host() {
+    local root hoge i
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.link-journal.XXX)"
+    create_dummy_container "$root"
+
+    systemd-id128 new > "$root"/etc/machine-id
+
+    hoge="/var/log/journal/$(cat "$root"/etc/machine-id)/"
+    mkdir -p "$hoge"
+    # The systemd-journal group is not mapped, so ensure the directory is owned by root:root
+    chown root:root "$hoge"
+
+    for i in no yes pick; do
+        systemd-nspawn \
+            --register=no --directory="$root" --private-users="$i" --link-journal=host \
+            bash -xec 'p="/var/log/journal/$(cat /etc/machine-id)"; mountpoint "$p"; [[ "$(stat "$p" --format=%u)" == 0 ]]; touch "$p/hoge"'
+
+        [[ "$(stat "${hoge}/hoge" --format=%u)" == 0 ]]
+        rm "${hoge}/hoge"
+    done
+
+    rm -fr "$root" "$hoge"
+}
+
+testcase_volatile_link_journal_no_userns() {
+    local root machine_id journal_dir acl_output
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.volatile-journal.XXX)"
+    create_dummy_container "$root"
+
+    machine_id="$(systemd-id128 new)"
+    echo "$machine_id" >"$root/etc/machine-id"
+
+    journal_dir="/var/log/journal/$machine_id"
+    mkdir -p "$journal_dir"
+    chown root:root "$journal_dir"
+
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --boot \
+                   --volatile=yes \
+                   --link-journal=host \
+                   systemd.unit=systemd-tmpfiles-setup.service
+
+    local gid
+    gid="$(stat -c '%g' "$journal_dir")"
+
+    # Ensure GID is not 4294967295 (GID_INVALID)
+    [[ "$gid" != "4294967295" ]]
+
+    # Ensure the directory is owned by a valid user (root or systemd-journal
+    # group). The GID should be either 0 (root) or the systemd-journal GID, not
+    # some bombastically large number
+    [[ "$gid" -lt 65535 ]]
+
+    # Ensure the invalid GID doesn't appear in ACLs
+    acl_output="$(getfacl "$journal_dir" || true)"
+    grep -q "4294967295" <<< "$acl_output" && exit 1
+
+    rm -fr "$root" "$journal_dir"
+}
+
+testcase_cap_net_bind_service() {
+    local root
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.cap-net-bind-service.XXX)"
+    create_dummy_container "$root"
+
+    # Check that CAP_NET_BIND_SERVICE is available without --private-users
+    systemd-nspawn --register=no --directory="$root" capsh --has-p=cap_net_bind_service
+
+    # Check that CAP_NET_BIND_SERVICE is not available with --private-users=identity
+    (! systemd-nspawn --register=no --directory="$root" --private-users=identity capsh --has-p=cap_net_bind_service)
+
+    # Check that CAP_NET_BIND_SERVICE is not available with --private-users=pick
+    (! systemd-nspawn --register=no --directory="$root" --private-users=pick capsh --has-p=cap_net_bind_service)
+
+    rm -fr "$root"
 }
 
 run_testcases

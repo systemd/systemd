@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Generate network units from Kernel command line
+Description=Generate Network Units from Kernel Command Line
 Documentation=man:systemd-network-generator.service(8)
 
 DefaultDependencies=no

@@ -1,28 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <sys/mount.h>
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "filesystems.h"
 #include "fs-util.h"
 #include "log.h"
-#include "missing_fcntl.h"
-#include "missing_fs.h"
-#include "missing_syscall.h"
-#include "mkdir.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
 
 /* This is the original MAX_HANDLE_SZ definition from the kernel, when the API was introduced. We use that in place of
  * any more currently defined value to future-proof things: if the size is increased in the API headers, and our code

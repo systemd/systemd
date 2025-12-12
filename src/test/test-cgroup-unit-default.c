@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
-
 #include "cgroup.h"
 #include "manager.h"
 #include "rm-rf.h"
@@ -23,7 +21,7 @@ TEST_RET(default_memory_low, .sd_booted = true) {
                 return log_tests_skipped("cgroupfs not available");
 
         _cleanup_free_ char *unit_dir = NULL;
-        ASSERT_OK(get_testdata_dir("units", &unit_dir));
+        ASSERT_OK(get_testdata_dir("test-cgroup-unit-default", &unit_dir));
         ASSERT_OK(setenv_unit_path(unit_dir));
         assert_se(runtime_dir = setup_fake_runtime_dir());
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);

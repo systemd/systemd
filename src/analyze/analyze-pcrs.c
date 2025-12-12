@@ -1,11 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
+#include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-pcrs.h"
+#include "ansi-color.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "hexdecoct.h"
-#include "terminal-util.h"
+#include "log.h"
+#include "strv.h"
 #include "tpm2-util.h"
 
 static int get_pcr_alg(const char **ret) {
@@ -109,7 +114,7 @@ int verb_pcrs(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         (void) table_set_align_percent(table, table_get_cell(table, 0, 0), 100);
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         if (!alg) /* hide hash column if we couldn't acquire it */
                 (void) table_set_display(table, 0, 1);
@@ -138,7 +143,7 @@ int verb_pcrs(int argc, char *argv[], void *userdata) {
 
         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */true);
         if (r < 0)
-                return log_error_errno(r, "Failed to output table: %m");
+                return r;
 
         return EXIT_SUCCESS;
 }
