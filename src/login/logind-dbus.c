@@ -1641,6 +1641,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -1817,6 +1818,7 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -1847,6 +1849,7 @@ static int method_flush_devices(sd_bus_message *message, void *userdata, sd_bus_
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -2225,6 +2228,7 @@ static int verify_shutdown_creds(
                                 /* good_user= */ UID_INVALID,
                                 interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                                 &m->polkit_registry,
+                                /* ret_admin= */ NULL,
                                 error);
                 if (r < 0) {
                         /* If we get -EBUSY, it means a polkit decision was made, but not for
@@ -2266,6 +2270,7 @@ static int verify_shutdown_creds(
                                 /* good_user= */ UID_INVALID,
                                 polkit_flags,
                                 &m->polkit_registry,
+                                /* ret_admin= */ NULL,
                                 error);
                 if (r < 0)
                         return r;
@@ -2281,6 +2286,7 @@ static int verify_shutdown_creds(
                                 /* good_user= */ UID_INVALID,
                                 interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                                 &m->polkit_registry,
+                                /* ret_admin= */ NULL,
                                 error);
                 if (r < 0)
                         return r;

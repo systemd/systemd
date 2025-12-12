@@ -1358,6 +1358,7 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -1407,6 +1408,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -1487,6 +1489,7 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -1564,6 +1567,7 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
                         /* good_user= */ UID_INVALID,
                         interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -1907,7 +1911,8 @@ static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_
                         /* details= */ NULL,
                         UID_INVALID,
                         POLKIT_DONT_REPLY,
-                        &c->polkit_registry);
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r == 0)
                 return 0; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
