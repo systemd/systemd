@@ -97,11 +97,9 @@ typedef enum NamePolicy {
         _NAMEPOLICY_INVALID = -EINVAL,
 } NamePolicy;
 
-const char* name_policy_to_string(NamePolicy p) _const_;
-NamePolicy name_policy_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);
 
-const char* alternative_names_policy_to_string(NamePolicy p) _const_;
-NamePolicy alternative_names_policy_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(alternative_names_policy, NamePolicy);
 
 int device_get_sysattr_int_filtered(sd_device *device, const char *sysattr, int *ret_value);
 int device_get_sysattr_unsigned_filtered(sd_device *device, const char *sysattr, unsigned *ret_value);

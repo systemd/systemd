@@ -3,20 +3,21 @@
 
 /* IWYU pragma: always_keep */
 
-#include <errno.h>              /* IWYU pragma: export */
-#include <inttypes.h>           /* IWYU pragma: export */
-#include <limits.h>             /* IWYU pragma: export */
-#include <paths.h>              /* IWYU pragma: export */
-#include <stdarg.h>             /* IWYU pragma: export */
-#include <stdbool.h>            /* IWYU pragma: export */
-#include <stddef.h>             /* IWYU pragma: export */
-#include <stdint.h>             /* IWYU pragma: export */
-#include <sys/types.h>          /* IWYU pragma: export */
-#include <uchar.h>              /* IWYU pragma: export */
+#include <errno.h>                      /* IWYU pragma: export */
+#include <inttypes.h>                   /* IWYU pragma: export */
+#include <limits.h>                     /* IWYU pragma: export */
+#include <paths.h>                      /* IWYU pragma: export */
+#include <stdarg.h>                     /* IWYU pragma: export */
+#include <stdbool.h>                    /* IWYU pragma: export */
+#include <stddef.h>                     /* IWYU pragma: export */
+#include <stdint.h>                     /* IWYU pragma: export */
+#include <sys/types.h>                  /* IWYU pragma: export */
+#include <uchar.h>                      /* IWYU pragma: export */
 
-#include "assert-util.h"        /* IWYU pragma: export */
-#include "cleanup-util.h"       /* IWYU pragma: export */
-#include "macro.h"              /* IWYU pragma: export */
+#include "assert-util.h"                /* IWYU pragma: export */
+#include "cleanup-util.h"               /* IWYU pragma: export */
+#include "macro.h"                      /* IWYU pragma: export */
+#include "string-table-fundamental.h"   /* IWYU pragma: export */
 
 /* Generic types */
 

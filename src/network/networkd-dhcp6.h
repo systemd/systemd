@@ -26,5 +26,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_prefix_hint);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_mud_url);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_client_start_mode);
 
-const char* dhcp6_client_start_mode_to_string(DHCP6ClientStartMode i) _const_;
-DHCP6ClientStartMode dhcp6_client_start_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dhcp6_client_start_mode, DHCP6ClientStartMode);

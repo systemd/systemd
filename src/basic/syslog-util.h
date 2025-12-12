@@ -3,12 +3,10 @@
 
 #include "basic-forward.h"
 
-int log_facility_unshifted_to_string_alloc(int i, char **ret);
-int log_facility_unshifted_from_string(const char *s);
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(log_facility_unshifted, int);
 bool log_facility_unshifted_is_valid(int faciliy);
 
-int log_level_to_string_alloc(int i, char **ret);
-int log_level_from_string(const char *s);
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(log_level, int);
 bool log_level_is_valid(int level);
 
 int syslog_parse_priority(const char **p, int *priority, bool with_facility);

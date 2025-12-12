@@ -46,8 +46,7 @@ typedef struct RoutingPolicyRule {
         struct fib_rule_port_range dport; /* FRA_DPORT_RANGE */
 } RoutingPolicyRule;
 
-int fr_act_type_from_string(const char *s) _pure_;
-const char* fr_act_type_to_string(int t) _const_;
+DECLARE_STRING_TABLE_LOOKUP(fr_act_type, int);
 
 RoutingPolicyRule* routing_policy_rule_ref(RoutingPolicyRule *rule);
 RoutingPolicyRule* routing_policy_rule_unref(RoutingPolicyRule *rule);

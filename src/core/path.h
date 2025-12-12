@@ -76,11 +76,9 @@ void path_free_specs(Path *p);
 extern const UnitVTable path_vtable;
 extern const ActivationDetailsVTable activation_details_path_vtable;
 
-const char* path_type_to_string(PathType i) _const_;
-PathType path_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(path_type, PathType);
 
-const char* path_result_to_string(PathResult i) _const_;
-PathResult path_result_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(path_result, PathResult);
 
 DEFINE_CAST(PATH, Path);
 DEFINE_ACTIVATION_DETAILS_CAST(ACTIVATION_DETAILS_PATH, ActivationDetailsPath, PATH);

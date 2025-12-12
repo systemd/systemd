@@ -13,5 +13,4 @@ typedef enum GeneveDF {
         _NETDEV_GENEVE_DF_INVALID = -EINVAL,
 } GeneveDF;
 
-const char* geneve_df_to_string(GeneveDF d) _const_;
-GeneveDF geneve_df_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(geneve_df, GeneveDF);

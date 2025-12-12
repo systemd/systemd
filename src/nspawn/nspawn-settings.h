@@ -6,9 +6,9 @@
 #include "capability-util.h"
 #include "conf-parser-forward.h"
 #include "cpu-set-util.h"
-#include "shared-forward.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"
+#include "shared-forward.h"
 #include "volatile-util.h"
 
 typedef struct CustomMount CustomMount;
@@ -277,17 +277,13 @@ CONFIG_PARSER_PROTOTYPE(config_parse_userns_ownership);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_user);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_user_shell);
 
-const char* resolv_conf_mode_to_string(ResolvConfMode a) _const_;
-ResolvConfMode resolv_conf_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(resolv_conf_mode, ResolvConfMode);
 
-const char* timezone_mode_to_string(TimezoneMode a) _const_;
-TimezoneMode timezone_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(timezone_mode, TimezoneMode);
 
-const char* console_mode_to_string(ConsoleMode m) _const_;
-ConsoleMode console_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);
 
-const char* user_namespace_ownership_to_string(UserNamespaceOwnership a) _const_;
-UserNamespaceOwnership user_namespace_ownership_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(user_namespace_ownership, UserNamespaceOwnership);
 
 int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try);
 

@@ -11,10 +11,8 @@ typedef enum RuntimeScope {
         _RUNTIME_SCOPE_INVALID = -EINVAL,
 } RuntimeScope;
 
-const char* runtime_scope_to_string(RuntimeScope scope) _const_;
-RuntimeScope runtime_scope_from_string(const char *s) _const_;
-
-const char* runtime_scope_cmdline_option_to_string(RuntimeScope scope) _const_;
+DECLARE_STRING_TABLE_LOOKUP(runtime_scope, RuntimeScope);
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(runtime_scope_cmdline_option, RuntimeScope);
 
 static inline mode_t runtime_scope_to_socket_mode(RuntimeScope scope) {
         /* Returns the right socket mode to use for binding AF_UNIX sockets intended for the specified

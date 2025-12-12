@@ -94,10 +94,8 @@ int swap_process_device_remove(Manager *m, sd_device *dev);
 int swap_get_priority(const Swap *s);
 const char* swap_get_options(const Swap *s);
 
-const char* swap_exec_command_to_string(SwapExecCommand i) _const_;
-SwapExecCommand swap_exec_command_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(swap_exec_command, SwapExecCommand);
 
-const char* swap_result_to_string(SwapResult i) _const_;
-SwapResult swap_result_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(swap_result, SwapResult);
 
 DEFINE_CAST(SWAP, Swap);

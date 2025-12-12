@@ -52,7 +52,6 @@ int bpf_map_new(const char *name, enum bpf_map_type type, size_t key_size, size_
 int bpf_map_update_element(int fd, const void *key, void *value);
 int bpf_map_lookup_element(int fd, const void *key, void *value);
 
-int bpf_cgroup_attach_type_from_string(const char *str) _pure_;
-const char* bpf_cgroup_attach_type_to_string(int attach_type) _const_;
+DECLARE_STRING_TABLE_LOOKUP(bpf_cgroup_attach_type, int);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(BPFProgram*, bpf_program_free);

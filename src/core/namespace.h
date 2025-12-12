@@ -221,35 +221,25 @@ int setup_tmp_dirs(
 int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag);
 int open_shareable_ns_path(int netns_storage_socket[static 2], const char *path, unsigned long nsflag);
 
-const char* protect_home_to_string(ProtectHome p) _const_;
-ProtectHome protect_home_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(protect_home, ProtectHome);
 
-const char* protect_hostname_to_string(ProtectHostname p) _const_;
-ProtectHostname protect_hostname_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(protect_hostname, ProtectHostname);
 
-const char* protect_system_to_string(ProtectSystem p) _const_;
-ProtectSystem protect_system_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(protect_system, ProtectSystem);
 
-const char* protect_proc_to_string(ProtectProc i) _const_;
-ProtectProc protect_proc_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(protect_proc, ProtectProc);
 
-const char* proc_subset_to_string(ProcSubset i) _const_;
-ProcSubset proc_subset_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset);
 
-const char* private_bpf_to_string(PrivateBPF i) _const_;
-PrivateBPF private_bpf_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(private_bpf, PrivateBPF);
 
-const char* bpf_delegate_cmd_to_string(uint64_t u) _const_;
-uint64_t bpf_delegate_cmd_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(bpf_delegate_cmd, uint64_t);
 
-const char* bpf_delegate_map_type_to_string(uint64_t u) _const_;
-uint64_t bpf_delegate_map_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(bpf_delegate_map_type, uint64_t);
 
-const char* bpf_delegate_prog_type_to_string(uint64_t u) _const_;
-uint64_t bpf_delegate_prog_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(bpf_delegate_prog_type, uint64_t);
 
-const char* bpf_delegate_attach_type_to_string(uint64_t u) _const_;
-uint64_t bpf_delegate_attach_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(bpf_delegate_attach_type, uint64_t);
 
 char* bpf_delegate_to_string(uint64_t u, const char * (*parser)(uint64_t) _const_);
 int bpf_delegate_from_string(const char *s, uint64_t *ret, uint64_t (*parser)(const char *));
@@ -286,17 +276,13 @@ static inline char * bpf_delegate_attachments_to_string(uint64_t u) {
         return bpf_delegate_to_string(u, bpf_delegate_attach_type_to_string);
 }
 
-const char* private_tmp_to_string(PrivateTmp i) _const_;
-PrivateTmp private_tmp_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(private_tmp, PrivateTmp);
 
-const char* private_users_to_string(PrivateUsers i) _const_;
-PrivateUsers private_users_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(private_users, PrivateUsers);
 
-const char* protect_control_groups_to_string(ProtectControlGroups i) _const_;
-ProtectControlGroups protect_control_groups_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(protect_control_groups, ProtectControlGroups);
 
-const char* private_pids_to_string(PrivatePIDs i) _const_;
-PrivatePIDs private_pids_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(private_pids, PrivatePIDs);
 
 void bind_mount_free_many(BindMount *b, size_t n);
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);

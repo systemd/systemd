@@ -73,20 +73,15 @@ typedef enum LinkOnlineState {
         _LINK_ONLINE_STATE_INVALID = -EINVAL,
 } LinkOnlineState;
 
-const char* link_operstate_to_string(LinkOperationalState s) _const_;
-LinkOperationalState link_operstate_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(link_operstate, LinkOperationalState);
 
-const char* link_carrier_state_to_string(LinkCarrierState s) _const_;
-LinkCarrierState link_carrier_state_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(link_carrier_state, LinkCarrierState);
 
-const char* link_required_address_family_to_string(AddressFamily s) _const_;
-AddressFamily link_required_address_family_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(link_required_address_family, AddressFamily);
 
-const char* link_address_state_to_string(LinkAddressState s) _const_;
-LinkAddressState link_address_state_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(link_address_state, LinkAddressState);
 
-const char* link_online_state_to_string(LinkOnlineState s) _const_;
-LinkOnlineState link_online_state_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(link_online_state, LinkOnlineState);
 
 typedef struct LinkOperationalStateRange {
         LinkOperationalState min;

@@ -40,7 +40,6 @@ void emergency_action(
                 int exit_status,
                 const char *reason);
 
-const char* emergency_action_to_string(EmergencyAction i) _const_;
-EmergencyAction emergency_action_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(emergency_action, EmergencyAction);
 
 int parse_emergency_action(const char *value, RuntimeScope runtime_scope, EmergencyAction *ret);

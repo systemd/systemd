@@ -17,8 +17,7 @@ typedef enum SleepOperation {
         _SLEEP_OPERATION_INVALID = -EINVAL,
 } SleepOperation;
 
-const char* sleep_operation_to_string(SleepOperation s) _const_;
-SleepOperation sleep_operation_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(sleep_operation, SleepOperation);
 
 static inline bool SLEEP_OPERATION_IS_HIBERNATION(SleepOperation operation) {
         return IN_SET(operation, SLEEP_HIBERNATE, SLEEP_HYBRID_SLEEP);
