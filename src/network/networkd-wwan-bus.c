@@ -711,9 +711,13 @@ static int on_periodic_timer(sd_event_source *s, uint64_t usec, void *userdata) 
                  * so using this timer we can limit the requests and wait, for example, for network
                  * reconfigure wwanX. Still do not try to reconnect modems in failed state yet.
                  */
-                if ((modem->reconnect_state == MODEM_RECONNECT_WAITING) &&
-                    (modem->state_fail_reason == MM_MODEM_STATE_FAILED_REASON_NONE))
+                if (modem->reconnect_state == MODEM_RECONNECT_WAITING) {
+                    if (modem->state == MM_MODEM_STATE_LOCKED)
+                        /* If SIM is locked do not try to make it worse with applying wrong configuration again. */
+                        continue;
+                    else if (modem->state_fail_reason == MM_MODEM_STATE_FAILED_REASON_NONE)
                         modem->reconnect_state = MODEM_RECONNECT_SCHEDULED;
+                }
                 modem_simple_connect(modem);
         }
 
