@@ -231,7 +231,7 @@ PartitionPolicyFlags partition_policy_flags_from_string(const char *s, bool grac
                 ff = policy_flag_from_string_one(strstrip(f));
                 if (ff < 0) {
                         if (graceful) {
-                                log_debug("Unknown partition policy flag: %s, ignoring", f);
+                                log_debug("Unknown partition policy flag, ignoring: %s", f);
                                 continue;
                         }
                         return -EBADRQC; /* recognizable error */
@@ -345,7 +345,7 @@ int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret) {
                                 if (!graceful)
                                         return log_debug_errno(SYNTHETIC_ERRNO(EBADSLT), "Unknown partition designator: %s", ds); /* recognizable error */
 
-                                log_debug("Unknown partition designator: %s, ignoring", ds);
+                                log_debug("Unknown partition designator, ignoring: %s", ds);
                                 continue;
                         }
                         if (dmask & (UINT64_C(1) << designator))
