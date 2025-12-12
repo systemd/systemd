@@ -14,4 +14,4 @@ TarPull* tar_pull_unref(TarPull *p);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(TarPull*, tar_pull_unref);
 
-int tar_pull_start(TarPull *p, const char *url, const char *local, ImportFlags flags, ImportVerify verify, const struct iovec *checksum);
+int tar_pull_start(TarPull *p, const char *url, const char *local, int local_fd, ImportFlags flags, ImportVerify verify, const struct iovec *checksum);

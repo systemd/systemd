@@ -369,7 +369,7 @@ EOF
     cat >"$CONFIGDIR/02-second.transfer" <<EOF
 [Source]
 Type=url-file
-Path=file://$WORKDIR/source
+Path=http://localhost/source
 MatchPattern=part2-@v.raw.gz
 
 [Target]
@@ -382,7 +382,7 @@ EOF
     cat >"$CONFIGDIR/03-third.transfer" <<EOF
 [Source]
 Type=url-tar
-Path=file://$WORKDIR/source
+Path=http://localhost/source
 MatchPattern=dir-@v.tar.gz
 
 [Target]
@@ -393,6 +393,7 @@ MatchPattern=dir-@v
 InstancesMax=3
 EOF
 
+    python3 -m http.server -d $WORKDIR/ 80 &
     update_now
     verify_version "$blockdev" "$sector_size" v6 1
     verify_version_current "$blockdev" "$sector_size" v7 2
