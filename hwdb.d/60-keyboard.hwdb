@@ -2132,8 +2132,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnINET:pnP325J:*
 # Home: LeftCtrl + Esc -> LeftMeta  (ignore LeftCtrl, map Esc to LeftMeta)
 # Back: Backspace      -> back      (map backspace to back)
 evdev:name:FTSC1000:00 2808:509C Keyboard:dmi:*:svnXiaomiInc:pnMipad2:*
- KEYBOARD_KEY_700e0=unknown                             # LeftCtrl -> ignore
- KEYBOARD_KEY_700e3=unknown                             # LeftMeta -> ignore
+ KEYBOARD_KEY_700e0=reserved                            # LeftCtrl -> ignore
+ KEYBOARD_KEY_700e3=reserved                            # LeftMeta -> ignore
  KEYBOARD_KEY_70016=menu                                # S -> menu
  KEYBOARD_KEY_70029=leftmeta                            # Esc -> LeftMeta (Windows key / Win8 tablets home)
  KEYBOARD_KEY_7002a=back                                # Backspace -> back
