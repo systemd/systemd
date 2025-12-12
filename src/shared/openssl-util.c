@@ -1763,7 +1763,7 @@ int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
         _cleanup_(memstream_done) MemStream m = {};
         FILE *tf = memstream_init(&m);
         if (!tf)
-                return log_oom();
+                return -ENOMEM;
 
         if (i2d_PUBKEY_fp(tf, private_key) != 1)
                 return -EIO;
@@ -1774,7 +1774,7 @@ int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
         if (r < 0)
                 return r;
 
-        const unsigned char *t = (unsigned char*) buf;
+        const unsigned char *t = (const unsigned char*) buf;
         if (!d2i_PUBKEY(ret, &t, len))
                 return -EIO;
 

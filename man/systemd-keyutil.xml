@@ -56,13 +56,24 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>public</command></term>
+        <term><command>extract-public</command></term>
 
         <listitem><para>This commands prints the public key in PEM format extracted from either the
         certificate given with <option>--certificate=</option> or the private key given with
         <option>--private-key=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>extract-certificate</command></term>
+
+        <listitem><para>This command prints the X.509 certificate in PEM format extracted from the
+        certificate given with <option>--certificate=</option>. This is useful when loading a certificate
+        from an OpenSSL provider (e.g. a hardware token) and wanting to output a standalone PEM certificate
+        that can be used without the provider.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
       <varlistentry>
