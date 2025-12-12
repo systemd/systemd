@@ -1763,7 +1763,7 @@ int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
         _cleanup_(memstream_done) MemStream m = {};
         FILE *tf = memstream_init(&m);
         if (!tf)
-                return log_oom();
+                return -ENOMEM;
 
         if (i2d_PUBKEY_fp(tf, private_key) != 1)
                 return -EIO;
