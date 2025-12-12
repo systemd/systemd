@@ -82,8 +82,7 @@ static const char* const network_stack_table[_NETWORK_STACK_MAX] = {
         [NETWORK_STACK_NONE] = "none",
 };
 
-const char* network_stack_to_string(NetworkStack type) _const_;
-NetworkStack network_stack_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(network_stack, NetworkStack);
 
 int qemu_check_kvm_support(void);
 int qemu_check_vsock_support(void);

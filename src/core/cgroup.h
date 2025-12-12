@@ -450,8 +450,7 @@ void unit_invalidate_cgroup_bpf_firewall(Unit *u);
 
 void manager_invalidate_startup_units(Manager *m);
 
-const char* cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
-CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_device_policy, CGroupDevicePolicy);
 
 void unit_cgroup_catchup(Unit *u);
 
@@ -461,8 +460,7 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name);
 
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action);
 
-const char* freezer_action_to_string(FreezerAction a) _const_;
-FreezerAction freezer_action_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(freezer_action, FreezerAction);
 
 CGroupRuntime* cgroup_runtime_new(void);
 CGroupRuntime* cgroup_runtime_free(CGroupRuntime *crt);
@@ -471,20 +469,14 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(CGroupRuntime*, cgroup_runtime_free);
 int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds);
 int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, FDSet *fds);
 
-const char* cgroup_pressure_watch_to_string(CGroupPressureWatch a) _const_;
-CGroupPressureWatch cgroup_pressure_watch_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_pressure_watch, CGroupPressureWatch);
 
-const char* cgroup_device_permissions_to_string(CGroupDevicePermissions p) _const_;
-CGroupDevicePermissions cgroup_device_permissions_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_device_permissions, CGroupDevicePermissions);
 
-const char* cgroup_ip_accounting_metric_to_string(CGroupIPAccountingMetric m) _const_;
-CGroupIPAccountingMetric cgroup_ip_accounting_metric_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_ip_accounting_metric, CGroupIPAccountingMetric);
 
-const char* cgroup_io_accounting_metric_to_string(CGroupIOAccountingMetric m) _const_;
-CGroupIOAccountingMetric cgroup_io_accounting_metric_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_io_accounting_metric, CGroupIOAccountingMetric);
 
-const char* cgroup_effective_limit_type_to_string(CGroupLimitType m) _const_;
-CGroupLimitType cgroup_effective_limit_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_effective_limit_type, CGroupLimitType);
 
-const char* cgroup_memory_accounting_metric_to_string(CGroupMemoryAccountingMetric m) _const_;
-CGroupMemoryAccountingMetric cgroup_memory_accounting_metric_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_memory_accounting_metric, CGroupMemoryAccountingMetric);

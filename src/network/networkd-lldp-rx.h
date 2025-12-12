@@ -13,7 +13,6 @@ typedef enum LLDPMode {
 
 int link_lldp_rx_configure(Link *link);
 
-const char* lldp_mode_to_string(LLDPMode m) _const_;
-LLDPMode lldp_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(lldp_mode, LLDPMode);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_lldp_mode);

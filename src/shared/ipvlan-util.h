@@ -21,8 +21,6 @@ typedef enum IPVlanFlags {
         _NETDEV_IPVLAN_FLAGS_INVALID = -EINVAL,
 } IPVlanFlags;
 
-const char* ipvlan_mode_to_string(IPVlanMode d) _const_;
-IPVlanMode ipvlan_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(ipvlan_mode, IPVlanMode);
 
-const char* ipvlan_flags_to_string(IPVlanFlags d) _const_;
-IPVlanFlags ipvlan_flags_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(ipvlan_flags, IPVlanFlags);

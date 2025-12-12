@@ -431,16 +431,12 @@ extern const struct hash_ops dns_resource_key_hash_ops;
 extern const struct hash_ops dns_resource_record_hash_ops;
 extern const struct hash_ops dns_resource_record_hash_ops_by_key;
 
-int dnssec_algorithm_to_string_alloc(int i, char **ret);
-int dnssec_algorithm_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_algorithm, int);
 
-int dnssec_digest_to_string_alloc(int i, char **ret);
-int dnssec_digest_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_digest, int);
 
-int sshfp_algorithm_to_string_alloc(int i, char **ret);
-int sshfp_algorithm_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sshfp_algorithm, int);
 
-int sshfp_key_type_to_string_alloc(int i, char **ret);
-int sshfp_key_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sshfp_key_type, int);
 
 int dns_json_dispatch_resource_key(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);

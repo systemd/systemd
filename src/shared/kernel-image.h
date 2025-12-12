@@ -12,7 +12,7 @@ typedef enum KernelImageType {
         _KERNEL_IMAGE_TYPE_INVALID = -EINVAL,
 } KernelImageType;
 
-const char* kernel_image_type_to_string(KernelImageType t) _const_;
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(kernel_image_type, KernelImageType);
 
 int inspect_kernel(
                 int dir_fd,

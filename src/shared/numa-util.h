@@ -33,5 +33,4 @@ int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret);
 
 int numa_mask_add_all(CPUSet *mask);
 
-const char* mpol_to_string(int i) _const_;
-int mpol_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(mpol, int);

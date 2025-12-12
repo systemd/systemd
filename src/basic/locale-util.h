@@ -36,8 +36,7 @@ int locale_is_installed(const char *name);
 
 bool is_locale_utf8(void);
 
-const char* locale_variable_to_string(LocaleVariable i) _const_;
-LocaleVariable locale_variable_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(locale_variable, LocaleVariable);
 
 static inline void freelocalep(locale_t *p) {
         if (*p == (locale_t) 0)

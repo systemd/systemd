@@ -34,8 +34,7 @@ typedef enum LogLevel {
         _LOG_INVALID = -1,
 } LogLevel;
 
-LogLevel log_level_from_string(const char *s) _pure_;
-const char* log_level_to_string(LogLevel l) _const_;
+DECLARE_STRING_TABLE_LOOKUP(log_level, LogLevel);
 
 LogLevel log_get_max_level(void) _pure_;
 int log_set_max_level(LogLevel level);

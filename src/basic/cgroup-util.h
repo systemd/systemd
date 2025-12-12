@@ -95,8 +95,7 @@ typedef enum CGroupIOLimitType {
 
 extern const uint64_t cgroup_io_limit_defaults[_CGROUP_IO_LIMIT_TYPE_MAX];
 
-const char* cgroup_io_limit_type_to_string(CGroupIOLimitType t) _const_;
-CGroupIOLimitType cgroup_io_limit_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_io_limit_type, CGroupIOLimitType);
 void cgroup_io_limits_list(void);
 
 /* Special values for the io.bfq.weight attribute */
@@ -243,8 +242,7 @@ int cg_mask_to_string(CGroupMask mask, char **ret);
 
 bool cg_kill_supported(void);
 
-const char* cgroup_controller_to_string(CGroupController c) _const_;
-CGroupController cgroup_controller_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_controller, CGroupController);
 
 typedef enum ManagedOOMMode {
         MANAGED_OOM_AUTO,
@@ -253,8 +251,7 @@ typedef enum ManagedOOMMode {
         _MANAGED_OOM_MODE_INVALID = -EINVAL,
 } ManagedOOMMode;
 
-const char* managed_oom_mode_to_string(ManagedOOMMode m) _const_;
-ManagedOOMMode managed_oom_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(managed_oom_mode, ManagedOOMMode);
 
 typedef enum ManagedOOMPreference {
         MANAGED_OOM_PREFERENCE_NONE = 0,
@@ -264,5 +261,4 @@ typedef enum ManagedOOMPreference {
         _MANAGED_OOM_PREFERENCE_INVALID = -EINVAL,
 } ManagedOOMPreference;
 
-const char* managed_oom_preference_to_string(ManagedOOMPreference a) _const_;
-ManagedOOMPreference managed_oom_preference_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(managed_oom_preference, ManagedOOMPreference);

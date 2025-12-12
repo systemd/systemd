@@ -55,8 +55,7 @@ typedef struct SocketAddress {
 
 #define socket_address_family(a) ((a)->sockaddr.sa.sa_family)
 
-const char* socket_address_type_to_string(int t) _const_;
-int socket_address_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(socket_address_type, int);
 
 int sockaddr_un_unlink(const struct sockaddr_un *sa);
 
@@ -87,8 +86,7 @@ int getsockname_pretty(int fd, char **ret);
 
 int socknameinfo_pretty(const struct sockaddr *sa, socklen_t salen, char **_ret);
 
-int netlink_family_to_string_alloc(int i, char **ret);
-int netlink_family_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(netlink_family, int);
 
 bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b);
 
@@ -101,8 +99,7 @@ static inline int fd_increase_rxbuf(int fd, size_t n) {
         return fd_set_rcvbuf(fd, n, true);
 }
 
-int ip_tos_to_string_alloc(int i, char **ret);
-int ip_tos_from_string(const char *s);
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int);
 
 typedef enum {
         IFNAME_VALID_ALTERNATIVE = 1 << 0, /* Allow "altnames" too */

@@ -16,8 +16,7 @@ UseDomains link_get_use_domains(Link *link, NetworkConfigSource proto);
 bool link_get_use_dns(Link *link, NetworkConfigSource proto);
 bool link_get_use_dnr(Link *link, NetworkConfigSource proto);
 
-const char* use_domains_to_string(UseDomains p) _const_;
-UseDomains use_domains_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(use_domains, UseDomains);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns);

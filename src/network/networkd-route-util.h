@@ -31,18 +31,17 @@ int manager_address_is_reachable(
                 const union in_addr_union *prefsrc, /* optional */
                 Address **ret);
 
-int route_type_from_string(const char *s) _pure_;
-const char* route_type_to_string(int t) _const_;
+DECLARE_STRING_TABLE_LOOKUP(route_type, int);
 
-int route_scope_from_string(const char *s);
-int route_scope_to_string_alloc(int t, char **ret);
+DECLARE_STRING_TABLE_LOOKUP_FROM_STRING(route_scope, int);
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(route_scope, int);
 
-int route_protocol_from_string(const char *s);
-int route_protocol_to_string_alloc(int t, char **ret);
-int route_protocol_full_from_string(const char *s);
-int route_protocol_full_to_string_alloc(int t, char **ret);
+DECLARE_STRING_TABLE_LOOKUP_FROM_STRING(route_protocol, int);
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(route_protocol, int);
+DECLARE_STRING_TABLE_LOOKUP_FROM_STRING(route_protocol_full, int);
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(route_protocol_full, int);
 
-int route_flags_to_string_alloc(uint32_t flags, char **ret);
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(route_flags, uint32_t);
 
 int manager_get_route_table_from_string(const Manager *m, const char *s, uint32_t *ret);
 int manager_get_route_table_to_string(const Manager *m, uint32_t table, bool append_num, char **ret);

@@ -41,5 +41,4 @@ static inline uint16_t dns_stub_listener_extra_port(DnsStubListenerExtra *p) {
 void manager_dns_stub_stop(Manager *m);
 int manager_dns_stub_start(Manager *m);
 
-const char* dns_stub_listener_mode_to_string(DnsStubListenerMode p) _const_;
-DnsStubListenerMode dns_stub_listener_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dns_stub_listener_mode, DnsStubListenerMode);

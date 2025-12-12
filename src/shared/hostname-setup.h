@@ -10,8 +10,7 @@ typedef enum HostnameSource {
         _HOSTNAME_INVALID = -EINVAL,
 } HostnameSource;
 
-const char* hostname_source_to_string(HostnameSource source) _const_;
-HostnameSource hostname_source_from_string(const char *str) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(hostname_source, HostnameSource);
 
 int sethostname_idempotent(const char *s);
 
