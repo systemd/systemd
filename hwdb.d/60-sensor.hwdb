@@ -764,7 +764,7 @@ sensor:modalias:acpi:SMO8500*:dmi:bvnLENOVO:*:pvrMIIX300-*:*
 # a portrait LCD panel, versions with bvr 1HCN3?WW have a landscape panel
 sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN4?WW:*:svnLENOVO:pn80SG:*
 sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN2?WW:*:svnLENOVO:pn80SG:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, -1
 
 # IdeaPad Miix 310 BIOS version bvr1HCN3?WW (variant 3)
 sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN3?WW:*:svnLENOVO:pn80SG:*
