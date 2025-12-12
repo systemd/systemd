@@ -1,0 +1,33 @@
+[Unit]
+Description=Knot DNS server
+Wants=network-online.target
+After=network-online.target
+Documentation=man:knotd(8) man:knot.conf(5) man:knotc(8)
+
+[Service]
+# On postmarketOS/Alpine, knot is built without libsystemd support,
+# hence knotd does not send notifications, and we cannot use Type=notify.
+#Type=notify
+Type=exec
+User=knot
+Group=knot
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_SETPCAP
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_SETPCAP
+ExecStartPre=/usr/sbin/knotc conf-check
+ExecStart=/usr/sbin/knotd -m "$KNOT_CONF_MAX_SIZE"
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-abort
+LimitNOFILE=1048576
+TimeoutStopSec=300
+# Extend the systemd startup timeout by this value (seconds) for each zone
+Environment="KNOT_ZONE_LOAD_TIMEOUT_SEC=180"
+# Maximum size (MiB) of a configuration database
+Environment="KNOT_CONF_MAX_SIZE=512"
+
+# Expected systemd >= v239
+RuntimeDirectory=knot
+StateDirectory=knot
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target
