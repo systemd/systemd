@@ -163,6 +163,24 @@ prepare_extension_image_with_matching_id_like() {
     prepend_trap "rm -rf ${ext_dir@Q}"
 }
 
+prepare_extension_image_raw() {
+    local root=${1:-}
+    local hierarchy=${2:?}
+    local ext_dir ext_release name
+
+    name="test-extension"
+    ext_dir="$root/var/lib/extensions/$name"
+    ext_release="$ext_dir/usr/lib/extension-release.d/extension-release.$name"
+    mkdir -p "${ext_release%/*}"
+    echo "ID=_any" >"$ext_release"
+    mkdir -p "$ext_dir/$hierarchy"
+    touch "$ext_dir$hierarchy/preexisting-file-in-extension-image"
+    mksquashfs "$ext_dir" "$ext_dir.raw" -all-root -noappend -quiet
+    rm -rf "$ext_dir"
+
+    prepend_trap "rm -rf ${ext_dir@Q}.raw"
+}
+
 prepare_extension_mutable_dir() {
     local dir=${1:?}
 
@@ -1168,6 +1186,57 @@ if run_systemd_sysext "$fake_root" status --json=pretty |  jq -r '.[].extensions
     exit 1
 fi
 rm "${fake_root}/etc/initrd-release"
+)
+
+( init_trap
+: "Check config file support for --root="
+fake_root=${roots_dir:+"$roots_dir/config-file"}
+hierarchy=/opt
+extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
+if [ "$roots_dir" = "" ]; then
+    echo >&2 "Skipping test when --root= is not used"
+    exit 0
+fi
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image_raw "$fake_root" "$hierarchy"
+prepare_extension_mutable_dir "$extension_data_dir"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+mkdir -p "$fake_root/etc/systemd/"
+{ echo "[SysExt]" ; echo "Mutable=auto" ; } > "$fake_root/etc/systemd/sysext.conf"
+# Config file should be picked up with --root= set
+run_systemd_sysext "$fake_root" merge
+MNTOPT=$(findmnt "$fake_root$hierarchy" --first-only --direction backward --raw --noheadings -o VFS-OPTIONS | grep -o rw || true)
+if [ "$MNTOPT" != "rw" ]; then
+    echo >&2 "Merge did not pick up mutable setting from config file"
+    exit 1
+fi
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h -u
+run_systemd_sysext "$fake_root" unmerge
+
+# CLI arg should be able to overwrite config file
+run_systemd_sysext "$fake_root" merge --mutable=no
+MNTOPT=$(findmnt "$fake_root$hierarchy" --first-only --direction backward --raw --noheadings -o VFS-OPTIONS | grep -o ro || true)
+if [ "$MNTOPT" != "ro" ]; then
+    echo >&2 "Merge did not pick up CLI arg to overwrite mutable setting from config file"
+    exit 1
+fi
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+run_systemd_sysext "$fake_root" unmerge
+
+{ echo "[SysExt]" ; echo "ImagePolicy=root=signed+absent:usr=signed+absent" ; } > "$fake_root/etc/systemd/sysext.conf"
+# Config file should be picked up with --root= set
+if run_systemd_sysext "$fake_root" merge; then
+    echo >&2 "Merge did not fail with strict image policy in config file"
+    exit 1
+fi
+# CLI arg should be able to overwrite config file
+run_systemd_sysext "$fake_root" merge --image-policy="*"
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+run_systemd_sysext "$fake_root" unmerge
 )
 
 } # End of run_sysext_tests

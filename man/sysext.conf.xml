@@ -54,8 +54,8 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The following options are understood in both the <literal>[Sysext]</literal> and
-    <literal>[Confext]</literal> sections:</para>
+    <para>The following options are understood in both the <literal>[SysExt]</literal> and
+    <literal>[ConfExt]</literal> sections:</para>
 
     <refsect2>
       <title>Section Options</title>
