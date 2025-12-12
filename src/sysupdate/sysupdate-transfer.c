@@ -1177,7 +1177,7 @@ static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const cha
                 SD_JSON_BUILD_PAIR_STRING("checksum", digest),
                 SD_JSON_BUILD_PAIR_STRING("source", i->path),
                 SD_JSON_BUILD_PAIR_UNSIGNED("destinationFileDescriptor", destination_fd_index),
-                SD_JSON_BUILD_PAIR_ARRAY("instances", instances_array),
+                SD_JSON_BUILD_PAIR("instances", SD_JSON_BUILD_VARIANT(instances_array)),
                 SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_PARTITION, "offset", SD_JSON_BUILD_UNSIGNED(t->partition_info.start)),
                 SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_PARTITION, "maxSize", SD_JSON_BUILD_UNSIGNED(t->partition_info.size)),
                 SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_SUBVOLUME, "subvolume", SD_JSON_BUILD_BOOLEAN(true)));
