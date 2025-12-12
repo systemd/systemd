@@ -690,6 +690,21 @@ static void modem_simple_connect(Modem *modem) {
                                   modem->manufacturer, modem->model);
 }
 
+static void modem_simple_disconnect(Modem *modem) {
+        int r;
+
+        r = sd_bus_call_method_async(modem->manager->bus,
+                                     NULL,
+                                     "org.freedesktop.ModemManager1",
+                                     modem->path,
+                                     "org.freedesktop.ModemManager1.Modem.Simple",
+                                     "Disconnect",
+                                     NULL, NULL, "o", "/");
+        if (r < 0)
+                log_warning_errno(r, "Could not disconnect modem %s %s: %m",
+                                  modem->manufacturer, modem->model);
+}
+
 static int reset_timer(Manager *m, sd_event *e, sd_event_source **s);
 
 static int on_periodic_timer(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -746,6 +761,27 @@ static int setup_periodic_timer(Manager *m, sd_event *event) {
                 return r;
 
         return sd_event_source_set_floating(s, true);
+}
+
+int link_modem_reconfigure(Link *link) {
+        Modem *modem;
+        int r;
+
+        if (link_get_modem(link, &modem) == 0) {
+                modem_simple_disconnect(modem);
+                /* .network has changed: start (re)connect if failed before. */
+                if ((modem->reconnect_state == MODEM_RECONNECT_WAITING) &&
+                    (modem->state_fail_reason == MM_MODEM_STATE_FAILED_REASON_NONE)) {
+                        modem->reconnect_state = MODEM_RECONNECT_SCHEDULED;
+                        modem_simple_connect(modem);
+                }
+        }
+
+        r = link_apply_bearer(link);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int modem_on_state_change(

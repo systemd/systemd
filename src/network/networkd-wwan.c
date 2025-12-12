@@ -233,6 +233,22 @@ int modem_get_by_path(Manager *m, const char *path, Modem **ret) {
         return 0;
 }
 
+int link_get_modem(Link *link, Modem **ret) {
+        Modem *modem;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->ifname);
+
+        HASHMAP_FOREACH(modem, link->manager->modems_by_path)
+                if (modem->port_name && streq(modem->port_name, link->ifname)) {
+                        *ret = modem;
+                        return 0;
+                }
+
+        return -ENOENT;
+}
+
 int link_get_bearer(Link *link, Bearer **ret) {
         Modem *modem;
 

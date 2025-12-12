@@ -84,3 +84,4 @@ typedef enum {
 
 int manager_notify_mm_bus_connected(Manager *manager);
 int manager_match_mm_signals(Manager *manager);
+int link_modem_reconfigure(Link *link);

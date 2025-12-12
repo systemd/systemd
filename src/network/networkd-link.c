@@ -1297,7 +1297,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_apply_bearer(link);
+        r = link_modem_reconfigure(link);
         if (r < 0)
                 return r;
 
