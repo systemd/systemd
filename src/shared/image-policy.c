@@ -205,6 +205,20 @@ static PartitionPolicyFlags policy_flag_from_string_one(const char *s) {
                 return PARTITION_POLICY_GROWFS_ON;
         if (streq(s, "growfs-off"))
                 return PARTITION_POLICY_GROWFS_OFF;
+        if (streq(s, "btrfs"))
+                return PARTITION_POLICY_BTRFS;
+        if (streq(s, "erofs"))
+                return PARTITION_POLICY_EROFS;
+        if (streq(s, "ext4"))
+                return PARTITION_POLICY_EXT4;
+        if (streq(s, "f2fs"))
+                return PARTITION_POLICY_F2FS;
+        if (streq(s, "squashfs"))
+                return PARTITION_POLICY_SQUASHFS;
+        if (streq(s, "vfat"))
+                return PARTITION_POLICY_VFAT;
+        if (streq(s, "xfs"))
+                return PARTITION_POLICY_XFS;
 
         return _PARTITION_POLICY_FLAGS_INVALID;
 }
@@ -387,7 +401,7 @@ int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret) {
 
 int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, char **ret) {
         _cleanup_free_ char *buf = NULL;
-        const char *l[CONST_LOG2U(_PARTITION_POLICY_MASK + 1) + 1]; /* one string per known flag at most */
+        const char *l[CONST_LOG2U(_PARTITION_POLICY_MASK + _PARTITION_POLICY_FSTYPE_SET_MASK + 1) + 1]; /* one string per known flag at most */
         size_t m = 0;
 
         assert(ret);
@@ -444,6 +458,21 @@ int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, 
                 if (flags & PARTITION_POLICY_GROWFS_ON)
                         l[m++] = "growfs-on";
         }
+
+        if (flags & PARTITION_POLICY_BTRFS)
+                l[m++] = "btrfs";
+        if (flags & PARTITION_POLICY_EROFS)
+                l[m++] = "erofs";
+        if (flags & PARTITION_POLICY_EXT4)
+                l[m++] = "ext4";
+        if (flags & PARTITION_POLICY_F2FS)
+                l[m++] = "f2fs";
+        if (flags & PARTITION_POLICY_SQUASHFS)
+                l[m++] = "squashfs";
+        if (flags & PARTITION_POLICY_VFAT)
+                l[m++] = "vfat";
+        if (flags & PARTITION_POLICY_XFS)
+                l[m++] = "xfs";
 
         if (m == 0)
                 buf = strdup("-");

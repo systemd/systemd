@@ -35,6 +35,18 @@ typedef enum PartitionPolicyFlags {
 
         _PARTITION_POLICY_MASK                = _PARTITION_POLICY_USE_MASK|_PARTITION_POLICY_READ_ONLY_MASK|_PARTITION_POLICY_GROWFS_MASK,
 
+        /* Policies can impose filesystem type requirements on images */
+        PARTITION_POLICY_BTRFS                = 1 << 10,
+        PARTITION_POLICY_EROFS                = 1 << 11,
+        PARTITION_POLICY_EXT4                 = 1 << 12,
+        PARTITION_POLICY_F2FS                 = 1 << 13,
+        PARTITION_POLICY_SQUASHFS             = 1 << 14,
+        PARTITION_POLICY_VFAT                 = 1 << 15,
+        PARTITION_POLICY_XFS                  = 1 << 16,
+        _PARTITION_POLICY_FSTYPE_SET_MASK     = PARTITION_POLICY_BTRFS|PARTITION_POLICY_EROFS|PARTITION_POLICY_EXT4|
+                                                PARTITION_POLICY_F2FS|PARTITION_POLICY_SQUASHFS|
+                                                PARTITION_POLICY_VFAT|PARTITION_POLICY_XFS,
+
         _PARTITION_POLICY_FLAGS_INVALID       = -EINVAL,
         _PARTITION_POLICY_FLAGS_ERRNO_MAX     = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
 } PartitionPolicyFlags;
