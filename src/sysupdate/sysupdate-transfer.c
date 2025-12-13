@@ -29,6 +29,7 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "sd-json.h"
 #include "signal-util.h"
 #include "specifier.h"
 #include "stdio-util.h"
@@ -42,6 +43,7 @@
 #include "sysupdate-transfer.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
+#include "varlink-util.h"
 #include "web-util.h"
 
 /* Default value for InstancesMax= for fs object targets */
@@ -1110,6 +1112,89 @@ static int run_callout(
         return sd_event_loop(event);
 }
 
+static int url_get_protocol(const char *url, const char **protocol) {
+        const char *d;
+        size_t length;
+
+        assert(url);
+        assert(protocol);
+
+        /* Find colon separating protocol and hostname */
+        d = strchr(url, ':');
+        if (!d || url == d)
+                return -EINVAL;
+
+        length = d - url;
+
+        *protocol = strndup(url, length);
+        if (!*protocol)
+                return -ENOMEM;
+        return 0;
+}
+
+static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const char *digest, bool fsync) {
+        int r;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *instances_array = NULL;
+        FOREACH_ARRAY (instance, t->target.instances, t->target.n_instances) {
+                r = sd_json_variant_append_arraybo(
+                        &instances_array,
+                        SD_JSON_BUILD_PAIR_STRING("version", (*instance)->metadata.version),
+                        SD_JSON_BUILD_PAIR_STRING("location", (*instance)->path));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append instance info to pull request: %m");
+        }
+
+        const char *protocol;
+        r = url_get_protocol(i->path, &protocol);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse protocol from URL %s: %m", i->path);
+
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *pull_link = NULL;
+        r = sd_varlink_connect_address(&pull_link, path_join(SYSTEMD_PULL_WORKER_DIRECTORY_PATH, protocol));
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect systemd-pull: %m");
+
+        r = sd_varlink_set_allow_fd_passing_output(pull_link, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
+
+        char *destination_path = t->target.type == RESOURCE_PARTITION ? t->target.path : t->temporary_path;
+        if (RESOURCE_IS_TAR(i->resource->type)) {
+                (void) rm_rf(destination_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                r = RET_NERRNO(mkdir(destination_path, 0755));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create directory %s: %m", destination_path);
+        }
+
+        int destination_flags = O_CLOEXEC|(RESOURCE_IS_TAR(i->resource->type) ? O_DIRECTORY|O_NOFOLLOW : O_RDWR|O_NOCTTY|(t->target.type != RESOURCE_PARTITION ? O_TRUNC|O_CREAT : 0));
+        int destination_fd = open(destination_path, destination_flags, 0664);
+        if (destination_fd < 0)
+                return log_error_errno(errno, "Failed to open %s: %m", destination_path);
+
+        int destination_fd_index = sd_varlink_push_fd(pull_link, TAKE_FD(destination_fd));
+        if (destination_fd_index < 0)
+                return log_error_errno(destination_fd_index, "Failed to push destination fd into varlink socket: %m");
+
+        const char *error_id = NULL;
+        r = varlink_callbo_and_log(
+                pull_link,
+                "io.systemd.PullWorker.Pull",
+                NULL,
+                &error_id,
+                SD_JSON_BUILD_PAIR_STRING("version", i->metadata.version),
+                SD_JSON_BUILD_PAIR_STRING("mode", RESOURCE_IS_TAR(i->resource->type) ? "tar" : "raw"),
+                SD_JSON_BUILD_PAIR_BOOLEAN("fsync", fsync),
+                SD_JSON_BUILD_PAIR_STRING("verify", "checksum"),
+                SD_JSON_BUILD_PAIR_STRING("checksum", digest),
+                SD_JSON_BUILD_PAIR_STRING("source", i->path),
+                SD_JSON_BUILD_PAIR_UNSIGNED("destinationFileDescriptor", destination_fd_index),
+                SD_JSON_BUILD_PAIR("instances", SD_JSON_BUILD_VARIANT(instances_array)),
+                SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_PARTITION, "offset", SD_JSON_BUILD_UNSIGNED(t->partition_info.start)),
+                SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_PARTITION, "maxSize", SD_JSON_BUILD_UNSIGNED(t->partition_info.size)),
+                SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_SUBVOLUME, "subvolume", SD_JSON_BUILD_BOOLEAN(true)));
+        return r;
+}
+
 int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, void *userdata) {
         _cleanup_free_ char *formatted_pattern = NULL, *digest = NULL;
         char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
@@ -1280,63 +1365,18 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
                 break;
 
         case RESOURCE_URL_FILE:
+                assert(IN_SET(t->target.type, RESOURCE_REGULAR_FILE, RESOURCE_PARTITION));
 
-                switch (t->target.type) {
+                /* url file → regular file */
+                /* url file → partition */
 
-                case RESOURCE_REGULAR_FILE:
-
-                        /* url file → regular file */
-
-                        r = run_callout("(sd-pull-raw)",
-                                       STRV_MAKE(
-                                               SYSTEMD_PULL_PATH,
-                                               "raw",
-                                               "--direct",          /* just download the specified URL, don't download anything else */
-                                               "--verify", digest,  /* validate by explicit SHA256 sum */
-                                               arg_sync ? "--sync=yes" : "--sync=no",
-                                               i->path,
-                                               t->temporary_path),
-                                        t, i, cb, userdata);
-                        break;
-
-                case RESOURCE_PARTITION:
-
-                        /* url file → partition */
-
-                        r = run_callout("(sd-pull-raw)",
-                                        STRV_MAKE(
-                                               SYSTEMD_PULL_PATH,
-                                               "raw",
-                                               "--direct",              /* just download the specified URL, don't download anything else */
-                                               "--verify", digest,      /* validate by explicit SHA256 sum */
-                                               "--offset", offset,
-                                               "--size-max", max_size,
-                                               arg_sync ? "--sync=yes" : "--sync=no",
-                                               i->path,
-                                               t->target.path),
-                                        t, i, cb, userdata);
-                        break;
-
-                default:
-                        assert_not_reached();
-                }
-
+                transfer_acquire_instance_varlink(t, i, digest, arg_sync);
                 break;
 
         case RESOURCE_URL_TAR:
                 assert(IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
 
-                r = run_callout("(sd-pull-tar)",
-                                STRV_MAKE(
-                                       SYSTEMD_PULL_PATH,
-                                       "tar",
-                                       "--direct",          /* just download the specified URL, don't download anything else */
-                                       "--verify", digest,  /* validate by explicit SHA256 sum */
-                                       t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
-                                       arg_sync ? "--sync=yes" : "--sync=no",
-                                       i->path,
-                                       t->temporary_path),
-                                t, i, cb, userdata);
+                transfer_acquire_instance_varlink(t, i, digest, arg_sync);
                 break;
 
         default:

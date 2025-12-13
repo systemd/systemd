@@ -32,6 +32,7 @@
 #include "sysupdate-resource.h"
 #include "time-util.h"
 #include "utf8.h"
+#include "varlink-util.h"
 
 void resource_destroy(Resource *rr) {
         assert(rr);
@@ -274,7 +275,6 @@ static int download_manifest(
         _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         _cleanup_fclose_ FILE *manifest = NULL;
         size_t size = 0;
-        pid_t pid;
         int r;
 
         assert(url);
@@ -293,32 +293,33 @@ static int download_manifest(
         log_info("%s Acquiring manifest file %s%s", glyph(GLYPH_DOWNLOAD),
                  suffixed_url, glyph(GLYPH_ELLIPSIS));
 
-        r = safe_fork_full("(sd-pull)",
-                           (int[]) { -EBADF, pfd[1], STDERR_FILENO },
-                           NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
-                           &pid);
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *pull_link = NULL;
+        r = sd_varlink_connect_exec(&pull_link, SYSTEMD_PULL_PATH, /* argv= */ NULL);
         if (r < 0)
-                return r;
-        if (r == 0) {
-                /* Child */
+                return log_error_errno(r, "Failed to connect systemd-pull: %m");
 
-                const char *cmdline[] = {
-                        SYSTEMD_PULL_PATH,
-                        "raw",
-                        "--direct",                        /* just download the specified URL, don't download anything else */
-                        "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
-                        suffixed_url,
-                        "-",                               /* write to stdout */
-                        NULL
-                };
+        r = sd_varlink_set_allow_fd_passing_output(pull_link, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
 
-                r = invoke_callout_binary(SYSTEMD_PULL_PATH, (char *const*) cmdline);
-                log_error_errno(r, "Failed to execute %s tool: %m", SYSTEMD_PULL_PATH);
-                _exit(EXIT_FAILURE);
-        };
+        int destination_fd_index = sd_varlink_push_fd(pull_link, TAKE_FD(pfd[1]));
+        if (destination_fd_index < 0)
+                return log_error_errno(destination_fd_index, "Failed to push destination fd into varlink socket: %m");
 
-        pfd[1] = safe_close(pfd[1]);
+        const char *error_id = NULL;
+        r = varlink_callbo_and_log(
+                pull_link,
+                "io.systemd.PullWorker.Pull",
+                NULL,
+                &error_id,
+                SD_JSON_BUILD_PAIR_STRING("version", ""),
+                SD_JSON_BUILD_PAIR_STRING("mode", "raw"),
+                SD_JSON_BUILD_PAIR_BOOLEAN("fsync", true),
+                SD_JSON_BUILD_PAIR_STRING("verify", verify_signature ? "signature" : "no"),
+                SD_JSON_BUILD_PAIR_STRING("source", suffixed_url),
+                SD_JSON_BUILD_PAIR_UNSIGNED("destinationFileDescriptor", destination_fd_index));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call PullWorker to download manifest %m");
 
         /* We'll first load the entire manifest into memory before parsing it. That's because the
          * systemd-pull tool can validate the download only after its completion, but still pass the data to
@@ -336,12 +337,6 @@ static int download_manifest(
                 return log_error_errno(r, "Failed to read manifest file from child: %m");
 
         manifest = safe_fclose(manifest);
-
-        r = wait_for_terminate_and_check("(sd-pull)", pid, WAIT_LOG);
-        if (r < 0)
-                return r;
-        if (r != 0)
-                return -EPROTO;
 
         *ret_buffer = TAKE_PTR(buffer);
         *ret_size = size;
