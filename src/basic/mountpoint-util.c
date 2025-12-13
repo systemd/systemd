@@ -51,12 +51,16 @@ int name_to_handle_at_loop(
                 const char *path,
                 struct file_handle **ret_handle,
                 int *ret_mnt_id,
+                uint64_t *ret_unique_mnt_id,
                 int flags) {
 
         size_t n = ORIGINAL_MAX_HANDLE_SZ;
 
         assert(fd >= 0 || fd == AT_FDCWD);
-        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH|AT_HANDLE_FID)) == 0);
+        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH|AT_HANDLE_FID|AT_HANDLE_MNT_ID_UNIQUE)) == 0);
+
+        if (isempty(path))
+                flags |= AT_EMPTY_PATH;
 
         /* We need to invoke name_to_handle_at() in a loop, given that it might return EOVERFLOW when the specified
          * buffer is too small. Note that in contrast to what the docs might suggest, MAX_HANDLE_SZ is only good as a
@@ -67,7 +71,8 @@ int name_to_handle_at_loop(
 
         for (;;) {
                 _cleanup_free_ struct file_handle *h = NULL;
-                int mnt_id = -1;
+                int mnt_id = -1, r;
+                uint64_t unique_mnt_id = 0;
 
                 h = malloc0(offsetof(struct file_handle, f_handle) + n);
                 if (!h)
@@ -75,12 +80,20 @@ int name_to_handle_at_loop(
 
                 h->handle_bytes = n;
 
-                if (name_to_handle_at(fd, strempty(path), h, &mnt_id, flags) >= 0) {
+                if (flags & AT_HANDLE_MNT_ID_UNIQUE)
+                        /* The kernel will still use this as uint64_t pointer */
+                        r = name_to_handle_at(fd, strempty(path), h, (int *) &unique_mnt_id, flags);
+                else
+                        r = name_to_handle_at(fd, strempty(path), h, &mnt_id, flags);
+
+                if (r >= 0) {
 
                         if (ret_handle)
                                 *ret_handle = TAKE_PTR(h);
 
-                        if (ret_mnt_id)
+                        if (ret_unique_mnt_id && flags & AT_HANDLE_MNT_ID_UNIQUE)
+                                *ret_unique_mnt_id = unique_mnt_id;
+                        if (ret_mnt_id && (flags & AT_HANDLE_MNT_ID_UNIQUE) == 0)
                                 *ret_mnt_id = mnt_id;
 
                         return 0;
@@ -88,13 +101,16 @@ int name_to_handle_at_loop(
                 if (errno != EOVERFLOW)
                         return -errno;
 
-                if (!ret_handle && ret_mnt_id && mnt_id >= 0) {
+                if (!ret_handle && ((ret_mnt_id && mnt_id >= 0) || (ret_unique_mnt_id && unique_mnt_id > 0))) {
 
                         /* As it appears, name_to_handle_at() fills in mnt_id even when it returns EOVERFLOW when the
                          * buffer is too small, but that's undocumented. Hence, let's make use of this if it appears to
                          * be filled in, and the caller was interested in only the mount ID an nothing else. */
 
-                        *ret_mnt_id = mnt_id;
+                        if (ret_unique_mnt_id && flags & AT_HANDLE_MNT_ID_UNIQUE)
+                                *ret_unique_mnt_id = unique_mnt_id;
+                        else if (ret_mnt_id)
+                                *ret_mnt_id = mnt_id;
                         return 0;
                 }
 
@@ -128,11 +144,52 @@ int name_to_handle_at_try_fid(
          * we'll try without the flag, in order to support older kernels that didn't have AT_HANDLE_FID
          * (i.e. older than Linux 6.5). */
 
-        r = name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, flags | AT_HANDLE_FID);
+        r = name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, NULL, flags | AT_HANDLE_FID);
         if (r >= 0 || is_name_to_handle_at_fatal_error(r))
                 return r;
 
-        return name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, flags & ~AT_HANDLE_FID);
+        return name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, NULL, flags & ~AT_HANDLE_FID);
+}
+
+int name_to_handle_at_try_unique_mntid_fid(
+                int fd,
+                const char *path,
+                struct file_handle **ret_handle,
+                uint64_t *ret_mnt_id,
+                int flags) {
+
+        int mnt_id = -1, r;
+
+        assert(fd >= 0 || fd == AT_FDCWD);
+
+        /* First issues name_to_handle_at() with AT_HANDLE_MNT_ID_UNIQUE and AT_HANDLE_FID.
+         * If this fails and this is not a fatal error we'll try without the
+         * AT_HANDLE_MNT_ID_UNIQUE flag because it's only available from Linux 6.12 onwards. */
+        r = name_to_handle_at_loop(fd, path, ret_handle, NULL, ret_mnt_id, flags | AT_HANDLE_MNT_ID_UNIQUE | AT_HANDLE_FID);
+        if (r >= 0 || is_name_to_handle_at_fatal_error(r))
+                return r;
+
+        flags &= ~AT_HANDLE_MNT_ID_UNIQUE;
+
+        /* Then issues name_to_handle_at() with AT_HANDLE_FID. If this fails and this is not a fatal error
+         * we'll try without the flag, in order to support older kernels that didn't have AT_HANDLE_FID
+         * (i.e. older than Linux 6.5). */
+
+        r = name_to_handle_at_loop(fd, path, ret_handle, &mnt_id, NULL, flags | AT_HANDLE_FID);
+        if (ret_mnt_id && mnt_id >= 0) {
+                /* See if we can do better because statx can do unique mount IDs since Linux 6.8
+                 * and only if this doesn't work we use the non-unique mnt_id as returned.
+                 * The function only sets mnt_id after checking the error code, so omitted above. */
+                if (path_get_unique_mnt_id_at(fd, path, ret_mnt_id) < 0)
+                        *ret_mnt_id = mnt_id;
+        }
+        if (r >= 0 || is_name_to_handle_at_fatal_error(r))
+                return r;
+
+        r = name_to_handle_at_loop(fd, path, ret_handle, &mnt_id, NULL, flags & ~AT_HANDLE_FID);
+        if (ret_mnt_id && mnt_id >= 0)
+                *ret_mnt_id = mnt_id;
+        return r;
 }
 
 static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mnt_id) {
@@ -373,7 +430,7 @@ int path_get_mnt_id_at_fallback(int dir_fd, const char *path, int *ret) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
 
-        r = name_to_handle_at_loop(dir_fd, path, NULL, ret, isempty(path) ? AT_EMPTY_PATH : 0);
+        r = name_to_handle_at_loop(dir_fd, path, NULL, ret, NULL, 0);
         if (r >= 0 || is_name_to_handle_at_fatal_error(r))
                 return r;
 
@@ -401,6 +458,29 @@ int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
         }
 
         return path_get_mnt_id_at_fallback(dir_fd, path, ret);
+}
+
+int path_get_unique_mnt_id_at(int dir_fd, const char *path, uint64_t *ret) {
+        struct statx sx;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(ret);
+
+        if (statx(dir_fd,
+                  strempty(path),
+                  (isempty(path) ? AT_EMPTY_PATH : AT_SYMLINK_NOFOLLOW) |
+                  AT_NO_AUTOMOUNT |    /* don't trigger automounts, mnt_id is a local concept */
+                  AT_STATX_DONT_SYNC,  /* don't go to the network, mnt_id is a local concept */
+                  STATX_MNT_ID_UNIQUE,
+                  &sx) < 0)
+                return -errno;
+
+        if (FLAGS_SET(sx.stx_mask, STATX_MNT_ID_UNIQUE)) {
+                *ret = sx.stx_mnt_id;
+                return 0;
+        }
+
+        return -EOPNOTSUPP;
 }
 
 bool fstype_is_network(const char *fstype) {
