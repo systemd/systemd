@@ -141,6 +141,17 @@
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_RESOLVE_INTERFACE</varname></term>
+
+        <listitem><para>Takes an interface name or index as an argument. When specified, answers will only be
+        obtained from name servers belonging to the specified interface.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
