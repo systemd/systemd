@@ -19,6 +19,7 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -539,6 +540,68 @@ TEST(umountat) {
         ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", q, "tmpfs", 0, NULL));
         ASSERT_OK(umountat_detach_verbose(LOG_ERR, dfd, "foo"));
         ASSERT_ERROR(umountat_detach_verbose(LOG_ERR, dfd, "foo"), EINVAL);
+}
+
+TEST(mount_fd_clone) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        int r;
+
+        CHECK_PRIV;
+
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+
+        /* Set up a socket pair to transfer the mount fd from the child (in a different mountns) to us. */
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, fds));
+
+        r = ASSERT_OK(safe_fork_full(
+                        "(mount-fd-clone-setup)",
+                        /* stdio_fds= */ NULL,
+                        &fds[1], 1,
+                        FORK_COMMON_FLAGS,
+                        NULL));
+        if (r == 0) {
+                /* Create a tmpfs mount in this child's mountns. */
+                ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", t, "tmpfs", 0, NULL));
+
+                /* Create a file in it to verify the mount later. */
+                _cleanup_free_ char *marker = ASSERT_NOT_NULL(path_join(t, "marker"));
+                ASSERT_OK(touch(marker));
+
+                /* Clone the mount as a detached mount fd. */
+                _cleanup_close_ int mount_fd = ASSERT_OK_ERRNO(open_tree(AT_FDCWD, t, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC));
+
+                /* Send the mount fd to the parent. */
+                ASSERT_OK(send_one_fd(fds[1], mount_fd, 0));
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        fds[1] = safe_close(fds[1]);
+
+        /* Parent: Receive the mount fd, clone it with mount_fd_clone(), and verify we can attach it. */
+        _cleanup_close_ int foreign_mount_fd = ASSERT_OK(receive_one_fd(fds[0], 0));
+        _cleanup_close_ int first_clone = ASSERT_OK(
+                        mount_fd_clone(foreign_mount_fd, /* recursive= */ true, &foreign_mount_fd));
+        _cleanup_close_ _unused_ int second_clone = ASSERT_OK(
+                        mount_fd_clone(foreign_mount_fd, /* recursive= */ true, /* replacement_fd= */ NULL));
+        _cleanup_free_ char *target = ASSERT_NOT_NULL(path_join(t, "target"));
+        ASSERT_OK_ERRNO(mkdir(target, 0755));
+
+        r = ASSERT_OK(safe_fork_full(
+                        "(mount-fd-clone-verify)",
+                        /* stdio_fds= */ NULL,
+                        &first_clone, 1,
+                        FORK_COMMON_FLAGS,
+                        NULL));
+        if (r == 0) {
+                ASSERT_OK_ERRNO(move_mount(first_clone, "", AT_FDCWD, target, MOVE_MOUNT_F_EMPTY_PATH));
+
+                _cleanup_free_ char *marker = ASSERT_NOT_NULL(path_join(target, "marker"));
+                ASSERT_OK_ERRNO(access(marker, F_OK));
+
+                _exit(EXIT_SUCCESS);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

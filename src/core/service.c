@@ -1951,7 +1951,14 @@ static int service_spawn_internal(
         exec_params.stdin_fd = s->stdin_fd;
         exec_params.stdout_fd = s->stdout_fd;
         exec_params.stderr_fd = s->stderr_fd;
-        exec_params.root_directory_fd = s->root_directory_fd;
+
+        if (s->root_directory_fd >= 0) {
+                r = mount_fd_clone(s->root_directory_fd, /* recursive= */ true, &s->root_directory_fd);
+                if (r < 0)
+                        return r;
+
+                exec_params.root_directory_fd = r;
+        }
 
         r = exec_spawn(UNIT(s),
                        c,

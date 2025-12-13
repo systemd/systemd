@@ -2877,6 +2877,7 @@ void exec_params_shallow_clear(ExecParameters *p) {
         p->fd_names = strv_free(p->fd_names);
         p->files_env = strv_free(p->files_env);
         p->fds = mfree(p->fds);
+        p->root_directory_fd = safe_close(p->root_directory_fd);
         p->exec_fd = safe_close(p->exec_fd);
         p->user_lookup_fd = -EBADF;
         p->bpf_restrict_fs_map_fd = -EBADF;
