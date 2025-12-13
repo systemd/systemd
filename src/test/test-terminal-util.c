@@ -172,6 +172,27 @@ TEST(get_default_background_color) {
                 log_notice("R=%g G=%g B=%g", red, green, blue);
 }
 
+TEST(terminal_get_size_by_csi18) {
+        unsigned rows, columns;
+        int r;
+
+        usec_t n = now(CLOCK_MONOTONIC);
+        r = terminal_get_size_by_csi18(STDIN_FILENO, STDOUT_FILENO, &rows, &columns);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
+        if (r < 0)
+                return (void) log_notice_errno(r, "Can't get screen dimensions via CSI 18: %m");
+
+        log_notice("terminal size via CSI 18: rows=%u columns=%u", rows, columns);
+
+        struct winsize ws = {};
+
+        if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) < 0)
+                log_warning_errno(errno, "Can't get terminal size via ioctl, ignoring: %m");
+        else
+                log_notice("terminal size via ioctl: rows=%u columns=%u", ws.ws_row, ws.ws_col);
+}
+
 TEST(terminal_get_size_by_dsr) {
         unsigned rows, columns;
         int r;
