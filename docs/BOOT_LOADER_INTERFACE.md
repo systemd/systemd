@@ -117,6 +117,12 @@ variables. All EFI variables use the vendor UUID
   Specification for TPM 2.0 as EFI_TCG2_BOOT_HASH_ALG_*. If no TPM2 support or
   no active banks were detected, will be set to `0`.
 
+* The EFI variable `LoaderDtbName` contains the canonical path to the DeviceTree
+  file compatible with this system. Boot loaders that support platforms with
+  DeviceTree may use this varialbe to find appropriate DeviceTree file inside
+  a directory of DeviceTree files, for example, one provided by "devicetree-dir"
+  value in a BLS#1 boot entry.
+
 If `LoaderTimeInitUSec` and `LoaderTimeExecUSec` are set, `systemd-analyze`
 will include them in its boot-time analysis.  If `LoaderDevicePartUUID` is set,
 systemd will mount the ESP that was used for the boot to `/boot`, but only if
