@@ -2812,8 +2812,9 @@ static void service_enter_refresh_extensions(Service *s) {
                 goto fail;
         }
         if (r == 0) {
-                PidRef *unit_pid = &s->main_pid;
-                assert(pidref_is_set(unit_pid));
+                LOG_CONTEXT_PUSH_UNIT(UNIT(s));
+
+                assert(pidref_is_set(&s->main_pid));
 
                 _cleanup_free_ char *propagate_dir = path_join("/run/systemd/propagate/", UNIT(s)->id);
                 if (!propagate_dir) {
@@ -2835,7 +2836,7 @@ static void service_enter_refresh_extensions(Service *s) {
                 /* Only reload confext, and not sysext as they also typically contain the executable(s) used
                  * by the service and a simply reload cannot meaningfully handle that. */
                 r = refresh_extensions_in_namespace(
-                                unit_pid,
+                                &s->main_pid,
                                 "SYSTEMD_CONFEXT_HIERARCHIES",
                                 &p);
                 if (r < 0)
@@ -5486,6 +5487,8 @@ static int service_live_mount(
                 goto fail;
         }
         if (r == 0) {
+                LOG_CONTEXT_PUSH_UNIT(u);
+
                 if (flags & MOUNT_IN_NAMESPACE_IS_IMAGE)
                         r = mount_image_in_namespace(
                                         &s->main_pid,
