@@ -94,7 +94,7 @@ static void test_unhexmem_one(const char *s, size_t l, int retval) {
         _cleanup_free_ void *mem = NULL;
         size_t len;
 
-        assert_se(unhexmem_full(s, l, /* secure = */ false, &mem, &len) == retval);
+        assert_se(unhexmem_full(s, l, /* secure= */ false, &mem, &len) == retval);
         if (retval == 0) {
                 char *answer;
 
@@ -460,7 +460,7 @@ static void test_unbase64mem_one(const char *input, const char *output, int ret)
         buffer = mfree(buffer);
         size = 0;
 
-        assert_se(unbase64mem_full(input, SIZE_MAX, /* secure=*/ true, &buffer, &size) == ret);
+        assert_se(unbase64mem_full(input, SIZE_MAX, /* secure= */ true, &buffer, &size) == ret);
         if (ret >= 0) {
                 assert_se(size == strlen(output));
                 assert_se(memcmp(buffer, output, size) == 0);

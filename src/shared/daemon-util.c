@@ -14,7 +14,7 @@ int notify_remove_fd_warn(const char *name) {
 
         assert(name);
 
-        r = sd_notifyf(/* unset_environment = */ false,
+        r = sd_notifyf(/* unset_environment= */ false,
                        "FDSTOREREMOVE=1\n"
                        "FDNAME=%s", name);
         if (r < 0)
@@ -62,7 +62,7 @@ int notify_push_fd(int fd, const char *name) {
         /* Remove existing fds with the same name in fdstore. */
         (void) notify_remove_fd_warn(name);
 
-        return sd_pid_notify_with_fds(0, /* unset_environment = */ false, state, &fd, 1);
+        return sd_pid_notify_with_fds(0, /* unset_environment= */ false, state, &fd, 1);
 }
 
 int notify_push_fdf(int fd, const char *format, ...) {
@@ -85,7 +85,7 @@ int notify_push_fdf(int fd, const char *format, ...) {
 int notify_reloading_full(const char *status) {
         int r;
 
-        r = sd_notifyf(/* unset_environment = */ false,
+        r = sd_notifyf(/* unset_environment= */ false,
                        "RELOADING=1\n"
                        "MONOTONIC_USEC=" USEC_FMT
                        "%s%s",

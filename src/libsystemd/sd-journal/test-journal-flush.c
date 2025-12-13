@@ -179,7 +179,7 @@ static void test_journal_flush_one(int argc, char *argv[]) {
 
         /* Archive and offline file. */
         assert_se(journal_file_archive(new_journal, NULL) >= 0);
-        assert_se(journal_file_set_offline(new_journal, /* wait = */ true) >= 0);
+        assert_se(journal_file_set_offline(new_journal, /* wait= */ true) >= 0);
 
         /* Read the archived and offline journal. */
         for (uint64_t q = ALIGN64(p + 1); q < (uint64_t) j->current_file->last_stat.st_size; q = ALIGN64(q + 1)) {

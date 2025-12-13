@@ -138,7 +138,7 @@ static int run(int argc, char *argv[]) {
 
         r = chase_and_stat("/usr", arg_root,
                            CHASE_PREFIX_ROOT | CHASE_WARN | CHASE_MUST_BE_DIRECTORY,
-                           /* ret_path = */ NULL,
+                           /* ret_path= */ NULL,
                            &st);
         if (r < 0)
                 return log_error_errno(r, "Failed to stat %s/usr/: %m", strempty(arg_root));

@@ -896,7 +896,7 @@ int dns_answer_to_json(DnsAnswer *answer, sd_json_variant **ret) {
         }
 
         if (!ja)
-                return sd_json_variant_new_array(ret, /* array=*/ NULL, /* n= */ 0);
+                return sd_json_variant_new_array(ret, /* array= */ NULL, /* n= */ 0);
 
         *ret = TAKE_PTR(ja);
         return 0;

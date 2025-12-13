@@ -974,7 +974,7 @@ static int context_on_acquire_progress(const Transfer *t, const Instance *inst, 
         assert(overall <= 100);
 
         log_debug("Transfer %zu/%zu is %u%% complete (%u%% overall).", i+1, n, percentage, overall);
-        return sd_notifyf(/* unset_environment=*/ false, "X_SYSUPDATE_PROGRESS=%u\n"
+        return sd_notifyf(/* unset_environment= */ false, "X_SYSUPDATE_PROGRESS=%u\n"
                                               "X_SYSUPDATE_TRANSFERS_LEFT=%zu\n"
                                               "X_SYSUPDATE_TRANSFERS_DONE=%zu\n"
                                               "STATUS=Updating to '%s' (%u%% complete).",
@@ -1031,7 +1031,7 @@ static int context_apply(
 
         log_info("Selected update '%s' for install.", us->version);
 
-        (void) sd_notifyf(/* unset_environment=*/ false,
+        (void) sd_notifyf(/* unset_environment= */ false,
                           "READY=1\n"
                           "X_SYSUPDATE_VERSION=%s\n"
                           "STATUS=Making room for '%s'.", us->version, us->version);
@@ -1041,15 +1041,15 @@ static int context_apply(
          * download succeeded already, in which case we shouldn't remove it just to acquire it again */
         r = context_vacuum(
                         c,
-                        /* space = */ 1,
-                        /* extra_protected_version = */ us->version);
+                        /* space= */ 1,
+                        /* extra_protected_version= */ us->version);
         if (r < 0)
                 return r;
 
         if (arg_sync)
                 sync();
 
-        (void) sd_notifyf(/* unset_environment=*/ false,
+        (void) sd_notifyf(/* unset_environment= */ false,
                           "STATUS=Updating to '%s'.", us->version);
 
         /* There should now be one instance picked for each transfer, and the order is the same */
@@ -1074,7 +1074,7 @@ static int context_apply(
         if (arg_sync)
                 sync();
 
-        (void) sd_notifyf(/* unset_environment=*/ false,
+        (void) sd_notifyf(/* unset_environment= */ false,
                           "STATUS=Installing '%s'.", us->version);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
@@ -1091,7 +1091,7 @@ static int context_apply(
 
         log_info("%s Successfully installed update '%s'.", glyph(GLYPH_SPARKLES), us->version);
 
-        (void) sd_notifyf(/* unset_environment=*/ false,
+        (void) sd_notifyf(/* unset_environment= */ false,
                           "STATUS=Installed '%s'.", us->version);
 
         if (ret_applied)

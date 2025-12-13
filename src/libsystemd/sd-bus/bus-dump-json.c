@@ -269,7 +269,7 @@ static int json_transform_one(sd_bus_message *m, sd_json_variant **ret) {
         default:
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "sd-bus: an invalid message type (signature=%s, type=%c, contents=%s).",
-                                       sd_bus_message_get_signature(m, /* complete = */ false), type, strna(contents));
+                                       sd_bus_message_get_signature(m, /* complete= */ false), type, strna(contents));
         }
 }
 

@@ -230,9 +230,9 @@ int recurse_dir(
                                         r = func(RECURSE_DIR_SKIP_OPEN_DIR_ERROR_BASE + errno,
                                                  p,
                                                  dir_fd,
-                                                 /* inode_fd = */ -EBADF,
+                                                 /* inode_fd= */ -EBADF,
                                                  i,
-                                                 /* sx = */ NULL,
+                                                 /* sx= */ NULL,
                                                  userdata);
                                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                                                 break;
@@ -274,9 +274,9 @@ int recurse_dir(
                                         r = func(RECURSE_DIR_SKIP_OPEN_INODE_ERROR_BASE + errno,
                                                  p,
                                                  dir_fd,
-                                                 /* inode_fd = */ -EBADF,
+                                                 /* inode_fd= */ -EBADF,
                                                  i,
-                                                 /* sx = */ NULL,
+                                                 /* sx= */ NULL,
                                                  userdata);
                                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                                                 break;
@@ -322,9 +322,9 @@ int recurse_dir(
                                         r = func(RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE + errno,
                                                  p,
                                                  dir_fd,
-                                                 /* inode_fd = */ -EBADF,
+                                                 /* inode_fd= */ -EBADF,
                                                  i,
-                                                 /* sx = */ NULL,
+                                                 /* sx= */ NULL,
                                                  userdata);
                                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                                                 break;
@@ -352,9 +352,9 @@ int recurse_dir(
                                         r = func(RECURSE_DIR_SKIP_STAT_INODE_ERROR_BASE + EISDIR,
                                                  p,
                                                  dir_fd,
-                                                 /* inode_fd = */ -EBADF,
+                                                 /* inode_fd= */ -EBADF,
                                                  i,
-                                                 /* sx = */ NULL,
+                                                 /* sx= */ NULL,
                                                  userdata);
                                         if (r == RECURSE_DIR_LEAVE_DIRECTORY)
                                                 break;
@@ -384,7 +384,7 @@ int recurse_dir(
                                 if (sx_valid && FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
                                         is_mount = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
                                 else {
-                                        r = is_mount_point_at(dir_fd, i->d_name, /* flags = */ 0);
+                                        r = is_mount_point_at(dir_fd, i->d_name, /* flags= */ 0);
                                         if (r < 0)
                                                 log_debug_errno(r, "Failed to determine whether %s is a submount, assuming not: %m", p);
 

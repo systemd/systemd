@@ -238,8 +238,8 @@ static int job_parse_child_output(int _fd, sd_json_variant **ret) {
                 return 0;
         }
 
-        r = sd_json_parse_file_at(/* f = */ NULL, fd, /* path = */ NULL, /* flags = */ 0,
-                                  &v, /* reterr_line = */ NULL, /* reterr_column = */ NULL);
+        r = sd_json_parse_file_at(/* f= */ NULL, fd, /* path= */ NULL, /* flags= */ 0,
+                                  &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse child output as JSON: %m");
 
@@ -1959,7 +1959,7 @@ static int method_list_appstream(sd_bus_message *msg, void *userdata, sd_bus_err
                 if (r < 0)
                         return r;
 
-                r = strv_extend_strv_consume(&urls, target_appstream, /* filter_duplicates = */ true);
+                r = strv_extend_strv_consume(&urls, target_appstream, /* filter_duplicates= */ true);
                 if (r < 0)
                         return r;
         }

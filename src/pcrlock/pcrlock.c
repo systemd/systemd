@@ -2239,7 +2239,7 @@ static int show_log_table(EventLog *el, sd_json_variant **ret_variant) {
                 return 0;
         }
 
-        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */true);
+        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ true);
         if (r < 0)
                 return r;
 
@@ -4391,7 +4391,7 @@ static int determine_boot_policy_file(char **ret_path, char **ret_credential_nam
                         /* root= */ NULL,
                         /* conf_root= */ NULL,
                         machine_id,
-                        /* machine_id_is_random = */ false,
+                        /* machine_id_is_random= */ false,
                         &arg_entry_token_type,
                         &arg_entry_token);
         if (r < 0)
@@ -5401,7 +5401,7 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -5465,7 +5465,7 @@ static int vl_method_remove_policy(sd_varlink *link, sd_json_variant *parameters
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 

@@ -478,15 +478,15 @@ static int netns_child_begin(int netns_fd, int *ret_original_netns_fd) {
                         return log_error_errno(original_netns_fd, "Failed to open original network namespace: %m");
         }
 
-        r = namespace_enter(/* pidns_fd = */ -EBADF,
-                            /* mntns_fd = */ -EBADF,
+        r = namespace_enter(/* pidns_fd= */ -EBADF,
+                            /* mntns_fd= */ -EBADF,
                             netns_fd,
-                            /* userns_fd = */ -EBADF,
-                            /* root_fd = */ -EBADF);
+                            /* userns_fd= */ -EBADF,
+                            /* root_fd= */ -EBADF);
         if (r < 0)
                 return log_error_errno(r, "Failed to enter child network namespace: %m");
 
-        r = umount_recursive("/sys/", /* flags = */ 0);
+        r = umount_recursive("/sys/", /* flags= */ 0);
         if (r < 0)
                 log_debug_errno(r, "Failed to unmount directories below /sys/, ignoring: %m");
 
@@ -494,7 +494,7 @@ static int netns_child_begin(int netns_fd, int *ret_original_netns_fd) {
 
         /* Populate new sysfs instance associated with the client netns, to make sd_device usable. */
         r = mount_nofollow_verbose(LOG_ERR, "sysfs", "/sys/", "sysfs",
-                                   MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, /* options = */ NULL);
+                                   MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, /* options= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to mount sysfs on /sys/: %m");
 

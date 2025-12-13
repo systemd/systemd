@@ -2389,11 +2389,11 @@ int home_create_luks(
         r = make_filesystem(setup->dm_node,
                             fstype,
                             user_record_user_name_and_realm(h),
-                            /* root = */ NULL,
+                            /* root= */ NULL,
                             fs_uuid,
                             (user_record_luks_discard(h) ? MKFS_DISCARD : 0) | MKFS_QUIET,
-                            /* sector_size = */ 0,
-                            /* compression = */ NULL,
+                            /* sector_size= */ 0,
+                            /* compression= */ NULL,
                             /* compression_level= */ NULL,
                             extra_mkfs_options);
         if (r < 0)

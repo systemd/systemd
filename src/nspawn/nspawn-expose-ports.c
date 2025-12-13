@@ -93,13 +93,13 @@ int expose_port_flush(sd_netlink *nfnl, ExposePort* l, int af, union in_addr_uni
         LIST_FOREACH(ports, p, l) {
                 r = fw_nftables_add_local_dnat(
                                 nfnl,
-                                /* add = */ false,
+                                /* add= */ false,
                                 af,
                                 p->protocol,
                                 p->host_port,
                                 exposed,
                                 p->container_port,
-                                /* previous_remote = */ NULL);
+                                /* previous_remote= */ NULL);
                 if (r < 0)
                         log_warning_errno(r, "Failed to modify %s firewall: %m", af_to_name(af));
         }
@@ -145,7 +145,7 @@ int expose_port_execute(sd_netlink *rtnl, sd_netlink *nfnl, ExposePort *l, int a
         LIST_FOREACH(ports, p, l) {
                 r = fw_nftables_add_local_dnat(
                                 nfnl,
-                                /* add = */ true,
+                                /* add= */ true,
                                 af,
                                 p->protocol,
                                 p->host_port,

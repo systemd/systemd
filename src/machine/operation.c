@@ -84,7 +84,7 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
                  * an error on failure or an empty success message on success. */
 
                 if (o->done)
-                        (void) o->done(o, r, /* error = */ NULL);
+                        (void) o->done(o, r, /* error= */ NULL);
                 else if (r < 0)
                         (void) sd_varlink_error_errno(o->link, r);
                 else

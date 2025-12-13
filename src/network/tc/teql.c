@@ -32,7 +32,7 @@ static int trivial_link_equalizer_is_ready(QDisc *qdisc, Link *link) {
         if (link_get_by_name(link->manager, qdisc->tca_kind, &teql) < 0)
                 return false;
 
-        return link_is_ready_to_configure(teql, /* allow_unmanaged = */ true);
+        return link_is_ready_to_configure(teql, /* allow_unmanaged= */ true);
 }
 
 const QDiscVTable teql_vtable = {

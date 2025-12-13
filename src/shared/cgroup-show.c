@@ -108,7 +108,7 @@ static int show_cgroup_one_by_path(
                  *
                  * ENODEV is generated when we enumerate processes from a cgroup and the cgroup is removed
                  * concurrently. */
-                r = cg_read_pid(f, &pid, /* flags = */ 0);
+                r = cg_read_pid(f, &pid, /* flags= */ 0);
                 if (IN_SET(r, 0, -EOPNOTSUPP, -ENODEV))
                         break;
                 if (r < 0)
@@ -306,7 +306,7 @@ int show_cgroup(const char *path,
 
         assert(path);
 
-        r = cg_get_path(path, /* suffix = */ NULL, &p);
+        r = cg_get_path(path, /* suffix= */ NULL, &p);
         if (r < 0)
                 return r;
 

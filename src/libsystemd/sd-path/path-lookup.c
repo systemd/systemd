@@ -363,14 +363,14 @@ static char** user_unit_search_dirs(
         if (!paths)
                 return NULL;
 
-        if (strv_extend_strv_consume(&paths, TAKE_PTR(config_dirs), /* filter_duplicates = */ false) < 0)
+        if (strv_extend_strv_consume(&paths, TAKE_PTR(config_dirs), /* filter_duplicates= */ false) < 0)
                 return NULL;
 
         /* global config has lower priority than the user config of the same type */
         if (strv_extend(&paths, global_persistent_config) < 0)
                 return NULL;
 
-        if (strv_extend_strv(&paths, (char* const*) user_config_unit_paths, /* filter_duplicates = */ false) < 0)
+        if (strv_extend_strv(&paths, (char* const*) user_config_unit_paths, /* filter_duplicates= */ false) < 0)
                 return NULL;
 
         /* strv_extend_many() can deal with NULL-s in arguments */
@@ -380,7 +380,7 @@ static char** user_unit_search_dirs(
                              generator) < 0)
                 return NULL;
 
-        if (strv_extend_strv_consume(&paths, TAKE_PTR(data_dirs), /* filter_duplicates = */ false) < 0)
+        if (strv_extend_strv_consume(&paths, TAKE_PTR(data_dirs), /* filter_duplicates= */ false) < 0)
                 return NULL;
 
         if (strv_extend_strv(&paths, (char* const*) user_data_unit_paths, false) < 0)
@@ -550,7 +550,7 @@ int lookup_paths_init(
                         return -ENOMEM;
 
                 /* strv_uniq() below would filter all duplicates against the final strv */
-                r = strv_extend_strv_consume(&paths, TAKE_PTR(add), /* filter_duplicates = */ false);
+                r = strv_extend_strv_consume(&paths, TAKE_PTR(add), /* filter_duplicates= */ false);
                 if (r < 0)
                         return r;
         }
@@ -731,7 +731,7 @@ char** generator_binary_paths_internal(RuntimeScope scope, bool env_generator) {
                 return NULL;
 
         if (!paths || r > 0) {
-                r = strv_extend_strv(&paths, (char* const*) generator_paths, /* filter_duplicates = */ true);
+                r = strv_extend_strv(&paths, (char* const*) generator_paths, /* filter_duplicates= */ true);
                 if (r < 0)
                         return NULL;
         }

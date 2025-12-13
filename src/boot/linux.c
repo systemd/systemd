@@ -72,7 +72,7 @@ static EFI_STATUS load_via_boot_services(
                                 });
 
 
-        err = BS->LoadImage(/* BootPolicy= */false,
+        err = BS->LoadImage(/* BootPolicy= */ false,
                             parent,
                             &kernel_file_path->memmap_path.Header,
                             kernel->iov_base,

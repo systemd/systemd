@@ -40,7 +40,7 @@ int bus_map_job_id(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_er
 
         assert(m);
 
-        return sd_bus_message_read(m, "(uo)", p, /* path = */ NULL);
+        return sd_bus_message_read(m, "(uo)", p, /* path= */ NULL);
 }
 
 static int map_basic(sd_bus_message *m, unsigned flags, void *userdata) {

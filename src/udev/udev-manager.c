@@ -284,7 +284,7 @@ int manager_reset_kill_workers_timer(Manager *manager) {
                                 manager,
                                 EVENT_PRIORITY_WORKER_TIMER,
                                 "kill-workers-event",
-                                /* force_reset = */ false);
+                                /* force_reset= */ false);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to enable timer event source for cleaning up workers: %m");
         }
@@ -369,7 +369,7 @@ void manager_reload(Manager *manager, bool force) {
         udev_builtin_reload(flags);
 
         if (FLAGS_SET(flags, UDEV_RELOAD_RULES)) {
-                r = udev_rules_load(&rules, manager->config.resolve_name_timing, /* extra = */ NULL);
+                r = udev_rules_load(&rules, manager->config.resolve_name_timing, /* extra= */ NULL);
                 if (r < 0)
                         log_warning_errno(r, "Failed to read udev rules, using the previously loaded rules, ignoring: %m");
                 else
@@ -514,7 +514,7 @@ static void worker_attach_event(Worker *worker, Event *event) {
                         worker,
                         EVENT_PRIORITY_WORKER_TIMER,
                         "worker-timeout-warn",
-                        /* force_reset = */ true);
+                        /* force_reset= */ true);
 
         (void) event_reset_time_relative(
                         manager->event,
@@ -526,7 +526,7 @@ static void worker_attach_event(Worker *worker, Event *event) {
                         worker,
                         EVENT_PRIORITY_WORKER_TIMER,
                         "worker-timeout-kill",
-                        /* force_reset = */ true);
+                        /* force_reset= */ true);
 }
 
 static Event* worker_detach_event(Worker *worker) {
@@ -580,7 +580,7 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .manager_pid = manager_pid,
                 };
 
-                if (setenv("NOTIFY_SOCKET", manager->worker_notify_socket_path, /* overwrite = */ true) < 0) {
+                if (setenv("NOTIFY_SOCKET", manager->worker_notify_socket_path, /* overwrite= */ true) < 0) {
                         log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -726,7 +726,7 @@ static int event_queue_start(Manager *manager) {
         if (r < 0)
                 log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
 
-        manager_reload(manager, /* force = */ false);
+        manager_reload(manager, /* force= */ false);
 
         /* manager_reload() may kill idle workers, hence we may not be possible to start processing an event.
          * Let's check that and return earlier if we cannot. */
@@ -789,10 +789,10 @@ static int manager_requeue_locked_events(Manager *manager) {
                                         event->requeue_next_usec,
                                         USEC_PER_SEC,
                                         on_requeue_locked_events,
-                                        /* userdata = */ NULL,
+                                        /* userdata= */ NULL,
                                         EVENT_PRIORITY_REQUEUE_EVENT,
                                         "requeue-locked-events",
-                                        /* force_reset = */ true);
+                                        /* force_reset= */ true);
 
                 assert_se(prioq_pop(manager->locked_events_by_time) == event);
                 event_unset_whole_disk(event);
@@ -1026,7 +1026,7 @@ static int manager_deserialize_events(Manager *manager, int *fd) {
         if (manager->events)
                 return log_warning_errno(SYNTHETIC_ERRNO(EALREADY), "Received multiple event storage socket (%i).", *fd);
 
-        r = sd_is_socket(*fd, AF_NETLINK, SOCK_RAW, /* listening = */ -1);
+        r = sd_is_socket(*fd, AF_NETLINK, SOCK_RAW, /* listening= */ -1);
         if (r < 0)
                 return log_warning_errno(r, "Failed to verify type of event storage socket (%i): %m", *fd);
         if (r == 0)
@@ -1101,7 +1101,7 @@ static int manager_init_device_monitor(Manager *manager, int fd) {
                 if (manager->monitor)
                         return log_warning_errno(SYNTHETIC_ERRNO(EALREADY), "Received multiple netlink socket (%i), ignoring.", fd);
 
-                r = sd_is_socket(fd, AF_NETLINK, SOCK_RAW, /* listening = */ -1);
+                r = sd_is_socket(fd, AF_NETLINK, SOCK_RAW, /* listening= */ -1);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to verify socket type of %i, ignoring: %m", fd);
                 if (r == 0)
@@ -1251,7 +1251,7 @@ static int on_sigterm(sd_event_source *s, const struct signalfd_siginfo *si, voi
 static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
 
-        manager_reload(manager, /* force = */ true);
+        manager_reload(manager, /* force= */ true);
 
         return 1;
 }
@@ -1321,7 +1321,7 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         if (manager->cgroup && set_isempty(manager->synthesize_change_child_event_sources))
                 /* cleanup possible left-over processes in our cgroup */
-                (void) cg_kill(manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* killed_pids=*/ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
+                (void) cg_kill(manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
 
         return 0;
 }
@@ -1382,7 +1382,7 @@ static int manager_setup_event(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGHUP event source: %m");
 
-        r = sd_event_add_post(e, /* ret = */ NULL, on_post, manager);
+        r = sd_event_add_post(e, /* ret= */ NULL, on_post, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create post event source: %m");
 
@@ -1413,7 +1413,7 @@ static int manager_listen_fds(Manager *manager, int *ret_varlink_fd) {
         assert(manager);
         assert(ret_varlink_fd);
 
-        int n = sd_listen_fds_with_names(/* unset_environment = */ true, &names);
+        int n = sd_listen_fds_with_names(/* unset_environment= */ true, &names);
         if (n < 0)
                 return log_error_errno(n, "Failed to listen on fds: %m");
 
@@ -1492,7 +1492,7 @@ int manager_main(Manager *manager) {
 
         udev_builtin_init();
 
-        r = udev_rules_load(&manager->rules, manager->config.resolve_name_timing, /* extra = */ NULL);
+        r = udev_rules_load(&manager->rules, manager->config.resolve_name_timing, /* extra= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to read udev rules: %m");
 

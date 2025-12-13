@@ -142,11 +142,11 @@ static int route_nexthop_compare_func_full(const RouteNextHop *a, const RouteNex
 }
 
 static void route_nexthop_hash_func(const RouteNextHop *nh, struct siphash *state) {
-        route_nexthop_hash_func_full(nh, state, /* with_weight = */ true);
+        route_nexthop_hash_func_full(nh, state, /* with_weight= */ true);
 }
 
 static int route_nexthop_compare_func(const RouteNextHop *a, const RouteNextHop *b) {
-        return route_nexthop_compare_func_full(a, b, /* with_weight = */ true);
+        return route_nexthop_compare_func_full(a, b, /* with_weight= */ true);
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
@@ -178,7 +178,7 @@ void route_nexthops_hash_func(const Route *route, struct siphash *state) {
                 return;
 
         case 1:
-                route_nexthop_hash_func_full(&route->nexthop, state, /* with_weight = */ false);
+                route_nexthop_hash_func_full(&route->nexthop, state, /* with_weight= */ false);
                 return;
 
         default: {
@@ -205,7 +205,7 @@ int route_nexthops_compare_func(const Route *a, const Route *b) {
                 return CMP(a->nexthop_id, b->nexthop_id);
 
         case 1:
-                return route_nexthop_compare_func_full(&a->nexthop, &b->nexthop, /* with_weight = */ false);
+                return route_nexthop_compare_func_full(&a->nexthop, &b->nexthop, /* with_weight= */ false);
 
         default: {
                 RouteNextHop *nh;
@@ -414,7 +414,7 @@ static bool route_nexthop_is_ready_to_configure(const RouteNextHop *nh, Manager 
         if (route_nexthop_get_link(manager, nh, &link) < 0)
                 return false;
 
-        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ true))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ true))
                 return false;
 
         /* If the interface is not managed by us, we request that the interface has carrier.

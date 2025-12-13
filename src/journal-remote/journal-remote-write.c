@@ -44,7 +44,7 @@ int writer_new(RemoteServer *server, Writer **ret) {
         if (!w->mmap)
                 return -ENOMEM;
 
-        if (is_dir(server->output, /* follow = */ true) > 0) {
+        if (is_dir(server->output, /* follow= */ true) > 0) {
                 w->output = strdup(server->output);
                 if (!w->output)
                         return -ENOMEM;
@@ -98,7 +98,7 @@ int writer_write(Writer *w,
                 r = do_rotate(&w->journal, w->mmap, file_flags);
                 if (r < 0)
                         return r;
-                r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, /* verbose = */ true);
+                r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, /* verbose= */ true);
                 if (r < 0)
                         return r;
         }
@@ -126,7 +126,7 @@ int writer_write(Writer *w,
                 return r;
         else
                 log_debug("%s: Successfully rotated journal", w->journal->path);
-        r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, /* verbose = */ true);
+        r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, /* verbose= */ true);
         if (r < 0)
                 return r;
 

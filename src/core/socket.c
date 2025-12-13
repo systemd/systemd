@@ -1900,7 +1900,7 @@ static void socket_set_state(Socket *s, SocketState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", socket_state_to_string(old_state), socket_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 }
 
 static int socket_coldplug(Unit *u) {
@@ -2124,13 +2124,13 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
         else
                 unit_log_failure(UNIT(s), socket_result_to_string(s->result));
 
-        unit_warn_leftover_processes(UNIT(s), /* start = */ false);
+        unit_warn_leftover_processes(UNIT(s), /* start= */ false);
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
 
         s->exec_runtime = exec_runtime_destroy(s->exec_runtime);
 
-        unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir = */ true);
+        unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir= */ true);
 
         unit_unref_uid_gid(UNIT(s), true);
 }
@@ -2353,7 +2353,7 @@ static void socket_enter_start_pre(Socket *s) {
 
         socket_unwatch_control_pid(s);
 
-        unit_warn_leftover_processes(UNIT(s), /* start = */ true);
+        unit_warn_leftover_processes(UNIT(s), /* start= */ true);
 
         s->control_command_id = SOCKET_EXEC_START_PRE;
         s->control_command = s->exec_command[SOCKET_EXEC_START_PRE];
@@ -2398,7 +2398,7 @@ static bool socket_stop_notify(Unit *u) {
 
         assert(s->state == SOCKET_DEFERRED);
 
-        r = manager_add_job(u->manager, JOB_START, UNIT_DEREF(s->service), JOB_LENIENT, &error, /* ret = */ NULL);
+        r = manager_add_job(u->manager, JOB_START, UNIT_DEREF(s->service), JOB_LENIENT, &error, /* ret= */ NULL);
         if (r >= 0) { /* Yay! */
                 socket_set_state(s, SOCKET_RUNNING);
                 return true; /* changed */
@@ -2429,7 +2429,7 @@ static void socket_enter_deferred(Socket *s) {
          * Put a safety net around all this though, i.e. give up if the service still can't be started
          * even after all existing jobs have completed, or DeferTriggerMaxSec= is reached. */
 
-        r = socket_arm_timer(s, /* relative = */ true, s->defer_trigger_max_usec);
+        r = socket_arm_timer(s, /* relative= */ true, s->defer_trigger_max_usec);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
                 return socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
@@ -2492,7 +2492,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                         }
 
                         if (s->defer_trigger != SOCKET_DEFER_NO) {
-                                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_LENIENT, &error, /* ret = */ NULL);
+                                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_LENIENT, &error, /* ret= */ NULL);
                                 if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE) && socket_may_defer(s))
                                         /* We only check BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE here, not
                                          * BUS_ERROR_TRANSACTION_JOBS_CONFLICTING or BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
@@ -2501,7 +2501,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                                          * Deferring activation probably won't help. */
                                         return socket_enter_deferred(s);
                         } else
-                                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, &error, /* ret = */ NULL);
+                                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, &error, /* ret= */ NULL);
                         if (r < 0)
                                 goto queue_error;
                 }
@@ -2568,7 +2568,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
 
                 s->n_connections++;
 
-                r = manager_add_job(UNIT(s)->manager, JOB_START, service, JOB_REPLACE, &error, /* ret = */ NULL);
+                r = manager_add_job(UNIT(s)->manager, JOB_START, service, JOB_REPLACE, &error, /* ret= */ NULL);
                 if (r < 0) {
                         /* We failed to activate the new service, but it still exists. Let's make sure the
                          * service closes and forgets the connection fd again, immediately. */
@@ -2632,7 +2632,7 @@ static int socket_start(Unit *u) {
                                                     "Socket service %s not loaded, refusing.", UNIT(service)->id);
 
                 /* If the service is already active we cannot start the socket */
-                if (SOCKET_SERVICE_IS_ACTIVE(service, /* allow_finalize = */ false))
+                if (SOCKET_SERVICE_IS_ACTIVE(service, /* allow_finalize= */ false))
                         return log_unit_error_errno(u, SYNTHETIC_ERRNO(EBUSY),
                                                     "Socket service %s already active, refusing.", UNIT(service)->id);
         }
@@ -3521,7 +3521,7 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
         if (other->job)
                 return;
 
-        if (!SOCKET_SERVICE_IS_ACTIVE(service, /* allow_finalize = */ true))
+        if (!SOCKET_SERVICE_IS_ACTIVE(service, /* allow_finalize= */ true))
                 socket_enter_listening(s);
 
         if (SERVICE(other)->state == SERVICE_RUNNING)

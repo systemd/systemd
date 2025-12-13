@@ -233,7 +233,7 @@ static int write_fsck_sysroot_service(
         if (r < 0)
                 return log_error_errno(r, "Failed to convert device \"%s\" to unit name: %m", what);
 
-        r = generator_open_unit_file(dir, /* source = */ NULL, unit, &f);
+        r = generator_open_unit_file(dir, /* source= */ NULL, unit, &f);
         if (r < 0)
                 return r;
 
@@ -578,7 +578,7 @@ int generator_hook_up_mkswap(
                 return log_error_errno(r, "Failed to make unit name from path \"%s\": %m",
                                        what);
 
-        r = generator_open_unit_file(dir, /* source = */ NULL, unit, &f);
+        r = generator_open_unit_file(dir, /* source= */ NULL, unit, &f);
         if (r < 0)
                 return r;
 
@@ -660,7 +660,7 @@ int generator_hook_up_mkfs(
                 return log_error_errno(r, "Failed to make unit name from path \"%s\": %m",
                                        where);
 
-        r = generator_open_unit_file(dir, /* source = */ NULL, unit, &f);
+        r = generator_open_unit_file(dir, /* source= */ NULL, unit, &f);
         if (r < 0)
                 return r;
 

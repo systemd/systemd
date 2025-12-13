@@ -128,7 +128,7 @@ int bpf_socket_bind_supported(void) {
         if (dlopen_bpf_full(LOG_WARNING) < 0)
                 return false;
 
-        r = prepare_socket_bind_bpf(/*unit=*/NULL, /*allow_rules=*/NULL, /*deny_rules=*/NULL, &obj);
+        r = prepare_socket_bind_bpf(/* unit= */ NULL, /* allow_rules= */ NULL, /* deny_rules= */ NULL, &obj);
         if (r < 0) {
                 log_debug_errno(r, "bpf-socket-bind: socket bind filtering is not supported: %m");
                 return false;
@@ -179,7 +179,7 @@ static int socket_bind_install_impl(Unit *u) {
         if (!crt)
                 return 0;
 
-        r = cg_get_path(crt->cgroup_path, /* suffix = */ NULL, &cgroup_path);
+        r = cg_get_path(crt->cgroup_path, /* suffix= */ NULL, &cgroup_path);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to get cgroup path: %m");
 

@@ -58,12 +58,12 @@ static int has_multiple_graphics_cards(void) {
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_subsystem(e, "pci", /* match = */ true);
+        r = sd_device_enumerator_add_match_subsystem(e, "pci", /* match= */ true);
         if (r < 0)
                 return r;
 
         /* class is an unsigned number, let's validate the value later. */
-        r = sd_device_enumerator_add_match_sysattr(e, "class", NULL, /* match = */ true);
+        r = sd_device_enumerator_add_match_sysattr(e, "class", NULL, /* match= */ true);
         if (r < 0)
                 return r;
 
@@ -233,7 +233,7 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to allow uninitialized devices: %m");
 
-        r = sd_device_enumerator_add_match_subsystem(enumerate, "backlight", /* match = */ true);
+        r = sd_device_enumerator_add_match_subsystem(enumerate, "backlight", /* match= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add subsystem match: %m");
 
@@ -241,11 +241,11 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to add sysname unmatch: %m");
 
-        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "platform", /* match = */ true);
+        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "platform", /* match= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add sysattr match: %m");
 
-        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "firmware", /* match = */ true);
+        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "firmware", /* match= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add sysattr match: %m");
 
@@ -591,9 +591,9 @@ static int verb_load(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_device_error_errno(device, r, "Failed to read current brightness: %m");
 
-                (void) clamp_brightness(device, percent, /* saved = */ false, max_brightness, &brightness);
+                (void) clamp_brightness(device, percent, /* saved= */ false, max_brightness, &brightness);
         } else if (clamp)
-                (void) clamp_brightness(device, percent, /* saved = */ true, max_brightness, &brightness);
+                (void) clamp_brightness(device, percent, /* saved= */ true, max_brightness, &brightness);
 
         r = sd_device_set_sysattr_valuef(device, "brightness", "%u", brightness);
         if (r < 0)

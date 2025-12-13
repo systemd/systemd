@@ -63,9 +63,9 @@ int device_broadcast_on_error(sd_device *dev, sd_device_monitor *monitor) {
 
         /* delete state from disk */
         (void) device_delete_db(dev);
-        (void) device_tag_index(dev, /* device_old = */ NULL, /* add = */ false);
+        (void) device_tag_index(dev, /* device_old= */ NULL, /* add= */ false);
 
-        r = device_monitor_send(monitor, /* destination = */ NULL, dev);
+        r = device_monitor_send(monitor, /* destination= */ NULL, dev);
         if (r < 0) {
                 uint64_t seqnum = 0;
 

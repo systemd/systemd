@@ -172,7 +172,7 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
         BootTimes *t;
         int r;
 
-        r = acquire_boot_times(bus, /* require_finished = */ true, &t);
+        r = acquire_boot_times(bus, /* require_finished= */ true, &t);
         if (r < 0)
                 return r;
 

@@ -134,7 +134,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         mode,
                         "foo",
                         /* timestamp= */ USEC_INFINITY,
-                        /* not_after=*/ USEC_INFINITY,
+                        /* not_after= */ USEC_INFINITY,
                         /* tpm2_device= */ NULL,
                         /* tpm2_hash_pcr_mask= */ 0,
                         /* tpm2_pubkey_path= */ NULL,

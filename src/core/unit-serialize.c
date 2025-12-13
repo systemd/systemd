@@ -33,7 +33,7 @@ static int serialize_markers(FILE *f, unsigned markers) {
 
         fputs("markers=", f);
         BIT_FOREACH(m, markers)
-                fputs_with_separator(f, unit_marker_to_string(m), /* separator = */ NULL, &space);
+                fputs_with_separator(f, unit_marker_to_string(m), /* separator= */ NULL, &space);
         fputc('\n', f);
         return 0;
 }
@@ -373,7 +373,7 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                  * wasn't the case in prior versions with the realized state tracked in a discrete field.
                  * Patch cgroup_realized == 0 back to no cgroup_path here hence. */
                 if (crt->deserialized_cgroup_realized == 0)
-                        unit_release_cgroup(u, /* drop_cgroup_runtime = */ false);
+                        unit_release_cgroup(u, /* drop_cgroup_runtime= */ false);
                 else {
                         unit_invalidate_cgroup(u, _CGROUP_MASK_ALL);
                         unit_invalidate_cgroup_bpf_firewall(u);

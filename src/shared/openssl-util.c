@@ -1415,8 +1415,8 @@ static int load_key_from_provider(
 
         _cleanup_(OSSL_STORE_closep) OSSL_STORE_CTX *store = OSSL_STORE_open(
                         private_key_uri,
-                        /*ui_method=*/ NULL,
-                        /*ui_method=*/ NULL,
+                        /* ui_method= */ NULL,
+                        /* ui_method= */ NULL,
                         /* post_process= */ NULL,
                         /* post_process_data= */ NULL);
         if (!store)
@@ -1455,7 +1455,7 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
         if (ENGINE_init(e) == 0)
                 return log_openssl_errors("Failed to initialize signing engine '%s'", engine);
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(e, private_key_uri, /*ui_method=*/ NULL, /*callback_data=*/ NULL);
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(e, private_key_uri, /* ui_method= */ NULL, /* callback_data= */ NULL);
         if (!private_key)
                 return log_openssl_errors("Failed to load private key from '%s'", private_key_uri);
         REENABLE_WARNING;
@@ -1619,8 +1619,8 @@ static int load_x509_certificate_from_provider(const char *provider, const char 
 
         _cleanup_(OSSL_STORE_closep) OSSL_STORE_CTX *store = OSSL_STORE_open(
                         certificate_uri,
-                        /*ui_method=*/ NULL,
-                        /*ui_method=*/ NULL,
+                        /* ui_method= */ NULL,
+                        /* ui_method= */ NULL,
                         /* post_process= */ NULL,
                         /* post_process_data= */ NULL);
         if (!store)

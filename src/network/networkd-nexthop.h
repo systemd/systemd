@@ -59,10 +59,10 @@ int network_drop_invalid_nexthops(Network *network);
 
 int link_drop_nexthops(Link *link, bool only_static);
 static inline int link_drop_unmanaged_nexthops(Link *link) {
-        return link_drop_nexthops(link, /* only_static = */ false);
+        return link_drop_nexthops(link, /* only_static= */ false);
 }
 static inline int link_drop_static_nexthops(Link *link) {
-        return link_drop_nexthops(link, /* only_static = */ true);
+        return link_drop_nexthops(link, /* only_static= */ true);
 }
 void link_forget_nexthops(Link *link);
 

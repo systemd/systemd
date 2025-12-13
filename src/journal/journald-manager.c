@@ -958,7 +958,7 @@ static void manager_write_to_journal(
 
                 log_ratelimit_info(JOURNAL_LOG_RATELIMIT, "Time jumped backwards, rotating.");
                 manager_rotate(m);
-                manager_vacuum(m, /* verbose = */ false);
+                manager_vacuum(m, /* verbose= */ false);
                 vacuumed = true;
         }
 
@@ -976,7 +976,7 @@ static void manager_write_to_journal(
                 log_debug("%s: Journal header limits reached or header out-of-date, rotating.", f->path);
 
                 manager_rotate_journal(m, TAKE_PTR(f), uid);
-                manager_vacuum(m, /* verbose = */ false);
+                manager_vacuum(m, /* verbose= */ false);
                 vacuumed = true;
 
                 f = manager_find_journal(m, uid);
@@ -1011,7 +1011,7 @@ static void manager_write_to_journal(
         }
 
         manager_rotate_journal(m, TAKE_PTR(f), uid);
-        manager_vacuum(m, /* verbose = */ false);
+        manager_vacuum(m, /* verbose= */ false);
 
         f = manager_find_journal(m, uid);
         if (!f)
@@ -1319,7 +1319,7 @@ int manager_flush_to_var(Manager *m, bool require_flag_file) {
         if (require_flag_file && !manager_flushed_flag_is_set(m))
                 return 0;
 
-        (void) manager_system_journal_open(m, /* flush_requested=*/ true, /* relinquish_requested= */ false);
+        (void) manager_system_journal_open(m, /* flush_requested= */ true, /* relinquish_requested= */ false);
 
         if (!m->system_journal)
                 return 0;
@@ -1376,8 +1376,8 @@ int manager_flush_to_var(Manager *m, bool require_flag_file) {
 
                 log_ratelimit_info(JOURNAL_LOG_RATELIMIT, "Rotating system journal.");
 
-                manager_rotate_journal(m, m->system_journal, /* uid = */ 0);
-                manager_vacuum(m, /* verbose = */ false);
+                manager_rotate_journal(m, m->system_journal, /* uid= */ 0);
+                manager_vacuum(m, /* verbose= */ false);
 
                 if (!m->system_journal) {
                         log_ratelimit_notice(JOURNAL_LOG_RATELIMIT,
@@ -1466,7 +1466,7 @@ int manager_relinquish_var(Manager *m) {
 
         log_debug("Relinquishing %s...", m->system_storage.path);
 
-        (void) manager_system_journal_open(m, /* flush_requested = */ false, /* relinquish_requested = */ true);
+        (void) manager_system_journal_open(m, /* flush_requested= */ false, /* relinquish_requested= */ true);
 
         m->system_journal = journal_file_offline_close(m->system_journal);
         ordered_hashmap_clear(m->user_journals);
@@ -1624,7 +1624,7 @@ void manager_full_flush(Manager *m) {
         assert(m);
 
         (void) manager_flush_to_var(m, false);
-        manager_sync(m, /* wait = */ false);
+        manager_sync(m, /* wait= */ false);
         manager_vacuum(m, false);
 
         manager_space_usage_message(m, NULL);
@@ -1794,7 +1794,7 @@ static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo
         }
 
         log_debug("Received SIGRTMIN1 signal from PID %u, as request to sync.", si->ssi_pid);
-        manager_full_sync(m, /* wait = */ false);
+        manager_full_sync(m, /* wait= */ false);
 
         return 0;
 }
@@ -1856,7 +1856,7 @@ static int manager_setup_signals(Manager *m) {
 static int manager_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-        manager_sync(m, /* wait = */ false);
+        manager_sync(m, /* wait= */ false);
         return 0;
 }
 
@@ -1867,13 +1867,13 @@ static int manager_schedule_sync(Manager *m, int priority) {
 
         if (priority <= LOG_CRIT) {
                 /* Immediately sync to disk when this is of priority CRIT, ALERT, EMERG */
-                manager_sync(m, /* wait = */ false);
+                manager_sync(m, /* wait= */ false);
                 return 0;
         }
 
         if (!m->event || sd_event_get_state(m->event) == SD_EVENT_FINISHED) {
                 /* Shutting down the server? Let's sync immediately. */
-                manager_sync(m, /* wait = */ false);
+                manager_sync(m, /* wait= */ false);
                 return 0;
         }
 
@@ -2286,12 +2286,12 @@ void manager_reopen_journals(Manager *m, const JournalConfig *old) {
         ordered_hashmap_clear(m->user_journals);
         set_clear(m->deferred_closes);
 
-        (void) manager_system_journal_open(m, /* flush_requested = */ false, /* relinquish_requested = */ false);
+        (void) manager_system_journal_open(m, /* flush_requested= */ false, /* relinquish_requested= */ false);
 
         /* To make the storage related settings applied, vacuum the storage. */
         cache_space_invalidate(&m->system_storage.space);
         cache_space_invalidate(&m->runtime_storage.space);
-        manager_vacuum(m, /* verbose = */ false);
+        manager_vacuum(m, /* verbose= */ false);
 }
 
 int manager_new(Manager **ret) {

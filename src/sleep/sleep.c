@@ -308,7 +308,7 @@ static int execute(
         if (!action)
                 action = sleep_operation_to_string(operation);
 
-        if (setenv("SYSTEMD_SLEEP_ACTION", action, /* overwrite = */ 1) < 0)
+        if (setenv("SYSTEMD_SLEEP_ACTION", action, /* overwrite= */ 1) < 0)
                 log_warning_errno(errno, "Failed to set SYSTEMD_SLEEP_ACTION=%s, ignoring: %m", action);
 
         (void) execute_directories(

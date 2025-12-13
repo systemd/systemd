@@ -66,8 +66,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        manager_vacuum(m, /* verbose = */ false);
-        manager_flush_to_var(m, /* require_flag_file = */ true);
+        manager_vacuum(m, /* verbose= */ false);
+        manager_flush_to_var(m, /* require_flag_file= */ true);
         manager_flush_dev_kmsg(m);
 
         if (m->namespace)
@@ -104,7 +104,7 @@ static int run(int argc, char *argv[]) {
                         /* The retention time is reached, so let's vacuum! */
                         if (t <= 0) {
                                 log_info("Retention time reached, vacuuming.");
-                                manager_vacuum(m, /* verbose = */ false);
+                                manager_vacuum(m, /* verbose= */ false);
                                 continue;
                         }
                 } else

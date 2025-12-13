@@ -29,7 +29,7 @@ int pidfd_check_pidfs(int pid_fd) {
 
         _cleanup_close_ int our_fd = -EBADF;
         if (pid_fd < 0) {
-                our_fd = pidfd_open(getpid_cached(), /* flags = */ 0);
+                our_fd = pidfd_open(getpid_cached(), /* flags= */ 0);
                 if (our_fd < 0)
                         return -errno;
 

@@ -225,7 +225,7 @@ static int intro(void) {
         _cleanup_free_ char *map = NULL;
 
         ASSERT_OK(get_testdata_dir("test-keymap-util/kbd-model-map", &map));
-        ASSERT_OK_ERRNO(setenv("SYSTEMD_KBD_MODEL_MAP", map, /* overwrite = */ true));
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_KBD_MODEL_MAP", map, /* overwrite= */ true));
 
         return EXIT_SUCCESS;
 }

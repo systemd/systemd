@@ -32,7 +32,7 @@ static int builtin_kmod(UdevEvent *event, int argc, char *argv[]) {
         char **modules = strv_skip(argv, 2);
         if (modules)
                 STRV_FOREACH(module, modules)
-                        (void) module_load_and_warn(ctx, *module, /* verbose = */ false);
+                        (void) module_load_and_warn(ctx, *module, /* verbose= */ false);
         else {
                 const char *modalias;
 
@@ -40,7 +40,7 @@ static int builtin_kmod(UdevEvent *event, int argc, char *argv[]) {
                 if (r < 0)
                         return log_device_warning_errno(dev, r, "Failed to read property \"MODALIAS\": %m");
 
-                (void) module_load_and_warn(ctx, modalias, /* verbose = */ false);
+                (void) module_load_and_warn(ctx, modalias, /* verbose= */ false);
         }
 
         return 0;

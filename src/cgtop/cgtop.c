@@ -908,7 +908,7 @@ static int loop(const char *root) {
 
                 if (t >= usec_add(last_refresh, arg_delay) || immediate_refresh) {
 
-                        r = refresh(root, a, b, iteration++, /* depth = */ 0, /* ret = */ NULL);
+                        r = refresh(root, a, b, iteration++, /* depth= */ 0, /* ret= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to refresh: %m");
 

@@ -266,7 +266,7 @@ static int dhcp_pd_check_ready(Link *link) {
 
         log_link_debug(link, "DHCP-PD addresses and routes set.");
 
-        r = dhcp_pd_remove(link, /* only_marked = */ true);
+        r = dhcp_pd_remove(link, /* only_marked= */ true);
         if (r < 0)
                 return r;
 
@@ -611,7 +611,7 @@ static int dhcp_pd_finalize(Link *link) {
         if (link->dhcp_pd_messages == 0) {
                 link->dhcp_pd_configured = false;
 
-                r = dhcp_pd_remove(link, /* only_marked = */ true);
+                r = dhcp_pd_remove(link, /* only_marked= */ true);
                 if (r < 0)
                         return r;
         }
@@ -673,15 +673,15 @@ static void dhcp_pd_prefix_lost(Link *uplink, NetworkConfigSource source) {
         assert(uplink->manager);
 
         HASHMAP_FOREACH(link, uplink->manager->links_by_index) {
-                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto = */ true))
+                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto= */ true))
                         continue;
 
-                r = dhcp_pd_remove(link, /* only_marked = */ false);
+                r = dhcp_pd_remove(link, /* only_marked= */ false);
                 if (r < 0)
                         link_enter_failed(link);
         }
 
-        (void) dhcp_pd_remove_unreachable_route(uplink->manager, source, /* only_marked = */ false);
+        (void) dhcp_pd_remove_unreachable_route(uplink->manager, source, /* only_marked= */ false);
 
         set_clear(uplink->dhcp_pd_prefixes);
 }
@@ -977,7 +977,7 @@ static int dhcp4_pd_assign_subnet_prefix(Link *link, Link *uplink) {
                         return r;
         }
 
-        r = dhcp_pd_assign_subnet_prefix(link, &pd_prefix, pd_prefixlen, lifetime_usec, lifetime_usec, /* is_uplink = */ false);
+        r = dhcp_pd_assign_subnet_prefix(link, &pd_prefix, pd_prefixlen, lifetime_usec, lifetime_usec, /* is_uplink= */ false);
         if (r < 0)
                 return r;
 
@@ -1054,7 +1054,7 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         r = dhcp4_request_unreachable_route(uplink, &pd_prefix, pd_prefixlen, lifetime_usec, &server_address);
         if (r < 0)
                 return r;
-        (void) dhcp_pd_remove_unreachable_route(uplink->manager, NETWORK_CONFIG_SOURCE_DHCP4, /* only_marked = */ true);
+        (void) dhcp_pd_remove_unreachable_route(uplink->manager, NETWORK_CONFIG_SOURCE_DHCP4, /* only_marked= */ true);
 
         /* Create or update 6rd SIT tunnel device. */
         r = dhcp4_pd_create_6rd_tunnel(uplink, dhcp4_pd_6rd_tunnel_create_handler);
@@ -1063,7 +1063,7 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
 
         /* Then, assign subnet prefixes to downstream interfaces. */
         HASHMAP_FOREACH(link, uplink->manager->links_by_index) {
-                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto = */ true))
+                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto= */ true))
                         continue;
 
                 r = dhcp4_pd_assign_subnet_prefix(link, uplink);
@@ -1117,7 +1117,7 @@ static int dhcp6_pd_assign_subnet_prefixes(Link *link, Link *uplink) {
 
                 r = dhcp_pd_assign_subnet_prefix(link, &pd_prefix, pd_prefix_len,
                                                  lifetime_preferred_usec, lifetime_valid_usec,
-                                                 /* is_uplink = */ link == uplink);
+                                                 /* is_uplink= */ link == uplink);
                 if (r < 0)
                         return r;
         }
@@ -1170,11 +1170,11 @@ int dhcp6_pd_prefix_acquired(Link *uplink) {
                         return r;
         }
 
-        (void) dhcp_pd_remove_unreachable_route(uplink->manager, NETWORK_CONFIG_SOURCE_DHCP6, /* only_marked = */ true);
+        (void) dhcp_pd_remove_unreachable_route(uplink->manager, NETWORK_CONFIG_SOURCE_DHCP6, /* only_marked= */ true);
 
         /* Then, assign subnet prefixes. */
         HASHMAP_FOREACH(link, uplink->manager->links_by_index) {
-                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto = */ true))
+                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto= */ true))
                         continue;
 
                 r = dhcp6_pd_assign_subnet_prefixes(link, uplink);
@@ -1312,7 +1312,7 @@ int link_drop_dhcp_pd_config(Link *link, Network *network) {
                 return 0; /* .network file is unchanged. It is not necessary to reconfigure the client. */
 
         if (!link_dhcp_pd_is_enabled(link)) /* Disabled now, drop all configs. */
-                return dhcp_pd_remove(link, /* only_marked = */ false);
+                return dhcp_pd_remove(link, /* only_marked= */ false);
 
         /* If previously explicitly disabled, then there is nothing we need to drop.
          * If this is called on start up, we do not know the previous settings, assume nothing changed. */
@@ -1328,7 +1328,7 @@ int link_drop_dhcp_pd_config(Link *link, Network *network) {
             link->network->dhcp_pd_route_metric != network->dhcp_pd_route_metric ||
             link->network->dhcp_pd_uplink_index != network->dhcp_pd_uplink_index ||
             !streq_ptr(link->network->dhcp_pd_uplink_name, network->dhcp_pd_uplink_name))
-                return dhcp_pd_remove(link, /* only_marked = */ false);
+                return dhcp_pd_remove(link, /* only_marked= */ false);
 
         return 0;
 }

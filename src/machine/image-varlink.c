@@ -322,7 +322,7 @@ static int clean_pool_done_internal(Operation *operation, FILE *file, int child_
         assert(operation);
         assert(operation->link);
 
-        r = clean_pool_read_first_entry(file, child_error, /* error = */ NULL);
+        r = clean_pool_read_first_entry(file, child_error, /* error= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read first entry from tmp file: %m");
 
@@ -340,7 +340,7 @@ static int clean_pool_done_internal(Operation *operation, FILE *file, int child_
                         break;
 
                 if (previous_name) {
-                        r = clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more = */ true);
+                        r = clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more= */ true);
                         if (r < 0)
                                 return r;
                         /* freeing memory to avoid memleak at the following assignment */
@@ -352,7 +352,7 @@ static int clean_pool_done_internal(Operation *operation, FILE *file, int child_
         }
 
         if (previous_name)
-                return clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more = */ false);
+                return clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more= */ false);
 
         return sd_varlink_error(operation->link, "io.systemd.MachineImage.NoSuchImage", NULL);
 }

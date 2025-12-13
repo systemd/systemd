@@ -69,7 +69,7 @@ static EFI_STATUS bmp_parse_header(
         if (file->size < file->offset)
                 return EFI_INVALID_PARAMETER;
 
-        /*  check device-independent bitmap */
+        /* check device-independent bitmap */
         struct bmp_dib *dib = (struct bmp_dib *) (bmp + sizeof(struct bmp_file));
         if (dib->size < SIZEOF_BMP_DIB)
                 return EFI_UNSUPPORTED;

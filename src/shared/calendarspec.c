@@ -326,7 +326,7 @@ static void _format_chain(FILE *f, int space, const CalendarComponent *c, bool s
 }
 
 static void format_chain(FILE *f, int space, const CalendarComponent *c, bool usec) {
-        _format_chain(f, space, c, /* start = */ true, usec);
+        _format_chain(f, space, c, /* start= */ true, usec);
 }
 
 int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
@@ -1436,7 +1436,7 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *ret_n
 
         SAVE_TIMEZONE;
 
-        r = RET_NERRNO(setenv("TZ", spec->timezone, /* overwrite = */ true));
+        r = RET_NERRNO(setenv("TZ", spec->timezone, /* overwrite= */ true));
         if (r < 0)
                 return r;
 

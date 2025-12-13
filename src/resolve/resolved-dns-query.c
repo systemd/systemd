@@ -580,7 +580,7 @@ static int manager_validate_and_mangle_question(Manager *manager, DnsQuestion **
 
         RefuseRecordTypeResult result = test_refuse_record_types(manager->refuse_record_types, *question);
         if (result == REFUSE_BAD)
-                return -ENOANO; /* All bad, refuse.*/
+                return -ENOANO; /* All bad, refuse. */
         if (result == REFUSE_GOOD) {
                 *ret_allocated = NULL;
                 return 0; /* All good. Not necessary to filter. */

@@ -604,7 +604,7 @@ static int acquire_passed_secrets(const char *user_name, UserRecord **ret) {
         r = acquire_existing_password(
                         user_name,
                         secret,
-                        /* emphasize_current_password = */ false,
+                        /* emphasize_current_password= */ false,
                         ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_NO_TTY | ASK_PASSWORD_NO_AGENT);
         if (r < 0)
                 return r;
@@ -1240,7 +1240,7 @@ static int acquire_new_password(
         if (r > 0) {
                 /* As above, this is not for use, just for testing */
 
-                r = user_record_set_password(hr, STRV_MAKE(envpw), /* prepend = */ true);
+                r = user_record_set_password(hr, STRV_MAKE(envpw), /* prepend= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to store password: %m");
 
@@ -1304,7 +1304,7 @@ static int acquire_new_password(
                                         return log_oom();
                         }
 
-                        r = user_record_set_password(hr, first, /* prepend = */ true);
+                        r = user_record_set_password(hr, first, /* prepend= */ true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to store password: %m");
 
@@ -1462,11 +1462,11 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
                         _cleanup_(erase_and_freep) char *new_password = NULL;
 
                         /* No regular (i.e. non-PKCS#11) hashed passwords set in the record, let's fix that. */
-                        r = acquire_new_password(hr->user_name, hr, /* suggest = */ true, &new_password);
+                        r = acquire_new_password(hr->user_name, hr, /* suggest= */ true, &new_password);
                         if (r < 0)
                                 return r;
 
-                        r = user_record_make_hashed_password(hr, STRV_MAKE(new_password), /* extend = */ false);
+                        r = user_record_make_hashed_password(hr, STRV_MAKE(new_password), /* extend= */ false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to hash password: %m");
                 } else {
@@ -1538,11 +1538,11 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
                                 if (show_enforce_password_policy_hint)
                                         log_info("(Use --enforce-password-policy=no to turn off password quality checks for this account.)");
 
-                                r = acquire_new_password(hr->user_name, hr, /* suggest = */ false, &new_password);
+                                r = acquire_new_password(hr->user_name, hr, /* suggest= */ false, &new_password);
                                 if (r < 0)
                                         return r;
 
-                                r = user_record_make_hashed_password(hr, STRV_MAKE(new_password), /* extend = */ false);
+                                r = user_record_make_hashed_password(hr, STRV_MAKE(new_password), /* extend= */ false);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to hash passwords: %m");
                         } else {
@@ -2116,7 +2116,7 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
         if (!new_secret)
                 return log_oom();
 
-        r = acquire_new_password(username, new_secret, /* suggest = */ true, NULL);
+        r = acquire_new_password(username, new_secret, /* suggest= */ true, NULL);
         if (r < 0)
                 return r;
 
@@ -2146,7 +2146,7 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
 
                                 log_error_errno(r, "%s", bus_error_message(&error, r));
 
-                                r = acquire_new_password(username, new_secret, /* suggest = */ false, NULL);
+                                r = acquire_new_password(username, new_secret, /* suggest= */ false, NULL);
 
                         } else if (sd_bus_error_has_name(&error, BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN))
 
@@ -2378,7 +2378,7 @@ static int with_home(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "b", /* please_suspend = */ getenv_bool("SYSTEMD_PLEASE_SUSPEND_HOME") > 0);
+                r = sd_bus_message_append(m, "b", /* please_suspend= */ getenv_bool("SYSTEMD_PLEASE_SUSPEND_HOME") > 0);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2784,7 +2784,7 @@ static int prompt_groups(const char *username, char ***ret_groups) {
                         continue;
                 }
 
-                r = groupdb_by_name(s, /* match= */ NULL, USERDB_SUPPRESS_SHADOW|USERDB_EXCLUDE_DYNAMIC_USER, /*ret=*/ NULL);
+                r = groupdb_by_name(s, /* match= */ NULL, USERDB_SUPPRESS_SHADOW|USERDB_EXCLUDE_DYNAMIC_USER, /* ret= */ NULL);
                 if (r == -ESRCH) {
                         log_notice("Specified auxiliary group does not exist, try again: %s", s);
                         continue;
@@ -2981,7 +2981,7 @@ static int verb_firstboot(int argc, char *argv[], void *userdata) {
          * tool. */
 
         bool enabled;
-        r = proc_cmdline_get_bool("systemd.firstboot", /* flags = */ 0, &enabled);
+        r = proc_cmdline_get_bool("systemd.firstboot", /* flags= */ 0, &enabled);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
         if (r > 0 && !enabled) {
@@ -4273,7 +4273,7 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to parse SSH authorized keys list: %m");
                         }
 
-                        r = strv_extend_strv_consume(&l, TAKE_PTR(add), /* filter_duplicates = */ true);
+                        r = strv_extend_strv_consume(&l, TAKE_PTR(add), /* filter_duplicates= */ true);
                         if (r < 0)
                                 return log_oom();
 

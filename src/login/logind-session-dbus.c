@@ -216,7 +216,7 @@ int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = session_stop(s, /* force = */ true);
+        r = session_stop(s, /* force= */ true);
         if (r < 0)
                 return r;
 

@@ -487,7 +487,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r < 0)
                 return r;
         if (unit)
-                return list_unit_one_with_selinux_access_check(link, unit, /* more = */ false);
+                return list_unit_one_with_selinux_access_check(link, unit, /* more= */ false);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
@@ -498,7 +498,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
                         continue;
 
                 if (previous) {
-                        r = list_unit_one(link, previous, /* more = */ true);
+                        r = list_unit_one(link, previous, /* more= */ true);
                         if (r < 0)
                                 return r;
                 }
@@ -507,7 +507,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         }
 
         if (previous)
-                return list_unit_one(link, previous, /* more = */ false);
+                return list_unit_one(link, previous, /* more= */ false);
 
         return sd_varlink_error(link, "io.systemd.Manager.NoSuchUnit", NULL);
 }

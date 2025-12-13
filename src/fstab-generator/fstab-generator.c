@@ -1039,7 +1039,7 @@ static int parse_fstab(bool prefix_sysroot) {
 
         log_debug("Parsing %s...", fstab);
 
-        r = libmount_parse_full(fstab, /* source = */ NULL, MNT_ITER_FORWARD, &table, &iter);
+        r = libmount_parse_full(fstab, /* source= */ NULL, MNT_ITER_FORWARD, &table, &iter);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1062,8 +1062,8 @@ static int parse_fstab(bool prefix_sysroot) {
                                 sym_mnt_fs_get_options(fs),
                                 sym_mnt_fs_get_passno(fs),
                                 prefix_sysroot,
-                                /* accept_root = */ false,
-                                /* use_swap_enabled = */ true);
+                                /* accept_root= */ false,
+                                /* use_swap_enabled= */ true);
                 if (arg_sysroot_check && r > 0)
                         return true;  /* We found a mount or swap that would be started… */
                 RET_GATHER(ret, r);
@@ -1233,7 +1233,7 @@ static int add_sysroot_mount(void) {
 
         /* Only honor x-systemd.makefs and .validatefs here, others are not relevant in initrd/not used
          * at all (also see mandatory_mount_drop_unapplicable_options()) */
-        flags = fstab_options_to_flags(combined_options, /* is_swap = */ false) & (MOUNT_MAKEFS|MOUNT_VALIDATEFS);
+        flags = fstab_options_to_flags(combined_options, /* is_swap= */ false) & (MOUNT_MAKEFS|MOUNT_VALIDATEFS);
 
         return add_mount("/proc/cmdline",
                          arg_dest,
@@ -1411,10 +1411,10 @@ static int add_mounts_from_cmdline(void) {
                                               m->where,
                                               m->fstype,
                                               m->options,
-                                              /* passno = */ -1,
-                                              /* prefix_sysroot = */ !m->for_initrd && in_initrd(),
-                                              /* accept_root = */ true,
-                                              /* use_swap_enabled = */ false));
+                                              /* passno= */ -1,
+                                              /* prefix_sysroot= */ !m->for_initrd && in_initrd(),
+                                              /* accept_root= */ true,
+                                              /* use_swap_enabled= */ false));
         }
 
         return r;
@@ -1463,8 +1463,8 @@ static int add_mounts_from_creds(bool prefix_sysroot) {
                                            sym_mnt_fs_get_options(fs),
                                            sym_mnt_fs_get_passno(fs),
                                            prefix_sysroot,
-                                           /* accept_root = */ true,
-                                           /* use_swap_enabled = */ true));
+                                           /* accept_root= */ true,
+                                           /* use_swap_enabled= */ true));
         }
 }
 
@@ -1655,7 +1655,7 @@ static int run_generator(void) {
         (void) determine_usr();
 
         if (arg_sysroot_check) {
-                r = parse_fstab(/* prefix_sysroot = */ true);
+                r = parse_fstab(/* prefix_sysroot= */ true);
                 if (r == 0)
                         log_debug("Nothing interesting found, not doing daemon-reload.");
                 if (r > 0)
@@ -1678,21 +1678,21 @@ static int run_generator(void) {
         /* Honour /etc/fstab only when that's enabled */
         if (arg_fstab_enabled) {
                 /* Parse the local /etc/fstab, possibly from the initrd */
-                RET_GATHER(r, parse_fstab(/* prefix_sysroot = */ false));
+                RET_GATHER(r, parse_fstab(/* prefix_sysroot= */ false));
 
                 /* If running in the initrd also parse the /etc/fstab from the host */
                 if (in_initrd())
-                        RET_GATHER(r, parse_fstab(/* prefix_sysroot = */ true));
+                        RET_GATHER(r, parse_fstab(/* prefix_sysroot= */ true));
                 else
                         RET_GATHER(r, generator_enable_remount_fs_service(arg_dest));
         }
 
         RET_GATHER(r, add_mounts_from_cmdline());
 
-        RET_GATHER(r, add_mounts_from_creds(/* prefix_sysroot = */ false));
+        RET_GATHER(r, add_mounts_from_creds(/* prefix_sysroot= */ false));
 
         if (in_initrd())
-                RET_GATHER(r, add_mounts_from_creds(/* prefix_sysroot = */ true));
+                RET_GATHER(r, add_mounts_from_creds(/* prefix_sysroot= */ true));
 
         return r;
 }

@@ -23,7 +23,7 @@ TEST(dns_question_add) {
 
         /* zero-size question */
         ASSERT_NOT_NULL(question = dns_question_new(0));
-        ASSERT_ERROR(dns_question_add(question, key, /* flags = */ 0), ENOSPC);
+        ASSERT_ERROR(dns_question_add(question, key, /* flags= */ 0), ENOSPC);
         ASSERT_OK_ZERO(dns_question_contains_key(question, key));
         ASSERT_EQ(dns_question_size(question), 0u);
         ASSERT_TRUE(dns_question_isempty(question));
@@ -31,7 +31,7 @@ TEST(dns_question_add) {
 
         /* single question */
         ASSERT_NOT_NULL(question = dns_question_new(1));
-        ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         ASSERT_OK_POSITIVE(dns_question_contains_key(question, key));
         ASSERT_EQ(dns_question_size(question), 1u);
         ASSERT_FALSE(dns_question_isempty(question));
@@ -107,21 +107,21 @@ TEST(dns_question_new_service) {
         /* no domain */
         ASSERT_ERROR(dns_question_new_service(
                                      &question,
-                                     /* service = */ NULL,
+                                     /* service= */ NULL,
                                      "_xmpp._tcp",
-                                     /* domain = */ NULL,
-                                     /* with_txt = */ false,
-                                     /* convert_idna = */ false), EINVAL);
+                                     /* domain= */ NULL,
+                                     /* with_txt= */ false,
+                                     /* convert_idna= */ false), EINVAL);
         ASSERT_NULL(question);
 
         /* domain only */
         ASSERT_OK(dns_question_new_service(
                                   &question,
-                                  /* service = */ NULL,
-                                  /* type = */ NULL,
+                                  /* service= */ NULL,
+                                  /* type= */ NULL,
                                   "www.example.com",
-                                  /* with_txt = */ false,
-                                  /* convert_idna = */ false));
+                                  /* with_txt= */ false,
+                                  /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
         ASSERT_EQ(dns_question_size(question), 1u);
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "www.example.com"));
@@ -133,11 +133,11 @@ TEST(dns_question_new_service) {
         /* convert idna without type -> ignored */
         ASSERT_OK(dns_question_new_service(
                                   &question,
-                                  /* service = */ NULL,
-                                  /* type = */ NULL,
+                                  /* service= */ NULL,
+                                  /* type= */ NULL,
                                   "\xF0\x9F\x98\xB1.com",
-                                  /* with_txt = */ false,
-                                  /* convert_idna = */ true));
+                                  /* with_txt= */ false,
+                                  /* convert_idna= */ true));
         ASSERT_NOT_NULL(question);
         ASSERT_EQ(dns_question_size(question), 1u);
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "\xF0\x9F\x98\xB1.com"));
@@ -149,11 +149,11 @@ TEST(dns_question_new_service) {
         /* with type */
         ASSERT_OK(dns_question_new_service(
                                   &question,
-                                  /* service = */ NULL,
+                                  /* service= */ NULL,
                                   "_xmpp._tcp",
                                   "example.com",
-                                  /* with_txt = */ false,
-                                  /* convert_idna = */ false));
+                                  /* with_txt= */ false,
+                                  /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
         ASSERT_EQ(dns_question_size(question), 1u);
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "_xmpp._tcp.example.com"));
@@ -166,11 +166,11 @@ TEST(dns_question_new_service) {
         /* convert idna with type */
         ASSERT_OK(dns_question_new_service(
                                   &question,
-                                  /* service = */ NULL,
+                                  /* service= */ NULL,
                                   "_xmpp._tcp",
                                   "\xF0\x9F\x98\xB1.com",
-                                  /* with_txt = */ false,
-                                  /* convert_idna = */ true));
+                                  /* with_txt= */ false,
+                                  /* convert_idna= */ true));
         ASSERT_NOT_NULL(question);
         ASSERT_EQ(dns_question_size(question), 1u);
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "_xmpp._tcp.xn--s38h.com"));
@@ -182,11 +182,11 @@ TEST(dns_question_new_service) {
         /* with txt */
         ASSERT_OK(dns_question_new_service(
                                   &question,
-                                  /* service = */ NULL,
+                                  /* service= */ NULL,
                                   "_xmpp._tcp",
                                   "\xF0\x9F\x98\xB1.com",
-                                  /* with_txt = */ true,
-                                  /* convert_idna = */ true));
+                                  /* with_txt= */ true,
+                                  /* convert_idna= */ true));
         ASSERT_NOT_NULL(question);
         ASSERT_EQ(dns_question_size(question), 2u);
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "_xmpp._tcp.xn--s38h.com"));
@@ -202,31 +202,31 @@ TEST(dns_question_new_service) {
         /* invalid type */
         ASSERT_ERROR(dns_question_new_service(
                                      &question,
-                                     /* service = */ NULL,
+                                     /* service= */ NULL,
                                      "_xmpp.tcp",
                                      "example.com",
-                                     /* with_txt = */ false,
-                                     /* convert_idna = */ false), EINVAL);
+                                     /* with_txt= */ false,
+                                     /* convert_idna= */ false), EINVAL);
         ASSERT_NULL(question);
 
         /* invalid type (too short) */
         ASSERT_ERROR(dns_question_new_service(
                                      &question,
-                                     /* service = */ NULL,
+                                     /* service= */ NULL,
                                      "_xmpp",
                                      "example.com",
-                                     /* with_txt = */ false,
-                                     /* convert_idna = */ false), EINVAL);
+                                     /* with_txt= */ false,
+                                     /* convert_idna= */ false), EINVAL);
         ASSERT_NULL(question);
 
         /* invalid type (too long) */
         ASSERT_ERROR(dns_question_new_service(
                                      &question,
-                                     /* service = */ NULL,
+                                     /* service= */ NULL,
                                      "_xmpp._tcp._extra",
                                      "example.com",
-                                     /* with_txt = */ false,
-                                     /* convert_idna = */ false), EINVAL);
+                                     /* with_txt= */ false,
+                                     /* convert_idna= */ false), EINVAL);
         ASSERT_NULL(question);
 
         /* with service and type */
@@ -235,8 +235,8 @@ TEST(dns_question_new_service) {
                                   "service",
                                   "_xmpp._tcp",
                                   "example.com",
-                                  /* with_txt = */ false,
-                                  /* convert_idna = */ false));
+                                  /* with_txt= */ false,
+                                  /* convert_idna= */ false));
         ASSERT_NOT_NULL(question);
         ASSERT_EQ(dns_question_size(question), 1u);
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_SRV, "service._xmpp._tcp.example.com"));
@@ -249,10 +249,10 @@ TEST(dns_question_new_service) {
         ASSERT_ERROR(dns_question_new_service(
                                      &question,
                                      "service",
-                                     /* type = */ NULL,
+                                     /* type= */ NULL,
                                      "example.com",
-                                     /* with_txt = */ false,
-                                     /* convert_idna = */ false), EINVAL);
+                                     /* with_txt= */ false,
+                                     /* convert_idna= */ false), EINVAL);
         ASSERT_NULL(question);
 }
 
@@ -268,23 +268,23 @@ TEST(dns_question_matches_rr) {
         ASSERT_NOT_NULL(question = dns_question_new(2));
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
-        ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com"));
-        ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
-        ASSERT_OK_POSITIVE(dns_question_matches_rr(question, rr, /* search_domain = */ NULL));
+        ASSERT_OK_POSITIVE(dns_question_matches_rr(question, rr, /* search_domain= */ NULL));
         dns_resource_record_unref(rr);
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com"));
-        ASSERT_OK_POSITIVE(dns_question_matches_rr(question, rr, /* search_domain = */ NULL));
+        ASSERT_OK_POSITIVE(dns_question_matches_rr(question, rr, /* search_domain= */ NULL));
         dns_resource_record_unref(rr);
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "mail.example.com"));
-        ASSERT_OK_ZERO(dns_question_matches_rr(question, rr, /* search_domain = */ NULL));
+        ASSERT_OK_ZERO(dns_question_matches_rr(question, rr, /* search_domain= */ NULL));
         dns_resource_record_unref(rr);
 }
 
@@ -299,33 +299,33 @@ TEST(dns_question_matches_cname_or_dname) {
 
         ASSERT_NOT_NULL(question = dns_question_new(1));
         ASSERT_NOT_NULL(keya = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
-        ASSERT_OK(dns_question_add(question, keya, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, keya, /* flags= */ 0));
 
         /* cname */
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com"));
-        ASSERT_OK_POSITIVE(dns_question_matches_cname_or_dname(question, rr, /* search_domain = */ NULL));
+        ASSERT_OK_POSITIVE(dns_question_matches_cname_or_dname(question, rr, /* search_domain= */ NULL));
         dns_resource_record_unref(rr);
 
         /* dname */
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com"));
-        ASSERT_OK_POSITIVE(dns_question_matches_cname_or_dname(question, rr, /* search_domain = */ NULL));
+        ASSERT_OK_POSITIVE(dns_question_matches_cname_or_dname(question, rr, /* search_domain= */ NULL));
         dns_resource_record_unref(rr);
 
         /* A record -> fail */
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
-        ASSERT_OK_ZERO(dns_question_matches_cname_or_dname(question, rr, /* search_domain = */ NULL));
+        ASSERT_OK_ZERO(dns_question_matches_cname_or_dname(question, rr, /* search_domain= */ NULL));
         dns_resource_record_unref(rr);
 
         dns_question_unref(question);
         ASSERT_NOT_NULL(question = dns_question_new(2));
 
         ASSERT_NOT_NULL(keyc = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "example.com"));
-        ASSERT_OK(dns_question_add(question, keyc, /* flags = */ 0));
-        ASSERT_OK(dns_question_add(question, keya, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, keyc, /* flags= */ 0));
+        ASSERT_OK(dns_question_add(question, keya, /* flags= */ 0));
 
         /* refuse cname if question has cname */
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com"));
-        ASSERT_OK_ZERO(dns_question_matches_cname_or_dname(question, rr, /* search_domain = */ NULL));
+        ASSERT_OK_ZERO(dns_question_matches_cname_or_dname(question, rr, /* search_domain= */ NULL));
         dns_resource_record_unref(rr);
 }
 
@@ -349,7 +349,7 @@ TEST(dns_question_is_valid_for_query) {
         /* single key */
         ASSERT_NOT_NULL(question = dns_question_new(1));
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
-        ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         ASSERT_OK_POSITIVE(dns_question_is_valid_for_query(question));
 
         question = dns_question_unref(question);
@@ -358,7 +358,7 @@ TEST(dns_question_is_valid_for_query) {
         /* invalid type */
         ASSERT_NOT_NULL(question = dns_question_new(1));
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_OPT, "www.example.com"));
-        ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         ASSERT_OK_ZERO(dns_question_is_valid_for_query(question));
 
         question = dns_question_unref(question);
@@ -367,10 +367,10 @@ TEST(dns_question_is_valid_for_query) {
         /* multiple keys with the same name */
         ASSERT_NOT_NULL(question = dns_question_new(2));
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
-        ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         dns_resource_key_unref(key);
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.EXAMPLE.com"));
-        ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         ASSERT_OK_POSITIVE(dns_question_is_valid_for_query(question));
 
         question = dns_question_unref(question);
@@ -379,10 +379,10 @@ TEST(dns_question_is_valid_for_query) {
         /* multiple keys with different names */
         ASSERT_NOT_NULL(question = dns_question_new(2));
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
-        ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         dns_resource_key_unref(key);
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.org"));
-        ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         ASSERT_OK_ZERO(dns_question_is_valid_for_query(question));
 }
 
@@ -408,7 +408,7 @@ TEST(dns_question_is_equal) {
         a = dns_question_unref(a);
 
         /* an address question (with NULL, self, and an empty) */
-        ASSERT_OK(dns_question_new_address(&a, AF_INET, "www.example.com", /* convert_idna = */ false));
+        ASSERT_OK(dns_question_new_address(&a, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(a);
         ASSERT_OK_ZERO(dns_question_is_equal(a, NULL));
         ASSERT_OK_ZERO(dns_question_is_equal(NULL, a));
@@ -419,7 +419,7 @@ TEST(dns_question_is_equal) {
         b = dns_question_unref(b);
 
         /* an address question (with same name) */
-        ASSERT_OK(dns_question_new_address(&b, AF_INET, "www.EXAMPLE.com", /* convert_idna = */ false));
+        ASSERT_OK(dns_question_new_address(&b, AF_INET, "www.EXAMPLE.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(b);
         ASSERT_OK_POSITIVE(dns_question_is_equal(a, b));
         ASSERT_OK_POSITIVE(dns_question_is_equal(b, a));
@@ -427,7 +427,7 @@ TEST(dns_question_is_equal) {
         b = dns_question_unref(b);
 
         /* an address question (with different name) */
-        ASSERT_OK(dns_question_new_address(&b, AF_INET, "www.EXAMPLE.org", /* convert_idna = */ false));
+        ASSERT_OK(dns_question_new_address(&b, AF_INET, "www.EXAMPLE.org", /* convert_idna= */ false));
         ASSERT_NOT_NULL(b);
         ASSERT_OK_ZERO(dns_question_is_equal(a, b));
         ASSERT_OK_ZERO(dns_question_is_equal(b, a));
@@ -435,7 +435,7 @@ TEST(dns_question_is_equal) {
         b = dns_question_unref(b);
 
         /* an address question (with different type) */
-        ASSERT_OK(dns_question_new_address(&b, AF_INET6, "www.example.com", /* convert_idna = */ false));
+        ASSERT_OK(dns_question_new_address(&b, AF_INET6, "www.example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(b);
         ASSERT_OK_ZERO(dns_question_is_equal(a, b));
         ASSERT_OK_ZERO(dns_question_is_equal(b, a));
@@ -446,11 +446,11 @@ TEST(dns_question_is_equal) {
         ASSERT_NOT_NULL(b = dns_question_new(2));
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
-        ASSERT_OK(dns_question_add(b, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(b, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com"));
-        ASSERT_OK(dns_question_add(b, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(b, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         ASSERT_OK_ZERO(dns_question_is_equal(a, b));
@@ -462,11 +462,11 @@ TEST(dns_question_is_equal) {
         ASSERT_NOT_NULL(a = dns_question_new(2));
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com"));
-        ASSERT_OK(dns_question_add(a, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(a, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
-        ASSERT_OK(dns_question_add(a, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(a, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         ASSERT_OK_POSITIVE(dns_question_is_equal(a, b));
@@ -486,7 +486,7 @@ TEST(dns_question_cname_redirect) {
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com"));
         rr->cname.name = strdup("example.com");
 
-        ASSERT_OK(dns_question_new_address(&expected, AF_INET, "example.com", /* convert_idna = */ false));
+        ASSERT_OK(dns_question_new_address(&expected, AF_INET, "example.com", /* convert_idna= */ false));
         ASSERT_NOT_NULL(expected);
 
         /* NULL */
@@ -501,7 +501,7 @@ TEST(dns_question_cname_redirect) {
         question = dns_question_unref(question);
 
         /* match cname */
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna = */ false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_OK_POSITIVE(dns_question_cname_redirect(question, rr, &ret));
         ASSERT_OK_POSITIVE(dns_question_is_equal(ret, expected));
 
@@ -509,14 +509,14 @@ TEST(dns_question_cname_redirect) {
         ret = dns_question_unref(ret);
 
         /* same name */
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "example.com", /* convert_idna = */ false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "example.com", /* convert_idna= */ false));
         ASSERT_OK_ZERO(dns_question_cname_redirect(question, rr, &ret));
         ASSERT_NULL(ret);
 
         question = dns_question_unref(question);
 
         /* no match (same domain) */
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "mail.example.com", /* convert_idna = */ false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "mail.example.com", /* convert_idna= */ false));
         ASSERT_OK_POSITIVE(dns_question_cname_redirect(question, rr, &ret));
         ASSERT_OK_POSITIVE(dns_question_is_equal(ret, expected));
 
@@ -524,7 +524,7 @@ TEST(dns_question_cname_redirect) {
         ret = dns_question_unref(ret);
 
         /* no match (different domain) */
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.org", /* convert_idna = */ false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.org", /* convert_idna= */ false));
         ASSERT_OK_POSITIVE(dns_question_cname_redirect(question, rr, &ret));
         ASSERT_OK_POSITIVE(dns_question_is_equal(ret, expected));
 
@@ -537,10 +537,10 @@ TEST(dns_question_cname_redirect) {
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com"));
         rr->dname.name = strdup("v2.example.com");
 
-        ASSERT_OK(dns_question_new_address(&expected, AF_INET, "www.v2.example.com", /* convert_idna = */ false));
+        ASSERT_OK(dns_question_new_address(&expected, AF_INET, "www.v2.example.com", /* convert_idna= */ false));
 
         /* match dname */
-        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna = */ false));
+        ASSERT_OK(dns_question_new_address(&question, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_OK_POSITIVE(dns_question_cname_redirect(question, rr, &ret));
         ASSERT_OK_POSITIVE(dns_question_is_equal(ret, expected));
 
@@ -552,11 +552,11 @@ TEST(dns_question_cname_redirect) {
         ASSERT_NOT_NULL(question = dns_question_new(2));
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
-        ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com"));
-        ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         ASSERT_OK_POSITIVE(dns_question_cname_redirect(question, rr, &ret));
@@ -589,14 +589,14 @@ TEST(dns_question_dump) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
 
                 ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, type, "www.example.com"));
-                ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+                ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         }
 
         ASSERT_EQ(dns_question_size(question), 3u);
 
         ASSERT_NOT_NULL(f = memstream_init(&ms));
         dns_question_dump(question, f);
-        ASSERT_OK(memstream_finalize(&ms, &buf, /* ret_size = */ NULL));
+        ASSERT_OK(memstream_finalize(&ms, &buf, /* ret_size= */ NULL));
         ASSERT_STREQ(buf,
                      "\twww.example.com IN A\n"
                      "\twww.example.com IN AAAA\n"
@@ -623,11 +623,11 @@ TEST(dns_question_first_name) {
         ASSERT_NOT_NULL(question = dns_question_new(2));
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
-        ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "mail.example.com"));
-        ASSERT_OK(dns_question_add(question, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(question, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         ASSERT_STREQ(dns_question_first_name(question), "www.example.com");
@@ -662,7 +662,7 @@ TEST(dns_question_merge_empty_first) {
         a = dns_question_unref(a);
 
         /* single question */
-        ASSERT_OK(dns_question_new_address(&a, AF_INET, "www.example.com", /* convert_idna = */ false));
+        ASSERT_OK(dns_question_new_address(&a, AF_INET, "www.example.com", /* convert_idna= */ false));
         ASSERT_OK(dns_question_merge(NULL, a, &ret));
         ASSERT_PTR_EQ(ret, a);
         ret = dns_question_unref(ret);
@@ -685,11 +685,11 @@ TEST(dns_question_merge_empty_first) {
         ASSERT_NOT_NULL(b = dns_question_new(2));
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "www.example.com"));
-        ASSERT_OK(dns_question_add(b, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(b, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_TXT, "www.example.com"));
-        ASSERT_OK(dns_question_add(b, key, /* flags = */ 0));
+        ASSERT_OK(dns_question_add(b, key, /* flags= */ 0));
         dns_resource_key_unref(key);
 
         ASSERT_OK(dns_question_merge(a, b, &ret));

@@ -649,7 +649,7 @@ static int nft_add_element(
          * This replicated here and each element gets added to the set
          * one-by-one.
          */
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ true, nfproto, table_name, set_name);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add= */ true, nfproto, table_name, set_name);
         if (r < 0)
                 return r;
 
@@ -693,7 +693,7 @@ static int nft_del_element(
         assert(key);
         assert(data || dlen == 0);
 
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ false, nfproto, table_name, set_name);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add= */ false, nfproto, table_name, set_name);
         if (r < 0)
                return r;
 

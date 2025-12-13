@@ -44,7 +44,7 @@ int make_lock_file_at(int dir_fd, const char *p, int operation, LockFile *ret) {
         fd = xopenat_lock_full(dfd,
                                p,
                                O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY,
-                               /* xopen_flags = */ 0,
+                               /* xopen_flags= */ 0,
                                0600,
                                LOCK_UNPOSIX,
                                operation);
@@ -154,11 +154,11 @@ static int fcntl_lock(int fd, int operation, bool ofd) {
 }
 
 int posix_lock(int fd, int operation) {
-        return fcntl_lock(fd, operation, /*ofd=*/ false);
+        return fcntl_lock(fd, operation, /* ofd= */ false);
 }
 
 int unposix_lock(int fd, int operation) {
-        return fcntl_lock(fd, operation, /*ofd=*/ true);
+        return fcntl_lock(fd, operation, /* ofd= */ true);
 }
 
 void posix_unlockpp(int **fd) {
@@ -167,7 +167,7 @@ void posix_unlockpp(int **fd) {
         if (!*fd || **fd < 0)
                 return;
 
-        (void) fcntl_lock(**fd, LOCK_UN, /*ofd=*/ false);
+        (void) fcntl_lock(**fd, LOCK_UN, /* ofd= */ false);
         *fd = NULL;
 }
 
@@ -177,7 +177,7 @@ void unposix_unlockpp(int **fd) {
         if (!*fd || **fd < 0)
                 return;
 
-        (void) fcntl_lock(**fd, LOCK_UN, /*ofd=*/ true);
+        (void) fcntl_lock(**fd, LOCK_UN, /* ofd= */ true);
         *fd = NULL;
 }
 

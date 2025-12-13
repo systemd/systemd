@@ -183,7 +183,7 @@ static int process_partition(
                 if (r < 0)
                         return log_device_debug_errno(d, r, "Failed to remove kernel partition device '%s' in order to recreate it: %m", subnode);
 
-                /* And now add it the partition anew*/
+                /* And now add it the partition anew */
                 log_device_debug(d, "Successfully removed kernel partition device '%s' in order to recreate it.", subnode);
         }
 

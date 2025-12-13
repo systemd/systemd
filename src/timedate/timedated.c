@@ -891,7 +891,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         } else
                 timespec_store(&ts, (usec_t) utc);
 
-        /* refuse the request when the time is before systemd build date time*/
+        /* refuse the request when the time is before systemd build date time */
         if (ts.tv_sec < TIME_EPOCH)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Requested to set the clock to time before build time, refusing.");
 

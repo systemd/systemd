@@ -217,7 +217,7 @@ TEST(local_addresses_with_dummy) {
         reply = sd_netlink_message_unref(reply);
 
         /* Enable IPv6 for the case that it is disabled by default. */
-        ASSERT_OK(sysctl_write_ip_property_boolean(AF_INET6, "test-local-addr", "disable_ipv6", false, /* shadow = */ NULL));
+        ASSERT_OK(sysctl_write_ip_property_boolean(AF_INET6, "test-local-addr", "disable_ipv6", false, /* shadow= */ NULL));
 
         /* Bring the interface up */
         ASSERT_OK(sd_rtnl_message_new_link(rtnl, &message, RTM_SETLINK, ifindex));

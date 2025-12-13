@@ -422,7 +422,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
                  * another active unit (socket, path, timer) */
                 if (!arg_quiet && !arg_no_warn)
                         STRV_FOREACH(unit, stopped_units)
-                                warn_triggering_units(bus, *unit, "Stopping", /* ignore_masked = */ true);
+                                warn_triggering_units(bus, *unit, "Stopping", /* ignore_masked= */ true);
         }
 
         if (arg_wait) {

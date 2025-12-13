@@ -332,7 +332,7 @@ static int transfer_generate(const Transfer *t) {
                 return log_error_errno(r, "Failed to build import unit name from '%s': %m", local_path);
 
         _cleanup_fclose_ FILE *f = NULL;
-        r = generator_open_unit_file(arg_dest, /* source = */ NULL, service, &f);
+        r = generator_open_unit_file(arg_dest, /* source= */ NULL, service, &f);
         if (r < 0)
                 return r;
 

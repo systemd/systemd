@@ -2235,14 +2235,14 @@ static int copy_devnodes(const char *dest) {
 
         /* Required basic device nodes. */
         FOREACH_STRING(node, "null", "zero", "full", "random", "urandom", "tty") {
-                r = copy_devnode_one(dest, node, /* check = */ false);
+                r = copy_devnode_one(dest, node, /* check= */ false);
                 if (r < 0)
                         return r;
         }
 
         /* Optional device nodes. */
         FOREACH_STRING(node, "fuse", "net/tun") {
-                r = copy_devnode_one(dest, node, /* check = */ true);
+                r = copy_devnode_one(dest, node, /* check= */ true);
                 if (r < 0)
                         return r;
         }
@@ -2689,7 +2689,7 @@ static int setup_journal(const char *directory, uid_t uid_shift, uid_t uid_range
                                 .destination = p,
                                 .destination_uid = UID_INVALID,
                         },
-                        /* n = */ 1,
+                        /* n= */ 1,
                         uid_shift,
                         uid_range,
                         arg_selinux_apifs_context,
@@ -3395,7 +3395,7 @@ static int inner_child(
                 if (r < 0)
                         return log_error_errno(errno, "Failed to unshare cgroup namespace: %m");
 
-                r = mount_cgroups(/* dest = */ NULL, /* accept_existing = */ false);
+                r = mount_cgroups(/* dest= */ NULL, /* accept_existing= */ false);
         } else
                 r = bind_mount_cgroup_hierarchy();
         if (r < 0)
@@ -4290,7 +4290,7 @@ static int outer_child(
         (void) write_string_filef(p, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0444, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid));
 
         if (!arg_use_cgns) {
-                r = mount_cgroups(directory, /* accept_existing = */ true);
+                r = mount_cgroups(directory, /* accept_existing= */ true);
                 if (r < 0)
                         return r;
         }
@@ -4361,11 +4361,11 @@ static int outer_child(
                  * user if user namespaces are turned on. */
 
                 if (arg_network_namespace_path) {
-                        r = namespace_enter(/* pidns_fd = */ -EBADF,
-                                            /* mntns_fd = */ -EBADF,
+                        r = namespace_enter(/* pidns_fd= */ -EBADF,
+                                            /* mntns_fd= */ -EBADF,
                                             netns_fd,
-                                            /* userns_fd = */ -EBADF,
-                                            /* root_fd = */ -EBADF);
+                                            /* userns_fd= */ -EBADF,
+                                            /* root_fd= */ -EBADF);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
@@ -5686,7 +5686,7 @@ static int run_container(
                         } else if (!isempty(arg_background))
                                 (void) pty_forward_set_background_color(forward, arg_background);
 
-                        (void) pty_forward_set_window_title(forward, GLYPH_BLUE_CIRCLE, /* hostname = */ NULL,
+                        (void) pty_forward_set_window_title(forward, GLYPH_BLUE_CIRCLE, /* hostname= */ NULL,
                                                             STRV_MAKE("Container", arg_machine));
 
                         pty_forward_set_hotkey_handler(forward, ptyfwd_hotkey, pid);
@@ -6004,7 +6004,7 @@ static int run(int argc, char *argv[]) {
          * so just turning this off here means we only turn it off in nspawn itself, not any children. */
         (void) ignore_signals(SIGPIPE);
 
-        r = fdset_new_listen_fds(&fds, /* unset = */ false);
+        r = fdset_new_listen_fds(&fds, /* unset= */ false);
         if (r < 0) {
                 log_error_errno(r, "Failed to collect file descriptors: %m");
                 goto finish;

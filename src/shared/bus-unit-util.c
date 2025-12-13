@@ -3106,7 +3106,7 @@ static int unit_freezer_action(UnitFreezer *f, bool freeze) {
         r = bus_call_method(f->bus, bus_systemd_mgr,
                             freeze ? "FreezeUnit" : "ThawUnit",
                             &error,
-                            /* ret_reply = */ NULL,
+                            /* ret_reply= */ NULL,
                             "s",
                             f->name);
         if (r < 0) {

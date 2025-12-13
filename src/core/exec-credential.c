@@ -536,7 +536,7 @@ static int load_credential_glob(
                 if (!j)
                         return -ENOMEM;
 
-                r = safe_glob(j, /* flags = */ 0, &paths);
+                r = safe_glob(j, /* flags= */ 0, &paths);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -971,9 +971,9 @@ static int setup_credentials_plain_dir(
                 return log_debug_errno(dfd, "Failed to create workspace for credentials: %m");
         workspace_rm = workspace;
 
-        (void) label_fix_full(dfd, /* inode_path = */ NULL, cred_dir, /* flags = */ 0);
+        (void) label_fix_full(dfd, /* inode_path= */ NULL, cred_dir, /* flags= */ 0);
 
-        r = acquire_credentials(context, cgroup_context, params, unit, dfd, uid, gid, /* ownership_ok = */ false);
+        r = acquire_credentials(context, cgroup_context, params, unit, dfd, uid, gid, /* ownership_ok= */ false);
         if (r < 0)
                 return r;
 
@@ -989,7 +989,7 @@ static int setup_credentials_plain_dir(
 
         /* rename() requires both the source and target to be writable, hence lock down write permission
          * as last step. */
-        r = credentials_dir_finalize_permissions(dfd, uid, gid, /* ownership_ok = */ false);
+        r = credentials_dir_finalize_permissions(dfd, uid, gid, /* ownership_ok= */ false);
         if (r < 0)
                 return log_debug_errno(r, "Failed to adjust ACLs of credentials dir: %m");
 
@@ -1016,7 +1016,7 @@ static int setup_credentials_internal(
 
         if (!FLAGS_SET(params->flags, EXEC_SETUP_CREDENTIALS_FRESH)) {
                 /* We may reuse the previous credential dir */
-                r = dir_is_empty(cred_dir, /* ignore_hidden_or_backup = */ false);
+                r = dir_is_empty(cred_dir, /* ignore_hidden_or_backup= */ false);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -1042,13 +1042,13 @@ static int setup_credentials_internal(
         if (dfd < 0)
                 return dfd;
 
-        (void) label_fix_full(dfd, /* inode_path = */ NULL, cred_dir, /* flags = */ 0);
+        (void) label_fix_full(dfd, /* inode_path= */ NULL, cred_dir, /* flags= */ 0);
 
-        r = acquire_credentials(context, cgroup_context, params, unit, dfd, uid, gid, /* ownership_ok = */ true);
+        r = acquire_credentials(context, cgroup_context, params, unit, dfd, uid, gid, /* ownership_ok= */ true);
         if (r < 0)
                 return r;
 
-        r = credentials_dir_finalize_permissions(dfd, uid, gid, /* ownership_ok = */ true);
+        r = credentials_dir_finalize_permissions(dfd, uid, gid, /* ownership_ok= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to adjust ACLs of credentials dir: %m");
 

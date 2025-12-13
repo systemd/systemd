@@ -783,7 +783,7 @@ _public_ int sd_pidfd_get_inode_id(int pidfd, uint64_t *ret) {
         /* Are pidfds backed by pidfs where the unique inode id is relevant? Note that the pidfd
          * passed to us is extrinsic and hence cannot be trusted to initialize our "have_pidfs" cache,
          * instead pidfd_check_pidfs() will allocate one internally. */
-        r = pidfd_check_pidfs(/* pid_fd = */ -EBADF);
+        r = pidfd_check_pidfs(/* pid_fd= */ -EBADF);
         if (r <= 0)
                 return -EOPNOTSUPP;
 

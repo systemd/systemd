@@ -138,8 +138,8 @@ static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, Option 
                         }
 
                         return sysctl_write_or_warn(key, option->value,
-                                                    /* ignore_failure = */ option->ignore_failure,
-                                                    /* ignore_enoent = */ true);
+                                                    /* ignore_failure= */ option->ignore_failure,
+                                                    /* ignore_enoent= */ true);
                 }
 
                 pattern = path_join("/proc/sys", key);
@@ -172,8 +172,8 @@ static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, Option 
 
                 RET_GATHER(r,
                            sysctl_write_or_warn(key, option->value,
-                                                /* ignore_failure = */ option->ignore_failure,
-                                                /* ignore_enoent = */ !arg_strict));
+                                                /* ignore_failure= */ option->ignore_failure,
+                                                /* ignore_enoent= */ !arg_strict));
         }
 
         return r;
@@ -205,8 +205,8 @@ static int apply_all(OrderedHashmap *sysctl_options) {
                         k = apply_glob_option(sysctl_options, option);
                 else
                         k = sysctl_write_or_warn(option->key, option->value,
-                                                 /* ignore_failure = */ option->ignore_failure,
-                                                 /* ignore_enoent = */ !arg_strict);
+                                                 /* ignore_failure= */ option->ignore_failure,
+                                                 /* ignore_enoent= */ !arg_strict);
                 RET_GATHER(r, k);
         }
 
@@ -279,13 +279,13 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
 
 static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ignore_enoent) {
         return conf_file_read(
-                        /* root = */ NULL,
+                        /* root= */ NULL,
                         (const char**) CONF_PATHS_STRV("sysctl.d"),
                         path,
                         parse_line,
                         sysctl_options,
                         ignore_enoent,
-                        /* invalid_config = */ NULL);
+                        /* invalid_config= */ NULL);
 }
 
 static int read_credential_lines(OrderedHashmap **sysctl_options) {
@@ -454,7 +454,7 @@ static int run(int argc, char *argv[]) {
                 STRV_FOREACH(arg, strv_skip(argv, optind)) {
                         if (arg_inline)
                                 /* Use (argument):n, where n==1 for the first positional arg */
-                                RET_GATHER(r, parse_line("(argument)", ++pos, *arg, /* invalid_config = */ NULL, &sysctl_options));
+                                RET_GATHER(r, parse_line("(argument)", ++pos, *arg, /* invalid_config= */ NULL, &sysctl_options));
                         else
                                 RET_GATHER(r, parse_file(&sysctl_options, *arg, false));
                 }

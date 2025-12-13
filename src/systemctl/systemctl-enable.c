@@ -405,7 +405,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
                                 assert(!STR_IN_SET(start_verb, "start", "restart"));
 
-                                r = unit_name_replace_instance_full(unit_name, "*", /* accept_glob = */ true, &globbed);
+                                r = unit_name_replace_instance_full(unit_name, "*", /* accept_glob= */ true, &globbed);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to glob unit name '%s': %m", unit_name);
 

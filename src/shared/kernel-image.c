@@ -42,7 +42,7 @@ static int uki_read_pretty_name(
                         pe_header,
                         sections,
                         ".osrel",
-                        /* max_size=*/ PE_SECTION_READ_MAX,
+                        /* max_size= */ PE_SECTION_READ_MAX,
                         &osrel,
                         &osrel_size);
         if (r == -ENXIO) { /* Section not found */

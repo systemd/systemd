@@ -1166,7 +1166,7 @@ static int introspect(int argc, char **argv, void *userdata) {
                                         TABLE_SET_COLOR, ansi_highlight());
                 else
                         r = table_add_cell_stringf(
-                                        table, /* ret_cell = */ NULL, ".%s", m->name);
+                                        table, /* ret_cell= */ NULL, ".%s", m->name);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -1725,7 +1725,7 @@ static int bus_message_dump(sd_bus_message *m, uint64_t flags) {
                 return log_error_errno(r, "Failed to rewind: %m");
 
         if (FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY)) {
-                r = sd_bus_message_peek_type(m, /* ret_type = */ NULL, &contents);
+                r = sd_bus_message_peek_type(m, /* ret_type= */ NULL, &contents);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
@@ -1765,7 +1765,7 @@ static int bus_message_dump(sd_bus_message *m, uint64_t flags) {
                 fputs(FLAGS_SET(flags, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY) ? contents : sd_bus_message_get_signature(m, true), stdout);
                 fputc(' ', stdout);
 
-                r = format_cmdline(m, stdout, /* needs_space = */ false);
+                r = format_cmdline(m, stdout, /* needs_space= */ false);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
@@ -1845,7 +1845,7 @@ static int call(int argc, char **argv, void *userdata) {
                 return log_error_errno(r, "Call failed: %s", bus_error_message(&error, r));
         }
 
-        return bus_message_dump(reply, /* flags = */ 0);
+        return bus_message_dump(reply, /* flags= */ 0);
 }
 
 static int emit_signal(int argc, char **argv, void *userdata) {
@@ -1932,7 +1932,7 @@ static int get_property(int argc, char **argv, void *userdata) {
 
 static int on_bus_signal(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
         return sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(ASSERT_PTR(msg))),
-                             bus_message_dump(msg, /* flags = */ 0));
+                             bus_message_dump(msg, /* flags= */ 0));
 }
 
 static int wait_signal(int argc, char **argv, void *userdata) {

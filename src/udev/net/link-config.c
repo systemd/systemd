@@ -284,7 +284,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                         STRV_MAKE_CONST(filename),
                         NETWORK_DIRS,
                         dropin_dirname,
-                        /* root = */ NULL,
+                        /* root= */ NULL,
                         "Match\0"
                         "Link\0"
                         "SR-IOV\0"
@@ -358,7 +358,7 @@ bool link_config_should_reload(LinkConfigContext *ctx) {
 
         assert(ctx);
 
-        r = config_get_stats_by_path(".link", NULL, 0, NETWORK_DIRS, /* check_dropins = */ true, &stats_by_path);
+        r = config_get_stats_by_path(".link", NULL, 0, NETWORK_DIRS, /* check_dropins= */ true, &stats_by_path);
         if (r < 0) {
                 log_warning_errno(r, "Failed to get stats of .link files, ignoring: %m");
                 return true;
@@ -456,10 +456,10 @@ int link_get_config(LinkConfigContext *ctx, Link *link) {
                                 link->iftype,
                                 link->kind,
                                 link->ifname,
-                                /* alternative_names = */ NULL,
-                                /* wlan_iftype = */ 0,
-                                /* ssid = */ NULL,
-                                /* bssid = */ NULL);
+                                /* alternative_names= */ NULL,
+                                /* wlan_iftype= */ 0,
+                                /* ssid= */ NULL,
+                                /* bssid= */ NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -720,7 +720,7 @@ static bool enable_name_policy(void) {
         if (cached >= 0)
                 return cached;
 
-        r = proc_cmdline_get_bool("net.ifnames", /* flags = */ 0, &b);
+        r = proc_cmdline_get_bool("net.ifnames", /* flags= */ 0, &b);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse net.ifnames= kernel command line option, ignoring: %m");
         if (r <= 0)

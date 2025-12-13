@@ -101,7 +101,7 @@ static void scope_set_state(Scope *s, ScopeState state) {
                 log_unit_debug(UNIT(s), "Changed %s -> %s",
                                scope_state_to_string(old_state), scope_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 }
 
 static int scope_add_default_dependencies(Scope *s) {

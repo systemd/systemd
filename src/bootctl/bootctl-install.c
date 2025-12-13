@@ -377,7 +377,7 @@ static int update_efi_boot_binaries(
                 if (!dest_path)
                         return log_oom();
 
-                r = copy_file_with_version_check(source_path, dest_path, /* force = */ false);
+                r = copy_file_with_version_check(source_path, dest_path, /* force= */ false);
                 if (IN_SET(r, -ESTALE, -ESRCH))
                         continue;
                 RET_GATHER(ret, r);
@@ -607,7 +607,7 @@ static int efi_timestamp(EFI_TIME *ret) {
         if (r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SOURCE_DATE_EPOCH, ignoring: %m");
 
-        r = localtime_or_gmtime_usec(epoch != UINT64_MAX ? epoch : now(CLOCK_REALTIME), /*utc=*/ true, &tm);
+        r = localtime_or_gmtime_usec(epoch != UINT64_MAX ? epoch : now(CLOCK_REALTIME), /* utc= */ true, &tm);
         if (r < 0)
                 return log_error_errno(r, "Failed to convert timestamp to calendar time: %m");
 
@@ -700,7 +700,7 @@ static int install_secure_boot_auto_enroll(const char *esp, X509 *certificate, E
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write signature list to bio");
 
                 _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
-                p7 = PKCS7_sign(certificate, private_key, /*certs=*/ NULL, bio, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY|PKCS7_NOSMIMECAP);
+                p7 = PKCS7_sign(certificate, private_key, /* certs= */ NULL, bio, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY|PKCS7_NOSMIMECAP);
                 if (!p7)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
                                                ERR_error_string(ERR_get_error(), NULL));
@@ -979,7 +979,7 @@ static int load_secure_boot_auto_enroll(
         }
 
         if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                 if (r < 0)
                         return r;
         }

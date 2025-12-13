@@ -300,7 +300,7 @@ static void timer_set_state(Timer *t, TimerState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(t), "Changed %s -> %s", timer_state_to_string(old_state), timer_state_to_string(state));
 
-        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 }
 
 static void timer_enter_waiting(Timer *t, bool time_change);

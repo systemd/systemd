@@ -249,7 +249,7 @@ int pid_get_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, ch
 
                 /* Drop trailing NULs, otherwise strv_parse_nulstr() adds additional empty strings at the end.
                  * See also issue #21186. */
-                args = strv_parse_nulstr_full(t, k, /* drop_trailing_nuls = */ true);
+                args = strv_parse_nulstr_full(t, k, /* drop_trailing_nuls= */ true);
                 if (!args)
                         return -ENOMEM;
 
@@ -315,7 +315,7 @@ int pid_get_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) {
         if (r < 0)
                 return r;
 
-        args = strv_parse_nulstr_full(t, k, /* drop_trailing_nuls = */ true);
+        args = strv_parse_nulstr_full(t, k, /* drop_trailing_nuls= */ true);
         if (!args)
                 return -ENOMEM;
 
@@ -2339,7 +2339,7 @@ int read_errno(int errno_fd) {
         /* The issue here is that it's impossible to distinguish between an error code returned by child and
          * IO error arose when reading it. So, the function logs errors and return EIO for the later case. */
 
-        ssize_t n = loop_read(errno_fd, &r, sizeof(r), /* do_poll = */ false);
+        ssize_t n = loop_read(errno_fd, &r, sizeof(r), /* do_poll= */ false);
         if (n < 0) {
                 log_debug_errno(n, "Failed to read errno: %m");
                 return -EIO;

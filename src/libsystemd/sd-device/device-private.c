@@ -685,7 +685,7 @@ int device_clone_with_db(sd_device *device, sd_device **ret) {
         }
 
         /* Finally, read the udev database. */
-        r = device_read_db_internal(dest, /* force = */ true);
+        r = device_read_db_internal(dest, /* force= */ true);
         if (r < 0)
                 return r;
 

@@ -579,7 +579,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                         break;
 
                 case MACHINE_OPEN_MODE_LOGIN:
-                        r = machine_start_getty(machine, ptmx_name, /* error = */ NULL);
+                        r = machine_start_getty(machine, ptmx_name, /* error= */ NULL);
                         if (r == -ENOENT)
                                 return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_IPC, NULL);
                         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
@@ -591,7 +591,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
 
                 case MACHINE_OPEN_MODE_SHELL: {
                         assert(user && path && args); /* to avoid gcc complaining about possible uninitialized variables */
-                        r = machine_start_shell(machine, ptmx_fd, ptmx_name, user, path, args, p.env, /* error = */ NULL);
+                        r = machine_start_shell(machine, ptmx_fd, ptmx_name, user, path, args, p.env, /* error= */ NULL);
                         if (r == -ENOENT)
                                 return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_IPC, NULL);
                         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))

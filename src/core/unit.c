@@ -813,7 +813,7 @@ Unit* unit_free(Unit *u) {
         if (u->on_console)
                 manager_unref_console(u->manager);
 
-        unit_release_cgroup(u, /* drop_cgroup_runtime = */ true);
+        unit_release_cgroup(u, /* drop_cgroup_runtime= */ true);
 
         if (!MANAGER_IS_RELOADING(u->manager))
                 unit_unlink_state_files(u);
@@ -1551,8 +1551,8 @@ static int unit_add_mount_dependencies(Unit *u) {
                                         (void) manager_load_unit_prepare(
                                                         u->manager,
                                                         p,
-                                                        /* path= */NULL,
-                                                        /* e= */NULL,
+                                                        /* path= */ NULL,
+                                                        /* e= */ NULL,
                                                         &m);
                                         continue;
                                 }
@@ -2140,7 +2140,7 @@ int unit_reload(Unit *u) {
 
         if (!UNIT_VTABLE(u)->reload) {
                 /* Unit doesn't have a reload function, but we need to propagate the reload anyway */
-                unit_notify(u, unit_active_state(u), unit_active_state(u), /* reload_success = */ true);
+                unit_notify(u, unit_active_state(u), unit_active_state(u), /* reload_success= */ true);
                 return 0;
         }
 
@@ -2290,16 +2290,16 @@ static void retroactively_start_dependencies(Unit *u) {
         UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_START_REPLACE) /* Requires= + BindsTo= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, /* reterr_error = */ NULL, /* ret = */ NULL);
+                        (void) manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, /* reterr_error= */ NULL, /* ret= */ NULL);
 
         UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_START_FAIL) /* Wants= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_START, other, JOB_FAIL, /* reterr_error = */ NULL, /* ret = */ NULL);
+                        (void) manager_add_job(u->manager, JOB_START, other, JOB_FAIL, /* reterr_error= */ NULL, /* ret= */ NULL);
 
         UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_START) /* Conflicts= (and inverse) */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* reterr_error = */ NULL, /* ret = */ NULL);
+                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* reterr_error= */ NULL, /* ret= */ NULL);
 }
 
 static void retroactively_stop_dependencies(Unit *u) {
@@ -2311,7 +2311,7 @@ static void retroactively_stop_dependencies(Unit *u) {
         /* Pull down units which are bound to us recursively if enabled */
         UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_STOP) /* BoundBy= */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* reterr_error = */ NULL, /* ret = */ NULL);
+                        (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* reterr_error= */ NULL, /* ret= */ NULL);
 }
 
 void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
@@ -2342,7 +2342,7 @@ void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
                 if (n_jobs == 0)
                         log_unit_info(u, "Triggering %s dependencies.", dependency_name);
 
-                r = manager_add_job(u->manager, JOB_START, other, job_mode, &error, /* ret = */ NULL);
+                r = manager_add_job(u->manager, JOB_START, other, job_mode, &error, /* ret= */ NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enqueue %s%s job, ignoring: %s",
                                                dependency_name, other->id, bus_error_message(&error, r));
@@ -2624,12 +2624,12 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
         case JOB_VERIFY_ACTIVE:
 
                 if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                        job_finish_and_invalidate(j, JOB_DONE, /* recursive = */ true, /* already = */ false);
+                        job_finish_and_invalidate(j, JOB_DONE, /* recursive= */ true, /* already= */ false);
                 else if (j->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
                         unexpected = true;
 
                         if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, /* recursive = */ true, /* already = */ false);
+                                job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, /* recursive= */ true, /* already= */ false);
                 }
 
                 break;
@@ -2638,10 +2638,10 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
 
                 if (j->state == JOB_RUNNING) {
                         if (ns == UNIT_ACTIVE)
-                                job_finish_and_invalidate(j, reload_success ? JOB_DONE : JOB_FAILED, /* recursive = */ true, /* already = */ false);
+                                job_finish_and_invalidate(j, reload_success ? JOB_DONE : JOB_FAILED, /* recursive= */ true, /* already= */ false);
                         else if (!IN_SET(ns, UNIT_ACTIVATING, UNIT_RELOADING, UNIT_REFRESHING)) {
                                 unexpected = true;
-                                job_finish_and_invalidate(j, reload_success ? JOB_CANCELED : JOB_FAILED, /* recursive = */ true, /* already = */ false);
+                                job_finish_and_invalidate(j, reload_success ? JOB_CANCELED : JOB_FAILED, /* recursive= */ true, /* already= */ false);
                         }
                 }
 
@@ -2651,10 +2651,10 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
         case JOB_RESTART:
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                        job_finish_and_invalidate(j, JOB_DONE, /* recursive = */ true, /* already = */ false);
+                        job_finish_and_invalidate(j, JOB_DONE, /* recursive= */ true, /* already= */ false);
                 else if (j->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                         unexpected = true;
-                        job_finish_and_invalidate(j, JOB_FAILED, /* recursive = */ true, /* already = */ false);
+                        job_finish_and_invalidate(j, JOB_FAILED, /* recursive= */ true, /* already= */ false);
                 }
 
                 break;
@@ -3346,7 +3346,7 @@ int setenv_unit_path(const char *p) {
         assert(p);
 
         /* This is mostly for debug purposes */
-        return RET_NERRNO(setenv("SYSTEMD_UNIT_PATH", p, /* overwrite = */ true));
+        return RET_NERRNO(setenv("SYSTEMD_UNIT_PATH", p, /* overwrite= */ true));
 }
 
 char* unit_dbus_path(Unit *u) {
@@ -3641,7 +3641,7 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
         r = bus_add_match_full(
                         bus,
                         &u->match_bus_slot,
-                        /* asynchronous = */ true,
+                        /* asynchronous= */ true,
                         match,
                         signal_name_owner_changed,
                         signal_name_owner_changed_install_handler,
@@ -3801,7 +3801,7 @@ int unit_coldplug(Unit *u) {
         if (u->nop_job)
                 RET_GATHER(r, job_coldplug(u->nop_job));
 
-        unit_modify_nft_set(u, /* add = */ true);
+        unit_modify_nft_set(u, /* add= */ true);
         return r;
 }
 
@@ -3858,7 +3858,7 @@ bool unit_need_daemon_reload(Unit *u) {
         if (u->load_state == UNIT_LOADED) {
                 _cleanup_strv_free_ char **dropins = NULL;
 
-                (void) unit_find_dropin_paths(u, /* use_unit_path_cache = */ false, &dropins);
+                (void) unit_find_dropin_paths(u, /* use_unit_path_cache= */ false, &dropins);
 
                 if (!strv_equal(u->dropin_paths, dropins))
                         return true;
@@ -4313,7 +4313,7 @@ static int unit_verify_contexts(const Unit *u) {
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory=~ is not allowed under DynamicUser=yes. Refusing.");
 
         if (ec->working_directory && path_below_api_vfs(ec->working_directory) &&
-            exec_needs_mount_namespace(ec, /* params = */ NULL, /* runtime = */ NULL))
+            exec_needs_mount_namespace(ec, /* params= */ NULL, /* runtime= */ NULL))
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory= may not be below /proc/, /sys/ or /dev/ when using mount namespacing. Refusing.");
 
         if (exec_needs_pid_namespace(ec, /* params= */ NULL) && !UNIT_VTABLE(u)->notify_pidref)
@@ -4955,7 +4955,7 @@ int unit_kill_context(Unit *u, KillOperation k) {
         r = unit_kill_context_one(u, main_pid, "main", is_alien, sig, send_sighup, log_func);
         wait_for_exit = wait_for_exit || r > 0;
 
-        r = unit_kill_context_one(u, unit_control_pid(u), "control", /* is_alien = */ false, sig, send_sighup, log_func);
+        r = unit_kill_context_one(u, unit_control_pid(u), "control", /* is_alien= */ false, sig, send_sighup, log_func);
         wait_for_exit = wait_for_exit || r > 0;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
@@ -5340,7 +5340,7 @@ static void unit_unref_uid_internal(
 static void unit_unref_uid(Unit *u, bool destroy_now) {
         assert(u);
 
-        unit_modify_user_nft_set(u, /* add = */ false, NFT_SET_SOURCE_USER, u->ref_uid);
+        unit_modify_user_nft_set(u, /* add= */ false, NFT_SET_SOURCE_USER, u->ref_uid);
 
         unit_unref_uid_internal(u, &u->ref_uid, destroy_now, manager_unref_uid);
 }
@@ -5348,7 +5348,7 @@ static void unit_unref_uid(Unit *u, bool destroy_now) {
 static void unit_unref_gid(Unit *u, bool destroy_now) {
         assert(u);
 
-        unit_modify_user_nft_set(u, /* add = */ false, NFT_SET_SOURCE_GROUP, u->ref_gid);
+        unit_modify_user_nft_set(u, /* add= */ false, NFT_SET_SOURCE_GROUP, u->ref_gid);
 
         unit_unref_uid_internal(u, (uid_t*) &u->ref_gid, destroy_now, manager_unref_gid);
 }
@@ -5444,8 +5444,8 @@ int unit_ref_uid_gid(Unit *u, uid_t uid, gid_t gid) {
         if (r < 0)
                 return log_unit_warning_errno(u, r, "Couldn't add UID/GID reference to unit, proceeding without: %m");
 
-        unit_modify_user_nft_set(u, /* add = */ true, NFT_SET_SOURCE_USER, uid);
-        unit_modify_user_nft_set(u, /* add = */ true, NFT_SET_SOURCE_GROUP, gid);
+        unit_modify_user_nft_set(u, /* add= */ true, NFT_SET_SOURCE_USER, uid);
+        unit_modify_user_nft_set(u, /* add= */ true, NFT_SET_SOURCE_GROUP, gid);
 
         return r;
 }
@@ -6479,7 +6479,7 @@ void unit_freezer_complete(Unit *u, FreezerState kernel_state) {
                                          freezer_state_to_string(u->freezer_state));
 
         /* If the cgroup's final state is against what's requested by us, report as canceled. */
-        bus_unit_send_pending_freezer_message(u, /* canceled = */ !expected);
+        bus_unit_send_pending_freezer_message(u, /* canceled= */ !expected);
 }
 
 int unit_freezer_action(Unit *u, FreezerAction action) {
@@ -6786,7 +6786,7 @@ int unit_get_exec_quota_stats(Unit *u, ExecContext *c, ExecDirectoryType dt, uin
                 return log_unit_debug_errno(u, errno, "Failed to get exec quota stats: %m");
 
         uint32_t proj_id;
-        r = read_fs_xattr_fd(fd, /* ret_xflags = */ NULL, &proj_id);
+        r = read_fs_xattr_fd(fd, /* ret_xflags= */ NULL, &proj_id);
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to get project ID for exec quota stats: %m");
 

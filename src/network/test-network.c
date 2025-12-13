@@ -96,12 +96,12 @@ static void test_route_tables_one(Manager *manager, const char *name, uint32_t n
         }
 
         ASSERT_OK(asprintf(&expected, "%s(%" PRIu32 ")", name, number));
-        ASSERT_OK(manager_get_route_table_to_string(manager, number, /* append_num = */ true, &str));
+        ASSERT_OK(manager_get_route_table_to_string(manager, number, /* append_num= */ true, &str));
         ASSERT_STREQ(str, expected);
 
         str = mfree(str);
 
-        ASSERT_OK(manager_get_route_table_to_string(manager, number, /* append_num = */ false, &str));
+        ASSERT_OK(manager_get_route_table_to_string(manager, number, /* append_num= */ false, &str));
         ASSERT_STREQ(str, name);
 
         ASSERT_OK(manager_get_route_table_from_string(manager, name, &t));
@@ -115,7 +115,7 @@ static void test_route_tables_one(Manager *manager, const char *name, uint32_t n
 TEST(route_tables) {
         _cleanup_(manager_freep) Manager *manager = NULL;
 
-        ASSERT_OK(manager_new(&manager, /* test_mode = */ true));
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
         ASSERT_OK(manager_setup(manager));
 
         ASSERT_OK(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "hoge:123 foo:456 aaa:111", manager, manager));
@@ -153,7 +153,7 @@ TEST(route_tables) {
 TEST(manager_enumerate) {
         _cleanup_(manager_freep) Manager *manager = NULL;
 
-        ASSERT_OK(manager_new(&manager, /* test_mode = */ true));
+        ASSERT_OK(manager_new(&manager, /* test_mode= */ true));
         ASSERT_OK(manager_setup(manager));
 
         /* TODO: should_reload, is false if the config dirs do not exist, so we can't do this test here, move

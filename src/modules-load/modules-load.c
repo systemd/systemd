@@ -79,7 +79,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = strv_split_and_extend(&arg_proc_cmdline_modules, value, ",", /* filter_duplicates = */ true);
+                r = strv_split_and_extend(&arg_proc_cmdline_modules, value, ",", /* filter_duplicates= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse modules_load= kernel command line option: %m");
         }
@@ -151,7 +151,7 @@ static int do_direct_probe(OrderedSet *module_set) {
                 return log_error_errno(r, "Failed to initialize libkmod context: %m");
 
         ORDERED_SET_FOREACH(module, module_set) {
-                r = module_load_and_warn(ctx, module, /* verbose = */ true);
+                r = module_load_and_warn(ctx, module, /* verbose= */ true);
                 if (r != -ENOENT)
                         RET_GATHER(ret, r);
         }
@@ -165,7 +165,7 @@ static int enqueue_module_to_load(int sock, const char *module) {
         assert(sock >= 0);
         assert(module);
 
-        bytes = send(sock, module, strlen(module), /* flags = */ 0);
+        bytes = send(sock, module, strlen(module), /* flags= */ 0);
         if (bytes < 0)
                 return log_error_errno(errno, "Failed to send '%s' to thread pool: %m", module);
 
@@ -180,7 +180,7 @@ static int dequeue_module_to_load(int sock, char *buffer, size_t buffer_len) {
 
         /* Dequeue one module to be loaded from the socket pair. In case no more
          * modules are present, recv() will return 0. */
-        bytes = recv(sock, buffer, buffer_len, /* flags = */ 0);
+        bytes = recv(sock, buffer, buffer_len, /* flags= */ 0);
         if (bytes == 0)
                 return 0;
         if (bytes < 0)
@@ -217,7 +217,7 @@ static int run_prober(int sock) {
                         break;
                 }
 
-                r = module_load_and_warn(ctx, buffer, /* verbose = */ true);
+                r = module_load_and_warn(ctx, buffer, /* verbose= */ true);
                 if (r != -ENOENT)
                         RET_GATHER(ret, r);
         }
@@ -257,7 +257,7 @@ static int create_worker_threads(size_t n_threads, void *arg, pthread_t **ret_th
                 return log_error_errno(r, "Failed to mask signals for workers: %m");
 
         for (created_threads = 0; created_threads < n_threads; ++created_threads) {
-                r = pthread_create(&new_threads[created_threads], /* attr = */ NULL, prober_thread, arg);
+                r = pthread_create(&new_threads[created_threads], /* attr= */ NULL, prober_thread, arg);
                 if (r != 0) {
                         log_error_errno(r, "Failed to create worker thread %zu: %m", created_threads);
                         break;
@@ -403,7 +403,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata = */ NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
@@ -422,7 +422,7 @@ static int run(int argc, char *argv[]) {
                 STRV_FOREACH(i, arg_proc_cmdline_modules)
                         RET_GATHER(ret, modules_list_append_dup(&module_set, *i));
 
-                r = conf_files_list_nulstr_full(".conf", /* root = */ NULL,
+                r = conf_files_list_nulstr_full(".conf", /* root= */ NULL,
                                                 CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
                                                 conf_file_dirs, &files, &n_files);
                 if (r < 0)
@@ -442,7 +442,7 @@ static int run(int argc, char *argv[]) {
         }
 
         /* Create a socketpair for communication with probe workers */
-        r = RET_NERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, /* protocol = */ 0, pair));
+        r = RET_NERRNO(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, /* protocol= */ 0, pair));
         if (r < 0)
                 return log_error_errno(r, "Failed to create socket pair: %m");
 

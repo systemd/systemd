@@ -785,7 +785,7 @@ static int prompt_root_password(int rfd, sd_varlink **mute_console_link) {
                         break;
                 }
 
-                r = check_password_quality(*a, /* old = */ NULL, "root", &error);
+                r = check_password_quality(*a, /* old= */ NULL, "root", &error);
                 if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         log_warning("Password quality check is not supported, proceeding anyway.");
                 else if (r < 0)
@@ -1035,7 +1035,7 @@ static int process_root_account(int rfd, sd_varlink **mute_console_link) {
         /* Ensure that passwd and shadow are in the same directory and are not symlinks. */
 
         FOREACH_STRING(s, "passwd", "shadow") {
-                r = verify_regular_at(pfd, s, /* follow = */ false);
+                r = verify_regular_at(pfd, s, /* follow= */ false);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Verification of /etc/%s being regular file failed: %m", s);
 
@@ -1681,7 +1681,7 @@ static int run(int argc, char *argv[]) {
                  * opposed to some other file system tree/image) */
 
                 bool enabled;
-                r = proc_cmdline_get_bool("systemd.firstboot", /* flags = */ 0, &enabled);
+                r = proc_cmdline_get_bool("systemd.firstboot", /* flags= */ 0, &enabled);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
                 if (r > 0 && !enabled) {

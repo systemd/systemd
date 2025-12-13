@@ -332,7 +332,7 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         x = ((new_length - need_space) * percent + 50) / 100;
         assert(x <= new_length - need_space);
 
-        write_ellipsis(mempcpy(t, s, x), /* unicode = */ false);
+        write_ellipsis(mempcpy(t, s, x), /* unicode= */ false);
         suffix_len = new_length - x - need_space;
         memcpy(t + x + 3, s + old_length - suffix_len, suffix_len);
         *(t + x + 3 + suffix_len) = '\0';
@@ -454,7 +454,7 @@ char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                 return NULL;
 
         memcpy_safe(e, s, len);
-        write_ellipsis(e + len, /* unicode = */ true);
+        write_ellipsis(e + len, /* unicode= */ true);
 
         char *dst = e + len + 3;
 
@@ -533,7 +533,7 @@ char* cellescape(char *buf, size_t len, const char *s) {
         }
 
         if (i + 4 <= len) /* yay, enough space */
-                i += write_ellipsis(buf + i, /* unicode = */ false);
+                i += write_ellipsis(buf + i, /* unicode= */ false);
         else if (i + 3 <= len) { /* only space for ".." */
                 buf[i++] = '.';
                 buf[i++] = '.';

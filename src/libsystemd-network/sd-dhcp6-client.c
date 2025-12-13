@@ -321,7 +321,7 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
                 return 0;
 
         r = dhcp_identifier_set_iaid(client->dev, &client->hw_addr,
-                                     /* legacy_unstable_byteorder = */ true,
+                                     /* legacy_unstable_byteorder= */ true,
                                      &iaid);
         if (r < 0)
                 return r;

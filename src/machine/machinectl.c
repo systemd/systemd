@@ -642,15 +642,15 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                         show_journal_by_unit(
                                         stdout,
                                         i->unit,
-                                        /* namespace = */ NULL,
+                                        /* namespace= */ NULL,
                                         arg_output,
-                                        /* n_columns = */ 0,
+                                        /* n_columns= */ 0,
                                         i->timestamp.monotonic,
                                         arg_lines,
                                         get_output_flags() | OUTPUT_BEGIN_NEWLINE,
                                         SD_JOURNAL_LOCAL_ONLY,
-                                        /* system_unit = */ true,
-                                        /* ellipsized = */ NULL);
+                                        /* system_unit= */ true,
+                                        /* ellipsized= */ NULL);
         }
 }
 
@@ -1472,7 +1472,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return process_forward(event, slot, master, /* flags = */ 0, machine);
+        return process_forward(event, slot, master, /* flags= */ 0, machine);
 }
 
 static int normalize_nspawn_filename(const char *name, char **ret_file) {
@@ -1607,7 +1607,7 @@ static int cat_settings(int argc, char *argv[], void *userdata) {
                                                        "Invalid settings file path '%s'.",
                                                        *name);
 
-                        q = cat_files(*name, /* dropins = */ NULL, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
+                        q = cat_files(*name, /* dropins= */ NULL, /* flags= */ CAT_FORMAT_HAS_SECTIONS);
                         if (q < 0)
                                 return r < 0 ? r : q;
                         continue;
@@ -1628,7 +1628,7 @@ static int cat_settings(int argc, char *argv[], void *userdata) {
                         return r < 0 ? r : q;
                 }
 
-                q = cat_files(path, /* dropins = */ NULL, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
+                q = cat_files(path, /* dropins= */ NULL, /* flags= */ CAT_FORMAT_HAS_SECTIONS);
                 if (q < 0)
                         return r < 0 ? r : q;
         }
@@ -1904,7 +1904,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                 if (!new_args)
                         return log_oom();
 
-                r = strv_extend_strv(&new_args, argv + 1, /* filter_duplicates = */ false);
+                r = strv_extend_strv(&new_args, argv + 1, /* filter_duplicates= */ false);
                 if (r < 0)
                         return log_oom();
 

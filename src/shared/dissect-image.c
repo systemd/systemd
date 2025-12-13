@@ -960,7 +960,7 @@ static int dissect_image(
                                 return r;
 
                         if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
-                                mount_node_fd = open_partition(devname, /* is_partition = */ false, m->loop);
+                                mount_node_fd = open_partition(devname, /* is_partition= */ false, m->loop);
                                 if (mount_node_fd < 0)
                                         return mount_node_fd;
                         }
@@ -1423,7 +1423,7 @@ static int dissect_image(
 
                                 if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES) &&
                                     type.designator != PARTITION_SWAP) {
-                                        mount_node_fd = open_partition(node, /* is_partition = */ true, m->loop);
+                                        mount_node_fd = open_partition(node, /* is_partition= */ true, m->loop);
                                         if (mount_node_fd < 0)
                                                 return mount_node_fd;
                                 }
@@ -1517,7 +1517,7 @@ static int dissect_image(
                                         continue;
 
                                 if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
-                                        mount_node_fd = open_partition(node, /* is_partition = */ true, m->loop);
+                                        mount_node_fd = open_partition(node, /* is_partition= */ true, m->loop);
                                         if (mount_node_fd < 0)
                                                 return mount_node_fd;
                                 }
@@ -1620,7 +1620,7 @@ static int dissect_image(
                                 const char *options;
 
                                 if (FLAGS_SET(flags, DISSECT_IMAGE_PIN_PARTITION_DEVICES)) {
-                                        mount_node_fd = open_partition(generic_node, /* is_partition = */ true, m->loop);
+                                        mount_node_fd = open_partition(generic_node, /* is_partition= */ true, m->loop);
                                         if (mount_node_fd < 0)
                                                 return mount_node_fd;
                                 }
@@ -2491,7 +2491,7 @@ int dissected_image_mount(
 
         int slash_boot_is_available = 0;
         if (where) {
-                r = slash_boot_is_available = mount_point_is_available(where, "/boot", /* missing_ok = */ true);
+                r = slash_boot_is_available = mount_point_is_available(where, "/boot", /* missing_ok= */ true);
                 if (r < 0)
                         return r;
         }
@@ -2511,7 +2511,7 @@ int dissected_image_mount(
                          * and is empty. */
 
                         if (slash_boot_is_available) {
-                                r = mount_point_is_available(where, "/boot", /* missing_ok = */ false);
+                                r = mount_point_is_available(where, "/boot", /* missing_ok= */ false);
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
@@ -2519,7 +2519,7 @@ int dissected_image_mount(
                         }
 
                         if (!esp_path) {
-                                r = mount_point_is_available(where, "/efi", /* missing_ok = */ true);
+                                r = mount_point_is_available(where, "/efi", /* missing_ok= */ true);
                                 if (r < 0)
                                         return r;
                                 if (r > 0)

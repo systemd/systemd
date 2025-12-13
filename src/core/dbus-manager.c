@@ -758,31 +758,31 @@ static int method_start_unit_generic(sd_bus_message *message, Manager *m, JobTyp
 }
 
 static int method_start_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_start_unit_generic(message, userdata, JOB_START, /* reload_if_possible = */ false, reterr_error);
+        return method_start_unit_generic(message, userdata, JOB_START, /* reload_if_possible= */ false, reterr_error);
 }
 
 static int method_stop_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_start_unit_generic(message, userdata, JOB_STOP, /* reload_if_possible = */ false, reterr_error);
+        return method_start_unit_generic(message, userdata, JOB_STOP, /* reload_if_possible= */ false, reterr_error);
 }
 
 static int method_reload_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_start_unit_generic(message, userdata, JOB_RELOAD, /* reload_if_possible = */ false, reterr_error);
+        return method_start_unit_generic(message, userdata, JOB_RELOAD, /* reload_if_possible= */ false, reterr_error);
 }
 
 static int method_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_start_unit_generic(message, userdata, JOB_RESTART, /* reload_if_possible = */ false, reterr_error);
+        return method_start_unit_generic(message, userdata, JOB_RESTART, /* reload_if_possible= */ false, reterr_error);
 }
 
 static int method_try_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, /* reload_if_possible = */ false, reterr_error);
+        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, /* reload_if_possible= */ false, reterr_error);
 }
 
 static int method_reload_or_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_start_unit_generic(message, userdata, JOB_RESTART, /* reload_if_possible = */ true, reterr_error);
+        return method_start_unit_generic(message, userdata, JOB_RESTART, /* reload_if_possible= */ true, reterr_error);
 }
 
 static int method_reload_or_try_restart_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, /* reload_if_possible = */ true, reterr_error);
+        return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, /* reload_if_possible= */ true, reterr_error);
 }
 
 typedef enum GenericUnitOperationFlags {
@@ -857,19 +857,19 @@ static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd
         if (!u->job || u->job->type != JOB_START)
                 return sd_bus_error_setf(reterr_error, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
 
-        return method_start_unit_generic(message, m, JOB_START, /* reload_if_possible = */ false, reterr_error);
+        return method_start_unit_generic(message, m, JOB_START, /* reload_if_possible= */ false, reterr_error);
 }
 
 static int method_kill_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         /* We don't bother with GENERIC_UNIT_LOAD or GENERIC_UNIT_VALIDATE_LOADED here, as it shouldn't
          * matter whether a unit is loaded for killing any processes in the unit's cgroup. */
-        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_kill, /* flags = */ 0);
+        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_kill, /* flags= */ 0);
 }
 
 static int method_kill_unit_subgroup(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         /* We don't bother with GENERIC_UNIT_LOAD or GENERIC_UNIT_VALIDATE_LOADED here, as it shouldn't
          * matter whether a unit is loaded for killing any processes in the unit's cgroup. */
-        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_kill_subgroup, /* flags = */ 0);
+        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_kill_subgroup, /* flags= */ 0);
 }
 
 static int method_clean_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -891,7 +891,7 @@ static int method_thaw_unit(sd_bus_message *message, void *userdata, sd_bus_erro
 static int method_reset_failed_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         /* Don't load the unit (because unloaded units can't be in failed state), and don't insist on the
          * unit to be loaded properly (since a failed unit might have its unit file disappeared) */
-        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_reset_failed, /* flags = */ 0);
+        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_reset_failed, /* flags= */ 0);
 }
 
 static int method_set_unit_properties(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -917,7 +917,7 @@ static int method_ref_unit(sd_bus_message *message, void *userdata, sd_bus_error
 static int method_unref_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         /* Dropping a ref OTOH should not require the unit to still be loaded. And since a reffed unit is a
          * loaded unit there's no need to load the unit for unreffing it. */
-        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_unref, /* flags = */ 0);
+        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_unref, /* flags= */ 0);
 }
 
 static int reply_unit_info(sd_bus_message *reply, Unit *u) {
@@ -996,7 +996,7 @@ static int method_get_unit_processes(sd_bus_message *message, void *userdata, sd
         /* Don't load a unit actively (since it won't have any processes if it's not loaded), but don't
          * insist on the unit being loaded either (because even improperly loaded units might still have
          * processes around). */
-        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_get_processes, /* flags = */ 0);
+        return method_generic_unit_operation(message, userdata, reterr_error, _UNIT_TYPE_INVALID, bus_unit_method_get_processes, /* flags= */ 0);
 }
 
 static int method_attach_processes_to_unit(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -1094,7 +1094,7 @@ static int transient_aux_units_from_message(
                 if (r < 0)
                         return r;
 
-                r = transient_unit_from_message(m, message, name, /* ret_unit = */ NULL, reterr_error);
+                r = transient_unit_from_message(m, message, name, /* ret_unit= */ NULL, reterr_error);
                 if (r < 0)
                         return r;
 
@@ -1457,11 +1457,11 @@ static int dump_impl(
                  * operations, and can cause PID1 to stall. So it seems similar enough in terms of security
                  * considerations and impact, and thus use the same access check for dumps which, given the
                  * large amount of data to fetch, can stall PID1 for quite some time. */
-                r = mac_selinux_access_check(message, "reload", /* error = */ NULL);
+                r = mac_selinux_access_check(message, "reload", /* error= */ NULL);
                 if (r < 0)
                         goto ratelimited;
 
-                r = bus_verify_bypass_dump_ratelimit_async(m, message, /* reterr_error = */ NULL);
+                r = bus_verify_bypass_dump_ratelimit_async(m, message, /* reterr_error= */ NULL);
                 if (r < 0)
                         goto ratelimited;
                 if (r == 0)
@@ -2180,7 +2180,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        r = unit_file_get_list(m->runtime_scope, /* root_dir = */ NULL, states, patterns, &h);
+        r = unit_file_get_list(m->runtime_scope, /* root_dir= */ NULL, states, patterns, &h);
         if (r < 0)
                 return r;
 
@@ -2446,19 +2446,19 @@ static int method_enable_unit_files_generic(
 }
 
 static int method_enable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, /* carries_install_info = */ true, reterr_error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, /* carries_install_info= */ true, reterr_error);
 }
 
 static int method_enable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, /* carries_install_info = */ true, reterr_error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, /* carries_install_info= */ true, reterr_error);
 }
 
 static int method_reenable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, /* carries_install_info = */ true, reterr_error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, /* carries_install_info= */ true, reterr_error);
 }
 
 static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_link, /* carries_install_info = */ false, reterr_error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_link, /* carries_install_info= */ false, reterr_error);
 }
 
 static int unit_file_preset_without_mode(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char * const *files, InstallChange **changes, size_t *n_changes) {
@@ -2466,11 +2466,11 @@ static int unit_file_preset_without_mode(RuntimeScope scope, UnitFileFlags flags
 }
 
 static int method_preset_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, /* carries_install_info = */ true, reterr_error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, /* carries_install_info= */ true, reterr_error);
 }
 
 static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_mask, /* carries_install_info = */ false, reterr_error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_mask, /* carries_install_info= */ false, reterr_error);
 }
 
 static int method_preset_unit_files_with_mode(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
@@ -2573,19 +2573,19 @@ static int method_disable_unit_files_generic(
 }
 
 static int method_disable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_disable, /* carries_install_info = */ false, reterr_error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_disable, /* carries_install_info= */ false, reterr_error);
 }
 
 static int method_disable_unit_files_with_flags_and_install_info(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_disable, /* carries_install_info = */ true, reterr_error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_disable, /* carries_install_info= */ true, reterr_error);
 }
 
 static int method_disable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_disable, /* carries_install_info = */ false, reterr_error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_disable, /* carries_install_info= */ false, reterr_error);
 }
 
 static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_unmask, /* carries_install_info = */ false, reterr_error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_unmask, /* carries_install_info= */ false, reterr_error);
 }
 
 static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {

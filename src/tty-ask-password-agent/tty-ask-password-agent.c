@@ -687,7 +687,7 @@ static int ask_on_consoles(char *argv[]) {
          *
          * Note that when any agent exits STOPPING=1 would also be sent, but that's utterly what we want,
          * i.e. the password is answered on one console and other agents get killed below. */
-        (void) sd_notify(/* unset_environment = */ false, "NOTIFYACCESS=all");
+        (void) sd_notify(/* unset_environment= */ false, "NOTIFYACCESS=all");
 
         /* Start an agent on each console. */
         STRV_FOREACH(tty, consoles) {

@@ -644,7 +644,7 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
         if (ifindex < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
 
-        if (validate_and_mangle_query_flags(m, &flags, /* name = */ NULL, /* ok = */ 0) < 0)
+        if (validate_and_mangle_query_flags(m, &flags, /* name= */ NULL, /* ok= */ 0) < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         r = dns_question_new_reverse(&question, family, &a);

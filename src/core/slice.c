@@ -45,7 +45,7 @@ static void slice_set_state(Slice *s, SliceState state) {
                 log_unit_debug(UNIT(s), "Changed %s -> %s",
                                slice_state_to_string(old_state), slice_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 }
 
 static int slice_add_parent_slice(Slice *s) {

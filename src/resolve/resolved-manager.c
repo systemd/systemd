@@ -2152,10 +2152,10 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                 return r;
 
         return dns_configuration_json_append(
-                        /* ifname = */ NULL,
-                        /* ifindex = */ 0,
-                        /* delegate = */ NULL,
-                        /* default_route = */ -1,
+                        /* ifname= */ NULL,
+                        /* ifindex= */ 0,
+                        /* delegate= */ NULL,
+                        /* default_route= */ -1,
                         manager_get_dns_server(m),
                         m->dns_servers,
                         m->fallback_dns_servers,
@@ -2210,11 +2210,11 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
         return dns_configuration_json_append(
                         l->ifname,
                         l->ifindex,
-                        /* delegate = */ NULL,
+                        /* delegate= */ NULL,
                         link_get_default_route(l),
                         link_get_dns_server(l),
                         l->dns_servers,
-                        /* fallback_dns_servers = */ NULL,
+                        /* fallback_dns_servers= */ NULL,
                         l->search_domains,
                         l->dnssec_negative_trust_anchors,
                         scopes,
@@ -2222,7 +2222,7 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
                         link_get_dns_over_tls_mode(l),
                         link_get_llmnr_support(l),
                         link_get_mdns_support(l),
-                        /* resolv_conf_mode = */ _RESOLV_CONF_MODE_INVALID,
+                        /* resolv_conf_mode= */ _RESOLV_CONF_MODE_INVALID,
                         configuration);
 }
 
@@ -2238,21 +2238,21 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
                 return r;
 
         return dns_configuration_json_append(
-                        /* ifname = */ NULL,
-                        /* ifindex = */ 0,
+                        /* ifname= */ NULL,
+                        /* ifindex= */ 0,
                         d->id,
                         d->default_route > 0, /* Defaults to false. See dns_scope_is_default_route(). */
                         dns_delegate_get_dns_server(d),
                         d->dns_servers,
-                        /* fallback_dns_servers = */ NULL,
+                        /* fallback_dns_servers= */ NULL,
                         d->search_domains,
-                        /* negative_trust_anchors = */ NULL,
+                        /* negative_trust_anchors= */ NULL,
                         scopes,
-                        /* dnssec_mode = */ _DNSSEC_MODE_INVALID,
-                        /* dns_over_tls_mode = */ _DNS_OVER_TLS_MODE_INVALID,
-                        /* llmnr_support = */ _RESOLVE_SUPPORT_INVALID,
-                        /* mdns_support = */ _RESOLVE_SUPPORT_INVALID,
-                        /* resolv_conf_mode = */ _RESOLV_CONF_MODE_INVALID,
+                        /* dnssec_mode= */ _DNSSEC_MODE_INVALID,
+                        /* dns_over_tls_mode= */ _DNS_OVER_TLS_MODE_INVALID,
+                        /* llmnr_support= */ _RESOLVE_SUPPORT_INVALID,
+                        /* mdns_support= */ _RESOLVE_SUPPORT_INVALID,
+                        /* resolv_conf_mode= */ _RESOLV_CONF_MODE_INVALID,
                         configuration);
 }
 

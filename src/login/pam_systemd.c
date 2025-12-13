@@ -1219,7 +1219,7 @@ static int register_session(
                                 handle,
                                 ur,
                                 c,
-                                /* avoid_pidfd = */ false,
+                                /* avoid_pidfd= */ false,
                                 &m);
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
@@ -1236,7 +1236,7 @@ static int register_session(
                                                    handle,
                                                    ur,
                                                    c,
-                                                   /* avoid_pidfd = */ true,
+                                                   /* avoid_pidfd= */ true,
                                                    &m);
                         if (r < 0)
                                 return pam_bus_log_create_error(handle, r);
@@ -1263,7 +1263,7 @@ static int register_session(
                                 &id,
                                 &object_path,
                                 &runtime_path,
-                                /* session_fd = */ NULL,
+                                /* session_fd= */ NULL,
                                 &original_uid,
                                 &real_seat,
                                 &real_vtnr,

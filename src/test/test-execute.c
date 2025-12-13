@@ -265,7 +265,7 @@ static bool have_userns_privileges(void) {
                  * configured to make CLONE_NEWUSER require CAP_SYS_ADMIN.
                  * Additionally, AppArmor may restrict unprivileged user
                  * namespace creation. */
-                r = capability_bounding_set_drop(UINT64_C(1) << CAP_SYS_ADMIN, /* right_now = */ true);
+                r = capability_bounding_set_drop(UINT64_C(1) << CAP_SYS_ADMIN, /* right_now= */ true);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to drop capabilities: %m");
                         _exit(2);
@@ -1606,7 +1606,7 @@ TEST(run_tests_unprivileged) {
         ASSERT_NOT_NULL((filters = strv_copy(strv_skip(saved_argv, 1))));
 
         if (prepare_ns("(test-execute-unprivileged)") == 0) {
-                ASSERT_OK(capability_bounding_set_drop(0, /* right_now = */ true));
+                ASSERT_OK(capability_bounding_set_drop(0, /* right_now= */ true));
 
                 can_unshare = false;
                 run_tests(RUNTIME_SCOPE_USER, filters);

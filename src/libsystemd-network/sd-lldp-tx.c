@@ -365,7 +365,7 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
         assert(ret_packet);
 
         /* If ifname is not set yet, set ifname from ifindex. */
-        r = sd_lldp_tx_get_ifname(lldp_tx, /* ret = */ NULL);
+        r = sd_lldp_tx_get_ifname(lldp_tx, /* ret= */ NULL);
         if (r < 0)
                 return r;
 

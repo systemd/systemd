@@ -478,7 +478,7 @@ static void path_set_state(Path *p, PathState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(p), "Changed %s -> %s", path_state_to_string(old_state), path_state_to_string(state));
 
-        unit_notify(UNIT(p), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(p), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 }
 
 static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify);
@@ -816,7 +816,7 @@ static int path_trigger_notify_on_defer(sd_event_source *s, void *userdata) {
                 return 0;
         }
 
-        path_trigger_notify_impl(UNIT(p), trigger, /* on_defer = */ true);
+        path_trigger_notify_impl(UNIT(p), trigger, /* on_defer= */ true);
         return 0;
 }
 
@@ -857,7 +857,7 @@ static void path_trigger_notify_impl(Unit *u, Unit *other, bool on_defer) {
                 return;
 
         if (on_defer) {
-                path_enter_waiting(p, /* initial = */ false, /* from_trigger_notify = */ true);
+                path_enter_waiting(p, /* initial= */ false, /* from_trigger_notify= */ true);
                 return;
         }
 
@@ -886,7 +886,7 @@ static void path_trigger_notify_impl(Unit *u, Unit *other, bool on_defer) {
 }
 
 static void path_trigger_notify(Unit *u, Unit *other) {
-        path_trigger_notify_impl(u, other, /* on_defer = */ false);
+        path_trigger_notify_impl(u, other, /* on_defer= */ false);
 }
 
 static void path_reset_failed(Unit *u) {

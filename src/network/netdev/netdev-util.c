@@ -45,7 +45,7 @@ int link_get_local_address(
                 assert_not_reached();
         }
 
-        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return -EBUSY;
 
         SET_FOREACH(a, link->addresses) {

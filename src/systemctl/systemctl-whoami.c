@@ -28,7 +28,7 @@ int verb_whoami(int argc, char *argv[], void *userdata) {
 
                 /* Our own process can never go away while querying, hence no need to go through pidfd. */
 
-                r = get_unit_by_pid(bus, 0, &unit, /* ret_path = */ NULL);
+                r = get_unit_by_pid(bus, 0, &unit, /* ret_path= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -44,7 +44,7 @@ int verb_whoami(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Invalid PID specified: %s", *pidstr);
 
-                r = lookup_unit_by_pidref(bus, pid, &unit, /* ret_path = */ NULL);
+                r = lookup_unit_by_pidref(bus, pid, &unit, /* ret_path= */ NULL);
                 if (r < 0)
                         RET_GATHER(ret, r);
                 else

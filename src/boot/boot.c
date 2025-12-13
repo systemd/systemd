@@ -3133,4 +3133,4 @@ static EFI_STATUS run(EFI_HANDLE image) {
         }
 }
 
-DEFINE_EFI_MAIN_FUNCTION(run, "systemd-boot", /*wait_for_debugger=*/false);
+DEFINE_EFI_MAIN_FUNCTION(run, "systemd-boot", /* wait_for_debugger= */ false);

@@ -81,7 +81,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'D': {
                         _cleanup_free_ char *p = NULL;
 
-                        r = parse_path_argument(optarg, /* suppress_root = */ false, &p);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &p);
                         if (r < 0)
                                 return r;
 

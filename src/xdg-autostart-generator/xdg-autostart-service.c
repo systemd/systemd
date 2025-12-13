@@ -606,7 +606,7 @@ int xdg_autostart_service_generate_unit(
         if (!path_escaped)
                 return log_oom();
 
-        r = generator_open_unit_file(dest, /* source = */ NULL, service->name, &f);
+        r = generator_open_unit_file(dest, /* source= */ NULL, service->name, &f);
         if (r < 0)
                 return r;
 

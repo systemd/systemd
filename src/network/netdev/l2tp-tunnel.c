@@ -297,7 +297,7 @@ static int l2tp_get_local_address(NetDev *netdev, union in_addr_union *ret) {
                 if (r < 0)
                         return r;
 
-                if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
+                if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                         return -EBUSY;
         }
 
@@ -351,7 +351,7 @@ static int l2tp_get_local_address(NetDev *netdev, union in_addr_union *ret) {
                 return link_get_l2tp_local_address(link, t, ret);
 
         HASHMAP_FOREACH(link, netdev->manager->links_by_index) {
-                if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
+                if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                         continue;
 
                 if (link_get_l2tp_local_address(link, t, ret) >= 0)

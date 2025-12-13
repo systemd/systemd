@@ -406,13 +406,13 @@ void job_dump(Job *j, FILE *f, const char *prefix) {
  * be merged with C either.
  */
 static const JobType job_merging_table[] = {
-/* What \ With       *  JOB_START         JOB_VERIFY_ACTIVE  JOB_STOP JOB_RELOAD */
+/* What \ With       *  JOB_START            JOB_VERIFY_ACTIVE JOB_STOP JOB_RELOAD */
 /*********************************************************************************/
-/*JOB_START          */
-/*JOB_VERIFY_ACTIVE  */ JOB_START,
-/*JOB_STOP           */ -1,                  -1,
-/*JOB_RELOAD         */ JOB_RELOAD_OR_START, JOB_RELOAD,          -1,
-/*JOB_RESTART        */ JOB_RESTART,         JOB_RESTART,         -1, JOB_RESTART,
+/* JOB_START         */
+/* JOB_VERIFY_ACTIVE */ JOB_START,
+/* JOB_STOP          */ -1,                  -1,
+/* JOB_RELOAD        */ JOB_RELOAD_OR_START, JOB_RELOAD,       -1,
+/* JOB_RESTART       */ JOB_RESTART,         JOB_RESTART,      -1,      JOB_RESTART,
 };
 
 JobType job_type_lookup_merge(JobType a, JobType b) {

@@ -155,14 +155,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SIGNATURE:
-                        r = parse_path_argument(optarg, /*suppress_root=*/ false, &arg_signature);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_signature);
                         if (r < 0)
                                 return r;
 
                         break;
 
                 case ARG_CONTENT:
-                        r = parse_path_argument(optarg, /*suppress_root=*/ false, &arg_content);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_content);
                         if (r < 0)
                                 return r;
 
@@ -173,7 +173,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_OUTPUT:
-                        r = parse_path_argument(optarg, /*suppress_root=*/ false, &arg_output);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_output);
                         if (r < 0)
                                 return r;
 
@@ -207,7 +207,7 @@ static int verb_validate(int argc, char *argv[], void *userdata) {
                                        "No private key specified, use --private-key=.");
 
         if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                 if (r < 0)
                         return r;
         }
@@ -255,7 +255,7 @@ static int verb_public(int argc, char *argv[], void *userdata) {
                 _cleanup_(X509_freep) X509 *certificate = NULL;
 
                 if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                        r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                         if (r < 0)
                                 return r;
                 }
@@ -330,7 +330,7 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--output= must be specified");
 
         if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                 if (r < 0)
                         return r;
         }

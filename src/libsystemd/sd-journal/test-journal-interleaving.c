@@ -446,7 +446,7 @@ static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
         ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         ASSERT_OK(journal_get_boots(
                                 j,
-                                /* advance_older = */ false, /* max_ids = */ SIZE_MAX,
+                                /* advance_older= */ false, /* max_ids= */ SIZE_MAX,
                                 &ids, &n_ids));
         ASSERT_NOT_NULL(ids);
         ASSERT_EQ(n_ids, n_ids_expected);
@@ -477,7 +477,7 @@ static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
 
                 ASSERT_OK(journal_get_boots(
                                         j,
-                                        /* advance_older = */ false, /* max_ids = */ i,
+                                        /* advance_older= */ false, /* max_ids= */ i,
                                         &ids_limited, &n_ids_limited));
                 ASSERT_TRUE(ids_limited || i == 0);
                 ASSERT_EQ(n_ids_limited, MIN(i, n_ids_expected));
@@ -490,7 +490,7 @@ static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
 
                 ASSERT_OK(journal_get_boots(
                                         j,
-                                        /* advance_older = */ true, /* max_ids = */ i,
+                                        /* advance_older= */ true, /* max_ids= */ i,
                                         &ids_limited, &n_ids_limited));
                 ASSERT_TRUE(ids_limited || i == 0);
                 ASSERT_EQ(n_ids_limited, MIN(i, n_ids_expected));
@@ -1136,15 +1136,15 @@ static void append_test_entry_full(
                                         iovec, n_iovec,
                                         seqnum,
                                         seqnum_id,
-                                        /* ret_object = */ NULL,
-                                        /* ret_offset = */ NULL), EREMCHG);
+                                        /* ret_object= */ NULL,
+                                        /* ret_offset= */ NULL), EREMCHG);
 
                 ASSERT_OK(journal_file_rotate(
                                         f,
                                         m,
-                                        /* file_flags = */ JOURNAL_STRICT_ORDER,
-                                        /* compress_threshold_bytes = */ UINT64_MAX,
-                                        /* deferred_closes = */ NULL));
+                                        /* file_flags= */ JOURNAL_STRICT_ORDER,
+                                        /* compress_threshold_bytes= */ UINT64_MAX,
+                                        /* deferred_closes= */ NULL));
         }
 
         ASSERT_OK(journal_file_append_entry(
@@ -1154,8 +1154,8 @@ static void append_test_entry_full(
                                 iovec, n_iovec,
                                 seqnum,
                                 seqnum_id,
-                                /* ret_object = */ NULL,
-                                /* ret_offset = */ NULL));
+                                /* ret_object= */ NULL,
+                                /* ret_offset= */ NULL));
 
         ASSERT_NOT_NULL(GREEDY_REALLOC(*entries, *n_entries + 1));
         (*entries)[(*n_entries)++] = (TestEntry) {
@@ -1179,7 +1179,7 @@ static void append_test_entry(
                 unsigned *number,
                 unsigned data) {
 
-        append_test_entry_full(&f, NULL, entries, n_entries, seqnum, seqnum_id, boot_id, ts, number, data, /* expect_rotate = */ false);
+        append_test_entry_full(&f, NULL, entries, n_entries, seqnum, seqnum_id, boot_id, ts, number, data, /* expect_rotate= */ false);
 }
 
 TEST(seek_time) {
@@ -1199,10 +1199,10 @@ TEST(seek_time) {
                                   O_RDWR|O_CREAT,
                                   JOURNAL_STRICT_ORDER,
                                   0644,
-                                  /* compress_threshold_bytes = */ UINT64_MAX,
-                                  /* metrics = */ NULL,
+                                  /* compress_threshold_bytes= */ UINT64_MAX,
+                                  /* metrics= */ NULL,
                                   m,
-                                  /* template = */ NULL,
+                                  /* template= */ NULL,
                                   &f));
 
         uint64_t seqnum = 1;
@@ -1229,7 +1229,7 @@ TEST(seek_time) {
         /* realtime goes to backward */
         ts.realtime -= 100;
         ts.monotonic += 10;
-        append_test_entry_full(&f, m, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200, /* expect_rotate = */ true);
+        append_test_entry_full(&f, m, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200, /* expect_rotate= */ true);
 
         ts.realtime += 10;
         ts.monotonic += 10;
@@ -1305,19 +1305,19 @@ TEST(seek_time) {
                 }
 
                 FOREACH_ARRAY(e, entries, n_entries) {
-                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ true,  e->boot_id, e->ts.monotonic - 1, data);
-                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ true,  e->boot_id, e->ts.monotonic,     data);
-                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ true,  e->boot_id, e->ts.monotonic + 1, data);
-                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ false, e->boot_id, e->ts.monotonic - 1, data);
-                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ false, e->boot_id, e->ts.monotonic,     data);
-                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next = */ false, e->boot_id, e->ts.monotonic + 1, data);
+                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next= */ true,  e->boot_id, e->ts.monotonic - 1, data);
+                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next= */ true,  e->boot_id, e->ts.monotonic,     data);
+                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next= */ true,  e->boot_id, e->ts.monotonic + 1, data);
+                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next= */ false, e->boot_id, e->ts.monotonic - 1, data);
+                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next= */ false, e->boot_id, e->ts.monotonic,     data);
+                        test_sd_journal_seek_monotonic_usec(j, entries, n_entries, /* next= */ false, e->boot_id, e->ts.monotonic + 1, data);
 
-                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ true,  e->ts.monotonic - 1, data);
-                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ true,  e->ts.monotonic,     data);
-                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ true,  e->ts.monotonic + 1, data);
-                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ false, e->ts.monotonic - 1, data);
-                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ false, e->ts.monotonic,     data);
-                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next = */ false, e->ts.monotonic + 1, data);
+                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next= */ true,  e->ts.monotonic - 1, data);
+                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next= */ true,  e->ts.monotonic,     data);
+                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next= */ true,  e->ts.monotonic + 1, data);
+                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next= */ false, e->ts.monotonic - 1, data);
+                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next= */ false, e->ts.monotonic,     data);
+                        test_sd_journal_seek_realtime_usec(j, entries, n_entries, /* next= */ false, e->ts.monotonic + 1, data);
                 }
         }
 }

@@ -186,7 +186,7 @@ static void test_config_parse_address_one(const char *rvalue, int family, unsign
         _cleanup_(manager_freep) Manager *manager = NULL;
         _cleanup_(network_unrefp) Network *network = NULL;
 
-        assert_se(manager_new(&manager, /* test_mode = */ true) >= 0);
+        assert_se(manager_new(&manager, /* test_mode= */ true) >= 0);
         assert_se(network = new0(Network, 1));
         network->n_ref = 1;
         network->manager = manager;

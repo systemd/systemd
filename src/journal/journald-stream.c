@@ -572,7 +572,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
         cmsg_close_all(&msghdr);
 
         if (l == 0) {
-                (void) stdout_stream_scan(s, s->buffer, s->length, /* force_flush = */ LINE_BREAK_EOF, NULL);
+                (void) stdout_stream_scan(s, s->buffer, s->length, /* force_flush= */ LINE_BREAK_EOF, NULL);
                 goto terminate;
         }
 
@@ -583,7 +583,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
         if (ucred && ucred->pid != s->ucred.pid) {
                 /* Force out any previously half-written lines from a different process, before we switch to
                  * the new ucred structure for everything we just added */
-                r = stdout_stream_scan(s, s->buffer, s->length, /* force_flush = */ LINE_BREAK_PID_CHANGE, NULL);
+                r = stdout_stream_scan(s, s->buffer, s->length, /* force_flush= */ LINE_BREAK_PID_CHANGE, NULL);
                 if (r < 0)
                         goto terminate;
 

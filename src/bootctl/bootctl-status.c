@@ -940,7 +940,7 @@ int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, s
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -952,7 +952,7 @@ int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, s
                         /* ret_part= */ NULL,
                         /* ret_pstart= */ NULL,
                         /* ret_psize= */ NULL,
-                        /* ret_uuid=*/ NULL,
+                        /* ret_uuid= */ NULL,
                         &esp_devid);
         if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
                 return log_error_errno(r, "Failed to determine ESP location: %m");

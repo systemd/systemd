@@ -483,7 +483,7 @@ int verb_plot(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
-        n = acquire_boot_times(bus, /* require_finished = */ true, &boot);
+        n = acquire_boot_times(bus, /* require_finished= */ true, &boot);
         if (n < 0)
                 return n;
 
@@ -497,7 +497,7 @@ int verb_plot(int argc, char *argv[], void *userdata) {
                         return n;
         }
 
-        n = acquire_time_data(bus, /* require_finished = */ true, &times);
+        n = acquire_time_data(bus, /* require_finished= */ true, &times);
         if (n <= 0)
                 return n;
 

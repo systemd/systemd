@@ -1540,7 +1540,7 @@ static int map_dns_servers_internal(sd_bus *bus, const char *member, sd_bus_mess
 }
 
 static int map_link_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_dns_servers_internal(bus, member, m, /* flags = */ 0, error, userdata);
+        return map_dns_servers_internal(bus, member, m, /* flags= */ 0, error, userdata);
 }
 
 static int map_link_dns_servers_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
@@ -1551,7 +1551,7 @@ static int map_link_current_dns_server(sd_bus *bus, const char *member, sd_bus_m
         assert(m);
         assert(userdata);
 
-        return read_dns_server_one(m, /* flags = */ 0, userdata);
+        return read_dns_server_one(m, /* flags= */ 0, userdata);
 }
 
 static int map_link_current_dns_server_ex(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
@@ -4560,7 +4560,7 @@ static int native_main(int argc, char *argv[]) {
                 {}
         };
 
-        return dispatch_verb(argc, argv, verbs, /* userdata = */ NULL);
+        return dispatch_verb(argc, argv, verbs, /* userdata= */ NULL);
 }
 
 static int translate(const char *verb, const char *single_arg, size_t num_args, char **args) {

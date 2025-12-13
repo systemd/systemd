@@ -351,7 +351,7 @@ static int swap_load(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         /* Load a .swap file */
-        r = unit_load_fragment_and_dropin(u, /* fragment_required = */ !s->from_proc_swaps);
+        r = unit_load_fragment_and_dropin(u, /* fragment_required= */ !s->from_proc_swaps);
 
         /* Add in some extras, and do so either when we successfully loaded something or when /proc/swaps is
          * already active. */
@@ -508,7 +508,7 @@ static void swap_set_state(Swap *s, SwapState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", swap_state_to_string(old_state), swap_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 
         /* If there other units for the same device node have a job
            queued it might be worth checking again if it is runnable
@@ -672,13 +672,13 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
                 s->result = f;
 
         unit_log_result(UNIT(s), s->result == SWAP_SUCCESS, swap_result_to_string(s->result));
-        unit_warn_leftover_processes(UNIT(s), /* start = */ false);
+        unit_warn_leftover_processes(UNIT(s), /* start= */ false);
 
         swap_set_state(s, s->result != SWAP_SUCCESS ? SWAP_FAILED : SWAP_DEAD);
 
         s->exec_runtime = exec_runtime_destroy(s->exec_runtime);
 
-        unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir = */ true);
+        unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir= */ true);
 
         unit_unref_uid_gid(UNIT(s), true);
 }
@@ -755,7 +755,7 @@ static void swap_enter_activating(Swap *s) {
 
         assert(s);
 
-        unit_warn_leftover_processes(UNIT(s), /* start = */ true);
+        unit_warn_leftover_processes(UNIT(s), /* start= */ true);
 
         s->control_command_id = SWAP_EXEC_ACTIVATE;
         s->control_command = s->exec_command + SWAP_EXEC_ACTIVATE;

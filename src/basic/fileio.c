@@ -881,7 +881,7 @@ int script_get_shebang_interpreter(const char *path, char **ret) {
         _cleanup_free_ char *p = NULL;
         const char *s = line;
 
-        r = extract_first_word(&s, &p, /* separators = */ NULL, /* flags = */ 0);
+        r = extract_first_word(&s, &p, /* separators= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return r;
         if (r == 0)

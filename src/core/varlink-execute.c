@@ -848,7 +848,7 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("Personality", personality_to_string(c->personality)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("IgnoreSIGPIPE", c->ignore_sigpipe),
 
-                        /*  Scheduling */
+                        /* Scheduling */
                         SD_JSON_BUILD_PAIR_INTEGER("Nice", exec_context_get_nice(c)),
                         SD_JSON_BUILD_PAIR_CALLBACK("CPUSchedulingPolicy", cpu_sched_class_build_json, c),
                         SD_JSON_BUILD_PAIR_INTEGER("CPUSchedulingPriority", exec_context_get_cpu_sched_priority(c)),
@@ -915,7 +915,7 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("SystemCallArchitectures", syscall_archs_build_json, c),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("SystemCallLog", syscall_log_build_json, c),
 
-                        /*  Environment */
+                        /* Environment */
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("Environment", c->environment),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("EnvironmentFiles", environment_files_build_json, c->environment_files),
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("PassEnvironment", c->pass_environment),

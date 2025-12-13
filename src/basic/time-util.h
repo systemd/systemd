@@ -125,11 +125,11 @@ char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) _warn_unus
 
 _warn_unused_result_
 static inline char* format_timestamp_relative(char *buf, size_t l, usec_t t) {
-        return format_timestamp_relative_full(buf, l, t, CLOCK_REALTIME, /* implicit_left = */ false);
+        return format_timestamp_relative_full(buf, l, t, CLOCK_REALTIME, /* implicit_left= */ false);
 }
 _warn_unused_result_
 static inline char* format_timestamp_relative_monotonic(char *buf, size_t l, usec_t t) {
-        return format_timestamp_relative_full(buf, l, t, CLOCK_MONOTONIC, /* implicit_left = */ false);
+        return format_timestamp_relative_full(buf, l, t, CLOCK_MONOTONIC, /* implicit_left= */ false);
 }
 
 _warn_unused_result_

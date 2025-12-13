@@ -127,7 +127,7 @@ static int worker_lock_whole_disk(UdevWorker *worker, sd_device *dev, int *ret_f
 
                 log_device_debug_errno(dev, errno, "Block device %s is currently locked, requeuing the event.", whole_disk);
 
-                r = sd_notifyf(/* unset_environment = */ false, "TRY_AGAIN=1\nWHOLE_DISK=%s", whole_disk);
+                r = sd_notifyf(/* unset_environment= */ false, "TRY_AGAIN=1\nWHOLE_DISK=%s", whole_disk);
                 if (r < 0) {
                         log_device_warning_errno(dev, r, "Failed to send notification message to manager process: %m");
                         (void) sd_event_exit(worker->event, r);
@@ -267,7 +267,7 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
                 return 0;
         }
 
-        r = sd_notify(/* unset_environment = */ false, "PROCESSED=1");
+        r = sd_notify(/* unset_environment= */ false, "PROCESSED=1");
         if (r < 0) {
                 log_device_warning_errno(dev, r, "Failed to send notification message to manager process: %m");
                 (void) sd_event_exit(worker->event, r);
@@ -297,7 +297,7 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
                 }
 
                 const char *e = errno_name_no_fallback(r);
-                r = sd_notifyf(/* unset_environment = */ false, "ERRNO=%i%s%s", -r, e ? "\nERRNO_NAME=" : "", strempty(e));
+                r = sd_notifyf(/* unset_environment= */ false, "ERRNO=%i%s%s", -r, e ? "\nERRNO_NAME=" : "", strempty(e));
                 if (r < 0) {
                         log_device_warning_errno(dev, r, "Failed to send notification message to manager process, ignoring: %m");
                         (void) sd_event_exit(worker->event, r);

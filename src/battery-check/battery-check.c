@@ -147,10 +147,10 @@ static int run(int argc, char *argv[]) {
                 log_warning_errno(fd, "Failed to open console, ignoring: %m");
         else
                 dprintf(fd, ANSI_HIGHLIGHT_RED "%s " BATTERY_LOW_MESSAGE ANSI_NORMAL "\n",
-                        glyph_full(GLYPH_LOW_BATTERY, /* force_utf = */ false));
+                        glyph_full(GLYPH_LOW_BATTERY, /* force_utf= */ false));
 
         if (asprintf(&plymouth_message, "%s " BATTERY_LOW_MESSAGE,
-                     glyph_full(GLYPH_LOW_BATTERY, /* force_utf = */ true)) < 0)
+                     glyph_full(GLYPH_LOW_BATTERY, /* force_utf= */ true)) < 0)
                 return log_oom();
 
         (void) plymouth_send_message("shutdown", plymouth_message);

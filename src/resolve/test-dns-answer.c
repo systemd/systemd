@@ -19,7 +19,7 @@ TEST(dns_answer_add_a) {
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
         rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
 
         ASSERT_TRUE(dns_answer_contains(answer, rr));
 }
@@ -38,42 +38,42 @@ TEST(dns_answer_match_key_single) {
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
         rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
 
         ASSERT_EQ(dns_answer_size(answer), 1u);
 
-        ASSERT_OK_POSITIVE(dns_answer_match_key(answer, rr->key, /* ret_flags = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(answer, rr->key, /* ret_flags= */ NULL));
         ASSERT_OK_POSITIVE(dns_answer_match_key(answer, rr->key, &flags));
         ASSERT_EQ((int)flags, DNS_ANSWER_CACHEABLE);
 
         /* ANY class matches */
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "www.example.com"));
-        ASSERT_OK_POSITIVE(dns_answer_match_key(answer, key, /* ret_flags = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(answer, key, /* ret_flags= */ NULL));
         dns_resource_key_unref(key);
 
         /* ANY type matches */
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, "www.example.com"));
-        ASSERT_OK_POSITIVE(dns_answer_match_key(answer, key, /* ret_flags = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(answer, key, /* ret_flags= */ NULL));
         dns_resource_key_unref(key);
 
         /* non-matching type */
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com"));
-        ASSERT_OK_ZERO(dns_answer_match_key(answer, key, /* ret_flags = */ NULL));
+        ASSERT_OK_ZERO(dns_answer_match_key(answer, key, /* ret_flags= */ NULL));
         dns_resource_key_unref(key);
 
         /* name is case-insensitive */
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "WWW.EXAMPLE.COM"));
-        ASSERT_OK_POSITIVE(dns_answer_match_key(answer, key, /* ret_flags = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(answer, key, /* ret_flags= */ NULL));
         dns_resource_key_unref(key);
 
         /* non-matching name */
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "example.com"));
-        ASSERT_OK_ZERO(dns_answer_match_key(answer, key, /* ret_flags = */ NULL));
+        ASSERT_OK_ZERO(dns_answer_match_key(answer, key, /* ret_flags= */ NULL));
         dns_resource_key_unref(key);
 
         /* name containing an error */
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.\\example.com"));
-        ASSERT_ERROR(dns_answer_match_key(answer, key, /* ret_flags = */ NULL), EINVAL);
+        ASSERT_ERROR(dns_answer_match_key(answer, key, /* ret_flags= */ NULL), EINVAL);
         dns_resource_key_unref(key);
 }
 
@@ -86,12 +86,12 @@ TEST(dns_answer_match_key_multiple) {
         ASSERT_NOT_NULL(answer = dns_answer_new(0));
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT, "www.example.com"));
-        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_SECTION_ANSWER | DNS_ANSWER_AUTHENTICATED, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_SECTION_ANSWER | DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com"));
         rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_SECTION_ANSWER | DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_SECTION_ANSWER | DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         ASSERT_EQ(dns_answer_size(answer), 2u);
@@ -233,24 +233,24 @@ TEST(dns_answer_merge) {
 
         ASSERT_NOT_NULL(rr_a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com"));
         rr_a->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        ASSERT_OK_POSITIVE(dns_answer_add(a, rr_a, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(a, rr_a, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
 
         ASSERT_NOT_NULL(rr_b = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com"));
         rr_b->a.in_addr.s_addr = htobe32(0xc0a80180);
-        ASSERT_OK_POSITIVE(dns_answer_add(b, rr_b, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(b, rr_b, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
 
         ASSERT_OK(dns_answer_merge(a, b, &ret));
         ASSERT_TRUE(ret != a);
         ASSERT_TRUE(ret != b);
 
-        ASSERT_OK_POSITIVE(dns_answer_match_key(a, rr_a->key, /* ret_flags = */ NULL));
-        ASSERT_OK_ZERO(dns_answer_match_key(a, rr_b->key, /* ret_flags = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(a, rr_a->key, /* ret_flags= */ NULL));
+        ASSERT_OK_ZERO(dns_answer_match_key(a, rr_b->key, /* ret_flags= */ NULL));
 
-        ASSERT_OK_ZERO(dns_answer_match_key(b, rr_a->key, /* ret_flags = */ NULL));
-        ASSERT_OK_POSITIVE(dns_answer_match_key(b, rr_b->key, /* ret_flags = */ NULL));
+        ASSERT_OK_ZERO(dns_answer_match_key(b, rr_a->key, /* ret_flags= */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(b, rr_b->key, /* ret_flags= */ NULL));
 
-        ASSERT_OK_POSITIVE(dns_answer_match_key(ret, rr_a->key, /* ret_flags = */ NULL));
-        ASSERT_OK_POSITIVE(dns_answer_match_key(ret, rr_b->key, /* ret_flags = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(ret, rr_a->key, /* ret_flags= */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(ret, rr_b->key, /* ret_flags= */ NULL));
 }
 
 /* ================================================================
@@ -266,17 +266,17 @@ TEST(dns_answer_extend) {
 
         ASSERT_NOT_NULL(rr_a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com"));
         rr_a->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        ASSERT_OK_POSITIVE(dns_answer_add(a, rr_a, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(a, rr_a, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
 
         ASSERT_NOT_NULL(rr_b = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com"));
         rr_b->a.in_addr.s_addr = htobe32(0xc0a80180);
-        ASSERT_OK_POSITIVE(dns_answer_add(b, rr_b, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(b, rr_b, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
 
         ASSERT_OK(dns_answer_extend(&a, b));
         ASSERT_TRUE(a != b);
 
-        ASSERT_OK_POSITIVE(dns_answer_match_key(a, rr_a->key, /* ret_flags = */ NULL));
-        ASSERT_OK_POSITIVE(dns_answer_match_key(a, rr_b->key, /* ret_flags = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(a, rr_a->key, /* ret_flags= */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(a, rr_b->key, /* ret_flags= */ NULL));
 }
 
 /* ================================================================
@@ -294,7 +294,7 @@ static DnsAnswer* prepare_answer(void) {
 
                 ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, *h));
                 rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
-                ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+                ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
         }
 
         return TAKE_PTR(answer);
@@ -329,11 +329,11 @@ TEST(dns_answer_remove_by_key) {
                 n--;
 
                 ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, *h));
-                ASSERT_OK_POSITIVE(dns_answer_match_key(answer, key, /* ret_flags = */ NULL));
+                ASSERT_OK_POSITIVE(dns_answer_match_key(answer, key, /* ret_flags= */ NULL));
                 ASSERT_OK_POSITIVE(dns_answer_remove_by_key(&answer, key));
                 ASSERT_EQ(dns_answer_size(answer), n);
 
-                ASSERT_OK_ZERO(dns_answer_match_key(answer, key, /* ret_flags = */ NULL));
+                ASSERT_OK_ZERO(dns_answer_match_key(answer, key, /* ret_flags= */ NULL));
                 ASSERT_OK_ZERO(dns_answer_remove_by_key(&answer, key));
                 ASSERT_EQ(dns_answer_size(answer), n);
                 dns_resource_key_unref(key);
@@ -352,7 +352,7 @@ TEST(dns_answer_remove_by_rr) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
                 ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, *h));
-                ASSERT_OK_POSITIVE(dns_answer_match_key(answer, key, /* ret_flags = */ NULL));
+                ASSERT_OK_POSITIVE(dns_answer_match_key(answer, key, /* ret_flags= */ NULL));
 
                 /* remove nothing if the payload does not match */
                 ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, *h));
@@ -365,7 +365,7 @@ TEST(dns_answer_remove_by_rr) {
                 ASSERT_OK_POSITIVE(dns_answer_remove_by_rr(&answer, rr));
                 ASSERT_EQ(dns_answer_size(answer), --n);
 
-                ASSERT_OK_ZERO(dns_answer_match_key(answer, key, /* ret_flags = */ NULL));
+                ASSERT_OK_ZERO(dns_answer_match_key(answer, key, /* ret_flags= */ NULL));
         }
 
         ASSERT_NULL(answer);
@@ -393,15 +393,15 @@ TEST(dns_answer_remove_by_answer_keys) {
         ASSERT_EQ(dns_answer_size(b), 2u);
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com"));
-        ASSERT_OK_ZERO(dns_answer_match_key(a, key, /* ret_flags = */ NULL));
+        ASSERT_OK_ZERO(dns_answer_match_key(a, key, /* ret_flags= */ NULL));
         dns_resource_key_unref(key);
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com"));
-        ASSERT_OK_POSITIVE(dns_answer_match_key(a, key, /* ret_flags = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(a, key, /* ret_flags= */ NULL));
         dns_resource_key_unref(key);
 
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "c.example.com"));
-        ASSERT_OK_ZERO(dns_answer_match_key(a, key, /* ret_flags = */ NULL));
+        ASSERT_OK_ZERO(dns_answer_match_key(a, key, /* ret_flags= */ NULL));
         dns_resource_key_unref(key);
 }
 
@@ -420,62 +420,62 @@ TEST(dns_answer_copy_by_key) {
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com"));
         rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        ASSERT_OK_POSITIVE(dns_answer_add(source, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(source, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
         rr = dns_resource_record_unref(rr);
 
         /* non-matching class */
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "a.example.com"));
-        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, /* or_flags = */ 0, /* rrsig = */ NULL));
+        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, /* or_flags= */ 0, /* rrsig= */ NULL));
         ASSERT_EQ(dns_answer_size(target), 0u);
         dns_resource_key_unref(key);
 
         /* non-matching type */
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "a.example.com");
         ASSERT_NOT_NULL(key);
-        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, /* or_flags = */ 0, /* rrsig = */ NULL));
+        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, /* or_flags= */ 0, /* rrsig= */ NULL));
         ASSERT_EQ(dns_answer_size(target), 0u);
         dns_resource_key_unref(key);
 
         /* non-matching name */
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com");
         ASSERT_NOT_NULL(key);
-        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, /* or_flags = */ 0, /* rrsig = */ NULL));
+        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, /* or_flags= */ 0, /* rrsig= */ NULL));
         ASSERT_EQ(dns_answer_size(target), 0u);
         dns_resource_key_unref(key);
 
         /* matching key */
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com"));
-        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, /* or_flags = */ 0, /* rrsig = */ NULL));
+        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, /* or_flags= */ 0, /* rrsig= */ NULL));
         ASSERT_EQ(dns_answer_size(target), 1u);
-        ASSERT_OK_POSITIVE(dns_answer_match_key(target, key, /* ret_flags = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(target, key, /* ret_flags= */ NULL));
 
         /* add one more record with the same key */
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com"));
         rr->a.in_addr.s_addr = htobe32(0x7f000001);
-        ASSERT_OK_POSITIVE(dns_answer_add(source, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(source, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         /* check if the two records are copied */
-        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, /* or_flags = */ 0, /* rrsig = */ NULL));
+        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, /* or_flags= */ 0, /* rrsig= */ NULL));
         ASSERT_EQ(dns_answer_size(target), 2u);
-        ASSERT_OK_POSITIVE(dns_answer_match_key(target, key, /* ret_flags = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(target, key, /* ret_flags= */ NULL));
 
         /* try again with an empty target */
         target = dns_answer_unref(target);
-        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, /* or_flags = */ 0, /* rrsig = */ NULL));
+        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, /* or_flags= */ 0, /* rrsig= */ NULL));
         ASSERT_EQ(dns_answer_size(target), 2u);
-        ASSERT_OK_POSITIVE(dns_answer_match_key(target, key, /* ret_flags = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(target, key, /* ret_flags= */ NULL));
         dns_resource_key_unref(key);
 
         /* add one more record */
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com"));
         rr->a.in_addr.s_addr = htobe32(0x7f000001);
-        ASSERT_OK_POSITIVE(dns_answer_add(source, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(source, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         /* copy with flags */
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com"));
-        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, DNS_ANSWER_SECTION_ANSWER, /* rrsig = */ NULL));
+        ASSERT_OK(dns_answer_copy_by_key(&target, source, key, DNS_ANSWER_SECTION_ANSWER, /* rrsig= */ NULL));
         ASSERT_EQ(dns_answer_size(target), 3u);
         ASSERT_TRUE(dns_answer_match_key(target, key, &flags));
         ASSERT_EQ((int) flags, DNS_ANSWER_CACHEABLE | DNS_ANSWER_SECTION_ANSWER);
@@ -496,36 +496,36 @@ TEST(dns_answer_move_by_key) {
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com"));
         rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        ASSERT_OK_POSITIVE(dns_answer_add(source, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(source, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         /* non-matching class */
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "a.example.com"));
-        ASSERT_OK_ZERO(dns_answer_move_by_key(&target, &source, key, /* or_flags = */ 0, /* rrsig = */ NULL));
+        ASSERT_OK_ZERO(dns_answer_move_by_key(&target, &source, key, /* or_flags= */ 0, /* rrsig= */ NULL));
         ASSERT_EQ(dns_answer_size(source), 1u);
         ASSERT_EQ(dns_answer_size(target), 0u);
         dns_resource_key_unref(key);
 
         /* non-matching type */
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, "a.example.com"));
-        ASSERT_OK_ZERO(dns_answer_move_by_key(&target, &source, key, /* or_flags = */ 0, /* rrsig = */ NULL));
+        ASSERT_OK_ZERO(dns_answer_move_by_key(&target, &source, key, /* or_flags= */ 0, /* rrsig= */ NULL));
         ASSERT_EQ(dns_answer_size(source), 1u);
         ASSERT_EQ(dns_answer_size(target), 0u);
         dns_resource_key_unref(key);
 
         /* non-matching name */
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com"));
-        ASSERT_OK_ZERO(dns_answer_move_by_key(&target, &source, key, /* or_flags = */ 0, /* rrsig = */ NULL));
+        ASSERT_OK_ZERO(dns_answer_move_by_key(&target, &source, key, /* or_flags= */ 0, /* rrsig= */ NULL));
         ASSERT_EQ(dns_answer_size(source), 1u);
         ASSERT_EQ(dns_answer_size(target), 0u);
         dns_resource_key_unref(key);
 
         /* matching key */
         ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com"));
-        ASSERT_OK_POSITIVE(dns_answer_move_by_key(&target, &source, key, /* or_flags = */ 0, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_move_by_key(&target, &source, key, /* or_flags= */ 0, /* rrsig= */ NULL));
         ASSERT_NULL(source);
         ASSERT_EQ(dns_answer_size(target), 1u);
-        ASSERT_OK_POSITIVE(dns_answer_match_key(target, key, /* ret_flags = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(target, key, /* ret_flags= */ NULL));
 
         /* move the record back to the source */
         source = TAKE_PTR(target);
@@ -533,33 +533,33 @@ TEST(dns_answer_move_by_key) {
         /* add one more record */
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com"));
         rr->a.in_addr.s_addr = htobe32(0x7f000001);
-        ASSERT_OK_POSITIVE(dns_answer_add(source, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(source, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         /* move only a.example.com */
-        ASSERT_OK_POSITIVE(dns_answer_move_by_key(&target, &source, key, /* or_flags = */ 0, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_move_by_key(&target, &source, key, /* or_flags= */ 0, /* rrsig= */ NULL));
         ASSERT_EQ(dns_answer_size(source), 1u);
         ASSERT_EQ(dns_answer_size(target), 1u);
-        ASSERT_OK_ZERO(dns_answer_match_key(source, key, /* ret_flags = */ NULL));
-        ASSERT_OK_POSITIVE(dns_answer_match_key(target, key, /* ret_flags = */ NULL));
+        ASSERT_OK_ZERO(dns_answer_match_key(source, key, /* ret_flags= */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(target, key, /* ret_flags= */ NULL));
 
         /* move the record back to the source */
-        ASSERT_OK_POSITIVE(dns_answer_move_by_key(&source, &target, key, /* or_flags = */ 0, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_move_by_key(&source, &target, key, /* or_flags= */ 0, /* rrsig= */ NULL));
         ASSERT_EQ(dns_answer_size(source), 2u);
         ASSERT_EQ(dns_answer_size(target), 0u);
 
         /* add one more record */
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com"));
         rr->a.in_addr.s_addr = htobe32(0xc0a80180);
-        ASSERT_OK_POSITIVE(dns_answer_add(source, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(source, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         /* move two records for a.example.com */
-        ASSERT_OK_POSITIVE(dns_answer_move_by_key(&target, &source, key, /* or_flags = */ 0, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_move_by_key(&target, &source, key, /* or_flags= */ 0, /* rrsig= */ NULL));
         ASSERT_EQ(dns_answer_size(source), 1u);
         ASSERT_EQ(dns_answer_size(target), 2u);
-        ASSERT_OK_ZERO(dns_answer_match_key(source, key, /* ret_flags = */ NULL));
-        ASSERT_OK_POSITIVE(dns_answer_match_key(target, key, /* ret_flags = */ NULL));
+        ASSERT_OK_ZERO(dns_answer_match_key(source, key, /* ret_flags= */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_match_key(target, key, /* ret_flags= */ NULL));
         dns_resource_key_unref(key);
 }
 
@@ -581,7 +581,7 @@ TEST(dns_answer_has_dname_for_cname) {
         /* has matching dname */
         ASSERT_NOT_NULL(dname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNAME, "example.com"));
         ASSERT_NOT_NULL(dname->dname.name = strdup("v2.example.com"));
-        ASSERT_OK_POSITIVE(dns_answer_add(answer, dname, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(answer, dname, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
 
         /* no matching old suffix */
         ASSERT_OK(free_and_strdup(&dname->dname.name, "www.v2.examples.com"));
@@ -614,13 +614,13 @@ TEST(dns_answer_dump) {
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com"));
         rr->ttl = 1200;
         rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
-        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHEABLE | DNS_ANSWER_SECTION_ADDITIONAL, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHEABLE | DNS_ANSWER_SECTION_ADDITIONAL, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com"));
         rr->ttl = 2400;
         rr->a.in_addr.s_addr = htobe32(0xc0a80180);
-        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 2, 0, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 2, 0, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "c.example.com"));
@@ -628,20 +628,20 @@ TEST(dns_answer_dump) {
         rr->a.in_addr.s_addr = htobe32(0xc0a80181);
         ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 3,
                                           DNS_ANSWER_AUTHENTICATED | DNS_ANSWER_SHARED_OWNER | DNS_ANSWER_SECTION_AUTHORITY | DNS_ANSWER_CACHE_FLUSH,
-                                          /* rrsig = */ NULL));
+                                          /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "d.example.com"));
         rr->ttl = 4800;
         rr->cname.name = strdup("www.example.com");
-        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 4, DNS_ANSWER_GOODBYE | DNS_ANSWER_SECTION_ANSWER, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 4, DNS_ANSWER_GOODBYE | DNS_ANSWER_SECTION_ANSWER, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         ASSERT_EQ(dns_answer_size(answer), 4u);
 
         ASSERT_NOT_NULL(f = memstream_init(&ms));
         dns_answer_dump(answer, f);
-        ASSERT_OK(memstream_finalize(&ms, &buf, /* ret_size = */ NULL));
+        ASSERT_OK(memstream_finalize(&ms, &buf, /* ret_size= */ NULL));
         ASSERT_STREQ(buf,
                      "\ta.example.com IN A 192.168.1.127\t; ttl=1200 ifindex=1 cacheable section-additional\n"
                      "\tb.example.com IN A 192.168.1.128\t; ttl=2400 ifindex=2\n"
@@ -667,26 +667,26 @@ TEST(dns_answer_order_by_scope) {
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "a.example.com"));
         rr->ttl = 3600;
         rr->a.in_addr.s_addr = htobe32(0xa9fe0100);
-        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 1, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "b.example.com"));
         rr->ttl = 3600;
         rr->a.in_addr.s_addr = htobe32(0xc0a80404);
-        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 2, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 2, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
         ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "c.example.com"));
         rr->ttl = 3600;
         rr->a.in_addr.s_addr = htobe32(0xa9fefeff);
-        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 3, DNS_ANSWER_CACHEABLE, /* rrsig = */ NULL));
+        ASSERT_OK_POSITIVE(dns_answer_add(answer, rr, 3, DNS_ANSWER_CACHEABLE, /* rrsig= */ NULL));
         dns_resource_record_unref(rr);
 
-        dns_answer_order_by_scope(answer, /* prefer_link_local = */ true);
+        dns_answer_order_by_scope(answer, /* prefer_link_local= */ true);
 
         ASSERT_NOT_NULL(f = memstream_init(&ms));
         dns_answer_dump(answer, f);
-        ASSERT_OK(memstream_finalize(&ms, &buf, /* ret_size = */ NULL));
+        ASSERT_OK(memstream_finalize(&ms, &buf, /* ret_size= */ NULL));
         ASSERT_STREQ(buf,
                      "\ta.example.com IN A 169.254.1.0\t; ttl=3600 ifindex=1 cacheable\n"
                      "\tc.example.com IN A 169.254.254.255\t; ttl=3600 ifindex=3 cacheable\n"
@@ -694,11 +694,11 @@ TEST(dns_answer_order_by_scope) {
         buf = mfree(buf);
         memstream_done(&ms);
 
-        dns_answer_order_by_scope(answer, /* prefer_link_local = */ false);
+        dns_answer_order_by_scope(answer, /* prefer_link_local= */ false);
 
         ASSERT_NOT_NULL(f = memstream_init(&ms));
         dns_answer_dump(answer, f);
-        ASSERT_OK(memstream_finalize(&ms, &buf, /* ret_size = */ NULL));
+        ASSERT_OK(memstream_finalize(&ms, &buf, /* ret_size= */ NULL));
         ASSERT_STREQ(buf,
                      "\tb.example.com IN A 192.168.4.4\t; ttl=3600 ifindex=2 cacheable\n"
                      "\ta.example.com IN A 169.254.1.0\t; ttl=3600 ifindex=1 cacheable\n"

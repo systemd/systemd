@@ -406,8 +406,8 @@ static int ndisc_option_parse_prefix(Set **options, size_t offset, size_t len, c
         if (pi->nd_opt_pi_type != SD_NDISC_OPTION_PREFIX_INFORMATION)
                 return -EBADMSG;
 
-        usec_t valid = be32_sec_to_usec(pi->nd_opt_pi_valid_time, /* max_as_infinity = */ true);
-        usec_t pref = be32_sec_to_usec(pi->nd_opt_pi_preferred_time, /* max_as_infinity = */ true);
+        usec_t valid = be32_sec_to_usec(pi->nd_opt_pi_valid_time, /* max_as_infinity= */ true);
+        usec_t pref = be32_sec_to_usec(pi->nd_opt_pi_preferred_time, /* max_as_infinity= */ true);
 
         /* We only support 64 bits interface identifier for addrconf. */
         uint8_t flags = pi->nd_opt_pi_flags_reserved;
@@ -627,7 +627,7 @@ static int ndisc_option_parse_home_agent(Set **options, size_t offset, size_t le
         return ndisc_option_add_home_agent(
                         options, offset,
                         be16toh(p->nd_opt_home_agent_info_preference),
-                        be16_sec_to_usec(p->nd_opt_home_agent_info_lifetime, /* max_as_infinity = */ false));
+                        be16_sec_to_usec(p->nd_opt_home_agent_info_lifetime, /* max_as_infinity= */ false));
 }
 
 static int ndisc_option_build_home_agent(const sd_ndisc_option *option, usec_t timestamp, uint8_t **ret) {
@@ -731,7 +731,7 @@ static int ndisc_option_parse_route(Set **options, size_t offset, size_t len, co
                 return -EBADMSG;
 
         uint8_t preference = (opt[3] >> 3) & 0x03;
-        usec_t lifetime = unaligned_be32_sec_to_usec(opt + 4, /* max_as_infinity = */ true);
+        usec_t lifetime = unaligned_be32_sec_to_usec(opt + 4, /* max_as_infinity= */ true);
 
         struct in6_addr prefix;
         memcpy_safe(&prefix, opt + 8, len - 8);
@@ -807,7 +807,7 @@ static int ndisc_option_parse_rdnss(Set **options, size_t offset, size_t len, co
         if (opt[0] != SD_NDISC_OPTION_RDNSS)
                 return -EBADMSG;
 
-        usec_t lifetime = unaligned_be32_sec_to_usec(opt + 4, /* max_as_infinity = */ true);
+        usec_t lifetime = unaligned_be32_sec_to_usec(opt + 4, /* max_as_infinity= */ true);
         size_t n_addrs = len / sizeof(struct in6_addr);
 
         return ndisc_option_add_rdnss(options, offset, n_addrs, (const struct in6_addr*) (opt + 8), lifetime);
@@ -944,7 +944,7 @@ static int ndisc_option_parse_dnssl(Set **options, size_t offset, size_t len, co
         if (opt[0] != SD_NDISC_OPTION_DNSSL)
                 return -EBADMSG;
 
-        usec_t lifetime = unaligned_be32_sec_to_usec(opt + 4, /* max_as_infinity = */ true);
+        usec_t lifetime = unaligned_be32_sec_to_usec(opt + 4, /* max_as_infinity= */ true);
 
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *e = NULL;
@@ -1032,7 +1032,7 @@ static int ndisc_option_parse_dnssl(Set **options, size_t offset, size_t len, co
         uint8_t *p = buf + 8;
 
         STRV_FOREACH(s, option->dnssl.domains) {
-                r = dns_name_to_wire_format(*s, p, remaining, /* canonical = */ false);
+                r = dns_name_to_wire_format(*s, p, remaining, /* canonical= */ false);
                 if (r < 0)
                         return r;
 
@@ -1330,7 +1330,7 @@ static int ndisc_option_parse_encrypted_dns(Set **options, size_t offset, size_t
         off += sizeof(uint16_t);
 
         /* Lifetime */
-        lifetime = unaligned_be32_sec_to_usec(opt + off, /* max_as_infinity = */ true);
+        lifetime = unaligned_be32_sec_to_usec(opt + off, /* max_as_infinity= */ true);
         off += sizeof(uint32_t);
 
         /* adn field (length + dns-name) */
@@ -1451,7 +1451,7 @@ static int ndisc_option_build_encrypted_dns(const sd_ndisc_option *option, usec_
         if (!GREEDY_REALLOC(buf, off + sizeof(uint16_t) + ilen))
                 return -ENOMEM;
 
-        r = dns_name_to_wire_format(res->auth_name, buf + off + sizeof(uint16_t), ilen, /* canonical = */ false);
+        r = dns_name_to_wire_format(res->auth_name, buf + off + sizeof(uint16_t), ilen, /* canonical= */ false);
         if (r < 0)
                 return r;
         unaligned_write_be16(buf + off, (uint16_t) r);

@@ -112,5 +112,5 @@ int cat_main(int argc, char *argv[], void *userdata) {
                 return r;
 
         /* udev rules file does not support dropin configs. So, we can safely pass multiple files as dropins. */
-        return cat_files_full(/* file = */ NULL, files, n_files, arg_cat_flags);
+        return cat_files_full(/* file= */ NULL, files, n_files, arg_cat_flags);
 }

@@ -195,7 +195,7 @@ Session* session_free(Session *s) {
 
         free(s->scope_job);
 
-        session_reset_leader(s, /* keep_fdstore = */ true);
+        session_reset_leader(s, /* keep_fdstore= */ true);
 
         sd_bus_message_unref(s->create_message);
         sd_bus_message_unref(s->upgrade_message);
@@ -239,7 +239,7 @@ int session_set_leader_consume(Session *s, PidRef _leader) {
         if (pidref_equal(&s->leader, &pidref))
                 return 0;
 
-        session_reset_leader(s, /* keep_fdstore = */ false);
+        session_reset_leader(s, /* keep_fdstore= */ false);
 
         s->leader = TAKE_PIDREF(pidref);
 
@@ -401,7 +401,7 @@ static int session_load_devices(Session *s, const char *devices) {
                 }
 
                 /* The file descriptors for loaded devices will be reattached later. */
-                RET_GATHER(r, session_device_new(s, dev, /* open_device = */ false, /* ret = */ NULL));
+                RET_GATHER(r, session_device_new(s, dev, /* open_device= */ false, /* ret= */ NULL));
         }
 
         if (r < 0)
@@ -728,18 +728,18 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                         s->manager,
                         scope,
                         &s->leader,
-                        /* allow_pidfd = */ true,
+                        /* allow_pidfd= */ true,
                         s->user->slice,
                         description,
                         /* These should have been pulled in explicitly in user_start(). Just to be sure. */
-                        /* requires = */ STRV_MAKE_CONST(s->user->runtime_dir_unit),
-                        /* wants = */ STRV_MAKE_CONST(SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service_manager_unit : NULL),
+                        /* requires= */ STRV_MAKE_CONST(s->user->runtime_dir_unit),
+                        /* wants= */ STRV_MAKE_CONST(SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service_manager_unit : NULL),
                         /* We usually want to order session scopes after systemd-user-sessions.service
                          * since the unit is used as login session barrier for unprivileged users. However
                          * the barrier doesn't apply for root as sysadmin should always be able to log in
                          * (and without waiting for any timeout to expire) in case something goes wrong
                          * during the boot process. */
-                        /* extra_after = */ STRV_MAKE_CONST("systemd-logind.service",
+                        /* extra_after= */ STRV_MAKE_CONST("systemd-logind.service",
                                                             SESSION_CLASS_IS_EARLY(s->class) ? NULL : "systemd-user-sessions.service"),
                         user_record_home_directory(s->user->user_record),
                         properties,
@@ -770,7 +770,7 @@ static int session_dispatch_stop_on_idle(sd_event_source *source, uint64_t t, vo
         if (idle) {
                 log_info("Session \"%s\" of user \"%s\" is idle, stopping.", s->id, s->user->user_record->user_name);
 
-                return session_stop(s, /* force = */ true);
+                return session_stop(s, /* force= */ true);
         }
 
         r = sd_event_source_set_time(
@@ -997,7 +997,7 @@ int session_finalize(Session *s) {
                 seat_save(s->seat);
         }
 
-        session_reset_leader(s, /* keep_fdstore = */ false);
+        session_reset_leader(s, /* keep_fdstore= */ false);
 
         (void) user_save(s->user);
         (void) user_send_changed(s->user, "Display");
@@ -1010,7 +1010,7 @@ static int release_timeout_callback(sd_event_source *es, uint64_t usec, void *us
 
         assert(es);
 
-        session_stop(s, /* force = */ false);
+        session_stop(s, /* force= */ false);
         return 0;
 }
 
@@ -1360,7 +1360,7 @@ static int session_prepare_vt(Session *s) {
         if (s->vtnr < 1)
                 return 0;
 
-        vt = session_open_vt(s, /* reopen = */ false);
+        vt = session_open_vt(s, /* reopen= */ false);
         if (vt < 0)
                 return vt;
 
@@ -1426,7 +1426,7 @@ static void session_restore_vt(Session *s) {
                 /* We do a little dance to avoid having the terminal be available
                  * for reuse before we've cleaned it up. */
 
-                int fd = session_open_vt(s, /* reopen = */ true);
+                int fd = session_open_vt(s, /* reopen= */ true);
                 if (fd >= 0)
                         r = vt_restore(fd);
         }
@@ -1456,13 +1456,13 @@ void session_leave_vt(Session *s) {
                 return;
 
         session_device_pause_all(s);
-        r = vt_release(s->vtfd, /* restore = */ false);
+        r = vt_release(s->vtfd, /* restore= */ false);
         if (r == -EIO) {
                 /* Handle the same VT hung-up case as in session_restore_vt */
 
-                int fd = session_open_vt(s, /* reopen = */ true);
+                int fd = session_open_vt(s, /* reopen= */ true);
                 if (fd >= 0)
-                        r = vt_release(fd, /* restore = */ false);
+                        r = vt_release(fd, /* restore= */ false);
         }
         if (r < 0)
                 log_debug_errno(r, "Cannot release VT of session %s: %m", s->id);

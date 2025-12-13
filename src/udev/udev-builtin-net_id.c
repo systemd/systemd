@@ -107,7 +107,7 @@ static int get_first_syspath_component(sd_device *dev, const char *prefix, char 
         if (!p)
                 return -EINVAL;
 
-        r = path_find_first_component(&p, /* accept_dot_dot = */ false, &q);
+        r = path_find_first_component(&p, /* accept_dot_dot= */ false, &q);
         if (r < 0)
                 return r;
 
@@ -692,7 +692,7 @@ static int names_vio(UdevEvent *event, const char *prefix) {
         /* get ibmveth/ibmvnic slot-based names. */
 
         /* check if our direct parent is a VIO device with no other bus in-between */
-        if (get_matching_parent(dev, STRV_MAKE("vio"), /* skip_virtio = */ false, NULL) < 0)
+        if (get_matching_parent(dev, STRV_MAKE("vio"), /* skip_virtio= */ false, NULL) < 0)
                 return 0;
 
         log_device_debug(dev, "Parent device is in the vio subsystem.");
@@ -739,7 +739,7 @@ static int names_platform(UdevEvent *event, const char *prefix) {
         /* get ACPI path names for ARM64 platform devices */
 
         /* check if our direct parent is a platform device with no other bus in-between */
-        if (get_matching_parent(dev, STRV_MAKE("platform"), /* skip_virtio = */ false, NULL) < 0)
+        if (get_matching_parent(dev, STRV_MAKE("platform"), /* skip_virtio= */ false, NULL) < 0)
                 return 0;
 
         log_device_debug(dev, "Parent device is in the platform subsystem.");
@@ -934,7 +934,7 @@ static int names_pci(UdevEvent *event, const char *prefix) {
         assert(prefix);
 
         /* check if our direct parent is a PCI device with no other bus in-between */
-        if (get_matching_parent(dev, STRV_MAKE("pci"), /* skip_virtio = */ true, &parent) < 0)
+        if (get_matching_parent(dev, STRV_MAKE("pci"), /* skip_virtio= */ true, &parent) < 0)
                 return 0;
 
         /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
@@ -1103,7 +1103,7 @@ static int names_ccw(UdevEvent *event, const char *prefix) {
 
         /* get path names for Linux on System z network devices */
 
-        if (get_matching_parent(dev, STRV_MAKE("ccwgroup", "ccw"), /* skip_virtio = */ true, &cdev) < 0)
+        if (get_matching_parent(dev, STRV_MAKE("ccwgroup", "ccw"), /* skip_virtio= */ true, &cdev) < 0)
                 return 0;
 
         log_device_debug(dev, "Device is CCW.");
@@ -1271,7 +1271,7 @@ static int names_xen(UdevEvent *event, const char *prefix) {
                 return 0;
 
         /* check if our direct parent is a Xen VIF device with no other bus in-between */
-        if (get_matching_parent(dev, STRV_MAKE("xen"), /* skip_virtio = */ false, NULL) < 0)
+        if (get_matching_parent(dev, STRV_MAKE("xen"), /* skip_virtio= */ false, NULL) < 0)
                 return 0;
 
         /* Use the vif-n name to extract "n" */

@@ -499,7 +499,7 @@ int unit_file_build_name_map(
                                                 continue;
                                         }
 
-                                        r = is_dir(target, /* follow = */ true);
+                                        r = is_dir(target, /* follow= */ true);
                                         if (r <= 0)
                                                 continue;
 

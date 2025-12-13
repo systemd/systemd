@@ -18,7 +18,7 @@
 ***/
 
 #include "_sd-common.h"
-#include "sd-lldp.h"    /* IWYU pragma: export*/
+#include "sd-lldp.h"    /* IWYU pragma: export */
 
 _SD_BEGIN_DECLARATIONS;
 

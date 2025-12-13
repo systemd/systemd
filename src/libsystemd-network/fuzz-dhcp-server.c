@@ -42,7 +42,7 @@ static int add_lease(sd_dhcp_server *server, const struct in_addr *server_addres
         lease->client_id.raw[0] = 2;
         lease->client_id.raw[1] = i;
 
-        r = dhcp_server_put_lease(server, lease, /* is_static = */ false);
+        r = dhcp_server_put_lease(server, lease, /* is_static= */ false);
         if (r < 0)
                 return r;
 

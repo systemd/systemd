@@ -255,7 +255,7 @@ int manager_new(Manager **ret) {
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to allocate memory pressure watch, ignoring: %m");
 
-        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata = */ NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1162,9 +1162,9 @@ static int manager_listen_notify(Manager *m) {
                                                        * of a client before it exits. */
                         on_notify_socket,
                         m,
-                        /* accept_fds = */ true,
+                        /* accept_fds= */ true,
                         &m->notify_socket_path,
-                        /* ret_event_source = */ NULL);
+                        /* ret_event_source= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 

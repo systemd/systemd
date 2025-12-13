@@ -1898,13 +1898,13 @@ int image_set_pool_limit(RuntimeScope scope, ImageClass class, uint64_t referenc
         if (r < 0)
                 return r;
 
-        r = btrfs_qgroup_set_limit(pool, /* qgroupid = */ 0, referenced_max);
+        r = btrfs_qgroup_set_limit(pool, /* qgroupid= */ 0, referenced_max);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return r;
         if (r < 0)
                 log_debug_errno(r, "Failed to set limit on btrfs quota group for '%s', ignoring: %m", pool);
 
-        r = btrfs_subvol_set_subtree_quota_limit(pool, /* subvol_id = */ 0, referenced_max);
+        r = btrfs_subvol_set_subtree_quota_limit(pool, /* subvol_id= */ 0, referenced_max);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return r;
         if (r < 0)

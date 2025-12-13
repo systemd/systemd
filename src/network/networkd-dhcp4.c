@@ -328,7 +328,7 @@ int dhcp4_check_ready(Link *link) {
         log_link_debug(link, "DHCPv4 address and routes set.");
 
         /* New address and routes are configured now. Let's release old lease. */
-        r = dhcp4_remove_address_and_routes(link, /* only_marked = */ true);
+        r = dhcp4_remove_address_and_routes(link, /* only_marked= */ true);
         if (r < 0)
                 return r;
 
@@ -800,7 +800,7 @@ static int dhcp4_request_routes(Link *link) {
         assert(link);
         assert(link->dhcp_lease);
 
-        r = dhcp4_request_prefix_route(link, /* rt = */ NULL);
+        r = dhcp4_request_prefix_route(link, /* rt= */ NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not request prefix route: %m");
 
@@ -881,7 +881,7 @@ int dhcp4_lease_lost(Link *link) {
             sd_dhcp_lease_has_6rd(link->dhcp_lease))
                 dhcp4_pd_prefix_lost(link);
 
-        RET_GATHER(r, dhcp4_remove_address_and_routes(link, /* only_marked = */ false));
+        RET_GATHER(r, dhcp4_remove_address_and_routes(link, /* only_marked= */ false));
         RET_GATHER(r, dhcp_reset_mtu(link));
         RET_GATHER(r, dhcp_reset_hostname(link));
 
@@ -1755,7 +1755,7 @@ int dhcp4_update_ipv6_connectivity(Link *link) {
         if (link_has_ipv6_connectivity(link))
                 return 0;
 
-        return dhcp4_start_full(link, /* set_ipv6_connectivity = */ false);
+        return dhcp4_start_full(link, /* set_ipv6_connectivity= */ false);
 }
 
 int dhcp4_start_full(Link *link, bool set_ipv6_connectivity) {
@@ -1826,7 +1826,7 @@ static int dhcp4_process_request(Request *req, Link *link, void *userdata) {
 
         assert(link);
 
-        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return 0;
 
         r = dhcp4_configure_duid(link);
@@ -1882,7 +1882,7 @@ int link_drop_dhcp4_config(Link *link, Network *network) {
                  * client was enabled on the previous invocation of networkd, but when it is restarted, a new
                  * .network file may match to the interface, and DHCPv4 client may be disabled. In that case,
                  * the DHCPv4 client is not running, hence sd_dhcp_client_stop() in the above does nothing. */
-                RET_GATHER(ret, dhcp4_remove_address_and_routes(link, /* only_marked = */ false));
+                RET_GATHER(ret, dhcp4_remove_address_and_routes(link, /* only_marked= */ false));
         }
 
         if (link->dhcp_client && link->network->dhcp_use_bootp &&

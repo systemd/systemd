@@ -690,7 +690,7 @@ static int dropins_get_stats_by_path(
         if (!strextend(&dropin_dirname, ".d"))
                 return -ENOMEM;
 
-        r = conf_files_list_dropins(&files, dropin_dirname, /* root = */ NULL, conf_file_dirs);
+        r = conf_files_list_dropins(&files, dropin_dirname, /* root= */ NULL, conf_file_dirs);
         if (r < 0)
                 return r;
 
@@ -1359,7 +1359,7 @@ int config_parse_strv(
                         return log_oom();
         }
 
-        r = strv_extend_strv_consume(sv, TAKE_PTR(strv), /* filter_duplicates = */ ltype);
+        r = strv_extend_strv_consume(sv, TAKE_PTR(strv), /* filter_duplicates= */ ltype);
         if (r < 0)
                 return log_oom();
 
@@ -2083,7 +2083,7 @@ int config_parse_unsigned_bounded(
                 return ignoring ? 0 : r;
         }
         if (r < 0)
-                return log_syntax_parse_error_full(unit, filename, line, r, /* critical = */ !ignoring, lvalue, rvalue);
+                return log_syntax_parse_error_full(unit, filename, line, r, /* critical= */ !ignoring, lvalue, rvalue);
 
         return 1;  /* Return 1 if something was set */
 }

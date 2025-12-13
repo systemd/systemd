@@ -51,7 +51,7 @@ static int cgroupfs_mount_options(int priority, const char *type, char **ret) {
 
         _cleanup_free_ char *opts = NULL;
         FOREACH_STRING(o, "memory_recursiveprot", "memory_hugetlb_accounting") {
-                r = mount_option_supported("cgroup2", o, /* value = */ NULL);
+                r = mount_option_supported("cgroup2", o, /* value= */ NULL);
                 if (r < 0)
                         log_full_errno(priority, r, "Failed to determine whether cgroupfs supports '%s' mount option, assuming not: %m", o);
                 else if (r == 0)
@@ -291,7 +291,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
         if (relabel)
                 (void) label_fix(p->where, LABEL_IGNORE_ENOENT|LABEL_IGNORE_EROFS);
 
-        r = path_is_mount_point_full(p->where, /* root = */ NULL, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point_full(p->where, /* root= */ NULL, AT_SYMLINK_FOLLOW);
         if (r < 0 && r != -ENOENT) {
                 log_full_errno(priority, r, "Failed to determine whether %s is a mount point: %m", p->where);
                 return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;
