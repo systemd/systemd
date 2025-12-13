@@ -216,6 +216,23 @@ if ! systemd-detect-virt -cq; then
             bash -xec 'timeout 1s ncat -6 -l ::1 1234; exit 1'
         systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
             bash -xec 'timeout 1s ncat -6 -l ::1 6666; exit 1'
+
+        # BindNetworkInterface*=
+        # Create a VRF interface to later bind to and check if the binding is working
+        ip link add vrf-test type vrf table 100
+        ip link set vrf-test up
+        ip address add 127.0.0.1/8 dev vrf-test
+
+        # Verify that a socket with BindNetworkInterface set is correctly bound to the interface
+        systemd-run --wait --pipe -p BindNetworkInterface=vrf-test \
+            bash -xec 'ncat -l 127.0.0.1 9999 & sleep 0.5; ss -tlnp | grep "127.0.0.1%vrf-test:9999" > /dev/null'
+
+        # Verify that a socket without BindNetworkInterface is not bound to any interface
+        systemd-run --wait --pipe \
+            bash -xec 'ncat -l 127.0.0.1 9998 & sleep 0.5; ss -tlnp | grep "127.0.0.1:9998" > /dev/null'
+
+        ip link del vrf-test
+
     fi
 
     losetup -d "$LODEV"

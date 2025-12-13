@@ -5996,6 +5996,28 @@ int config_parse_concurrency_max(
         return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
 
+int config_parse_bind_network_interface(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupContext *c = ASSERT_PTR(data);
+
+        if (isempty(rvalue)) {
+                c->bind_network_interface = mfree(c->bind_network_interface);
+                return 0;
+        }
+
+        return free_and_strdup_warn(&c->bind_network_interface, rvalue);
+}
+
 static int merge_by_names(Unit *u, Set *names, const char *id) {
         char *k;
         int r;
