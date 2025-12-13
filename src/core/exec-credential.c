@@ -1020,21 +1020,31 @@ static int setup_credentials_internal(
         assert(unit);
         assert(cred_dir);
 
-        if (!FLAGS_SET(params->flags, EXEC_SETUP_CREDENTIALS_FRESH)) {
-                /* We may reuse the previous credential dir */
-                r = dir_is_empty(cred_dir, /* ignore_hidden_or_backup= */ false);
-                if (r < 0)
-                        return r;
-                if (r == 0) {
-                        log_debug("Credential dir for unit '%s' already set up, skipping.", unit);
-                        return 0;
-                }
-        }
-
         r = path_is_mount_point(cred_dir);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine if '%s' is a mountpoint: %m", cred_dir);
         dir_mounted = r > 0;
+
+        if (!FLAGS_SET(params->flags, EXEC_SETUP_CREDENTIALS_FRESH)) {
+                bool populated;
+
+                /* If the cred dir is a mount, let's treat it as populated, and only look at the contents
+                 * if it's a plain dir, where we can't reasonably differentiate populated yet empty vs
+                 * not set up. */
+
+                if (dir_mounted)
+                        populated = true;
+                else {
+                        r = dir_is_empty(cred_dir, /* ignore_hidden_or_backup= */ false);
+                        if (r < 0)
+                                return r;
+                        populated = r == 0;
+                }
+                if (populated) {
+                        log_debug("Credential dir for unit '%s' already set up, skipping.", unit);
+                        return 0;
+                }
+        }
 
         mfd = fsmount_credentials_fs(&fs_fd);
         if (ERRNO_IS_NEG_PRIVILEGE(mfd) && !dir_mounted) {
