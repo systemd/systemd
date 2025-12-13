@@ -1145,11 +1145,8 @@ int exec_setup_credentials(
                 return r;
 
         r = setup_credentials_internal(context, cgroup_context, params, unit, p, uid, gid);
+        if (r < 0)
+                (void) rmdir(p);
 
-        /* If the credentials dir is empty and not a mount point, then there's no point in having it. Let's
-         * try to remove it. This matters in particular if we created the dir as mount point but then didn't
-         * actually end up mounting anything on it. In that case we'd rather have ENOENT than EACCESS being
-         * seen by users when trying access this inode. */
-        (void) rmdir(p);
         return r;
 }
