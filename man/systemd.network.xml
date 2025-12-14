@@ -136,9 +136,9 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>SSID=</varname></term>
+        <term><varname>ESSID=</varname></term>
         <listitem>
-          <para>A whitespace-separated list of shell-style globs matching the SSID of the currently
+          <para>A whitespace-separated list of shell-style globs matching the ESSID of the currently
           connected wireless LAN. If the list is prefixed with a "!", the test is inverted.</para>
 
           <xi:include href="version-info.xml" xpointer="v244"/>
