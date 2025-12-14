@@ -2905,31 +2905,26 @@ fail:
         service_reload_finish(s, SERVICE_FAILURE_RESOURCES);
 }
 
-static bool service_should_reload_extensions(Service *s) {
-        int r;
-
+static bool service_can_reload_extensions(Service *s) {
         assert(s);
 
-        if (!FLAGS_SET(s->refresh_on_reload_flags, SERVICE_RELOAD_EXTENSIONS))
+        // TODO: Add support for user services, which can use ExtensionDirectories= + notify-reload.
+        // For now, skip for user services.
+
+        return MANAGER_IS_SYSTEM(UNIT(s)->manager) &&
+                FLAGS_SET(s->refresh_on_reload_flags, SERVICE_RELOAD_EXTENSIONS) &&
+                s->exec_command[SERVICE_EXEC_START] &&
+                exec_context_has_vpicked_extensions(&s->exec_context) > 0;
+}
+
+static bool service_should_reload_extensions(Service *s) {
+        assert(s);
+
+        if (!service_can_reload_extensions(s))
                 return false;
 
         if (!pidref_is_set(&s->main_pid)) {
                 log_unit_debug(UNIT(s), "Not reloading extensions for service without main PID.");
-                return false;
-        }
-
-        r = exec_context_has_vpicked_extensions(&s->exec_context);
-        if (r < 0)
-                log_unit_warning_errno(UNIT(s), r, "Failed to determine if service should reload extensions, assuming false: %m");
-        if (r == 0)
-                log_unit_debug(UNIT(s), "Service has no extensions to reload.");
-        if (r <= 0)
-                return false;
-
-        // TODO: Add support for user services, which can use ExtensionDirectories= + notify-reload.
-        // For now, skip for user services.
-        if (!MANAGER_IS_SYSTEM(UNIT(s)->manager)) {
-                log_once(LOG_WARNING, "Not reloading extensions for user services.");
                 return false;
         }
 
@@ -3260,8 +3255,14 @@ static int service_reload(Unit *u) {
 static bool service_can_reload(Unit *u) {
         Service *s = ASSERT_PTR(SERVICE(u));
 
+        // Call service_should_reload_extensions() without main pid check
+        // (and exec_context_has_credentials() to follow
+        //
+        // beef up service_verify() too
+
         return s->exec_command[SERVICE_EXEC_RELOAD] ||
-                s->type == SERVICE_NOTIFY_RELOAD;
+                s->type == SERVICE_NOTIFY_RELOAD ||
+                s->refresh_on_reload & _EXTENSIONS && service_can_reload_extensions(s);
 }
 
 static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, const ExecCommand *current) {
