@@ -628,6 +628,10 @@ sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*
 sensor:modalias:platform:lis3lv02d:dmi:*svn*HP*:*
  ACCEL_LOCATION=base
 
+# HP OmniBook Ultra Flip Laptop 14-fh0xxx
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnHP:pnHPOmniBookUltraFlipLaptop14-fh0xxx:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, -1
+
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
