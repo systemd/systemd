@@ -134,6 +134,8 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
 static void service_reload_finish(Service *s, ServiceResult f);
 static void service_enter_reload_by_notify(Service *s);
 
+static bool service_can_reload_extensions(Service *s, bool warn);
+
 static bool SERVICE_STATE_WITH_MAIN_PROCESS(ServiceState state) {
         return IN_SET(state,
                       SERVICE_START, SERVICE_START_POST,
@@ -754,6 +756,11 @@ static int service_verify(Service *s) {
                 s->restart_usec = s->restart_max_delay_usec;
         }
 
+        if (s->refresh_on_reload_set && s->refresh_on_reload_flags != _SERVICE_REFRESH_ON_RELOAD_ALL) {
+                if (FLAGS_SET(s->refresh_on_reload_flags, SERVICE_RELOAD_EXTENSIONS))
+                        service_can_reload_extensions(s, /* warn = */ true);
+        }
+
         return 0;
 }
 
@@ -890,6 +897,11 @@ static int service_add_extras(Service *s) {
         if (s->notify_access == NOTIFY_NONE &&
             (IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD) || s->watchdog_usec > 0 || s->n_fd_store_max > 0))
                 s->notify_access = NOTIFY_MAIN;
+
+        if (!s->refresh_on_reload_set) {
+                assert_cc(SERVICE_REFRESH_ON_RELOAD_DEFAULT == SERVICE_RELOAD_EXTENSIONS);
+                s->refresh_on_reload_flags = service_can_reload_extensions(s, /* warn = */ false) ? SERVICE_RELOAD_EXTENSIONS : 0;
+        }
 
         /* If no OOM policy was explicitly set, then default to the configure default OOM policy. Except when
          * delegation is on, in that case it we assume the payload knows better what to do and can process
@@ -2823,28 +2835,53 @@ static void service_enter_reload(Service *s) {
                 service_enter_reload_signal(s);
 }
 
-static bool service_should_reload_extensions(Service *s) {
-        int r;
-
+static bool service_can_reload_extensions(Service *s, bool warn) {
         assert(s);
-
-        if (!pidref_is_set(&s->main_pid)) {
-                log_unit_debug(UNIT(s), "Not reloading extensions for service without main PID.");
-                return false;
-        }
-
-        r = exec_context_has_vpicked_extensions(&s->exec_context);
-        if (r < 0)
-                log_unit_warning_errno(UNIT(s), r, "Failed to determine if service should reload extensions, assuming false: %m");
-        if (r == 0)
-                log_unit_debug(UNIT(s), "Service has no extensions to reload.");
-        if (r <= 0)
-                return false;
 
         // TODO: Add support for user services, which can use ExtensionDirectories= + notify-reload.
         // For now, skip for user services.
+
+        if (exec_context_has_vpicked_extensions(&s->exec_context) <= 0) {
+                if (warn)
+                        log_unit_warning(UNIT(s), "Service uses RefreshOnReload=extensions, but has no extensions using vpick. Ignoring.");
+                return false;
+        }
+
+        if (!s->exec_command[SERVICE_EXEC_START]) {
+                if (warn)
+                        log_unit_warning(UNIT(s), "Service uses RefreshOnReload=extensions, but has no main process (ExecStart=). Ignoring.");
+                return false;
+        }
+
         if (!MANAGER_IS_SYSTEM(UNIT(s)->manager)) {
-                log_once(LOG_WARNING, "Not reloading extensions for user services.");
+                if (warn)
+                        log_unit_warning(UNIT(s), "Service uses RefreshOnReload=extensions, which is not supported in user mode. Ignoring.");
+                return false;
+        }
+
+        return true;
+}
+
+static bool service_get_effective_reload_extensions(Service *s) {
+        assert(s);
+
+        if (!FLAGS_SET(s->refresh_on_reload_flags, SERVICE_RELOAD_EXTENSIONS))
+                return false;
+
+        if (!service_can_reload_extensions(s, /* warn = */ false))
+                return false;
+
+        return true;
+}
+
+static bool service_should_reload_extensions(Service *s) {
+        assert(s);
+
+        if (!service_get_effective_reload_extensions(s))
+                return false;
+
+        if (!pidref_is_set(&s->main_pid)) {
+                log_unit_debug(UNIT(s), "Not reloading extensions for service without main PID.");
                 return false;
         }
 
@@ -5887,6 +5924,72 @@ static const char* const service_timeout_failure_mode_table[_SERVICE_TIMEOUT_FAI
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_timeout_failure_mode, ServiceTimeoutFailureMode);
+
+static const struct {
+        ServiceRefreshOnReload flag;
+        const char *name;
+} service_refresh_on_reload_table[] = {
+        { SERVICE_RELOAD_EXTENSIONS,  "extensions"  },
+};
+
+ServiceRefreshOnReload service_refresh_on_reload_flag_from_string(const char *s) {
+        assert(s);
+
+        FOREACH_ELEMENT(i, service_refresh_on_reload_table)
+                if (streq(s, i->name))
+                        return i->flag;
+
+        return _SERVICE_REFRESH_ON_RELOAD_INVALID;
+}
+
+int service_refresh_on_reload_from_string_many(const char *s, ServiceRefreshOnReload *ret) {
+        ServiceRefreshOnReload flags = 0;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        for (;;) {
+                _cleanup_free_ char *v = NULL;
+                ServiceRefreshOnReload f;
+
+                r = extract_first_word(&s, &v, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                f = service_refresh_on_reload_flag_from_string(v);
+                if (f < 0)
+                        return f;
+                assert(f > 0);
+
+                flags |= f;
+        }
+
+        *ret = flags;
+        return 0;
+}
+
+int service_refresh_on_reload_to_strv(ServiceRefreshOnReload flags, char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(flags >= 0);
+        assert(ret);
+
+        FOREACH_ELEMENT(i, service_refresh_on_reload_table) {
+                if (!FLAGS_SET(flags, i->flag))
+                        continue;
+
+                r = strv_extend(&l, i->name);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
 
 const UnitVTable service_vtable = {
         .object_size = sizeof(Service),
