@@ -3297,7 +3297,10 @@ static bool service_can_reload(Unit *u) {
         Service *s = ASSERT_PTR(SERVICE(u));
 
         return s->exec_command[SERVICE_EXEC_RELOAD] ||
-                s->type == SERVICE_NOTIFY_RELOAD;
+                s->type == SERVICE_NOTIFY_RELOAD ||
+                (s->refresh_on_reload_set &&
+                 (service_get_effective_reload_extensions(s) ||
+                  service_get_effective_reload_credentials(s)));
 }
 
 static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, const ExecCommand *current) {
