@@ -502,16 +502,13 @@ static int bus_set_transient_exec_context_fd(
         assert(name);
         assert(p);
         assert(b);
-        assert(verify_mode == O_DIRECTORY || (verify_mode & ~O_ACCMODE_STRICT) == 0);
+        assert((verify_mode & ~O_ACCMODE_STRICT) == 0);
 
         r = sd_bus_message_read(message, "h", &fd);
         if (r < 0)
                 return r;
 
-        if (verify_mode == O_DIRECTORY)
-                r = fd_verify_directory(fd);
-        else
-                r = fd_vet_accmode(fd, verify_mode);
+        r = fd_vet_accmode(fd, verify_mode);
         if (r < 0)
                 return sd_bus_error_set_errnof(reterr_error, r, "%s passed is of incompatible type: %m", name);
 
@@ -813,8 +810,34 @@ static int bus_service_set_transient_property(
                 return 1;
         }
 
-        if (streq(name, "RootDirectoryFileDescriptor"))
-                return bus_set_transient_exec_context_fd(u, name, &s->root_directory_fd, &s->exec_context.root_directory_as_fd, O_DIRECTORY, message, flags, reterr_error);
+        if (streq(name, "RootDirectoryFileDescriptor")) {
+                int fd;
+
+                r = sd_bus_message_read(message, "h", &fd);
+                if (r < 0)
+                        return r;
+
+                r = fd_verify_directory(fd);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(reterr_error, r, "RootDirectoryFileDescriptor= is not a directory: %m");
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        int fd_clone;
+
+                        /* Note that this invalidates the fd we got from the client. They won't be able to
+                         * move_mount() it themselves. If they already move_mount()'ed it themselves, this
+                         * will fail to clone the fd. */
+                        fd_clone = mount_fd_clone(fd, /* recursive= */ true, /* replacement_fd= */ NULL);
+                        if (fd_clone < 0)
+                                return fd_clone;
+
+                        /* We're closing our own clone here, which shouldn't need an asynchronous_close(). */
+                        close_and_replace(s->root_directory_fd, fd_clone);
+                        s->exec_context.root_directory_as_fd = true;
+                }
+
+                return 1;
+        }
 
         return 0;
 }
