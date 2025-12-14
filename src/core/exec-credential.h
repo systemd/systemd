@@ -57,7 +57,6 @@ int exec_setup_credentials(
                 const ExecContext *context,
                 const CGroupContext *cgroup_context,
                 const ExecParameters *params,
-                const char *unit,
                 uid_t uid,
                 gid_t gid);
 
