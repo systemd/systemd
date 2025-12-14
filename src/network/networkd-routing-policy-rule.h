@@ -48,8 +48,7 @@ typedef struct RoutingPolicyRule {
 
 DECLARE_STRING_TABLE_LOOKUP(fr_act_type, int);
 
-RoutingPolicyRule* routing_policy_rule_ref(RoutingPolicyRule *rule);
-RoutingPolicyRule* routing_policy_rule_unref(RoutingPolicyRule *rule);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(RoutingPolicyRule, routing_policy_rule);
 
 void network_drop_invalid_routing_policy_rules(Network *network);
 

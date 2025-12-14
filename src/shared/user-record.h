@@ -418,8 +418,7 @@ typedef struct UserRecord {
 } UserRecord;
 
 UserRecord* user_record_new(void);
-UserRecord* user_record_ref(UserRecord *h);
-UserRecord* user_record_unref(UserRecord *h);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(UserRecord, user_record);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(UserRecord*, user_record_unref);
 
