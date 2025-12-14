@@ -16,19 +16,25 @@
 #include "iovec-util.h"
 #include "label-util.h"
 #include "log.h"
+#include "manager.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "namespace.h"
 #include "ordered-set.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "pidref.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
 #include "siphash24.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unit.h"
 #include "user-util.h"
 
 ExecSetCredential* exec_set_credential_free(ExecSetCredential *sc) {
@@ -1145,4 +1151,159 @@ int exec_setup_credentials(
                 (void) rmdir(p);
 
         return r;
+}
+
+static int refresh_credentials_in_namespace_child(int cfd, const char *cred_dir) {
+        int r;
+
+        assert(cfd >= 0);
+        assert(cred_dir);
+
+        /* Paranoia: before doing anything, check if the credentials tree inside the mountns is available. */
+        if (access(cred_dir, R_OK) < 0) {
+                if (IN_SET(errno, ENOENT, EACCES)) {
+                        log_warning_errno(errno, "Credentials tree in the unit mount namespace is masked, skipping refresh.");
+                        return 0;
+                }
+
+                return log_error_errno(errno, "Failed to check whether '%s' is accessible in unit mount namespace: %m",
+                                       cred_dir);
+        }
+
+        /* Inform the parent that we're good to go */
+        r = 1;
+
+        ssize_t n = write(cfd, &r, sizeof(r));
+        if (n < 0)
+                return log_error_errno(errno, "Failed to write to socket: %m");
+
+        _cleanup_close_ int mfd = receive_one_fd(cfd, /* flags = */ 0);
+        if (mfd < 0)
+                return log_error_errno(mfd, "Failed to receive credentials tree fd from socket: %m");
+
+        r = mount_exchange_graceful(mfd, cred_dir, /* mount_beneath = */ true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to update credentials mount in namespace: %m");
+
+        return 1;
+}
+
+int unit_refresh_credentials(Unit *u) {
+        _cleanup_free_ char *cred_dir = NULL;
+        int r;
+
+        assert(u);
+        assert(u->manager);
+
+        r = get_credential_directory(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id, &cred_dir);
+        if (r < 0)
+                return log_oom();
+        assert(r > 0);
+
+        if (access(cred_dir, F_OK) < 0) {
+                if (errno == ENOENT) {
+                        log_warning_errno(r, "Requested to refresh credentials, but credentials aren't populated, skipping.");
+                        return 0;
+                }
+
+                return log_error_errno(errno, "Failed to check if credentials dir '%s' exists: %m", cred_dir);
+        }
+
+        _cleanup_close_pair_ int mount_transport_fds[2] = EBADF_PAIR;
+        pid_t child = 0;
+
+        PidRef *main_pid = unit_main_pid(u);
+        if (pidref_is_set(main_pid)) {
+                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
+
+                r = pidref_namespace_open(main_pid, &pidns_fd, &mntns_fd, /* ret_netns_fd = */ NULL, /* ret_userns_fd = */ NULL, &root_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open namespace of unit main process '" PID_FMT "': %m",
+                                               main_pid->pid);
+
+                r = is_our_namespace(mntns_fd, NAMESPACE_MOUNT);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if main process resides in a separate mount namespace: %m");
+                if (r == 0) {
+                        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, mount_transport_fds) < 0)
+                                return log_error_errno(errno, "Failed to allocate socket pair: %m");
+
+                        r = namespace_fork("(sd-creds-ns)",
+                                           "(sd-creds-ns-inner)",
+                                           (int[]) { mount_transport_fds[1] }, 1,
+                                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
+                                           pidns_fd, mntns_fd, /* netns_fd = */ -EBADF, /* userns_fd = */ -EBADF, root_fd,
+                                           &child);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to fork off process into unit namespace to refresh credentials: %m");
+                        if (r == 0) {
+                                r = refresh_credentials_in_namespace_child(mount_transport_fds[1], cred_dir);
+                                report_errno_and_exit(mount_transport_fds[1], r);
+                        }
+
+                        mount_transport_fds[1] = safe_close(mount_transport_fds[1]);
+
+                        ssize_t n = read(mount_transport_fds[0], &r, sizeof(r));
+                        if (n < 0)
+                                return log_error_errno(errno, "Failed to read from socket: %m");
+                        if (!IN_SET(n, 0, sizeof(r)))
+                                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Received unexpected amount of bytes (%zi) while reading errno.", n);
+                        if (n == 0 || r == 0) {
+                                r = wait_for_terminate_and_check("(sd-creds-ns)", child, WAIT_LOG);
+                                if (r < 0)
+                                        return r;
+                                if (r != EXIT_SUCCESS)
+                                        return -EPROTO;
+
+                                return 0;
+                        }
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        const ExecContext *ec = ASSERT_PTR(unit_get_exec_context(u));
+
+        SetupCredentialsContext ctx = {
+                .scope = u->manager->runtime_scope,
+                .exec_context = ec,
+                .unit = u->id,
+
+                .runtime_prefix = u->manager->prefix[EXEC_DIRECTORY_RUNTIME],
+                .received_credentials_directory = u->manager->received_credentials_directory,
+                .received_encrypted_credentials_directory = u->manager->received_encrypted_credentials_directory,
+
+                .always_ipc = device_nodes_restricted(ec, unit_get_cgroup_context(u)),
+
+                .uid = u->ref_uid,
+                .gid = u->ref_gid,
+        };
+
+        r = setup_credentials_internal(&ctx, /* fresh = */ true, cred_dir);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up credentials: %m");
+
+        if (child <= 0)
+                return 1;
+
+        _cleanup_close_ int tfd = open_tree(AT_FDCWD, cred_dir, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW);
+        if (tfd < 0)
+                return log_error_errno(errno, "Failed to clone mount tree at '%s': %m", cred_dir);
+
+        r = send_one_fd(mount_transport_fds[0], tfd, /* flags = */ 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send mount fd to child: %m");
+
+        r = wait_for_terminate_and_check("(sd-creds-ns)", child, WAIT_LOG_ABNORMAL);
+        if (r < 0)
+                return r;
+        if (r != EXIT_SUCCESS) {
+                r = read_errno(mount_transport_fds[0]);
+                if (r < 0)
+                        return r;
+
+                return -EPROTO;
+        }
+
+        return 1;
 }
