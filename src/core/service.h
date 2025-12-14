@@ -98,7 +98,8 @@ typedef enum ServiceRestartMode {
 
 typedef enum ServiceRefreshOnReload {
         SERVICE_RELOAD_EXTENSIONS  = 1 << 0,
-        _SERVICE_REFRESH_ON_RELOAD_ALL = (1 << 1) - 1,
+        SERVICE_RELOAD_CREDENTIALS = 1 << 1,
+        _SERVICE_REFRESH_ON_RELOAD_ALL = (1 << 2) - 1,
         _SERVICE_REFRESH_ON_RELOAD_INVALID = -EINVAL,
 } ServiceRefreshOnReload;
 
