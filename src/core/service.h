@@ -248,6 +248,7 @@ typedef struct Service {
 
         bool refresh_on_reload_set;
         ServiceRefreshOnReload refresh_on_reload_flags;
+        ServiceRefreshOnReload refreshed_mask;
 
         OOMPolicy oom_policy;
 
