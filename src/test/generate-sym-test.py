@@ -61,6 +61,23 @@ def process_header_file(file: IO[str]) -> str:
             text += f'        {{ "{m[1]}", {m[1]} }},\n'
             continue
 
+        # Functions declared by ref/unref macros
+        m = re.search(r'_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC\((\w+)\)', line)
+        if m:
+            text += f'        {{ "{m[1]}_ref", {m[1]}_ref }},\n'
+            text += f'        {{ "{m[1]}_unref", {m[1]}_unref }},\n'
+            continue
+
+        m = re.search(r'_SD_DECLARE_TRIVIAL_REF_FUNC\((\w+)\)', line)
+        if m:
+            text += f'        {{ "{m[1]}_ref", {m[1]}_ref }},\n'
+            continue
+
+        m = re.search(r'_SD_DECLARE_TRIVIAL_UNREF_FUNC\((\w+)\)', line)
+        if m:
+            text += f'        {{ "{m[1]}_unref", {m[1]}_unref }},\n'
+            continue
+
     return text
 
 

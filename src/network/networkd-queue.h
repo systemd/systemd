@@ -83,8 +83,7 @@ typedef struct Request {
         bool waiting_reply;
 } Request;
 
-Request *request_ref(Request *req);
-Request *request_unref(Request *req);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Request, request);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Request*, request_unref);
 
 void request_detach(Request *req);

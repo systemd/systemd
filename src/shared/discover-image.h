@@ -46,9 +46,7 @@ typedef struct Image {
         void *userdata;
 } Image;
 
-Image* image_unref(Image *i);
-Image* image_ref(Image *i);
-
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Image, image);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Image*, image_unref);
 
 int image_find(RuntimeScope scope, ImageClass class, const char *name, const char *root, Image **ret);
