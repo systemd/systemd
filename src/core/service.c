@@ -1694,43 +1694,50 @@ static Service *service_get_triggering_service(Service *s) {
         return NULL;
 }
 
-static ExecFlags service_exec_flags(ServiceExecCommand command_id, ExecFlags cred_flag) {
+static ExecFlags service_exec_flags(const Service *s, ExecFlags cred_flag) {
         /* All service main/control processes honor sandboxing and namespacing options (except those
         explicitly excluded in service_spawn()) */
         ExecFlags flags = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT;
 
-        assert(command_id >= 0);
-        assert(command_id < _SERVICE_EXEC_COMMAND_MAX);
+        assert(s);
+        assert(s->command_id >= 0);
+        assert(s->command_id < _SERVICE_EXEC_COMMAND_MAX);
         assert((cred_flag & ~(EXEC_SETUP_CREDENTIALS_FRESH|EXEC_SETUP_CREDENTIALS)) == 0);
-        assert((cred_flag != 0) == (command_id == SERVICE_EXEC_START));
+        assert((cred_flag != 0) == (s->command_id == SERVICE_EXEC_START));
 
         /* Control processes spawned before main process also get tty access */
-        if (IN_SET(command_id, SERVICE_EXEC_CONDITION, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START))
+        if (IN_SET(s->command_id, SERVICE_EXEC_CONDITION, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START))
                 flags |= EXEC_APPLY_TTY_STDIN;
 
         /* All start phases get access to credentials. ExecStartPre= gets a new credential store upon
          * every invocation, so that updating credential files through it works. When the first main process
          * starts, passed creds become stable. Also see 'cred_flag'. */
-        if (command_id == SERVICE_EXEC_CONDITION)
+        if (s->command_id == SERVICE_EXEC_CONDITION)
                 flags |= EXEC_SETUP_CREDENTIALS;
-        if (command_id == SERVICE_EXEC_START_PRE)
+        if (s->command_id == SERVICE_EXEC_START_PRE)
                 flags |= EXEC_SETUP_CREDENTIALS_FRESH;
-        if (command_id == SERVICE_EXEC_START_POST)
+        if (s->command_id == SERVICE_EXEC_START_POST)
                 flags |= EXEC_SETUP_CREDENTIALS;
 
-        if (IN_SET(command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START))
+        if (IN_SET(s->command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START))
                 flags |= EXEC_SETENV_MONITOR_RESULT;
 
-        if (command_id == SERVICE_EXEC_START)
+        if (s->command_id == SERVICE_EXEC_START)
                 return flags|cred_flag|EXEC_PASS_FDS|EXEC_SET_WATCHDOG;
 
         flags |= EXEC_IS_CONTROL;
 
         /* Put control processes spawned later than main process under .control sub-cgroup if appropriate */
-        if (!IN_SET(command_id, SERVICE_EXEC_CONDITION, SERVICE_EXEC_START_PRE))
+        if (!IN_SET(s->command_id, SERVICE_EXEC_CONDITION, SERVICE_EXEC_START_PRE))
                 flags |= EXEC_CONTROL_CGROUP;
 
-        if (IN_SET(command_id, SERVICE_EXEC_STOP, SERVICE_EXEC_STOP_POST))
+        /* Pass credentials to ExecReload*= too, but only if the credentials are actually refreshed,
+         * to make sure they have the same understanding of the world as the main process. */
+        if (IN_SET(s->command_id, SERVICE_EXEC_RELOAD, SERVICE_EXEC_RELOAD_POST) &&
+            FLAGS_SET(s->refreshed_mask, SERVICE_RELOAD_CREDENTIALS))
+                flags |= EXEC_SETUP_CREDENTIALS;
+
+        if (IN_SET(s->command_id, SERVICE_EXEC_STOP, SERVICE_EXEC_STOP_POST))
                 flags |= EXEC_SETENV_RESULT;
 
         return flags;
@@ -2255,7 +2262,7 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, /* cred_flag = */ 0),
                                   s->timeout_stop_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2367,7 +2374,7 @@ static void service_enter_stop(Service *s, ServiceResult f) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, /* cred_flag = */ 0),
                                   s->timeout_stop_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2452,7 +2459,7 @@ static void service_enter_start_post(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2562,7 +2569,7 @@ static void service_enter_start(Service *s) {
 
         r = service_spawn(s,
                           c,
-                          service_exec_flags(SERVICE_EXEC_START, EXEC_SETUP_CREDENTIALS_FRESH),
+                          service_exec_flags(s, EXEC_SETUP_CREDENTIALS_FRESH),
                           timeout,
                           &pidref);
         if (r < 0) {
@@ -2622,7 +2629,7 @@ static void service_enter_start_pre(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2658,7 +2665,7 @@ static void service_enter_condition(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2762,7 +2769,7 @@ static void service_enter_reload_post(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2837,7 +2844,7 @@ static void service_enter_reload(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -3054,7 +3061,7 @@ static void service_run_next_control(Service *s) {
 
         r = service_spawn(s,
                           s->control_command,
-                          service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                          service_exec_flags(s, /* cred_flag = */ 0),
                           timeout,
                           &s->control_pid);
         if (r < 0) {
@@ -3085,7 +3092,7 @@ static void service_run_next_main(Service *s) {
 
         r = service_spawn(s,
                           s->main_command,
-                          service_exec_flags(SERVICE_EXEC_START, EXEC_SETUP_CREDENTIALS),
+                          service_exec_flags(s, EXEC_SETUP_CREDENTIALS),
                           s->timeout_start_usec,
                           &pidref);
         if (r < 0) {
@@ -3266,6 +3273,7 @@ static int service_reload(Unit *u) {
         assert(IN_SET(s->state, SERVICE_RUNNING, SERVICE_EXITED));
 
         s->reload_result = SERVICE_SUCCESS;
+        s->refreshed_mask = 0;
 
         service_enter_refresh_extensions(s);
 
@@ -3485,6 +3493,21 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 (void) serialize_usec(f, "watchdog-override-usec", s->watchdog_override_usec);
 
         (void) serialize_usec(f, "reload-begin-usec", s->reload_begin_usec);
+
+        if (s->refreshed_mask > 0) {
+                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free_ char *t = NULL;
+
+                r = service_refresh_on_reload_to_strv(s->refreshed_mask, &l);
+                if (r < 0)
+                        return log_oom();
+
+                t = strv_join(l, " ");
+                if (!t)
+                        return log_oom();
+
+                (void) serialize_item(f, "refreshed-mask", t);
+        }
 
         return 0;
 }
@@ -3875,7 +3898,11 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
         } else if (streq(key, "reload-begin-usec"))
                 (void) deserialize_usec(value, &s->reload_begin_usec);
-        else
+        else if (streq(key, "refreshed-mask")) {
+                r = service_refresh_on_reload_from_string_many(value, &s->refreshed_mask);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse refresh-mask value: %s", value);
+        } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
         return 0;
@@ -4497,18 +4524,21 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_REFRESH_EXTENSIONS:
-                                if (f == SERVICE_SUCCESS)
+                                if (f == SERVICE_SUCCESS) {
+                                        s->refreshed_mask |= SERVICE_RELOAD_EXTENSIONS;
                                         service_enter_refresh_credentials(s);
-                                else
+                                } else
                                         service_reload_finish(s, f);
                                 break;
 
                         case SERVICE_REFRESH_CREDENTIALS:
                                 if (f == SERVICE_SUCCESS ||
-                                    (f == SERVICE_FAILURE_EXIT_CODE && status == EXIT_NOTINSTALLED))
+                                    (f == SERVICE_FAILURE_EXIT_CODE && status == EXIT_NOTINSTALLED)) {
+
                                         /* Refreshing asynchronously done, proceed to reload */
+                                        s->refreshed_mask |= f == SERVICE_SUCCESS ? SERVICE_RELOAD_CREDENTIALS : 0;
                                         service_enter_reload(s);
-                                else
+                                } else
                                         service_reload_finish(s, f);
                                 break;
 
