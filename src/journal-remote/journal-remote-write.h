@@ -20,8 +20,7 @@ typedef struct Writer {
 } Writer;
 
 int writer_new(RemoteServer *server, Writer **ret);
-Writer* writer_ref(Writer *w);
-Writer* writer_unref(Writer *w);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Writer, writer);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Writer*, writer_unref);
 

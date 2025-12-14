@@ -30,8 +30,7 @@ typedef struct sd_dhcp_lease sd_dhcp_lease;
 typedef struct sd_dhcp_route sd_dhcp_route;
 typedef struct sd_dns_resolver sd_dns_resolver;
 
-sd_dhcp_lease *sd_dhcp_lease_ref(sd_dhcp_lease *lease);
-sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_lease);
 
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_dhcp_lease_server_type_t) {
         SD_DHCP_LEASE_DNS,

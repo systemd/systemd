@@ -55,8 +55,7 @@ int sd_ipv4acd_is_running(sd_ipv4acd *acd);
 int sd_ipv4acd_is_bound(sd_ipv4acd *acd);
 __extension__ int sd_ipv4acd_start(sd_ipv4acd *acd, bool reset_conflicts);
 int sd_ipv4acd_stop(sd_ipv4acd *acd);
-sd_ipv4acd *sd_ipv4acd_ref(sd_ipv4acd *acd);
-sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *acd);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_ipv4acd);
 int sd_ipv4acd_new(sd_ipv4acd **ret);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ipv4acd, sd_ipv4acd_unref);

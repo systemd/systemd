@@ -19,8 +19,7 @@ typedef struct Neighbor {
         struct hw_addr_data ll_addr;
 } Neighbor;
 
-Neighbor* neighbor_ref(Neighbor *neighbor);
-Neighbor* neighbor_unref(Neighbor *neighbor);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Neighbor, neighbor);
 
 int neighbor_get(Link *link, const Neighbor *in, Neighbor **ret);
 int neighbor_remove(Neighbor *neighbor, Link *link);

@@ -66,8 +66,7 @@ typedef struct Tpm2Context {
 
 int tpm2_context_new(const char *device, Tpm2Context **ret_context);
 int tpm2_context_new_or_warn(const char *device, Tpm2Context **ret_context);
-Tpm2Context *tpm2_context_ref(Tpm2Context *context);
-Tpm2Context *tpm2_context_unref(Tpm2Context *context);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Tpm2Context, tpm2_context);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Context*, tpm2_context_unref);
 
 typedef struct Tpm2Handle {

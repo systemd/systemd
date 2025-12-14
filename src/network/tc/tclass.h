@@ -53,8 +53,7 @@ extern const TClassVTable * const tclass_vtable[_TCLASS_KIND_MAX];
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(TClass, tclass);
 
-TClass* tclass_ref(TClass *tclass);
-TClass* tclass_unref(TClass *tclass);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(TClass, tclass);
 int tclass_new_static(TClassKind kind, Network *network, const char *filename, unsigned section_line, TClass **ret);
 
 void tclass_mark_recursive(TClass *tclass);

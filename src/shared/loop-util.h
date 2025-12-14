@@ -36,8 +36,7 @@ int loop_device_open(sd_device *dev, int open_flags, int lock_op, LoopDevice **r
 int loop_device_open_from_fd(int fd, int open_flags, int lock_op, LoopDevice **ret);
 int loop_device_open_from_path(const char *path, int open_flags, int lock_op, LoopDevice **ret);
 
-LoopDevice* loop_device_ref(LoopDevice *d);
-LoopDevice* loop_device_unref(LoopDevice *d);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(LoopDevice, loop_device);
 DEFINE_TRIVIAL_CLEANUP_FUNC(LoopDevice*, loop_device_unref);
 
 void loop_device_relinquish(LoopDevice *d);

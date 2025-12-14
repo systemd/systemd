@@ -56,8 +56,7 @@ int sd_resolve_new(sd_resolve **ret);
 
 /* Free a sd-resolve session. This destroys all attached
  * sd_resolve_query objects automatically. */
-sd_resolve* sd_resolve_unref(sd_resolve *resolve);
-sd_resolve* sd_resolve_ref(sd_resolve *resolve);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_resolve);
 
 /* Return the UNIX file descriptor to poll() for events on. Use this
  * function to integrate sd-resolve with your custom main loop. */
@@ -100,8 +99,7 @@ int sd_resolve_getaddrinfo(sd_resolve *resolve, sd_resolve_query **ret, const ch
  * if you want to query the hostname (resp. the service name). */
 int sd_resolve_getnameinfo(sd_resolve *resolve, sd_resolve_query **ret, const struct sockaddr *sa, socklen_t salen, int flags, uint64_t get, sd_resolve_getnameinfo_handler_t callback, void *userdata);
 
-sd_resolve_query *sd_resolve_query_ref(sd_resolve_query *q);
-sd_resolve_query *sd_resolve_query_unref(sd_resolve_query *q);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_resolve_query);
 
 /* Returns non-zero when the query operation specified by q has been completed. */
 int sd_resolve_query_is_done(sd_resolve_query *q);
