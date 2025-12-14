@@ -4115,7 +4115,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 clean_mode = EXIT_CLEAN_DAEMON;
 
-        if (is_clean_exit(code, status, clean_mode, &s->success_status))
+        /* Our own helper processes are not subject to SuccessExitStatus= as they're opaque to users */
+        if (is_clean_exit(code, status, clean_mode, s->control_pid.pid == pid && s->control_command_id < 0 ? NULL : &s->success_status))
                 f = SERVICE_SUCCESS;
         else if (code == CLD_EXITED)
                 f = SERVICE_FAILURE_EXIT_CODE;
