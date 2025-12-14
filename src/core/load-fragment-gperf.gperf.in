@@ -479,6 +479,7 @@ Service.USBFunctionStrings,                   config_parse_unit_path_printf,    
 Service.OOMPolicy,                            config_parse_oom_policy,                            0,                                  offsetof(Service, oom_policy)
 Service.OpenFile,                             config_parse_open_file,                             0,                                  offsetof(Service, open_files)
 Service.ReloadSignal,                         config_parse_signal,                                0,                                  offsetof(Service, reload_signal)
+Service.RefreshOnReload,                      config_parse_service_refresh_on_reload,             0,                                  0
 {{ EXEC_CONTEXT_CONFIG_ITEMS('Service') }}
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Service') }}
 {{ KILL_CONTEXT_CONFIG_ITEMS('Service') }}
