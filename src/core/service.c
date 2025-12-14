@@ -195,8 +195,10 @@ static void service_init(Unit *u) {
         s->watchdog_original_usec = USEC_INFINITY;
 
         s->oom_policy = _OOM_POLICY_INVALID;
+
         s->reload_begin_usec = USEC_INFINITY;
         s->reload_signal = SIGHUP;
+        s->refresh_on_reload_flags = _SERVICE_REFRESH_ON_RELOAD_UNSET;
 
         s->fd_store_preserve_mode = EXEC_PRESERVE_RESTART;
 }
@@ -899,6 +901,9 @@ static int service_add_extras(Service *s) {
         if (s->notify_access == NOTIFY_NONE &&
             (IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD) || s->watchdog_usec > 0 || s->n_fd_store_max > 0))
                 s->notify_access = NOTIFY_MAIN;
+
+        if (s->refresh_on_reload_flags == _SERVICE_REFRESH_ON_RELOAD_UNSET)
+                s->refresh_on_reload_flags = SERVICE_REFRESH_ON_RELOAD_DEFAULT;
 
         /* If no OOM policy was explicitly set, then default to the configure default OOM policy. Except when
          * delegation is on, in that case it we assume the payload knows better what to do and can process
@@ -2836,6 +2841,9 @@ static bool service_should_reload_extensions(Service *s) {
         int r;
 
         assert(s);
+
+        if (!FLAGS_SET(s->refresh_on_reload_flags, SERVICE_RELOAD_EXTENSIONS))
+                return false;
 
         if (!pidref_is_set(&s->main_pid)) {
                 log_unit_debug(UNIT(s), "Not reloading extensions for service without main PID.");
@@ -5894,6 +5902,62 @@ static const char* const service_timeout_failure_mode_table[_SERVICE_TIMEOUT_FAI
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_timeout_failure_mode, ServiceTimeoutFailureMode);
+
+static const struct {
+        ServiceRefreshOnReload flag;
+        const char *name;
+} service_refresh_on_reload_table[] = {
+        { SERVICE_RELOAD_EXTENSIONS,  "extensions"  },
+};
+
+int service_refresh_on_reload_from_string_many(const char *s, ServiceRefreshOnReload *ret) {
+        ServiceRefreshOnReload flags = 0;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        for (;;) {
+                _cleanup_free_ char *v = NULL;
+                ServiceRefreshOnReload f = 0;
+
+                r = extract_first_word(&s, &v, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                FOREACH_ELEMENT(i, service_refresh_on_reload_table)
+                        if (streq(v, i->name)) {
+                                f = i->flag;
+                                break;
+                        }
+
+                if (f == 0)
+                        return -EINVAL;
+
+                flags |= f;
+        }
+
+        *ret = flags;
+        return 0;
+}
+
+char* service_refresh_on_reload_to_string_many(ServiceRefreshOnReload flags) {
+        _cleanup_free_ char *s = NULL;
+
+        assert(flags >= 0);
+
+        FOREACH_ELEMENT(i, service_refresh_on_reload_table) {
+                if (!FLAGS_SET(flags, i->flag))
+                        continue;
+
+                if (!strextend_with_separator(&s, " ", i->name))
+                        return NULL;
+        }
+
+        return TAKE_PTR(s);
+}
 
 const UnitVTable service_vtable = {
         .object_size = sizeof(Service),
