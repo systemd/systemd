@@ -1888,13 +1888,15 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
         u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
         if (!u)
                 return false;
-        if (!IN_SET((deserialized ? SERVICE(u)->deserialized_state : SERVICE(u)->state),
+        if (!IN_SET(deserialized ? SERVICE(u)->deserialized_state : SERVICE(u)->state,
                     SERVICE_RUNNING,
-                    SERVICE_MOUNTING,
-                    SERVICE_RELOAD,
-                    SERVICE_RELOAD_NOTIFY,
                     SERVICE_REFRESH_EXTENSIONS,
-                    SERVICE_RELOAD_SIGNAL))
+                    SERVICE_REFRESH_CREDENTIALS,
+                    SERVICE_RELOAD,
+                    SERVICE_RELOAD_SIGNAL,
+                    SERVICE_RELOAD_NOTIFY,
+                    SERVICE_RELOAD_POST,
+                    SERVICE_MOUNTING))
                 return false;
 
         return true;
