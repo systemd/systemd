@@ -250,7 +250,7 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
         if (dry_run) {
                 _cleanup_free_ char *cg_path = NULL;
 
-                r = cg_get_path(path, /* suffix = */ NULL, &cg_path);
+                r = cg_get_path(path, /* suffix= */ NULL, &cg_path);
                 if (r < 0)
                         return r;
 

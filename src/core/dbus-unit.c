@@ -1392,7 +1392,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                  * We'll see ENODEV when trying to enumerate processes and the cgroup is removed at the same
                  * time. Handle this gracefully. */
 
-                r = cg_read_pidref(f, &pidref, /* flags = */ 0);
+                r = cg_read_pidref(f, &pidref, /* flags= */ 0);
                 if (IN_SET(r, 0, -EOPNOTSUPP, -ENODEV))
                         break;
                 if (r < 0)
@@ -2005,7 +2005,7 @@ int bus_unit_queue_job_one(
                         return -ENOMEM;
         }
 
-        r = manager_add_job_full(u->manager, type, u, mode, /* extra_flags = */ 0, affected, reterr_error, &j);
+        r = manager_add_job_full(u->manager, type, u, mode, /* extra_flags= */ 0, affected, reterr_error, &j);
         if (r < 0)
                 return r;
 

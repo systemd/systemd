@@ -1361,7 +1361,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
 
                 p = strempty(p);
 
-                if (!signature_is_valid(p, /* allow_dict_entry = */ true))
+                if (!signature_is_valid(p, /* allow_dict_entry= */ true))
                         return -EINVAL;
 
                 align = 1;

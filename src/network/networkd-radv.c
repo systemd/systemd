@@ -378,7 +378,7 @@ set_dns:
                         n_dns,
                         dns,
                         link->network->router_dns_lifetime_usec,
-                        /* valid_until = */ USEC_INFINITY);
+                        /* valid_until= */ USEC_INFINITY);
 }
 
 static int radv_set_domains(Link *link, Link *uplink) {
@@ -416,7 +416,7 @@ set_domains:
                         link->radv,
                         s,
                         link->network->router_dns_lifetime_usec,
-                        /* valid_until = */ USEC_INFINITY);
+                        /* valid_until= */ USEC_INFINITY);
 }
 
 static int radv_find_uplink(Link *link, Link **ret) {
@@ -556,7 +556,7 @@ static int radv_configure(Link *link) {
                                 link->radv,
                                 link->network->router_home_agent_preference,
                                 link->network->home_agent_lifetime_usec,
-                                /* valid_until = */ USEC_INFINITY);
+                                /* valid_until= */ USEC_INFINITY);
                 if (r < 0)
                         return r;
         }
@@ -583,7 +583,7 @@ static int radv_is_ready_to_configure(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return false;
 
         if (in6_addr_is_null(&link->ipv6ll_address))

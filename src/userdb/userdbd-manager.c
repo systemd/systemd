@@ -59,7 +59,7 @@ static int on_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, voi
 
         assert(s);
 
-        (void) start_workers(m, /* explicit_request=*/ true); /* Workers told us there's more work, let's add one more worker as long as we are below the high watermark */
+        (void) start_workers(m, /* explicit_request= */ true); /* Workers told us there's more work, let's add one more worker as long as we are below the high watermark */
         return 0;
 }
 
@@ -70,7 +70,7 @@ static int on_deferred_start_worker(sd_event_source *s, uint64_t usec, void *use
 
         m->deferred_start_worker_event_source = sd_event_source_unref(m->deferred_start_worker_event_source);
 
-        (void) start_workers(m, /* explicit_request=*/ false);
+        (void) start_workers(m, /* explicit_request= */ false);
         return 0;
 }
 

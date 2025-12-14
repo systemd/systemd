@@ -740,7 +740,7 @@ static int extract_image_and_extensions(
 
                 e = strv_env_pairs_get(extension_release, "PORTABLE_PREFIXES");
                 if (e) {
-                        r = strv_split_and_extend(&valid_prefixes, e, WHITESPACE, /* filter_duplicates = */ true);
+                        r = strv_split_and_extend(&valid_prefixes, e, WHITESPACE, /* filter_duplicates= */ true);
                         if (r < 0)
                                 return r;
                 }

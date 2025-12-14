@@ -72,8 +72,8 @@ static int load_key_file(
 }
 
 static const char *integrity_algorithm_select(const void *key_file_buf) {
-        /*  To keep a bit of sanity for end users, the subset of integrity
-            algorithms we support will match what is used in integritysetup */
+        /* To keep a bit of sanity for end users, the subset of integrity
+         * algorithms we support will match what is used in integritysetup */
         if (arg_integrity_algorithm) {
                 if (streq(arg_integrity_algorithm, "hmac-sha256"))
                         return DM_HMAC_256;

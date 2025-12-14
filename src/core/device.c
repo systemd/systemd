@@ -177,7 +177,7 @@ static void device_set_state(Device *d, DeviceState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(d), "Changed %s -> %s", device_state_to_string(old_state), device_state_to_string(state));
 
-        unit_notify(UNIT(d), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(d), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 }
 
 static void device_found_changed(Device *d, DeviceFound previous, DeviceFound now) {
@@ -800,7 +800,7 @@ static int device_setup_devlink_unit_one(Manager *m, const char *devlink, Set **
 
                 /* Note, even if the device is being processed by udevd, setup the unit on enumerate.
                  * See also the comments in device_catchup(). */
-                return device_setup_unit(m, dev, devlink, /* main = */ false, ready_units);
+                return device_setup_unit(m, dev, devlink, /* main= */ false, ready_units);
         }
 
         /* the devlink is already removed or not ready */
@@ -866,7 +866,7 @@ static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_unit
                  * To achieve that, they set the path to SYSTEMD_ALIAS. Hence, we cannot refuse aliases start
                  * with /dev/, unfortunately. */
 
-                (void) device_setup_unit(m, dev, *alias, /* main = */ false, ready_units);
+                (void) device_setup_unit(m, dev, *alias, /* main= */ false, ready_units);
         }
 
         l = hashmap_get(m->devices_by_sysfs, syspath);
@@ -925,13 +925,13 @@ static int device_setup_units(Manager *m, sd_device *dev, Set **ret_ready_units,
                 /* Add the main unit named after the syspath. If this one fails, don't bother with the rest,
                  * as this one shall be the main device unit the others just follow. (Compare with how
                  * device_following() is implemented, see below, which looks for the sysfs device.) */
-                r = device_setup_unit(m, dev, syspath, /* main = */ true, &ready_units);
+                r = device_setup_unit(m, dev, syspath, /* main= */ true, &ready_units);
                 if (r < 0)
                         return r;
 
                 /* Add an additional unit for the device node */
                 if (sd_device_get_devname(dev, &devname) >= 0)
-                        (void) device_setup_unit(m, dev, devname, /* main = */ false, &ready_units);
+                        (void) device_setup_unit(m, dev, devname, /* main= */ false, &ready_units);
 
         } else {
                 Unit *u;
@@ -1272,7 +1272,7 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
                         return;
                 }
 
-                (void) device_setup_unit(m, dev, node, /* main = */ false, NULL); /* 'dev' may be NULL. */
+                (void) device_setup_unit(m, dev, node, /* main= */ false, NULL); /* 'dev' may be NULL. */
         }
 
         /* Update the device unit's state, should it exist */

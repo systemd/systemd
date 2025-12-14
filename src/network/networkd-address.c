@@ -812,13 +812,13 @@ static int address_update(Address *address) {
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
 
-        r = address_set_masquerade(address, /* add = */ true);
+        r = address_set_masquerade(address, /* add= */ true);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not enable IP masquerading: %m");
 
         address_add_netlabel(address);
 
-        address_modify_nft_set(address, /* add = */ true);
+        address_modify_nft_set(address, /* add= */ true);
 
         if (address_is_ready(address) && address->callback) {
                 r = address->callback(address);
@@ -826,7 +826,7 @@ static int address_update(Address *address) {
                         return r;
         }
 
-        link_update_operstate(link, /* also_update_master = */ true);
+        link_update_operstate(link, /* also_update_master= */ true);
         link_check_ready(link);
         return 0;
 }
@@ -876,11 +876,11 @@ static int address_drop(Address *in, bool removed_by_us) {
         Link *link = ASSERT_PTR(address->link);
         int r;
 
-        r = address_set_masquerade(address, /* add = */ false);
+        r = address_set_masquerade(address, /* add= */ false);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable IP masquerading, ignoring: %m");
 
-        address_modify_nft_set(address, /* add = */ false);
+        address_modify_nft_set(address, /* add= */ false);
 
         address_del_netlabel(address);
 
@@ -901,7 +901,7 @@ static int address_drop(Address *in, bool removed_by_us) {
                 }
         }
 
-        link_update_operstate(link, /* also_update_master = */ true);
+        link_update_operstate(link, /* also_update_master= */ true);
         link_check_ready(link);
         return 0;
 }
@@ -1226,7 +1226,7 @@ static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Remov
                                             r, "Could not drop address");
 
                 /* If the address cannot be removed, then assume the address is already removed. */
-                address_forget(link, address, /* removed_by_us = */ true, "Forgetting");
+                address_forget(link, address, /* removed_by_us= */ true, "Forgetting");
         }
 
         return 1;
@@ -1933,7 +1933,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         if (type == RTM_DELADDR) {
                 if (address)
                         address_forget(link, address,
-                                       /* removed_by_us = */ FLAGS_SET(address->state, NETWORK_CONFIG_STATE_REMOVING),
+                                       /* removed_by_us= */ FLAGS_SET(address->state, NETWORK_CONFIG_STATE_REMOVING),
                                        "Forgetting removed");
                 else
                         log_address_debug(tmp, "Kernel removed unknown", link);
@@ -2074,8 +2074,8 @@ static int config_parse_broadcast(
 
         r = config_parse_in_addr_non_null(
                         unit, filename, line, section, section_line,
-                        lvalue, /* ltype = */ AF_INET, rvalue,
-                        &address->broadcast, /* userdata = */ NULL);
+                        lvalue, /* ltype= */ AF_INET, rvalue,
+                        &address->broadcast, /* userdata= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -2111,7 +2111,7 @@ static int config_parse_address(
                 return 1;
         }
 
-        r = config_parse_in_addr_prefix(unit, filename, line, section, section_line, lvalue, /* ltype = */ true, rvalue, &prefix, /* userdata = */ NULL);
+        r = config_parse_in_addr_prefix(unit, filename, line, section, section_line, lvalue, /* ltype= */ true, rvalue, &prefix, /* userdata= */ NULL);
         if (r <= 0)
                 return r;
 
