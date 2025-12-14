@@ -247,6 +247,7 @@ typedef struct Service {
         usec_t reload_begin_usec;
 
         ServiceRefreshOnReload refresh_on_reload_flags;
+        ServiceRefreshOnReload refreshed_mask;
 
         OOMPolicy oom_policy;
 
