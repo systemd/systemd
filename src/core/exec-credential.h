@@ -60,4 +60,6 @@ int exec_setup_credentials(
                 uid_t uid,
                 gid_t gid);
 
+int unit_refresh_credentials(Unit *u);
+
 bool mount_point_is_credentials(const char *runtime_prefix, const char *path);
