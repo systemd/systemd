@@ -16,6 +16,8 @@
 #include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "in-addr-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
@@ -31,6 +33,7 @@
 static unsigned arg_connections_max = 256;
 static const char *arg_remote_host = NULL;
 static usec_t arg_exit_idle_time = USEC_INFINITY;
+static unsigned arg_proxy_protocol = 0;
 
 typedef struct Context {
         sd_event *event;
@@ -297,10 +300,88 @@ static int connection_enable_event_sources(Connection *c) {
         return 0;
 }
 
+static void send_proxy_protocol_v1(Connection *c) {
+        _cleanup_free_ char *s = NULL;
+        int r, s_len;
+
+        union sockaddr_union local_addr, remote_addr;
+        socklen_t addr_len;
+
+        r = sd_is_socket(c->server_fd, AF_UNSPEC, SOCK_STREAM, 0);
+        if (r < 0) {
+                log_warning_errno(errno, "Failed to issue SO_TYPE: %m");
+                goto unknown;
+        }
+        if (r == 0) {
+                log_warning("Only TCP is supported by the PROXY protocol");
+                goto unknown;
+        }
+
+        addr_len = sizeof(local_addr);
+        if (getsockname(c->server_fd, (struct sockaddr*) &local_addr, &addr_len) < 0) {
+                log_warning_errno(errno, "Failed to get local address (getsockname)");
+                goto unknown;
+        }
+
+        addr_len = sizeof(remote_addr);
+        if (getpeername(c->server_fd, (struct sockaddr*) &remote_addr, &addr_len) < 0) {
+                log_warning_errno(errno, "Failed to get remote address (getpeername)");
+                goto unknown;
+        }
+
+        switch (remote_addr.sa.sa_family) {
+        case AF_INET:
+                s_len = asprintf(&s, "PROXY TCP4 %s %s %hu %hu\r\n",
+                        IN4_ADDR_TO_STRING(&(remote_addr.in.sin_addr)),
+                        IN4_ADDR_TO_STRING(&(local_addr.in.sin_addr)),
+                        be16toh(remote_addr.in.sin_port),
+                        be16toh(local_addr.in.sin_port)
+                );
+                break;
+        case AF_INET6:
+                s_len = asprintf(&s, "PROXY TCP6 %s %s %hu %hu\r\n",
+                        IN6_ADDR_TO_STRING(&(remote_addr.in6.sin6_addr)),
+                        IN6_ADDR_TO_STRING(&(local_addr.in6.sin6_addr)),
+                        be16toh(remote_addr.in6.sin6_port),
+                        be16toh(local_addr.in6.sin6_port)
+                );
+                break;
+        default:
+                goto unknown;
+        }
+
+        if (s_len < 0)
+                goto unknown;
+        r = loop_write(c->client_fd, s, s_len);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to write to server: %m");
+                goto quit;
+        }
+
+        return;
+
+unknown:
+        /* ignore errors - server can decide to deny UNKNOWN connections */
+        r = loop_write(c->client_fd, "PROXY UNKNOWN\r\n", SIZE_MAX);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to write to server: %m");
+                goto quit;
+        }
+        return;
+
+quit:
+        /* client connection (to server) is unusable, close it */
+        connection_release(c);
+        return;
+}
+
 static int connection_complete(Connection *c) {
         int r;
 
         assert(c);
+
+        if (arg_proxy_protocol == 1)
+                send_proxy_protocol_v1(c);
 
         r = connection_create_pipes(c, c->server_to_client_buffer, &c->server_to_client_buffer_size);
         if (r < 0)
@@ -319,14 +400,12 @@ static int connection_complete(Connection *c) {
 
 static int connect_cb(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Connection *c = ASSERT_PTR(userdata);
-        socklen_t solen;
         int error;
 
         assert(s);
         assert(fd >= 0);
 
-        solen = sizeof(error);
-        if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &solen) < 0) {
+        if (getsockopt_int(fd, SOL_SOCKET, SO_ERROR, &error) < 0) {
                 log_error_errno(errno, "Failed to issue SO_ERROR: %m");
                 goto fail;
         }
@@ -565,6 +644,7 @@ static int help(void) {
                "  -c --connections-max=  Set the maximum number of connections to be accepted\n"
                "     --exit-idle-time=   Exit when without a connection for this duration. See\n"
                "                         the %4$s for time span format\n"
+               "  -p --proxy-protocol=1  Enable PROXY protocol 1\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "\nSee the %5$s for details.\n",
@@ -588,6 +668,7 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "connections-max", required_argument, NULL, 'c'           },
                 { "exit-idle-time",  required_argument, NULL, ARG_EXIT_IDLE },
+                { "proxy-protocol",  required_argument, NULL, 'p'           },
                 { "help",            no_argument,       NULL, 'h'           },
                 { "version",         no_argument,       NULL, ARG_VERSION   },
                 {}
@@ -598,7 +679,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "c:h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "c:hp:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -625,6 +706,20 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_sec(optarg, &arg_exit_idle_time);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", optarg);
+                        break;
+
+                case 'p':
+                        r = safe_atou(optarg, &arg_proxy_protocol);
+                        if (r < 0) {
+                                log_error("Failed to parse --proxy-protocol= argument: %s", optarg);
+                                return r;
+                        }
+
+                        // TODO: allow and implement 2
+                        if (arg_proxy_protocol != 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                "Invalid protocol version: %s. Only PROXY protocol 1 is supported", optarg);
+
                         break;
 
                 case '?':
