@@ -1665,8 +1665,6 @@ int openpt_allocate_in_namespace(
         r = namespace_fork(
                         "(sd-openptns)",
                         "(sd-openpt)",
-                        /* except_fds= */ NULL,
-                        /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT,
                         pidnsfd,
                         mntnsfd,
