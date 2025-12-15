@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
 
         m = sd_bus_message_unref(m);
 
-        r = bus_message_from_malloc(bus, buffer, sz, NULL, 0, NULL, &m);
+        r = bus_message_from_malloc(bus, buffer, sz, NULL, 0, /* got_ctrunc= */ false, NULL, &m);
         assert_se(r >= 0);
 
         sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
