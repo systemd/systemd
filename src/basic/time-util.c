@@ -1804,6 +1804,9 @@ int usleep_safe(usec_t usec) {
         if (usec == 0)
                 return 0;
 
+        if (usec == USEC_INFINITY)
+                return RET_NERRNO(pause());
+
         struct timespec t;
         timespec_store(&t, usec);
 
