@@ -3195,10 +3195,11 @@ SystemCallErrorNumber=EPERM</programlisting>
         ignored; both the backslash and the following character are preserved verbatim. Leading and trailing
         whitespace outside of the double quotes is discarded.</para>
 
-        <para>The argument passed should be an absolute filename or wildcard expression, optionally prefixed with
-        <literal>-</literal>, which indicates that if the file does not exist, it will not be read and no error or
-        warning message is logged. This option may be specified more than once in which case all specified files are
-        read. If the empty string is assigned to this option, the list of file to read is reset, all prior assignments
+        <para>The argument passed should be an absolute filename or wildcard expression. If the file does not
+        exist, cannot be read, or contains invalid content, the service will fail to start. To make the file
+        optional, prefix the path with <literal>-</literal>, which causes all errors related to the file to be
+        silently ignored. This option may be specified more than once in which case all specified files are read.
+        If the empty string is assigned to this option, the list of files to read is reset, all prior assignments
         have no effect.</para>
 
         <para>The files listed with this directive will be read shortly before the process is executed (more
