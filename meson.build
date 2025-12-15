@@ -686,15 +686,6 @@ conf.set('GPERF_LEN_TYPE', gperf_len_type,
 #####################################################################
 
 foreach header : [
-        'crypt.h',
-]
-
-        if not cc.has_header(header)
-                error(f'Header file @header@ not found')
-        endif
-endforeach
-
-foreach header : [
         'gshadow.h',
         'nss.h',
         'sys/sdt.h',
@@ -1046,22 +1037,18 @@ else
         libatomic = []
 endif
 
-libcrypt = dependency('libcrypt', 'libxcrypt', required : false)
-if not libcrypt.found()
-        # fallback to use find_library() if libcrypt is provided by glibc, e.g. for LibreELEC.
-        libcrypt = cc.find_library('crypt')
+if get_option('libc') == 'musl'
+        libcrypt = []
+        libcrypt_cflags = []
+        have = get_option('libcrypt').allowed()
+else
+        libcrypt = dependency('libcrypt', 'libxcrypt',
+                              required : get_option('libcrypt'),
+                              version : '>=4.4.0')
+        libcrypt_cflags = libcrypt.partial_dependency(includes: true, compile_args: true)
+        have = libcrypt.found()
 endif
-
-foreach func : [
-        'crypt_ra',               # since libxcrypt-4.0.0
-        'crypt_gensalt_ra',       # since libxcrypt-4.0.0
-        'crypt_preferred_method', # since libxcrypt-4.4.0
-]
-
-        have = cc.has_function(func, prefix : '''#include <crypt.h>''', args : '-D_GNU_SOURCE',
-                               dependencies : libcrypt)
-        conf.set10('HAVE_' + func.to_upper(), have)
-endforeach
+conf.set10('HAVE_LIBCRYPT', have)
 
 bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
@@ -1607,10 +1594,11 @@ conf.set10('ENABLE_SYSUPDATED', have2)
 conf.set10('ENABLE_STORAGETM', get_option('storagetm'))
 
 have = get_option('homed').require(
+        conf.get('HAVE_LIBCRYPT') == 1 and
         conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_LIBFDISK') == 1 and
         conf.get('HAVE_LIBCRYPTSETUP') == 1,
-        error_message : 'openssl, fdisk and libcryptsetup required').allowed()
+        error_message : 'libcrypt, openssl, fdisk, and libcryptsetup required').allowed()
 conf.set10('ENABLE_HOMED', have)
 
 have = have and conf.get('HAVE_PAM') == 1
@@ -3122,6 +3110,7 @@ foreach tuple : [
         ['gnutls'],
         ['libarchive'],
         ['libbpf'],
+        ['libcrypt'],
         ['libcryptsetup'],
         ['libcryptsetup-plugins'],
         ['libcurl'],
