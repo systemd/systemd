@@ -378,7 +378,12 @@
         sockets, FIFO nodes, and message queues are owned by the specified user and group. If unset (the
         default), the nodes are owned by the root user/group (if run in system context) or the invoking
         user/group (if run in user context).  If only a user is specified but no group, then the group is
-        derived from the user's default group.</para>
+        derived from the user's default group.
+        Note that this might not have the desired effect if a socket happens to be inside a directory also
+        referred to in a <varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>,
+        <varname>CacheDirectory=</varname>, or <varname>LogsDirectory=</varname> of any service, due to the
+        change of ownership caused by these options.
+        </para>
 
         <xi:include href="version-info.xml" xpointer="v214"/></listitem>
       </varlistentry>
