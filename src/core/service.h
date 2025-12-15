@@ -96,6 +96,15 @@ typedef enum ServiceRestartMode {
         _SERVICE_RESTART_MODE_INVALID = -EINVAL,
 } ServiceRestartMode;
 
+typedef enum ServiceRefreshOnReload {
+        SERVICE_RELOAD_EXTENSIONS  = 1 << 0,
+        SERVICE_RELOAD_CREDENTIALS = 1 << 1,
+        _SERVICE_REFRESH_ON_RELOAD_ALL = (1 << 2) - 1,
+        _SERVICE_REFRESH_ON_RELOAD_UNSET = -1,
+} ServiceRefreshOnReload;
+
+#define SERVICE_REFRESH_ON_RELOAD_DEFAULT SERVICE_RELOAD_EXTENSIONS
+
 typedef struct ServiceFDStore {
         Service *service;
 
@@ -237,6 +246,9 @@ typedef struct Service {
         int reload_signal;
         usec_t reload_begin_usec;
 
+        ServiceRefreshOnReload refresh_on_reload_flags;
+        ServiceRefreshOnReload refreshed_mask;
+
         OOMPolicy oom_policy;
 
         char *usb_function_descriptors;
@@ -296,6 +308,9 @@ ServiceResult service_result_from_string(const char *s) _pure_;
 
 const char* service_timeout_failure_mode_to_string(ServiceTimeoutFailureMode i) _const_;
 ServiceTimeoutFailureMode service_timeout_failure_mode_from_string(const char *s) _pure_;
+
+int service_refresh_on_reload_from_string_many(const char *s, ServiceRefreshOnReload *ret);
+char* service_refresh_on_reload_to_string_many(ServiceRefreshOnReload flags);
 
 DEFINE_CAST(SERVICE, Service);
 
