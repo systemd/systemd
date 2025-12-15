@@ -96,6 +96,15 @@ typedef enum ServiceRestartMode {
         _SERVICE_RESTART_MODE_INVALID = -EINVAL,
 } ServiceRestartMode;
 
+typedef enum ServiceRefreshOnReload {
+        SERVICE_RELOAD_EXTENSIONS  = 1 << 0,
+        SERVICE_RELOAD_CREDENTIALS = 1 << 1,
+        _SERVICE_REFRESH_ON_RELOAD_ALL = (1 << 2) - 1,
+        _SERVICE_REFRESH_ON_RELOAD_INVALID = -EINVAL,
+} ServiceRefreshOnReload;
+
+#define SERVICE_REFRESH_ON_RELOAD_DEFAULT SERVICE_RELOAD_EXTENSIONS
+
 typedef struct ServiceFDStore {
         Service *service;
 
@@ -237,6 +246,10 @@ typedef struct Service {
         int reload_signal;
         usec_t reload_begin_usec;
 
+        bool refresh_on_reload_set;
+        ServiceRefreshOnReload refresh_on_reload_flags;
+        ServiceRefreshOnReload refreshed_mask;
+
         OOMPolicy oom_policy;
 
         char *usb_function_descriptors;
@@ -266,7 +279,7 @@ extern const UnitVTable service_vtable;
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket, struct SocketPeer *peer, bool selinux_context_net);
 void service_release_socket_fd(Service *s);
 
-usec_t service_restart_usec_next(Service *s);
+usec_t service_restart_usec_next(const Service *s) _pure_;
 
 int service_determine_exec_selinux_label(Service *s, char **ret);
 
@@ -296,6 +309,10 @@ ServiceResult service_result_from_string(const char *s) _pure_;
 
 const char* service_timeout_failure_mode_to_string(ServiceTimeoutFailureMode i) _const_;
 ServiceTimeoutFailureMode service_timeout_failure_mode_from_string(const char *s) _pure_;
+
+ServiceRefreshOnReload service_refresh_on_reload_flag_from_string(const char *s) _pure_;
+int service_refresh_on_reload_from_string_many(const char *s, ServiceRefreshOnReload *ret);
+int service_refresh_on_reload_to_strv(ServiceRefreshOnReload flags, char ***ret);
 
 DEFINE_CAST(SERVICE, Service);
 
