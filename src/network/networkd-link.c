@@ -63,7 +63,7 @@
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
-#include "networkd-wwan.h"
+#include "networkd-wwan-bus.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"

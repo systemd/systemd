@@ -2,6 +2,7 @@
 #pragma once
 
 typedef struct Manager Manager;
+typedef struct Link Link;
 
 /* From ModemManager-enums.h */
 typedef enum {

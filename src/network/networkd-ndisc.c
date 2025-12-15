@@ -25,7 +25,6 @@
 #include "networkd-route.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
-#include "networkd-wwan.h"
 #include "ordered-set.h"
 #include "set.h"
 #include "siphash24.h"

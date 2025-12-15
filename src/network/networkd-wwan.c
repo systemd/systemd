@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
-#include "bus-error.h"
-#include "bus-map-properties.h"
 #include "bus-util.h"
 #include "hashmap.h"
 #include "networkd-address.h"
