@@ -593,11 +593,7 @@ TEST(kill_properties) {
                         "FinalKillSignal=SIGWINCH",
                         "FinalKillSignal=2",
                         "WatchdogSignal=RTMIN",
-                        "WatchdogSignal=RTMIN+0",
-                        "ReloadSignal=RTMAX",
-                        "ReloadSignal=RTMAX-0",
-                        "ReloadSignal=RTMAX-5",
-                        "-ERANGE ReloadSignal=RTMAX-100"
+                        "WatchdogSignal=RTMIN+0"
         );
 
         test_transient_settings_one(UNIT_SCOPE, lines);
@@ -782,7 +778,12 @@ TEST(service_properties) {
                         "OpenFile=/etc/myservice.conf:SOME$NAME:graceful",
                         "OpenFile=/etc/myservice.conf::read-only,graceful",
                         "OpenFile=/etc/myservice.conf::truncate,graceful",
-                        "-EINVAL OpenFile=/etc/myservice.conf::append,truncate,read-only,graceful"
+                        "-EINVAL OpenFile=/etc/myservice.conf::append,truncate,read-only,graceful",
+
+                        "ReloadSignal=RTMAX",
+                        "ReloadSignal=RTMAX-0",
+                        "ReloadSignal=RTMAX-5",
+                        "-ERANGE ReloadSignal=RTMAX-100"
         );
 
         test_transient_settings_one(UNIT_SERVICE, lines);
