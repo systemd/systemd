@@ -618,7 +618,7 @@ def main() -> None:
     # XXX: debug for https://github.com/systemd/systemd/issues/38240
     if vm:
         # Tracing is not supported in centos/fedora qemu builds
-        if summary.distribution in ('centos', 'fedora'):
+        if os.getenv('MKOSI_HOST_DISTRIBUTION') in ('centos', 'fedora'):
             cmd += ['--qemu-args=-d cpu_reset,guest_errors -D /dev/stderr']
         else:
             cmd += [
