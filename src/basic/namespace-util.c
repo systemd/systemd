@@ -215,22 +215,29 @@ int namespace_open(
         return pidref_namespace_open(&pidref, ret_pidns_fd, ret_mntns_fd, ret_netns_fd, ret_userns_fd, ret_root_fd);
 }
 
+static int namespace_enter_one_idempotent(int nsfd, NamespaceType type) {
+        int r;
+
+        assert(nsfd >= 0);
+
+        r = is_our_namespace(nsfd, type);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        if (setns(nsfd, namespace_info[type].clone_flag) < 0)
+                return -errno;
+
+        return 1;
+}
+
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {
+        bool reset_creds = false;
         int r;
 
         /* Block dlopen() now, to avoid us inadvertently loading shared library from another namespace */
         block_dlopen();
-
-        if (userns_fd >= 0) {
-                /* Can't setns to your own userns, since then you could escalate from non-root to root in
-                 * your own namespace, so check if namespaces are equal before attempting to enter. */
-
-                r = is_our_namespace(userns_fd, NAMESPACE_USER);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        userns_fd = -EBADF;
-        }
 
         if (pidns_fd >= 0)
                 if (setns(pidns_fd, CLONE_NEWPID) < 0)
@@ -244,9 +251,13 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                 if (setns(netns_fd, CLONE_NEWNET) < 0)
                         return -errno;
 
-        if (userns_fd >= 0)
-                if (setns(userns_fd, CLONE_NEWUSER) < 0)
-                        return -errno;
+        if (userns_fd >= 0) {
+                r = namespace_enter_one_idempotent(userns_fd, NAMESPACE_USER);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        reset_creds = true;
+        }
 
         if (root_fd >= 0) {
                 if (fchdir(root_fd) < 0)
@@ -256,10 +267,57 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                         return -errno;
         }
 
-        if (userns_fd >= 0)
-                return reset_uid_gid();
+        if (reset_creds) {
+                r = reset_uid_gid();
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
+}
+
+int namespace_enter_delegated(int userns_fd, int pidns_fd, int mntns_fd, int netns_fd, int root_fd) {
+        int r;
+
+        /* Similar to namespace_enter(), but operates on a set of namespaces that are potentially owned
+         * by the userns ("delegated"), in which case we'll need to gain CAP_SYS_ADMIN by joining
+         * the userns first, and the rest later. */
+
+        assert(userns_fd >= 0);
+
+        /* Block dlopen() now, to avoid us inadvertently loading shared library from another namespace */
+        block_dlopen();
+
+        if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                return -errno;
+
+        if (pidns_fd >= 0) {
+                r = namespace_enter_one_idempotent(pidns_fd, NAMESPACE_PID);
+                if (r < 0)
+                        return r;
+        }
+
+        if (mntns_fd >= 0) {
+                r = namespace_enter_one_idempotent(mntns_fd, NAMESPACE_MOUNT);
+                if (r < 0)
+                        return r;
+        }
+
+        if (netns_fd >= 0) {
+                r = namespace_enter_one_idempotent(netns_fd, NAMESPACE_NET);
+                if (r < 0)
+                        return r;
+        }
+
+        if (root_fd >= 0) {
+                if (fchdir(root_fd) < 0)
+                        return -errno;
+
+                if (chroot(".") < 0)
+                        return -errno;
+        }
+
+        return maybe_setgroups(/* size = */ 0, NULL);
 }
 
 int fd_is_namespace(int fd, NamespaceType type) {
