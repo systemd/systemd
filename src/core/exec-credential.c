@@ -1214,9 +1214,9 @@ int unit_refresh_credentials(Unit *u) {
 
         PidRef *main_pid = unit_main_pid(u);
         if (pidref_is_set(main_pid)) {
-                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
+                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, userns_fd = -EBADF, pidns_fd = -EBADF;
 
-                r = pidref_namespace_open(main_pid, &pidns_fd, &mntns_fd, /* ret_netns_fd = */ NULL, /* ret_userns_fd = */ NULL, &root_fd);
+                r = pidref_namespace_open(main_pid, &pidns_fd, &mntns_fd, /* ret_netns_fd = */ NULL, &userns_fd, &root_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open namespace of unit main process '" PID_FMT "': %m",
                                                main_pid->pid);
@@ -1228,12 +1228,12 @@ int unit_refresh_credentials(Unit *u) {
                         if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, mount_transport_fds) < 0)
                                 return log_error_errno(errno, "Failed to allocate socket pair: %m");
 
-                        r = namespace_fork("(sd-creds-ns)",
-                                           "(sd-creds-ns-inner)",
-                                           (int[]) { mount_transport_fds[1] }, 1,
-                                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
-                                           pidns_fd, mntns_fd, /* netns_fd = */ -EBADF, /* userns_fd = */ -EBADF, root_fd,
-                                           &child);
+                        r = namespace_fork_full("(sd-creds-ns)", "(sd-creds-ns-inner)",
+                                                (int[]) { mount_transport_fds[1] }, 1,
+                                                FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
+                                                pidns_fd, mntns_fd, /* netns_fd = */ -EBADF, userns_fd, root_fd,
+                                                /* delegated = */ MANAGER_IS_USER(u->manager),
+                                                &child);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to fork off process into unit namespace to refresh credentials: %m");
                         if (r == 0) {
