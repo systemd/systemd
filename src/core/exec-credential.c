@@ -1232,7 +1232,8 @@ int unit_refresh_credentials(Unit *u) {
                                            pidns_fd, mntns_fd, /* netns_fd = */ -EBADF, /* userns_fd = */ -EBADF, root_fd,
                                            &child);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to fork off process into unit namespace to refresh credentials: %m");
+                                return log_full_errno(ERRNO_IS_NEG_PRIVILEGE(r) ? LOG_WARNING : LOG_ERR, r,
+                                                      "Failed to fork off process into unit namespace to refresh credentials: %m");
                         if (r == 0) {
                                 r = refresh_credentials_in_namespace_child(mount_transport_fds[1], cred_dir);
                                 report_errno_and_exit(mount_transport_fds[1], r);
