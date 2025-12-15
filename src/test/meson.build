@@ -461,6 +461,10 @@ executables += [
                 ],
         },
         test_template + {
+                'sources' : files('test-sleep.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-time-util.c'),
                 'timeout' : 120,
         },
