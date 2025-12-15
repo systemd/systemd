@@ -1897,7 +1897,9 @@ int namespace_fork_full(
                 int root_fd,
                 PidRef *ret) {
 
-        int r;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref_outer = PIDREF_NULL;
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        int r, prio = FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG;
 
         /* This is much like safe_fork(), but forks twice, and joins the specified namespaces in the middle
          * process. This ensures that we are fully a member of the destination namespace, with pidns an all, so that
@@ -1912,11 +1914,23 @@ int namespace_fork_full(
         assert((flags & (FORK_DETACH|FORK_FREEZE)) == 0);
         assert(!FLAGS_SET(flags, FORK_ALLOW_DLOPEN)); /* never allow loading shared library from another ns */
 
+        /* We want read() to block as a synchronization point */
+        assert_cc(sizeof(int) <= PIPE_BUF);
+        if (pipe2(errno_pipe_fd, O_CLOEXEC) < 0)
+                return log_full_errno(prio, errno, "Failed to create pipe: %m");
+
         r = pidref_safe_fork_full(
                         outer_name,
                         /* stdio_fds = */ NULL, /* except_fds = */ NULL, /* n_except_fds = */ 0,
                         (flags|FORK_DEATHSIG_SIGKILL) & ~(FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_NEW_NETNS|FORK_NEW_PIDNS|FORK_CLOSE_ALL_FDS|FORK_PACK_FDS|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE),
-                        ret);
+                        &pidref_outer);
+        if (r == -EPROTO && FLAGS_SET(flags, FORK_WAIT)) {
+                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+                int k = read_errno(errno_pipe_fd[0]);
+                if (k < 0 && k != -EIO)
+                        return k;
+        }
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1924,10 +1938,12 @@ int namespace_fork_full(
 
                 /* Child */
 
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
                 r = namespace_enter(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd);
                 if (r < 0) {
-                        log_full_errno(FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG, r, "Failed to join namespace: %m");
-                        _exit(EXIT_FAILURE);
+                        log_full_errno(prio, r, "Failed to join namespace: %m");
+                        report_errno_and_exit(errno_pipe_fd[1], r);
                 }
 
                 /* We mask a few flags here that either make no sense for the grandchild, or that we don't have to do again */
@@ -1938,9 +1954,18 @@ int namespace_fork_full(
                                 flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_REARRANGE_STDIO|FORK_FLUSH_STDIO|FORK_STDOUT_TO_STDERR),
                                 &pidref_inner);
                 if (r < 0)
-                        _exit(EXIT_FAILURE);
+                        report_errno_and_exit(errno_pipe_fd[1], r);
                 if (r == 0) {
                         /* Child */
+
+                        if (!FLAGS_SET(flags, FORK_CLOSE_ALL_FDS)) {
+                                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+                                pidref_done(&pidref_outer);
+                        } else {
+                                errno_pipe_fd[1] = -EBADF;
+                                pidref_outer = PIDREF_NULL;
+                        }
+
                         if (ret)
                                 *ret = TAKE_PIDREF(pidref_inner);
                         return 0;
@@ -1960,6 +1985,17 @@ int namespace_fork_full(
 
                 _exit(r);
         }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        r = read_errno(errno_pipe_fd[0]);
+        if (r < 0)
+                return r; /* the child logs about failures on its own, no need to duplicate here */
+
+        if (ret)
+                *ret = TAKE_PIDREF(pidref_outer);
+        else
+                pidref_done(&pidref_outer); /* disarm sigkill_wait */
 
         return 1;
 }
