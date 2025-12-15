@@ -75,6 +75,18 @@ class Summary:
         )
 
 
+def tools_os_release(field: str) -> str:
+    return subprocess.run(
+        [
+            'bash',
+            '-c',
+            f'set -eu; . /etc/os-release; echo ${field}',
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+    ).stdout.rstrip()
+
+
 def process_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
     # Collect executable paths of all coredumps and filter out the expected ones.
 
@@ -618,11 +630,11 @@ def main() -> None:
     # XXX: debug for https://github.com/systemd/systemd/issues/38240
     if vm:
         # Tracing is not supported in centos/fedora qemu builds
-        if summary.distribution in ('centos', 'fedora'):
+        if tools_os_release('ID') in ('centos', 'fedora'):
             cmd += ['--qemu-args=-d cpu_reset,guest_errors -D /dev/stderr']
         else:
             cmd += [
-                '--qemu-args=-d cpu_reset,guest_errors,trace:kvm_run_exit_system_event,trace:qemu_system_\*_request -D /dev/stderr'  # noqa: E501
+                '--qemu-args=-d cpu_reset,guest_errors,trace:kvm_run_exit_system_event,trace:qemu_system_*_request -D /dev/stderr'  # noqa: E501
             ]
 
     try:
