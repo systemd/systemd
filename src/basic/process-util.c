@@ -1888,7 +1888,7 @@ int safe_fork_full(
         return r;
 }
 
-int namespace_fork(
+int namespace_fork_full(
                 const char *outer_name,
                 const char *inner_name,
                 int except_fds[],
@@ -1899,6 +1899,7 @@ int namespace_fork(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
+                bool delegated,
                 pid_t *ret_pid) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
@@ -1931,7 +1932,10 @@ int namespace_fork(
 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                r = namespace_enter(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd);
+                if (delegated)
+                        r = namespace_enter_delegated(userns_fd, pidns_fd, mntns_fd, netns_fd, root_fd);
+                else
+                        r = namespace_enter(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd);
                 if (r < 0) {
                         log_full_errno(FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG, r, "Failed to join namespace: %m");
                         report_errno_and_exit(errno_pipe_fd[1], r);
