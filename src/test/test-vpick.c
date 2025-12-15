@@ -192,4 +192,95 @@ TEST(path_uses_vpick) {
         ASSERT_ERROR(path_uses_vpick(""), EINVAL);
 }
 
+TEST(pick_filter_image_any) {
+        _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
+
+        _cleanup_close_ int dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &p));
+        _cleanup_close_ int sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "test.raw.v", O_CLOEXEC, 0777));
+
+        /* Create .raw files (should match with pick_filter_image_raw and pick_filter_image_any) */
+        ASSERT_OK(write_string_file_at(sub_dfd, "test_1.raw", "version 1 raw", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "test_2.raw", "version 2 raw", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "test_3.raw", "version 3 raw", WRITE_STRING_FILE_CREATE));
+
+        /* Create directories (should match with pick_filter_image_dir and pick_filter_image_any) */
+        ASSERT_OK(mkdirat(sub_dfd, "test_4", 0755));
+        ASSERT_OK(mkdirat(sub_dfd, "test_5", 0755));
+
+        /* Create files without .raw suffix (should NOT match any of the pick_filter_image_* filters) */
+        ASSERT_OK(write_string_file_at(sub_dfd, "test_10.txt", "version 10 txt", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "test_11.img", "version 11 img", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "test_12", "version 12 no suffix", WRITE_STRING_FILE_CREATE));
+
+        _cleanup_free_ char *pp = ASSERT_NOT_NULL(path_join(p, "test.raw.v"));
+        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+
+        /* Test pick_filter_image_any: should pick the highest version, which is the directory test_5 */
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, pp, &pick_filter_image_any, PICK_ARCHITECTURE, &result));
+        ASSERT_TRUE(S_ISDIR(result.st.st_mode));
+        ASSERT_STREQ(result.version, "5");
+        ASSERT_TRUE(endswith(result.path, "/test_5"));
+        pick_result_done(&result);
+
+        /* Remove directories, now it should pick the highest .raw file (test_3.raw) */
+        ASSERT_OK(unlinkat(sub_dfd, "test_4", AT_REMOVEDIR));
+        ASSERT_OK(unlinkat(sub_dfd, "test_5", AT_REMOVEDIR));
+
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, pp, &pick_filter_image_any, PICK_ARCHITECTURE, &result));
+        ASSERT_TRUE(S_ISREG(result.st.st_mode));
+        ASSERT_STREQ(result.version, "3");
+        ASSERT_TRUE(endswith(result.path, "/test_3.raw"));
+        pick_result_done(&result);
+
+        /* Verify that pick_filter_image_raw only matches .raw files */
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, pp, &pick_filter_image_raw, PICK_ARCHITECTURE, &result));
+        ASSERT_TRUE(S_ISREG(result.st.st_mode));
+        ASSERT_STREQ(result.version, "3");
+        ASSERT_TRUE(endswith(result.path, "/test_3.raw"));
+        pick_result_done(&result);
+
+        /* Verify that files without .raw suffix are never picked by pick_filter_image_any */
+        /* Remove all .raw files */
+        ASSERT_OK(unlinkat(sub_dfd, "test_1.raw", 0));
+        ASSERT_OK(unlinkat(sub_dfd, "test_2.raw", 0));
+        ASSERT_OK(unlinkat(sub_dfd, "test_3.raw", 0));
+
+        /* Now only test_10.txt, test_11.img, and test_12 remain - none should match */
+        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, pp, &pick_filter_image_any, PICK_ARCHITECTURE, &result));
+
+        /* But if we add a directory, it should be picked */
+        ASSERT_OK(mkdirat(sub_dfd, "test_6", 0755));
+
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, pp, &pick_filter_image_any, PICK_ARCHITECTURE, &result));
+        ASSERT_TRUE(S_ISDIR(result.st.st_mode));
+        ASSERT_STREQ(result.version, "6");
+        ASSERT_TRUE(endswith(result.path, "/test_6"));
+        pick_result_done(&result);
+
+        /* Now test pick_filter_image_dir with a separate directory structure */
+        safe_close(sub_dfd);
+        sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "myimage.v", O_CLOEXEC, 0777));
+
+        /* Create directories that pick_filter_image_dir should find */
+        ASSERT_OK(mkdirat(sub_dfd, "myimage_1", 0755));
+        ASSERT_OK(mkdirat(sub_dfd, "myimage_2", 0755));
+
+        free(pp);
+        pp = ASSERT_NOT_NULL(path_join(p, "myimage.v"));
+
+        pick_result_done(&result);
+
+        ASSERT_OK_POSITIVE(path_pick(NULL, AT_FDCWD, pp, &pick_filter_image_dir, PICK_ARCHITECTURE, &result));
+        ASSERT_TRUE(S_ISDIR(result.st.st_mode));
+        ASSERT_STREQ(result.version, "2");
+        ASSERT_TRUE(endswith(result.path, "/myimage_2"));
+        pick_result_done(&result);
+
+        /* With no directories, pick_filter_image_dir should return nothing */
+        ASSERT_OK(unlinkat(sub_dfd, "myimage_1", AT_REMOVEDIR));
+        ASSERT_OK(unlinkat(sub_dfd, "myimage_2", AT_REMOVEDIR));
+
+        ASSERT_OK_ZERO(path_pick(NULL, AT_FDCWD, pp, &pick_filter_image_dir, PICK_ARCHITECTURE, &result));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

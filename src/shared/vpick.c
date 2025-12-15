@@ -366,6 +366,13 @@ static int make_choice(
                         if (!sfx)
                                 continue;
 
+                        /* If the empty suffix matched, only accept it for directories. This way, when
+                         * suffix is set to { ".raw", "" } we'll match .raw suffixed regular files and
+                         * block devices, and any directory, thus implementing the expected semantics of
+                         * pick_filter_image_any. */
+                        if (*sfx == '\0' && (*entry)->d_type != DT_DIR)
+                                continue;
+
                         *sfx = 0;
                 }
 
