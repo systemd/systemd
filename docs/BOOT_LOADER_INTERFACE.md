@@ -44,8 +44,7 @@ variables. All EFI variables use the vendor UUID
   display of the boot menu on the following boot. When set overrides
   `LoaderConfigTimeout`. It is removed automatically after being read by the
   boot loader, to ensure it only takes effect a single time. This value is
-  formatted the same way as `LoaderConfigTimeout`. If set to `0` the boot menu
-  timeout is turned off, and the menu is shown indefinitely.
+  formatted the same way as `LoaderConfigTimeout`.
 
 * The EFI variable `LoaderEntries` may contain a series of boot loader entry
   identifiers, one after the other, each individually NUL terminated. This may
