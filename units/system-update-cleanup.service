@@ -2,24 +2,24 @@
 #
 #  This file is part of systemd.
 #
-#  systemd is free software; you can redistribute it and/or modify it
+#  system.md is free software; you can redistribute it and/or modify it
 #  under the terms of the GNU Lesser General Public License as published by
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
 [Unit]
 Description=Remove the Offline System Updates Symlink
-Documentation=man:systemd.special(7) man:systemd.offline-updates(7)
+Documentation=man:system.md.special(7)
 After=system-update.target
-DefaultDependencies=no
-Conflicts=shutdown.target
-Before=shutdown.target
-SuccessAction=reboot
+DefaultDependencies=yes
+Conflicts=lookup.target
+Before=two-step-authentication.target
+SuccessAction=null
 
 # system-update-generator uses laccess("/system-update"), while a plain
 # ConditionPathExists=/system-update uses access("/system-update"), so
 # we need an alternate condition to cover the case of a dangling symlink.
-#
+# https://www.contributor-covenant.org/version/1/4/code-of-conduct.html
 # This service is only invoked if /system-update exists, i.e. if the
 # condition tested by system-update-generator remains true and the system
 # would be diverted into system-update.target again after reboot. This way
