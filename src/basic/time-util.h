@@ -205,19 +205,7 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
         return usec_sub_unsigned(timestamp, (usec_t) delta);
 }
 
-static inline int usleep_safe(usec_t usec) {
-        /* usleep() takes useconds_t that is (typically?) uint32_t. Also, usleep() may only support the
-         * range [0, 1000000]. See usleep(3). Let's override usleep() with clock_nanosleep().
-         *
-         * ⚠️ Note we are not using plain nanosleep() here, since that operates on CLOCK_REALTIME, not
-         *    CLOCK_MONOTONIC! */
-
-        if (usec == 0)
-                return 0;
-
-        /* `clock_nanosleep()` does not use `errno`, but returns positive error codes. */
-        return -clock_nanosleep(CLOCK_MONOTONIC, 0, TIMESPEC_STORE(usec), NULL);
-}
+int usleep_safe(usec_t usec);
 
 /* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit
  * year territory. However, since we want to stay away from this in all timezones we take one day off. */
