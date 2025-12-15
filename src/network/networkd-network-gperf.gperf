@@ -40,6 +40,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "networkd-radv.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
+#include "networkd-wwan.h"
 #include "qdisc.h"
 #include "socket-util.h"
 #include "tclass.h"
@@ -687,3 +688,6 @@ FairQueueingControlledDelay.MemoryLimit,         config_parse_fq_codel_size,    
 FairQueueingControlledDelay.Quantum,             config_parse_fq_codel_size,                     QDISC_KIND_FQ_CODEL,                    0
 TokenBucketFilter.Burst,                         config_parse_tbf_size,                          QDISC_KIND_TBF,                         0
 TokenBucketFilter.LimitSize,                     config_parse_tbf_size,                          QDISC_KIND_TBF,                         0
+ModemManager.SimpleConnectProperties,            config_parse_strv,                              0,                                      offsetof(Network, mm_simple_connect_props)
+ModemManager.RouteMetric,                        config_parse_mm_route_metric,                   0,                              0
+ModemManager.UseGateway,                         config_parse_tristate,                          0,                                      offsetof(Network, mm_use_gateway)
