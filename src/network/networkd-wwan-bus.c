@@ -51,7 +51,6 @@
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-map-properties.h"
-#include "bus-match.h"
 #include "bus-message.h"
 #include "bus-util.h"
 #include "event-util.h"
@@ -61,7 +60,6 @@
 #include "networkd-wwan.h"
 #include "networkd-wwan-bus.h"
 #include "parse-util.h"
-#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 

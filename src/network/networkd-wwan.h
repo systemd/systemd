@@ -3,7 +3,6 @@
 
 #include "in-addr-util.h"
 #include "networkd-forward.h"
-#include "networkd-util.h"
 #include "networkd-wwan-bus.h"
 
 typedef struct Modem Modem;
