@@ -90,16 +90,12 @@ if [ -f /run/TEST-82-SOFTREBOOT.touch3 ]; then
 
     # Check that the surviving services are still around
     test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-survive.service)" = "active"
-    if [[ ! -L $(command -v sleep) ]]; then
-        test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-survive-argv.service)" = "active"
-    fi
+    test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-survive-argv.service)" = "active"
     test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-nosurvive-sigterm.service)" != "active"
     test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-nosurvive.service)" != "active"
 
     [[ ! -e /run/credentials/TEST-82-SOFTREBOOT-nosurvive.service ]]
-    if [[ ! -L $(command -v sleep) ]]; then
-        assert_eq "$(cat /run/credentials/TEST-82-SOFTREBOOT-survive-argv.service/preserve)" "yay"
-    fi
+    assert_eq "$(cat /run/credentials/TEST-82-SOFTREBOOT-survive-argv.service/preserve)" "yay"
 
     # There may be huge amount of pending messages in sockets. Processing them may cause journal rotation and
     # removal of old archived journal files. If a journal file is removed during journalctl reading it,
@@ -134,9 +130,7 @@ elif [ -f /run/TEST-82-SOFTREBOOT.touch2 ]; then
 
     # Check that the surviving services are still around
     test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-survive.service)" = "active"
-    if [[ ! -L $(command -v sleep) ]]; then
-        test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-survive-argv.service)" = "active"
-    fi
+    test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-survive-argv.service)" = "active"
     test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-nosurvive-sigterm.service)" != "active"
     test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-nosurvive.service)" != "active"
 
@@ -192,9 +186,7 @@ elif [ -f /run/TEST-82-SOFTREBOOT.touch ]; then
 
     # Check that the surviving services are still around
     test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-survive.service)" = "active"
-    if [[ ! -L $(command -v sleep) ]]; then
-        test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-survive-argv.service)" = "active"
-    fi
+    test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-survive-argv.service)" = "active"
     test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-nosurvive-sigterm.service)" != "active"
     test "$(systemctl show -P ActiveState TEST-82-SOFTREBOOT-nosurvive.service)" != "active"
 
@@ -261,7 +253,9 @@ EOF
 #!/usr/bin/env bash
 systemd-notify --ready
 rm "$survive_argv"
-exec -a @sleep sleep infinity
+# Here, we use our own sleep implementation, to support coreutils built with
+#  --enable-single-binary=symlinks, in that case we cannot rename COMM of sleep command.
+exec -a @sleep /usr/lib/systemd/tests/unit-tests/manual/test-sleep infinity
 EOF
     chmod +x "$survive_argv"
     # This sets DefaultDependencies=no so that they remain running until the very end, and
@@ -282,17 +276,15 @@ EOF
     # soft reboots due to journald being temporarily stopped.
     # Note, when coreutils is built with --enable-single-binary=symlinks, unfortunately we cannot freely rename
     # sleep command, hence we cannot test the feature.
-    if [[ ! -L $(command -v sleep) ]]; then
-        systemd-run --service-type=notify --unit=TEST-82-SOFTREBOOT-survive-argv.service \
-            --property SurviveFinalKillSignal=no \
-            --property IgnoreOnIsolate=yes \
-            --property DefaultDependencies=no \
-            --property After=basic.target \
-            --property "Conflicts=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
-            --property "Before=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
-            --property SetCredential=preserve:yay \
-            "$survive_argv"
-    fi
+    systemd-run --service-type=notify --unit=TEST-82-SOFTREBOOT-survive-argv.service \
+        --property SurviveFinalKillSignal=no \
+        --property IgnoreOnIsolate=yes \
+        --property DefaultDependencies=no \
+        --property After=basic.target \
+        --property "Conflicts=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
+        --property "Before=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
+        --property SetCredential=preserve:yay \
+        "$survive_argv"
     # shellcheck disable=SC2016
     systemd-run --service-type=exec --unit=TEST-82-SOFTREBOOT-survive.service \
         --property TemporaryFileSystem="/run /tmp /var" \

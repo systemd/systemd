@@ -6,11 +6,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-if [[ -L $(command -v sleep) ]]; then
-    # coreutils is built with --enable-single-binary=symlinks, and we cannot rename it.
-    exit 0
-fi
-
 # Make sure the binary name fits into 15 characters
 CORE_TEST_BIN="/tmp/test-dump"
 CORE_TEST_UNPRIV_BIN="/tmp/test-usr-dump"
@@ -35,8 +30,8 @@ sysctl kernel.core_pattern | grep systemd-coredump
 
 # Prepare "fake" binaries for coredumps, so we can properly exercise
 # the matching stuff too
-cp -vf /bin/sleep "${CORE_TEST_BIN:?}"
-cp -vf /bin/sleep "${CORE_TEST_UNPRIV_BIN:?}"
+cp -vf /usr/lib/systemd/tests/unit-tests/manual/test-sleep "${CORE_TEST_BIN:?}"
+cp -vf /usr/lib/systemd/tests/unit-tests/manual/test-sleep "${CORE_TEST_UNPRIV_BIN:?}"
 # Simple script that spawns given "fake" binary and then kills it with
 # given signal
 cat >"${MAKE_DUMP_SCRIPT:?}" <<\EOF
