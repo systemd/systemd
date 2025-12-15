@@ -6987,7 +6987,14 @@ static int tpm2_nvpcr_write_anchor_secret(
 }
 
 static int tpm2_nvpcr_write_anchor_secret_to_var(const struct iovec *credential) {
-        return tpm2_nvpcr_write_anchor_secret("/var/lib/systemd/nvpcr", "nvpcr-anchor.cred", credential);
+        const char *dir = "/var/lib/systemd/nvpcr";
+        int r;
+
+        r = mkdir_parents(dir, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create parent directories of '%s': %m", dir);
+
+        return tpm2_nvpcr_write_anchor_secret(dir, "nvpcr-anchor.cred", credential);
 }
 
 static int tpm2_nvpcr_write_anchor_secret_to_boot(const struct iovec *credential) {
@@ -7027,6 +7034,10 @@ static int tpm2_nvpcr_write_anchor_secret_to_boot(const struct iovec *credential
 
         if (!filename_is_valid(fname))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name '%s' would not be a valid file name, refusing.", fname);
+
+        r = mkdir_parents(dir, 0700);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create parent directories of '%s': %m", dir);
 
         return tpm2_nvpcr_write_anchor_secret(dir, fname, credential);
 }
