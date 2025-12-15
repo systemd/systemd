@@ -112,9 +112,9 @@ static int init_internal(bool lazy) {
 }
 
 int mac_init_lazy(void) {
-        return init_internal(/* lazy=*/ true);
+        return init_internal(/* lazy= */ true);
 }
 
 int mac_init(void) {
-        return init_internal(/* lazy=*/ false);
+        return init_internal(/* lazy= */ false);
 }

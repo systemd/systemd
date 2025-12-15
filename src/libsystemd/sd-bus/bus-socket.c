@@ -268,7 +268,7 @@ static int verify_anonymous_token(sd_bus *b, const char *p, size_t l) {
         if (l % 2 != 0)
                 return 0;
 
-        r = unhexmem_full(p, l, /* secure = */ false, (void**) &token, &len);
+        r = unhexmem_full(p, l, /* secure= */ false, (void**) &token, &len);
         if (r < 0)
                 return 0;
 
@@ -300,7 +300,7 @@ static int verify_external_token(sd_bus *b, const char *p, size_t l) {
         if (l % 2 != 0)
                 return 0;
 
-        r = unhexmem_full(p, l, /* secure = */ false, (void**) &token, &len);
+        r = unhexmem_full(p, l, /* secure= */ false, (void**) &token, &len);
         if (r < 0)
                 return 0;
 
@@ -668,7 +668,7 @@ static int bus_socket_read_auth(sd_bus *b) {
         b->rbuffer_size += k;
 
         if (handle_cmsg) {
-                r = bus_process_cmsg(b, &mh, /* allow_fds = */ false);
+                r = bus_process_cmsg(b, &mh, /* allow_fds= */ false);
                 if (r < 0)
                         return r;
         }

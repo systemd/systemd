@@ -1248,7 +1248,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         } else
                 log_unit_debug(UNIT(s), "Main PID loaded: "PID_FMT, pidref.pid);
 
-        r = service_set_main_pidref(s, TAKE_PIDREF(pidref), /* start_timestamp = */ NULL);
+        r = service_set_main_pidref(s, TAKE_PIDREF(pidref), /* start_timestamp= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1278,7 +1278,7 @@ static void service_search_main_pid(Service *s) {
                 return;
 
         log_unit_debug(UNIT(s), "Main PID guessed: "PID_FMT, pid.pid);
-        if (service_set_main_pidref(s, TAKE_PIDREF(pid), /* start_timestamp = */ NULL) < 0)
+        if (service_set_main_pidref(s, TAKE_PIDREF(pid), /* start_timestamp= */ NULL) < 0)
                 return;
 
         r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
@@ -1357,7 +1357,7 @@ static void service_set_state(Service *s, ServiceState state) {
                         }
 
                 if (start_only)
-                        unit_destroy_runtime_data(u, &s->exec_context, /* destroy_runtime_dir = */ false);
+                        unit_destroy_runtime_data(u, &s->exec_context, /* destroy_runtime_dir= */ false);
         }
 
         if (old_state != state)
@@ -1775,7 +1775,7 @@ static int service_spawn_internal(
                                         &exec_params.fds,
                                         &exec_params.fd_names,
                                         &exec_params.n_socket_fds,
-                                        /* n_stashed_fds = */ NULL);
+                                        /* n_stashed_fds= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1814,7 +1814,7 @@ static int service_spawn_internal(
         }
 
         if (MANAGER_IS_USER(UNIT(s)->manager) &&
-            !exec_needs_pid_namespace(&s->exec_context, /* params = */ NULL)) {
+            !exec_needs_pid_namespace(&s->exec_context, /* params= */ NULL)) {
 
                 if (asprintf(our_env + n_env++, "MANAGERPID="PID_FMT, getpid_cached()) < 0)
                         return -ENOMEM;
@@ -1951,7 +1951,14 @@ static int service_spawn_internal(
         exec_params.stdin_fd = s->stdin_fd;
         exec_params.stdout_fd = s->stdout_fd;
         exec_params.stderr_fd = s->stderr_fd;
-        exec_params.root_directory_fd = s->root_directory_fd;
+
+        if (s->root_directory_fd >= 0) {
+                r = mount_fd_clone(s->root_directory_fd, /* recursive= */ true, &s->root_directory_fd);
+                if (r < 0)
+                        return r;
+
+                exec_params.root_directory_fd = r;
+        }
 
         r = exec_spawn(UNIT(s),
                        c,
@@ -2125,7 +2132,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 end_state = SERVICE_FAILED;
                 restart_state = SERVICE_FAILED_BEFORE_AUTO_RESTART;
         }
-        unit_warn_leftover_processes(UNIT(s), /* start = */ false);
+        unit_warn_leftover_processes(UNIT(s), /* start= */ false);
 
         if (!allow_restart)
                 log_unit_debug(UNIT(s), "Service restart not allowed.");
@@ -2196,7 +2203,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         s->exec_runtime = exec_runtime_destroy(s->exec_runtime);
 
         /* Also, remove the runtime directory */
-        unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir = */ true);
+        unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir= */ true);
 
         /* Also get rid of the fd store, if that's configured. */
         if (s->fd_store_preserve_mode == EXEC_PRESERVE_NO)
@@ -2230,7 +2237,7 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
+                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
                                   s->timeout_stop_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2342,7 +2349,7 @@ static void service_enter_stop(Service *s, ServiceResult f) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
+                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
                                   s->timeout_stop_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2427,7 +2434,7 @@ static void service_enter_start_post(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
+                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2473,7 +2480,7 @@ static int service_adverse_to_leftover_processes(Service *s) {
          * instances running, lets not stress the rigor of these. Also ExecStartPre= parts of the service
          * aren't as rigoriously written to protect against multiple use. */
 
-        if (unit_warn_leftover_processes(UNIT(s), /* start = */ true) > 0 &&
+        if (unit_warn_leftover_processes(UNIT(s), /* start= */ true) > 0 &&
             IN_SET(s->kill_context.kill_mode, KILL_MIXED, KILL_CONTROL_GROUP) &&
             !s->kill_context.send_sigkill)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EBUSY),
@@ -2597,7 +2604,7 @@ static void service_enter_start_pre(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
+                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2633,7 +2640,7 @@ static void service_enter_condition(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
+                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2678,8 +2685,8 @@ static void service_enter_restart(Service *s, bool shortcut) {
                                  JOB_START, UNIT(s),
                                  s->restart_mode == SERVICE_RESTART_MODE_DIRECT ? JOB_REPLACE : JOB_RESTART_DEPENDENCIES,
                                  TRANSACTION_REENQUEUE_ANCHOR,
-                                 /* affected_jobs = */ NULL,
-                                 &error, /* ret = */ NULL);
+                                 /* affected_jobs= */ NULL,
+                                 &error, /* ret= */ NULL);
         if (r < 0) {
                 log_unit_warning(UNIT(s), "Failed to schedule restart job: %s", bus_error_message(&error, r));
                 return service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
@@ -2737,7 +2744,7 @@ static void service_enter_reload_post(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
+                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2812,7 +2819,7 @@ static void service_enter_reload(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
+                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2954,7 +2961,7 @@ static void service_run_next_control(Service *s) {
 
         r = service_spawn(s,
                           s->control_command,
-                          service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
+                          service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
                           timeout,
                           &s->control_pid);
         if (r < 0) {
@@ -3006,7 +3013,7 @@ static int service_start(Unit *u) {
                  * for auto restart. We need to re-enqueue the job though, as the job type has changed
                  * (JOB_RESTART_DEPENDENCIES). */
 
-                service_enter_restart(s, /* shortcut = */ true);
+                service_enter_restart(s, /* shortcut= */ true);
                 return -EAGAIN;
         }
 
@@ -3554,7 +3561,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 PidRef pidref;
 
                 if (!pidref_is_set(&s->main_pid) && deserialize_pidref(fds, value, &pidref) >= 0)
-                        (void) service_set_main_pidref(s, pidref, /* start_timestamp = */ NULL);
+                        (void) service_set_main_pidref(s, pidref, /* start_timestamp= */ NULL);
 
         } else if (streq(key, "main-pid-known")) {
                 r = parse_boolean(value);
@@ -4656,7 +4663,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                         log_unit_debug(UNIT(s),
                                        "Service has no hold-off time (RestartSec=0), scheduling restart.");
 
-                service_enter_restart(s, /* shortcut = */ false);
+                service_enter_restart(s, /* shortcut= */ false);
                 break;
 
         case SERVICE_CLEANING:
@@ -4948,7 +4955,7 @@ static void service_notify_message(
                                 log_unit_warning(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid.pid);
                 }
                 if (r > 0) {
-                        (void) service_set_main_pidref(s, TAKE_PIDREF(new_main_pid), /* start_timestamp = */ NULL);
+                        (void) service_set_main_pidref(s, TAKE_PIDREF(new_main_pid), /* start_timestamp= */ NULL);
 
                         r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
                         if (r < 0)
@@ -5145,7 +5152,7 @@ static void service_notify_pidref(Unit *u, PidRef *parent_pidref, PidRef *child_
         assert(pidref_is_set(child_pidref));
 
         if (pidref_equal(&s->main_pid, parent_pidref)) {
-                r = service_set_main_pidref(s, TAKE_PIDREF(*child_pidref), /* start_timestamp = */ NULL);
+                r = service_set_main_pidref(s, TAKE_PIDREF(*child_pidref), /* start_timestamp= */ NULL);
                 if (r < 0)
                         return (void) log_unit_warning_errno(u, r, "Failed to set new main pid: %m");
 
@@ -5244,7 +5251,7 @@ static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, s
 
         log_unit_debug(UNIT(s), "D-Bus name %s is now owned by process " PID_FMT, s->bus_name, pidref.pid);
 
-        (void) service_set_main_pidref(s, TAKE_PIDREF(pidref), /* start_timestamp = */ NULL);
+        (void) service_set_main_pidref(s, TAKE_PIDREF(pidref), /* start_timestamp= */ NULL);
         (void) unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
         return 1;
 }

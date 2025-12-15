@@ -28,10 +28,10 @@ int udev_parse_config_full(const ConfigTableItem config_table[]) {
 
         r = config_parse_standard_file_with_dropins(
                         "udev/udev.conf",
-                        /* sections = */ NULL,
+                        /* sections= */ NULL,
                         config_item_table_lookup, config_table,
                         CONFIG_PARSE_WARN,
-                        /* userdata = */ NULL);
+                        /* userdata= */ NULL);
         if (r == -ENOENT)
                 return 0;
         return r;

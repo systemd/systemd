@@ -398,11 +398,11 @@ int manager_save(Manager *m) {
                 if (r < 0)
                         return r;
 
-                r = link_put_domains(link, /* is_route = */ false, &search_domains);
+                r = link_put_domains(link, /* is_route= */ false, &search_domains);
                 if (r < 0)
                         return r;
 
-                r = link_put_domains(link, /* is_route = */ true, &route_domains);
+                r = link_put_domains(link, /* is_route= */ true, &route_domains);
                 if (r < 0)
                         return r;
         }

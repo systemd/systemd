@@ -256,12 +256,12 @@ static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
         assert(tr);
 
         /* First step, try to drop unmergeable jobs for jobs that matter to anchor. */
-        r = transaction_ensure_mergeable(tr, /* matters_to_anchor = */ true, e);
+        r = transaction_ensure_mergeable(tr, /* matters_to_anchor= */ true, e);
         if (r < 0)
                 return r;
 
         /* Second step, do the same for jobs that not matter to anchor. */
-        r = transaction_ensure_mergeable(tr, /* matters_to_anchor = */ false, e);
+        r = transaction_ensure_mergeable(tr, /* matters_to_anchor= */ false, e);
         if (r < 0)
                 return r;
 

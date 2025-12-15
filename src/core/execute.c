@@ -918,7 +918,7 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                 }
 
                 /* Filename supports globbing, take all matching files */
-                r = safe_glob(fn, /* flags = */ 0, &paths);
+                r = safe_glob(fn, /* flags= */ 0, &paths);
                 if (r < 0) {
                         if (ignore)
                                 continue;
@@ -2260,7 +2260,7 @@ int exec_command_append(ExecCommand *c, const char *path, ...) {
         if (!l)
                 return -ENOMEM;
 
-        r = strv_extend_strv_consume(&c->argv, l, /* filter_duplicates = */ false);
+        r = strv_extend_strv_consume(&c->argv, l, /* filter_duplicates= */ false);
         if (r < 0)
                 return r;
 
@@ -2877,6 +2877,7 @@ void exec_params_shallow_clear(ExecParameters *p) {
         p->fd_names = strv_free(p->fd_names);
         p->files_env = strv_free(p->files_env);
         p->fds = mfree(p->fds);
+        p->root_directory_fd = safe_close(p->root_directory_fd);
         p->exec_fd = safe_close(p->exec_fd);
         p->user_lookup_fd = -EBADF;
         p->bpf_restrict_fs_map_fd = -EBADF;

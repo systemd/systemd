@@ -406,7 +406,7 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
                         if (strlen(t) != sizeof(found.sha256sum) * 2)
                                 goto nope;
 
-                        r = unhexmem_full(t, sizeof(found.sha256sum) * 2, /* secure = */ false, &d, &l);
+                        r = unhexmem_full(t, sizeof(found.sha256sum) * 2, /* secure= */ false, &d, &l);
                         if (r == -ENOMEM)
                                 return r;
                         if (r < 0)

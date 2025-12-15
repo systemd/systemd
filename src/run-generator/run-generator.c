@@ -62,7 +62,7 @@ static int generate(void) {
         if (strv_isempty(arg_commands) && !arg_success_action)
                 return 0;
 
-        r = generator_open_unit_file(arg_dest, /* source = */ NULL, "kernel-command-line.service", &f);
+        r = generator_open_unit_file(arg_dest, /* source= */ NULL, "kernel-command-line.service", &f);
         if (r < 0)
                 return r;
 

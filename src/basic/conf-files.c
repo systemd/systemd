@@ -148,7 +148,7 @@ int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile
                             CHASE_AT_RESOLVE_IN_ROOT |
                             CHASE_MUST_BE_DIRECTORY |
                             (FLAGS_SET(chase_flags, CHASE_NONEXISTENT) ? CHASE_NONEXISTENT : 0),
-                            &resolved_dirpath, /* ret_fd = */ NULL);
+                            &resolved_dirpath, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(dirpath));
         }
@@ -177,7 +177,7 @@ int conf_file_new(const char *path, const char *root, ChaseFlags chase_flags, Co
 
         _cleanup_free_ char *root_abs = NULL;
         _cleanup_close_ int rfd = -EBADF;
-        r = prepare_dirs(root, /* dirs = */ NULL, &rfd, &root_abs, /* ret_dirs = */ NULL);
+        r = prepare_dirs(root, /* dirs= */ NULL, &rfd, &root_abs, /* ret_dirs= */ NULL);
         if (r < 0)
                 return r;
 
@@ -239,7 +239,7 @@ static int files_add(
 
                 /* Does this match the suffix? */
                 if (suffix && !endswith(de->d_name, suffix)) {
-                        log_debug("Skipping file '%s/%s' with unexpected suffix.", root, skip_leading_slash(original_path));
+                        log_debug("Skipping file '%s/%s', suffix is not '%s'.", root, skip_leading_slash(original_path), suffix);
                         continue;
                 }
 
@@ -593,7 +593,7 @@ int conf_files_list_strv(
                 return r;
 
         r = conf_files_list_impl(suffix, rfd, root_abs, flags, (const char * const *) dirs_abs,
-                                 /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
+                                 /* replacement= */ NULL, &fh, /* ret_inserted= */ NULL);
         if (r < 0)
                 return r;
 
@@ -622,7 +622,7 @@ int conf_files_list_strv_full(
                 return r;
 
         r = conf_files_list_impl(suffix, rfd, root_abs, flags, (const char * const *) dirs_abs,
-                                 /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
+                                 /* replacement= */ NULL, &fh, /* ret_inserted= */ NULL);
         if (r < 0)
                 return r;
 
@@ -646,11 +646,11 @@ int conf_files_list_strv_at(
         if (rfd >= 0 && DEBUG_LOGGING)
                 (void) fd_get_path(rfd, &root); /* for logging */
 
-        r = conf_files_list_impl(suffix, rfd, root, flags, dirs, /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
+        r = conf_files_list_impl(suffix, rfd, root, flags, dirs, /* replacement= */ NULL, &fh, /* ret_inserted= */ NULL);
         if (r < 0)
                 return r;
 
-        return copy_and_sort_files_from_hashmap(fh, suffix, /* root = */ NULL, flags, ret);
+        return copy_and_sort_files_from_hashmap(fh, suffix, /* root= */ NULL, flags, ret);
 }
 
 int conf_files_list_strv_at_full(
@@ -672,11 +672,11 @@ int conf_files_list_strv_at_full(
         if (rfd >= 0 && DEBUG_LOGGING)
                 (void) fd_get_path(rfd, &root); /* for logging */
 
-        r = conf_files_list_impl(suffix, rfd, root, flags, dirs, /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
+        r = conf_files_list_impl(suffix, rfd, root, flags, dirs, /* replacement= */ NULL, &fh, /* ret_inserted= */ NULL);
         if (r < 0)
                 return r;
 
-        return dump_files(fh, /* root = */ NULL, ret_files, ret_n_files);
+        return dump_files(fh, /* root= */ NULL, ret_files, ret_n_files);
 }
 
 int conf_files_list(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dir) {

@@ -46,9 +46,9 @@ int action_list_catalog(char **items) {
         pager_open(arg_pager_flags);
 
         if (items)
-                r = catalog_list_items(/* f = */ NULL, database, oneline, items);
+                r = catalog_list_items(/* f= */ NULL, database, oneline, items);
         else
-                r = catalog_list(/* f = */ NULL, database, oneline);
+                r = catalog_list(/* f= */ NULL, database, oneline);
         if (r < 0)
                 return log_error_errno(r, "Failed to list catalog: %m");
 

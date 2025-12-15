@@ -938,7 +938,7 @@ static int fd_copy_regular(
         if (fdt < 0)
                 return -errno;
 
-        r = prepare_nocow(fdf, /*from=*/ NULL, fdt, /*chattr_mask=*/ NULL, /*chattr_flags=*/ NULL);
+        r = prepare_nocow(fdf, /* from= */ NULL, fdt, /* chattr_mask= */ NULL, /* chattr_flags= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1583,7 +1583,7 @@ int copy_file_at_full(
                         return fdt;
         }
 
-        r = prepare_nocow(fdf, /*from=*/ NULL, fdt, &chattr_mask, &chattr_flags);
+        r = prepare_nocow(fdf, /* from= */ NULL, fdt, &chattr_mask, &chattr_flags);
         if (r < 0)
                 return r;
 
@@ -1784,7 +1784,7 @@ int copy_xattr(int df, const char *from, int dt, const char *to, CopyFlags copy_
                 if (r < 0)
                         return r;
 
-                RET_GATHER(ret, xsetxattr_full(dt, to, /* at_flags = */ 0, p, value, value_size, /* xattr_flags = */ 0));
+                RET_GATHER(ret, xsetxattr_full(dt, to, /* at_flags= */ 0, p, value, value_size, /* xattr_flags= */ 0));
         }
 
         return ret;

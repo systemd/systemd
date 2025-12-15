@@ -401,7 +401,7 @@ static int create_disk(
                         keydev,
                         "keydev",
                         keyfile_timeout_value,
-                        /* canfail = */ keyfile_can_timeout > 0,
+                        /* canfail= */ keyfile_can_timeout > 0,
                         /* readonly= */ true,
                         &unit,
                         &keydev_mount);
@@ -441,7 +441,7 @@ static int create_disk(
                         headerdev,
                         "headerdev",
                         NULL,
-                        /* canfail=  */ false, /* header is always necessary */
+                        /* canfail= */ false, /* header is always necessary */
                         /* readonly= */ false, /* LUKS2 recovery requires rw header access */
                         &unit,
                         &headerdev_mount);
