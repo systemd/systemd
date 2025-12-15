@@ -590,6 +590,15 @@ static int bus_process_cmsg(sd_bus *bus, struct msghdr *mh, bool allow_fds) {
                 return 0;
         }
 
+        if (n_fds > 0 && bus->fds_might_be_truncated)
+                /* We previously received fds with MSG_CTRUNC set, indicating the fd array was truncated
+                 * (e.g., by an LSM blocking some fds). When the kernel truncates the fd array, it drops
+                 * all fds from the blocked one onwards - we have no way to know how many were lost or
+                 * which indexes are affected. Any fds we receive now would be appended at the wrong
+                 * indexes, corrupting the message's fd table. We must silently drop them to avoid a
+                 * worse mess. The message will still fail later if it tries to access a truncated fd. */
+                return 0;
+
         if (!GREEDY_REALLOC(bus->fds, bus->n_fds + n_fds))
                 return -ENOMEM;
 
@@ -646,13 +655,15 @@ static int bus_socket_read_auth(sd_bus *b) {
                         .msg_controllen = sizeof(control),
                 };
 
-                k = recvmsg_safe(b->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-                if (k == -ENOTSOCK) {
+                k = recvmsg(b->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                if (k < 0 && errno == ENOTSOCK) {
                         b->prefer_readv = true;
                         k = readv(b->input_fd, &iov, 1);
                         if (k < 0)
                                 k = -errno;
-                } else
+                } else if (k < 0)
+                        k = -errno;
+                else
                         handle_cmsg = true;
         }
         if (ERRNO_IS_NEG_TRANSIENT(k))
@@ -1352,6 +1363,7 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
         r = bus_message_from_malloc(bus,
                                     bus->rbuffer, size,
                                     bus->fds, bus->n_fds,
+                                    bus->fds_might_be_truncated,
                                     NULL,
                                     &t);
         if (r == -EBADMSG) {
@@ -1368,6 +1380,7 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
 
         bus->fds = NULL;
         bus->n_fds = 0;
+        bus->fds_might_be_truncated = false;
 
         if (t) {
                 t->read_counter = ++bus->read_counter;
@@ -1418,13 +1431,15 @@ int bus_socket_read_message(sd_bus *bus) {
                         .msg_controllen = sizeof(control),
                 };
 
-                k = recvmsg_safe(bus->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-                if (k == -ENOTSOCK) {
+                k = recvmsg(bus->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                if (k < 0 && errno == ENOTSOCK) {
                         bus->prefer_readv = true;
                         k = readv(bus->input_fd, &iov, 1);
                         if (k < 0)
                                 k = -errno;
-                } else
+                } else if (k < 0)
+                        k = -errno;
+                else
                         handle_cmsg = true;
         }
         if (ERRNO_IS_NEG_TRANSIENT(k))
@@ -1440,6 +1455,9 @@ int bus_socket_read_message(sd_bus *bus) {
         bus->rbuffer_size += k;
 
         if (handle_cmsg) {
+                if (FLAGS_SET(mh.msg_flags, MSG_CTRUNC))
+                        bus->fds_might_be_truncated = true;
+
                 r = bus_process_cmsg(bus, &mh, bus->can_fds);
                 if (r < 0)
                         return r;

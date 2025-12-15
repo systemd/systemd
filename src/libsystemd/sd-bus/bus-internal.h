@@ -256,6 +256,7 @@ typedef struct sd_bus {
 
         int *fds;
         size_t n_fds;
+        bool fds_might_be_truncated; /* MSG_CTRUNC was seen during recvmsg() */
 
         char *exec_path;
         char **exec_argv;

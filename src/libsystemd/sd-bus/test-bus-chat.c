@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <pthread.h>
+#include <sys/resource.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -10,10 +11,13 @@
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-match.h"
+#include "bus-message.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
+#include "memfd-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "time-util.h"
@@ -491,6 +495,147 @@ finish:
         }
 
         return INT_TO_PTR(r);
+}
+
+static ino_t get_inode(int fd) {
+        struct stat st;
+        assert_se(fstat(fd, &st) >= 0);
+        return st.st_ino;
+}
+
+static int get_one_message(sd_bus *bus, sd_bus_message **m) {
+        int r;
+
+        assert (m);
+
+        while (*m == NULL) {
+                r = sd_bus_wait(bus, 100 * USEC_PER_MSEC);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait: %m");
+                r = sd_bus_process(bus, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process requests: %m");
+        }
+
+        return 0;
+}
+
+TEST(ctrunc) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *recvd = NULL, *sent = NULL, *junk = NULL;
+        struct rlimit orig_rl, new_rl;
+        const char *unique;
+        const int n_fds_to_send = 64;
+        ino_t memfd_st_ino[n_fds_to_send];
+        int r;
+
+        log_info("Testing MSG_CTRUNC handling via session bus...");
+
+        /* Connect to the session bus and eat the NamedAcquired message */
+        r = sd_bus_open_user(&bus);
+        if (r < 0)
+                return (void) log_error_errno(r, "Cannot connect to bus: %m");
+        r = get_one_message(bus, &junk);
+        if (r < 0)
+                return; /* already printed error */
+        r = sd_bus_get_unique_name(bus, &unique);
+        if (r < 0)
+                return (void) log_error_errno(r, "Cannot get unique name: %m");
+
+        /* Check if fd passing is supported */
+        if (!sd_bus_can_send(bus, 'h'))
+                return (void) log_error("Bus does not support fd passing: %m");
+
+        /* We will create a message with 64 fds in it and set a fd limit of 128 and try to receive it.  We'll
+         * hold on to that message after we send it and then attempt to receive it back. Since various other
+         * fds will be open, with both copies of the message, we'll definitely hit the limit of 128.
+         */
+        r = sd_bus_message_new_method_call(bus, &sent, unique, "/", "org.freedesktop.systemd.test", "SendFds");
+        if (r != 0)
+                return (void) log_error_errno(r, "Failed to create method call: %m");
+
+        r = sd_bus_message_open_container(sent, SD_BUS_TYPE_ARRAY, "h");
+        if (r != 0)
+                return (void) log_error_errno(r, "Failed to create array: %m");
+
+        /* Create a series of memfds, appending each to the message */
+        for (int i = 0; i < n_fds_to_send; i++) {
+                _cleanup_close_ int memfd = memfd_create_wrapper("ctrunc-test", 0);
+                if (memfd < 0)
+                        return (void) log_error_errno(memfd, "memfd_create failed: %m");
+                memfd_st_ino[i] = get_inode(memfd);
+                r = sd_bus_message_append(sent, "h", memfd);
+                if (r < 0)
+                        return (void) log_error_errno(r, "Failed to append fd %i at index %i: %m", memfd, i);
+
+        }
+        r = sd_bus_message_close_container(sent);
+        if (r != 0)
+                return (void) log_error_errno(r, "Failed to close array: %m");
+
+        /* Send the message - keep 'sent' alive to hold the duplicated fd references */
+        r = sd_bus_send(bus, sent, NULL);
+        if (r < 0)
+                return (void) log_error_errno(r, "Cannot send message with %i fds: %m", n_fds_to_send);
+
+        /* Now turn down the fd limit and receive the message, turn it back up again */
+        if (getrlimit(RLIMIT_NOFILE, &orig_rl) != 0)
+                return (void) log_error_errno(errno, "getrlimit(RLIMIT_NOFILE) failed: %m");
+        new_rl.rlim_cur = n_fds_to_send * 2;
+        new_rl.rlim_max = orig_rl.rlim_max;
+
+        if (setrlimit(RLIMIT_NOFILE, &new_rl) < 0)
+                return (void) log_error_errno(errno, "setrlimit(RLIMIT_NOFILE) failed: %m");
+
+        /* The very first message should be the one we expect */
+        r = get_one_message(bus, &recvd);
+
+        /* This needs to succeed or the following tests are going to be unhappy... */
+        ASSERT_EQ(setrlimit(RLIMIT_NOFILE, &orig_rl), 0);
+
+        if (r < 0)
+                return;
+
+        if (!sd_bus_message_is_method_call(recvd, "org.freedesktop.systemd.test", "SendFds"))
+                return (void) log_error("Did not receive our method call");
+
+        /* Try to read all the fds. We expect at least one to fail with -EBADMSG due to
+         * truncation, and all subsequent reads must also fail with -EBADMSG. */
+        int i;
+        r = sd_bus_message_enter_container(recvd, SD_BUS_TYPE_ARRAY, "h");
+        if (r != 1)
+                return (void) log_error_errno(r, "Failed to enter array");
+        for (i = 0; i < n_fds_to_send; i++) {
+                int fd; /* weakly owned: the fd belongs to the message */
+                r = sd_bus_message_read_basic(recvd, 'h', &fd);
+                if (r == -EBADMSG)
+                        /* Good!  We were expecting this! */
+                        break;
+                if (r < 0)
+                        return (void) log_error_errno(r, "Failed to read fd from message");
+                /* Make sure it stayed in the same order as we sent it */
+                ASSERT_EQ(get_inode(fd), memfd_st_ino[i]);
+        }
+
+        /* Make sure at least one fd failed */
+        ASSERT_LT(i, n_fds_to_send);
+        log_info("fds truncated at %i", i);
+
+        /* At this point we're stuck.  We can call sd_bus_message_read_basic() as often as we want, but we
+         * won't be able to make progress and won't be able to close the array or read anything else in the
+         * message.
+         */
+        for (i = 0; i < 2 * n_fds_to_send; i++) {
+                int fd; /* weakly owned: the fd belongs to the message */
+                r = sd_bus_message_read_basic(recvd, 'h', &fd);
+                if (r != -EBADMSG)
+                        return (void) log_error_errno(r, "Failed to (not) read fd from message");
+        }
+        r = sd_bus_message_exit_container(recvd);
+        if (r != -EBUSY)
+                return (void) log_error_errno(r, "Failed to fail to exit array");
+
+        log_info("MSG_CTRUNC test passed");
 }
 
 TEST(chat) {
