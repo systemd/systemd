@@ -349,7 +349,7 @@ static void service_start_watchdog(Service *s) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to install watchdog timer: %m");
 }
 
-usec_t service_restart_usec_next(Service *s) {
+usec_t service_restart_usec_next(const Service *s) {
         unsigned n_restarts_next;
 
         assert(s);
