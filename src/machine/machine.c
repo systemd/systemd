@@ -1183,8 +1183,6 @@ int machine_copy_from_to_operation(
 
         r = namespace_fork("(sd-copyns)",
                            "(sd-copy)",
-                           /* except_fds= */ NULL,
-                           /* n_except_fds= */ 0,
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
                            /* pidns_fd= */ -EBADF,
                            target_mntns_fd,
@@ -1553,8 +1551,6 @@ int machine_open_root_directory(Machine *machine) {
                 r = namespace_fork(
                                 "(sd-openrootns)",
                                 "(sd-openroot)",
-                                /* except_fds= */ NULL,
-                                /* n_except_fds= */ 0,
                                 FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
                                 /* pidns_fd= */  -EBADF,
                                 mntns_fd,
