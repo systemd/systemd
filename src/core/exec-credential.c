@@ -1216,13 +1216,14 @@ int unit_refresh_credentials(Unit *u) {
         }
 
         _cleanup_close_pair_ int mount_transport_fds[2] = EBADF_PAIR;
+        _cleanup_close_ int userns_fd = -EBADF;
         pid_t child = 0;
 
         PidRef *main_pid = unit_main_pid(u);
         if (pidref_is_set(main_pid)) {
                 _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
 
-                r = pidref_namespace_open(main_pid, &pidns_fd, &mntns_fd, /* ret_netns_fd = */ NULL, /* ret_userns_fd = */ NULL, &root_fd);
+                r = pidref_namespace_open(main_pid, &pidns_fd, &mntns_fd, /* ret_netns_fd = */ NULL, &userns_fd, &root_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open namespace of unit main process '" PID_FMT "': %m",
                                                main_pid->pid);
@@ -1234,12 +1235,12 @@ int unit_refresh_credentials(Unit *u) {
                         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, mount_transport_fds) < 0)
                                 return log_error_errno(errno, "Failed to allocate socket pair: %m");
 
-                        r = namespace_fork("(sd-creds-ns)",
-                                           "(sd-creds-ns-inner)",
-                                           (int[]) { mount_transport_fds[1] }, 1,
-                                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
-                                           pidns_fd, mntns_fd, /* netns_fd = */ -EBADF, /* userns_fd = */ -EBADF, root_fd,
-                                           &child);
+                        r = namespace_fork_full("(sd-creds-ns)", "(sd-creds-ns-inner)",
+                                                (int[]) { mount_transport_fds[1] }, 1,
+                                                FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
+                                                pidns_fd, mntns_fd, /* netns_fd = */ -EBADF, userns_fd, root_fd,
+                                                /* delegated = */ MANAGER_IS_USER(u->manager),
+                                                &child);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to fork off process into unit namespace to refresh credentials: %m");
                         if (r == 0) {
@@ -1291,6 +1292,22 @@ int unit_refresh_credentials(Unit *u) {
 
         if (child <= 0)
                 return 1;
+
+        if (MANAGER_IS_USER(u->manager)) {
+                /* Enter the unit userns now and unshare mountns, so that we have permissions to clone
+                 * the mount tree using open_tree() */
+
+                r = namespace_enter(/* pidns_fd = */ -EBADF,
+                                    /* mntns_fd = */ -EBADF,
+                                    /* netns_fd = */ -EBADF,
+                                    userns_fd,
+                                    /* root_fd = */ -EBADF);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enter user namespace: %m");
+
+                if (unshare(CLONE_NEWNS) < 0)
+                        return log_error_errno(errno, "Failed to unshare mount namespace: %m");
+        }
 
         _cleanup_close_ int tfd = open_tree(AT_FDCWD, cred_dir, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW);
         if (tfd < 0)
