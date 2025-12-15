@@ -864,7 +864,7 @@ static int bearer_properties_changed_handler(
         return 0;
 }
 
-static int modem_map_bearers_on_props(
+static int modem_map_bearers(
                 sd_bus *bus,
                 const char *member,
                 sd_bus_message *m,
@@ -875,44 +875,14 @@ static int modem_map_bearers_on_props(
         _cleanup_strv_free_ char **paths = NULL;
         int r;
 
-        log_info("ModemManager: bearers created at path %s", sd_bus_message_get_path(m));
-
         r = sd_bus_message_read_strv(m, &paths);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        STRV_FOREACH(path, paths)
+        STRV_FOREACH(path, paths) {
+                log_info("ModemManager: bearer found at path %s", *path);
                 (void) bearer_new_and_initialize(modem, *path);
-
-        return 0;
-}
-
-static int modem_map_bearers_initial(
-                sd_bus *bus,
-                const char *member,
-                sd_bus_message *m,
-                sd_bus_error *error,
-                void *userdata) {
-
-        Modem *modem = ASSERT_PTR(userdata);
-        int r;
-
-        while ((r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "o")) > 0) {
-                const char *path;
-
-                r = sd_bus_message_read_basic(m, SD_BUS_TYPE_OBJECT_PATH, &path);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-                if (!path)
-                        continue;
-
-                log_info("ModemManager: bearer found at %s", path);
-                (void) bearer_new_and_initialize(modem, path);
         }
-
-        r = sd_bus_message_exit_container(m);
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         return 0;
 }
@@ -954,12 +924,12 @@ static int modem_properties_changed_signal(
                 sd_bus_error *ret_error) {
 
         static const struct bus_properties_map map[] = {
-                { "Bearers",       "a{sv}", modem_map_bearers_on_props, 0,                                 },
-                { "State",             "i", NULL,                       offsetof(Modem, state)             },
-                { "StateFailedReason", "u", NULL,                       offsetof(Modem, state_fail_reason) },
-                { "Manufacturer",      "s", NULL,                       offsetof(Modem, manufacturer)      },
-                { "Model",             "s", NULL,                       offsetof(Modem, model)             },
-                { "Ports",         "a{su}", modem_map_ports,            0,                                 },
+                { "Bearers",       "a{sv}", modem_map_bearers, 0,                                 },
+                { "State",             "i", NULL,              offsetof(Modem, state)             },
+                { "StateFailedReason", "u", NULL,              offsetof(Modem, state_fail_reason) },
+                { "Manufacturer",      "s", NULL,              offsetof(Modem, manufacturer)      },
+                { "Model",             "s", NULL,              offsetof(Modem, model)             },
+                { "Ports",         "a{su}", modem_map_ports,   0,                                 },
                 {}
         };
         Modem *modem = ASSERT_PTR(userdata);
@@ -1030,12 +1000,12 @@ static int modem_match_properties_changed(Modem *modem, const char *path) {
 
 static int modem_add(Manager *m, const char *path, sd_bus_message *message, sd_bus_error *ret_error) {
         static const struct bus_properties_map map[] = {
-                { "Bearers",           "ao",    modem_map_bearers_initial, 0,                                 },
-                { "State",             "i",     NULL,                      offsetof(Modem, state)             },
-                { "StateFailedReason", "u",     NULL,                      offsetof(Modem, state_fail_reason) },
-                { "Manufacturer",      "s",     NULL,                      offsetof(Modem, manufacturer)      },
-                { "Model",             "s",     NULL,                      offsetof(Modem, model)             },
-                { "Ports",             "a{su}", modem_map_ports,           0,                                 },
+                { "Bearers",           "ao",    modem_map_bearers, 0,                                 },
+                { "State",             "i",     NULL,              offsetof(Modem, state)             },
+                { "StateFailedReason", "u",     NULL,              offsetof(Modem, state_fail_reason) },
+                { "Manufacturer",      "s",     NULL,              offsetof(Modem, manufacturer)      },
+                { "Model",             "s",     NULL,              offsetof(Modem, model)             },
+                { "Ports",             "a{su}", modem_map_ports,   0,                                 },
                 {}
         };
         Modem *modem;
