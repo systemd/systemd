@@ -218,6 +218,7 @@ int namespace_fork_full(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
+                bool delegated,
                 PidRef *ret);
 
 static inline int namespace_fork(
@@ -232,9 +233,9 @@ static inline int namespace_fork(
                 PidRef *ret) {
 
         return namespace_fork_full(outer_name, inner_name, NULL, 0, flags,
-                                   pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd,
+                                   pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd, false,
                                    ret);
-}
+.}
 
 int set_oom_score_adjust(int value);
 int get_oom_score_adjust(int *ret);
