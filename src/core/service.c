@@ -2900,7 +2900,14 @@ static void service_enter_refresh_credentials(Service *s) {
                 LOG_CONTEXT_PUSH_UNIT(UNIT(s));
 
                 r = unit_refresh_credentials(UNIT(s));
-                _exit(r > 0 ? EXIT_SUCCESS : r == 0 ? EXIT_NOTINSTALLED : EXIT_FAILURE);
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        _exit(EXIT_NOPERMISSION);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+                if (r == 0)
+                        _exit(EXIT_NOTINSTALLED);
+
+                _exit(EXIT_SUCCESS);
         }
 
         r = unit_watch_pidref(UNIT(s), &worker, /* exclusive = */ true);
@@ -4545,7 +4552,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         case SERVICE_REFRESH_CREDENTIALS:
                                 if (f == SERVICE_SUCCESS ||
-                                    (f == SERVICE_FAILURE_EXIT_CODE && status == EXIT_NOTINSTALLED)) {
+                                    (f == SERVICE_FAILURE_EXIT_CODE && IN_SET(status, EXIT_NOTINSTALLED, EXIT_NOPERMISSION))) {
 
                                         /* Refreshing asynchronously done, proceed to reload */
                                         s->refreshed_mask |= f == SERVICE_SUCCESS ? SERVICE_RELOAD_CREDENTIALS : 0;
