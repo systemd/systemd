@@ -1703,7 +1703,8 @@ int pidref_safe_fork_full(
          * foreign environment. Note that this has no effect on NSS! (i.e. it only has effect on uses of our
          * dlopen_safe(), which we use comprehensively in our codebase, but glibc NSS doesn't bother, of
          * course.) */
-        block_dlopen();
+        if (!FLAGS_SET(flags, FORK_ALLOW_DLOPEN))
+                block_dlopen();
 
         if (flags & (FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL))
                 if (prctl(PR_SET_PDEATHSIG, fork_flags_to_signal(flags)) < 0) {
@@ -1914,6 +1915,7 @@ int namespace_fork_full(
          * killing of it won't be propagated to the inner child. */
         assert((flags & (FORK_DEATHSIG_SIGKILL|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT)) != 0);
         assert(!FLAGS_SET(flags, FORK_DETACH));
+        assert(!FLAGS_SET(flags, FORK_ALLOW_DLOPEN)); /* never allow loading shared library from another ns */
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC) < 0)
                 return log_full_errno(FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG, errno,
