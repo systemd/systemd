@@ -2548,7 +2548,7 @@ foreach dict : executables
         endforeach
 
         include_directories = dict['include_directories']
-        if not is_test
+        if not is_test and exe_sources.length() > 0
                 include_directories += fs.parent(exe_sources[0])
         endif
 
