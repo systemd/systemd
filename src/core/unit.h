@@ -1005,6 +1005,7 @@ int unit_acquire_invocation_id(Unit *u);
 
 int unit_set_exec_params(Unit *u, ExecParameters *p);
 
+int unit_fork_helper_process_full(Unit *u, const char *name, bool into_cgroup, ForkFlags flags, PidRef *ret);
 int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef *ret);
 int unit_fork_and_watch_rm_rf(Unit *u, char **paths, PidRef *ret);
 
