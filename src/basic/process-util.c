@@ -1901,50 +1901,93 @@ int namespace_fork(
                 int root_fd,
                 pid_t *ret_pid) {
 
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        pid_t pid_outer;
         int r;
 
         /* This is much like safe_fork(), but forks twice, and joins the specified namespaces in the middle
          * process. This ensures that we are fully a member of the destination namespace, with pidns an all, so that
          * /proc/self/fd works correctly. */
 
+        /* Insist on PDEATHSIG being enabled, as the pid returned is the one of the middle man, and otherwise
+         * killing of it won't be propagated to the inner child. */
+        assert((flags & (FORK_DEATHSIG_SIGKILL|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT)) != 0);
+        assert(!FLAGS_SET(flags, FORK_DETACH));
+
+        if (pipe2(errno_pipe_fd, O_CLOEXEC) < 0)
+                return log_full_errno(FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG, errno,
+                                      "Failed to create pipe: %m");
+
         r = safe_fork_full(outer_name,
-                           NULL,
-                           except_fds, n_except_fds,
-                           (flags|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGKILL) & ~(FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE), ret_pid);
+                           /* stdio_fds = */ NULL, /* except_fds = */ NULL, /* n_except_fds = */ 0,
+                           (flags|FORK_DEATHSIG_SIGKILL) & ~(FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_NEW_NETNS|FORK_NEW_PIDNS|FORK_FREEZE|FORK_CLOSE_ALL_FDS|FORK_PACK_FDS|FORK_CLOEXEC_OFF|FORK_WAIT),
+                           &pid_outer);
         if (r < 0)
                 return r;
         if (r == 0) {
-                pid_t pid;
+                pid_t pid_inner;
 
                 /* Child */
+
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
                 r = namespace_enter(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd);
                 if (r < 0) {
                         log_full_errno(FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG, r, "Failed to join namespace: %m");
-                        _exit(EXIT_FAILURE);
+                        report_errno_and_exit(errno_pipe_fd[1], r);
                 }
 
                 /* We mask a few flags here that either make no sense for the grandchild, or that we don't have to do again */
                 r = safe_fork_full(inner_name,
                                    NULL,
                                    except_fds, n_except_fds,
-                                   flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO), &pid);
+                                   flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_REARRANGE_STDIO|FORK_FLUSH_STDIO|FORK_STDOUT_TO_STDERR|FORK_RLIMIT_NOFILE_SAFE),
+                                   &pid_inner);
                 if (r < 0)
-                        _exit(EXIT_FAILURE);
+                        report_errno_and_exit(errno_pipe_fd[1], r);
                 if (r == 0) {
                         /* Child */
+
+                        if (!FLAGS_SET(flags, FORK_CLOSE_ALL_FDS))
+                                safe_close(errno_pipe_fd[1]);
+
+                        errno_pipe_fd[1] = -EBADF;
+
                         if (ret_pid)
-                                *ret_pid = pid;
+                                *ret_pid = pid_inner;
                         return 0;
                 }
 
-                r = wait_for_terminate_and_check(inner_name, pid, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                log_close();
+                log_set_open_when_needed(true);
+
+                (void) close_all_fds(except_fds, n_except_fds);
+
+                r = wait_for_terminate_and_check(inner_name, pid_inner, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
                 _exit(r);
         }
 
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        r = read_errno(errno_pipe_fd[0]);
+        if (r < 0)
+                return r; /* the child logs about failures on its own, no need to duplicate here */
+
+        if (FLAGS_SET(flags, FORK_WAIT)) {
+                r = wait_for_terminate_and_check(outer_name, pid_outer, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                if (r < 0)
+                        return r;
+                if (r != EXIT_SUCCESS)
+                        return -EPROTO;
+
+                pid_outer = 0; /* has been waited for, i.e. no longer exists */
+        }
+
+        if (ret_pid)
+                *ret_pid = pid_outer;
         return 1;
 }
 
