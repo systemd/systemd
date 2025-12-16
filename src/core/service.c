@@ -14,7 +14,6 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "chase.h"
-#include "cryptsetup-util.h"
 #include "dbus-service.h"
 #include "dbus-unit.h"
 #include "devnum-util.h"
@@ -5599,8 +5598,6 @@ static int service_live_mount(
                                 u->id);
         }
 
-        (void) dlopen_cryptsetup();
-
         service_unwatch_control_pid(s);
         s->live_mount_result = SERVICE_SUCCESS;
         s->control_command = NULL;
@@ -5621,7 +5618,9 @@ static int service_live_mount(
          * directly, and instead fork a worker process. We record the D-Bus message, so that we can reply
          * after the operation has finished. This way callers can wait on the message and know that the new
          * resource is available (or the operation failed) once they receive the response. */
-        r = unit_fork_helper_process(u, "(sd-mount-in-ns)", /* into_cgroup= */ false, &worker);
+        r = unit_fork_helper_process_full(u, "(sd-mount-in-ns)", /* into_cgroup= */ false,
+                                          FORK_ALLOW_DLOPEN,
+                                          &worker);
         if (r < 0) {
                 log_unit_error_errno(u, r,
                                      "Failed to fork process to mount '%s' on '%s' in unit's namespace: %m",
