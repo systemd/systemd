@@ -187,8 +187,9 @@ typedef enum ForkFlags {
         FORK_NEW_NETNS          = 1 << 20, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_NEW_PIDNS          = 1 << 21, /* Run child in its own PID namespace                                 💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_FREEZE             = 1 << 22, /* Don't return in child, just call freeze() instead */
+        FORK_ALLOW_DLOPEN       = 1 << 23, /* Do not block dlopen() in child */
 
-        _FORK_PID_ONLY          = 1 << 23, /* Don't open a pidfd referencing the child process */
+        _FORK_PID_ONLY          = 1 << 24, /* Don't open a pidfd referencing the child process */
 } ForkFlags;
 
 int pidref_safe_fork_full(
@@ -215,7 +216,7 @@ static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
         return safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
 }
 
-int namespace_fork(
+int namespace_fork_full(
                 const char *outer_name,
                 const char *inner_name,
                 int except_fds[],
@@ -226,7 +227,24 @@ int namespace_fork(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
+                bool delegated,
                 pid_t *ret_pid);
+
+static inline int namespace_fork(
+                const char *outer_name,
+                const char *inner_name,
+                ForkFlags flags,
+                int pidns_fd,
+                int mntns_fd,
+                int netns_fd,
+                int userns_fd,
+                int root_fd,
+                pid_t *ret_pid) {
+
+        return namespace_fork_full(outer_name, inner_name, NULL, 0, flags,
+                                   pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd, false,
+                                   ret_pid);
+}
 
 int set_oom_score_adjust(int value);
 int get_oom_score_adjust(int *ret);
