@@ -2881,7 +2881,9 @@ static void service_enter_refresh_extensions(Service *s) {
 
         /* Given we are running from PID1, avoid doing potentially heavy I/O operations like opening images
          * directly, and instead fork a worker process. */
-        r = unit_fork_helper_process(UNIT(s), "(sd-refresh-extensions)", /* into_cgroup= */ false, &worker);
+        r = unit_fork_helper_process_full(UNIT(s), "(sd-refresh-extensions)", /* into_cgroup= */ false,
+                                          FORK_ALLOW_DLOPEN, /* permit dlopen() to avoid load of libcryptsetup in pid1 */
+                                          &worker);
         if (r < 0) {
                 log_unit_error_errno(UNIT(s), r, "Failed to fork process to refresh extensions in unit's namespace: %m");
                 goto fail;
