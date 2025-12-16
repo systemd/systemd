@@ -3,8 +3,6 @@
 
 #include "shared-forward.h"
 
-int fd_acl_make_read_only_fallback(int fd);
-
 #if HAVE_ACL
 #include <acl/libacl.h> /* IWYU pragma: export */
 #include <sys/acl.h>    /* IWYU pragma: export */
@@ -54,8 +52,6 @@ int parse_acl(
 int acls_for_file(const char *path, acl_type_t type, acl_t acl, acl_t *ret);
 int fd_add_uid_acl_permission(int fd, uid_t uid, unsigned mask);
 
-int fd_acl_make_read_only(int fd);
-
 /* acl_free() takes multiple argument types. Multiple cleanup functions are necessary. */
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(acl_t, sym_acl_free, acl_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(char*, sym_acl_free, acl_free_charpp, NULL);
@@ -68,7 +64,7 @@ static inline int acl_set_perm(acl_permset_t ps, acl_perm_t p, bool b) {
 
 #else
 
-typedef void *acl_t;
+typedef void* acl_t;
 typedef int acl_tag_t;
 typedef unsigned acl_type_t;
 
@@ -100,10 +96,9 @@ static inline int devnode_acl(int fd, uid_t uid) {
 static inline int fd_add_uid_acl_permission(int fd, uid_t uid, unsigned mask) {
         return -EOPNOTSUPP;
 }
-
-static inline int fd_acl_make_read_only(int fd) {
-        return fd_acl_make_read_only_fallback(fd);
-}
 #endif
+
+int fd_acl_make_read_only(int fd);
+int fd_acl_make_writable(int fd);
 
 int inode_type_can_acl(mode_t mode);
