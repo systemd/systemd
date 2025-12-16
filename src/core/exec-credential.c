@@ -980,7 +980,13 @@ static int setup_credentials_plain_dir(
         r = RET_NERRNO(rename(workspace, cred_dir));
         if (r >= 0)
                 workspace_rm = NULL;
-        if (r == -EEXIST) {
+        if (IN_SET(r, -ENOTEMPTY, -EEXIST)) {
+                _cleanup_close_ int old_dfd = open(cred_dir, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                if (old_dfd < 0)
+                        return log_debug_errno(errno, "Failed to open credentials dir '%s': %m", cred_dir);
+
+                (void) fd_acl_make_writable(old_dfd);
+
                 log_debug_errno(r, "Credential dir '%s' already populated, exchanging with workspace.", cred_dir);
                 r = RET_NERRNO(renameat2(AT_FDCWD, workspace, AT_FDCWD, cred_dir, RENAME_EXCHANGE));
         }
