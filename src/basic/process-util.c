@@ -1983,10 +1983,11 @@ int namespace_fork(
                 if (r != EXIT_SUCCESS)
                         return -EPROTO;
 
-                *ret_pid = 0;
-        } else
-                *ret_pid = pid_outer;
+                pid_outer = 0; /* has been waited for, i.e. no longer exists */
+        }
 
+        if (ret_pid)
+                *ret_pid = pid_outer;
         return 1;
 }
 
