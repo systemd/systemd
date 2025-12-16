@@ -8,6 +8,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "dlfcn-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -216,6 +217,9 @@ int namespace_open(
 
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {
         int r;
+
+        /* Block dlopen() now, to avoid us inadvertently loading shared library from another namespace */
+        block_dlopen();
 
         if (userns_fd >= 0) {
                 /* Can't setns to your own userns, since then you could escalate from non-root to root in
