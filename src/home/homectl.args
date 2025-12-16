@@ -1,0 +1,843 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+global help_key_width 28
+
+intro
+        /* This points to one of arg_identity_extra, arg_identity_extra_this_machine,
+         * arg_identity_extra_other_machines, in order to redirect changes on the next property
+         * being set to this part of the identity, instead of the default. */
+        sd_json_variant **match_identity = NULL;
+
+        _cleanup_strv_free_ char **languages = NULL;
+
+option -h --help
+
+option --version
+
+option --no-pager
+
+option --no-legend
+help Do not show the headers and footers
+        arg_legend = false;
+
+option --no-ask-password
+help Do not ask for system passwords
+        arg_ask_password = false;
+
+option --offline
+help Don't update record embedded in home directory
+        arg_offline = true;
+
+option -H= --host=[USER@]HOST
+help Operate on remote host
+        arg_transport = BUS_TRANSPORT_REMOTE;
+        arg_host = optarg;
+
+option -M= --machine=CONTAINER
+help Operate on local container
+        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+        if (r < 0)
+                return r;
+
+option -I= --identity=PATH
+help Read JSON identity from file
+        arg_identity = optarg;
+
+option --json=FORMAT
+help Output inspection data in JSON (takes one of pretty, short, off)
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+option -j
+help Equivalent to --json=pretty (on TTY) or --json=short (otherwise)
+        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+
+option --export-format=full|stripped|minimal
+help Strip JSON inspection data
+        if (streq(optarg, "help"))
+                return DUMP_STRING_TABLE(export_format, ExportFormat, _EXPORT_FORMAT_MAX);
+
+        arg_export_format = export_format_from_string(optarg);
+        if (arg_export_format < 0)
+                return log_error_errno(arg_export_format, "Invalid export format: %s", optarg);
+
+option -E
+help Used once equals -j --export-format=stripped,
+help used twice equals -j --export-format=minimal
+        if (arg_export_format == EXPORT_FORMAT_FULL)
+                arg_export_format = EXPORT_FORMAT_STRIPPED;
+        else if (arg_export_format == EXPORT_FORMAT_STRIPPED)
+                arg_export_format = EXPORT_FORMAT_MINIMAL;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specifying -E more than twice is not supported.");
+
+        arg_json_format_flags &= ~SD_JSON_FORMAT_OFF;
+        if (arg_json_format_flags == 0)
+                arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+
+option --key-name=NAME
+help Key name when adding a signing key
+        if (!isempty(optarg) && !filename_is_valid(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Parameter for --key-name= not a valid filename: %s", optarg);
+
+        r = free_and_strdup_warn(&arg_key_name, empty_to_null(optarg));
+        if (r < 0)
+                return r;
+
+option --seize=no
+help Do not strip existing signatures of user record when creating
+        r = parse_boolean_argument("--seize=", optarg, &arg_seize);
+        if (r < 0)
+                return r;
+
+option --prompt-new-user
+help firstboot: Query user interactively for user to create
+        arg_prompt_new_user = true;
+
+option --prompt-groups=no
+help In first-boot mode, don't prompt for auxiliary group memberships
+        r = parse_boolean_argument("--prompt-groups=", optarg, &arg_prompt_groups);
+        if (r < 0)
+                return r;
+
+option --prompt-shell=no
+help In first-boot mode, don't prompt for shells
+        r = parse_boolean_argument("--prompt-shell=", optarg, &arg_prompt_shell);
+        if (r < 0)
+                return r;
+
+option --chrome=no
+help In first-boot mode, don't show colour bar at top and bottom of terminal
+        r = parse_boolean_argument("--chrome=", optarg, &arg_chrome);
+        if (r < 0)
+                return r;
+
+option --mute-console=yes
+help In first-boot mode, tell kernel/PID 1 to not write to the console while running
+        r = parse_boolean_argument("--mute-console=", optarg, &arg_mute_console);
+        if (r < 0)
+                return r;
+
+option -c= --real-name=REALNAME --comment=
+# last name is a compat alias to keep thing in sync with useradd(8)
+group general_user_properties
+help Real name for user
+        if (!isempty(optarg) && !valid_gecos(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid GECOS field '%s'.", optarg);
+
+        r = parse_string_field(match_identity ?: &arg_identity_extra, "realName", optarg);
+        if (r < 0)
+                return r;
+
+option --realm=REALM
+group general_user_properties
+help Realm to create user in
+        r = parse_realm_field(&arg_identity_extra, "realm", optarg);
+        if (r < 0)
+                return r;
+
+option --alias=ALIAS
+group general_user_properties
+help Define alias usernames for this account
+        r = parse_group_field(arg_identity_extra, &arg_identity_extra, "aliases", optarg);
+        if (r < 0)
+                return r;
+
+option --email-address=EMAIL
+group general_user_properties
+help Email address for user
+        _fallthrough_;
+option --location=LOCATION
+group general_user_properties
+help Set location of user on earth
+        _fallthrough_;
+option --icon-name=NAME
+group general_user_properties
+help Icon name for user
+        _fallthrough_;
+option --cifs-domain=DOMAIN
+group cifs_properties
+help CIFS (Windows) domain
+        _fallthrough_;
+option --cifs-user-name=USER
+group cifs_properties
+help CIFS (Windows) user name
+        _fallthrough_;
+option --cifs-service=SERVICE
+group cifs_properties
+help CIFS (Windows) service to mount as home area
+        _fallthrough_;
+option --cifs-extra-mount-options=OPTIONS
+group cifs_properties
+help CIFS (Windows) extra mount options
+        _fallthrough_;
+option --luks-extra-mount-options=OPTIONS
+group luks_properties
+help LUKS extra mount options
+        _fallthrough_;
+option --session-launcher=LAUNCHER
+group login_properties
+help Preferred session launcher file
+        _fallthrough_;
+option --session-type=TYPE
+group login_properties
+help Preferred session type
+        const char *field =
+                           c == ARG_EMAIL_ADDRESS ? "emailAddress" :
+                                c == ARG_LOCATION ? "location" :
+                               c == ARG_ICON_NAME ? "iconName" :
+                             c == ARG_CIFS_DOMAIN ? "cifsDomain" :
+                          c == ARG_CIFS_USER_NAME ? "cifsUserName" :
+                            c == ARG_CIFS_SERVICE ? "cifsService" :
+                c == ARG_CIFS_EXTRA_MOUNT_OPTIONS ? "cifsExtraMountOptions" :
+                c == ARG_LUKS_EXTRA_MOUNT_OPTIONS ? "luksExtraMountOptions" :
+                        c == ARG_SESSION_LAUNCHER ? "preferredSessionLauncher" :
+                            c == ARG_SESSION_TYPE ? "preferredSessionType" :
+                                                    NULL;
+        assert(field);
+
+        if (c == ARG_CIFS_SERVICE && !isempty(optarg)) {
+                r = parse_cifs_service(optarg, NULL, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to validate CIFS service name: %s", optarg);
+        }
+
+        r = parse_string_field(match_identity ?: &arg_identity_extra, field, optarg);
+        if (r < 0)
+                return r;
+
+option -d= --home-dir=PATH
+# compatible with useradd(8)
+group general_user_properties
+help Home directory
+        r = parse_home_directory_field(&arg_identity_extra, "homeDirectory", optarg);
+        if (r < 0)
+                return r;
+
+option -u= --uid=UID
+# compatible with useradd(8)
+group general_user_properties
+help Numeric UID for user
+        r = parse_uid_field(&arg_identity_extra, "uid", optarg);
+        if (r < 0)
+                return r;
+
+option -G= --member-of=GROUP --group=
+# last name is a compat alias to keep thing in sync with useradd(8)
+group general_user_properties
+help Add user to group
+        r = parse_group_field(arg_identity_extra,
+                              match_identity ?: &arg_identity_extra,
+                              "memberOf", optarg);
+        if (r < 0)
+                return r;
+
+option --capability-bounding-set=CAPS
+group general_user_properties
+help Bounding POSIX capability set
+        r = parse_capability_set_field(match_identity ?: &arg_identity_extra,
+                                       &arg_capability_bounding_set,
+                                       "capabilityBoundingSet", optarg);
+        if (r < 0)
+                return r;
+
+option --capability-ambient-set=CAPS
+group general_user_properties
+help Ambient POSIX capability set
+        r = parse_capability_set_field(match_identity ?: &arg_identity_extra,
+                                       &arg_capability_ambient_set,
+                                       "capabilityAmbientSet", optarg);
+        if (r < 0)
+                return r;
+
+option --access-mode=MODE
+group general_user_properties
+help User home directory access mode
+        r = parse_mode_field(&arg_identity_extra, "accessMode", optarg);
+        if (r < 0)
+                return r;
+
+option --umask=MODE
+group general_user_properties
+help Umask for user when logging in
+        r = parse_mode_field(match_identity ?: &arg_identity_extra, "umask", optarg);
+        if (r < 0)
+                return r;
+
+option --skel=PATH -k=
+# compatible with useradd(8)
+group general_user_properties
+help Skeleton directory to use
+        _fallthrough_;
+option --image-path=PATH
+group storage_properties
+help Path to image file/directory
+        const char *field = c == 'k' ? "skeletonDirectory" : "imagePath";
+
+        r = parse_path_field(match_identity ?: &arg_identity_extra_this_machine, field, optarg);
+        if (r < 0)
+                return r;
+
+option --shell=PATH -s=
+# compatible with useradd(8)
+group general_user_properties
+help Shell for account
+        if (!isempty(optarg) && !valid_shell(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Shell '%s' not valid.", optarg);
+
+        r = parse_string_field(match_identity ?: &arg_identity_extra, "shell", optarg);
+        if (r < 0)
+                return r;
+
+option --setenv=VARIABLE[=VALUE]
+group general_user_properties
+help Set an environment variable at log-in
+        r = parse_environment_field(match_identity ?: &arg_identity_extra, "environment", optarg);
+        if (r < 0)
+                return r;
+
+option --timezone=TIMEZONE
+group general_user_properties
+help Set a time-zone
+        if (!isempty(optarg) && !timezone_is_valid(optarg, LOG_DEBUG))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Timezone '%s' is not valid.", optarg);
+
+        r = parse_string_field(match_identity ?: &arg_identity_extra, "timeZone", optarg);
+        if (r < 0)
+                return r;
+
+option --language=LOCALE
+group general_user_properties
+help Set preferred languages
+        r = parse_language_field(&languages, optarg);
+        if (r < 0)
+                return r;
+
+option --default-area=AREA
+group general_user_properties
+help Select default area
+        r = parse_filename_field(match_identity ?: &arg_identity_extra, "defaultArea", optarg);
+        if (r < 0)
+                return r;
+
+option --ssh-authorized-keys=KEYS
+group auth_user_properties
+help Specify SSH public keys
+        r = parse_ssh_authorized_keys(&arg_identity_extra_privileged, "sshAuthorizedKeys", optarg);
+        if (r < 0)
+                return r;
+
+option --pkcs11-token-uri=URI
+group auth_user_properties
+help URI to PKCS#11 security token containing private key and matching X.509 certificate
+        r = parse_pkcs11_token_uri_field(optarg);
+        if (r <= 0)
+                return r;
+
+option --fido2-credential-algorithm=ALG
+help COSE algorithm used in credential generation
+group auth_user_properties
+        r = parse_fido2_algorithm(optarg, &arg_fido2_cred_alg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse COSE algorithm: %s", optarg);
+
+option --fido2-device=PATH
+group auth_user_properties
+help Path to FIDO2 hidraw device with hmac-secret extension
+        r = parse_fido2_device_field(optarg);
+        if (r <= 0)
+                return r;
+
+option --fido2-with-client-pin=yes|no
+group auth_user_properties
+help Whether to require entering a PIN to unlock the account
+        r = parse_boolean_argument("--fido2-with-client-pin=", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_PIN, r);
+
+option --fido2-with-user-presence=yes|no
+group auth_user_properties
+help Whether to require user presence to unlock the account
+        r = parse_boolean_argument("--fido2-with-user-presence=", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, r);
+
+option --fido2-with-user-verification=yes|no
+group auth_user_properties
+help Whether to require user verification to unlock the account
+        r = parse_boolean_argument("--fido2-with-user-verification=", optarg, NULL);
+        if (r < 0)
+                return r;
+
+        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, r);
+
+option --recovery-key=yes|no
+group auth_user_properties
+help Add a recovery key
+        r = parse_boolean(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --recovery-key= argument: %s", optarg);
+        arg_recovery_key = r;
+
+        r = drop_from_identity("recoveryKey", "recoveryKeyType");
+        if (r < 0)
+                return r;
+
+option -b= --blob=[FILENAME=]PATH
+group blob_user_properties
+help Path to a replacement blob directory, or replace an individual files in the blob directory
+        _fallthrough_;
+option --avatar=PATH
+group blob_user_properties
+help Path to user avatar picture
+        _fallthrough_;
+option --login-background=PATH
+group blob_user_properties
+help Path to user login background picture
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *path = NULL, *filename = NULL;
+
+        if (c == 'b') {
+                if (isempty(optarg)) { /* --blob= deletes everything, including existing blob dirs */
+                        hashmap_clear(arg_blob_files);
+                        arg_blob_dir = mfree(arg_blob_dir);
+                        arg_blob_clear = true;
+                        break;
+                }
+
+                char *eq = strrchr(optarg, '=');
+                if (!eq) { /* --blob=/some/path replaces the blob dir */
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_blob_dir);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse path %s: %m", optarg);
+                        break;
+                }
+
+                /* --blob=filename=/some/path replaces the file "filename" with /some/path */
+                filename = strndup(optarg, eq - optarg);
+                if (!filename)
+                        return log_oom();
+
+                if (isempty(filename))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't parse blob file assignment: %s", optarg);
+                if (!suitable_blob_filename(filename))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid blob filename: %s", filename);
+
+                r = parse_path_argument(eq + 1, /* suppress_root= */ false, &path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse path %s: %m", eq + 1);
+        } else {
+                const char *well_known_filename =
+                                  c == ARG_AVATAR ? "avatar" :
+                        c == ARG_LOGIN_BACKGROUND ? "login-background" :
+                                                    NULL;
+                assert(well_known_filename);
+
+                filename = strdup(well_known_filename);
+                if (!filename)
+                        return log_oom();
+
+                r = parse_path_argument(optarg, /* suppress_root= */ false, &path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse path %s: %m", optarg);
+        }
+
+        if (path) {
+                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open %s: %m", path);
+
+                if (fd_verify_regular(fd) < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Provided blob is not a regular file: %s", path);
+        } else
+                fd = -EBADF; /* Delete the file */
+
+        r = hashmap_ensure_put(&arg_blob_files, &blob_fd_hash_ops, filename, FD_TO_PTR(fd));
+        if (r < 0)
+                return log_error_errno(r, "Failed to map %s to %s in blob directory: %m", path, filename);
+        TAKE_PTR(filename); /* hashmap takes ownership */
+        TAKE_FD(fd);
+
+option --not-before=TIMESTAMP
+group user_account_properties
+help Do not allow logins before
+        _fallthrough_;
+option --not-after=TIMESTAMP -e= --expiredate=
+# last name is a compat alias to keep thing in sync with useradd(8)
+group user_account_properties
+help Do not allow logins after
+        const char *field = c == ARG_NOT_BEFORE ? "notBeforeUSec" : "notAfterUSec";
+
+        r = parse_timestamp_field(match_identity ?: &arg_identity_extra, field, optarg);
+        if (r < 0)
+                return r;
+
+option --luks-pbkdf-time-cost=SECS
+group luks_properties
+help Time cost for PBKDF in seconds
+        _fallthrough_;
+option --rate-limit-interval=SECS
+group user_account_properties
+help Login rate-limit interval in seconds
+        _fallthrough_;
+option --stop-delay=SECS
+group login_properties
+help How long to leave user services running after logout
+        const char *field =
+                c == ARG_LUKS_PBKDF_TIME_COST ? "luksPbkdfTimeCostUSec" :
+                 c == ARG_RATE_LIMIT_INTERVAL ? "rateLimitIntervalUSec" :
+                          c == ARG_STOP_DELAY ? "stopDelayUSec" :
+                                                NULL;
+        assert(field);
+
+        r = parse_time_field(match_identity ?: &arg_identity_extra, field, optarg);
+        if (r < 0)
+                return r;
+
+option --password-hint=HINT
+group password_policy
+help Set Password hint
+        r = parse_string_field(&arg_identity_extra_privileged, "passwordHint", optarg);
+        if (r < 0)
+                return r;
+
+        string_erase(optarg);
+
+option --password-change-min=TIME
+group password_policy
+help Require minimum time between password changes
+        _fallthrough_;
+option --password-change-max=TIME
+group password_policy
+help Require maximum time between password changes
+        _fallthrough_;
+option --password-change-warn=TIME
+group password_policy
+help How much time to warn before password expiry
+        _fallthrough_;
+option --password-change-inactive=TIME
+group password_policy
+help How much time to block password after expiry
+        const char *field =
+                     c == ARG_PASSWORD_CHANGE_MIN ? "passwordChangeMinUSec" :
+                     c == ARG_PASSWORD_CHANGE_MAX ? "passwordChangeMaxUSec" :
+                    c == ARG_PASSWORD_CHANGE_WARN ? "passwordChangeWarnUSec" :
+                c == ARG_PASSWORD_CHANGE_INACTIVE ? "passwordChangeInactiveUSec" :
+                                                    NULL;
+        assert(field);
+
+        r = parse_time_field(match_identity ?: &arg_identity_extra, field, optarg);
+        if (r < 0)
+                return r;
+
+option --disk-size=BYTES
+group RESOURCE_PROPERTIES
+help Size to assign the user on disk
+        r = parse_disk_size_field(match_identity ?: &arg_identity_extra_this_machine, optarg);
+        if (r < 0)
+                return r;
+
+option --nice=NICE
+group RESOURCE_PROPERTIES
+help Nice level for user
+        r = parse_nice_field(match_identity ?: &arg_identity_extra, "niceLevel", optarg);
+        if (r < 0)
+                return r;
+
+option --rlimit=LIMIT=VALUE[:VALUE]
+group RESOURCE_PROPERTIES
+help Set resource limits
+        r = parse_rlimit_field(&arg_identity_extra_rlimits, "resourceLimits", optarg);
+        if (r < 0)
+                return r;
+
+option --tasks-max=MAX
+group RESOURCE_PROPERTIES
+help Set maximum number of per-user tasks
+        r = parse_u64_field(match_identity ?: &arg_identity_extra, "tasksMax", optarg);
+        if (r < 0)
+                return r;
+
+option --memory-high=BYTES
+group RESOURCE_PROPERTIES
+help Set high memory threshold
+        _fallthrough_;
+option --memory-max=BYTES
+group RESOURCE_PROPERTIES
+help Set maximum memory limit
+        const char *field =
+                            c == ARG_MEMORY_MAX ? "memoryMax" :
+                           c == ARG_MEMORY_HIGH ? "memoryHigh" :
+                                                  NULL;
+
+        r = parse_size_field(match_identity ?: &arg_identity_extra_this_machine, field, optarg);
+        if (r < 0)
+                return r;
+
+option --cpu-weight=WEIGHT
+group RESOURCE_PROPERTIES
+help Set CPU weight
+        _fallthrough_;
+option --io-weight=WEIGHT
+group RESOURCE_PROPERTIES
+help Set IO weight
+        const char *field = c == ARG_CPU_WEIGHT ? "cpuWeight" :
+                             c == ARG_IO_WEIGHT ? "ioWeight" :
+                                                  NULL;
+
+        r = parse_weight_field(match_identity ?: &arg_identity_extra, field, optarg);
+        if (r < 0)
+                return r;
+
+option --tmp-limit=BYTES|PERCENT
+group RESOURCE_PROPERTIES
+help Set limit on /tmp/
+        r = parse_tmpfs_limit_field(match_identity ?: &arg_identity_extra,
+                                    "tmpLimit", "tmpLimitScale", optarg);
+        if (r < 0)
+                return r;
+
+option --dev-shm-limit=BYTES|PERCENT
+group RESOURCE_PROPERTIES
+help Set limit on /dev/shm/
+        r = parse_tmpfs_limit_field(match_identity ?: &arg_identity_extra,
+                                    "devShmLimit", "devShmLimitScale", optarg);
+        if (r < 0)
+                return r;
+
+option --storage=STORAGE
+group storage_properties
+help Storage type to use (luks, fscrypt, directory, subvolume, cifs)
+        _fallthrough_;
+option --fs-type=TYPE
+group luks_properties
+help File system type to use in case of luks storage (btrfs, ext4, xfs)
+        const char *field =
+                                  c == ARG_STORAGE ? "storage" :
+                                  c == ARG_FS_TYPE ? "fileSystemType" :
+                                                     NULL;
+        assert(field);
+
+        sd_json_variant **identity = match_identity ?: &arg_identity_extra_this_machine;
+
+        if (!isempty(optarg) && !string_is_safe(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Parameter for field %s not valid: %s", field, optarg);
+
+        r = parse_string_field(identity, field, optarg);
+        if (r < 0)
+                return r;
+
+option --drop-caches=yes|no
+group storage_properties
+help Whether to automatically drop caches on logout
+        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "dropCaches", optarg);
+        if (r < 0)
+                return r;
+
+option --luks-discard=yes|no
+group luks_properties
+help Whether to use 'discard' feature of file system when activated (mounted)
+        _fallthrough_;
+option --luks-offline-discard=yes|no
+group luks_properties
+help Whether to trim file on logout
+        const char *field = c == ARG_LUKS_DISCARD ? "luksDiscard" : "luksOfflineDiscard";
+
+        r = parse_boolean_field(match_identity ?: &arg_identity_extra, field, optarg);
+        if (r < 0)
+                return r;
+
+option --luks-cipher=CIPHER
+group luks_properties
+help Cipher to use for LUKS encryption
+        _fallthrough_;
+option --luks-cipher-mode=MODE
+group luks_properties
+help Cipher mode to use for LUKS encryption
+        _fallthrough_;
+option --luks-pbkdf-type=TYPE
+group luks_properties
+help Password-based Key Derivation Function to use
+        _fallthrough_;
+option --luks-pbkdf-hash-algorithm=ALGORITHM
+group luks_properties
+help PBKDF hash algorithm to use
+        const char *field =
+                              c == ARG_LUKS_CIPHER ? "luksCipher" :
+                         c == ARG_LUKS_CIPHER_MODE ? "luksCipherMode" :
+                          c == ARG_LUKS_PBKDF_TYPE ? "luksPbkdfType" :
+                c == ARG_LUKS_PBKDF_HASH_ALGORITHM ? "luksPbkdfHashAlgorithm" :
+                                                     NULL;
+        assert(field);
+
+        sd_json_variant **identity = match_identity ?: &arg_identity_extra;
+
+        if (!isempty(optarg) && !string_is_safe(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Parameter for field %s not valid: %s", field, optarg);
+
+        r = parse_string_field(identity, field, optarg);
+        if (r < 0)
+                return r;
+
+option --luks-volume-key-size=BITS
+group luks_properties
+help Volume key size to use for LUKS encryption
+        _fallthrough_;
+option --luks-pbkdf-parallel-threads=NUMBER
+group luks_properties
+help Number of parallel threads for PKBDF
+        _fallthrough_;
+option --rate-limit-burst=NUMBER
+group user_account_properties
+help Login rate-limit attempts per interval
+        const char *field =
+                       c == ARG_LUKS_VOLUME_KEY_SIZE ? "luksVolumeKeySize" :
+                c == ARG_LUKS_PBKDF_PARALLEL_THREADS ? "luksPbkdfParallelThreads" :
+                           c == ARG_RATE_LIMIT_BURST ? "rateLimitBurst" :
+                                                       NULL;
+        assert(field);
+
+        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, field, optarg);
+        if (r < 0)
+                return r;
+
+option --luks-pbkdf-memory-cost=BYTES
+group luks_properties
+help Memory cost for PBKDF in bytes
+        r = parse_size_field(match_identity ?: &arg_identity_extra_this_machine,
+                             "luksPbkdfMemoryCost", optarg);
+        if (r < 0)
+                return r;
+
+option --luks-sector-size=BYTES
+group luks_properties
+help Sector size for LUKS encryption in bytes
+        r = parse_sector_size_field(match_identity ?: &arg_identity_extra, "luksSectorSize", optarg);
+        if (r < 0)
+                return r;
+
+option --auto-resize-mode=MODE
+group luks_properties
+help Automatically grow/shrink home on login/logout
+        r = parse_auto_resize_mode_field(match_identity ?: &arg_identity_extra,
+                                         "autoResizeMode", optarg);
+        if (r < 0)
+                return r;
+
+option --rebalance-weight=WEIGHT
+group luks_properties
+help Weight while rebalancing
+        r = parse_rebalance_weight(match_identity ?: &arg_identity_extra,
+                                   "rebalanceWeight", optarg);
+        if (r < 0)
+                return r;
+
+option --nosuid=yes|no
+group mount_properties
+help Control the 'nosuid' flag of the home mount
+        _fallthrough_;
+option --nodev=yes|no
+group mount_properties
+help Control the 'nodev' flag of the home mount
+        _fallthrough_;
+option --noexec=yes|no
+group mount_properties
+help Control the 'noexec' flag of the home mount
+        _fallthrough_;
+option --locked=yes|no
+group user_account_properties
+help Set locked account state
+        _fallthrough_;
+option --kill-processes=yes|no
+group login_properties
+help Whether to kill user processes when sessions terminate
+        _fallthrough_;
+option --auto-login=yes|no
+group login_properties
+help Try to log this user in automatically
+        _fallthrough_;
+option --enforce-password-policy=yes|no
+group password_policy
+help Control whether to enforce system password policy for this user
+        _fallthrough_;
+option --password-change-now=yes|no
+group password_policy
+help Require the password to be changed on next login
+        const char *field =
+                                 c == ARG_LOCKED ? "locked" :
+                                 c == ARG_NOSUID ? "mountNoSuid" :
+                                  c == ARG_NODEV ? "mountNoDevices" :
+                                 c == ARG_NOEXEC ? "mountNoExecute" :
+                         c == ARG_KILL_PROCESSES ? "killProcesses" :
+                             c == ARG_AUTO_LOGIN ? "autoLogin" :
+                c == ARG_ENFORCE_PASSWORD_POLICY ? "enforcePasswordPolicy" :
+                    c == ARG_PASSWORD_CHANGE_NOW ? "passwordChangeNow" :
+                                                   NULL;
+        assert(field);
+
+        r = parse_boolean_field(match_identity ?: &arg_identity_extra, field, optarg);
+        if (r < 0)
+                return r;
+
+option -P
+group password_policy
+help Same as --enforce-password-policy=no
+        r = sd_json_variant_set_field_boolean(&arg_identity_extra, "enforcePasswordPolicy", false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", "enforcePasswordPolicy");
+
+option --match=this|other|any|auto
+help To which machines to apply the settings
+        if (streq(optarg, "any"))
+                match_identity = &arg_identity_extra;
+        else if (streq(optarg, "this"))
+                match_identity = &arg_identity_extra_this_machine;
+        else if (streq(optarg, "other"))
+                match_identity = &arg_identity_extra_other_machines;
+        else if (streq(optarg, "auto"))
+                match_identity = NULL;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--match= argument not understood. Refusing.");
+
+option -A
+help Same as --match=any
+        match_identity = &arg_identity_extra;
+
+option -T
+help Same as --match=this
+        match_identity = &arg_identity_extra_this_machine;
+
+option -N
+help Same as --match=other
+        match_identity = &arg_identity_extra_other_machines;
+
+outro
+        if (!strv_isempty(languages)) {
+                r = sd_json_variant_set_field_string(&arg_identity_extra, "preferredLanguage", languages[0]);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update preferred language: %m");
+
+                char **additional = strv_skip(languages, 1);
+                if (!strv_isempty(additional)) {
+                        r = sd_json_variant_set_field_strv(&arg_identity_extra, "additionalLanguages", additional);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to update additional language list: %m");
+                } else {
+                        r = drop_from_identity("additionalLanguages");
+                        if (r < 0)
+                                return r;
+                }
+        }
