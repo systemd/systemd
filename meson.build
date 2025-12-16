@@ -2517,6 +2517,7 @@ foreach dict : executables
 
         is_test = name.startswith('test-')
         is_fuzz = name.startswith('fuzz-')
+        is_standalone = name.endswith('.standalone')
 
         build = true
         foreach cond : dict.get('conditions', [])
@@ -2529,17 +2530,13 @@ foreach dict : executables
                 continue
         endif
 
-        if name.endswith('.standalone') and not have_standalone_binaries
-                continue
-        endif
-
         exe_sources = dict.get('sources', []) + dict.get('extract', [])
 
         kwargs = {}
         foreach key, val : dict
                 if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'objects', 'sources', 'extract',
-                           'include_directories']
+                           'include_directories', 'build_by_default']
                         continue
                 endif
 
@@ -2579,17 +2576,21 @@ foreach dict : executables
                 endforeach
         endif
 
+        build_by_default = dict.get('build_by_default',
+                                    have_standalone_binaries or not is_standalone)
+
         exe = executable(
                 name,
                 sources : exe_sources,
                 kwargs : kwargs,
                 implicit_include_directories : false,
                 include_directories : include_directories,
+                build_by_default: build_by_default,
         )
 
         executables_by_name += { name : exe }
 
-        if not name.endswith('.standalone')
+        if not is_standalone
                 sources += exe_sources
         endif
 
@@ -2602,7 +2603,7 @@ foreach dict : executables
                 }
         endif
 
-        if dict.get('build_by_default', true)
+        if build_by_default
                 if dict.get('dbus', false)
                         dbus_programs += exe
                 endif
