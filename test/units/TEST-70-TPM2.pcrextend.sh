@@ -9,7 +9,7 @@ set -o pipefail
 export SYSTEMD_LOG_LEVEL=debug
 SD_PCREXTEND="/usr/lib/systemd/systemd-pcrextend"
 
-if [[ ! -x "${SD_PCREXTEND:?}" ]] || ! tpm_has_pcr sha256 11 || ! tpm_has_pcr sha256 15; then
+if [[ ! -x "${SD_PCREXTEND:?}" ]] || ! tpm_has_pcr sha256 16 || ! tpm_has_pcr sha256 15; then
     echo "$SD_PCREXTEND or PCR sysfs files not found, skipping PCR extension tests"
     exit 0
 fi
@@ -28,23 +28,23 @@ export SYSTEMD_FORCE_MEASURE=1
 
 "$SD_PCREXTEND" --help
 "$SD_PCREXTEND" --version
-"$SD_PCREXTEND" foo
+"$SD_PCREXTEND" --pcr=16 foo
 "$SD_PCREXTEND" --machine-id
 "$SD_PCREXTEND" --product-id
 "$SD_PCREXTEND" --tpm2-device=list
-"$SD_PCREXTEND" --tpm2-device=auto foo
-"$SD_PCREXTEND" --tpm2-device=/dev/tpm0 foo
-"$SD_PCREXTEND" --bank=sha256 foo
-"$SD_PCREXTEND" --bank=sha256 --bank=sha256 foo
-"$SD_PCREXTEND" --graceful foo
+"$SD_PCREXTEND" --tpm2-device=auto --pcr=16 foo
+"$SD_PCREXTEND" --tpm2-device=/dev/tpm0 --pcr=16 foo
+"$SD_PCREXTEND" --bank=sha256 --pcr=16 foo
+"$SD_PCREXTEND" --bank=sha256 --bank=sha256 --pcr=16 foo
+"$SD_PCREXTEND" --graceful --pcr=16 foo
 "$SD_PCREXTEND" --pcr=15 foo
 "$SD_PCREXTEND" --file-system=/
 "$SD_PCREXTEND" --file-system=/tmp --file-system=/
-"$SD_PCREXTEND" --file-system=/tmp --file-system=/ --pcr=15 --pcr=11
+"$SD_PCREXTEND" --file-system=/tmp --file-system=/ --pcr=15 --pcr=16
 "$SD_PCREXTEND" --nvpcr=hardware foo
 
-if tpm_has_pcr sha1 11; then
-    "$SD_PCREXTEND" --bank=sha1 --pcr=11 foo
+if tpm_has_pcr sha1 16; then
+    "$SD_PCREXTEND" --bank=sha1 --pcr=16 foo
 fi
 
 (! "$SD_PCREXTEND")
@@ -88,9 +88,9 @@ DIGEST_CURRENT="$(jq --seq --slurp --raw-output ".[$RECORD_COUNT].digests[] | se
 test "$DIGEST_EXPECTED" == "$DIGEST_CURRENT"
 
 RECORD_COUNT=$((RECORD_COUNT + 1))
-# And similar for the boot phase measurement into PCR 11
-tpm2_pcrread sha256:11 -Q -o /tmp/oldpcr11
-# Do the equivalent of 'SYSTEMD_FORCE_MEASURE=1 "$SD_PCREXTEND" foobar' via Varlink, just to test the Varlink logic (but first we need to patch out the conditionalization...)
+# And similar for a string measurement into PCR 16
+tpm2_pcrread sha256:16 -Q -o /tmp/oldpcr16
+# Do the equivalent of 'SYSTEMD_FORCE_MEASURE=1 "$SD_PCREXTEND" --pcr=16 foobar' via Varlink, just to test the Varlink logic (but first we need to patch out the conditionalization...)
 mkdir -p /run/systemd/system/systemd-pcrextend.socket.d
 cat >/run/systemd/system/systemd-pcrextend.socket.d/50-no-condition.conf <<EOF
 [Unit]
@@ -99,14 +99,14 @@ ConditionSecurity=
 EOF
 systemctl daemon-reload
 systemctl restart systemd-pcrextend.socket
-varlinkctl call /run/systemd/io.systemd.PCRExtend io.systemd.PCRExtend.Extend '{"pcr":11,"text":"foobar"}'
-tpm2_pcrread sha256:11 -Q -o /tmp/newpcr11
+varlinkctl call /run/systemd/io.systemd.PCRExtend io.systemd.PCRExtend.Extend '{"pcr":16,"text":"foobar"}'
+tpm2_pcrread sha256:16 -Q -o /tmp/newpcr16
 
-diff /tmp/newpcr11 \
-    <(cat /tmp/oldpcr11 <(echo -n "foobar" | openssl dgst -binary -sha256) | openssl dgst -binary -sha256)
+diff /tmp/newpcr16 \
+    <(cat /tmp/oldpcr16 <(echo -n "foobar" | openssl dgst -binary -sha256) | openssl dgst -binary -sha256)
 
 # Check the event log for the 2nd new record since $RECORD_COUNT
-test "$(jq --seq --slurp ".[$RECORD_COUNT].pcr" </run/log/systemd/tpm2-measure.log)" == "$(printf '\x1e11')"
+test "$(jq --seq --slurp ".[$RECORD_COUNT].pcr" </run/log/systemd/tpm2-measure.log)" == "$(printf '\x1e16')"
 DIGEST_EXPECTED="$(echo -n "foobar" | openssl dgst -hex -sha256 -r)"
 DIGEST_CURRENT="$(jq --seq --slurp --raw-output ".[$RECORD_COUNT].digests[] | select(.hashAlg == \"sha256\").digest" </run/log/systemd/tpm2-measure.log) *stdin"
 test "$DIGEST_EXPECTED" == "$DIGEST_CURRENT"
@@ -124,4 +124,4 @@ tpm2_pcrread sha256:15 -Q -o /tmp/newpcr15
 diff /tmp/newpcr15 \
      <(cat /tmp/oldpcr15 <(echo -n "file-system:$FS_WORD" | openssl dgst -binary -sha256) | openssl dgst -binary -sha256)
 
-rm -f /tmp/oldpcr{11,15} /tmp/newpcr{11,15}
+rm -f /tmp/oldpcr{16,15} /tmp/newpcr{16,15}
