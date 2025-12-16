@@ -112,6 +112,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
+#include "sysusers.args.inc"
+
 typedef struct Context {
         int audit_fd;
 
@@ -2057,18 +2059,9 @@ static int help(void) {
         printf("%1$s [OPTIONS...] [CONFIGURATION FILE...]\n"
                "\n%2$sCreates system user and group accounts.%4$s\n"
                "\n%3$sCommands:%4$s\n"
-               "     --cat-config           Show configuration files\n"
-               "     --tldr                 Show non-comment parts of configuration\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
+               OPTION_HELP_GENERATED_COMMANDS
                "\n%3$sOptions:%4$s\n"
-               "     --root=PATH            Operate on an alternate filesystem root\n"
-               "     --image=PATH           Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY  Specify disk image dissection policy\n"
-               "     --replace=PATH         Treat arguments as replacement for PATH\n"
-               "     --dry-run              Just print what would be done\n"
-               "     --inline               Treat arguments as configuration lines\n"
-               "     --no-pager             Do not pipe output into a pager\n"
+               OPTION_HELP_GENERATED
                "\nSee the %5$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2080,105 +2073,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_CAT_CONFIG,
-                ARG_TLDR,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_REPLACE,
-                ARG_DRY_RUN,
-                ARG_INLINE,
-                ARG_NO_PAGER,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "cat-config",   no_argument,       NULL, ARG_CAT_CONFIG   },
-                { "tldr",         no_argument,       NULL, ARG_TLDR         },
-                { "root",         required_argument, NULL, ARG_ROOT         },
-                { "image",        required_argument, NULL, ARG_IMAGE        },
-                { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
-                { "replace",      required_argument, NULL, ARG_REPLACE      },
-                { "dry-run",      no_argument,       NULL, ARG_DRY_RUN      },
-                { "inline",       no_argument,       NULL, ARG_INLINE       },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_CAT_CONFIG:
-                        arg_cat_flags = CAT_CONFIG_ON;
-                        break;
-
-                case ARG_TLDR:
-                        arg_cat_flags = CAT_TLDR;
-                        break;
-
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_REPLACE:
-                        if (!path_is_absolute(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "The argument to --replace= must be an absolute path.");
-                        if (!endswith(optarg, ".conf"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "The argument to --replace= must have the extension '.conf'.");
-
-                        arg_replace = optarg;
-                        break;
-
-                case ARG_DRY_RUN:
-                        arg_dry_run = true;
-                        break;
-
-                case ARG_INLINE:
-                        arg_inline = true;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (arg_replace && arg_cat_flags != CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
