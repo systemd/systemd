@@ -13,6 +13,7 @@
 #include "base-filesystem.h"
 #include "bitfield.h"
 #include "chase.h"
+#include "cryptsetup-util.h"
 #include "dev-setup.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
@@ -3851,6 +3852,8 @@ int refresh_extensions_in_namespace(
                 return log_debug_errno(r, "Failed to check if target namespace is separate: %m");
         if (r > 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Target namespace is not separate, cannot reload extensions");
+
+        (void) dlopen_libcryptsetup();
 
         extension_dir = path_join(p->private_namespace_dir, "unit-extensions");
         if (!extension_dir)
