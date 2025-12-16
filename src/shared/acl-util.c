@@ -668,14 +668,33 @@ int fd_add_uid_acl_permission(
 
         return 0;
 }
+#endif
+
+static int fd_acl_make_read_only_fallback(int fd) {
+        struct stat st;
+
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if ((st.st_mode & 0222) == 0)
+                return 0;
+
+        if (fchmod(fd, st.st_mode & 0555) < 0)
+                return -errno;
+
+        return 1;
+}
 
 int fd_acl_make_read_only(int fd) {
+        assert(fd >= 0);
+
+#if HAVE_ACL
         _cleanup_(acl_freep) acl_t acl = NULL;
         bool changed = false;
         acl_entry_t i;
         int r;
-
-        assert(fd >= 0);
 
         /* Safely drops all W bits from all relevant ACL entries of the file, without changing entries which
          * are masked by the ACL mask */
@@ -734,12 +753,33 @@ int fd_acl_make_read_only(int fd) {
 maybe_fallback:
         if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return r;
+#endif
 
         /* No ACLs? Then just update the regular mode_t */
         return fd_acl_make_read_only_fallback(fd);
 }
 
+static int fd_acl_make_writable_fallback(int fd) {
+        struct stat st;
+
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if ((st.st_mode & 0200) != 0) /* already set */
+                return 0;
+
+        if (fchmod(fd, (st.st_mode & 07777) | 0200) < 0)
+                return -errno;
+
+        return 1;
+}
+
 int fd_acl_make_writable(int fd) {
+        assert(fd >= 0);
+
+#if HAVE_ACL
         _cleanup_(acl_freep) acl_t acl = NULL;
         acl_entry_t i;
         int r;
@@ -749,15 +789,12 @@ int fd_acl_make_writable(int fd) {
 
         r = dlopen_libacl();
         if (r < 0)
-                return r;
+                goto maybe_fallback;
 
         acl = sym_acl_get_fd(fd);
         if (!acl) {
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                        return -errno;
-
-                /* No ACLs? Then just update the regular mode_t */
-                return fd_acl_make_writable_fallback(fd);
+                r = -errno;
+                goto maybe_fallback;
         }
 
         for (r = sym_acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
@@ -792,48 +829,19 @@ int fd_acl_make_writable(int fd) {
                 return -errno;
 
         if (sym_acl_set_fd(fd, acl) < 0) {
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                        return -errno;
-
-                return fd_acl_make_writable_fallback(fd);
+                r = -errno;
+                goto maybe_fallback;
         }
 
         return 1;
-}
+
+maybe_fallback:
+        if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return r;
 #endif
 
-int fd_acl_make_read_only_fallback(int fd) {
-        struct stat st;
-
-        assert(fd >= 0);
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if ((st.st_mode & 0222) == 0)
-                return 0;
-
-        if (fchmod(fd, st.st_mode & 0555) < 0)
-                return -errno;
-
-        return 1;
-}
-
-int fd_acl_make_writable_fallback(int fd) {
-        struct stat st;
-
-        assert(fd >= 0);
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if ((st.st_mode & 0200) != 0) /* already set */
-                return 0;
-
-        if (fchmod(fd, (st.st_mode & 07777) | 0200) < 0)
-                return -errno;
-
-        return 1;
+        /* No ACLs? Then just update the regular mode_t */
+        return fd_acl_make_writable_fallback(fd);
 }
 
 int inode_type_can_acl(mode_t mode) {
