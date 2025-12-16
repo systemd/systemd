@@ -68,7 +68,7 @@ static inline int acl_set_perm(acl_permset_t ps, acl_perm_t p, bool b) {
 
 #else
 
-typedef void *acl_t;
+typedef void* acl_t;
 typedef int acl_tag_t;
 typedef unsigned acl_type_t;
 
