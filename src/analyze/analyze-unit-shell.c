@@ -82,8 +82,6 @@ int verb_unit_shell(int argc, char *argv[], void *userdata) {
         r = namespace_fork(
                         "(unit-shell-ns)",
                         "(unit-shell)",
-                        /* except_fds= */ NULL,
-                        /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
                         pidns_fd,
                         mntns_fd,
