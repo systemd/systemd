@@ -37,6 +37,7 @@ void resource_destroy(Resource *rr) {
         assert(rr);
 
         free(rr->path);
+        free(rr->manifest);
         strv_free(rr->patterns);
 
         for (size_t i = 0; i < rr->n_instances; i++)
@@ -266,11 +267,12 @@ static int resource_load_from_blockdev(Resource *rr) {
 
 static int download_manifest(
                 const char *url,
+                const char *manifest_file,
                 bool verify_signature,
                 char **ret_buffer,
                 size_t *ret_size) {
 
-        _cleanup_free_ char *buffer = NULL, *suffixed_url = NULL;
+        _cleanup_free_ char *buffer = NULL, *suffixed_url = NULL;;
         _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         _cleanup_fclose_ FILE *manifest = NULL;
         size_t size = 0;
@@ -281,11 +283,13 @@ static int download_manifest(
         assert(ret_buffer);
         assert(ret_size);
 
+
         /* Download a SHA256SUMS file as manifest */
 
-        r = import_url_append_component(url, "SHA256SUMS", &suffixed_url);
+        r = import_url_append_component(url, manifest_file ?: "SHA256SUMS" , &suffixed_url);
+
         if (r < 0)
-                return log_error_errno(r, "Failed to append SHA256SUMS to URL: %m");
+                return log_error_errno(r, "Failed to append manifest name to URL: %m");
 
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
@@ -372,7 +376,7 @@ static int resource_load_from_web(
         } else {
                 log_debug("Manifest web cache miss for %s.", rr->path);
 
-                r = download_manifest(rr->path, verify, &buf, &manifest_size);
+                r = download_manifest(rr->path, rr->manifest, verify, &buf, &manifest_size);
                 if (r < 0)
                         return r;
 
