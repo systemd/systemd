@@ -7,6 +7,7 @@
 #include "ansi-color.h"
 #include "bitfield.h"
 #include "boot-entry.h"
+#include "chase.h"
 #include "constants.h"
 #include "creds-util.h"
 #include "cryptsetup-util.h"
@@ -6947,9 +6948,10 @@ static int tpm2_nvpcr_write_anchor_secret(
 
         /* Writes the encrypted credential of the anchor secret to directory 'dir' and file 'fname' */
 
-        _cleanup_close_ int dfd = open_mkdir(dir, O_CLOEXEC, 0755);
-        if (dfd < 0)
-                return log_error_errno(dfd, "Failed to create '%s' directory: %m", dir);
+        _cleanup_close_ int dfd = -EBADF;
+        r = chase(dir, /* root= */ NULL, CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &dfd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create '%s' directory: %m", dir);
 
         _cleanup_free_ char *joined = path_join(dir, fname);
         if (!joined)
