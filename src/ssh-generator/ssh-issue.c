@@ -15,7 +15,7 @@
 #include "mkdir.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
-#include "socket-util.h"
+#include "ssh-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
 #include "virt.h"
@@ -135,33 +135,11 @@ static int acquire_cid(unsigned *ret_cid) {
                 return 0;
         }
 
-        _cleanup_close_ int vsock_fd = socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0);
-        if (vsock_fd < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
-                        log_debug("Not creating issue file, since AF_VSOCK is not available.");
-                        *ret_cid = 0;
-                        return 0;
-                }
+        r = vsock_open_or_warn(/* ret= */ NULL);
+        if (r <= 0)
+                return r;
 
-                return log_error_errno(errno, "Unable to test if AF_VSOCK is available: %m");
-        }
-
-        vsock_fd = safe_close(vsock_fd);
-
-        unsigned local_cid;
-        r = vsock_get_local_cid(&local_cid);
-        if (r < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(r)) {
-                        log_debug("Not creating issue file, since /dev/vsock is not available (even though AF_VSOCK is).");
-                        *ret_cid = 0;
-                        return 0;
-                }
-
-                return log_error_errno(r, "Failed to query local AF_VSOCK CID: %m");
-        }
-
-        *ret_cid = local_cid;
-        return 1;
+        return vsock_get_local_cid_or_warn(ret_cid);
 }
 
 static int run(int argc, char* argv[]) {
