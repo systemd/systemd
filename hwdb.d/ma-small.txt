@@ -7787,12 +7787,6 @@ DD2000-DD2FFF     (base 16)		SHIELD-CCTV CO.,LTD.
 				Poway  CA  92064
 				US
 
-8C-1F-64   (hex)		Taicang T&W Electronics
-FFB000-FFBFFF     (base 16)		Taicang T&W Electronics
-				89# Jiang Nan RD
-				Suzhou  Jiangsu  215412
-				CN
-
 8C-1F-64   (hex)		Shenzhen zhushida Technology lnformation Co.,Ltd
 A5D000-A5DFFF     (base 16)		Shenzhen zhushida Technology lnformation Co.,Ltd
 				701, Building D, Zone B, Junxing Industrial Zone, Junxing Industrial Zone, Oyster Road, Zhancheng Community, Fuhai Street,
@@ -7805,11 +7799,11 @@ A5D000-A5DFFF     (base 16)		Shenzhen zhushida Technology lnformation Co.,Ltd
 				SHENZHEN  Bao'an District  518000
 				CN
 
-8C-1F-64   (hex)		Oriux
-20A000-20AFFF     (base 16)		Oriux
-				5825 N. Sam Houston Pkwy WSuite 220 Houston TX 77086 United S
-				Houston  TX  77086
-				US
+8C-1F-64   (hex)		Taicang T&W Electronics
+FFB000-FFBFFF     (base 16)		Taicang T&W Electronics
+				89# Jiang Nan RD
+				Suzhou  Jiangsu  215412
+				CN
 
 8C-1F-64   (hex)		Breas Medical AB
 5A1000-5A1FFF     (base 16)		Breas Medical AB
@@ -7817,16 +7811,34 @@ A5D000-A5DFFF     (base 16)		Shenzhen zhushida Technology lnformation Co.,Ltd
 				Mölnlycke    SE-435 33
 				SE
 
+8C-1F-64   (hex)		Oriux
+20A000-20AFFF     (base 16)		Oriux
+				5825 N. Sam Houston Pkwy WSuite 220 Houston TX 77086 United S
+				Houston  TX  77086
+				US
+
 8C-1F-64   (hex)		ENBIK Technology Co., Ltd
 85A000-85AFFF     (base 16)		ENBIK Technology Co., Ltd
 				2F., No.542, Sec. 1, Minsheng N. Rd.,
 				Taoyuan City  Taoyuan City  333016
 				TW
 
+8C-1F-64   (hex)		ibg Prüfcomputer GmbH
+627000-627FFF     (base 16)		ibg Prüfcomputer GmbH
+				Pretzfelder Str. 27
+				Ebermannstadt    91320
+				DE
+
 8C-1F-64   (hex)		Amazon Robotics MTAC Matrix NPI
 DC4000-DC4FFF     (base 16)		Amazon Robotics MTAC Matrix NPI
 				50 Otis Street
 				Westborough  MA  01581
+				US
+
+8C-1F-64   (hex)		Potter Electric Signal Co. LLC
+316000-316FFF     (base 16)		Potter Electric Signal Co. LLC
+				1609 Park 370 Place
+				Hazelwood  MO  63042
 				US
 
 8C-1F-64   (hex)		Eiden Co.,Ltd.
@@ -7840,18 +7852,6 @@ C09000-C09FFF     (base 16)		S.E.I. CO.,LTD.
 				59 Nirayama Tada
 				Izunokuni  Shizuoka  4102133
 				JP
-
-8C-1F-64   (hex)		ibg Prüfcomputer GmbH
-627000-627FFF     (base 16)		ibg Prüfcomputer GmbH
-				Pretzfelder Str. 27
-				Ebermannstadt    91320
-				DE
-
-8C-1F-64   (hex)		Potter Electric Signal Co. LLC
-316000-316FFF     (base 16)		Potter Electric Signal Co. LLC
-				1609 Park 370 Place
-				Hazelwood  MO  63042
-				US
 
 8C-1F-64   (hex)		Boon Arthur Engineering Pte Ltd
 D8A000-D8AFFF     (base 16)		Boon Arthur Engineering Pte Ltd
@@ -7878,18 +7878,6 @@ C74000-C74FFF     (base 16)		Nippon Techno Lab Inc
 				JP
 
 70-B3-D5   (hex)		Aplex Technology Inc.
-9B1000-9B1FFF     (base 16)		Aplex Technology Inc.
-				15F-1, No.186, Jian Yi Road 
-				Zhonghe District  New Taipei City 235   -
-				TW
-
-70-B3-D5   (hex)		Aplex Technology Inc.
-F00000-F00FFF     (base 16)		Aplex Technology Inc.
-				15F-1, No.186, Jian Yi Road 
-				Zhonghe District  New Taipei City 235   -
-				TW
-
-70-B3-D5   (hex)		Aplex Technology Inc.
 986000-986FFF     (base 16)		Aplex Technology Inc.
 				15F-1, No.186, Jian Yi Road
 				Zhonghe District  New Taipei City 235   -
@@ -7902,7 +7890,19 @@ F00000-F00FFF     (base 16)		Aplex Technology Inc.
 				TW
 
 70-B3-D5   (hex)		Aplex Technology Inc.
+F00000-F00FFF     (base 16)		Aplex Technology Inc.
+				15F-1, No.186, Jian Yi Road 
+				Zhonghe District  New Taipei City 235   -
+				TW
+
+70-B3-D5   (hex)		Aplex Technology Inc.
 2EE000-2EEFFF     (base 16)		Aplex Technology Inc.
+				15F-1, No.186, Jian Yi Road 
+				Zhonghe District  New Taipei City 235   -
+				TW
+
+70-B3-D5   (hex)		Aplex Technology Inc.
+9B1000-9B1FFF     (base 16)		Aplex Technology Inc.
 				15F-1, No.186, Jian Yi Road 
 				Zhonghe District  New Taipei City 235   -
 				TW
@@ -7931,23 +7931,17 @@ CCF000-CCFFFF     (base 16)		Tiptop Platform P. Ltd
 				Jaipur  Rajasthan  302001
 				IN
 
-8C-1F-64   (hex)		Thermaco Incorporated
-F20000-F20FFF     (base 16)		Thermaco Incorporated
-				646 GREENSBORO ST
-				ASHEBORO  NC  27203-4739
-				US
-
 8C-1F-64   (hex)		Taesung Media
 8DB000-8DBFFF     (base 16)		Taesung Media
 				Room 20, 306, Dalseo-daero 109-gil
 				Dalseo-gu  Daegu   42709
 				KR
 
-8C-1F-64   (hex)		Omnilink Tecnologia S/A
-023000-023FFF     (base 16)		Omnilink Tecnologia S/A
-				Alameda Tocantins, 350, Edificio West Corp, 13° andar, Alphaville Industrial
-				Barueri  SP  06455-020
-				BR
+8C-1F-64   (hex)		Thermaco Incorporated
+F20000-F20FFF     (base 16)		Thermaco Incorporated
+				646 GREENSBORO ST
+				ASHEBORO  NC  27203-4739
+				US
 
 8C-1F-64   (hex)		Kite Rise Technologies GmbH
 508000-508FFF     (base 16)		Kite Rise Technologies GmbH
@@ -7955,11 +7949,11 @@ F20000-F20FFF     (base 16)		Thermaco Incorporated
 				Graz    8054
 				AT
 
-8C-1F-64   (hex)		Vinfast Trading and Production JSC
-F80000-F80FFF     (base 16)		Vinfast Trading and Production JSC
-				Dinh Vu - Cat Hai Economic Zone, Cai Hai Island, Cat Hai Sepcial Administrative Zone
-				Hai Phong  Hai Phong  180000
-				VN
+8C-1F-64   (hex)		Omnilink Tecnologia S/A
+023000-023FFF     (base 16)		Omnilink Tecnologia S/A
+				Alameda Tocantins, 350, Edificio West Corp, 13° andar, Alphaville Industrial
+				Barueri  SP  06455-020
+				BR
 
 8C-1F-64   (hex)		GETQCALL
 37A000-37AFFF     (base 16)		GETQCALL
@@ -7967,17 +7961,17 @@ F80000-F80FFF     (base 16)		Vinfast Trading and Production JSC
 				North York   ON  M2N6Z6
 				CA
 
+8C-1F-64   (hex)		Vinfast Trading and Production JSC
+F80000-F80FFF     (base 16)		Vinfast Trading and Production JSC
+				Dinh Vu - Cat Hai Economic Zone, Cai Hai Island, Cat Hai Sepcial Administrative Zone
+				Hai Phong  Hai Phong  180000
+				VN
+
 8C-1F-64   (hex)		YDIIT Co., Ltd.
 1FA000-1FAFFF     (base 16)		YDIIT Co., Ltd.
 				#3010, U-Tower, 120, Heungdeokjungang-ro, Giheung-gu,
 				Yongin  Gyeonggi  16950
 				KR
-
-8C-1F-64   (hex)		AUREKA SMART LIVING W.L.L
-689000-689FFF     (base 16)		AUREKA SMART LIVING W.L.L
-				Office 22, Bldg 288C, Avenue 16, Hidd
-				Hidd    0111
-				BH
 
 8C-1F-64   (hex)		Embedded Designs Services India Pvt Ltd
 CD7000-CD7FFF     (base 16)		Embedded Designs Services India Pvt Ltd
@@ -7991,11 +7985,11 @@ CD7000-CD7FFF     (base 16)		Embedded Designs Services India Pvt Ltd
 				수원  Gyeonggi-do  16690
 				KR
 
-8C-1F-64   (hex)		Sichuan ZhikongLingxin Technology Co., Ltd.
-17A000-17AFFF     (base 16)		Sichuan ZhikongLingxin Technology Co., Ltd.
-				No. 22, 5th Floor, Unit 1, Building 3, No.666 Guandong 1st Street, Chengdu Hightech Zone, China (Sichuan) Pilot Free Trade Zone.
-				Chengdu  Sichuan  610095
-				CN
+8C-1F-64   (hex)		AUREKA SMART LIVING W.L.L
+689000-689FFF     (base 16)		AUREKA SMART LIVING W.L.L
+				Office 22, Bldg 288C, Avenue 16, Hidd
+				Hidd    0111
+				BH
 
 8C-1F-64   (hex)		Beijing Dangong Technology Co., Ltd
 DB8000-DB8FFF     (base 16)		Beijing Dangong Technology Co., Ltd
@@ -8009,17 +8003,23 @@ CC9000-CC9FFF     (base 16)		Benchmark Electronics BV
 				Almelo  Overijssel  7602 EA
 				NL
 
-8C-1F-64   (hex)		Raspberry Pi (Trading) Ltd
-34A000-34AFFF     (base 16)		Raspberry Pi (Trading) Ltd
-				Maurice Wilkes Building, St Johns Innovation Park
-				Cambridge  Cambridgeshire  CB4 0DS
-				GB
+8C-1F-64   (hex)		Sichuan ZhikongLingxin Technology Co., Ltd.
+17A000-17AFFF     (base 16)		Sichuan ZhikongLingxin Technology Co., Ltd.
+				No. 22, 5th Floor, Unit 1, Building 3, No.666 Guandong 1st Street, Chengdu Hightech Zone, China (Sichuan) Pilot Free Trade Zone.
+				Chengdu  Sichuan  610095
+				CN
 
 8C-1F-64   (hex)		WHITEBOX TECHNOLOGY HONG KONG LTD
 E2A000-E2AFFF     (base 16)		WHITEBOX TECHNOLOGY HONG KONG LTD
 				UNIT B 11/F, Yam Tze Commercial Building, 23 Thomson Road
 				Wan Chai  Hong Kong  Hong Kong
 				HK
+
+8C-1F-64   (hex)		Raspberry Pi (Trading) Ltd
+34A000-34AFFF     (base 16)		Raspberry Pi (Trading) Ltd
+				Maurice Wilkes Building, St Johns Innovation Park
+				Cambridge  Cambridgeshire  CB4 0DS
+				GB
 
 8C-1F-64   (hex)		Invader Technologies Pvt Ltd
 859000-859FFF     (base 16)		Invader Technologies Pvt Ltd
@@ -8039,17 +8039,17 @@ C70000-C70FFF     (base 16)		INVIXIUM ACCESS INC
 				Toronto  Ontario  M2H 3R1
 				CA
 
-8C-1F-64   (hex)		Televic Rail GmbH
-9D1000-9D1FFF     (base 16)		Televic Rail GmbH
-				Teltowkanalstr.1
-				Berlin    12247
-				DE
-
 8C-1F-64   (hex)		Potter Electric Signal Co. LLC
 8C8000-8C8FFF     (base 16)		Potter Electric Signal Co. LLC
 				1609 Park 370 Place
 				Hazelwood  MO  63042
 				US
+
+8C-1F-64   (hex)		Televic Rail GmbH
+9D1000-9D1FFF     (base 16)		Televic Rail GmbH
+				Teltowkanalstr.1
+				Berlin    12247
+				DE
 
 8C-1F-64   (hex)		Kuntu Technology Limited Liability Compant
 7CC000-7CCFFF     (base 16)		Kuntu Technology Limited Liability Compant
@@ -8057,17 +8057,17 @@ C70000-C70FFF     (base 16)		INVIXIUM ACCESS INC
 				Moscow  Select State  123112
 				RU
 
-8C-1F-64   (hex)		VORTIX NETWORKS
-96F000-96FFFF     (base 16)		VORTIX NETWORKS
-				3230 E Imperial Hwy, Suite 300
-				Brea  CA  92821
-				US
-
 8C-1F-64   (hex)		VMA GmbH
 783000-783FFF     (base 16)		VMA GmbH
 				Graefinauer Strasse 2
 				Ilmenau    98693
 				DE
+
+8C-1F-64   (hex)		VORTIX NETWORKS
+96F000-96FFFF     (base 16)		VORTIX NETWORKS
+				3230 E Imperial Hwy, Suite 300
+				Brea  CA  92821
+				US
 
 8C-1F-64   (hex)		浙江红谱科技有限公司
 6DA000-6DAFFF     (base 16)		浙江红谱科技有限公司
@@ -8093,11 +8093,11 @@ DB4000-DB4FFF     (base 16)		MB connect line GmbH
 				Anif  Salzburg  5081
 				AT
 
-8C-1F-64   (hex)		TECHTUIT CO.,LTD.
-2D6000-2D6FFF     (base 16)		TECHTUIT CO.,LTD.
-				1-4-28,MITA,26F MITA KOKUSAIBLDG,
-				MINATO-KU  TOKYO  108-0073
-				JP
+8C-1F-64   (hex)		Abbott Diagnostics Technologies AS
+7F6000-7F6FFF     (base 16)		Abbott Diagnostics Technologies AS
+				P. O.  Box 6863 Rodeløkka
+				Oslo  Oslo  0504
+				NO
 
 8C-1F-64   (hex)		SEGRON Automation, s.r.o.
 DC1000-DC1FFF     (base 16)		SEGRON Automation, s.r.o.
@@ -8105,23 +8105,23 @@ DC1000-DC1FFF     (base 16)		SEGRON Automation, s.r.o.
 				Bratislava    82101
 				SK
 
-8C-1F-64   (hex)		Abbott Diagnostics Technologies AS
-7F6000-7F6FFF     (base 16)		Abbott Diagnostics Technologies AS
-				P. O.  Box 6863 Rodeløkka
-				Oslo  Oslo  0504
-				NO
-
-8C-1F-64   (hex)		RESMED PTY LTD
-3C7000-3C7FFF     (base 16)		RESMED PTY LTD
-				1 Elizabeth Macarthur Drive, Bella Vista NSW 2153 Australia
-				NSW    2153
-				AT
+8C-1F-64   (hex)		TECHTUIT CO.,LTD.
+2D6000-2D6FFF     (base 16)		TECHTUIT CO.,LTD.
+				1-4-28,MITA,26F MITA KOKUSAIBLDG,
+				MINATO-KU  TOKYO  108-0073
+				JP
 
 8C-1F-64   (hex)		Zengar Institute Inc
 710000-710FFF     (base 16)		Zengar Institute Inc
 				1007 Fort St, 4th FL
 				Victoria  BC  V8V 3K5
 				CA
+
+8C-1F-64   (hex)		RESMED PTY LTD
+3C7000-3C7FFF     (base 16)		RESMED PTY LTD
+				1 Elizabeth Macarthur Drive, Bella Vista NSW 2153 Australia
+				NSW    2153
+				AT
 
 8C-1F-64   (hex)		Creating Cloud Technology Co.,Ltd.,CT-CLOUD
 C9D000-C9DFFF     (base 16)		Creating Cloud Technology Co.,Ltd.,CT-CLOUD
@@ -8134,6 +8134,12 @@ C9D000-C9DFFF     (base 16)		Creating Cloud Technology Co.,Ltd.,CT-CLOUD
 				Moutstraat 54
 				Gent  Oost-Vlaanderen  9000
 				BE
+
+8C-1F-64   (hex)		ZKTECO EUROPE
+734000-734FFF     (base 16)		ZKTECO EUROPE
+				CARRETERA DE FUENCARRAL 44
+				ALCOBENDAS  MADRID  28108
+				ES
 
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
@@ -15893,17 +15899,17 @@ F03000-F03FFF     (base 16)		Faust ApS
 				Helsinki    00150
 				FI
 
-8C-1F-64   (hex)		Mitsubishi Electric System & Service Co., Ltd.
-E05000-E05FFF     (base 16)		Mitsubishi Electric System & Service Co., Ltd.
-				1-26-43 Yada, Higashi-ku,
-				Nagoya  Aichi  461-0040
-				JP
-
 8C-1F-64   (hex)		NARI TECH Co., Ltd
 888000-888FFF     (base 16)		NARI TECH Co., Ltd
 				947, Hanam-daero
 				Hanam-si  Gyeonggi-do  12982
 				KR
+
+8C-1F-64   (hex)		Mitsubishi Electric System & Service Co., Ltd.
+E05000-E05FFF     (base 16)		Mitsubishi Electric System & Service Co., Ltd.
+				1-26-43 Yada, Higashi-ku,
+				Nagoya  Aichi  461-0040
+				JP
 
 8C-1F-64   (hex)		NSK Co.,Ltd.
 2A3000-2A3FFF     (base 16)		NSK Co.,Ltd.
@@ -15929,17 +15935,17 @@ B41000-B41FFF     (base 16)		STATE GRID INTELLIGENCE TECHNOLOGY CO.,LTD.
 				Muenster  North Rhine-Westphalia  48163
 				DE
 
-8C-1F-64   (hex)		TECZZ LLC
-D95000-D95FFF     (base 16)		TECZZ LLC
-				17 Forest AvenueSuite 017
-				Fond Du Lac  WI  54935
-				US
-
 8C-1F-64   (hex)		BK LAB
 F8C000-F8CFFF     (base 16)		BK LAB
 				#1309, Daeryung Technotown 15, Simin-daero 401, Dongan-gu
 				Anyang-si  Gyonggi-do  14057
 				KR
+
+8C-1F-64   (hex)		TECZZ LLC
+D95000-D95FFF     (base 16)		TECZZ LLC
+				17 Forest AvenueSuite 017
+				Fond Du Lac  WI  54935
+				US
 
 8C-1F-64   (hex)		Potter Electric Signal Co. LLC
 57B000-57BFFF     (base 16)		Potter Electric Signal Co. LLC
@@ -15948,15 +15954,15 @@ F8C000-F8CFFF     (base 16)		BK LAB
 				US
 
 8C-1F-64   (hex)		Potter Electric Signal Co. LLC
-8FE000-8FEFFF     (base 16)		Potter Electric Signal Co. LLC
-				5757 Phantom Drive
-				Hazelwood  MO  63042
-				US
-
-8C-1F-64   (hex)		Potter Electric Signal Co. LLC
 442000-442FFF     (base 16)		Potter Electric Signal Co. LLC
 				1609 Park 370 Place
 				Hazelwood  MO  63043
+				US
+
+8C-1F-64   (hex)		Potter Electric Signal Co. LLC
+8FE000-8FEFFF     (base 16)		Potter Electric Signal Co. LLC
+				5757 Phantom Drive
+				Hazelwood  MO  63042
 				US
 
 8C-1F-64   (hex)		Eyecloud, Inc
@@ -15983,14 +15989,14 @@ F8C000-F8CFFF     (base 16)		BK LAB
 				Hangzhou    310024
 				CN
 
-8C-1F-64   (hex)		Private
-1A8000-1A8FFF     (base 16)		Private
-
 8C-1F-64   (hex)		Shenzhen Arctec Innovation Technology Co.,Ltd
 199000-199FFF     (base 16)		Shenzhen Arctec Innovation Technology Co.,Ltd
 				Room711-713, Yuefu Square, No.481, Fenghuang Street, Guangming Area
 				Shenzhen  Guangdong  518107
 				CN
+
+8C-1F-64   (hex)		Private
+1A8000-1A8FFF     (base 16)		Private
 
 70-B3-D5   (hex)		Aplex Technology Inc.
 4B7000-4B7FFF     (base 16)		Aplex Technology Inc.
@@ -16091,11 +16097,11 @@ DA4000-DA4FFF     (base 16)		Foenix Coding Ltd
 				Chertsey  Surrey  KT16 0AW
 				GB
 
-8C-1F-64   (hex)		YUYAMA MFG Co.,Ltd
-70A000-70AFFF     (base 16)		YUYAMA MFG Co.,Ltd
-				1-4-30
-				MEISHINGUCHI,TOYONAKA  OSAKA  561-0841
-				JP
+8C-1F-64   (hex)		Rail Telematics Corp
+7C1000-7C1FFF     (base 16)		Rail Telematics Corp
+				494 6th Ave S
+				Jacksonville Beach    32250
+				US
 
 8C-1F-64   (hex)		Vigor Electric Corp.
 A64000-A64FFF     (base 16)		Vigor Electric Corp.
@@ -16103,11 +16109,11 @@ A64000-A64FFF     (base 16)		Vigor Electric Corp.
 				Danshui Dist.  New Taipei City  25152
 				TW
 
-8C-1F-64   (hex)		Rail Telematics Corp
-7C1000-7C1FFF     (base 16)		Rail Telematics Corp
-				494 6th Ave S
-				Jacksonville Beach    32250
-				US
+8C-1F-64   (hex)		YUYAMA MFG Co.,Ltd
+70A000-70AFFF     (base 16)		YUYAMA MFG Co.,Ltd
+				1-4-30
+				MEISHINGUCHI,TOYONAKA  OSAKA  561-0841
+				JP
 
 8C-1F-64   (hex)		Sonic Italia
 8D2000-8D2FFF     (base 16)		Sonic Italia
@@ -16145,6 +16151,12 @@ B30000-B30FFF     (base 16)		Fujian ONETHING Technology Co.,Ltd.
 				Antwerp  Antwerp  2018
 				BE
 
+8C-1F-64   (hex)		VINGLOOP TECHNOLOGY LTD
+DFF000-DFFFFF     (base 16)		VINGLOOP TECHNOLOGY LTD
+				UNIT 910.9/F.TOWER 1 CHEUNGSHA WAN PLAZA 833 CHEUNG SHA WAN RD CHEUNG SHA WAN
+				Hong Kong    000000
+				HK
+
 8C-1F-64   (hex)		Inex Technologies 
 C46000-C46FFF     (base 16)		Inex Technologies 
 				155 Willowbrook Blvd., Suite 130
@@ -16156,12 +16168,6 @@ C46000-C46FFF     (base 16)		Inex Technologies
 				2716 Daley Dr.
 				Troy  MI  48083
 				US
-
-8C-1F-64   (hex)		VINGLOOP TECHNOLOGY LTD
-DFF000-DFFFFF     (base 16)		VINGLOOP TECHNOLOGY LTD
-				UNIT 910.9/F.TOWER 1 CHEUNGSHA WAN PLAZA 833 CHEUNG SHA WAN RD CHEUNG SHA WAN
-				Hong Kong    000000
-				HK
 
 8C-1F-64   (hex)		JMV BHARAT PRIVATE LIMITED
 961000-961FFF     (base 16)		JMV BHARAT PRIVATE LIMITED
@@ -16187,17 +16193,17 @@ B25000-B25FFF     (base 16)		Thermo Fisher Scientific (Asheville) LLC
 				Geumcheon-gu, Seoul  Select State  08592
 				KR
 
-8C-1F-64   (hex)		Eurotronic Technology GmbH
-E27000-E27FFF     (base 16)		Eurotronic Technology GmbH
-				Südweg 1
-				Steinau    36396
-				DE
-
 8C-1F-64   (hex)		TCL OPERATIONS POLSKA SP. Z O.O.
 233000-233FFF     (base 16)		TCL OPERATIONS POLSKA SP. Z O.O.
 				ul. MICKIEWICZA, 31/41, 96-300, ZYRARDOW, POLAN
 				ZYRARDOW    96-300
 				PL
+
+8C-1F-64   (hex)		Eurotronic Technology GmbH
+E27000-E27FFF     (base 16)		Eurotronic Technology GmbH
+				Südweg 1
+				Steinau    36396
+				DE
 
 8C-1F-64   (hex)		Monnit Corporation
 A28000-A28FFF     (base 16)		Monnit Corporation
@@ -16235,12 +16241,6 @@ EB8000-EB8FFF     (base 16)		Power Electronics Espana, S.L.
 				Guildford  Surrey  GU2 7RQ
 				GB
 
-8C-1F-64   (hex)		Sentek Pty Ltd
-A95000-A95FFF     (base 16)		Sentek Pty Ltd
-				77 Magill Road
-				Stepney  SA  5069
-				AU
-
 8C-1F-64   (hex)		FIBERNET LTD
 F48000-F48FFF     (base 16)		FIBERNET LTD
 				9 Hakidma st. Hi-Tech City Park,
@@ -16252,6 +16252,12 @@ F48000-F48FFF     (base 16)		FIBERNET LTD
 				Building 7, No.1510 Chuanqiao Road, China (Shanghai) Pilot Free Trade Zone
 				Shanghai  Shanghai  201206
 				CN
+
+8C-1F-64   (hex)		Sentek Pty Ltd
+A95000-A95FFF     (base 16)		Sentek Pty Ltd
+				77 Magill Road
+				Stepney  SA  5069
+				AU
 
 8C-1F-64   (hex)		Aidhom
 B1E000-B1EFFF     (base 16)		Aidhom
@@ -16307,28 +16313,16 @@ F21000-F21FFF     (base 16)		nanoTRONIX Computing Inc.
 				Wilmington  DE   19806
 				US
 
-8C-1F-64   (hex)		RADIC Technologies, Inc.
-E91000-E91FFF     (base 16)		RADIC Technologies, Inc.
-				1625 The Alameda, Suite 708
-				SAN JOSE    95126
-				US
-
-8C-1F-64   (hex)		DEUTA Werke GmbH
-02A000-02AFFF     (base 16)		DEUTA Werke GmbH
-				ET
-				Bergisch Gladbach  NRW  51465
-				DE
-
 8C-1F-64   (hex)		Fairwinds Technologies
 D55000-D55FFF     (base 16)		Fairwinds Technologies
 				6165 Guardian Gateway, Suites A-C 
 				Aberdeen Proving Ground  MD  21005
 				US
 
-8C-1F-64   (hex)		Microchip Technologies Inc
-BEA000-BEAFFF     (base 16)		Microchip Technologies Inc
-				2355 W Chandler Blvd
-				Chandler  AZ  85224-6199
+8C-1F-64   (hex)		RADIC Technologies, Inc.
+E91000-E91FFF     (base 16)		RADIC Technologies, Inc.
+				1625 The Alameda, Suite 708
+				SAN JOSE    95126
 				US
 
 8C-1F-64   (hex)		Potter Electric Signal Co. LLC
@@ -16337,11 +16331,35 @@ BEA000-BEAFFF     (base 16)		Microchip Technologies Inc
 				Hazelwood  MO  63043
 				US
 
+8C-1F-64   (hex)		Microchip Technologies Inc
+BEA000-BEAFFF     (base 16)		Microchip Technologies Inc
+				2355 W Chandler Blvd
+				Chandler  AZ  85224-6199
+				US
+
+8C-1F-64   (hex)		DEUTA Werke GmbH
+02A000-02AFFF     (base 16)		DEUTA Werke GmbH
+				ET
+				Bergisch Gladbach  NRW  51465
+				DE
+
 8C-1F-64   (hex)		RC Systems
 1E9000-1E9FFF     (base 16)		RC Systems
 				13009 FM 1764
 				Santa Fe  TX  77510
 				US
+
+8C-1F-64   (hex)		CDR SRL
+AAC000-AACFFF     (base 16)		CDR SRL
+				Via degli Artigiani, 6
+				Ginestra Fiorentina  Florence/Italy  50055
+				IT
+
+8C-1F-64   (hex)		INVENTIA Sp. z o.o.
+E50000-E50FFF     (base 16)		INVENTIA Sp. z o.o.
+				Poleczki 23
+				Warszawa  Mazowieckie  02-822
+				PL
 
 8C-1F-64   (hex)		LimeSoft Co., Ltd.
 3DF000-3DFFFF     (base 16)		LimeSoft Co., Ltd.
@@ -16355,11 +16373,11 @@ BEA000-BEAFFF     (base 16)		Microchip Technologies Inc
 				Broomfield  CO  80021
 				US
 
-8C-1F-64   (hex)		CDR SRL
-AAC000-AACFFF     (base 16)		CDR SRL
-				Via degli Artigiani, 6
-				Ginestra Fiorentina  Florence/Italy  50055
-				IT
+8C-1F-64   (hex)		Engage Technologies
+F1E000-F1EFFF     (base 16)		Engage Technologies
+				7041 Boone Avenue North
+				Brooklyn Park  MN  55428
+				US
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -24083,12 +24101,6 @@ C36000-C36FFF     (base 16)		ODTech Co., Ltd.
 				Wanju_gun  Jeonbuk-do  55322
 				KR
 
-8C-1F-64   (hex)		Tecsys do Brasil Industrial Ltda
-7D0000-7D0FFF     (base 16)		Tecsys do Brasil Industrial Ltda
-				Rua Oros, 146
-				Sao Jose dos Campos  SP  12237150
-				BR
-
 8C-1F-64   (hex)		Inspinia Technology s.r.o.
 595000-595FFF     (base 16)		Inspinia Technology s.r.o.
 				Paleckeho 493
@@ -24101,23 +24113,17 @@ CB1000-CB1FFF     (base 16)		Xi’an Sunway Communication Co., Ltd.
 				Road,High-Tech Zone  Xi’an   710000
 				CN
 
+8C-1F-64   (hex)		Tecsys do Brasil Industrial Ltda
+7D0000-7D0FFF     (base 16)		Tecsys do Brasil Industrial Ltda
+				Rua Oros, 146
+				Sao Jose dos Campos  SP  12237150
+				BR
+
 8C-1F-64   (hex)		Season Electronics Ltd
 37D000-37DFFF     (base 16)		Season Electronics Ltd
 				600 Nest Business Park 
 				Havant  Hampshire  PO9 5TL
 				GB
-
-8C-1F-64   (hex)		DEUTA Werke GmbH
-5ED000-5EDFFF     (base 16)		DEUTA Werke GmbH
-				ET
-				Bergisch Gladbach  NRW  51465
-				DE
-
-8C-1F-64   (hex)		TelecomWadi
-1F9000-1F9FFF     (base 16)		TelecomWadi
-				First Al Sheikh Zayed, Giza Governorate 3244530
-				Giza    3244530
-				EG
 
 8C-1F-64   (hex)		SURYA ELECTRONICS
 3F2000-3F2FFF     (base 16)		SURYA ELECTRONICS
@@ -24125,23 +24131,29 @@ CB1000-CB1FFF     (base 16)		Xi’an Sunway Communication Co., Ltd.
 				HYDERABAD  Telangana  500055
 				IN
 
+8C-1F-64   (hex)		TelecomWadi
+1F9000-1F9FFF     (base 16)		TelecomWadi
+				First Al Sheikh Zayed, Giza Governorate 3244530
+				Giza    3244530
+				EG
+
 8C-1F-64   (hex)		Efftronics Systems (P) Ltd
 063000-063FFF     (base 16)		Efftronics Systems (P) Ltd
 				Plot No.4, IT Park, Auto Nagar
 				Mangalagiri  Andhra Pradesh  520010
 				IN
 
-8C-1F-64   (hex)		SUS Corporation
-F69000-F69FFF     (base 16)		SUS Corporation
-				6F, S-patio Bldg. 14-25 Minami-cho, Suruga-ku,
-				Shizuoka city,  Shizuoka  422-8067
-				JP
-
 8C-1F-64   (hex)		Vantageo Private Limited
 96B000-96BFFF     (base 16)		Vantageo Private Limited
 				617, Lodha Supremus II, Wagle Estate, Thane,
 				Mumbai  Maharastra  400604
 				IN
+
+8C-1F-64   (hex)		DEUTA Werke GmbH
+5ED000-5EDFFF     (base 16)		DEUTA Werke GmbH
+				ET
+				Bergisch Gladbach  NRW  51465
+				DE
 
 8C-1F-64   (hex)		Shenzhen Angstrom Excellence Technology Co., Ltd
 277000-277FFF     (base 16)		Shenzhen Angstrom Excellence Technology Co., Ltd
@@ -24161,17 +24173,17 @@ FE0000-FE0FFF     (base 16)		Potter Electric Signal Co. LLC
 				Hazelwood  MO  63042
 				US
 
-8C-1F-64   (hex)		Potter Electric Signal Co. LLC
-965000-965FFF     (base 16)		Potter Electric Signal Co. LLC
-				5757 Phantom Drive
-				Hazelwood  MO  63042
-				US
-
 8C-1F-64   (hex)		Samwell International Inc
 3EB000-3EBFFF     (base 16)		Samwell International Inc
 				No. 317-1, Sec.2, An Kang Rd., Hsintien Dist
 				New Taipei City    231
 				TW
+
+8C-1F-64   (hex)		Potter Electric Signal Co. LLC
+965000-965FFF     (base 16)		Potter Electric Signal Co. LLC
+				5757 Phantom Drive
+				Hazelwood  MO  63042
+				US
 
 8C-1F-64   (hex)		Potter Electric Signal Co. LLC
 EBB000-EBBFFF     (base 16)		Potter Electric Signal Co. LLC
@@ -24185,17 +24197,17 @@ EBB000-EBBFFF     (base 16)		Potter Electric Signal Co. LLC
 				Hazelwood  MO  63042
 				US
 
+8C-1F-64   (hex)		SUS Corporation
+F69000-F69FFF     (base 16)		SUS Corporation
+				6F, S-patio Bldg. 14-25 Minami-cho, Suruga-ku,
+				Shizuoka city,  Shizuoka  422-8067
+				JP
+
 8C-1F-64   (hex)		CS-Tech s.r.o.
 ED7000-ED7FFF     (base 16)		CS-Tech s.r.o.
 				Lazenska
 				Usti nad Orlici  Czech Republic  56201
 				CZ
-
-8C-1F-64   (hex)		Leap Info Systems Pvt. Ltd.
-FEE000-FEEFFF     (base 16)		Leap Info Systems Pvt. Ltd.
-				301 Melinkeri, Plot no.4, Survey No.149/1A, ITI Road,Parihar Chowk, Aundh, Pune – 411007
-				Pune  Maharashtra  411007
-				IN
 
 8C-1F-64   (hex)		SARV WEBS PRIVATE LIMITED
 CA0000-CA0FFF     (base 16)		SARV WEBS PRIVATE LIMITED
@@ -24203,17 +24215,17 @@ CA0000-CA0FFF     (base 16)		SARV WEBS PRIVATE LIMITED
 				JAIPUR  RAJASTHAN  302022
 				IN
 
-8C-1F-64   (hex)		CHUGOKU ELECTRICAL INSTRUMENTS Co.,LTD.
-DD3000-DD3FFF     (base 16)		CHUGOKU ELECTRICAL INSTRUMENTS Co.,LTD.
-				2-4-6,Tsurue,Fuchu-cho,Aki-gun,
-				Hiroshima  Japan  735-0008
-				JP
-
 8C-1F-64   (hex)		Wi-Tronix, LLC
 D8D000-D8DFFF     (base 16)		Wi-Tronix, LLC
 				631 E Boughton Rd, Suite 240
 				Bolingbrook  IL  60440
 				US
+
+70-B3-D5   (hex)		Aplex Technology Inc.
+F57000-F57FFF     (base 16)		Aplex Technology Inc.
+				15F-1, No.186, Jian Yi Road 
+				Zhonghe District  New Taipei City 235   -
+				TW
 
 8C-1F-64   (hex)		YUYAMA MFG Co.,Ltd
 24E000-24EFFF     (base 16)		YUYAMA MFG Co.,Ltd
@@ -24234,8 +24246,8 @@ D8D000-D8DFFF     (base 16)		Wi-Tronix, LLC
 				TW
 
 70-B3-D5   (hex)		Aplex Technology Inc.
-F57000-F57FFF     (base 16)		Aplex Technology Inc.
-				15F-1, No.186, Jian Yi Road 
+906000-906FFF     (base 16)		Aplex Technology Inc.
+				15F-1, No.186, Jian Yi Road
 				Zhonghe District  New Taipei City 235   -
 				TW
 
@@ -24245,34 +24257,28 @@ B96000-B96FFF     (base 16)		Observable Space
 				Los Angeles  CA  90064
 				US
 
-70-B3-D5   (hex)		Aplex Technology Inc.
-906000-906FFF     (base 16)		Aplex Technology Inc.
-				15F-1, No.186, Jian Yi Road
-				Zhonghe District  New Taipei City 235   -
-				TW
+8C-1F-64   (hex)		CHUGOKU ELECTRICAL INSTRUMENTS Co.,LTD.
+DD3000-DD3FFF     (base 16)		CHUGOKU ELECTRICAL INSTRUMENTS Co.,LTD.
+				2-4-6,Tsurue,Fuchu-cho,Aki-gun,
+				Hiroshima  Japan  735-0008
+				JP
 
-8C-1F-64   (hex)		Yu Heng Electric CO. TD 
-1FC000-1FCFFF     (base 16)		Yu Heng Electric CO. TD 
-				No. 8, Gongye 2nd Road, Renwu District, 
-				Kaohiung  City   Taiwan   814 
-				CN
-
-8C-1F-64   (hex)		REO AG
-CD0000-CD0FFF     (base 16)		REO AG
-				Brühlerstr. 100
-				Solingen    42657
-				DE
-
-8C-1F-64   (hex)		Intenseye Inc.
-A20000-A20FFF     (base 16)		Intenseye Inc.
-				1250 Broadway Suite 401
-				New York  NY  10001
-				US
+8C-1F-64   (hex)		Leap Info Systems Pvt. Ltd.
+FEE000-FEEFFF     (base 16)		Leap Info Systems Pvt. Ltd.
+				301 Melinkeri, Plot no.4, Survey No.149/1A, ITI Road,Parihar Chowk, Aundh, Pune – 411007
+				Pune  Maharashtra  411007
+				IN
 
 8C-1F-64   (hex)		BOE Smart IoT Technology Co.,Ltd
 761000-761FFF     (base 16)		BOE Smart IoT Technology Co.,Ltd
 				3rd Floor, Building 1, No. 12 West Ring Middle Road, Beijing Economic and Technological Development Zone
 				Beijing  Beijing  100176
+				CN
+
+8C-1F-64   (hex)		Yu Heng Electric CO. TD 
+1FC000-1FCFFF     (base 16)		Yu Heng Electric CO. TD 
+				No. 8, Gongye 2nd Road, Renwu District, 
+				Kaohiung  City   Taiwan   814 
 				CN
 
 8C-1F-64   (hex)		TRATON AB
@@ -24293,11 +24299,23 @@ ED0000-ED0FFF     (base 16)		Shanghai Jupper Technology Co.Ltd
 				Hazelwood  MO  63042
 				US
 
+8C-1F-64   (hex)		Intenseye Inc.
+A20000-A20FFF     (base 16)		Intenseye Inc.
+				1250 Broadway Suite 401
+				New York  NY  10001
+				US
+
 8C-1F-64   (hex)		Smith meter Inc 
 6D1000-6D1FFF     (base 16)		Smith meter Inc 
 				1602 Wagner Ave
 				Erie    16510
 				US
+
+8C-1F-64   (hex)		REO AG
+CD0000-CD0FFF     (base 16)		REO AG
+				Brühlerstr. 100
+				Solingen    42657
+				DE
 
 8C-1F-64   (hex)		Racelogic Ltd
 FB6000-FB6FFF     (base 16)		Racelogic Ltd
@@ -24353,23 +24371,17 @@ FA0000-FA0FFF     (base 16)		Pneumax Spa
 				Lurano  Bergamo  24050
 				IT
 
-8C-1F-64   (hex)		Fortus
-9A3000-9A3FFF     (base 16)		Fortus
-				32 Lavery Avenue
-				Dublin  Dublin  D12 A611
-				IE
-
-8C-1F-64   (hex)		Potter Electric Signal Co. LLC
-690000-690FFF     (base 16)		Potter Electric Signal Co. LLC
-				1609 Park 370 Place
-				Hazelwood  MO  63042
-				US
-
 8C-1F-64   (hex)		Coral Infratel Pvt Ltd
 750000-750FFF     (base 16)		Coral Infratel Pvt Ltd
 				First Floor, 144 Subhash  Nagar
 				Rohtak  Haryana  124001
 				IN
+
+8C-1F-64   (hex)		Fortus
+9A3000-9A3FFF     (base 16)		Fortus
+				32 Lavery Avenue
+				Dublin  Dublin  D12 A611
+				IE
 
 8C-1F-64   (hex)		AMC Europe Kft.
 A2F000-A2FFFF     (base 16)		AMC Europe Kft.
@@ -24381,6 +24393,12 @@ A2F000-A2FFFF     (base 16)		AMC Europe Kft.
 69D000-69DFFF     (base 16)		Bots Unlimited LLC
 				5817 La Colonia
 				San Antonio  TX  78218
+				US
+
+8C-1F-64   (hex)		Potter Electric Signal Co. LLC
+690000-690FFF     (base 16)		Potter Electric Signal Co. LLC
+				1609 Park 370 Place
+				Hazelwood  MO  63042
 				US
 
 8C-1F-64   (hex)		HARBIN DIGITAL ECONOMY DEVELOPMENT CO.,LTD
@@ -24407,23 +24425,17 @@ EC2000-EC2FFF     (base 16)		HARBIN DIGITAL ECONOMY DEVELOPMENT CO.,LTD
 				HELSINKI    00380
 				FI
 
-8C-1F-64   (hex)		BRS Sistemas Eletrônicos
-944000-944FFF     (base 16)		BRS Sistemas Eletrônicos
-				Rua Capistrano de Abreu, 68
-				Canoas  RS  92120130
-				BR
-
 8C-1F-64   (hex)		Maven Pet Inc
 B7E000-B7EFFF     (base 16)		Maven Pet Inc
 				800 N King Street Suite 304 2873 Wilmington
 				Wilmington  DE  19801
 				US
 
-8C-1F-64   (hex)		YONNET BILISIM YAZ. EGT. VE DAN. HIZ. TIC. A.S.
-75E000-75EFFF     (base 16)		YONNET BILISIM YAZ. EGT. VE DAN. HIZ. TIC. A.S.
-				CUMHURIYET MAH.
-				ISTANBUL    34870
-				TR
+8C-1F-64   (hex)		BRS Sistemas Eletrônicos
+944000-944FFF     (base 16)		BRS Sistemas Eletrônicos
+				Rua Capistrano de Abreu, 68
+				Canoas  RS  92120130
+				BR
 
 8C-1F-64   (hex)		FaceLabs.AI DBA PropTech.AI
 FA9000-FA9FFF     (base 16)		FaceLabs.AI DBA PropTech.AI
@@ -24437,6 +24449,12 @@ EC0000-EC0FFF     (base 16)		VOOST analytics
 				Riyadh  Al Riyadh  11391
 				SA
 
+8C-1F-64   (hex)		YONNET BILISIM YAZ. EGT. VE DAN. HIZ. TIC. A.S.
+75E000-75EFFF     (base 16)		YONNET BILISIM YAZ. EGT. VE DAN. HIZ. TIC. A.S.
+				CUMHURIYET MAH.
+				ISTANBUL    34870
+				TR
+
 8C-1F-64   (hex)		MobileMustHave
 6A7000-6A7FFF     (base 16)		MobileMustHave
 				63 Key Road Suite 3-1011
@@ -24448,6 +24466,12 @@ CE9000-CE9FFF     (base 16)		Landis+Gyr Equipamentos de Medição Ltda
 				Hasdrubal Bellegard, 400, CIC
 				Curitiba  Paraná  81460-120
 				BR
+
+8C-1F-64   (hex)		TOKYO INTERPHONE CO.,LTD.
+652000-652FFF     (base 16)		TOKYO INTERPHONE CO.,LTD.
+				8F, JS Shibuya Building3-8-10 Shibuya, Shibuya-ku
+				TOKYO    150-0002
+				JP
 
 8C-1F-64   (hex)		Förster-Technik GmbH
 448000-448FFF     (base 16)		Förster-Technik GmbH
@@ -24461,16 +24485,10 @@ CE9000-CE9FFF     (base 16)		Landis+Gyr Equipamentos de Medição Ltda
 				Cheyenne  WY  82001
 				US
 
-8C-1F-64   (hex)		TOKYO INTERPHONE CO.,LTD.
-652000-652FFF     (base 16)		TOKYO INTERPHONE CO.,LTD.
-				8F, JS Shibuya Building3-8-10 Shibuya, Shibuya-ku
-				TOKYO    150-0002
-				JP
-
-8C-1F-64   (hex)		YUYAMA MFG Co.,Ltd
-65A000-65AFFF     (base 16)		YUYAMA MFG Co.,Ltd
-				1-4-30
-				MEISHINGUCHI,TOYONAKA  OSAKA  561-0841
+8C-1F-64   (hex)		MAYSUN CORPORATION
+784000-784FFF     (base 16)		MAYSUN CORPORATION
+				966-2 Gokanjima
+				Fuji-shi  Shizuoka-ken  416-0946
 				JP
 
 8C-1F-64   (hex)		Pro Design Electronic GmbH
@@ -24479,10 +24497,10 @@ CE9000-CE9FFF     (base 16)		Landis+Gyr Equipamentos de Medição Ltda
 				Bruckmuehl  Bavaria  83052
 				DE
 
-8C-1F-64   (hex)		MAYSUN CORPORATION
-784000-784FFF     (base 16)		MAYSUN CORPORATION
-				966-2 Gokanjima
-				Fuji-shi  Shizuoka-ken  416-0946
+8C-1F-64   (hex)		YUYAMA MFG Co.,Ltd
+65A000-65AFFF     (base 16)		YUYAMA MFG Co.,Ltd
+				1-4-30
+				MEISHINGUCHI,TOYONAKA  OSAKA  561-0841
 				JP
 
 8C-1F-64   (hex)		Buckeye Mountain
@@ -24515,17 +24533,23 @@ F37000-F37FFF     (base 16)		Polarity Inc
 				RANCHO CORDOVA  CA  95742-6599
 				US
 
-8C-1F-64   (hex)		Infosoft Digital Design and Services P L
-EDC000-EDCFFF     (base 16)		Infosoft Digital Design and Services P L
-				484, SECTOR-8 ,IMT MANESER,GURGAONMANESER
-				GURGAON  Haryana  122050
-				IN
-
 8C-1F-64   (hex)		Attack do Brasil Ind Com Apar de Som LTDA
 178000-178FFF     (base 16)		Attack do Brasil Ind Com Apar de Som LTDA
 				AV AYRTON SENNA DA SILVA, 400 – PQ INDL ZONA OESTE
 				Apucarana  Parana  86803-570
 				BR
+
+8C-1F-64   (hex)		Grinn Sp. z o.o.
+156000-156FFF     (base 16)		Grinn Sp. z o.o.
+				Strzegomska 140A
+				Wrocław    54-429
+				PL
+
+8C-1F-64   (hex)		Infosoft Digital Design and Services P L
+EDC000-EDCFFF     (base 16)		Infosoft Digital Design and Services P L
+				484, SECTOR-8 ,IMT MANESER,GURGAONMANESER
+				GURGAON  Haryana  122050
+				IN
 
 8C-1F-64   (hex)		Guangzhou Beizeng Information Technology Co.,Ltd
 39F000-39FFFF     (base 16)		Guangzhou Beizeng Information Technology Co.,Ltd
@@ -24539,11 +24563,11 @@ EDC000-EDCFFF     (base 16)		Infosoft Digital Design and Services P L
 				Kaohsiung City    81358
 				TW
 
-8C-1F-64   (hex)		Grinn Sp. z o.o.
-156000-156FFF     (base 16)		Grinn Sp. z o.o.
-				Strzegomska 140A
-				Wrocław    54-429
-				PL
+8C-1F-64   (hex)		Unitron Systems b.v.
+1AC000-1ACFFF     (base 16)		Unitron Systems b.v.
+				SCHANSESTRAAT 7
+				IJzendijke    4515 RN
+				NL
 
 8C-1F-64   (hex)		ANADOLU TRAFİK KONTROL SİS.TAŞ.SAN.VE TİC. LTD.ŞTİ
 D14000-D14FFF     (base 16)		ANADOLU TRAFİK KONTROL SİS.TAŞ.SAN.VE TİC. LTD.ŞTİ
@@ -24551,17 +24575,35 @@ D14000-D14FFF     (base 16)		ANADOLU TRAFİK KONTROL SİS.TAŞ.SAN.VE TİC. LTD.
 				ANKARA  ANKARA  06180
 				TR
 
-8C-1F-64   (hex)		Unitron Systems b.v.
-1AC000-1ACFFF     (base 16)		Unitron Systems b.v.
-				SCHANSESTRAAT 7
-				IJzendijke    4515 RN
-				NL
-
 8C-1F-64   (hex)		Kinemetrics, Inc.
 B50000-B50FFF     (base 16)		Kinemetrics, Inc.
 				222 Vista Avenue
 				Pasadena  CA  91107
 				US
+
+8C-1F-64   (hex)		Kneron (Taiwan) Co., Ltd.
+1EE000-1EEFFF     (base 16)		Kneron (Taiwan) Co., Ltd.
+				12F-1., No.386, Sec. 6, Nanjing E. Rd., Neihu Dist., 
+				Taipei City    11470
+				TW
+
+8C-1F-64   (hex)		NodOn SAS
+606000-606FFF     (base 16)		NodOn SAS
+				121 rue des Hêtres
+				Saint Cyr en Val  Loiret  45590
+				FR
+
+8C-1F-64   (hex)		Nine Fives LLC
+D22000-D22FFF     (base 16)		Nine Fives LLC
+				522 W RIVERSIDE AVE
+				Spokane  WA  99201
+				US
+
+8C-1F-64   (hex)		FemtoTools AG
+7A9000-7A9FFF     (base 16)		FemtoTools AG
+				Furtbachstrasse 4
+				Buchs  Zurich  8107
+				CH
 
 8C-1F-64   (hex)		Tech Mobility Aps
 31D000-31DFFF     (base 16)		Tech Mobility Aps
@@ -24569,11 +24611,17 @@ B50000-B50FFF     (base 16)		Kinemetrics, Inc.
 				Holte    2840
 				DK
 
-8C-1F-64   (hex)		Nine Fives LLC
-D22000-D22FFF     (base 16)		Nine Fives LLC
-				522 W RIVERSIDE AVE
-				Spokane  WA  99201
-				US
+8C-1F-64   (hex)		AooGee Controls Co., LTD.
+458000-458FFF     (base 16)		AooGee Controls Co., LTD.
+				Siming District office building 14, Fu Lian
+				Xiamen  Fujian  361000
+				CN
+
+8C-1F-64   (hex)		Sigmann Elektronik GmbH
+49A000-49AFFF     (base 16)		Sigmann Elektronik GmbH
+				Hauptstrasse 53
+				Hueffenhardt    74928
+				DE
 
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
@@ -32357,17 +32405,17 @@ AB3000-AB3FFF     (base 16)		VELVU TECHNOLOGIES PRIVATE LIMITED
 				Skovlunde    2740
 				DK
 
-8C-1F-64   (hex)		Chengdu Xiuwei TechnologyDevelopment Co., Ltd
-870000-870FFF     (base 16)		Chengdu Xiuwei TechnologyDevelopment Co., Ltd
-				10th Floor, Building 10, No. 8 Guangfu Road, Qingyang District
-				Chengdu City  Please Select  610073
-				CN
-
 8C-1F-64   (hex)		wincker international enterprise co., ltd
 B1F000-B1FFFF     (base 16)		wincker international enterprise co., ltd
 				1FL No. 345 Yen Shou St., Taipei, Taiwan
 				Taipei    10577
 				TW
+
+8C-1F-64   (hex)		Chengdu Xiuwei TechnologyDevelopment Co., Ltd
+870000-870FFF     (base 16)		Chengdu Xiuwei TechnologyDevelopment Co., Ltd
+				10th Floor, Building 10, No. 8 Guangfu Road, Qingyang District
+				Chengdu City  Please Select  610073
+				CN
 
 8C-1F-64   (hex)		IQ Tools LLC
 FF5000-FF5FFF     (base 16)		IQ Tools LLC
@@ -32459,17 +32507,17 @@ B33000-B33FFF     (base 16)		Aplex Technology Inc.
 				Zhonghe District  New Taipei City 235   -
 				TW
 
-8C-1F-64   (hex)		Jemac Sweden AB
-42D000-42DFFF     (base 16)		Jemac Sweden AB
-				Trångsundsvägen 20A
-				Kalmar    39356
-				SE
-
 8C-1F-64   (hex)		Boeing India Private Limited
 533000-533FFF     (base 16)		Boeing India Private Limited
 				Plot No: 55-B,56,57,59  Hitech-Defence and Aerospace park, Aerospace Sector, Unachur Village, Yelahanka Taluk, Bangaloe North
 				Bengaluru  Karnataka  562149
 				IN
+
+8C-1F-64   (hex)		Jemac Sweden AB
+42D000-42DFFF     (base 16)		Jemac Sweden AB
+				Trångsundsvägen 20A
+				Kalmar    39356
+				SE
 
 70-B3-D5   (hex)		Aplex Technology Inc.
 3D9000-3D9FFF     (base 16)		Aplex Technology Inc.
@@ -32507,6 +32555,12 @@ C31000-C31FFF     (base 16)		Ambarella Inc.
 				Santa Clara  CA  95054
 				US
 
+8C-1F-64   (hex)		Aegex Technologies LLC Magyarországi Fióktelepe
+A9D000-A9DFFF     (base 16)		Aegex Technologies LLC Magyarországi Fióktelepe
+				Tildy Zoltán utca
+				Pécs  Baranya  7632
+				HU
+
 8C-1F-64   (hex)		Q (Cue), Inc.
 6A6000-6A6FFF     (base 16)		Q (Cue), Inc.
 				Abba Hillel Silver Rd 21
@@ -32518,12 +32572,6 @@ C31000-C31FFF     (base 16)		Ambarella Inc.
 				3rd Floor, Building 19, Guanghua Pioneer Park, No. 18, Anningzhuang East Road,
 				Beijing  Haidian District  100085
 				CN
-
-8C-1F-64   (hex)		Aegex Technologies LLC Magyarországi Fióktelepe
-A9D000-A9DFFF     (base 16)		Aegex Technologies LLC Magyarországi Fióktelepe
-				Tildy Zoltán utca
-				Pécs  Baranya  7632
-				HU
 
 8C-1F-64   (hex)		Automation Displays Inc.
 4F2000-4F2FFF     (base 16)		Automation Displays Inc.
@@ -32579,6 +32627,12 @@ BF7000-BF7FFF     (base 16)		Intellicon Private Limited
 				Chuou-ku  Tokyo  104-0061
 				JP
 
+8C-1F-64   (hex)		Lumiplan-Duhamel
+0D0000-0D0FFF     (base 16)		Lumiplan-Duhamel
+				215 rue Guynemer
+				Le versoud    38420
+				FR
+
 8C-1F-64   (hex)		Private
 B80000-B80FFF     (base 16)		Private
 
@@ -32587,12 +32641,6 @@ B80000-B80FFF     (base 16)		Private
 				336 36th Street # 366
 				Bellingham  WA  98225
 				US
-
-8C-1F-64   (hex)		Lumiplan-Duhamel
-0D0000-0D0FFF     (base 16)		Lumiplan-Duhamel
-				215 rue Guynemer
-				Le versoud    38420
-				FR
 
 8C-1F-64   (hex)		Breas Medical AB
 348000-348FFF     (base 16)		Breas Medical AB
@@ -32606,17 +32654,17 @@ B80000-B80FFF     (base 16)		Private
 				Calgary  Alberta  T3H 5T9
 				CA
 
-8C-1F-64   (hex)		Thales Nederland BV
-29C000-29CFFF     (base 16)		Thales Nederland BV
-				Haaksbergerstraat 49
-				Hengelo  Overijssel  7554PA
-				NL
-
 00-1B-C5   (hex)		CyanConnode
 0C6000-0C6FFF     (base 16)		CyanConnode
 				Suite 2, Ground Floor, The Jeffreys Building, Cowley Road
 				Milton  Cambridge  CB4 0DS
 				GB
+
+8C-1F-64   (hex)		Thales Nederland BV
+29C000-29CFFF     (base 16)		Thales Nederland BV
+				Haaksbergerstraat 49
+				Hengelo  Overijssel  7554PA
+				NL
 
 8C-1F-64   (hex)		SMC Gateway
 0B5000-0B5FFF     (base 16)		SMC Gateway
@@ -32648,23 +32696,17 @@ F99000-F99FFF     (base 16)		Sysinno Technology Inc.
 				Hsinchu    300
 				TW
 
-8C-1F-64   (hex)		InfoMac Sp. z o.o. Sp.k.
-840000-840FFF     (base 16)		InfoMac Sp. z o.o. Sp.k.
-				UL. WOJSKA POLSKIEGO 6
-				Szczecinek  zachodniopomorskie  78-400
-				PL
-
-8C-1F-64   (hex)		RSC
-B31000-B31FFF     (base 16)		RSC
-				36 27th Street, Umm Suqeim 3
-				Dubai  Dubai  00000
-				AE
-
 8C-1F-64   (hex)		Bounce Imaging
 1AE000-1AEFFF     (base 16)		Bounce Imaging
 				247 Cayuga Rd., Suite 15e
 				Cheektowaga  NY  14225
 				US
+
+8C-1F-64   (hex)		InfoMac Sp. z o.o. Sp.k.
+840000-840FFF     (base 16)		InfoMac Sp. z o.o. Sp.k.
+				UL. WOJSKA POLSKIEGO 6
+				Szczecinek  zachodniopomorskie  78-400
+				PL
 
 8C-1F-64   (hex)		Asteelflash Design Solutions Hamburg GmbH
 1EA000-1EAFFF     (base 16)		Asteelflash Design Solutions Hamburg GmbH
@@ -32672,11 +32714,11 @@ B31000-B31FFF     (base 16)		RSC
 				Hamburg    22145
 				DE
 
-8C-1F-64   (hex)		Chengdu Xinyuandi Technology Co., Ltd.
-C34000-C34FFF     (base 16)		Chengdu Xinyuandi Technology Co., Ltd.
-				No. 7, Tianxianqiao North Road, Jinjiang District, Chengdu, Sichuan Province, China
-				Chengdu    610021
-				CN
+8C-1F-64   (hex)		RSC
+B31000-B31FFF     (base 16)		RSC
+				36 27th Street, Umm Suqeim 3
+				Dubai  Dubai  00000
+				AE
 
 70-B3-D5   (hex)		AML Oceanographic
 0CD000-0CDFFF     (base 16)		AML Oceanographic
@@ -32684,11 +32726,11 @@ C34000-C34FFF     (base 16)		Chengdu Xinyuandi Technology Co., Ltd.
 				DARTMOUTH  NS   B3B 1S4
 				CA
 
-8C-1F-64   (hex)		Produkcija studio C.P.G d.o.o.
-A0C000-A0CFFF     (base 16)		Produkcija studio C.P.G d.o.o.
-				Svetice 23
-				Zagreb  Zagreb  10000
-				HR
+8C-1F-64   (hex)		Chengdu Xinyuandi Technology Co., Ltd.
+C34000-C34FFF     (base 16)		Chengdu Xinyuandi Technology Co., Ltd.
+				No. 7, Tianxianqiao North Road, Jinjiang District, Chengdu, Sichuan Province, China
+				Chengdu    610021
+				CN
 
 8C-1F-64   (hex)		ADETEC SAS
 835000-835FFF     (base 16)		ADETEC SAS
@@ -32701,6 +32743,18 @@ A0C000-A0CFFF     (base 16)		Produkcija studio C.P.G d.o.o.
 				Room 705, 7th Floor, Unit 1, Building 1, Intellectual Property Financial Tower, No. 20 Jitai Road, Hi-Tech Zone
 				Chengdu   SiChuan  610000
 				CN
+
+8C-1F-64   (hex)		Produkcija studio C.P.G d.o.o.
+A0C000-A0CFFF     (base 16)		Produkcija studio C.P.G d.o.o.
+				Svetice 23
+				Zagreb  Zagreb  10000
+				HR
+
+8C-1F-64   (hex)		Raycon
+A09000-A09FFF     (base 16)		Raycon
+				1115 Broadway, Suite 12
+				New York  NY  10010
+				US
 
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
@@ -40370,11 +40424,11 @@ C75000-C75FFF     (base 16)		Abbott Diagnostics Technologies AS
 				Oslo  Oslo  0504
 				NO
 
-8C-1F-64   (hex)		OnAsset Intelligence
-415000-415FFF     (base 16)		OnAsset Intelligence
-				8407 Sterling Street
-				Irving  TX  75063
-				US
+8C-1F-64   (hex)		Oriental Electronics, Inc.
+68E000-68EFFF     (base 16)		Oriental Electronics, Inc.
+				2-4-1 Tanabe-Chuo
+				Kyo-Tanabe  Kyoto  610-0334
+				JP
 
 8C-1F-64   (hex)		OOO Mig Trading
 C19000-C19FFF     (base 16)		OOO Mig Trading
@@ -40388,16 +40442,10 @@ C19000-C19FFF     (base 16)		OOO Mig Trading
 				Dinkelsbuehl  Bavaria  91550
 				DE
 
-8C-1F-64   (hex)		Oriental Electronics, Inc.
-68E000-68EFFF     (base 16)		Oriental Electronics, Inc.
-				2-4-1 Tanabe-Chuo
-				Kyo-Tanabe  Kyoto  610-0334
-				JP
-
-8C-1F-64   (hex)		Pulcro.io LLC
-C22000-C22FFF     (base 16)		Pulcro.io LLC
-				551 S IH 35, Ste 300
-				Round Rock  TX  78664
+8C-1F-64   (hex)		OnAsset Intelligence
+415000-415FFF     (base 16)		OnAsset Intelligence
+				8407 Sterling Street
+				Irving  TX  75063
 				US
 
 8C-1F-64   (hex)		Digitella Inc.
@@ -40406,17 +40454,17 @@ C22000-C22FFF     (base 16)		Pulcro.io LLC
 				Anyang-si  Gyeonggi-do  14084
 				KR
 
+8C-1F-64   (hex)		Pulcro.io LLC
+C22000-C22FFF     (base 16)		Pulcro.io LLC
+				551 S IH 35, Ste 300
+				Round Rock  TX  78664
+				US
+
 8C-1F-64   (hex)		Melissa Climate Jsc
 6CA000-6CAFFF     (base 16)		Melissa Climate Jsc
 				Gen. Gurko 4 Street
 				Sofia    1000
 				BG
-
-8C-1F-64   (hex)		wonder meditec
-B2D000-B2DFFF     (base 16)		wonder meditec
-				2F, 12-11, Seonjam-ro, Seongbuk-gu
-				Seoul, Korea    02836
-				KR
 
 8C-1F-64   (hex)		IGL
 8F0000-8F0FFF     (base 16)		IGL
@@ -40424,11 +40472,11 @@ B2D000-B2DFFF     (base 16)		wonder meditec
 				Lissieu    69380
 				FR
 
-8C-1F-64   (hex)		In-lite Design BV
-F4A000-F4AFFF     (base 16)		In-lite Design BV
-				Stephensonweg 18
-				Gorinchem  Zuid-Holland  4207 HB
-				NL
+8C-1F-64   (hex)		wonder meditec
+B2D000-B2DFFF     (base 16)		wonder meditec
+				2F, 12-11, Seonjam-ro, Seongbuk-gu
+				Seoul, Korea    02836
+				KR
 
 70-B3-D5   (hex)		Teenage Engineering AB
 1AF000-1AFFFF     (base 16)		Teenage Engineering AB
@@ -40454,6 +40502,12 @@ D64000-D64FFF     (base 16)		Potter Electric Signal Co. LLC
 				Hazelwood  MO  63042
 				US
 
+8C-1F-64   (hex)		In-lite Design BV
+F4A000-F4AFFF     (base 16)		In-lite Design BV
+				Stephensonweg 18
+				Gorinchem  Zuid-Holland  4207 HB
+				NL
+
 8C-1F-64   (hex)		IDA North America Inc.
 275000-275FFF     (base 16)		IDA North America Inc.
 				16 16th Street S
@@ -40466,28 +40520,28 @@ D64000-D64FFF     (base 16)		Potter Electric Signal Co. LLC
 				Zhonghe District  New Taipei City 235   -
 				TW
 
-8C-1F-64   (hex)		Shenzhen Broadradio RFID Technology Co., Ltd
-057000-057FFF     (base 16)		Shenzhen Broadradio RFID Technology Co., Ltd
-				B222, 2nd Floor, Building B, Fuhai Technology Industrial Park
-				shenzhen  guangdong  5178000
-				CN
-
 70-B3-D5   (hex)		Aplex Technology Inc.
 FF3000-FF3FFF     (base 16)		Aplex Technology Inc.
 				15F-1, No.186, Jian Yi Road 
 				Zhonghe District  New Taipei City 235   -
 				TW
 
-8C-1F-64   (hex)		Yu Heng Electric CO. TD 
-575000-575FFF     (base 16)		Yu Heng Electric CO. TD 
-				No 8 , Gongye 2nd Rd., Renwu Industry Park
-				Kaohsiung  Kaohsiung City  814
-				TW
-
 70-B3-D5   (hex)		Aplex Technology Inc.
 65C000-65CFFF     (base 16)		Aplex Technology Inc.
 				15F-1, No.186, Jian Yi Road 
 				Zhonghe District  New Taipei City 235   -
+				TW
+
+8C-1F-64   (hex)		Shenzhen Broadradio RFID Technology Co., Ltd
+057000-057FFF     (base 16)		Shenzhen Broadradio RFID Technology Co., Ltd
+				B222, 2nd Floor, Building B, Fuhai Technology Industrial Park
+				shenzhen  guangdong  5178000
+				CN
+
+8C-1F-64   (hex)		Yu Heng Electric CO. TD 
+575000-575FFF     (base 16)		Yu Heng Electric CO. TD 
+				No 8 , Gongye 2nd Rd., Renwu Industry Park
+				Kaohsiung  Kaohsiung City  814
 				TW
 
 8C-1F-64   (hex)		SPX Flow Technology BV
@@ -40640,17 +40694,17 @@ E2D000-E2DFFF     (base 16)		BAE Systems
 				Guildford  Surrey  GU2 7RQ
 				GB
 
-8C-1F-64   (hex)		XYZ Digital Private Limited
-4B3000-4B3FFF     (base 16)		XYZ Digital Private Limited
-				KH NO 1126 GROUND FLOOR STREET NO 17 VILLAGE RITHALA LANDMARK HONDA SHOW ROOM, North Delhi
-				Rohini  Delhi  110085
-				IN
-
 8C-1F-64   (hex)		RADA Electronics Industries Ltd.
 E37000-E37FFF     (base 16)		RADA Electronics Industries Ltd.
 				7 Gibory Israel St.
 				Netanya    42504
 				IL
+
+8C-1F-64   (hex)		XYZ Digital Private Limited
+4B3000-4B3FFF     (base 16)		XYZ Digital Private Limited
+				KH NO 1126 GROUND FLOOR STREET NO 17 VILLAGE RITHALA LANDMARK HONDA SHOW ROOM, North Delhi
+				Rohini  Delhi  110085
+				IN
 
 8C-1F-64   (hex)		Meiji Electric Industry
 75B000-75BFFF     (base 16)		Meiji Electric Industry
@@ -40661,23 +40715,11 @@ E37000-E37FFF     (base 16)		RADA Electronics Industries Ltd.
 8C-1F-64   (hex)		Private
 D48000-D48FFF     (base 16)		Private
 
-8C-1F-64   (hex)		Fugro Technology B.V.
-7CD000-7CDFFF     (base 16)		Fugro Technology B.V.
-				Prismastraat 3
-				Nootdorp    2631RT 
-				NL
-
 8C-1F-64   (hex)		Hiwin Mikrosystem Corp.
 A74000-A74FFF     (base 16)		Hiwin Mikrosystem Corp.
 				NO 6 JINGKE CENTRAL RD  TAICHUNG CITY TAIWAN 40841
 				TAICHUNG    40841
 				TW
-
-8C-1F-64   (hex)		Irmos Technologies AG
-DDD000-DDDFFF     (base 16)		Irmos Technologies AG
-				Technoparkstrasse 1
-				Zürich    8005
-				CH
 
 8C-1F-64   (hex)		37130
 81E000-81EFFF     (base 16)		37130
@@ -40685,11 +40727,17 @@ DDD000-DDDFFF     (base 16)		Irmos Technologies AG
 				Backnang    71540
 				DE
 
-8C-1F-64   (hex)		SAEL SRL
-60F000-60FFFF     (base 16)		SAEL SRL
-				Via Dei Genieri, 31
-				Torri di Quartesolo  Vicenza  36040
-				IT
+8C-1F-64   (hex)		Fugro Technology B.V.
+7CD000-7CDFFF     (base 16)		Fugro Technology B.V.
+				Prismastraat 3
+				Nootdorp    2631RT 
+				NL
+
+8C-1F-64   (hex)		Irmos Technologies AG
+DDD000-DDDFFF     (base 16)		Irmos Technologies AG
+				Technoparkstrasse 1
+				Zürich    8005
+				CH
 
 8C-1F-64   (hex)		Kyowakiden Industry Co.,Ltd.
 3D6000-3D6FFF     (base 16)		Kyowakiden Industry Co.,Ltd.
@@ -40702,6 +40750,12 @@ DDD000-DDDFFF     (base 16)		Irmos Technologies AG
 				Sensing House, Shannon Free Zone East
 				Shannon  Co. Clare  V14 V99
 				IE
+
+8C-1F-64   (hex)		SAEL SRL
+60F000-60FFFF     (base 16)		SAEL SRL
+				Via Dei Genieri, 31
+				Torri di Quartesolo  Vicenza  36040
+				IT
 
 8C-1F-64   (hex)		CEI Ptd Ltd
 0FD000-0FDFFF     (base 16)		CEI Ptd Ltd
@@ -40721,17 +40775,17 @@ DDD000-DDDFFF     (base 16)		Irmos Technologies AG
 				Gramastetten  Oberoesterreich  4201
 				AT
 
-8C-1F-64   (hex)		Sicon srl
-CC8000-CC8FFF     (base 16)		Sicon srl
-				Via Sila 1/3
-				Isola Vicentina  Vicenza  36033
-				IT
-
 8C-1F-64   (hex)		MYIR Electronics Limited
 A1D000-A1DFFF     (base 16)		MYIR Electronics Limited
 				Room 04, 6th Floor, Building No.2, Fada Road, Yunli Smart Park,Bantian, Longgang District, Shenzhen, Guangdong, China
 				Shenzhen  Guangdong  518129
 				CN
+
+8C-1F-64   (hex)		Sicon srl
+CC8000-CC8FFF     (base 16)		Sicon srl
+				Via Sila 1/3
+				Isola Vicentina  Vicenza  36033
+				IT
 
 8C-1F-64   (hex)		Nortek(QingDao) Measuring Equipment Co., Ltd
 988000-988FFF     (base 16)		Nortek(QingDao) Measuring Equipment Co., Ltd
@@ -40744,3 +40798,15 @@ A1D000-A1DFFF     (base 16)		MYIR Electronics Limited
 				203- 970 Mnt de Liesse
 				Saint-Laurent  Quebec  H4T 1W7
 				CA
+
+8C-1F-64   (hex)		SAMSON CO.,LTD.
+490000-490FFF     (base 16)		SAMSON CO.,LTD.
+				 3-4-15 YAHATA-CHO
+				Kanonji-City  Kagawa  768-8602
+				JP
+
+8C-1F-64   (hex)		IRONWOOD ELECTRONICS
+C26000-C26FFF     (base 16)		IRONWOOD ELECTRONICS
+				 1335 Eagandale Court
+				Eagan  MN  55121
+				US

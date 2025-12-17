@@ -1,5 +1,5 @@
---- 20-acpi-vendor.hwdb.base	2025-12-10 17:06:39.984502549 +0000
-+++ 20-acpi-vendor.hwdb	2025-12-10 17:06:39.988502650 +0000
+--- 20-acpi-vendor.hwdb.base	2025-12-17 13:23:44.545346018 +0000
++++ 20-acpi-vendor.hwdb	2025-12-17 13:23:44.549346080 +0000
 @@ -3,6 +3,8 @@
  # Data imported from:
  #     https://uefi.org/uefi-pnp-export
@@ -9,7 +9,7 @@
  
  acpi:3GVR*:
   ID_VENDOR_FROM_DATABASE=VR Technology Holdings Limited
-@@ -439,6 +441,9 @@
+@@ -442,6 +444,9 @@
  acpi:AAA*:
   ID_VENDOR_FROM_DATABASE=Avolites Ltd
  
@@ -19,7 +19,7 @@
  acpi:AAE*:
   ID_VENDOR_FROM_DATABASE=Anatek Electronics Inc.
  
-@@ -466,6 +471,9 @@
+@@ -469,6 +474,9 @@
  acpi:ABO*:
   ID_VENDOR_FROM_DATABASE=D-Link Systems Inc
  
@@ -29,7 +29,7 @@
  acpi:ABS*:
   ID_VENDOR_FROM_DATABASE=Abaco Systems, Inc.
  
-@@ -511,7 +519,7 @@
+@@ -514,7 +522,7 @@
  acpi:ACO*:
   ID_VENDOR_FROM_DATABASE=Allion Computer Inc.
  
@@ -38,7 +38,7 @@
   ID_VENDOR_FROM_DATABASE=Aspen Tech Inc
  
  acpi:ACR*:
-@@ -790,6 +798,9 @@
+@@ -793,6 +801,9 @@
  acpi:AMT*:
   ID_VENDOR_FROM_DATABASE=AMT International Industry
  
@@ -48,7 +48,7 @@
  acpi:AMX*:
   ID_VENDOR_FROM_DATABASE=AMX LLC
  
-@@ -838,6 +849,9 @@
+@@ -841,6 +852,9 @@
  acpi:AOA*:
   ID_VENDOR_FROM_DATABASE=AOpen Inc.
  
@@ -58,7 +58,7 @@
  acpi:AOE*:
   ID_VENDOR_FROM_DATABASE=Advanced Optics Electronics, Inc.
  
-@@ -847,6 +861,9 @@
+@@ -850,6 +864,9 @@
  acpi:AOT*:
   ID_VENDOR_FROM_DATABASE=Alcatel
  
@@ -68,7 +68,7 @@
  acpi:APC*:
   ID_VENDOR_FROM_DATABASE=American Power Conversion
  
-@@ -1028,7 +1045,7 @@
+@@ -1031,7 +1048,7 @@
   ID_VENDOR_FROM_DATABASE=ALPS ALPINE CO., LTD.
  
  acpi:AUO*:
@@ -77,7 +77,7 @@
  
  acpi:AUR*:
   ID_VENDOR_FROM_DATABASE=Aureal Semiconductor
-@@ -1108,6 +1125,9 @@
+@@ -1111,6 +1128,9 @@
  acpi:AXE*:
   ID_VENDOR_FROM_DATABASE=Axell Corporation
  
@@ -87,7 +87,7 @@
  acpi:AXI*:
   ID_VENDOR_FROM_DATABASE=American Magnetics
  
-@@ -1267,6 +1287,9 @@
+@@ -1270,6 +1290,9 @@
  acpi:BML*:
   ID_VENDOR_FROM_DATABASE=BIOMED Lab
  
@@ -97,7 +97,7 @@
  acpi:BMS*:
   ID_VENDOR_FROM_DATABASE=BIOMEDISYS
  
-@@ -1279,6 +1302,9 @@
+@@ -1282,6 +1305,9 @@
  acpi:BNO*:
   ID_VENDOR_FROM_DATABASE=Bang & Olufsen
  
@@ -107,7 +107,7 @@
  acpi:BNS*:
   ID_VENDOR_FROM_DATABASE=Boulder Nonlinear Systems
  
-@@ -1525,6 +1551,9 @@
+@@ -1528,6 +1554,9 @@
  acpi:CHA*:
   ID_VENDOR_FROM_DATABASE=Chase Research PLC
  
@@ -117,7 +117,7 @@
  acpi:CHD*:
   ID_VENDOR_FROM_DATABASE=ChangHong Electric Co.,Ltd
  
-@@ -1690,6 +1719,9 @@
+@@ -1693,6 +1722,9 @@
  acpi:COD*:
   ID_VENDOR_FROM_DATABASE=CODAN Pty. Ltd.
  
@@ -127,7 +127,7 @@
  acpi:COI*:
   ID_VENDOR_FROM_DATABASE=Codec Inc.
  
-@@ -2108,7 +2140,7 @@
+@@ -2111,7 +2143,7 @@
   ID_VENDOR_FROM_DATABASE=Dragon Information Technology
  
  acpi:DJE*:
@@ -136,7 +136,7 @@
  
  acpi:DJP*:
   ID_VENDOR_FROM_DATABASE=Maygay Machines, Ltd
-@@ -2461,6 +2493,9 @@
+@@ -2464,6 +2496,9 @@
  acpi:EIN*:
   ID_VENDOR_FROM_DATABASE=Elegant Invention
  
@@ -146,7 +146,7 @@
  acpi:EKA*:
   ID_VENDOR_FROM_DATABASE=MagTek Inc.
  
-@@ -2731,6 +2766,9 @@
+@@ -2734,6 +2769,9 @@
  acpi:FCG*:
   ID_VENDOR_FROM_DATABASE=First International Computer Ltd
  
@@ -156,7 +156,7 @@
  acpi:FCS*:
   ID_VENDOR_FROM_DATABASE=Focus Enhancements, Inc.
  
-@@ -3107,7 +3145,7 @@
+@@ -3110,7 +3148,7 @@
   ID_VENDOR_FROM_DATABASE=General Standards Corporation
  
  acpi:GSM*:
@@ -165,7 +165,7 @@
  
  acpi:GSN*:
   ID_VENDOR_FROM_DATABASE=Grandstream Networks, Inc.
-@@ -3217,6 +3255,9 @@
+@@ -3220,6 +3258,9 @@
  acpi:HEC*:
   ID_VENDOR_FROM_DATABASE=Hisense Electric Co., Ltd.
  
@@ -175,7 +175,7 @@
  acpi:HEL*:
   ID_VENDOR_FROM_DATABASE=Hitachi Micro Systems Europe Ltd
  
-@@ -3352,6 +3393,9 @@
+@@ -3355,6 +3396,9 @@
  acpi:HSD*:
   ID_VENDOR_FROM_DATABASE=HannStar Display Corp
  
@@ -185,7 +185,7 @@
  acpi:HSM*:
   ID_VENDOR_FROM_DATABASE=AT&T Microelectronics
  
-@@ -3478,6 +3522,9 @@
+@@ -3481,6 +3525,9 @@
  acpi:ICI*:
   ID_VENDOR_FROM_DATABASE=Infotek Communication Inc
  
@@ -195,7 +195,7 @@
  acpi:ICM*:
   ID_VENDOR_FROM_DATABASE=Intracom SA
  
-@@ -3574,6 +3621,9 @@
+@@ -3577,6 +3624,9 @@
  acpi:IKE*:
   ID_VENDOR_FROM_DATABASE=Ikegami Tsushinki Co. Ltd.
  
@@ -205,7 +205,7 @@
  acpi:IKS*:
   ID_VENDOR_FROM_DATABASE=Ikos Systems Inc
  
-@@ -3622,6 +3672,9 @@
+@@ -3625,6 +3675,9 @@
  acpi:IMX*:
   ID_VENDOR_FROM_DATABASE=arpara Technology Co., Ltd.
  
@@ -215,7 +215,7 @@
  acpi:INA*:
   ID_VENDOR_FROM_DATABASE=Inventec Corporation
  
-@@ -4150,6 +4203,9 @@
+@@ -4153,6 +4206,9 @@
  acpi:LAN*:
   ID_VENDOR_FROM_DATABASE=Sodeman Lancom Inc
  
@@ -225,7 +225,7 @@
  acpi:LAS*:
   ID_VENDOR_FROM_DATABASE=LASAT Comm. A/S
  
-@@ -4201,6 +4257,9 @@
+@@ -4204,6 +4260,9 @@
  acpi:LED*:
   ID_VENDOR_FROM_DATABASE=Long Engineering Design Inc
  
@@ -235,7 +235,7 @@
  acpi:LEG*:
   ID_VENDOR_FROM_DATABASE=Legerity, Inc
  
-@@ -4219,6 +4278,9 @@
+@@ -4222,6 +4281,9 @@
  acpi:LGD*:
   ID_VENDOR_FROM_DATABASE=LG Display
  
@@ -245,7 +245,7 @@
  acpi:LGI*:
   ID_VENDOR_FROM_DATABASE=Logitech Inc
  
-@@ -4285,6 +4347,9 @@
+@@ -4288,6 +4350,9 @@
  acpi:LND*:
   ID_VENDOR_FROM_DATABASE=Land Computer Company Ltd
  
@@ -255,7 +255,7 @@
  acpi:LNK*:
   ID_VENDOR_FROM_DATABASE=Link Tech Inc
  
-@@ -4319,7 +4384,7 @@
+@@ -4322,7 +4387,7 @@
   ID_VENDOR_FROM_DATABASE=Design Technology
  
  acpi:LPL*:
@@ -264,7 +264,7 @@
  
  acpi:LSC*:
   ID_VENDOR_FROM_DATABASE=LifeSize Communications
-@@ -4495,6 +4560,9 @@
+@@ -4498,6 +4563,9 @@
  acpi:MCX*:
   ID_VENDOR_FROM_DATABASE=Millson Custom Solutions Inc.
  
@@ -274,7 +274,7 @@
  acpi:MDA*:
   ID_VENDOR_FROM_DATABASE=Media4 Inc
  
-@@ -4741,6 +4809,9 @@
+@@ -4744,6 +4812,9 @@
  acpi:MOM*:
   ID_VENDOR_FROM_DATABASE=Momentum Data Systems
  
@@ -284,7 +284,7 @@
  acpi:MOS*:
   ID_VENDOR_FROM_DATABASE=Moses Corporation
  
-@@ -4981,6 +5052,9 @@
+@@ -4984,6 +5055,9 @@
  acpi:NAL*:
   ID_VENDOR_FROM_DATABASE=Network Alchemy
  
@@ -294,7 +294,7 @@
  acpi:NAT*:
   ID_VENDOR_FROM_DATABASE=NaturalPoint Inc.
  
-@@ -5521,6 +5595,9 @@
+@@ -5524,6 +5598,9 @@
  acpi:PCX*:
   ID_VENDOR_FROM_DATABASE=PC Xperten
  
@@ -304,7 +304,7 @@
  acpi:PDM*:
   ID_VENDOR_FROM_DATABASE=Psion Dacom Plc.
  
-@@ -5584,9 +5661,6 @@
+@@ -5587,9 +5664,6 @@
  acpi:PHE*:
   ID_VENDOR_FROM_DATABASE=Philips Medical Systems Boeblingen GmbH
  
@@ -314,7 +314,7 @@
  acpi:PHL*:
   ID_VENDOR_FROM_DATABASE=Philips Consumer Electronics Company
  
-@@ -5677,9 +5751,6 @@
+@@ -5680,9 +5754,6 @@
  acpi:PNL*:
   ID_VENDOR_FROM_DATABASE=Panelview, Inc.
  
@@ -324,7 +324,7 @@
  acpi:PNR*:
   ID_VENDOR_FROM_DATABASE=Planar Systems, Inc.
  
-@@ -6157,9 +6228,6 @@
+@@ -6160,9 +6231,6 @@
  acpi:RTI*:
   ID_VENDOR_FROM_DATABASE=Rancho Tech Inc
  
@@ -334,7 +334,7 @@
  acpi:RTL*:
   ID_VENDOR_FROM_DATABASE=Realtek Semiconductor Company Ltd
  
-@@ -6334,9 +6402,6 @@
+@@ -6337,9 +6405,6 @@
  acpi:SEE*:
   ID_VENDOR_FROM_DATABASE=SeeColor Corporation
  
@@ -344,7 +344,7 @@
  acpi:SEI*:
   ID_VENDOR_FROM_DATABASE=Seitz & Associates Inc
  
-@@ -6820,6 +6885,9 @@
+@@ -6823,6 +6888,9 @@
  acpi:SVD*:
   ID_VENDOR_FROM_DATABASE=SVD Computer
  
@@ -354,7 +354,7 @@
  acpi:SVI*:
   ID_VENDOR_FROM_DATABASE=Sun Microsystems
  
-@@ -6904,6 +6972,9 @@
+@@ -6907,6 +6975,9 @@
  acpi:SZM*:
   ID_VENDOR_FROM_DATABASE=Shenzhen MTC Co., Ltd
  
@@ -364,7 +364,7 @@
  acpi:TAA*:
   ID_VENDOR_FROM_DATABASE=Tandberg
  
-@@ -6994,6 +7065,9 @@
+@@ -6997,6 +7068,9 @@
  acpi:TDG*:
   ID_VENDOR_FROM_DATABASE=Six15 Technologies
  
@@ -374,7 +374,7 @@
  acpi:TDM*:
   ID_VENDOR_FROM_DATABASE=Tandem Computer Europe Inc
  
-@@ -7036,6 +7110,9 @@
+@@ -7039,6 +7113,9 @@
  acpi:TEV*:
   ID_VENDOR_FROM_DATABASE=Televés, S.A.
  
@@ -384,7 +384,7 @@
  acpi:TEZ*:
   ID_VENDOR_FROM_DATABASE=Tech Source Inc.
  
-@@ -7165,9 +7242,6 @@
+@@ -7168,9 +7245,6 @@
  acpi:TNC*:
   ID_VENDOR_FROM_DATABASE=TNC Industrial Company Ltd
  
@@ -394,7 +394,7 @@
  acpi:TNM*:
   ID_VENDOR_FROM_DATABASE=TECNIMAGEN SA
  
-@@ -7480,14 +7554,14 @@
+@@ -7483,14 +7557,14 @@
  acpi:UNC*:
   ID_VENDOR_FROM_DATABASE=Unisys Corporation
  
@@ -415,7 +415,7 @@
  
  acpi:UNI*:
   ID_VENDOR_FROM_DATABASE=Uniform Industry Corp.
-@@ -7522,6 +7596,9 @@
+@@ -7525,6 +7599,9 @@
  acpi:USA*:
   ID_VENDOR_FROM_DATABASE=Utimaco Safeware AG
  
@@ -425,7 +425,7 @@
  acpi:USD*:
   ID_VENDOR_FROM_DATABASE=U.S. Digital Corporation
  
-@@ -7783,9 +7860,6 @@
+@@ -7786,9 +7863,6 @@
  acpi:WAL*:
   ID_VENDOR_FROM_DATABASE=Wave Access
  
@@ -435,7 +435,7 @@
  acpi:WAV*:
   ID_VENDOR_FROM_DATABASE=Wavephore
  
-@@ -7913,7 +7987,7 @@
+@@ -7916,7 +7990,7 @@
   ID_VENDOR_FROM_DATABASE=WyreStorm Technologies LLC
  
  acpi:WYS*:
@@ -444,7 +444,7 @@
  
  acpi:WYT*:
   ID_VENDOR_FROM_DATABASE=Wooyoung Image & Information Co.,Ltd.
-@@ -7927,9 +8001,6 @@
+@@ -7930,9 +8004,6 @@
  acpi:XDM*:
   ID_VENDOR_FROM_DATABASE=XDM Ltd.
  
@@ -454,7 +454,7 @@
  acpi:XES*:
   ID_VENDOR_FROM_DATABASE=Extreme Engineering Solutions, Inc.
  
-@@ -7963,9 +8034,6 @@
+@@ -7966,9 +8037,6 @@
  acpi:XNT*:
   ID_VENDOR_FROM_DATABASE=XN Technologies, Inc.
  
@@ -464,7 +464,7 @@
  acpi:XQU*:
   ID_VENDOR_FROM_DATABASE=SHANGHAI SVA-DAV ELECTRONICS CO., LTD
  
-@@ -8032,6 +8100,9 @@
+@@ -8035,6 +8103,9 @@
  acpi:ZBX*:
   ID_VENDOR_FROM_DATABASE=Zebax Technologies
  
