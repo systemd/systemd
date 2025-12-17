@@ -632,10 +632,6 @@ static int path_start(Unit *u) {
 
         assert(IN_SET(p->state, PATH_DEAD, PATH_FAILED));
 
-        r = unit_test_trigger_loaded(u);
-        if (r < 0)
-                return r;
-
         r = unit_acquire_invocation_id(u);
         if (r < 0)
                 return r;
@@ -901,6 +897,10 @@ static void path_reset_failed(Unit *u) {
 static int path_test_startable(Unit *u) {
         Path *p = ASSERT_PTR(PATH(u));
         int r;
+
+        r = unit_test_trigger_loaded(u);
+        if (r < 0)
+                return r;
 
         r = unit_test_start_limit(u);
         if (r < 0) {
