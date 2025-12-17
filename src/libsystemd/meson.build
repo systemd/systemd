@@ -152,6 +152,7 @@ libsystemd_static = static_library(
         dependencies : [threads,
                         libm,
                         librt,
+                        libselinux,
                         userspace],
         build_by_default : false)
 
