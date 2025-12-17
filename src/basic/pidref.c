@@ -338,7 +338,7 @@ int pidref_new_from_pid(pid_t pid, PidRef **ret) {
         return 0;
 }
 
-int pidref_kill(const PidRef *pidref, int sig) {
+int pidref_kill_full(const PidRef *pidref, int sig, const siginfo_t *si) {
 
         if (!pidref)
                 return -ESRCH;
@@ -346,11 +346,16 @@ int pidref_kill(const PidRef *pidref, int sig) {
         if (pidref_is_remote(pidref))
                 return -EREMOTE;
 
+        /* pidfd_send_signal() changes the siginfo_t argument. This is weird, let's hence copy the structure here. */
+        siginfo_t copy;
+        if (si)
+                copy = *si;
+
         if (pidref->fd >= 0)
-                return RET_NERRNO(pidfd_send_signal(pidref->fd, sig, NULL, 0));
+                return RET_NERRNO(pidfd_send_signal(pidref->fd, sig, si ? &copy : NULL, 0));
 
         if (pidref->pid > 0)
-                return RET_NERRNO(kill(pidref->pid, sig));
+                return RET_NERRNO(si ? rt_sigqueueinfo(pidref->pid, sig, &copy) : kill(pidref->pid, sig));
 
         return -ESRCH;
 }
@@ -369,33 +374,19 @@ int pidref_kill_and_sigcont(const PidRef *pidref, int sig) {
 }
 
 int pidref_sigqueue(const PidRef *pidref, int sig, int value) {
+        siginfo_t si;
 
-        if (!pidref)
-                return -ESRCH;
+        /* We can't use structured initialization here, since the structure contains various unions
+         * and these fields lie in overlapping (carefully aligned) unions that LLVM is allergic to
+         * allow assignments to */
+        zero(si);
+        si.si_signo = sig;
+        si.si_code = SI_QUEUE;
+        si.si_pid = getpid_cached();
+        si.si_uid = getuid();
+        si.si_value.sival_int = value;
 
-        if (pidref_is_remote(pidref))
-                return -EREMOTE;
-
-        if (pidref->fd >= 0) {
-                siginfo_t si;
-
-                /* We can't use structured initialization here, since the structure contains various unions
-                 * and these fields lie in overlapping (carefully aligned) unions that LLVM is allergic to
-                 * allow assignments to */
-                zero(si);
-                si.si_signo = sig;
-                si.si_code = SI_QUEUE;
-                si.si_pid = getpid_cached();
-                si.si_uid = getuid();
-                si.si_value.sival_int = value;
-
-                return RET_NERRNO(pidfd_send_signal(pidref->fd, sig, &si, 0));
-        }
-
-        if (pidref->pid > 0)
-                return RET_NERRNO(sigqueue(pidref->pid, sig, (const union sigval) { .sival_int = value }));
-
-        return -ESRCH;
+        return pidref_kill_full(pidref, sig, &si);
 }
 
 int pidref_verify(const PidRef *pidref) {
