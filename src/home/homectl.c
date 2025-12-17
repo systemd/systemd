@@ -106,8 +106,6 @@ static int arg_fido2_cred_alg = 0;
 #endif
 static bool arg_recovery_key = false;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
-static bool arg_and_resize = false;
-static bool arg_and_change_password = false;
 static ExportFormat arg_export_format = EXPORT_FORMAT_FULL;
 static uint64_t arg_capability_bounding_set = CAP_MASK_UNSET;
 static uint64_t arg_capability_ambient_set = CAP_MASK_UNSET;
@@ -1922,6 +1920,9 @@ static int update_home(int argc, char *argv[], void *userdata) {
         } else
                 username = NULL;
 
+        bool and_change_password = !strv_isempty(arg_pkcs11_token_uri) || !strv_isempty(arg_fido2_device);
+        bool and_resize = arg_disk_size != UINT64_MAX || arg_disk_size_relative != UINT64_MAX;
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
@@ -1953,7 +1954,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
         /* If we do multiple operations, let's output things more verbosely, since otherwise the repeated
          * authentication might be confusing. */
 
-        if (arg_and_resize || arg_and_change_password)
+        if (and_resize || and_change_password)
                 log_info("Updating home directory.");
 
         if (arg_offline)
@@ -1988,7 +1989,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
 
                 r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
                 if (r < 0) {
-                        if (arg_and_change_password &&
+                        if (and_change_password &&
                             sd_bus_error_has_name(&error, BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN))
                                 /* In the generic handler we'd ask for a password in this case, but when
                                  * changing passwords that's not sufficient, as we need to acquire all keys
@@ -2002,13 +2003,13 @@ static int update_home(int argc, char *argv[], void *userdata) {
                         break;
         }
 
-        if (arg_and_resize)
+        if (and_resize)
                 log_info("Resizing home.");
 
         (void) home_record_reset_human_interaction_permission(hr);
 
         /* Also sync down disk size to underlying LUKS/fscrypt/quota */
-        while (arg_and_resize) {
+        while (and_resize) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
@@ -2027,7 +2028,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
 
                 r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
                 if (r < 0) {
-                        if (arg_and_change_password &&
+                        if (and_change_password &&
                             sd_bus_error_has_name(&error, BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN))
                                 return log_error_errno(r, "Security token not inserted, refusing.");
 
@@ -2038,13 +2039,13 @@ static int update_home(int argc, char *argv[], void *userdata) {
                         break;
         }
 
-        if (arg_and_change_password)
+        if (and_change_password)
                 log_info("Synchronizing passwords and encryption keys.");
 
         (void) home_record_reset_human_interaction_permission(hr);
 
         /* Also sync down passwords to underlying LUKS/fscrypt */
-        while (arg_and_change_password) {
+        while (and_change_password) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
@@ -4156,8 +4157,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FIDO2_WITH_UP,
                 ARG_FIDO2_WITH_UV,
                 ARG_RECOVERY_KEY,
-                ARG_AND_RESIZE,
-                ARG_AND_CHANGE_PASSWORD,
                 ARG_DROP_CACHES,
                 ARG_LUKS_EXTRA_MOUNT_OPTIONS,
                 ARG_AUTO_RESIZE_MODE,
@@ -4266,8 +4265,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "fido2-with-user-presence",     required_argument, NULL, ARG_FIDO2_WITH_UP               },
                 { "fido2-with-user-verification", required_argument, NULL, ARG_FIDO2_WITH_UV               },
                 { "recovery-key",                 required_argument, NULL, ARG_RECOVERY_KEY                },
-                { "and-resize",                   required_argument, NULL, ARG_AND_RESIZE                  },
-                { "and-change-password",          required_argument, NULL, ARG_AND_CHANGE_PASSWORD         },
                 { "drop-caches",                  required_argument, NULL, ARG_DROP_CACHES                 },
                 { "luks-extra-mount-options",     required_argument, NULL, ARG_LUKS_EXTRA_MOUNT_OPTIONS    },
                 { "auto-resize-mode",             required_argument, NULL, ARG_AUTO_RESIZE_MODE            },
@@ -4800,14 +4797,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_AND_RESIZE:
-                        arg_and_resize = true;
-                        break;
-
-                case ARG_AND_CHANGE_PASSWORD:
-                        arg_and_change_password = true;
-                        break;
-
                 case ARG_DROP_CACHES:
                         r = parse_boolean_field(match_identity ?: &arg_identity_extra, "dropCaches", optarg);
                         if (r < 0)
@@ -5007,12 +4996,6 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
         }
-
-        if (!strv_isempty(arg_pkcs11_token_uri) || !strv_isempty(arg_fido2_device))
-                arg_and_change_password = true;
-
-        if (arg_disk_size != UINT64_MAX || arg_disk_size_relative != UINT64_MAX)
-                arg_and_resize = true;
 
         if (!strv_isempty(arg_languages)) {
                 char **additional;
