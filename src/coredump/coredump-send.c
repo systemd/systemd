@@ -267,7 +267,7 @@ int coredump_send_to_container(CoredumpContext *context) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to open namespaces of PID " PID_FMT ": %m", leader_pid.pid);
 
-        r = namespace_fork("(sd-coredumpns)", "(sd-coredump)", NULL, 0,
+        r = namespace_fork("(sd-coredumpns)", "(sd-coredump)",
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                            pidnsfd, mntnsfd, netnsfd, usernsfd, rootfd, &child);
         if (r < 0)
