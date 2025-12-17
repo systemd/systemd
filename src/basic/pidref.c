@@ -338,7 +338,7 @@ int pidref_new_from_pid(pid_t pid, PidRef **ret) {
         return 0;
 }
 
-int pidref_kill(const PidRef *pidref, int sig) {
+int pidref_kill_full(const PidRef *pidref, int sig, const siginfo_t *si) {
 
         if (!pidref)
                 return -ESRCH;
@@ -346,11 +346,16 @@ int pidref_kill(const PidRef *pidref, int sig) {
         if (pidref_is_remote(pidref))
                 return -EREMOTE;
 
+        /* pidfd_send_signal() changes the siginfo_t argument. This is weird, let's hence copy the structure here. */
+        siginfo_t copy;
+        if (si)
+                copy = *si;
+
         if (pidref->fd >= 0)
-                return RET_NERRNO(pidfd_send_signal(pidref->fd, sig, NULL, 0));
+                return RET_NERRNO(pidfd_send_signal(pidref->fd, sig, si ? &copy : NULL, 0));
 
         if (pidref->pid > 0)
-                return RET_NERRNO(kill(pidref->pid, sig));
+                return RET_NERRNO(si ? rt_sigqueueinfo(pidref->pid, sig, &copy) : kill(pidref->pid, sig));
 
         return -ESRCH;
 }

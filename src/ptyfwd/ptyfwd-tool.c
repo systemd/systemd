@@ -238,7 +238,7 @@ static int run(int argc, char *argv[]) {
 
         r = event_forward_signals(
                         event,
-                        child,
+                        &pidref,
                         pty_forward_signals, ELEMENTSOF(pty_forward_signals),
                         &forward_signal_sources, &n_forward_signal_sources);
         if (r < 0)
