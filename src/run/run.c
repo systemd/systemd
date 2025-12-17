@@ -1780,6 +1780,7 @@ typedef struct RunContext {
         char *bus_path;
         char *start_job;
         int pty_fd;
+        PidRef pidref;
 
         /* Bus objects */
         sd_bus *bus;
@@ -1829,6 +1830,7 @@ static void run_context_done(RunContext *c) {
         free(c->start_job);
 
         safe_close(c->pty_fd);
+        pidref_done(&c->pidref);
 }
 
 static int on_retry_timer(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -1980,6 +1982,27 @@ static int map_job(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_er
         return free_and_strdup(p, id == 0 ? NULL : job);
 }
 
+static int map_pid(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        PidRef *p = ASSERT_PTR(userdata);
+        uint32_t pid;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "u", &pid);
+        if (r < 0)
+                return r;
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_set_pid(&pidref, pid);
+        if (r < 0)
+                return r;
+
+        pidref_done(p);
+        *p = TAKE_PIDREF(pidref);
+        return 0;
+}
+
 static int run_context_update(RunContext *c) {
 
         static const struct bus_properties_map map[] = {
@@ -1997,6 +2020,7 @@ static int run_context_update(RunContext *c) {
                 { "IOReadBytes",                     "t",    NULL,    offsetof(RunContext, io_read_bytes)       },
                 { "IOWriteBytes",                    "t",    NULL,    offsetof(RunContext, io_write_bytes)      },
                 { "Job",                             "(uo)", map_job, offsetof(RunContext, job)                 },
+                { "MainPID",                         "u",    map_pid, offsetof(RunContext, pidref)              },
                 {}
         };
 
@@ -2629,8 +2653,6 @@ static int start_transient_service(sd_bus *bus) {
                                         return log_error_errno(r, "Failed to set OSC context: %m");
                         }
 
-                        (void) sd_event_set_signal_exit(c.event, true);
-
                         assert(arg_pty_late >= 0);
                         if (!arg_pty_late) { /* If late PTY mode is off, start pty forwarder immediately */
                                 r = run_context_setup_ptyfwd(&c);
@@ -2646,6 +2668,37 @@ static int start_transient_service(sd_bus *bus) {
                 r = run_context_update(&c);
                 if (r < 0)
                         return r;
+
+                sd_event_source **forward_signal_sources = NULL;
+                size_t n_forward_signal_sources = 0;
+                CLEANUP_ARRAY(forward_signal_sources, n_forward_signal_sources, event_source_unref_many);
+
+                if (c.pty_fd >= 0) {
+                        /* There's no guarantee that we're permitted to forward signals to the service main
+                        * process, but there's no harm in trying. */
+                        r = event_forward_signals(
+                                        c.event,
+                                        &c.pidref,
+                                        pty_forward_signals, ELEMENTSOF(pty_forward_signals),
+                                        &forward_signal_sources, &n_forward_signal_sources);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set up signal forwarding: %m");
+
+                        FOREACH_ARRAY(source, forward_signal_sources, n_forward_signal_sources) {
+                                r = sd_event_source_get_signal(*source);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to get event source signal: %m");
+
+                                if (!IN_SET(r, SIGTERM, SIGINT))
+                                        continue;
+
+                                /* This causes the signal forwarding event source to terminate the event loop
+                                 * with a zero exit code if a signal can't be forwarded. */
+                                r = sd_event_source_set_exit_on_failure(*source, true);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to enable exit-on-failure: %m");
+                        }
+                }
 
                 r = sd_event_loop(c.event);
                 if (r < 0)
