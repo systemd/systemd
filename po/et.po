@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-12-15 19:58+0000\n"
+"PO-Revision-Date: 2025-12-17 01:58+0000\n"
 "Last-Translator: Priit Jõerüüt "
 "<jrtkbfdr@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Estonian <https://translate.fedoraproject.org/projects/"
@@ -514,11 +514,13 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
-msgstr ""
+msgstr "Luba sisselogimata kasutajatel käivitada programme"
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
+"Kui sisselogimata kasutajat soovib käivitada programme, siis on selleka "
+"vajalik ühene päring."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -1060,7 +1062,7 @@ msgstr "Autentimine on vajalik, et registeerida DNS-SD teenust."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
-msgstr ""
+msgstr "Lõpeta DNS-SD teenuse registreerimine"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service."
@@ -1255,3 +1257,5 @@ msgstr "Autentimine on vajalik, et kustutada '$(unit)' faile ja kauste."
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
+"„$(unit)“ ühikfaili protsesside külmitamiseks või ülessulatamiseks on "
+"vajalik autentimine."
