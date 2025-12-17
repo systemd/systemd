@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "varlink-io.systemd.sysext.h"
 
 static SD_VARLINK_DEFINE_ENUM_TYPE(
@@ -19,24 +20,28 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(class, ImageClass, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(force, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(noReload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(noexec, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_INPUT(noexec, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT);
 
 static SD_VARLINK_DEFINE_METHOD(
                 Unmerge,
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(class, ImageClass, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(noReload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_INPUT(noReload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT);
 
 static SD_VARLINK_DEFINE_METHOD(
                 Refresh,
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(class, ImageClass, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(force, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_INPUT(noReload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_INPUT(noexec, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_INPUT(noexec, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT);
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
                 SD_VARLINK_REQUIRES_MORE,
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(class, ImageClass, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Class, ImageClass, 0),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Type, ImageType, 0),
                 SD_VARLINK_DEFINE_OUTPUT(Name, SD_VARLINK_STRING, 0),
