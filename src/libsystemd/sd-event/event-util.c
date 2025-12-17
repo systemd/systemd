@@ -252,7 +252,7 @@ void event_source_unref_many(sd_event_source **array, size_t n) {
 }
 
 static int event_forward_signal_callback(sd_event_source *s, const struct signalfd_siginfo *ssi, void *userdata) {
-        sd_event_source *child = ASSERT_PTR(userdata);
+        PidRef *pidref = ASSERT_PTR(userdata);
 
         assert(ssi);
 
@@ -272,17 +272,12 @@ static int event_forward_signal_callback(sd_event_source *s, const struct signal
         si.si_int = ssi->ssi_int;
         si.si_ptr = UINT64_TO_PTR(ssi->ssi_ptr);
 
-        return sd_event_source_send_child_signal(child, ssi->ssi_signo, &si, /* flags= */ 0);
-}
-
-static void event_forward_signal_destroy(void *userdata) {
-        sd_event_source *child = ASSERT_PTR(userdata);
-        sd_event_source_unref(child);
+        return pidref_kill_full(pidref, ssi->ssi_signo, &si);
 }
 
 int event_forward_signals(
                 sd_event *e,
-                sd_event_source *child,
+                PidRef *pidref,
                 const int *signals,
                 size_t n_signals,
                 sd_event_source ***ret_sources,
@@ -295,11 +290,13 @@ int event_forward_signals(
         CLEANUP_ARRAY(sources, n_sources, event_source_unref_many);
 
         assert(e);
-        assert(child);
-        assert(child->type == SOURCE_CHILD);
+        assert(pidref);
         assert(signals || n_signals == 0);
         assert(ret_sources);
         assert(ret_n_sources);
+
+        /* NOTE: The input pidref's lifetime must exceed the lifetime of all the event sources returned
+         * by this function. */
 
         if (n_signals == 0) {
                 *ret_sources = NULL;
@@ -313,15 +310,10 @@ int event_forward_signals(
 
         FOREACH_ARRAY(sig, signals, n_signals) {
                 _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-                r = sd_event_add_signal(e, &s, *sig | SD_EVENT_SIGNAL_PROCMASK, event_forward_signal_callback, child);
+                r = sd_event_add_signal(e, &s, *sig | SD_EVENT_SIGNAL_PROCMASK, event_forward_signal_callback, pidref);
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_destroy_callback(s, event_forward_signal_destroy);
-                if (r < 0)
-                        return r;
-
-                sd_event_source_ref(child);
                 sources[n_sources++] = TAKE_PTR(s);
         }
 
