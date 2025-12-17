@@ -7,7 +7,7 @@ set -o pipefail
 DISTRO="${DISTRO:-debian}"
 RELEASE="${RELEASE:-bookworm}"
 SALSA_URL="${SALSA_URL:-https://salsa.debian.org/systemd-team/systemd.git}"
-BRANCH="${BRANCH:-debian/master}"
+BRANCH="${BRANCH:-ci/v259-stable}"
 ARCH="${ARCH:-amd64}"
 CONTAINER="${RELEASE}-${ARCH}"
 CACHE_DIR=/var/tmp
