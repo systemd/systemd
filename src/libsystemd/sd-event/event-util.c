@@ -6,9 +6,11 @@
 #include "event-source.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "hash-funcs.h"
 #include "log.h"
 #include "pidref.h"
+#include "signal-util.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -253,6 +255,7 @@ void event_source_unref_many(sd_event_source **array, size_t n) {
 
 static int event_forward_signal_callback(sd_event_source *s, const struct signalfd_siginfo *ssi, void *userdata) {
         PidRef *pidref = ASSERT_PTR(userdata);
+        int r;
 
         assert(ssi);
 
@@ -272,7 +275,24 @@ static int event_forward_signal_callback(sd_event_source *s, const struct signal
         si.si_int = ssi->ssi_int;
         si.si_ptr = UINT64_TO_PTR(ssi->ssi_ptr);
 
-        return pidref_kill_full(pidref, ssi->ssi_signo, &si);
+        log_debug("Forwarding signal %s to process " PID_FMT, signal_to_string(ssi->ssi_signo), pidref->pid);
+
+        r = pidref_kill_full(pidref, ssi->ssi_signo, &si);
+        if (r < 0 && r != -ESRCH) {
+                log_debug("Failed to forward signal %s to child process with pid "PID_FMT": %m", signal_to_string(ssi->ssi_signo), pidref->pid);
+
+                if (sd_event_source_get_exit_on_failure(s) <= 0)
+                        return r;
+
+                /* If we can't forward a signal for w.e. reason and exit-on-failure is enabled for the event
+                 * source, we terminate the event loop with a zero exit code. We don't propagate the error to
+                 * make signal forwarding a graceful operation. We'll forward signals if we can, and if we
+                 * can't, we'll instead terminate the event loop as we can't stop the child process via
+                 * signal forwarding. */
+                return sd_event_exit(sd_event_source_get_event(s), 0);
+        }
+
+        return 0;
 }
 
 int event_forward_signals(
