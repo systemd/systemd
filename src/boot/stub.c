@@ -627,17 +627,20 @@ static EFI_STATUS load_addons(
                         return log_error_status(err, "Failed to find protocol in %ls: %m", items[i]);
 
                 err = pe_memory_locate_sections(loaded_addon->ImageBase, unified_sections, sections);
-                if (err != EFI_SUCCESS ||
-                    (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) &&
-                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB) &&
-                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO) &&
-                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD) &&
-                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE))) {
-                        if (err == EFI_SUCCESS)
-                                err = EFI_NOT_FOUND;
+                if (err != EFI_SUCCESS) {
                         log_error_status(err,
                                          "Unable to locate embedded .cmdline/.dtb/.dtbauto/.initrd/.ucode sections in %ls, ignoring: %m",
                                          items[i]);
+                        continue;
+                }
+
+                if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) &&
+                    !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB) &&
+                    !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO) &&
+                    !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD) &&
+                    !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE)) {
+                        log_debug("No applicable .cmdline/.dtb/.dtbauto/.initrd/.ucode sections found in %ls, ignoring.",
+                                  items[i]);
                         continue;
                 }
 
