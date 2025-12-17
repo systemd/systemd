@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2025.12.10
-#	Date:    2025-12-10 03:15:02
+#	Version: 2025.12.16
+#	Date:    2025-12-16 03:15:01
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -4153,6 +4153,7 @@
 		1da2 e490  Navi 48 XTX [Sapphire Pulse Radeon RX 9070 XT]
 	7551  Navi 48 [Radeon AI PRO R9700]
 	7590  Navi 44 [Radeon RX 9060 XT]
+		1eae 8601  RX-96TS316W7 [SWIFT RX 9060 XT OC White Triple Fan Gaming Edition 16GB]
 	75a0  Aqua Vanjaram [Instinct MI350X]
 	75a3  Aqua Vanjaram [Instinct MI355X]
 	7833  RS350 Host Bridge
@@ -4913,6 +4914,7 @@
 	0144  Yotta Video Compositor Output
 		1014 0145  Yotta Output Controller (ytout)
 	0156  405GP PLB to PCI Bridge
+		1fc3 0004  IC695ETM001 RX3i Ethernet PCI Module
 	015e  622Mbps ATM PCI Adapter
 	0160  64bit/66MHz PCI ATM 155 MMF
 	016e  GXT4000P Graphics Adapter
@@ -13512,7 +13514,7 @@
 	2b8c  GB202 [GeForce RTX 5090 D V2]
 	2bb1  GB202GL [RTX PRO 6000 Blackwell Workstation Edition]
 	2bb2  GB202GL [RTX PRO 6000D Blackwell Workstation Edition]
-	2bb3  GB202GL [RTX PRO 5000 Blackwell]
+	2bb3  GB202GL [RTX PRO 5000 Blackwell / RTX PRO 5000 72GB Blackwell]
 	2bb4  GB202GL [RTX PRO 6000 Blackwell Max-Q Workstation Edition]
 	2bb5  GB202GL [RTX PRO 6000 Blackwell Server Edition]
 	2bb9  GB202GL [RTX 6000D]
@@ -14004,6 +14006,7 @@
 		1385 4700  MA521 802.11b Wireless PC Card
 		1737 0019  WPC11v4 802.11b Wireless-B Notebook Adapter
 	8185  RTL-8185 IEEE 802.11a/b/g Wireless LAN Controller
+		187e 8225  ZyAIR G-302 v3
 	818b  RTL8192EE PCIe Wireless Network Adapter
 	8190  RTL8190 802.11n PCI Wireless Network Adapter
 	8191  RTL8192CE PCIe Wireless Network Adapter
@@ -18684,6 +18687,7 @@
 		1028 23a6  MTFDLBQ30T7THL-1BK1JABDA
 		1028 23a7  MTFDLAL61T4THL-1BK1JABDA
 		1028 23a8  MTFDLAL30T7THL-1BK1JABDA
+	51cd  9650 PRO NVMe SSD
 	5404  2210 NVMe SSD [Cobain]
 	5405  2300 NVMe SSD [Santana]
 	5407  3400 NVMe SSD [Hendrix]
@@ -24535,8 +24539,6 @@
 	a102  VigraWATCH PMC
 	a103  Vigra I/O
 187e  ZyXEL Communications Corporation
-	3403  ZyAir G-110 802.11g
-	340e  M-302 802.11g XtremeMIMO
 1885  Avvida Systems Inc.
 1888  Varisys Ltd
 	0301  VMFX1 FPGA PMC module
@@ -28276,9 +28278,12 @@
 	1602  NVMe SSD Controller MAP1602 (DRAM-less)
 	1608  NVMe SSD Controller MAP1608 (DRAM-less)
 1e4c  GSI Technology
-	0010  Associative Processing Unit [Leda]
+	0010  Associative Processing Unit [Gemini-1]
+		1e4c 0010  Leda-E
 		1e4c 0120  SE120
-	0020  Associative Processing Unit [Leda-2]
+	0020  Associative Processing Unit [Gemini-2]
+		1e4c 0010  Leda-E2
+		1e4c 0011  Leda-E2 rev 1.1
 1e50  IP3 Tech (HK) Limited
 1e52  Tenstorrent Inc
 	401e  Wormhole
@@ -28360,6 +28365,8 @@
 		1e95 0000  M.2 2280 480 GB
 		1e95 0001  M.2 2280 960 GB
 		1e95 0002  M.2 2280 1920 GB
+		1e95 0003  M.2 22110 3840 GB
+	100f  EJ5-2W3840 NVMe SSD U.2
 	1010  CX3 Series NVMe SSD
 		1e95 0000  M.2 2280 480 GB
 		1e95 0001  M.2 2280 960 GB
@@ -29151,6 +29158,52 @@
 	0010  IBA6120 InfiniBand HCA
 # formerly GE Intelligent Platforms
 1fc3  Emerson
+	0004  IC695ETM001 RX3i Ethernet PCI Module
+	0005  IC695ALG600 RX3i Universal Analog Input
+	0006  IC695ALG240 RX3i Isolated Analog Input
+	0007  IC695ALG331 RX3i Isolated Analog Output
+	0008  IC695PBM300 RX3i Profibus Master
+	0009  IC695PBS301 RX3i Profibus Slave
+	000a  IC695ALG616 RX3i 16 Channel Input Analog Voltage/Current
+	000b  IC695ALG708 RX3i 8 Channel Output Analog Voltage/Current
+	000c  IC695ALG626 RX3i 16 Channel Input Analog Voltage/Current with HART
+	000d  IC695ALG608 RX3i 8 Channel Input Analog Voltage/Current
+	000e  IC695ALG628 RX3i 8 Channel Input Analog Voltage/Current with HART
+	000f  IC695ALG728 RX3i 8 Channel Output Analog Voltage/Current with HART
+	0010  IC695ALG704 RX3i 4 Channel Output Analog Voltage/Current
+	0011  IC695HSC304 RX3i High Speed Counter (4 counters)
+	0012  IC695HSC308 RX3i High Speed Counter (8 counters)
+	0013  IC695PMM335 PACMotion Digital Motion Control Module
+	0014  IC695CMM002 RX3i Serial Communications Module (2 ports)
+	0015  IC695CMM004 RX3i Serial Communications Module (4 ports)
+	0016  IC695PNC001 RX3i Profinet Controller – XH4 version
+	0017  IC695PNC001 RX3i Profinet Controller – Atom-based version
+	0018  IC695CMX128 RX3i 128MB Control Memory Xchange
+	0019  IC695RMX128 RX3i 128MB Redundancy Memory Xchange
+	001a  IC695ALG106 RX3i 6 Channel Isolated Analog Input
+	001b  IC695ALG112 RX3i 12 Channel Isolated Analog Input
+	001c  IC695ALG808 RX3i 8 Channel Isolated Analog Output
+	001d  IC695ALG306 RX3i Isolated Thermocouple Module (6 Channel)
+	001e  IC695ALG312 RX3i Isolated Thermocouple Module (12 Channel)
+	001f  IC695ALG508 RX3i Isolated RTD Module (8 Channel)
+	0020  IC695ALG412 RX3i Isolated High-Speed Thermocouple Module (12 Channel)
+	0021  IC695PRS015 RX3i High-Speed Serial Pressure Transducer Module (1 Port)
+	0022  IC695MDL664 RX3i 16 Circuit Smart Input 24 VDC
+	0023  IC695MDL764 RX3i 16 Circuit Smart Output 24/125 VDC 2A (8 Positive / 8 Negative)
+	0024  IC695MDL765 RX3i 16 Circuit Smart Output 24/125 VDC 2A (16 Positive)
+	0025  IC695CNM001 RX3i CANopen Master
+# This device is not productized, and therefore does not have an IC695 catalog number.
+	0026  Advanced I/O R&D Device
+	0027  IC695ECM850 RX3i Ethernet Communication Module
+	0028  IC695RMX228 RX3i 128MB Redundancy Memory Xchange with Single Fiber transceiver
+	0029  IC695PMM345 PACMotion Digital Motion Control Module (EtherCAT)
+	002a  IC695HSC318 RX3i High Speed Counter (8 counters)
+	8003  IC695CPU310/CMU310/NIU001 RX3i Controller 300 MHz Celeron
+	8004  IC695CPU315/320/CRU320 RX3i Controller 1.0 GHz Celeron-M
+	8005  IC695PNS001/101 RX3i Profinet Scanner
+	8006  IC695CPE/CRE330 RX3i Controller 1.0 GHz G-series
+	8007  IC695CPE302/305/310/NIU001+ RX3i Controller 1.1 GHz Atom Z510
+	800d  IC695CPE302/305/310/NIU001+ RX3i Controller Atom x3930
 1fc9  Tehuti Networks Ltd.
 	3009  10-Giga TOE SmartNIC
 	3010  10-Giga TOE SmartNIC

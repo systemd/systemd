@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 259 in spe:
+CHANGES WITH 259:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -537,44 +537,44 @@ CHANGES WITH 259 in spe:
           systemd, how many musl-specific bugs are reported, and feedback on
           the desirability of this effort provided by users and distributions.
 
-        Contributions from: Abílio Costa, Alan Brady, Alberto Planas,
-        Aleksandr Mezin, Alexandru Tocar, Allison Karlitskaya,
-        Andreas Schneider, Anton Tiurin, Antonio Alvarez Feijoo,
-        Antonio Álvarez Feijoo, Arian van Putten, Armin Brauns,
-        Armin Wolf, Bastian Almendras, Charlie Le, Chen Qi, Chris Down,
-        Christian Hesse, Christoph Anton Mitterer, Colin Walters,
-        Craig McLure, Daan De Meyer, Daniel Brackenbury, Daniel Foster,
-        Daniel Hast, Daniel Rusek, Danilo Spinella,
-        David Santamaría Rogado, David Tardon, Dimitri John Ledkov,
-        Dr. David Alan Gilbert, Duy Nguyen Van,
-        Emanuele Giuseppe Esposito, Emil Renner Berthing, Eric Curtin,
-        Erin Shepherd, Evgeny Vereshchagin, Fco. Javier F. Serrador,
-        Felix Pehla, Florian, Francesco Valla, Franck Bui,
-        Frantisek Sumsal, Gero Schwäricke, Goffredo Baroncelli,
-        Govind Venugopal, Guido Günther, Hans de Goede, Igor Opaniuk,
-        Ingo Franzki, Itxaka, Ivan Kruglov, Jelle van der Waa,
-        Jeremy Kerr, Jesse Guo, Jim Spentzos, Joshua Krusell,
-        João Rodrigues, Justin Kromlinger, Jörg Behrmann, Kai Lueke,
-        Kai Wohlfahrt, Le_Futuriste, Lennart Poettering, Luca Boccassi,
-        Lucas Adriano Salles, Lukáš Nykrýn, Lukáš Zaoral, Managor,
-        Mantas Mikulėnas, Marc-Antoine Riou, Marcel Leismann,
-        Marcos Alano, Marien Zwart, Markus Boehme, Martin Hundebøll,
-        Martin Srebotnjak, Masanari Iida, Matteo Croce, Maximilian Bosch,
-        Michal Sekletár, Mike Gilbert, Mike Yuan, Miroslav Lichvar,
-        Moisticules, Morgan, Natalie Vock, Nick Labich, Nick Rosbrook,
-        Nils K, Osama Abdelkader, Oğuz Ersen, Pascal Bachor,
-        Pasquale van Heumen, Pavel Borecki, Peter Hutterer,
-        Philip Withnall, Pranay Pawar, Quentin Deslandes,
-        Rafael Fontenelle, Rebecca Cran, Ricardo Salveti, Ronan Pigott,
-        Ryan Brue, Sebastian Gross, Septatrix, Simon Barth,
+        Contributions from: 0x06, Abílio Costa, Alan Brady, Alberto Planas,
+        Aleksandr Mezin, Alexandru Tocar, Alexis-Emmanuel Haeringer,
+        Allison Karlitskaya, Andreas Schneider, Andrew Halaney,
+        Anton Tiurin, Antonio Alvarez Feijoo, Antonio Álvarez Feijoo,
+        Arian van Putten, Armin Brauns, Armin Wolf, Bastian Almendras,
+        Charlie Le, Chen Qi, Chris Down, Christian Hesse,
+        Christoph Anton Mitterer, Colin Walters, Craig McLure,
+        Daan De Meyer, Daniel Brackenbury, Daniel Foster, Daniel Hast,
+        Daniel Rusek, Danilo Spinella, David Santamaría Rogado,
+        David Tardon, Dimitri John Ledkov, Dr. David Alan Gilbert,
+        Duy Nguyen Van, Emanuele Giuseppe Esposito, Emil Renner Berthing,
+        Eric Curtin, Erin Shepherd, Evgeny Vereshchagin,
+        Fco. Javier F. Serrador, Felix Pehla, Fletcher Woodruff, Florian,
+        Francesco Valla, Franck Bui, Frantisek Sumsal, Gero Schwäricke,
+        Goffredo Baroncelli, Govind Venugopal, Guido Günther, Haiyue Wang,
+        Hans de Goede, Henri Aunin, Igor Opaniuk, Ingo Franzki, Itxaka,
+        Ivan Kruglov, Jelle van der Waa, Jeremy Kerr, Jesse Guo,
+        Jim Spentzos, Joshua Krusell, João Rodrigues, Justin Kromlinger,
+        Jörg Behrmann, Kai Lueke, Kai Wohlfahrt, Le_Futuriste,
+        Lennart Poettering, Luca Boccassi, Lucas Adriano Salles,
+        Lukáš Nykrýn, Lukáš Zaoral, Managor, Mantas Mikulėnas,
+        Marc-Antoine Riou, Marcel Leismann, Marcos Alano, Marien Zwart,
+        Markus Boehme, Martin Hundebøll, Martin Srebotnjak, Masanari Iida,
+        Matteo Croce, Maximilian Bosch, Michal Sekletár, Mike Gilbert,
+        Mike Yuan, Miroslav Lichvar, Moisticules, Morgan, Natalie Vock,
+        Nick Labich, Nick Rosbrook, Nils K, Osama Abdelkader, Oğuz Ersen,
+        Pascal Bachor, Pasquale van Heumen, Pavel Borecki, Peter Hutterer,
+        Philip Withnall, Pranay Pawar, Priit Jõerüüt, Quentin Deslandes,
+        QuickSwift315490, Rafael Fontenelle, Rebecca Cran, Ricardo Salveti,
+        Ronan Pigott, Ryan Brue, Sebastian Gross, Septatrix, Simon Barth,
         Stephanie Wilde-Hobbs, Taylan Kammer, Temuri Doghonadze,
-        Thomas Blume, Thomas Mühlbacher, Tobias Heider, Xarblu,
-        Yu Watanabe, Zbigniew Jędrzejewski-Szmek, anthisfan, cvlc12,
+        Thomas Blume, Thomas Mühlbacher, Tobias Heider, Vivian Wang,
+        Xarblu, Yu Watanabe, Zbigniew Jędrzejewski-Szmek, anthisfan, cvlc12,
         dgengtek, dramforever, gvenugo3, helpvisa, huyubiao, jouyouyun, jsks,
         kanitha chim, lumingzh, n0099, ners, nkraetzschmar, nl6720, q66,
         theSillywhat, val4oss, 雪叶
 
-        — Edinburgh, 2025/12/10
+        — Edinburgh, 2025/12/17
 
 CHANGES WITH 258:
 

@@ -411,6 +411,9 @@ acpi:UBLX*:
 acpi:UBOO*:
  ID_VENDOR_FROM_DATABASE=Das U-Boot
 
+acpi:UBTI*:
+ ID_VENDOR_FROM_DATABASE=Ubiquiti Inc.
+
 acpi:ULRV*:
  ID_VENDOR_FROM_DATABASE=UltraRISC Technology (Shanghai) Co., Ltd
 
