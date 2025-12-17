@@ -86,6 +86,7 @@ typedef enum CGroupFlags CGroupFlags;
 typedef enum CGroupMask CGroupMask;
 typedef enum ChaseFlags ChaseFlags;
 typedef enum ExtractFlags ExtractFlags;
+typedef enum ForkFlags ForkFlags;
 typedef enum Glyph Glyph;
 typedef enum ImageClass ImageClass;
 typedef enum JobMode JobMode;

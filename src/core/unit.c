@@ -5539,12 +5539,13 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         return 0;
 }
 
-int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef *ret) {
+int unit_fork_helper_process_full(Unit *u, const char *name, bool into_cgroup, ForkFlags flags, PidRef *ret) {
         CGroupRuntime *crt = NULL;
         pid_t pid;
         int r;
 
         assert(u);
+        assert((flags & (FORK_RESET_SIGNALS|FORK_DETACH|FORK_WAIT)) == 0); /* these don't really make sense for manager */
         assert(ret);
 
         /* Forks off a helper process and makes sure it is a member of the unit's cgroup, if configured to
@@ -5559,7 +5560,7 @@ int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef
                 crt = unit_get_cgroup_runtime(u);
         }
 
-        r = safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM, &pid);
+        r = safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM|flags, &pid);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -5590,6 +5591,10 @@ int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef
         }
 
         return 0;
+}
+
+int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef *ret) {
+        return unit_fork_helper_process_full(u, name, into_cgroup, /* flags = */ 0, ret);
 }
 
 int unit_fork_and_watch_rm_rf(Unit *u, char **paths, PidRef *ret_pid) {

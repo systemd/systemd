@@ -1703,7 +1703,8 @@ int pidref_safe_fork_full(
          * foreign environment. Note that this has no effect on NSS! (i.e. it only has effect on uses of our
          * dlopen_safe(), which we use comprehensively in our codebase, but glibc NSS doesn't bother, of
          * course.) */
-        block_dlopen();
+        if (!FLAGS_SET(flags, FORK_ALLOW_DLOPEN))
+                block_dlopen();
 
         if (flags & (FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL))
                 if (prctl(PR_SET_PDEATHSIG, fork_flags_to_signal(flags)) < 0) {
@@ -1906,6 +1907,7 @@ int namespace_fork(
         /* This is much like safe_fork(), but forks twice, and joins the specified namespaces in the middle
          * process. This ensures that we are fully a member of the destination namespace, with pidns an all, so that
          * /proc/self/fd works correctly. */
+        assert(!FLAGS_SET(flags, FORK_ALLOW_DLOPEN)); /* never allow loading shared library from another ns */
 
         r = safe_fork_full(outer_name,
                            NULL,
