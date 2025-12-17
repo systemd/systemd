@@ -100,7 +100,7 @@ EOF
     [[ "$(systemd-detect-virt)" == "qemu" ]] && TIMEOUT=120 || TIMEOUT=60
 
     machinectl start "$CONTAINER"
-    timeout "$TIMEOUT" bash -xec "until systemd-run -M '$CONTAINER' -q --wait --pipe true; do sleep .5; done"
+    timeout "$TIMEOUT" bash -xec "until SYSTEMD_LOG_LEVEL=debug systemd-run -M '$CONTAINER' -q --wait --pipe true; do sleep .5; done"
 
     [[ "$(systemd-run -M "$CONTAINER" -q --wait --pipe coredumpctl list -q --no-legend sleep | wc -l)" -eq 0 ]]
     machinectl copy-to "$CONTAINER" "$MAKE_DUMP_SCRIPT"
