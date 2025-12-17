@@ -262,6 +262,71 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
         return 0;
 }
 
+static int namespace_enter_one_idempotent(int nsfd, NamespaceType type) {
+        int r;
+
+        /* Join a namespace, but only if we're not part of it already. This is important if we don't necessarily
+         * own the namespace in question, as kernel would unconditionally return EPERM otherwise. */
+
+        assert(nsfd >= 0);
+        assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
+
+        r = is_our_namespace(nsfd, type);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        if (setns(nsfd, namespace_info[type].clone_flag) < 0)
+                return -errno;
+
+        return 1;
+}
+
+int namespace_enter_delegated(int userns_fd, int pidns_fd, int mntns_fd, int netns_fd, int root_fd) {
+        int r;
+
+        /* Similar to namespace_enter(), but operates on a set of namespaces that are potentially owned
+         * by the userns ("delegated"), in which case we'll need to gain CAP_SYS_ADMIN by joining
+         * the userns first, and the rest later. */
+
+        assert(userns_fd >= 0);
+
+        /* Block dlopen() now, to avoid us inadvertently loading shared library from another namespace */
+        block_dlopen();
+
+        if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                return -errno;
+
+        if (pidns_fd >= 0) {
+                r = namespace_enter_one_idempotent(pidns_fd, NAMESPACE_PID);
+                if (r < 0)
+                        return r;
+        }
+
+        if (mntns_fd >= 0) {
+                r = namespace_enter_one_idempotent(mntns_fd, NAMESPACE_MOUNT);
+                if (r < 0)
+                        return r;
+        }
+
+        if (netns_fd >= 0) {
+                r = namespace_enter_one_idempotent(netns_fd, NAMESPACE_NET);
+                if (r < 0)
+                        return r;
+        }
+
+        if (root_fd >= 0) {
+                if (fchdir(root_fd) < 0)
+                        return -errno;
+
+                if (chroot(".") < 0)
+                        return -errno;
+        }
+
+        return maybe_setgroups(/* size = */ 0, NULL);
+}
+
 int fd_is_namespace(int fd, NamespaceType type) {
         int r;
 
