@@ -156,8 +156,6 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGCHLD) >= 0);
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
