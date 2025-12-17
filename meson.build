@@ -590,6 +590,7 @@ foreach ident : [
         ['sched_setattr',     '''#include <sched.h>'''],        # since glibc-2.41
         ['ioprio_get',        '''#include <sched.h>'''],        # no known header declares ioprio_get
         ['ioprio_set',        '''#include <sched.h>'''],        # no known header declares ioprio_set
+        ['rt_sigqueueinfo',   '''#include <signal.h>'''],       # no known header declares rt_sigqueueinfo
         ['rt_tgsigqueueinfo', '''#include <signal.h>'''],       # no known header declares rt_tgsigqueueinfo
         ['open_tree_attr',    '''#include <sys/mount.h>'''],    # no known header declares open_tree_attr
         ['quotactl_fd',       '''#include <sys/quota.h>'''],    # no known header declares quotactl_fd
