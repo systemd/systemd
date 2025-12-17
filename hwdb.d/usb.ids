@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2025.09.15
-# Date:    2025-09-15 20:34:02
+# Version: 2025.12.13
+# Date:    2025-12-13 20:34:01
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -24056,6 +24056,7 @@ C 08  Mass Storage
 		00  Control/Bulk/Interrupt
 		01  Control/Bulk
 		50  Bulk-Only
+		62  USB Attached SCSI
 C 09  Hub
 	00  Unused
 		00  Full speed (or root) hub
