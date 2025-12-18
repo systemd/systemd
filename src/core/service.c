@@ -69,6 +69,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_RUNNING]                    = UNIT_ACTIVE,
         [SERVICE_EXITED]                     = UNIT_ACTIVE,
         [SERVICE_REFRESH_EXTENSIONS]         = UNIT_REFRESHING,
+        [SERVICE_REFRESH_CREDENTIALS]        = UNIT_REFRESHING,
         [SERVICE_RELOAD]                     = UNIT_RELOADING,
         [SERVICE_RELOAD_SIGNAL]              = UNIT_RELOADING,
         [SERVICE_RELOAD_NOTIFY]              = UNIT_RELOADING,
@@ -102,6 +103,7 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_RUNNING]                    = UNIT_ACTIVE,
         [SERVICE_EXITED]                     = UNIT_ACTIVE,
         [SERVICE_REFRESH_EXTENSIONS]         = UNIT_REFRESHING,
+        [SERVICE_REFRESH_CREDENTIALS]        = UNIT_REFRESHING,
         [SERVICE_RELOAD]                     = UNIT_RELOADING,
         [SERVICE_RELOAD_SIGNAL]              = UNIT_RELOADING,
         [SERVICE_RELOAD_NOTIFY]              = UNIT_RELOADING,
@@ -134,11 +136,14 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
 static void service_reload_finish(Service *s, ServiceResult f);
 static void service_enter_reload_by_notify(Service *s);
 
+static bool service_can_reload_extensions(Service *s, bool warn);
+
 static bool SERVICE_STATE_WITH_MAIN_PROCESS(ServiceState state) {
         return IN_SET(state,
                       SERVICE_START, SERVICE_START_POST,
                       SERVICE_RUNNING,
-                      SERVICE_REFRESH_EXTENSIONS, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
+                      SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS,
+                      SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
                       SERVICE_MOUNTING,
                       SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                       SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL);
@@ -148,7 +153,7 @@ static bool SERVICE_STATE_WITH_CONTROL_PROCESS(ServiceState state) {
         return IN_SET(state,
                       SERVICE_CONDITION,
                       SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
-                      SERVICE_REFRESH_EXTENSIONS, SERVICE_RELOAD, SERVICE_RELOAD_POST,
+                      SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS, SERVICE_RELOAD, SERVICE_RELOAD_POST,
                       SERVICE_MOUNTING,
                       SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                       SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
@@ -159,7 +164,8 @@ static bool SERVICE_STATE_WITH_WATCHDOG(ServiceState state) {
         return IN_SET(state,
                       SERVICE_START_POST,
                       SERVICE_RUNNING,
-                      SERVICE_REFRESH_EXTENSIONS, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
+                      SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS,
+                      SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
                       SERVICE_MOUNTING);
 }
 
@@ -754,6 +760,15 @@ static int service_verify(Service *s) {
                 s->restart_usec = s->restart_max_delay_usec;
         }
 
+        if (s->refresh_on_reload_set && s->refresh_on_reload_flags != _SERVICE_REFRESH_ON_RELOAD_ALL) {
+                if (FLAGS_SET(s->refresh_on_reload_flags, SERVICE_RELOAD_EXTENSIONS))
+                        service_can_reload_extensions(s, /* warn = */ true);
+
+                if (FLAGS_SET(s->refresh_on_reload_flags, SERVICE_RELOAD_CREDENTIALS) &&
+                    !exec_context_has_credentials(&s->exec_context))
+                        log_unit_warning(UNIT(s), "Service has RefreshOnReload=credentials, but no credentials are in use. The credentials tree will be masked which blocks further refreshing. Continuing.");
+        }
+
         return 0;
 }
 
@@ -890,6 +905,11 @@ static int service_add_extras(Service *s) {
         if (s->notify_access == NOTIFY_NONE &&
             (IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD) || s->watchdog_usec > 0 || s->n_fd_store_max > 0))
                 s->notify_access = NOTIFY_MAIN;
+
+        if (!s->refresh_on_reload_set) {
+                assert_cc(SERVICE_REFRESH_ON_RELOAD_DEFAULT == SERVICE_RELOAD_EXTENSIONS);
+                s->refresh_on_reload_flags = service_can_reload_extensions(s, /* warn = */ false) ? SERVICE_RELOAD_EXTENSIONS : 0;
+        }
 
         /* If no OOM policy was explicitly set, then default to the configure default OOM policy. Except when
          * delegation is on, in that case it we assume the payload knows better what to do and can process
@@ -1296,7 +1316,8 @@ static void service_set_state(Service *s, ServiceState state) {
         if (!IN_SET(state,
                     SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING,
-                    SERVICE_REFRESH_EXTENSIONS, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
+                    SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS,
+                    SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
                     SERVICE_MOUNTING,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
@@ -1367,6 +1388,7 @@ static usec_t service_coldplug_timeout(Service *s) {
         case SERVICE_START:
         case SERVICE_START_POST:
         case SERVICE_REFRESH_EXTENSIONS:
+        case SERVICE_REFRESH_CREDENTIALS:
         case SERVICE_RELOAD:
         case SERVICE_RELOAD_SIGNAL:
         case SERVICE_RELOAD_NOTIFY:
@@ -1667,11 +1689,16 @@ static Service *service_get_triggering_service(Service *s) {
         return NULL;
 }
 
-static ExecFlags service_exec_flags(ServiceExecCommand command_id, ExecFlags cred_flag) {
+static ExecFlags service_exec_flags(
+                const Service *s,
+                ServiceExecCommand command_id,
+                ExecFlags cred_flag) {
+
         /* All service main/control processes honor sandboxing and namespacing options (except those
         explicitly excluded in service_spawn()) */
         ExecFlags flags = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT;
 
+        assert(s);
         assert(command_id >= 0);
         assert(command_id < _SERVICE_EXEC_COMMAND_MAX);
         assert((cred_flag & ~(EXEC_SETUP_CREDENTIALS_FRESH|EXEC_SETUP_CREDENTIALS)) == 0);
@@ -1702,6 +1729,12 @@ static ExecFlags service_exec_flags(ServiceExecCommand command_id, ExecFlags cre
         /* Put control processes spawned later than main process under .control sub-cgroup if appropriate */
         if (!IN_SET(command_id, SERVICE_EXEC_CONDITION, SERVICE_EXEC_START_PRE))
                 flags |= EXEC_CONTROL_CGROUP;
+
+        /* Pass credentials to ExecReload*= too, but only if the credentials are actually refreshed,
+         * to make sure they have the same understanding of the world as the main process. */
+        if (IN_SET(command_id, SERVICE_EXEC_RELOAD, SERVICE_EXEC_RELOAD_POST) &&
+            FLAGS_SET(s->refreshed_mask, SERVICE_RELOAD_CREDENTIALS))
+                flags |= EXEC_SETUP_CREDENTIALS;
 
         if (IN_SET(command_id, SERVICE_EXEC_STOP, SERVICE_EXEC_STOP_POST))
                 flags |= EXEC_SETENV_RESULT;
@@ -2228,7 +2261,7 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_stop_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2340,7 +2373,7 @@ static void service_enter_stop(Service *s, ServiceResult f) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_stop_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2425,7 +2458,7 @@ static void service_enter_start_post(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2535,7 +2568,7 @@ static void service_enter_start(Service *s) {
 
         r = service_spawn(s,
                           c,
-                          service_exec_flags(SERVICE_EXEC_START, EXEC_SETUP_CREDENTIALS_FRESH),
+                          service_exec_flags(s, SERVICE_EXEC_START, EXEC_SETUP_CREDENTIALS_FRESH),
                           timeout,
                           &pidref);
         if (r < 0) {
@@ -2595,7 +2628,7 @@ static void service_enter_start_pre(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2631,7 +2664,7 @@ static void service_enter_condition(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2735,7 +2768,7 @@ static void service_enter_reload_post(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2810,7 +2843,7 @@ static void service_enter_reload(Service *s) {
 
                 r = service_spawn(s,
                                   s->control_command,
-                                  service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                                  service_exec_flags(s, s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2823,28 +2856,114 @@ static void service_enter_reload(Service *s) {
                 service_enter_reload_signal(s);
 }
 
-static bool service_should_reload_extensions(Service *s) {
+static bool service_get_effective_reload_credentials(Service *s) {
+        assert(s);
+
+        return FLAGS_SET(s->refresh_on_reload_flags, SERVICE_RELOAD_CREDENTIALS) &&
+                exec_context_has_credentials(&s->exec_context);
+}
+
+static void service_enter_refresh_credentials(Service *s) {
+        _cleanup_(pidref_done) PidRef worker = PIDREF_NULL;
         int r;
 
         assert(s);
 
-        if (!pidref_is_set(&s->main_pid)) {
-                log_unit_debug(UNIT(s), "Not reloading extensions for service without main PID.");
-                return false;
+        if (!service_get_effective_reload_credentials(s))
+                return service_enter_reload(s);
+
+        service_unwatch_control_pid(s);
+        s->control_command = NULL;
+        s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+
+        r = service_arm_timer(s, /* relative = */ true, s->timeout_start_usec);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
+                goto fail;
         }
 
-        r = exec_context_has_vpicked_extensions(&s->exec_context);
-        if (r < 0)
-                log_unit_warning_errno(UNIT(s), r, "Failed to determine if service should reload extensions, assuming false: %m");
-        if (r == 0)
-                log_unit_debug(UNIT(s), "Service has no extensions to reload.");
-        if (r <= 0)
-                return false;
+        r = unit_fork_helper_process_full(UNIT(s), "(sd-refresh-creds)", /* into_cgroup = */ false,
+                                          FORK_ALLOW_DLOPEN, /* allow loading libacl to avoid doing so in pid1 */
+                                          &worker);
+        if (r < 0) {
+                log_unit_error_errno(UNIT(s), r, "Failed to fork process to refresh credentials in unit's namespace: %m");
+                goto fail;
+        }
+        if (r == 0) {
+                LOG_CONTEXT_PUSH_UNIT(UNIT(s));
+
+                r = unit_refresh_credentials(UNIT(s));
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        _exit(EXIT_NOPERMISSION);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+                if (r == 0)
+                        _exit(EXIT_NOTINSTALLED);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        r = unit_watch_pidref(UNIT(s), &worker, /* exclusive = */ true);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to watch credentials refresh helper process: %m");
+                goto fail;
+        }
+
+        s->control_pid = TAKE_PIDREF(worker);
+        service_set_state(s, SERVICE_REFRESH_CREDENTIALS);
+        return;
+
+fail:
+        service_reload_finish(s, SERVICE_FAILURE_RESOURCES);
+}
+
+static bool service_can_reload_extensions(Service *s, bool warn) {
+        assert(s);
 
         // TODO: Add support for user services, which can use ExtensionDirectories= + notify-reload.
         // For now, skip for user services.
+
+        if (exec_context_has_vpicked_extensions(&s->exec_context) <= 0) {
+                if (warn)
+                        log_unit_warning(UNIT(s), "Service uses RefreshOnReload=extensions, but has no extensions using vpick. Ignoring.");
+                return false;
+        }
+
+        if (!s->exec_command[SERVICE_EXEC_START]) {
+                if (warn)
+                        log_unit_warning(UNIT(s), "Service uses RefreshOnReload=extensions, but has no main process (ExecStart=). Ignoring.");
+                return false;
+        }
+
         if (!MANAGER_IS_SYSTEM(UNIT(s)->manager)) {
-                log_once(LOG_WARNING, "Not reloading extensions for user services.");
+                if (warn)
+                        log_unit_warning(UNIT(s), "Service uses RefreshOnReload=extensions, which is not supported in user mode. Ignoring.");
+                return false;
+        }
+
+        return true;
+}
+
+static bool service_get_effective_reload_extensions(Service *s) {
+        assert(s);
+
+        if (!FLAGS_SET(s->refresh_on_reload_flags, SERVICE_RELOAD_EXTENSIONS))
+                return false;
+
+        if (!service_can_reload_extensions(s, /* warn = */ false))
+                return false;
+
+        return true;
+}
+
+static bool service_should_reload_extensions(Service *s) {
+        assert(s);
+
+        if (!service_get_effective_reload_extensions(s))
+                return false;
+
+        if (!pidref_is_set(&s->main_pid)) {
+                log_unit_debug(UNIT(s), "Not reloading extensions for service without main PID.");
                 return false;
         }
 
@@ -2857,9 +2976,9 @@ static void service_enter_refresh_extensions(Service *s) {
 
         assert(s);
 
-        /* If we don't have extensions to refresh, immediately transition to reload state */
+        /* If we don't have extensions to refresh, immediately transition to next state */
         if (!service_should_reload_extensions(s))
-                return service_enter_reload(s);
+                return service_enter_refresh_credentials(s);
 
         service_unwatch_control_pid(s);
         s->control_command = NULL;
@@ -2955,7 +3074,7 @@ static void service_run_next_control(Service *s) {
 
         r = service_spawn(s,
                           s->control_command,
-                          service_exec_flags(s->control_command_id, /* cred_flag= */ 0),
+                          service_exec_flags(s, s->control_command_id, /* cred_flag = */ 0),
                           timeout,
                           &s->control_pid);
         if (r < 0) {
@@ -2986,7 +3105,7 @@ static void service_run_next_main(Service *s) {
 
         r = service_spawn(s,
                           s->main_command,
-                          service_exec_flags(SERVICE_EXEC_START, EXEC_SETUP_CREDENTIALS),
+                          service_exec_flags(s, SERVICE_EXEC_START, EXEC_SETUP_CREDENTIALS),
                           s->timeout_start_usec,
                           &pidref);
         if (r < 0) {
@@ -3124,6 +3243,7 @@ static int service_stop(Unit *u) {
                 service_live_mount_finish(s, SERVICE_FAILURE_PROTOCOL, BUS_ERROR_UNIT_INACTIVE);
                 _fallthrough_;
         case SERVICE_REFRESH_EXTENSIONS:
+        case SERVICE_REFRESH_CREDENTIALS:
                 service_kill_control_process(s);
                 _fallthrough_;
         case SERVICE_CONDITION:
@@ -3166,6 +3286,7 @@ static int service_reload(Unit *u) {
         assert(IN_SET(s->state, SERVICE_RUNNING, SERVICE_EXITED));
 
         s->reload_result = SERVICE_SUCCESS;
+        s->refreshed_mask = 0;
 
         service_enter_refresh_extensions(s);
 
@@ -3176,7 +3297,10 @@ static bool service_can_reload(Unit *u) {
         Service *s = ASSERT_PTR(SERVICE(u));
 
         return s->exec_command[SERVICE_EXEC_RELOAD] ||
-                s->type == SERVICE_NOTIFY_RELOAD;
+                s->type == SERVICE_NOTIFY_RELOAD ||
+                (s->refresh_on_reload_set &&
+                 (service_get_effective_reload_extensions(s) ||
+                  service_get_effective_reload_credentials(s)));
 }
 
 static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, const ExecCommand *current) {
@@ -3385,6 +3509,21 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 (void) serialize_usec(f, "watchdog-override-usec", s->watchdog_override_usec);
 
         (void) serialize_usec(f, "reload-begin-usec", s->reload_begin_usec);
+
+        if (s->refreshed_mask > 0) {
+                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free_ char *t = NULL;
+
+                r = service_refresh_on_reload_to_strv(s->refreshed_mask, &l);
+                if (r < 0)
+                        return log_oom();
+
+                t = strv_join(l, " ");
+                if (!t)
+                        return log_oom();
+
+                (void) serialize_item(f, "refreshed-mask", t);
+        }
 
         return 0;
 }
@@ -3775,7 +3914,11 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
         } else if (streq(key, "reload-begin-usec"))
                 (void) deserialize_usec(value, &s->reload_begin_usec);
-        else
+        else if (streq(key, "refreshed-mask")) {
+                r = service_refresh_on_reload_from_string_many(value, &s->refreshed_mask);
+                if (r < 0)
+                        log_unit_debug_errno(u, r, "Failed to parse refresh-mask value: %s", value);
+        } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
         return 0;
@@ -4188,6 +4331,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                                 case SERVICE_START_POST:
                                 case SERVICE_REFRESH_EXTENSIONS:
+                                case SERVICE_REFRESH_CREDENTIALS:
                                 case SERVICE_RELOAD:
                                 case SERVICE_RELOAD_SIGNAL:
                                 case SERVICE_RELOAD_NOTIFY:
@@ -4307,7 +4451,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 success,
                                 code, status);
 
-                if (!IN_SET(s->state, SERVICE_REFRESH_EXTENSIONS, SERVICE_RELOAD, SERVICE_RELOAD_POST, SERVICE_MOUNTING) &&
+                if (!IN_SET(s->state, SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS, SERVICE_RELOAD, SERVICE_RELOAD_POST, SERVICE_MOUNTING) &&
                     s->result == SERVICE_SUCCESS)
                         s->result = f;
 
@@ -4396,10 +4540,21 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_REFRESH_EXTENSIONS:
-                                if (f == SERVICE_SUCCESS)
-                                        /* Remounting extensions asynchronously done, proceed to reload */
+                                if (f == SERVICE_SUCCESS) {
+                                        s->refreshed_mask |= SERVICE_RELOAD_EXTENSIONS;
+                                        service_enter_refresh_credentials(s);
+                                } else
+                                        service_reload_finish(s, f);
+                                break;
+
+                        case SERVICE_REFRESH_CREDENTIALS:
+                                if (f == SERVICE_SUCCESS ||
+                                    (f == SERVICE_FAILURE_EXIT_CODE && IN_SET(status, EXIT_NOTINSTALLED, EXIT_NOPERMISSION))) {
+
+                                        /* Refreshing asynchronously done, proceed to reload */
+                                        s->refreshed_mask |= f == SERVICE_SUCCESS ? SERVICE_RELOAD_CREDENTIALS : 0;
                                         service_enter_reload(s);
-                                else
+                                } else
                                         service_reload_finish(s, f);
                                 break;
 
@@ -4515,6 +4670,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                 break;
 
         case SERVICE_REFRESH_EXTENSIONS:
+        case SERVICE_REFRESH_CREDENTIALS:
         case SERVICE_RELOAD:
         case SERVICE_RELOAD_SIGNAL:
         case SERVICE_RELOAD_NOTIFY:
@@ -4838,7 +4994,9 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
         if (strv_contains(tags, "STOPPING=1")) {
                 s->notify_state = NOTIFY_STOPPING;
 
-                if (IN_SET(s->state, SERVICE_RUNNING, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_REFRESH_EXTENSIONS))
+                if (IN_SET(s->state, SERVICE_RUNNING,
+                                     SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS,
+                                     SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY))
                         service_enter_stop_by_notify(s);
 
                 return;
@@ -4935,7 +5093,8 @@ static void service_notify_message(
         r = service_notify_message_parse_new_pid(u, tags, fds, &new_main_pid);
         if (r > 0 &&
             IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING,
-                             SERVICE_REFRESH_EXTENSIONS, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
+                             SERVICE_REFRESH_EXTENSIONS, SERVICE_REFRESH_CREDENTIALS,
+                             SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_RELOAD_POST,
                              SERVICE_STOP, SERVICE_STOP_SIGTERM) &&
             (!s->main_pid_known || !pidref_equal(&new_main_pid, &s->main_pid))) {
 
@@ -5204,6 +5363,7 @@ static bool pick_up_pid_from_bus_name(Service *s) {
                        SERVICE_START_POST,
                        SERVICE_RUNNING,
                        SERVICE_REFRESH_EXTENSIONS,
+                       SERVICE_REFRESH_CREDENTIALS,
                        SERVICE_RELOAD,
                        SERVICE_RELOAD_SIGNAL,
                        SERVICE_RELOAD_NOTIFY,
@@ -5390,6 +5550,7 @@ static bool service_needs_console(Unit *u) {
                       SERVICE_START_POST,
                       SERVICE_RUNNING,
                       SERVICE_REFRESH_EXTENSIONS,
+                      SERVICE_REFRESH_CREDENTIALS,
                       SERVICE_RELOAD,
                       SERVICE_RELOAD_SIGNAL,
                       SERVICE_RELOAD_NOTIFY,
@@ -5887,6 +6048,73 @@ static const char* const service_timeout_failure_mode_table[_SERVICE_TIMEOUT_FAI
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_timeout_failure_mode, ServiceTimeoutFailureMode);
+
+static const struct {
+        ServiceRefreshOnReload flag;
+        const char *name;
+} service_refresh_on_reload_table[] = {
+        { SERVICE_RELOAD_EXTENSIONS,  "extensions"  },
+        { SERVICE_RELOAD_CREDENTIALS, "credentials" },
+};
+
+ServiceRefreshOnReload service_refresh_on_reload_flag_from_string(const char *s) {
+        assert(s);
+
+        FOREACH_ELEMENT(i, service_refresh_on_reload_table)
+                if (streq(s, i->name))
+                        return i->flag;
+
+        return _SERVICE_REFRESH_ON_RELOAD_INVALID;
+}
+
+int service_refresh_on_reload_from_string_many(const char *s, ServiceRefreshOnReload *ret) {
+        ServiceRefreshOnReload flags = 0;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        for (;;) {
+                _cleanup_free_ char *v = NULL;
+                ServiceRefreshOnReload f;
+
+                r = extract_first_word(&s, &v, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                f = service_refresh_on_reload_flag_from_string(v);
+                if (f < 0)
+                        return f;
+                assert(f > 0);
+
+                flags |= f;
+        }
+
+        *ret = flags;
+        return 0;
+}
+
+int service_refresh_on_reload_to_strv(ServiceRefreshOnReload flags, char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(flags >= 0);
+        assert(ret);
+
+        FOREACH_ELEMENT(i, service_refresh_on_reload_table) {
+                if (!FLAGS_SET(flags, i->flag))
+                        continue;
+
+                r = strv_extend(&l, i->name);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
 
 const UnitVTable service_vtable = {
         .object_size = sizeof(Service),
