@@ -176,7 +176,7 @@ units = [
         },
         {
           'file' : 'rc-local.service.in',
-          'conditions' : ['HAVE_SYSV_COMPAT'],
+          'conditions' : ['HAVE_SYSV_RC_LOCAL'],
         },
         {
           'file' : 'reboot.target',
