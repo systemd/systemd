@@ -23,7 +23,6 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "set.h"
-#include "signal-util.h"
 #include "sort-util.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -1876,9 +1875,6 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
-
-        /* SIGCHLD signal must be blocked for sd_event_add_child to work */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         return sysupdate_main(argc, argv);
 }
