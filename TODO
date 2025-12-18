@@ -137,6 +137,12 @@ Deprecations and removals:
 
 Features:
 
+* systemd-repart: implement Integrity=data/meta and Integrity=inline for non-LUKS
+  case. Currently, only Integrity=inline combined with Encrypt= is implemented
+  and uses libcryptsetup features. Add support for plain dm-integrity setups when
+  integrity tags are stored by the device (inline), interleaved with data (data),
+  and on a separate device (meta).
+
 * networkd/machined: implement reverse name lookups in the resolved hook
 
 * networkd's resolved hook: optionally map all lease IP addresses handed out to
