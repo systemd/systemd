@@ -1085,7 +1085,7 @@ static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata
                                       si->si_pid, signal_to_string(si->si_status));
         else
                 ret = log_error_errno(SYNTHETIC_ERRNO(EPROTO),
-                                      "Got unexpected exit code %i via SIGCHLD,",
+                                      "Got unexpected exit code %i from child,",
                                       si->si_code);
 
         /* Regardless of whether the main qemu process or an auxiliary process died, let's exit either way
@@ -2288,8 +2288,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGCHLD) >= 0);
-
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         r = sd_event_new(&event);
         if (r < 0)
@@ -2718,8 +2716,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 log_debug("Executing: %s", joined);
         }
-
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGCHLD) >= 0);
 
         _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
