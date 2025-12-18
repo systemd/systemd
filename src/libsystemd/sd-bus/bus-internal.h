@@ -8,6 +8,7 @@
 #include "bus-match.h"
 #include "constants.h"
 #include "list.h"
+#include "pidref.h"
 #include "runtime-scope.h"
 #include "socket-util.h"
 
@@ -271,7 +272,7 @@ typedef struct sd_bus {
         unsigned n_memfd_cache;
 
         uint64_t origin_id;
-        pid_t busexec_pid;
+        PidRef busexec_pidref;
 
         unsigned iteration_counter;
 
