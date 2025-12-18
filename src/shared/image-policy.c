@@ -205,6 +205,20 @@ static PartitionPolicyFlags policy_flag_from_string_one(const char *s) {
                 return PARTITION_POLICY_GROWFS_ON;
         if (streq(s, "growfs-off"))
                 return PARTITION_POLICY_GROWFS_OFF;
+        if (streq(s, "btrfs"))
+                return PARTITION_POLICY_BTRFS;
+        if (streq(s, "erofs"))
+                return PARTITION_POLICY_EROFS;
+        if (streq(s, "ext4"))
+                return PARTITION_POLICY_EXT4;
+        if (streq(s, "f2fs"))
+                return PARTITION_POLICY_F2FS;
+        if (streq(s, "squashfs"))
+                return PARTITION_POLICY_SQUASHFS;
+        if (streq(s, "vfat"))
+                return PARTITION_POLICY_VFAT;
+        if (streq(s, "xfs"))
+                return PARTITION_POLICY_XFS;
 
         return _PARTITION_POLICY_FLAGS_INVALID;
 }
@@ -387,7 +401,7 @@ int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret) {
 
 int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, char **ret) {
         _cleanup_free_ char *buf = NULL;
-        const char *l[CONST_LOG2U(_PARTITION_POLICY_MASK + 1) + 1]; /* one string per known flag at most */
+        const char *l[CONST_LOG2U(_PARTITION_POLICY_MASK + _PARTITION_POLICY_FSTYPE_MASK + 1) + 1]; /* one string per known flag at most */
         size_t m = 0;
 
         assert(ret);
@@ -445,6 +459,23 @@ int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, 
                         l[m++] = "growfs-on";
         }
 
+        /* These flags must translate to the literal fstype name of each filesystem, as accepted by
+         * `mount -t`. */
+        if (flags & PARTITION_POLICY_BTRFS)
+                l[m++] = "btrfs";
+        if (flags & PARTITION_POLICY_EROFS)
+                l[m++] = "erofs";
+        if (flags & PARTITION_POLICY_EXT4)
+                l[m++] = "ext4";
+        if (flags & PARTITION_POLICY_F2FS)
+                l[m++] = "f2fs";
+        if (flags & PARTITION_POLICY_SQUASHFS)
+                l[m++] = "squashfs";
+        if (flags & PARTITION_POLICY_VFAT)
+                l[m++] = "vfat";
+        if (flags & PARTITION_POLICY_XFS)
+                l[m++] = "xfs";
+
         if (m == 0)
                 buf = strdup("-");
         else {
@@ -457,7 +488,44 @@ int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, 
                 return -ENOMEM;
 
         *ret = TAKE_PTR(buf);
-        return 0;
+        return (int) m;
+}
+
+int partition_policy_determine_fstype(
+                const ImagePolicy *policy,
+                PartitionDesignator designator,
+                bool *ret_encrypted,
+                char **ret_fstype) {
+
+        _cleanup_free_ char *fstype = NULL;
+        PartitionPolicyFlags policy_flags;
+        int r;
+
+        assert(designator >= 0 && designator < _PARTITION_DESIGNATOR_MAX);
+        assert(ret_fstype);
+
+        policy_flags = image_policy_get_exhaustively(policy, designator);
+        if (policy_flags < 0)
+                return policy_flags;
+
+        /* The policy fstype flags translate to the literal fstype name of each filesystem. */
+        r = partition_policy_flags_to_string(policy_flags & _PARTITION_POLICY_FSTYPE_MASK, /* simplify= */ true, &fstype);
+        if (r < 0)
+                return r;
+        /* Input must be a single filesystem type, if the policy specifies more than one, return NULL */
+        if (r != 1) {
+                if (ret_encrypted)
+                        *ret_encrypted = false;
+                *ret_fstype = NULL;
+                return 0;
+        }
+
+        /* If the policy also allows unprotected or verity filesystems, don't set the 'encrypted' flag */
+        if (ret_encrypted)
+                *ret_encrypted = (policy_flags & PARTITION_POLICY_ENCRYPTED) &&
+                                 !(policy_flags & (PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_UNPROTECTED));
+        *ret_fstype = TAKE_PTR(fstype);
+        return 1;
 }
 
 static bool partition_policy_flags_extended_equal(PartitionPolicyFlags a, PartitionPolicyFlags b) {
