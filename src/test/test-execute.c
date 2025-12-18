@@ -680,7 +680,7 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         return 1;
 }
 
-static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
+static int on_spawn_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
         int ret = -EIO;
 
         ASSERT_NOT_NULL(si);
@@ -706,8 +706,6 @@ static int find_libraries(const char *exec, char ***ret) {
         ASSERT_NOT_NULL(exec);
         ASSERT_NOT_NULL(ret);
 
-        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
-
         ASSERT_OK_ERRNO(pipe2(outpipe, O_NONBLOCK|O_CLOEXEC));
         ASSERT_OK_ERRNO(pipe2(errpipe, O_NONBLOCK|O_CLOEXEC));
 
@@ -732,8 +730,8 @@ static int find_libraries(const char *exec, char ***ret) {
         ASSERT_OK(sd_event_source_set_enabled(stdout_source, SD_EVENT_ONESHOT));
         ASSERT_OK(sd_event_add_io(e, &stderr_source, errpipe[0], EPOLLIN, on_spawn_io, NULL));
         ASSERT_OK(sd_event_source_set_enabled(stderr_source, SD_EVENT_ONESHOT));
-        ASSERT_OK(sd_event_add_child(e, &sigchld_source, pid, WEXITED, on_spawn_sigchld, NULL));
-        /* SIGCHLD should be processed after IO is complete */
+        ASSERT_OK(sd_event_add_child(e, &sigchld_source, pid, WEXITED, on_spawn_exit, NULL));
+        /* Child exit should be processed after IO is complete */
         ASSERT_OK(sd_event_source_set_priority(sigchld_source, SD_EVENT_PRIORITY_NORMAL + 1));
 
         ASSERT_OK(sd_event_loop(e));

@@ -93,7 +93,7 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
 
         ASSERT_PTR_EQ(userdata, INT_TO_PTR('e'));
 
-        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGUSR2));
+        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGUSR2));
 
         ASSERT_OK_ERRNO(pid = fork());
 
@@ -568,8 +568,6 @@ TEST(pidfd) {
         int pidfd;
         pid_t pid, pid2;
 
-        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
-
         ASSERT_OK_ERRNO(pid = fork());
         if (pid == 0)
                 /* child */
@@ -1001,8 +999,6 @@ static int child_handler_wnowait(sd_event_source *s, const siginfo_t *si, void *
 TEST(child_wnowait) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
-        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
-
         ASSERT_OK(sd_event_default(&e));
 
         /* Fork a subprocess */
@@ -1033,8 +1029,6 @@ TEST(child_wnowait) {
 
 TEST(child_pidfd_wnowait) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-
-        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
 
         ASSERT_OK(sd_event_default(&e));
 
