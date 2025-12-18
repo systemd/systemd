@@ -155,7 +155,7 @@ static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userd
         return 0;
 }
 
-int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, usec_t until) {
+int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until) {
         _cleanup_(dnssd_discovered_service_unrefp) DnssdDiscoveredService *s = NULL;
         int r;
 
@@ -173,6 +173,7 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
                 .service_browser = sb,
                 .rr = dns_resource_record_copy(rr),
                 .family = owner_family,
+                .ifindex = ifindex,
                 .until = until,
                 .query = NULL,
                 .rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT,
@@ -319,6 +320,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
         DnsAnswerItem *item;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         int r;
+        int reported_ifindex;
 
         assert(sb);
 
@@ -349,7 +351,12 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                 if (!type)
                         continue;
 
-                r = dns_add_new_service(sb, item->rr, owner_family, item->until);
+                /* When browsing all interfaces (ifindex <= 0), report the actual
+                 * interface where the service was discovered. Otherwise, echo
+                 * back the requested interface. */
+                reported_ifindex = (sb->ifindex <= 0 && item->ifindex > 0) ? item->ifindex : sb->ifindex;
+
+                r = dns_add_new_service(sb, item->rr, owner_family, reported_ifindex, item->until);
                 if (r < 0) {
                         log_error_errno(r, "Failed to add new DNS service: %m");
                         goto finish;
@@ -360,7 +367,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                           strna(type),
                           strna(domain),
                           strna(af_to_ipv4_ipv6(owner_family)),
-                          sb->ifindex);
+                          reported_ifindex);
 
                 r = sd_json_buildo(
                                 &entry,
@@ -375,7 +382,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                                                 !isempty(type), "type", SD_JSON_BUILD_STRING(type)),
                                 SD_JSON_BUILD_PAIR_CONDITION(
                                                 !isempty(domain), "domain", SD_JSON_BUILD_STRING(domain)),
-                                SD_JSON_BUILD_PAIR_INTEGER("ifindex", sb->ifindex));
+                                SD_JSON_BUILD_PAIR_INTEGER("ifindex", reported_ifindex));
                 if (r < 0) {
                         log_error_errno(r, "Failed to build JSON for new service: %m");
                         goto finish;
@@ -416,6 +423,9 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                         }
                 }
 
+                /* Capture ifindex before removing the service */
+                reported_ifindex = service->ifindex;
+
                 dns_remove_service(sb, service);
 
                 log_debug("Remove from the list %s, %s, %s, %s, %d",
@@ -423,7 +433,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                           strna(type),
                           strna(domain),
                           strna(af_to_ipv4_ipv6(owner_family)),
-                          sb->ifindex);
+                          reported_ifindex);
 
                 r = sd_json_buildo(
                                 &entry,
@@ -435,7 +445,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                                 SD_JSON_BUILD_PAIR_STRING("name", name ?: ""),
                                 SD_JSON_BUILD_PAIR_STRING("type", type ?: ""),
                                 SD_JSON_BUILD_PAIR_STRING("domain", domain ?: ""),
-                                SD_JSON_BUILD_PAIR_INTEGER("ifindex", sb->ifindex));
+                                SD_JSON_BUILD_PAIR_INTEGER("ifindex", reported_ifindex));
                 if (r < 0) {
                         log_error_errno(r, "Failed to build JSON for removed service: %m");
                         goto finish;
@@ -479,6 +489,38 @@ int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
         assert(sb);
         assert(sb->manager);
 
+        /* If ifindex <= 0, browse all mDNS scopes for the given address family.
+         * This implements Avahi's AVAHI_IF_UNSPEC semantics where ifindex=-1
+         * means "all interfaces". We also accept 0 for the same purpose. */
+        if (sb->ifindex <= 0) {
+                LIST_FOREACH(scopes, scope, sb->manager->dns_scopes) {
+                        /* Only consider mDNS scopes */
+                        if (scope->protocol != DNS_PROTOCOL_MDNS)
+                                continue;
+
+                        /* Match the requested address family */
+                        if (scope->family != owner_family)
+                                continue;
+
+                        dns_cache_prune(&scope->cache);
+
+                        r = dns_cache_lookup(&scope->cache, sb->key, sb->flags, NULL, &lookup_ret_answer, NULL, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up DNS cache for service browser key on scope %s: %m",
+                                                       dns_scope_ifname(scope) ?: "global");
+
+                        r = mdns_manage_services_answer(sb, lookup_ret_answer, owner_family);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to manage mDNS services after cache lookup on scope %s: %m",
+                                                       dns_scope_ifname(scope) ?: "global");
+
+                        /* Clear for next iteration */
+                        lookup_ret_answer = dns_answer_unref(lookup_ret_answer);
+                }
+                return 0;
+        }
+
+        /* Single scope for specifically requested interface */
         scope = manager_find_scope_from_protocol(sb->manager, sb->ifindex, DNS_PROTOCOL_MDNS, owner_family);
         if (!scope)
                 return 0;
@@ -664,8 +706,17 @@ int dns_subscribe_browse_service(
         assert(m);
         assert(link);
 
-        if (ifindex < 0)
+        /* Accept ifindex <= 0 to mean "browse all mDNS interfaces".
+         * This provides Avahi compatibility where AVAHI_IF_UNSPEC = -1.
+         * We normalize both 0 and -1 to 0 internally. Values < -1 are rejected. */
+        if (ifindex < -1)
                 return sd_varlink_error_invalid_parameter_name(link, "ifindex");
+
+        if (ifindex == -1) {
+                log_debug("BrowseServices: ifindex=-1 normalized to 0 (browse all interfaces)");
+                ifindex = 0;
+        } else if (ifindex == 0)
+                log_debug("BrowseServices: browsing all mDNS interfaces (ifindex=0)");
 
         if (isempty(type))
                 type = NULL;
