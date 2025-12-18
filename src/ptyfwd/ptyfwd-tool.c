@@ -14,7 +14,6 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
-#include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -155,8 +154,6 @@ static int run(int argc, char *argv[]) {
         CLEANUP_ARRAY(forward_signal_sources, n_forward_signal_sources, event_source_unref_many);
 
         log_setup();
-
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGCHLD) >= 0);
 
         r = parse_argv(argc, argv);
         if (r <= 0)
