@@ -28,7 +28,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 20. [FINAL] Create an empty -stable branch: `git push systemd origin/main:refs/heads/v${version}-stable`.
 21. [FINAL] Build and upload the documentation (on the -stable branch): `ninja -C build doc-sync`
 22. [FINAL] Create a new `ci/v${version}-stable` branch for deb package builds on https://salsa.debian.org/systemd-team/systemd
-23. [FINAL] Switch `.semaphore/semaphore-runner.sh` and `mkosi/mkosi.conf.d/debian-ubuntu/mkosi.conf.d/pkgenv.conf` to the new `ci/v${version}-stable`
+23. [FINAL] Switch `.semaphore/semaphore-runner.sh` and `mkosi/mkosi.pkgenv/mkosi.conf.d/debian-ubuntu.conf`
     to the new `ci/v${version}-stable` branch on the -stable branch
 24. [FINAL] Switch `versionrewrite-pattern` and `versionrewrite-replacement` to release mode in https://build.opensuse.org/projects/system:systemd/packages/systemd/files/_service?expand=1
 25. [FINAL] Change the Github Pages branch to the newly created branch (https://github.com/systemd/systemd/settings/pages) and set the 'Custom domain' to 'systemd.io'
