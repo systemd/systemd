@@ -559,7 +559,7 @@ static int action_fork(char *const *_command) {
 
         r = event_forward_signals(
                         event,
-                        child_event_source,
+                        &child,
                         forward_signals, ELEMENTSOF(forward_signals),
                         &forward_signal_sources, &n_forward_signal_sources);
         if (r < 0)
