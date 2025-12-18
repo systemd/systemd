@@ -1430,7 +1430,7 @@ int mount_fd_clone(int mount_fd, bool recursive, int *replacement_fd) {
 
         assert(mount_fd >= 0);
 
-        /* If the input mount fd is supposed to remain clonable after calling this function, call it as
+        /* If the input mount fd is supposed to remain cloneable after calling this function, call it as
          * follows: mount_fd_clone(mount_fd, recursive, &mount_fd). */
 
         /* Clone a detached mount (that may be owned by a foreign mountns, e.g. mountfsd's). For this to

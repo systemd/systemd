@@ -1734,6 +1734,8 @@ if conf.get('BPF_FRAMEWORK') == 1
         bpf_clang_flags = [
                 '-std=gnu17',
                 '-Wno-compare-distinct-pointer-types',
+                '-Wno-microsoft-anon-tag',
+                '-fms-extensions',
                 '-fno-stack-protector',
                 '-O2',
                 '-target',
@@ -1744,6 +1746,7 @@ if conf.get('BPF_FRAMEWORK') == 1
 
         bpf_gcc_flags = [
                 '-std=gnu17',
+                '-fms-extensions',
                 '-fno-stack-protector',
                 '-fno-ssa-phiopt',
                 '-O2',

@@ -3338,17 +3338,15 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!isempty(s)) {
-                        if (!path_is_absolute(s))
-                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute", s);
-                        if (!path_is_normalized(s))
-                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", s);
-                }
+                if (!path_is_absolute(s))
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute", s);
+                if (!path_is_normalized(s))
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", s);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
                         if (streq(name, "StandardInputFile")) {
-                                r = free_and_strdup(&c->stdio_file[STDIN_FILENO], empty_to_null(s));
+                                r = free_and_strdup(&c->stdio_file[STDIN_FILENO], s);
                                 if (r < 0)
                                         return r;
 
@@ -3356,7 +3354,7 @@ int bus_exec_context_set_transient_property(
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardInput=file:%s", s);
 
                         } else if (STR_IN_SET(name, "StandardOutputFile", "StandardOutputFileToAppend", "StandardOutputFileToTruncate")) {
-                                r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], empty_to_null(s));
+                                r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], s);
                                 if (r < 0)
                                         return r;
 
@@ -3374,7 +3372,7 @@ int bus_exec_context_set_transient_property(
                         } else {
                                 assert(STR_IN_SET(name, "StandardErrorFile", "StandardErrorFileToAppend", "StandardErrorFileToTruncate"));
 
-                                r = free_and_strdup(&c->stdio_file[STDERR_FILENO], empty_to_null(s));
+                                r = free_and_strdup(&c->stdio_file[STDERR_FILENO], s);
                                 if (r < 0)
                                         return r;
 
@@ -3914,7 +3912,7 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (empty) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags) && empty) {
                         bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
                         c->bind_mounts = NULL;
                         c->n_bind_mounts = 0;
@@ -3959,7 +3957,7 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (empty) {
+                if (!UNIT_WRITE_FLAGS_NOOP(flags) && empty) {
                         temporary_filesystem_free_many(c->temporary_filesystems, c->n_temporary_filesystems);
                         c->temporary_filesystems = NULL;
                         c->n_temporary_filesystems = 0;

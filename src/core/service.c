@@ -14,7 +14,6 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "chase.h"
-#include "cryptsetup-util.h"
 #include "dbus-service.h"
 #include "dbus-unit.h"
 #include "devnum-util.h"
@@ -349,7 +348,7 @@ static void service_start_watchdog(Service *s) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to install watchdog timer: %m");
 }
 
-usec_t service_restart_usec_next(Service *s) {
+usec_t service_restart_usec_next(const Service *s) {
         unsigned n_restarts_next;
 
         assert(s);
@@ -809,19 +808,11 @@ static void service_fix_stdio(Service *s) {
             s->exec_context.stdin_data_size > 0)
                 s->exec_context.std_input = EXEC_INPUT_DATA;
 
-        if (IN_SET(s->exec_context.std_input,
-                    EXEC_INPUT_TTY,
-                    EXEC_INPUT_TTY_FORCE,
-                    EXEC_INPUT_TTY_FAIL,
-                    EXEC_INPUT_SOCKET,
-                    EXEC_INPUT_NAMED_FD))
+        if (exec_input_is_inheritable(s->exec_context.std_input))
                 return;
 
-        /* We assume these listed inputs refer to bidirectional streams, and hence duplicating them from
-         * stdin to stdout/stderr makes sense and hence leaving EXEC_OUTPUT_INHERIT in place makes sense,
-         * too. Outputs such as regular files or sealed data memfds otoh don't really make sense to be
-         * duplicated for both input and output at the same time (since they then would cause a feedback
-         * loop), hence override EXEC_OUTPUT_INHERIT with the default stderr/stdout setting.  */
+        /* Override EXEC_OUTPUT_INHERIT with the default stderr/stdout setting if not applicable for
+         * given stdin mode. */
 
         if (s->exec_context.std_error == EXEC_OUTPUT_INHERIT &&
             s->exec_context.std_output == EXEC_OUTPUT_INHERIT)
@@ -2116,7 +2107,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (unit_stop_pending(UNIT(s)))
                 allow_restart = false;
 
-        if (s->result == SERVICE_SUCCESS)
+        if (s->result == SERVICE_SUCCESS || f == SERVICE_FAILURE_START_LIMIT_HIT)
                 s->result = f;
 
         if (s->result == SERVICE_SUCCESS) {
@@ -2882,14 +2873,17 @@ static void service_enter_refresh_extensions(Service *s) {
 
         /* Given we are running from PID1, avoid doing potentially heavy I/O operations like opening images
          * directly, and instead fork a worker process. */
-        r = unit_fork_helper_process(UNIT(s), "(sd-refresh-extensions)", /* into_cgroup= */ false, &worker);
+        r = unit_fork_helper_process_full(UNIT(s), "(sd-refresh-extensions)", /* into_cgroup= */ false,
+                                          FORK_ALLOW_DLOPEN, /* permit dlopen() to avoid load of libcryptsetup in pid1 */
+                                          &worker);
         if (r < 0) {
                 log_unit_error_errno(UNIT(s), r, "Failed to fork process to refresh extensions in unit's namespace: %m");
                 goto fail;
         }
         if (r == 0) {
-                PidRef *unit_pid = &s->main_pid;
-                assert(pidref_is_set(unit_pid));
+                LOG_CONTEXT_PUSH_UNIT(UNIT(s));
+
+                assert(pidref_is_set(&s->main_pid));
 
                 _cleanup_free_ char *propagate_dir = path_join("/run/systemd/propagate/", UNIT(s)->id);
                 if (!propagate_dir) {
@@ -2912,7 +2906,7 @@ static void service_enter_refresh_extensions(Service *s) {
                 /* Only reload confext, and not sysext as they also typically contain the executable(s) used
                  * by the service and a simply reload cannot meaningfully handle that. */
                 r = refresh_extensions_in_namespace(
-                                unit_pid,
+                                &s->main_pid,
                                 "SYSTEMD_CONFEXT_HIERARCHIES",
                                 &p);
                 if (r < 0)
@@ -4115,7 +4109,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 clean_mode = EXIT_CLEAN_DAEMON;
 
-        if (is_clean_exit(code, status, clean_mode, &s->success_status))
+        /* Our own helper processes are not subject to SuccessExitStatus= as they're opaque to users */
+        if (is_clean_exit(code, status, clean_mode, s->control_pid.pid == pid && s->control_command_id < 0 ? NULL : &s->success_status))
                 f = SERVICE_SUCCESS;
         else if (code == CLD_EXITED)
                 f = SERVICE_FAILURE_EXIT_CODE;
@@ -5560,8 +5555,6 @@ static int service_live_mount(
                                 u->id);
         }
 
-        (void) dlopen_cryptsetup();
-
         service_unwatch_control_pid(s);
         s->live_mount_result = SERVICE_SUCCESS;
         s->control_command = NULL;
@@ -5582,7 +5575,9 @@ static int service_live_mount(
          * directly, and instead fork a worker process. We record the D-Bus message, so that we can reply
          * after the operation has finished. This way callers can wait on the message and know that the new
          * resource is available (or the operation failed) once they receive the response. */
-        r = unit_fork_helper_process(u, "(sd-mount-in-ns)", /* into_cgroup= */ false, &worker);
+        r = unit_fork_helper_process_full(u, "(sd-mount-in-ns)", /* into_cgroup= */ false,
+                                          FORK_ALLOW_DLOPEN,
+                                          &worker);
         if (r < 0) {
                 log_unit_error_errno(u, r,
                                      "Failed to fork process to mount '%s' on '%s' in unit's namespace: %m",
@@ -5593,6 +5588,8 @@ static int service_live_mount(
                 goto fail;
         }
         if (r == 0) {
+                LOG_CONTEXT_PUSH_UNIT(u);
+
                 if (flags & MOUNT_IN_NAMESPACE_IS_IMAGE)
                         r = mount_image_in_namespace(
                                         &s->main_pid,

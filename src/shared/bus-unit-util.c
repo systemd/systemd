@@ -2564,7 +2564,6 @@ static const BusProperty kill_properties[] = {
         { "RestartKillSignal",                     bus_append_signal_from_string                 },
         { "FinalKillSignal",                       bus_append_signal_from_string                 },
         { "WatchdogSignal",                        bus_append_signal_from_string                 },
-        { "ReloadSignal",                          bus_append_signal_from_string                 },
         {}
 };
 
@@ -2659,6 +2658,7 @@ static const BusProperty service_properties[] = {
         { "RestartForceExitStatus",                bus_append_exit_status                        },
         { "SuccessExitStatus",                     bus_append_exit_status                        },
         { "OpenFile",                              bus_append_open_file                          },
+        { "ReloadSignal",                          bus_append_signal_from_string                 },
         {}
 };
 

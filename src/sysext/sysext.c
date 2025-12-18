@@ -14,6 +14,7 @@
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "build.h"
+#include "bus-polkit.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
@@ -93,8 +94,10 @@ static bool arg_force = false;
 static bool arg_no_reload = false;
 static int arg_noexec = -1;
 static ImagePolicy *arg_image_policy = NULL;
+static bool arg_image_policy_set = false; /* Tracks initialization */
 static bool arg_varlink = false;
 static MutableMode arg_mutable = MUTABLE_NO;
+static bool arg_mutable_set = false; /* Tracks initialization */
 static const char *arg_overlayfs_mount_options = NULL;
 
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
@@ -115,6 +118,8 @@ static const struct {
         const char *full_identifier;
         const char *short_identifier;
         const char *short_identifier_plural;
+        const char *polkit_rw_action_id;
+        const char *polkit_ro_action_id;
         const char *blurb;
         const char *dot_directory_name;
         const char *directory_name;
@@ -130,6 +135,8 @@ static const struct {
                 .full_identifier = "systemd-sysext",
                 .short_identifier = "sysext",
                 .short_identifier_plural = "extensions",
+                .polkit_rw_action_id = "io.systemd.sysext.manage",
+                .polkit_ro_action_id = "io.systemd.sysext.read",
                 .blurb = "Merge system extension images into /usr/ and /opt/.",
                 .dot_directory_name = ".systemd-sysext",
                 .level_env = "SYSEXT_LEVEL",
@@ -144,6 +151,8 @@ static const struct {
                 .full_identifier = "systemd-confext",
                 .short_identifier = "confext",
                 .short_identifier_plural = "confexts",
+                .polkit_rw_action_id = "io.systemd.confext.manage",
+                .polkit_ro_action_id = "io.systemd.confext.read",
                 .blurb = "Merge configuration extension images into /etc/.",
                 .dot_directory_name = ".systemd-confext",
                 .level_env = "CONFEXT_LEVEL",
@@ -163,10 +172,13 @@ static int parse_mutable_mode(const char *p) {
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_mutable_mode, mutable_mode, MutableMode);
 
 static int parse_config_file(ImageClass image_class) {
+        _cleanup_(image_policy_freep) ImagePolicy *config_image_policy = NULL;
+        MutableMode config_mutable = MUTABLE_NO;
         const char *section = image_class == IMAGE_SYSEXT ? "SysExt" : "ConfExt";
+        const char *sections = image_class == IMAGE_SYSEXT ? "SysExt\0" : "ConfExt\0";
         const ConfigTableItem items[] = {
-                { section, "Mutable",           config_parse_mutable_mode,      0,      &arg_mutable            },
-                { section, "ImagePolicy",       config_parse_image_policy,      0,      &arg_image_policy       },
+                { section, "Mutable",           config_parse_mutable_mode,      0,      &config_mutable            },
+                { section, "ImagePolicy",       config_parse_image_policy,      0,      &config_image_policy       },
                 {}
         };
         _cleanup_free_ char *config_file = NULL;
@@ -179,7 +191,7 @@ static int parse_config_file(ImageClass image_class) {
         r = config_parse_standard_file_with_dropins_full(
                         arg_root,
                         config_file,
-                        image_class == IMAGE_SYSEXT ? "SysExt\0" : "ConfExt\0",
+                        sections,
                         config_item_table_lookup, items,
                         CONFIG_PARSE_WARN,
                         /* userdata= */ NULL,
@@ -187,6 +199,17 @@ static int parse_config_file(ImageClass image_class) {
                         /* ret_dropin_files= */ NULL);
         if (r < 0)
                 return r;
+
+        /* Because this runs after parse_argv we only overwrite when things aren't set yet. */
+        if (!arg_mutable_set) {
+                arg_mutable = config_mutable;
+                arg_mutable_set = true;
+        }
+
+        if (!arg_image_policy_set) {
+                arg_image_policy = TAKE_PTR(config_image_policy);
+                arg_image_policy_set = true;
+        }
 
         return 0;
 }
@@ -607,13 +630,16 @@ static int vl_method_unmerge(sd_varlink *link, sd_json_variant *parameters, sd_v
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "class",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodUnmergeParameters, class),     0 },
                 { "noReload", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(MethodUnmergeParameters, no_reload), 0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
         MethodUnmergeParameters p = {
                 .no_reload = -1,
         };
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
+        bool no_reload;
         int r;
 
         assert(link);
@@ -622,13 +648,24 @@ static int vl_method_unmerge(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (r != 0)
                 return r;
 
+        no_reload = p.no_reload >= 0 ? p.no_reload : arg_no_reload;
+
         r = parse_image_class_parameter(link, p.class, &image_class, &hierarchies);
         if (r < 0)
                 return r;
 
-        r = unmerge(image_class,
-                    hierarchies ?: arg_hierarchies,
-                    p.no_reload >= 0 ? p.no_reload : arg_no_reload);
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        image_class_info[image_class].polkit_rw_action_id,
+                        (const char**) STRV_MAKE(
+                                "verb", "unmerge",
+                                "noReload", one_zero(no_reload)),
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = unmerge(image_class, hierarchies ?: arg_hierarchies, no_reload);
         if (r < 0)
                 return r;
 
@@ -2245,6 +2282,7 @@ static int parse_merge_parameters(sd_varlink *link, sd_json_variant *parameters,
                 { "force",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(MethodMergeParameters, force),     0 },
                 { "noReload", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(MethodMergeParameters, no_reload), 0 },
                 { "noexec",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(MethodMergeParameters, noexec),    0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
@@ -2256,6 +2294,7 @@ static int parse_merge_parameters(sd_varlink *link, sd_json_variant *parameters,
 }
 
 static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         MethodMergeParameters p = {
                 .force = -1,
@@ -2264,7 +2303,8 @@ static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_var
         };
         _cleanup_strv_free_ char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
-        int r;
+        bool force, no_reload;
+        int r, noexec;
 
         assert(link);
 
@@ -2274,6 +2314,23 @@ static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_var
 
         r = parse_image_class_parameter(link, p.class, &image_class, &hierarchies);
         if (r < 0)
+                return r;
+
+        force = p.force >= 0 ? p.force : arg_force;
+        no_reload = p.no_reload >= 0 ? p.no_reload : arg_no_reload;
+        noexec = p.noexec >= 0 ? p.noexec : arg_noexec;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        image_class_info[image_class].polkit_rw_action_id,
+                        (const char**) STRV_MAKE(
+                                "verb", "merge",
+                                "force", one_zero(force),
+                                "noReload", one_zero(no_reload),
+                                "noexec", one_zero(noexec > 0)),
+                        polkit_registry);
+        if (r <= 0)
                 return r;
 
         r = image_discover_and_read_metadata(image_class, &images);
@@ -2290,12 +2347,7 @@ static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_var
         if (r > 0)
                 return sd_varlink_errorbo(link, "io.systemd.sysext.AlreadyMerged", SD_JSON_BUILD_PAIR_STRING("hierarchy", which));
 
-        r = merge(image_class,
-                  hierarchies ?: arg_hierarchies,
-                  p.force >= 0 ? p.force : arg_force,
-                  p.no_reload >= 0 ? p.no_reload : arg_no_reload,
-                  p.noexec >= 0 ? p.noexec : arg_noexec,
-                  images);
+        r = merge(image_class, hierarchies ?: arg_hierarchies, force, no_reload, noexec, images);
         if (r < 0)
                 return r;
 
@@ -2365,9 +2417,11 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
                 .no_reload = -1,
                 .noexec = -1,
         };
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
-        int r;
+        bool force, no_reload;
+        int r, noexec;
 
         assert(link);
 
@@ -2379,11 +2433,24 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (r < 0)
                 return r;
 
-        r = refresh(image_class,
-                    hierarchies ?: arg_hierarchies,
-                    p.force >= 0 ? p.force : arg_force,
-                    p.no_reload >= 0 ? p.no_reload : arg_no_reload,
-                    p.noexec >= 0 ? p.noexec : arg_noexec);
+        force = p.force >= 0 ? p.force : arg_force;
+        no_reload = p.no_reload >= 0 ? p.no_reload : arg_no_reload;
+        noexec = p.noexec >= 0 ? p.noexec : arg_noexec;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        image_class_info[image_class].polkit_rw_action_id,
+                        (const char**) STRV_MAKE(
+                                "verb", "refresh",
+                                "force", one_zero(force),
+                                "noReload", one_zero(no_reload),
+                                "noexec", one_zero(noexec > 0)),
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = refresh(image_class, hierarchies ?: arg_hierarchies, force, no_reload, noexec);
         if (r < 0)
                 return r;
 
@@ -2429,9 +2496,11 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "class", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
@@ -2444,6 +2513,15 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         ImageClass image_class = arg_image_class;
         r = parse_image_class_parameter(link, class, &image_class, NULL);
         if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        image_class_info[image_class].polkit_ro_action_id,
+                        (const char**) STRV_MAKE("verb", "list"),
+                        polkit_registry);
+        if (r <= 0)
                 return r;
 
         _cleanup_hashmap_free_ Hashmap *images = NULL;
@@ -2592,6 +2670,9 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_image_policy_argument(optarg, &arg_image_policy);
                         if (r < 0)
                                 return r;
+                        /* When the CLI flag is given we initialize even if NULL
+                         * so that the config file entry won't overwrite it */
+                        arg_image_policy_set = true;
                         break;
 
                 case ARG_NOEXEC:
@@ -2618,6 +2699,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);
                         arg_mutable = r;
+                        arg_mutable_set = true;
                         break;
 
                 case '?':
@@ -2646,8 +2728,10 @@ static int parse_env(void) {
                 if (r < 0)
                         log_warning("Failed to parse %s environment variable value '%s'. Ignoring.",
                                     image_class_info[arg_image_class].mode_env, env_var);
-                else
+                else {
                         arg_mutable = r;
+                        arg_mutable_set = true;
+                }
         }
 
         env_var = secure_getenv(image_class_info[arg_image_class].opts_env);
@@ -2691,22 +2775,28 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* Parse configuration file */
-        r = parse_config_file(arg_image_class);
-        if (r < 0)
-                log_warning_errno(r, "Failed to parse global config file, ignoring: %m");
-
         /* Parse command line */
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
+        /* Parse configuration file after argv because it needs --root=.
+         * The config entries will not overwrite values set already by
+         * env/argv because we track initialization. */
+        r = parse_config_file(arg_image_class);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse global config file, ignoring: %m");
+
         if (arg_varlink) {
                 _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+                _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
 
                 /* Invocation as Varlink service */
 
-                r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY, NULL);
+                r = varlink_server_new(
+                                &varlink_server,
+                                SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA,
+                                &polkit_registry);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
