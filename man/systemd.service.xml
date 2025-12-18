@@ -257,9 +257,11 @@
             (i.e. <constant>CLOCK_MONOTONIC</constant> in
             <citerefentry><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>)
             in μs, formatted as decimal string. Once reloading is complete another notification message must
-            be sent, containing <literal>READY=1</literal>. Using this service type and implementing this
-            reload protocol is an efficient alternative to providing an <varname>ExecReload=</varname>
-            command for reloading of the service's configuration.</para>
+            be sent, containing <literal>READY=1</literal>. If the reload operation fails, <literal>RELOADING=-1</literal>
+            shall be sent to propagate the failure to the reload job, along with either <literal>READY=1</literal>
+            or <literal>STOPPING=1</literal> with respect to the recoverability of the error. Using this
+            service type and implementing this reload protocol is an efficient alternative to providing
+            an <varname>ExecReload=</varname> command for reloading of the service's configuration.</para>
 
             <para>The signal to send can be tweaked via <varname>ReloadSignal=</varname>, see below.</para>
             </listitem>
