@@ -1566,9 +1566,13 @@ int pidref_safe_fork_full(
                                 pidref_transport_fds[1] = safe_close(pidref_transport_fds[1]);
 
                                 if (pidref_transport_fds[0] >= 0) {
-                                        /* Wait for the intermediary child to exit so the caller can be certain the actual child
-                                         * process has been reparented by the time this function returns. */
-                                        r = wait_for_terminate_and_check(name, pid, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                                        /* Wait for the intermediary child to exit so the caller can be
+                                         * certain the actual child process has been reparented by the time
+                                         * this function returns. */
+                                        r = pidref_wait_for_terminate_and_check(
+                                                        name,
+                                                        &PIDREF_MAKE_FROM_PID(pid),
+                                                        FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
                                         if (r < 0)
                                                 return log_full_errno(prio, r, "Failed to wait for intermediary process: %m");
                                         if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
@@ -1644,7 +1648,10 @@ int pidref_safe_fork_full(
                                 (void) sigprocmask(SIG_SETMASK, &ss, NULL);
                         }
 
-                        r = wait_for_terminate_and_check(name, pid, (flags & FORK_LOG ? WAIT_LOG : 0));
+                        r = pidref_wait_for_terminate_and_check(
+                                        name,
+                                        &PIDREF_MAKE_FROM_PID(pid),
+                                        FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
                         if (r < 0)
                                 return r;
                         if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
