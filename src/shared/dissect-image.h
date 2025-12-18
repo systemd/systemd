@@ -114,9 +114,7 @@ typedef struct DissectedImage {
 } DissectedImage;
 
 typedef struct MountOptions {
-        PartitionDesignator partition_designator;
-        char *options;
-        LIST_FIELDS(MountOptions, mount_options);
+        char *options[_PARTITION_DESIGNATOR_MAX];
 } MountOptions;
 
 typedef struct VeritySettings {
