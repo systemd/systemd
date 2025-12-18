@@ -14,9 +14,11 @@ sync_in() {
 wait_for_signal() {
     local notify="${1:?}"
     local p
+    local c
 
     sleep infinity &
     p=$!
+    c="${COUNTER:-0}"
 
     # Notify readiness after 'sleep' is running to avoid race
     # condition where the SIGHUP is sent before 'sleep' is ready to
@@ -25,7 +27,13 @@ wait_for_signal() {
         systemd-notify --ready
     fi
 
-    wait "$p" || :
+    # ...but even that is not sufficient sometimes, so check if the
+    # callback has already ran by checking the counter
+    if [ "$c" -ne "$COUNTER" ]; then
+        kill -TERM "$p" || :
+    else
+        wait "$p" || :
+    fi
 }
 
 sighup_handler() {
