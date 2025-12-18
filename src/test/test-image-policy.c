@@ -99,8 +99,8 @@ TEST_RET(test_image_policy_to_string) {
         test_policy_equiv("~", image_policy_equiv_deny);
         test_policy_equiv("=absent", image_policy_equiv_deny);
         test_policy_equiv("=open", image_policy_equiv_allow);
-        test_policy_equiv("=verity+signed+encrypted+unprotected+unused+absent", image_policy_equiv_allow);
-        test_policy_equiv("=signed+verity+encrypted+unused+unprotected+absent", image_policy_equiv_allow);
+        test_policy_equiv("=verity+signed+encrypted+encryptedwithintegrity+unprotected+unused+absent", image_policy_equiv_allow);
+        test_policy_equiv("=signed+verity+encrypted+encryptedwithintegrity+unused+unprotected+absent", image_policy_equiv_allow);
         test_policy_equiv("=ignore", image_policy_equiv_ignore);
         test_policy_equiv("=absent+unused", image_policy_equiv_ignore);
         test_policy_equiv("=unused+absent", image_policy_equiv_ignore);
