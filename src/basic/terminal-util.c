@@ -2374,17 +2374,12 @@ int terminal_get_size_by_dsr(
         assert(input_fd >= 0);
         assert(output_fd >= 0);
 
-        /* Tries to determine the terminal dimension by means of ANSI sequences rather than TIOCGWINSZ
-         * ioctl(). Why bother with this? The ioctl() information is often incorrect on serial terminals
-         * (since there's no handshake or protocol to determine the right dimensions in RS232), but since the
-         * ANSI sequences are interpreted by the final terminal instead of an intermediary tty driver they
-         * should be more accurate.
+        /* Tries to determine the terminal dimension by means of ANSI sequences.
          *
-         * Unfortunately there's no direct ANSI sequence to query terminal dimensions. But we can hack around
-         * it: we position the cursor briefly at an absolute location very far down and very far to the
-         * right, and then read back where we actually ended up. Because cursor locations are capped at the
-         * terminal width/height we should then see the right values. In order to not risk integer overflows
-         * in terminal applications we'll use INT16_MAX-1 as location to jump to — hopefully a value that is
+         * We position the cursor briefly at an absolute location very far down and very far to the right,
+         * and then read back where we actually ended up. Because cursor locations are capped at the terminal
+         * width/height we should then see the right values. In order to not risk integer overflows in
+         * terminal applications we'll use INT16_MAX-1 as location to jump to — hopefully a value that is
          * large enough for any real-life terminals, but small enough to not overflow anything or be
          * recognized as a "niche" value. (Note that the dimension fields in "struct winsize" are 16bit only,
          * too). */
@@ -2518,12 +2513,143 @@ finish:
         return r;
 }
 
+/*
+ * See https://terminalguide.namepad.de/seq/csi_st-18/,
+ * https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-Functions-using-CSI-_-ordered-by-the-final-character_s_.
+ */
+#define CSI18_Q  "\x1B[18t"               /* Report the size of the text area in characters */
+#define CSI18_Rp "\x1B[8;"                /* Reply prefix */
+#define CSI18_R0 CSI18_Rp "1;1t"          /* Shortest reply */
+#define CSI18_R1 CSI18_Rp "32766;32766t"  /* Longest reply */
+
+static int scan_text_area_size_response(
+                const char *buf,
+                size_t size,
+                unsigned *ret_rows,
+                unsigned *ret_columns) {
+
+        assert(buf);
+        assert(ret_rows);
+        assert(ret_columns);
+
+        /* Check if we have enough space for the shortest possible answer. */
+        if (size < STRLEN(CSI18_R0))
+                return -EAGAIN;
+
+        /* Check if the terminating sequence is present */
+        if (buf[size - 1] != 't')
+                return -EAGAIN;
+
+        unsigned short rows, columns;
+        if (sscanf(buf, CSI18_Rp "%hu;%hut", &rows, &columns) != 2)
+                return -EINVAL;
+
+        *ret_rows = rows;
+        *ret_columns = columns;
+        return 0;
+}
+
+int terminal_get_size_by_csi18(
+                int input_fd,
+                int output_fd,
+                unsigned *ret_rows,
+                unsigned *ret_columns) {
+        int r;
+
+        assert(input_fd >= 0);
+        assert(output_fd >= 0);
+
+        /* Tries to determine the terminal dimension by means of an ANSI sequence CSI 18. */
+
+        if (terminal_is_dumb())
+                return -EOPNOTSUPP;
+
+        r = terminal_verify_same(input_fd, output_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Called with distinct input/output fds: %m");
+
+        /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read()
+         * should someone else process the POLLIN. Do all subsequent operations on the new fd. */
+        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (r < 0)
+                return r;
+
+        struct termios old_termios;
+        if (tcgetattr(nonblock_input_fd, &old_termios) < 0)
+                return log_debug_errno(errno, "Failed to get terminal settings: %m");
+
+        struct termios new_termios = old_termios;
+        termios_disable_echo(&new_termios);
+
+        if (tcsetattr(nonblock_input_fd, TCSANOW, &new_termios) < 0)
+                return log_debug_errno(errno, "Failed to set new terminal settings: %m");
+
+        r = loop_write(output_fd, CSI18_Q, SIZE_MAX);
+        if (r < 0)
+                goto finish;
+
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        char buf[STRLEN(CSI18_R1)];
+        size_t bytes = 0;
+
+        for (;;) {
+                usec_t n = now(CLOCK_MONOTONIC);
+                if (n >= end) {
+                        r = -EOPNOTSUPP;
+                        break;
+                }
+
+                r = fd_wait_for_event(nonblock_input_fd, POLLIN, usec_sub_unsigned(end, n));
+                if (r < 0)
+                        break;
+                if (r == 0) {
+                        r = -EOPNOTSUPP;
+                        break;
+                }
+
+                /* On the first read, read multiple characters, i.e. the shortest valid reply. Afterwards
+                 * read byte by byte, since we don't want to read too much and drop characters from the input
+                 * queue. */
+                ssize_t l = read(nonblock_input_fd, buf + bytes, bytes == 0 ? STRLEN(CSI18_R0) : 1);
+                if (l < 0) {
+                        if (errno == EAGAIN)
+                                continue;
+                        r = -errno;
+                        break;
+                }
+
+                assert((size_t) l <= sizeof(buf) - bytes);
+                bytes += l;
+
+                r = scan_text_area_size_response(buf, bytes, ret_rows, ret_columns);
+                if (r != -EAGAIN)
+                        break;
+
+                if (bytes == sizeof(buf)) {
+                        r = -EOPNOTSUPP; /* The response has the right prefix, but we didn't find a valid
+                                          * answer with a terminator in the allotted space. Something is
+                                          * wrong, possibly some unrelated bytes got injected into the
+                                          * answer. */
+                        break;
+                }
+        }
+
+finish:
+        (void) tcsetattr(nonblock_input_fd, TCSANOW, &old_termios);
+        return r;
+}
+
 int terminal_fix_size(int input_fd, int output_fd) {
         unsigned rows, columns;
         int r;
 
-        /* Tries to update the current terminal dimensions to the ones reported via ANSI sequences */
-
+        /* Tries to update the current terminal dimensions to the ones reported via ANSI sequences.
+         *
+         * Why bother with this? The ioctl() information is often incorrect on serial terminals (since
+         * there's no handshake or protocol to determine the right dimensions in RS232), but since the ANSI
+         * sequences are interpreted by the final terminal instead of an intermediary tty driver they should
+         * be more accurate.
+         */
         r = terminal_verify_same(input_fd, output_fd);
         if (r < 0)
                 return r;
@@ -2532,7 +2658,12 @@ int terminal_fix_size(int input_fd, int output_fd) {
         if (ioctl(output_fd, TIOCGWINSZ, &ws) < 0)
                 return log_debug_errno(errno, "Failed to query terminal dimensions, ignoring: %m");
 
-        r = terminal_get_size_by_dsr(input_fd, output_fd, &rows, &columns);
+        r = terminal_get_size_by_csi18(input_fd, output_fd, &rows, &columns);
+        if (IN_SET(r, -EOPNOTSUPP, -EINVAL))
+                /* We get -EOPNOTSUPP if the query fails and -EINVAL when the received answer is invalid.
+                 * Try the fallback method. It is more involved and moves the cursor, but seems to have wider
+                 * support. */
+                r = terminal_get_size_by_dsr(input_fd, output_fd, &rows, &columns);
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire terminal dimensions via ANSI sequences, not adjusting terminal dimensions: %m");
 
