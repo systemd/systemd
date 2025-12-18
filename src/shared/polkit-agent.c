@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <poll.h>
-#include <signal.h>
 #include <unistd.h>
 
 #include "bus-util.h"
@@ -9,19 +8,19 @@
 #include "fd-util.h"
 #include "io-util.h"
 #include "log.h"
+#include "pidref.h"
 #include "polkit-agent.h"
-#include "process-util.h"
 #include "stdio-util.h"
 
 #if ENABLE_POLKIT
-static pid_t agent_pid = 0;
+static PidRef agent_pidref = PIDREF_NULL;
 
 int polkit_agent_open(void) {
         _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
         char notify_fd[DECIMAL_STR_MAX(int) + 1];
         int r;
 
-        if (agent_pid > 0)
+        if (pidref_is_set(&agent_pidref))
                 return 0;
 
         /* Clients that run as root don't need to activate/query polkit */
@@ -40,7 +39,7 @@ int polkit_agent_open(void) {
         r = fork_agent("(polkit-agent)",
                        &pipe_fd[1],
                        1,
-                       &agent_pid,
+                       &agent_pidref,
                        POLKIT_AGENT_BINARY_PATH,
                        "--notify-fd", notify_fd,
                        "--fallback");
@@ -57,12 +56,8 @@ int polkit_agent_open(void) {
 }
 
 void polkit_agent_close(void) {
-
-        if (agent_pid <= 0)
-                return;
-
         /* Inform agent that we are done */
-        sigterm_wait(TAKE_PID(agent_pid));
+        pidref_done_sigterm_wait(&agent_pidref);
 }
 
 #else

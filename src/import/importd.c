@@ -409,7 +409,7 @@ static int transfer_on_log(sd_event_source *s, int fd, uint32_t revents, void *u
                 log_error_errno(errno, "Failed to read log message: %m");
         if (l <= 0) {
                 /* EOF/read error. We just close the pipe here, and
-                 * close the watch, waiting for the SIGCHLD to arrive,
+                 * close the watch, waiting for the child to exit,
                  * before we do anything else. */
                 t->log_event_source = sd_event_source_unref(t->log_event_source);
                 return 0;
@@ -600,7 +600,7 @@ static int transfer_start(Transfer *t) {
         if (r < 0)
                 return r;
 
-        /* Make sure always process logging before SIGCHLD */
+        /* Make sure always process logging before child exit */
         r = sd_event_source_set_priority(t->log_event_source, SD_EVENT_PRIORITY_NORMAL -5);
         if (r < 0)
                 return r;
@@ -724,7 +724,7 @@ static int manager_new(RuntimeScope scope, Manager **ret) {
 
         r = notify_socket_prepare(
                         m->event,
-                        SD_EVENT_PRIORITY_NORMAL - 1, /* Make this processed before SIGCHLD. */
+                        SD_EVENT_PRIORITY_NORMAL - 1, /* Make this processed before child exit. */
                         manager_on_notify,
                         m,
                         &m->notify_socket_path);
@@ -2061,8 +2061,6 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         umask(0022);
-
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         r = manager_new(scope, &m);
         if (r < 0)
