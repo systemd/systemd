@@ -376,7 +376,10 @@ int import_make_foreign_userns(int *userns_fd) {
         if (*userns_fd >= 0)
                 return 0;
 
-        *userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K); /* allocate 64K users */
+        *userns_fd = nsresource_allocate_userns(
+                        /* link= */ NULL,
+                        /* name= */ NULL,
+                        NSRESOURCE_UIDS_64K); /* allocate 64K users */
         if (*userns_fd < 0)
                 return log_error_errno(*userns_fd, "Failed to allocate transient user namespace: %m");
 
@@ -452,6 +455,7 @@ int import_remove_tree_foreign(const char *path, int *userns_fd) {
 
         _cleanup_close_ int tree_fd = -EBADF;
         r = mountfsd_mount_directory(
+                        /* link= */ NULL,
                         path,
                         *userns_fd,
                         DISSECT_IMAGE_FOREIGN_UID,

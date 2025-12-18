@@ -740,5 +740,11 @@ const PickFilter pick_filter_image_dir = {
 const PickFilter pick_filter_image_any = {
         .type_mask = (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) | (UINT32_C(1) << DT_DIR),
         .architecture = _ARCHITECTURE_INVALID,
-        .suffix = STRV_MAKE(".raw", ""),
+        .suffix = STRV_MAKE(".raw", ".mstack", ""),
+};
+
+const PickFilter pick_filter_image_mstack = {
+        .type_mask = UINT32_C(1) << DT_DIR,
+        .architecture = _ARCHITECTURE_INVALID,
+        .suffix = STRV_MAKE(".mstack"),
 };

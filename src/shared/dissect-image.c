@@ -630,7 +630,34 @@ static void check_partition_flags(
                 log_debug("Unexpected partition flag %llu set on %s!", bit, node);
         }
 }
+#endif
 
+static int make_image_name(const char *path, char **ret) {
+        int r;
+
+        assert(path);
+
+        _cleanup_free_ char *filename = NULL;
+        r = path_extract_filename(path, &filename);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *name = NULL;
+        r = raw_strip_suffixes(filename, &name);
+        if (r < 0)
+                return r;
+
+        if (!image_name_is_valid(name)) {
+                log_debug("Image name %s is not valid, ignoring.", strna(name));
+                *ret = NULL;
+                return 0;
+        }
+
+        *ret = TAKE_PTR(name);
+        return 1;
+}
+
+#if HAVE_BLKID
 static int dissected_image_new(const char *path, DissectedImage **ret) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_free_ char *name = NULL;
@@ -639,20 +666,9 @@ static int dissected_image_new(const char *path, DissectedImage **ret) {
         assert(ret);
 
         if (path) {
-                _cleanup_free_ char *filename = NULL;
-
-                r = path_extract_filename(path, &filename);
+                r = make_image_name(path, &name);
                 if (r < 0)
                         return r;
-
-                r = raw_strip_suffixes(filename, &name);
-                if (r < 0)
-                        return r;
-
-                if (!image_name_is_valid(name)) {
-                        log_debug("Image name %s is not valid, ignoring.", strna(name));
-                        name = mfree(name);
-                }
         }
 
         m = new(DissectedImage, 1);
@@ -4692,6 +4708,7 @@ int verity_dissect_and_mount(
                         return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
 
                 r = mountfsd_mount_image(
+                                /* link= */ NULL,
                                 src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
                                 userns_fd,
                                 image_policy,
@@ -4856,8 +4873,31 @@ static void mount_image_reply_parameters_done(MountImageReplyParameters *p) {
 
 #endif
 
-int mountfsd_mount_image(
-                const char *path,
+int mountfsd_connect(sd_varlink **ret) {
+        int r;
+
+        assert(ret);
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.MountFileSystem");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to mountfsd: %m");
+
+        r = sd_varlink_set_allow_fd_passing_input(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable varlink fd passing for read: %m");
+
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
+
+        *ret = TAKE_PTR(vl);
+        return 0;
+}
+
+int mountfsd_mount_image_fd(
+                sd_varlink *vl,
+                int image_fd,
                 int userns_fd,
                 const ImagePolicy *image_policy,
                 const VeritySettings *verity,
@@ -4877,30 +4917,28 @@ int mountfsd_mount_image(
         };
 
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
-        _cleanup_close_ int image_fd = -EBADF, verity_data_fd = -EBADF;
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_close_ int verity_data_fd = -EBADF;
         _cleanup_free_ char *ps = NULL;
         const char *error_id;
         int r;
 
-        assert(path);
+        assert(image_fd >= 0);
         assert(ret);
 
-        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.MountFileSystem");
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to mountfsd: %m");
+        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        if (!vl) {
+                r = mountfsd_connect(&_vl);
+                if (r < 0)
+                        return r;
 
-        r = sd_varlink_set_allow_fd_passing_input(vl, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable varlink fd passing for read: %m");
+                vl = _vl;
+        }
 
-        r = sd_varlink_set_allow_fd_passing_output(vl, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
+        _cleanup_close_ int reopened_fd = -EBADF;
 
-        image_fd = open(path, O_RDONLY|O_CLOEXEC);
+        image_fd = fd_reopen_condition(image_fd, O_CLOEXEC|O_NOCTTY|O_NONBLOCK|(FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY) ? O_RDONLY : O_RDWR), O_PATH, &reopened_fd);
         if (image_fd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", path);
+                return log_error_errno(image_fd, "Failed to reopen fd: %m");
 
         r = sd_varlink_push_dup_fd(vl, image_fd);
         if (r < 0)
@@ -4993,7 +5031,7 @@ int mountfsd_mount_image(
                 assert(pp.designator >= 0);
 
                 if (!di) {
-                        r = dissected_image_new(path, &di);
+                        r = dissected_image_new(/* path= */ NULL, &di);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to allocated new dissected image structure: %m");
                 }
@@ -5028,7 +5066,41 @@ int mountfsd_mount_image(
 #endif
 }
 
+int mountfsd_mount_image(
+                sd_varlink *vl,
+                const char *path,
+                int userns_fd,
+                const ImagePolicy *image_policy,
+                const VeritySettings *verity,
+                DissectImageFlags flags,
+                DissectedImage **ret) {
+
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        _cleanup_close_ int image_fd = open(path, O_RDONLY|O_CLOEXEC);
+        if (image_fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
+
+        _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
+        r = mountfsd_mount_image_fd(vl, image_fd, userns_fd, image_policy, verity, flags, &di);
+        if (r < 0)
+                return r;
+
+        if (!di->image_name) {
+                r = make_image_name(path, &di->image_name);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(di);
+        return 0;
+}
+
 int mountfsd_mount_directory_fd(
+                sd_varlink *vl,
                 int directory_fd,
                 int userns_fd,
                 DissectImageFlags flags,
@@ -5042,18 +5114,14 @@ int mountfsd_mount_directory_fd(
         /* Pick one identity, not both, that makes no sense. */
         assert(!FLAGS_SET(flags, DISSECT_IMAGE_FOREIGN_UID|DISSECT_IMAGE_IDENTITY_UID));
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.MountFileSystem");
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to mountfsd: %m");
+        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        if (!vl) {
+                r = mountfsd_connect(&_vl);
+                if (r < 0)
+                        return r;
 
-        r = sd_varlink_set_allow_fd_passing_input(vl, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable varlink fd passing for read: %m");
-
-        r = sd_varlink_set_allow_fd_passing_output(vl, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
+                vl = _vl;
+        }
 
         r = sd_varlink_push_dup_fd(vl, directory_fd);
         if (r < 0)
@@ -5100,6 +5168,7 @@ int mountfsd_mount_directory_fd(
 }
 
 int mountfsd_mount_directory(
+                sd_varlink *vl,
                 const char *path,
                 int userns_fd,
                 DissectImageFlags flags,
@@ -5112,12 +5181,14 @@ int mountfsd_mount_directory(
         if (directory_fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
 
-        return mountfsd_mount_directory_fd(directory_fd, userns_fd, flags, ret_mount_fd);
+        return mountfsd_mount_directory_fd(vl, directory_fd, userns_fd, flags, ret_mount_fd);
 }
 
 int mountfsd_make_directory_fd(
+                sd_varlink *vl,
                 int parent_fd,
                 const char *name,
+                mode_t mode,
                 DissectImageFlags flags,
                 int *ret_directory_fd) {
 
@@ -5125,20 +5196,15 @@ int mountfsd_make_directory_fd(
 
         assert(parent_fd >= 0);
         assert(name);
-        assert(ret_directory_fd);
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.MountFileSystem");
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to mountfsd: %m");
+        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        if (!vl) {
+                r = mountfsd_connect(&_vl);
+                if (r < 0)
+                        return r;
 
-        r = sd_varlink_set_allow_fd_passing_input(vl, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable varlink fd passing for read: %m");
-
-        r = sd_varlink_set_allow_fd_passing_output(vl, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
+                vl = _vl;
+        }
 
         r = sd_varlink_push_dup_fd(vl, parent_fd);
         if (r < 0)
@@ -5153,6 +5219,7 @@ int mountfsd_make_directory_fd(
                         &error_id,
                         SD_JSON_BUILD_PAIR_UNSIGNED("parentFileDescriptor", 0),
                         SD_JSON_BUILD_PAIR_STRING("name", name),
+                        SD_JSON_BUILD_PAIR_CONDITION(!IN_SET(mode, MODE_INVALID, 0700), "mode", SD_JSON_BUILD_UNSIGNED(mode)), /* suppress this field if default/unset */
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH)));
         if (r < 0)
                 return r;
@@ -5171,12 +5238,15 @@ int mountfsd_make_directory_fd(
         if (directory_fd < 0)
                 return log_error_errno(directory_fd, "Failed to take directory fd from Varlink connection: %m");
 
-        *ret_directory_fd = TAKE_FD(directory_fd);
+        if (ret_directory_fd)
+                *ret_directory_fd = TAKE_FD(directory_fd);
         return 0;
 }
 
 int mountfsd_make_directory(
+                sd_varlink *vl,
                 const char *path,
+                mode_t mode,
                 DissectImageFlags flags,
                 int *ret_directory_fd) {
 
@@ -5196,5 +5266,5 @@ int mountfsd_make_directory(
         if (fd < 0)
                 return log_error_errno(r, "Failed to open '%s': %m", parent);
 
-        return mountfsd_make_directory_fd(fd, dirname, flags, ret_directory_fd);
+        return mountfsd_make_directory_fd(vl, fd, dirname, mode, flags, ret_directory_fd);
 }
