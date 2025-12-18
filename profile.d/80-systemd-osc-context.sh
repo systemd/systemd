@@ -10,6 +10,10 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
+# This implements the UAPI.15 "OSC 3008: Hierarchical Context Signalling"
+# specification for the shell prompt. For details see:
+# https://uapi-group.org/specifications/specs/osc_context/
+
 # Not bash?
 [ -n "${BASH_VERSION:-}" ] || return 0
 
