@@ -1506,7 +1506,7 @@ int pidref_safe_fork_full(
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
         _unused_ _cleanup_(restore_sigsetp) sigset_t *saved_ssp = NULL;
-        bool block_signals = false, block_all = false, intermediary = false;
+        bool block_signals = false, intermediary = false;
         _cleanup_close_pair_ int pidref_transport_fds[2] = EBADF_PAIR;
         int prio, r;
 
@@ -1533,13 +1533,6 @@ int pidref_safe_fork_full(
                  * FORK_DEATHSIG_SIGKILL we don't bother, since it cannot be blocked anyway.) */
 
                 assert_se(sigfillset(&ss) >= 0);
-                block_signals = block_all = true;
-
-        } else if (flags & FORK_WAIT) {
-                /* Let's block SIGCHLD at least, so that we can safely watch for the child process */
-
-                assert_se(sigemptyset(&ss) >= 0);
-                assert_se(sigaddset(&ss, SIGCHLD) >= 0);
                 block_signals = true;
         }
 
@@ -1571,9 +1564,14 @@ int pidref_safe_fork_full(
                                 pidref_transport_fds[1] = safe_close(pidref_transport_fds[1]);
 
                                 if (pidref_transport_fds[0] >= 0) {
+                                        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                                        r = pidref_set_pid(&pidref, pid);
+                                        if (r < 0)
+                                                return log_full_errno(prio, r, "Failed to open reference to PID "PID_FMT": %m", pid);
+
                                         /* Wait for the intermediary child to exit so the caller can be certain the actual child
                                          * process has been reparented by the time this function returns. */
-                                        r = wait_for_terminate_and_check(name, pid, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                                        r = pidref_wait_for_terminate_and_check(name, &pidref, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
                                         if (r < 0)
                                                 return log_full_errno(prio, r, "Failed to wait for intermediary process: %m");
                                         if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
@@ -1642,14 +1640,18 @@ int pidref_safe_fork_full(
                 log_debug("Successfully forked off '%s' as PID " PID_FMT ".", strna(name), pid);
 
                 if (flags & FORK_WAIT) {
-                        if (block_all) {
-                                /* undo everything except SIGCHLD */
+                        if (block_signals) {
+                                /* undo everything */
                                 ss = saved_ss;
-                                assert_se(sigaddset(&ss, SIGCHLD) >= 0);
                                 (void) sigprocmask(SIG_SETMASK, &ss, NULL);
                         }
 
-                        r = wait_for_terminate_and_check(name, pid, (flags & FORK_LOG ? WAIT_LOG : 0));
+                        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                        r = pidref_set_pid(&pidref, pid);
+                        if (r < 0)
+                                return log_full_errno(prio, r, "Failed to open reference to PID "PID_FMT": %m", pid);
+
+                        r = pidref_wait_for_terminate_and_check(name, &pidref, (flags & FORK_LOG ? WAIT_LOG : 0));
                         if (r < 0)
                                 return r;
                         if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
