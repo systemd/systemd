@@ -149,17 +149,17 @@ EOF
     test -f "$uki"
 
     if [ -x "$bootctl" ]; then
-        "$bootctl" kernel-inspect "$uki" | grep -qE 'Kernel Type: +uki$'
-        "$bootctl" kernel-inspect "$uki" | grep -qE 'Version: +1\.1\.3$'
-        "$bootctl" kernel-inspect "$uki" | grep -qE 'Cmdline: +opt1 opt2$'
+        "$bootctl" kernel-inspect "$uki" | grep -E 'Kernel Type: +uki$' >/dev/null
+        "$bootctl" kernel-inspect "$uki" | grep -E 'Version: +1\.1\.3$' >/dev/null
+        "$bootctl" kernel-inspect "$uki" | grep -E 'Cmdline: +opt1 opt2$' >/dev/null
     fi
 
-    "$ukify" inspect "$uki" | grep -qE '^.sbat'
-    "$ukify" inspect "$uki" | grep -qE '^.cmdline'
-    "$ukify" inspect "$uki" | grep -qE '^.uname'
-    "$ukify" inspect "$uki" | grep -qE '^.initrd'
-    "$ukify" inspect "$uki" | grep -qE '^.linux'
-    "$ukify" inspect "$uki" | grep -qE '^.dtb'
+    "$ukify" inspect "$uki" | grep -E '^.sbat' >/dev/null
+    "$ukify" inspect "$uki" | grep -E '^.cmdline' >/dev/null
+    "$ukify" inspect "$uki" | grep -E '^.uname' >/dev/null
+    "$ukify" inspect "$uki" | grep -E '^.initrd' >/dev/null
+    "$ukify" inspect "$uki" | grep -E '^.linux' >/dev/null
+    "$ukify" inspect "$uki" | grep -E '^.dtb' >/dev/null
 
     rm "$D/sources/install.conf.d/override.conf"
 fi
@@ -318,7 +318,7 @@ diff -u <(echo "$output") - >&2 <<EOF
 		"KERNEL_INSTALL_LAYOUT=other",
 		"KERNEL_INSTALL_INITRD_GENERATOR=none",
 		"KERNEL_INSTALL_UKI_GENERATOR=",
-		"KERNEL_INSTALL_STAGING_AREA=/var/tmp/kernel-install.staging.XXXXXX"
+		"KERNEL_INSTALL_STAGING_AREA=${TMPDIR:-/var/tmp}/kernel-install.staging.XXXXXX"
 	]
 }
 EOF

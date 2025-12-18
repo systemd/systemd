@@ -12,4 +12,4 @@ void pager_open(PagerFlags flags);
 void pager_close(void);
 bool pager_have(void) _pure_;
 
-int show_man_page(const char *page, bool null_stdio);
+int show_man_page(const char *desc, bool null_stdio);

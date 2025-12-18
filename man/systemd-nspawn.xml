@@ -130,11 +130,11 @@
 
     <itemizedlist>
       <listitem><para>Only disk image based containers are supported (i.e. <option>--image=</option>).
-      Directory based ones (i.e. <option>--directory=</option>) are not supported.</para></listitem>
+      Directory based ones (i.e. <option>--directory=</option>) are only supported if owned by the "foreign"
+      UID range.</para></listitem>
 
-      <listitem><para>Machine registration via <option>--machine=</option> is not supported.</para></listitem>
-
-      <listitem><para>Only <option>--private-network</option> and <option>--network-veth</option> networking modes are supported.</para></listitem>
+      <listitem><para>Only <option>--private-network</option> and <option>--network-veth</option> networking
+      modes are supported.</para></listitem>
     </itemizedlist>
 
     <para>When running in unprivileged mode, some needed functionality is provided via
@@ -327,14 +327,12 @@
           partition of type
           0fc63daf-8483-4772-8e79-3d69d8477de4.</para></listitem>
 
-          <listitem><para>A GUID partition table (GPT) with a marked
-          root partition which is mounted as the root directory of the
-          container. Optionally, GPT images may contain a home and/or
-          a server data partition which are mounted to the appropriate
-          places in the container. All these partitions must be
-          identified by the partition types defined by the <ulink
-          url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
-          Partitions Specification</ulink>.</para></listitem>
+          <listitem><para>A GUID partition table (GPT) with a marked root partition which is mounted as the
+          root directory of the container. Optionally, GPT images may contain a home and/or a server data
+          partition which are mounted to the appropriate places in the container. All these partitions must
+          be identified by the partition types defined by the <ulink
+          url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2
+          Discoverable Partitions Specification</ulink>.</para></listitem>
 
           <listitem><para>No partition table, and a single file system spanning the whole image.</para></listitem>
         </itemizedlist>
@@ -626,11 +624,10 @@
         provides protection against accidental destructive operations only.</para>
 
         <para>Note that if credentials are used in combination with a non-root <option>--user=</option>
-        (e.g.: <option>--set-credential=</option>, <option>--load-credential=</option> or
-        <option>--import-credential=</option>), then <option>--no-new-privileges=yes</option> must be used, and
-        <option>--boot</option> or <option>--as-pid2</option> must not be used, as the credentials would
-        otherwise be unreadable by the container due to missing privileges after switching to the specified
-        user.</para></listitem>
+        (e.g.: <option>--set-credential=</option> or <option>--load-credential=</option>), then
+        <option>--no-new-privileges=yes</option> must be used, and <option>--boot</option> or
+        <option>--as-pid2</option> must not be used, as the credentials would otherwise be unreadable
+        by the container due to missing privileges after switching to the specified user.</para></listitem>
       </varlistentry>
 
       <varlistentry>

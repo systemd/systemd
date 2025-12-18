@@ -43,7 +43,7 @@ int group_record_load(GroupRecord *h, sd_json_variant *v, UserRecordLoadFlags fl
 int group_record_build(GroupRecord **ret, ...);
 #define group_record_buildo(ret, ...)                                   \
         group_record_build((ret), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
-int group_record_clone(GroupRecord *g, UserRecordLoadFlags flags, GroupRecord **ret);
+int group_record_clone(GroupRecord *h, UserRecordLoadFlags flags, GroupRecord **ret);
 
 bool group_record_match(GroupRecord *h, const UserDBMatch *match);
 

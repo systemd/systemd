@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <endian.h>     /* IWYU pragma: keep */
+#include <endian.h>
 
 #include "basic-forward.h"
 

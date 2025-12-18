@@ -164,6 +164,7 @@ typedef struct sd_bus {
         BusState state;
         int input_fd, output_fd;
         int inotify_fd;
+        int exit_code;
         int message_version;
         int message_endian;
 
@@ -403,6 +404,6 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, const sd_bus_error *e);
                         return sd_bus_error_set_errno(error, r);        \
         } while (false)
 
-void bus_enter_closing(sd_bus *bus);
+void bus_enter_closing(sd_bus *bus, int exit_code);
 
 void bus_set_state(sd_bus *bus, BusState state);

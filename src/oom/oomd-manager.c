@@ -334,9 +334,9 @@ static int acquire_managed_oom_connect(Manager *m) {
         assert(m);
         assert(m->event);
 
-        r = sd_varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM);
+        r = sd_varlink_connect_address(&link, VARLINK_PATH_MANAGED_OOM_SYSTEM);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to " VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM ": %m");
+                return log_error_errno(r, "Failed to connect to %s: %m", VARLINK_PATH_MANAGED_OOM_SYSTEM);
 
         (void) sd_varlink_set_userdata(link, m);
         (void) sd_varlink_set_description(link, "oomd");
@@ -768,11 +768,12 @@ static int manager_varlink_init(Manager *m, int fd) {
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
         if (fd < 0)
-                r = sd_varlink_server_listen_address(s, VARLINK_ADDR_PATH_MANAGED_OOM_USER, 0666);
+                r = sd_varlink_server_listen_address(s, VARLINK_PATH_MANAGED_OOM_USER, 0666);
         else
                 r = sd_varlink_server_listen_fd(s, fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket '" VARLINK_ADDR_PATH_MANAGED_OOM_USER "': %m");
+                return log_error_errno(r, "Failed to bind to varlink socket %s: %m",
+                                       VARLINK_PATH_MANAGED_OOM_USER);
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)

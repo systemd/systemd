@@ -700,12 +700,12 @@ _public_ int sd_bus_message_new_method_errno(
                 sd_bus_message *call,
                 sd_bus_message **ret,
                 int error,
-                const sd_bus_error *p) {
+                const sd_bus_error *e) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
 
-        if (sd_bus_error_is_set(p))
-                return sd_bus_message_new_method_error(call, ret, p);
+        if (sd_bus_error_is_set(e))
+                return sd_bus_message_new_method_error(call, ret, e);
 
         sd_bus_error_set_errno(&berror, error);
 
@@ -1361,7 +1361,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
 
                 p = strempty(p);
 
-                if (!signature_is_valid(p, /* allow_dict_entry = */ true))
+                if (!signature_is_valid(p, /* allow_dict_entry= */ true))
                         return -EINVAL;
 
                 align = 1;
@@ -4000,7 +4000,7 @@ static int message_skip_fields(
                         if (r < 0)
                                 return r;
 
-                        r = message_skip_fields(m, ri, UINT32_MAX, (const char**) &s);
+                        r = message_skip_fields(m, ri, UINT32_MAX, &s);
                         if (r < 0)
                                 return r;
 
@@ -4191,7 +4191,7 @@ static int message_parse_fields(sd_bus_message *m) {
                         break;
 
                 default:
-                        r = message_skip_fields(m, &ri, UINT32_MAX, (const char **) &signature);
+                        r = message_skip_fields(m, &ri, UINT32_MAX, &signature);
                 }
                 if (r < 0)
                         return r;

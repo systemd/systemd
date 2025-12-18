@@ -1277,7 +1277,7 @@ mismatch:
         return 0;
 }
 
-_public_ sd_json_variant *sd_json_variant_by_index(sd_json_variant *v, size_t idx) {
+_public_ sd_json_variant *sd_json_variant_by_index(sd_json_variant *v, size_t index) {
         if (!v)
                 return NULL;
         if (v == JSON_VARIANT_MAGIC_EMPTY_ARRAY ||
@@ -1288,11 +1288,11 @@ _public_ sd_json_variant *sd_json_variant_by_index(sd_json_variant *v, size_t id
         if (!IN_SET(v->type, SD_JSON_VARIANT_ARRAY, SD_JSON_VARIANT_OBJECT))
                 goto mismatch;
         if (v->is_reference)
-                return sd_json_variant_by_index(v->reference, idx);
-        if (idx >= v->n_elements)
+                return sd_json_variant_by_index(v->reference, index);
+        if (index >= v->n_elements)
                 return NULL;
 
-        return json_variant_conservative_formalize(v + 1 + idx);
+        return json_variant_conservative_formalize(v + 1 + index);
 
 mismatch:
         log_debug("Element in non-array/non-object JSON variant requested by index, returning NULL.");
@@ -2079,22 +2079,22 @@ _public_ int sd_json_variant_set_field_uuid(sd_json_variant **v, const char *fie
         return sd_json_variant_set_field_string(v, field, SD_ID128_TO_UUID_STRING(value));
 }
 
-_public_ int sd_json_variant_set_field_integer(sd_json_variant **v, const char *field, int64_t i) {
+_public_ int sd_json_variant_set_field_integer(sd_json_variant **v, const char *field, int64_t value) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
-        r = sd_json_variant_new_integer(&m, i);
+        r = sd_json_variant_new_integer(&m, value);
         if (r < 0)
                 return r;
 
         return sd_json_variant_set_field(v, field, m);
 }
 
-_public_ int sd_json_variant_set_field_unsigned(sd_json_variant **v, const char *field, uint64_t u) {
+_public_ int sd_json_variant_set_field_unsigned(sd_json_variant **v, const char *field, uint64_t value) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
-        r = sd_json_variant_new_unsigned(&m, u);
+        r = sd_json_variant_new_unsigned(&m, value);
         if (r < 0)
                 return r;
 
@@ -3379,7 +3379,7 @@ finish:
 }
 
 _public_ int sd_json_parse_with_source(
-                const char *input,
+                const char *string,
                 const char *source,
                 sd_json_parse_flags_t flags,
                 sd_json_variant **ret,
@@ -3388,7 +3388,7 @@ _public_ int sd_json_parse_with_source(
 
         _cleanup_(json_source_unrefp) JsonSource *s = NULL;
 
-        if (isempty(input))
+        if (isempty(string))
                 return -ENODATA;
 
         if (source) {
@@ -3397,7 +3397,7 @@ _public_ int sd_json_parse_with_source(
                         return -ENOMEM;
         }
 
-        return json_parse_internal(&input, s, flags, ret, reterr_line, reterr_column, false);
+        return json_parse_internal(&string, s, flags, ret, reterr_line, reterr_column, false);
 }
 
 _public_ int sd_json_parse_with_source_continue(

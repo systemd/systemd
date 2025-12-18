@@ -123,7 +123,7 @@ extern const NetDevVTable ip6tnl_vtable;
 extern const NetDevVTable erspan_vtable;
 
 const char* tunnel_mode_to_string(TunnelMode d) _const_;
-TunnelMode tunnel_mode_from_string(const char *d) _pure_;
+TunnelMode tunnel_mode_from_string(const char *s) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_local_address);

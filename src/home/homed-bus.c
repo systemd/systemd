@@ -28,7 +28,7 @@ int bus_message_read_secret(sd_bus_message *m, UserRecord **ret, sd_bus_error *e
         if (r < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse JSON secret record at %u:%u: %m", line, column);
 
-        r = sd_json_buildo(&full, SD_JSON_BUILD_PAIR("secret", SD_JSON_BUILD_VARIANT(v)));
+        r = sd_json_buildo(&full, SD_JSON_BUILD_PAIR_VARIANT("secret", v));
         if (r < 0)
                 return r;
 

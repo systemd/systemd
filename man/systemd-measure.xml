@@ -34,7 +34,7 @@
 
     <para><command>systemd-measure</command> is a tool that may be used to pre-calculate and sign the
     expected TPM2 PCR 11 values that should be seen when a Linux <ulink
-    url="https://uapi-group.org/specifications/specs/unified_kernel_image/">Unified Kernel Image
+    url="https://uapi-group.org/specifications/specs/unified_kernel_image/">UAPI.5 Unified Kernel Image
     (UKI)</ulink> based on
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> is
     booted up. It accepts paths to the ELF kernel image file, initrd image file, devicetree file, kernel

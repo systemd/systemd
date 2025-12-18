@@ -58,8 +58,8 @@ int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
                         &v,
                         "signature",
                         SD_JSON_BUILD_ARRAY(
-                                        SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_BASE64(signature, signature_size)),
-                                                             SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_STRING(key)))));
+                                        SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_BASE64("data", signature, signature_size),
+                                                             SD_JSON_BUILD_PAIR_STRING("key", key))));
         if (r < 0)
                 return r;
 

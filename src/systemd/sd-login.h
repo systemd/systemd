@@ -188,7 +188,7 @@ int sd_session_get_leader(const char *session, pid_t *ret_leader);
 int sd_session_get_remote_host(const char *session, char **ret_remote_host);
 
 /* Determine the remote user of this session (if provided by PAM). */
-int sd_session_get_remote_user(const char *session, char **tre_remote_user);
+int sd_session_get_remote_user(const char *session, char **ret_remote_user);
 
 /* Determine the TTY of this session. */
 int sd_session_get_tty(const char *session, char **ret_tty);

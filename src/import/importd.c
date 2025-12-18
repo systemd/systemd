@@ -27,7 +27,6 @@
 #include "import-common.h"
 #include "import-util.h"
 #include "json-util.h"
-#include "machine-pool.h"
 #include "main-func.h"
 #include "notify-recv.h"
 #include "os-util.h"
@@ -820,9 +819,9 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
                                          "Local image name %s is invalid", local);
 
         if (class == IMAGE_MACHINE) {
-                r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
+                r = image_setup_pool(m->runtime_scope, class, m->use_btrfs_subvol, m->use_btrfs_quota);
                 if (r < 0)
-                        return r;
+                        return sd_bus_error_set_errnof(error, r, "Failed to set up machine pool: %m");
         }
 
         type = startswith(sd_bus_message_get_member(msg), "ImportTar") ?
@@ -921,9 +920,9 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
                                          "Local image name %s is invalid", local);
 
         if (class == IMAGE_MACHINE) {
-                r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
+                r = image_setup_pool(m->runtime_scope, class, m->use_btrfs_subvol, m->use_btrfs_quota);
                 if (r < 0)
-                        return r;
+                        return sd_bus_error_set_errnof(error, r, "Failed to set up machine pool: %m");
         }
 
         r = transfer_new(m, &t);
@@ -1126,9 +1125,9 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
                                          "Unknown verification mode %s", verify);
 
         if (class == IMAGE_MACHINE) {
-                r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
+                r = image_setup_pool(m->runtime_scope, class, m->use_btrfs_subvol, m->use_btrfs_quota);
                 if (r < 0)
-                        return r;
+                        return sd_bus_error_set_errnof(error, r, "Failed to set up machine pool: %m");
         }
 
         type = startswith(sd_bus_message_get_member(msg), "PullTar") ?
@@ -1764,12 +1763,12 @@ static int make_transfer_json(Transfer *t, sd_json_variant **ret) {
         assert(t);
 
         r = sd_json_buildo(ret,
-                           SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_UNSIGNED(t->id)),
+                           SD_JSON_BUILD_PAIR_UNSIGNED("id", t->id),
                            SD_JSON_BUILD_PAIR("type", JSON_BUILD_STRING_UNDERSCORIFY(transfer_type_to_string(t->type))),
-                           SD_JSON_BUILD_PAIR("remote", SD_JSON_BUILD_STRING(t->remote)),
-                           SD_JSON_BUILD_PAIR("local", SD_JSON_BUILD_STRING(t->local)),
+                           SD_JSON_BUILD_PAIR_STRING("remote", t->remote),
+                           SD_JSON_BUILD_PAIR_STRING("local", t->local),
                            SD_JSON_BUILD_PAIR("class", JSON_BUILD_STRING_UNDERSCORIFY(image_class_to_string(t->class))),
-                           SD_JSON_BUILD_PAIR("percent", SD_JSON_BUILD_REAL(transfer_percent_as_double(t))));
+                           SD_JSON_BUILD_PAIR_REAL("percent", transfer_percent_as_double(t)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build transfer JSON data: %m");
 
@@ -1945,7 +1944,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         /* If more was not set, just return the download id, and be done with it */
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_UNSIGNED(t->id)));
+                return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_UNSIGNED("id", t->id));
 
         /* Otherwise add this connection to the set of subscriptions, return the id, but keep the thing running */
         r = set_ensure_put(&t->varlink_subscribed, &varlink_hash_ops, link);
@@ -1954,7 +1953,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         sd_varlink_ref(link);
 
-        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_UNSIGNED(t->id)));
+        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_UNSIGNED("id", t->id));
         if (r < 0)
                 return r;
 

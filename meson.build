@@ -15,7 +15,7 @@ project('systemd', 'c',
 
 add_test_setup(
         'default',
-        exclude_suites : ['clang-tidy', 'integration-tests'],
+        exclude_suites : ['clang-tidy', 'unused-symbols', 'integration-tests'],
         is_default : true,
 )
 
@@ -76,17 +76,6 @@ summary({
         'libc'       : get_option('libc'),
         'build mode' : get_option('mode'),
 })
-
-#####################################################################
-
-# Try to install the git pre-commit hook
-git_setup_sh = find_program('tools/git-setup.sh', required : false)
-if git_setup_sh.found()
-        git_hook = run_command(git_setup_sh, check : false)
-        if git_hook.returncode() == 0
-                message(git_hook.stdout().strip())
-        endif
-endif
 
 #####################################################################
 
@@ -351,7 +340,6 @@ cc = meson.get_compiler('c')
 userspace_c_args = []
 userspace_c_ld_args = []
 userspace_sources = []
-meson_build_sh = files('tools/meson-build.sh')
 
 want_tests = get_option('tests')
 want_slow_tests = want_tests != 'false' and get_option('slow-tests')
@@ -671,10 +659,6 @@ foreach prog : progs
         conf.set_quoted(name, path)
 endforeach
 
-if run_command(ln, '--relative', '--help', check : false).returncode() != 0
-        error('ln does not support --relative (added in coreutils 8.16)')
-endif
-
 #####################################################################
 
 gperf_test_format = '''
@@ -791,7 +775,13 @@ if time_epoch <= 0
         if time_epoch == ''
                 NEWS = files('NEWS')
                 time_epoch = run_command(stat, '-c', '%Y', NEWS,
-                                         check : true).stdout()
+                                         check : false)
+                if time_epoch.returncode() != 0
+                        # If the above fails, maybe the stat(1) uses BSD-style syntax
+                        time_epoch = run_command(stat, '-f', '%m', NEWS,
+                                                 check : true)
+                endif
+                time_epoch = time_epoch.stdout()
         endif
         time_epoch = time_epoch.strip().to_int()
 endif
@@ -1163,8 +1153,9 @@ endif
 
 libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30',
-                      disabler : true,
                       required : get_option('libmount'))
+have = libmount.found()
+conf.set10('HAVE_LIBMOUNT', have)
 libmount_cflags = libmount.partial_dependency(includes: true, compile_args: true)
 
 libfdisk = dependency('fdisk',
@@ -1752,6 +1743,8 @@ if conf.get('BPF_FRAMEWORK') == 1
         bpf_clang_flags = [
                 '-std=gnu17',
                 '-Wno-compare-distinct-pointer-types',
+                '-Wno-microsoft-anon-tag',
+                '-fms-extensions',
                 '-fno-stack-protector',
                 '-O2',
                 '-target',
@@ -1762,6 +1755,7 @@ if conf.get('BPF_FRAMEWORK') == 1
 
         bpf_gcc_flags = [
                 '-std=gnu17',
+                '-fms-extensions',
                 '-fno-stack-protector',
                 '-fno-ssa-phiopt',
                 '-O2',
@@ -1949,10 +1943,6 @@ conf.set10('ENABLE_UKIFY', want_ukify)
 
 #####################################################################
 
-check_efi_alignment_py = files('tools/check-efi-alignment.py')
-
-#####################################################################
-
 use_provided_vmlinux_h = false
 use_generated_vmlinux_h = false
 provided_vmlinux_h_path = get_option('vmlinux-h-path')
@@ -2024,24 +2014,6 @@ conf.set10('ENABLE_SYSCTL_BPF', conf.get('HAVE_VMLINUX_H') == 1 and libbpf.versi
 
 #####################################################################
 
-check_version_history_py   = files('tools/check-version-history.py')
-elf2efi_py                 = files('tools/elf2efi.py')
-export_dbus_interfaces_py  = files('tools/dbus_exporter.py')
-generate_gperfs            = files('tools/generate-gperfs.py')
-make_autosuspend_rules_py  = files('tools/make-autosuspend-rules.py')
-make_directive_index_py    = files('tools/make-directive-index.py')
-sync_docs_py               = files('tools/sync-docs.py')
-make_man_index_py          = files('tools/make-man-index.py')
-meson_render_jinja2        = files('tools/meson-render-jinja2.py')
-update_dbus_docs_py        = files('tools/update-dbus-docs.py')
-update_hwdb_autosuspend_sh = files('tools/update-hwdb-autosuspend.sh')
-update_hwdb_sh             = files('tools/update-hwdb.sh')
-update_man_rules_py        = files('tools/update-man-rules.py')
-update_syscall_tables_sh   = files('tools/update-syscall-tables.sh')
-xml_helper_py              = files('tools/xml_helper.py')
-
-#####################################################################
-
 version_tag = get_option('version-tag')
 if version_tag == ''
         version_tag = meson.project_version()
@@ -2049,6 +2021,7 @@ endif
 
 conf.set_quoted('VERSION_TAG', version_tag)
 
+subdir('tools')
 subdir('src/version')
 
 shared_lib_tag = get_option('shared-lib-tag')
@@ -2068,7 +2041,7 @@ config_h = configure_file(
 
 userspace_c_args += ['-include', 'config.h']
 
-jinja2_cmdline = [meson_render_jinja2, config_h]
+jinja2_cmdline = [meson_render_jinja2_py, config_h]
 
 userspace = declare_dependency(
         compile_args : userspace_c_args,
@@ -2224,7 +2197,7 @@ libudev = shared_library(
         implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libudev_sym_path],
-        link_with : [libsystemd_static, libshared_static],
+        link_with : [libsystemd_static],
         link_whole : libudev_basic,
         dependencies : [threads,
                         userspace],
@@ -2331,7 +2304,6 @@ else
         }
 endif
 fuzz_additional_kwargs += {
-        'include_directories' : include_directories('src/fuzz'),
         'c_args' : test_cflags,
 }
 
@@ -2558,11 +2530,13 @@ foreach dict : executables
                 continue
         endif
 
+        exe_sources = dict.get('sources', []) + dict.get('extract', [])
+
         kwargs = {}
         foreach key, val : dict
-                if key in ['name', 'dbus', 'public', 'conditions',
-                           'type', 'suite', 'timeout', 'parallel',
-                           'objects', 'extract']
+                if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
+                           'timeout', 'parallel', 'objects', 'sources', 'extract',
+                           'include_directories']
                         continue
                 endif
 
@@ -2573,15 +2547,15 @@ foreach dict : executables
                 kwargs += { key : [ kwargs.get(key, []), val ]}
         endforeach
 
+        include_directories = dict['include_directories']
+        if not is_test
+                include_directories += fs.parent(exe_sources[0])
+        endif
+
         foreach val : dict.get('objects', [])
                 obj = objects_by_name[val]
-                kwargs += {
-                        'objects' : obj['objects'],
-                        'include_directories' : [
-                                kwargs.get('include_directories', []),
-                                obj['include_directories'],
-                        ],
-                }
+                kwargs += { 'objects' : obj['objects'] }
+                include_directories += obj['include_directories']
         endforeach
 
         if is_test
@@ -2592,21 +2566,28 @@ foreach dict : executables
         endif
 
         if is_fuzz
+                include_directories += include_directories('src/fuzz')
                 foreach key, val : fuzz_additional_kwargs
-                        kwargs += { key : [ kwargs.get(key, []), val ] }
+                        if key == 'sources'
+                                exe_sources += val
+                        else
+                                kwargs += { key : [ kwargs.get(key, []), val ] }
+                        endif
                 endforeach
         endif
 
         exe = executable(
                 name,
+                sources : exe_sources,
                 kwargs : kwargs,
                 implicit_include_directories : false,
+                include_directories : include_directories,
         )
 
         executables_by_name += { name : exe }
 
         if not name.endswith('.standalone')
-                sources += dict.get('sources', [])
+                sources += exe_sources
         endif
 
         if dict.has_key('extract')
@@ -2895,20 +2876,17 @@ endif
 
 #####################################################################
 
-check_help    = files('tools/check-help.sh')
-check_version = files('tools/check-version.sh')
-
 foreach exec : public_programs
         name = fs.name(exec.full_path())
         if want_tests != 'false'
                 test('check-help-' + name,
-                     check_help,
+                     check_help_sh,
                      suite : 'dist',
                      args : exec.full_path(),
                      depends: exec)
 
                 test('check-version-' + name,
-                     check_version,
+                     check_version_sh,
                      suite : 'dist',
                      args : [exec.full_path(),
                              project_major_version],
@@ -2939,7 +2917,7 @@ if git.found()
 
         run_target(
                 'git-contrib',
-                command : files('tools/git-contrib.sh'))
+                command : git_contrib_sh)
 
         ####################################################
 
@@ -2997,10 +2975,22 @@ if meson.version().version_compare('>=1.4.0')
         endforeach
 endif
 
+symbol_analysis_exes = []
+foreach name, exe : executables_by_name
+        symbol_analysis_exes += exe
+endforeach
+
+test(
+        'libshared-unused-symbols',
+        find_unused_library_symbols_py,
+        suite : 'unused-symbols',
+        args : [libshared, libcore] + nss_targets + pam_targets + symbol_analysis_exes,
+)
+
 run_target(
         'check-api-docs',
         depends : [man, libsystemd, libudev],
-        command : [files('tools/check-api-docs.sh'),
+        command : [check_api_docs_sh,
                    libsystemd.full_path(),
                    libudev.full_path()])
 
@@ -3015,7 +3005,7 @@ if not meson.is_cross_build()
                 output : fs.name(dbus_interfaces_dir),
                 install : dbus_interfaces_dir != 'no',
                 install_dir : fs.parent(dbus_interfaces_dir),
-                command : [export_dbus_interfaces_py, '@OUTPUT@', dbus_programs])
+                command : [dbus_exporter_py, '@OUTPUT@', dbus_programs])
 endif
 
 custom_target(
@@ -3023,7 +3013,7 @@ custom_target(
         capture : true,
         install : want_tests != 'no' and install_tests,
         install_dir : testdata_dir,
-        command : [files('tools/meson-extract-unit-files.py'),
+        command : [meson_extract_unit_files_py,
                    meson.project_build_root()])
 
 #####################################################################
@@ -3038,8 +3028,12 @@ if conf.get('ENABLE_HWDB') == 1
         alias_target('hwdb', auto_suspend_rules, executables_by_name.get('systemd-hwdb'), hwdb_units)
 endif
 
-alt_time_epoch = run_command('date', '-Is', '-u', '-d', f'@@time_epoch@',
-                             check : true).stdout().strip()
+alt_time_epoch = run_command('date', '-Is', '-u', '-d', f'@@time_epoch@', check : false)
+if alt_time_epoch.returncode() != 0
+        # If the above fails, maybe the date(1) uses BSD-style syntax
+        alt_time_epoch = run_command('date', '-Iseconds', '-u', '-r', f'@time_epoch@', check : true)
+endif
+alt_time_epoch = alt_time_epoch.stdout().strip()
 
 summary({
         'split bin-sbin'                            : split_bin,

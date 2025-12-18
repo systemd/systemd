@@ -100,7 +100,7 @@ int unit_file_disable(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char * const *names,
+                char * const *files,
                 InstallChange **changes,
                 size_t *n_changes);
 int unit_file_reenable(
@@ -175,15 +175,15 @@ int unit_file_add_dependency(
 
 int unit_file_lookup_state(
                 RuntimeScope scope,
-                const LookupPaths *paths,
+                const LookupPaths *lp,
                 const char *name,
                 UnitFileState *ret);
 
 int unit_file_get_state(RuntimeScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
 
-int unit_file_exists_full(RuntimeScope scope, const LookupPaths *paths, const char *name, char **ret_path);
-static inline int unit_file_exists(RuntimeScope scope, const LookupPaths *paths, const char *name) {
-        return unit_file_exists_full(scope, paths, name, NULL);
+int unit_file_exists_full(RuntimeScope scope, const LookupPaths *lp, const char *name, char **ret_path);
+static inline int unit_file_exists(RuntimeScope scope, const LookupPaths *lp, const char *name) {
+        return unit_file_exists_full(scope, lp, name, NULL);
 }
 
 int unit_file_get_list(RuntimeScope scope, const char *root_dir, char * const *states, char * const *patterns, Hashmap **ret);

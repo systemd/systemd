@@ -19,7 +19,6 @@
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "umask-util.h"

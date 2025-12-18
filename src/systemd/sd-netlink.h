@@ -44,7 +44,7 @@ typedef _sd_destroy_t sd_netlink_destroy_t;
 /* bus */
 int sd_netlink_open(sd_netlink **ret);
 int sd_netlink_open_fd(sd_netlink **ret, int fd);
-int sd_netlink_increase_rxbuf(sd_netlink *nl, const size_t size);
+int sd_netlink_increase_rxbuf(sd_netlink *nl, size_t size);
 
 sd_netlink* sd_netlink_ref(sd_netlink *nl);
 sd_netlink* sd_netlink_unref(sd_netlink *nl);
@@ -56,12 +56,14 @@ int sd_netlink_call_async(sd_netlink *nl, sd_netlink_slot **ret_slot, sd_netlink
 int sd_netlink_call(sd_netlink *nl, sd_netlink_message *message, uint64_t timeout, sd_netlink_message **ret);
 int sd_netlink_read(sd_netlink *nl, uint32_t serial, uint64_t timeout, sd_netlink_message **ret);
 
+int sd_netlink_ignore_serial(sd_netlink *nl, uint32_t serial, uint64_t timeout_usec);
+
 int sd_netlink_get_events(sd_netlink *nl);
 int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *ret);
 int sd_netlink_process(sd_netlink *nl, sd_netlink_message **ret);
 int sd_netlink_wait(sd_netlink *nl, uint64_t timeout);
 
-int sd_netlink_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, uint16_t match,
+int sd_netlink_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, uint16_t type,
                          sd_netlink_message_handler_t callback,
                          sd_netlink_destroy_t destroy_callback,
                          void *userdata, const char *description);

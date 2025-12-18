@@ -195,6 +195,8 @@ int openssl_load_private_key(
                 EVP_PKEY **ret_private_key,
                 OpenSSLAskPasswordUI **ret_user_interface);
 
+int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret);
+
 struct OpenSSLAskPasswordUI {
         AskPasswordRequest request;
 #ifndef OPENSSL_NO_UI_CONSOLE

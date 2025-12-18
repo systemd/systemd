@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "shared-forward.h"
+
+#if HAVE_LIBMOUNT
+
 /* This needs to be after sys/mount.h */
 #include <libmount.h> /* IWYU pragma: export */
 
 #include "dlfcn-util.h"
-#include "shared-forward.h"
 
 extern DLSYM_PROTOTYPE(mnt_free_iter);
 extern DLSYM_PROTOTYPE(mnt_free_table);
@@ -71,3 +74,18 @@ int libmount_parse_fstab(struct libmnt_table **ret_table, struct libmnt_iter **r
 int libmount_is_leaf(
                 struct libmnt_table *table,
                 struct libmnt_fs *fs);
+
+#else
+
+struct libmnt_monitor;
+
+static inline int dlopen_libmount(void) {
+        return -EOPNOTSUPP;
+}
+
+static inline void* sym_mnt_unref_monitor(struct libmnt_monitor *p) {
+        assert(p == NULL);
+        return NULL;
+}
+
+#endif

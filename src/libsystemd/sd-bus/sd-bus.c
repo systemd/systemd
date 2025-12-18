@@ -257,6 +257,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .input_fd = -EBADF,
                 .output_fd = -EBADF,
                 .inotify_fd = -EBADF,
+                .exit_code = EXIT_FAILURE,
                 .message_version = 1,
                 .creds_mask = SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME,
                 .accept_fd = true,
@@ -1437,7 +1438,7 @@ _public_ int sd_bus_open_user(sd_bus **ret) {
 
 int bus_set_address_system_remote(sd_bus *b, const char *host) {
         _cleanup_free_ char *e = NULL;
-        char *m = NULL, *c = NULL, *a, *rbracket = NULL, *p = NULL;
+        const char *m = NULL, *c = NULL, *a, *rbracket = NULL, *p = NULL;
 
         assert(b);
         assert(host);
@@ -1475,7 +1476,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
         /* Let's see if a port was given */
         m = strchr(rbracket ? rbracket + 1 : host, ':');
         if (m) {
-                char *t;
+                const char *t;
                 bool got_forward_slash = false;
 
                 p = m + 1;
@@ -1521,14 +1522,15 @@ interpret_port_as_machine_old_syntax:
         if (!ssh_escaped)
                 return -ENOMEM;
 
-        a = strjoin("unixexec:path=", ssh_escaped, ",argv1=-xT",
-                    p ? ",argv2=-p,argv3=" : "", strempty(p),
-                    ",argv", p ? "4" : "2", "=--,argv", p ? "5" : "3", "=", e,
-                    ",argv", p ? "6" : "4", "=systemd-stdio-bridge", c);
-        if (!a)
+        char *address = strjoin(
+                        "unixexec:path=", ssh_escaped, ",argv1=-xT",
+                        p ? ",argv2=-p,argv3=" : "", strempty(p),
+                        ",argv", p ? "4" : "2", "=--,argv", p ? "5" : "3", "=", e,
+                        ",argv", p ? "6" : "4", "=systemd-stdio-bridge", c);
+        if (!address)
                 return -ENOMEM;
 
-        return free_and_replace(b->address, a);
+        return free_and_replace(b->address, address);
 }
 
 _public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
@@ -1813,13 +1815,14 @@ _public_ sd_bus* sd_bus_flush_close_unref(sd_bus *bus) {
         return sd_bus_close_unref(bus);
 }
 
-void bus_enter_closing(sd_bus *bus) {
+void bus_enter_closing(sd_bus *bus, int exit_code) {
         assert(bus);
 
         if (!IN_SET(bus->state, BUS_WATCH_BIND, BUS_OPENING, BUS_AUTHENTICATING, BUS_HELLO, BUS_RUNNING))
                 return;
 
         bus_set_state(bus, BUS_CLOSING);
+        bus->exit_code = exit_code;
 }
 
 /* Define manually so we can add the PID check */
@@ -2189,9 +2192,10 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *ret_cookie) 
 
                 r = bus_write_message(bus, m, &idx);
                 if (ERRNO_IS_NEG_DISCONNECT(r)) {
-                        bus_enter_closing(bus);
+                        bus_enter_closing(bus, r);
                         return -ECONNRESET;
-                } else if (r < 0)
+                }
+                if (r < 0)
                         return r;
 
                 if (idx < BUS_MESSAGE_SIZE(m))  {
@@ -2486,7 +2490,7 @@ _public_ int sd_bus_call(
                 r = bus_read_message(bus);
                 if (r < 0) {
                         if (ERRNO_IS_DISCONNECT(r)) {
-                                bus_enter_closing(bus);
+                                bus_enter_closing(bus, r);
                                 r = -ECONNRESET;
                         }
 
@@ -2521,7 +2525,7 @@ _public_ int sd_bus_call(
                 r = dispatch_wqueue(bus);
                 if (r < 0) {
                         if (ERRNO_IS_DISCONNECT(r)) {
-                                bus_enter_closing(bus);
+                                bus_enter_closing(bus, r);
                                 r = -ECONNRESET;
                         }
 
@@ -3110,14 +3114,14 @@ static int bus_exit_now(sd_bus *bus, sd_event *event) {
                 event = bus->event;
 
         if (event)
-                return sd_event_exit(event, EXIT_FAILURE);
+                return sd_event_exit(event, bus->exit_code);
 
         exit(EXIT_FAILURE);
         assert_not_reached();
 }
 
 static int process_closing_reply_callback(sd_bus *bus, BusReplyCallback *c) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL, error_buffer = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus_slot *slot;
         int r;
@@ -3125,11 +3129,12 @@ static int process_closing_reply_callback(sd_bus *bus, BusReplyCallback *c) {
         assert(bus);
         assert(c);
 
-        r = bus_message_new_synthetic_error(
-                        bus,
-                        c->cookie,
-                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Connection terminated"),
-                        &m);
+        (void) sd_bus_error_set_errnof(
+                        &error,
+                        bus->exit_code < 0 ? bus->exit_code : -ETIMEDOUT,
+                        "Connection terminated");
+
+        r = bus_message_new_synthetic_error(bus, c->cookie, &error, &m);
         if (r < 0)
                 return r;
 
@@ -3293,7 +3298,7 @@ static int bus_process_internal(sd_bus *bus, sd_bus_message **ret) {
         }
 
         if (ERRNO_IS_NEG_DISCONNECT(r)) {
-                bus_enter_closing(bus);
+                bus_enter_closing(bus, r);
                 r = 1;
         } else if (r < 0)
                 return r;
@@ -3427,7 +3432,7 @@ _public_ int sd_bus_flush(sd_bus *bus) {
         for (;;) {
                 r = dispatch_wqueue(bus);
                 if (ERRNO_IS_NEG_DISCONNECT(r)) {
-                        bus_enter_closing(bus);
+                        bus_enter_closing(bus, r);
                         return -ECONNRESET;
                 } else if (r < 0)
                         return r;
@@ -3478,17 +3483,17 @@ static int add_match_callback(
 
         sd_bus_slot *match_slot = ASSERT_PTR(userdata);
         bool failed = false;
-        int r;
+        int r = 0;
 
         assert(m);
 
         sd_bus_slot_ref(match_slot);
 
         if (sd_bus_message_is_method_error(m, NULL)) {
-                log_debug_errno(sd_bus_message_get_errno(m),
-                                "Unable to add match %s, failing connection: %s",
-                                match_slot->match_callback.match_string,
-                                sd_bus_message_get_error(m)->message);
+                r = log_debug_errno(sd_bus_message_get_errno(m),
+                                    "Unable to add match %s, failing connection: %s",
+                                    match_slot->match_callback.match_string,
+                                    sd_bus_message_get_error(m)->message);
 
                 failed = true;
         } else
@@ -3518,7 +3523,7 @@ static int add_match_callback(
                 bus->current_userdata = userdata;
         } else {
                 if (failed) /* Generic failure handling: destroy the connection */
-                        bus_enter_closing(sd_bus_message_get_bus(m));
+                        bus_enter_closing(sd_bus_message_get_bus(m), r);
 
                 r = 1;
         }
@@ -3649,7 +3654,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
         r = sd_bus_process(bus, NULL);
         if (r < 0) {
                 log_debug_errno(r, "Processing of bus failed, closing down: %m");
-                bus_enter_closing(bus);
+                bus_enter_closing(bus, r);
         }
 
         return 1;
@@ -3662,7 +3667,7 @@ static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         r = sd_bus_process(bus, NULL);
         if (r < 0) {
                 log_debug_errno(r, "Processing of bus failed, closing down: %m");
-                bus_enter_closing(bus);
+                bus_enter_closing(bus, r);
         }
 
         return 1;
@@ -3714,7 +3719,7 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
 
 fail:
         log_debug_errno(r, "Preparing of bus events failed, closing down: %m");
-        bus_enter_closing(bus);
+        bus_enter_closing(bus, r);
 
         return 1;
 }
@@ -3967,18 +3972,18 @@ _public_ int sd_bus_default(sd_bus **ret) {
         return bus_default(bus_open, busp, ret);
 }
 
-_public_ int sd_bus_get_tid(sd_bus *b, pid_t *tid) {
+_public_ int sd_bus_get_tid(sd_bus *b, pid_t *ret) {
         assert_return(b, -EINVAL);
-        assert_return(tid, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(!bus_origin_changed(b), -ECHILD);
 
         if (b->tid != 0) {
-                *tid = b->tid;
+                *ret = b->tid;
                 return 0;
         }
 
         if (b->event)
-                return sd_event_get_tid(b->event, tid);
+                return sd_event_get_tid(b->event, ret);
 
         return -ENXIO;
 }

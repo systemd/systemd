@@ -16,4 +16,4 @@ typedef enum BridgeState {
 } BridgeState;
 
 const char* bridge_state_to_string(BridgeState d) _const_;
-BridgeState bridge_state_from_string(const char *d) _pure_;
+BridgeState bridge_state_from_string(const char *s) _pure_;

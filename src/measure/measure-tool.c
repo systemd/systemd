@@ -15,7 +15,6 @@
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
-#include "memstream-util.h"
 #include "openssl-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -298,7 +297,7 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_free_ char *device = NULL;
 
                         if (streq(optarg, "list"))
-                                return tpm2_list_devices(/* legend = */ true, /* quiet = */ false);
+                                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
                         if (!streq(optarg, "auto")) {
                                 device = strdup(optarg);
@@ -771,8 +770,8 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
                                 r = sd_json_variant_append_arraybo(
                                                 &array,
                                                 SD_JSON_BUILD_PAIR_CONDITION(!isempty(*phase), "phase", SD_JSON_BUILD_STRING(*phase)),
-                                                SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_INTEGER(TPM2_PCR_KERNEL_BOOT)),
-                                                SD_JSON_BUILD_PAIR("hash", SD_JSON_BUILD_HEX(pcr_states[i].value, pcr_states[i].value_size)));
+                                                SD_JSON_BUILD_PAIR_INTEGER("pcr", TPM2_PCR_KERNEL_BOOT),
+                                                SD_JSON_BUILD_PAIR_HEX("hash", pcr_states[i].value, pcr_states[i].value_size));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to append JSON object to array: %m");
 
@@ -833,7 +832,7 @@ static int build_policy_digest(bool sign) {
         /* This must be done before openssl_load_private_key() otherwise it will get stuck */
         if (arg_certificate) {
                 if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                        r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                         if (r < 0)
                                 return r;
                 }
@@ -890,25 +889,10 @@ static int build_policy_digest(bool sign) {
                                         "Failed to extract public key from certificate %s.",
                                         arg_certificate);
         } else if (sign) {
-                _cleanup_(memstream_done) MemStream m = {};
-                FILE *tf;
-
                 /* No public key was specified, let's derive it automatically, if we can, when signing */
-
-                tf = memstream_init(&m);
-                if (!tf)
-                        return log_oom();
-
-                if (i2d_PUBKEY_fp(tf, privkey) != 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to extract public key from private key file '%s'.", arg_private_key);
-
-                fflush(tf);
-                rewind(tf);
-
-                if (!d2i_PUBKEY_fp(tf, &pubkey))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to parse extracted public key of private key file '%s'.", arg_private_key);
+                r = openssl_extract_public_key(privkey, &pubkey);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract public key from private key file '%s': %m", arg_private_key);
         }
 
         r = pcr_states_allocate(&pcr_states);
@@ -973,9 +957,9 @@ static int build_policy_digest(bool sign) {
 
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *bv = NULL;
                         r = sd_json_buildo(&bv,
-                                           SD_JSON_BUILD_PAIR("pcrs", SD_JSON_BUILD_VARIANT(a)),                                                   /* PCR mask */
+                                           SD_JSON_BUILD_PAIR_VARIANT("pcrs", a),                                                   /* PCR mask */
                                            SD_JSON_BUILD_PAIR_CONDITION(pubkey_fp_size > 0, "pkfp", SD_JSON_BUILD_HEX(pubkey_fp, pubkey_fp_size)), /* SHA256 fingerprint of public key (DER) used for the signature */
-                                           SD_JSON_BUILD_PAIR("pol", SD_JSON_BUILD_HEX(pcr_policy_digest.buffer, pcr_policy_digest.size)),         /* TPM2 policy hash that is signed */
+                                           SD_JSON_BUILD_PAIR_HEX("pol", pcr_policy_digest.buffer, pcr_policy_digest.size),         /* TPM2 policy hash that is signed */
                                            SD_JSON_BUILD_PAIR_CONDITION(ss > 0, "sig", SD_JSON_BUILD_BASE64(sig, ss)));                            /* signature data */
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON object: %m");
@@ -1134,8 +1118,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
                         r = sd_json_buildo(
                                         &bv,
-                                        SD_JSON_BUILD_PAIR("pcr", SD_JSON_BUILD_INTEGER(TPM2_PCR_KERNEL_BOOT)),
-                                        SD_JSON_BUILD_PAIR("hash", SD_JSON_BUILD_HEX(h, l)));
+                                        SD_JSON_BUILD_PAIR_INTEGER("pcr", TPM2_PCR_KERNEL_BOOT),
+                                        SD_JSON_BUILD_PAIR_HEX("hash", h, l));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON object: %m");
 

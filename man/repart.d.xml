@@ -238,7 +238,7 @@
         <constant>x86</constant> (32-bit, aka i386) and <constant>x86-64</constant> (64-bit, aka amd64).</para>
 
         <para>Most of the partition type UUIDs listed above are defined in the <ulink
-        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions
         Specification</ulink>.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -780,7 +780,7 @@
 
         <listitem><para>Configures the No-Auto, Read-Only and Grow-File-System partition flags (bit 63, 60
         and 59) of the partition table entry, as defined by the <ulink
-        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>. Only
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions Specification</ulink>. Only
         available for partition types supported by the specification. This option is a friendly way to set
         bits 63, 60 and 59 of the partition flags value without setting any of the other bits, and may be set
         via <varname>Flags=</varname> too, see above.</para>
@@ -1007,7 +1007,7 @@
         associated with it.</para>
 
         <para>For example, distributions can use this to implement <varname>$BOOT</varname> as defined in the
-        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification/">Boot Loader
+        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification/">UAPI.1 Boot Loader
         Specification</ulink>. Distributions may prefer to use the ESP as <varname>$BOOT</varname> whenever
         possible, but to adhere to the spec XBOOTLDR must sometimes be used instead. So, they should create
         two definitions: the first defining an ESP big enough to hold just the bootloader, and a second for

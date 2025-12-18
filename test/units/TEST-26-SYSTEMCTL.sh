@@ -421,24 +421,24 @@ systemctl disable "$UNIT_NAME"
 
 # show/set-environment
 # Make sure PATH is set
-systemctl show-environment | grep -q '^PATH='
+systemctl show-environment | grep '^PATH=' >/dev/null
 # Let's add an entry and override a built-in one
 systemctl set-environment PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/testaddition FOO=BAR
 # Check that both are set
-systemctl show-environment | grep -q '^PATH=.*testaddition$'
-systemctl show-environment | grep -q '^FOO=BAR$'
+systemctl show-environment | grep '^PATH=.*testaddition$' >/dev/null
+systemctl show-environment | grep '^FOO=BAR$' >/dev/null
 systemctl daemon-reload
 # Check again after the reload
-systemctl show-environment | grep -q '^PATH=.*testaddition$'
-systemctl show-environment | grep -q '^FOO=BAR$'
+systemctl show-environment | grep '^PATH=.*testaddition$' >/dev/null
+systemctl show-environment | grep '^FOO=BAR$' >/dev/null
 # Check that JSON output is supported
-systemctl show-environment --output=json | grep -q '^{.*"FOO":"BAR".*}$'
+systemctl show-environment --output=json | grep '^{.*"FOO":"BAR".*}$' >/dev/null
 # Drop both
 systemctl unset-environment FOO PATH
 # Check that one is gone and the other reverted to the built-in
 systemctl show-environment | grep '^FOO=$' && exit 1
 systemctl show-environment | grep '^PATH=.*testaddition$' && exit 1
-systemctl show-environment | grep -q '^PATH='
+systemctl show-environment | grep '^PATH=' >/dev/null
 # Check import-environment
 export IMPORT_THIS=hello
 export IMPORT_THIS_TOO=world
@@ -590,7 +590,7 @@ EOF
 test -f "/run/systemd/user/$GLOBAL_UNIT_NAME"
 
 # Test 2: Read the global unit with systemctl cat --global
-systemctl cat --global "$GLOBAL_UNIT_NAME" | grep -q "ExecStart=/bin/true"
+systemctl cat --global "$GLOBAL_UNIT_NAME" | grep "ExecStart=/bin/true" >/dev/null
 
 # Test 3: Edit existing global unit (add a drop-in)
 systemctl edit --global --runtime --stdin "$GLOBAL_UNIT_NAME" <<EOF
@@ -600,17 +600,17 @@ EOF
 
 # Verify drop-in was created
 test -f "/run/systemd/user/$GLOBAL_UNIT_NAME.d/override.conf"
-systemctl cat --global "$GLOBAL_UNIT_NAME" | grep -q "Environment=TEST=value"
+systemctl cat --global "$GLOBAL_UNIT_NAME" | grep "Environment=TEST=value" >/dev/null
 
 # Test 4: Create a masked global unit in /run/
 mkdir -p /run/systemd/user
 ln -sf /dev/null "/run/systemd/user/$GLOBAL_MASKED_UNIT"
 
 # Test 5: Verify cat shows it's masked
-systemctl cat --global "$GLOBAL_MASKED_UNIT" 2>&1 | grep -q "masked"
+systemctl cat --global "$GLOBAL_MASKED_UNIT" 2>&1 | grep "masked" >/dev/null
 
 # Test 6: Verify edit refuses to edit masked unit
-(! systemctl edit --global --runtime --stdin --full "$GLOBAL_MASKED_UNIT" </dev/null 2>&1) | grep -q "masked"
+(! systemctl edit --global --runtime --stdin --full "$GLOBAL_MASKED_UNIT" </dev/null 2>&1) | grep "masked" >/dev/null
 
 # Cleanup global test units
 rm -f "/run/systemd/user/$GLOBAL_UNIT_NAME"

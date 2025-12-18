@@ -16,7 +16,7 @@ static int property_get_restart_kill_signal(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
         KillContext *c = ASSERT_PTR(userdata);
         int s;
 
@@ -48,7 +48,7 @@ int bus_kill_context_set_transient_property(
                 const char *name,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         assert(u);
         assert(c);
@@ -58,25 +58,25 @@ int bus_kill_context_set_transient_property(
         flags |= UNIT_PRIVATE;
 
         if (streq(name, "KillMode"))
-                return bus_set_transient_kill_mode(u, name, &c->kill_mode, message, flags, error);
+                return bus_set_transient_kill_mode(u, name, &c->kill_mode, message, flags, reterr_error);
 
         if (streq(name, "SendSIGHUP"))
-                return bus_set_transient_bool(u, name, &c->send_sighup, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->send_sighup, message, flags, reterr_error);
 
         if (streq(name, "SendSIGKILL"))
-                return bus_set_transient_bool(u, name, &c->send_sigkill, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->send_sigkill, message, flags, reterr_error);
 
         if (streq(name, "KillSignal"))
-                return bus_set_transient_kill_signal(u, name, &c->kill_signal, message, flags, error);
+                return bus_set_transient_kill_signal(u, name, &c->kill_signal, message, flags, reterr_error);
 
         if (streq(name, "RestartKillSignal"))
-                return bus_set_transient_restart_kill_signal(u, name, &c->restart_kill_signal, message, flags, error);
+                return bus_set_transient_restart_kill_signal(u, name, &c->restart_kill_signal, message, flags, reterr_error);
 
         if (streq(name, "FinalKillSignal"))
-                return bus_set_transient_final_kill_signal(u, name, &c->final_kill_signal, message, flags, error);
+                return bus_set_transient_final_kill_signal(u, name, &c->final_kill_signal, message, flags, reterr_error);
 
         if (streq(name, "WatchdogSignal"))
-                return bus_set_transient_watchdog_signal(u, name, &c->watchdog_signal, message, flags, error);
+                return bus_set_transient_watchdog_signal(u, name, &c->watchdog_signal, message, flags, reterr_error);
 
         return 0;
 }

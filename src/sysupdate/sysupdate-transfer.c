@@ -683,7 +683,7 @@ int transfer_resolve_paths(
         if (r < 0)
                 return r;
 
-        r = resource_resolve_path(&t->target, root, /*relative_to_directory=*/ NULL, node);
+        r = resource_resolve_path(&t->target, root, /* relative_to_directory= */ NULL, node);
         if (r < 0)
                 return r;
 
@@ -769,21 +769,32 @@ int transfer_vacuum(
                 limit = instances_max - space;
 
         if (t->target.type == RESOURCE_PARTITION && space != UINT64_MAX) {
+                _cleanup_free_ char *patterns = NULL;
                 uint64_t rm, remain;
+
+                patterns = strv_join(t->target.patterns, "|");
+                if (!patterns)
+                        (void) log_oom_debug();
 
                 /* If we are looking at a partition table, we also have to take into account how many
                  * partition slots of the right type are available */
 
                 if (t->target.n_empty + t->target.n_instances < 2)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
-                                               "Partition table has less than two partition slots of the right type " SD_ID128_UUID_FORMAT_STR " (%s), refusing.",
+                                               "Partition table has less than two partition slots of the right type " SD_ID128_UUID_FORMAT_STR " (%s)%s%s%s, refusing.",
                                                SD_ID128_FORMAT_VAL(t->target.partition_type.uuid),
-                                               gpt_partition_type_uuid_to_string(t->target.partition_type.uuid));
+                                               gpt_partition_type_uuid_to_string(t->target.partition_type.uuid),
+                                               !isempty(patterns) ? " and matching the expected pattern '" : "",
+                                               strempty(patterns),
+                                               !isempty(patterns) ? "'" : "");
                 if (space > t->target.n_empty + t->target.n_instances)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
-                                               "Partition table does not have enough partition slots of right type " SD_ID128_UUID_FORMAT_STR " (%s) for operation.",
+                                               "Partition table does not have enough partition slots of right type " SD_ID128_UUID_FORMAT_STR " (%s)%s%s%s for operation.",
                                                SD_ID128_FORMAT_VAL(t->target.partition_type.uuid),
-                                               gpt_partition_type_uuid_to_string(t->target.partition_type.uuid));
+                                               gpt_partition_type_uuid_to_string(t->target.partition_type.uuid),
+                                               !isempty(patterns) ? " and matching the expected pattern '" : "",
+                                               strempty(patterns),
+                                               !isempty(patterns) ? "'" : "");
                 if (space == t->target.n_empty + t->target.n_instances)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
                                                "Asked to empty all partition table slots of the right type " SD_ID128_UUID_FORMAT_STR " (%s), can't allow that. One instance must always remain.",

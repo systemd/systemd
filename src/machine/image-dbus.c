@@ -75,7 +75,7 @@ int bus_image_method_remove(
 
         r = operation_new_with_bus_reply(m, /* machine= */ NULL, child, message, errno_pipe_fd[0], /* ret= */ NULL);
         if (r < 0) {
-                (void) sigkill_wait(child);
+                sigkill_wait(child);
                 return r;
         }
 
@@ -190,7 +190,7 @@ int bus_image_method_clone(
 
         r = operation_new_with_bus_reply(m, /* machine= */ NULL, child, message, errno_pipe_fd[0], /* ret= */ NULL);
         if (r < 0) {
-                (void) sigkill_wait(child);
+                sigkill_wait(child);
                 return r;
         }
 

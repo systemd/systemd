@@ -43,7 +43,7 @@ bool shim_loaded(void) {
 bool shim_loader_available(void) {
         void *shim_image_loader;
 
-        return BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, (void **) &shim_image_loader) == EFI_SUCCESS;
+        return BS->LocateProtocol(MAKE_GUID_PTR(SHIM_IMAGE_LOADER), NULL, &shim_image_loader) == EFI_SUCCESS;
 }
 
 static bool shim_validate(

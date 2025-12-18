@@ -6,8 +6,8 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "bitfield.h"
-#include "bootspec.h"
 #include "boot-entry.h"
+#include "chase.h"
 #include "constants.h"
 #include "creds-util.h"
 #include "cryptsetup-util.h"
@@ -42,7 +42,6 @@
 #include "sync-util.h"
 #include "time-util.h"
 #include "tpm2-pcr.h"
-#include "tmpfile-util.h"
 #include "tpm2-util.h"
 #include "virt.h"
 
@@ -745,9 +744,12 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                 if (!filename_is_valid(fn))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 driver name '%s' not valid, refusing.", driver);
 
-                context->tcti_dl = dlopen(fn, RTLD_NOW|RTLD_NODELETE);
-                if (!context->tcti_dl)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to load %s: %s", fn, dlerror());
+                const char *dle = NULL;
+                r = dlopen_safe(fn, &context->tcti_dl, &dle);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to load %s: %s", fn, dle ?: STRERROR(r));
+                        return -ENOPKG; /* Turn into recognizable error */
+                }
 
                 log_debug("Loaded '%s' via dlopen()", fn);
 
@@ -864,7 +866,7 @@ Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle) {
         if (!handle)
                 return NULL;
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *context = (Tpm2Context*)handle->tpm2_context;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *context = handle->tpm2_context;
         if (context)
                 tpm2_handle_cleanup(context->esys_context, handle->esys_handle, handle->flush);
 
@@ -6327,7 +6329,7 @@ int tpm2_list_devices(bool legend, bool quiet) {
         if (!t)
                 return log_oom();
 
-        (void) table_set_header(t, legend);
+        table_set_header(t, legend);
 
         d = opendir("/sys/class/tpmrm");
         if (!d) {
@@ -6612,7 +6614,7 @@ static int tpm2_userspace_log(
                 r = sd_json_variant_append_arraybo(
                                 &array,
                                 SD_JSON_BUILD_PAIR_STRING("hashAlg", a),
-                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(&values->digests[i].digest, EVP_MD_size(implementation))));
+                                SD_JSON_BUILD_PAIR_HEX("digest", &values->digests[i].digest, EVP_MD_size(implementation)));
                 if (r < 0)
                         return log_debug_errno(r, "Failed to append digest object to JSON array: %m");
         }
@@ -6627,13 +6629,13 @@ static int tpm2_userspace_log(
                         &v,
                         SD_JSON_BUILD_PAIR_CONDITION(pcr_index != UINT_MAX, "pcr", SD_JSON_BUILD_UNSIGNED(pcr_index)),
                         SD_JSON_BUILD_PAIR_CONDITION(nv_index != UINT32_MAX, "nv_index", SD_JSON_BUILD_UNSIGNED(nv_index)),
-                        SD_JSON_BUILD_PAIR("digests", SD_JSON_BUILD_VARIANT(array)),
-                        SD_JSON_BUILD_PAIR("content_type", SD_JSON_BUILD_STRING("systemd")),
+                        SD_JSON_BUILD_PAIR_VARIANT("digests", array),
+                        SD_JSON_BUILD_PAIR_STRING("content_type", "systemd"),
                         SD_JSON_BUILD_PAIR("content", SD_JSON_BUILD_OBJECT(
                                                            SD_JSON_BUILD_PAIR_CONDITION(!!nv_index_name, "nvIndexName", SD_JSON_BUILD_STRING(nv_index_name)),
                                                            SD_JSON_BUILD_PAIR_CONDITION(!!description, "string", SD_JSON_BUILD_STRING(description)),
-                                                           SD_JSON_BUILD_PAIR("bootId", SD_JSON_BUILD_ID128(boot_id)),
-                                                           SD_JSON_BUILD_PAIR("timestamp", SD_JSON_BUILD_UNSIGNED(now(CLOCK_BOOTTIME))),
+                                                           SD_JSON_BUILD_PAIR_ID128("bootId", boot_id),
+                                                           SD_JSON_BUILD_PAIR_UNSIGNED("timestamp", now(CLOCK_BOOTTIME)),
                                                            SD_JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", SD_JSON_BUILD_STRING(tpm2_userspace_event_type_to_string(event_type))))));
         if (r < 0)
                 return log_debug_errno(r, "Failed to build log record JSON: %m");
@@ -6946,9 +6948,10 @@ static int tpm2_nvpcr_write_anchor_secret(
 
         /* Writes the encrypted credential of the anchor secret to directory 'dir' and file 'fname' */
 
-        _cleanup_close_ int dfd = open_mkdir(dir, O_CLOEXEC, 0755);
-        if (dfd < 0)
-                return log_error_errno(dfd, "Failed to create '%s' directory: %m", dir);
+        _cleanup_close_ int dfd = -EBADF;
+        r = chase(dir, /* root= */ NULL, CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &dfd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create '%s' directory: %m", dir);
 
         _cleanup_free_ char *joined = path_join(dir, fname);
         if (!joined)
@@ -7014,7 +7017,7 @@ static int tpm2_nvpcr_write_anchor_secret_to_boot(const struct iovec *credential
                         /* root= */ NULL,
                         /* conf_root= */ NULL,
                         machine_id,
-                        /* machine_id_is_random = */ false,
+                        /* machine_id_is_random= */ false,
                         &entry_token_type,
                         &entry_token);
         if (r < 0)
@@ -8059,7 +8062,7 @@ int tpm2_pcrlock_policy_load(
         r = sd_json_parse_file(
                         f,
                         discovered_path,
-                        /* flags = */ 0,
+                        /* flags= */ 0,
                         &v,
                         /* reterr_line= */ NULL,
                         /* ret_column= */ NULL);
@@ -8466,11 +8469,11 @@ int tpm2_make_luks2_json(
                         &v,
                         SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-tpm2")),
                         SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))),
-                        SD_JSON_BUILD_PAIR("tpm2-blob", SD_JSON_BUILD_VARIANT(bj)),
-                        SD_JSON_BUILD_PAIR("tpm2-pcrs", SD_JSON_BUILD_VARIANT(hmj)),
+                        SD_JSON_BUILD_PAIR_VARIANT("tpm2-blob", bj),
+                        SD_JSON_BUILD_PAIR_VARIANT("tpm2-pcrs", hmj),
                         SD_JSON_BUILD_PAIR_CONDITION(pcr_bank != 0 && tpm2_hash_alg_to_string(pcr_bank), "tpm2-pcr-bank", SD_JSON_BUILD_STRING(tpm2_hash_alg_to_string(pcr_bank))),
                         SD_JSON_BUILD_PAIR_CONDITION(primary_alg != 0 && tpm2_asym_alg_to_string(primary_alg), "tpm2-primary-alg", SD_JSON_BUILD_STRING(tpm2_asym_alg_to_string(primary_alg))),
-                        SD_JSON_BUILD_PAIR("tpm2-policy-hash", SD_JSON_BUILD_VARIANT(phj)),
+                        SD_JSON_BUILD_PAIR_VARIANT("tpm2-policy-hash", phj),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PIN), "tpm2-pin", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK), "tpm2_pcrlock", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", SD_JSON_BUILD_VARIANT(pkmj)),
@@ -9144,7 +9147,7 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
                     size_t passlen,
                     const void *salt,
                     size_t saltlen,
-                    uint8_t ret_key[static SHA256_DIGEST_SIZE]) {
+                    uint8_t ret[static SHA256_DIGEST_SIZE]) {
 
         _cleanup_(erase_and_freep) uint8_t *buffer = NULL;
         uint8_t u[SHA256_DIGEST_SIZE];
@@ -9175,8 +9178,8 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
         hmac_sha256(pass, passlen, buffer, saltlen + sizeof(block_cnt), u);
 
         /* dk needs to be an unmodified u as u gets modified in the loop */
-        memcpy(ret_key, u, SHA256_DIGEST_SIZE);
-        uint8_t *dk = ret_key;
+        memcpy(ret, u, SHA256_DIGEST_SIZE);
+        uint8_t *dk = ret;
 
         for (size_t i = 1; i < PBKDF2_HMAC_SHA256_ITERATIONS; i++) {
                 hmac_sha256(pass, passlen, u, sizeof(u), u);

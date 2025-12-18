@@ -10,8 +10,6 @@
 #include "format-util.h"
 #include "journal-importer.h"
 #include "log.h"
-#include "string-util.h"
-#include "user-util.h"
 
 int coredump_backtrace(int argc, char *argv[]) {
         _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);

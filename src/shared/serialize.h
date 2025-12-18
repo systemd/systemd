@@ -5,7 +5,7 @@
 
 int serialize_item(FILE *f, const char *key, const char *value);
 int serialize_item_escaped(FILE *f, const char *key, const char *value);
-int serialize_item_format(FILE *f, const char *key, const char *value, ...) _printf_(3,4);
+int serialize_item_format(FILE *f, const char *key, const char *format, ...) _printf_(3,4);
 int serialize_item_hexmem(FILE *f, const char *key, const void *p, size_t l);
 int serialize_item_base64mem(FILE *f, const char *key, const void *p, size_t l);
 int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd);
@@ -31,7 +31,7 @@ int deserialize_fd(FDSet *fds, const char *value);
 int deserialize_fd_many(FDSet *fds, const char *value, size_t n, int *ret);
 int deserialize_usec(const char *value, usec_t *ret);
 int deserialize_dual_timestamp(const char *value, dual_timestamp *ret);
-int deserialize_environment(const char *value, char ***environment);
+int deserialize_environment(const char *value, char ***list);
 int deserialize_strv(const char *value, char ***l);
 int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret);
 void deserialize_ratelimit(RateLimit *rl, const char *name, const char *value);

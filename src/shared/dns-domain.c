@@ -756,12 +756,12 @@ int dns_name_reverse(int family, const union in_addr_union *a, char **ret) {
         return 0;
 }
 
-int dns_name_address(const char *p, int *ret_family, union in_addr_union *ret_address) {
+int dns_name_address(const char *p, int *ret_family, union in_addr_union *ret) {
         int r;
 
         assert(p);
         assert(ret_family);
-        assert(ret_address);
+        assert(ret);
 
         r = dns_name_endswith(p, "in-addr.arpa");
         if (r < 0)
@@ -790,7 +790,7 @@ int dns_name_address(const char *p, int *ret_family, union in_addr_union *ret_ad
                         return r;
 
                 *ret_family = AF_INET;
-                ret_address->in.s_addr = htobe32(((uint32_t) a[3] << 24) |
+                ret->in.s_addr = htobe32(((uint32_t) a[3] << 24) |
                                                  ((uint32_t) a[2] << 16) |
                                                  ((uint32_t) a[1] << 8) |
                                                  (uint32_t) a[0]);
@@ -834,12 +834,12 @@ int dns_name_address(const char *p, int *ret_family, union in_addr_union *ret_ad
                         return r;
 
                 *ret_family = AF_INET6;
-                ret_address->in6 = a;
+                ret->in6 = a;
                 return 1;
         }
 
         *ret_family = AF_UNSPEC;
-        *ret_address = IN_ADDR_NULL;
+        *ret = IN_ADDR_NULL;
 
         return 0;
 }

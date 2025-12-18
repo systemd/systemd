@@ -3,7 +3,7 @@
 #include <syslog.h>
 
 #include "libarchive-util.h"
-#include "user-util.h"
+#include "user-util.h"                  /* IWYU pragma: keep */
 
 #if HAVE_LIBARCHIVE
 static void *libarchive_dl = NULL;

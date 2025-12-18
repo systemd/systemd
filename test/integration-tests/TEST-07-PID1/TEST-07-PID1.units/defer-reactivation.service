@@ -3,4 +3,4 @@ Description=Test for DeferReactivation=yes (service)
 
 [Service]
 Type=simple
-ExecStart=sh -c 'date +%%s >>/tmp/defer-reactivation.log; sleep 5'
+ExecStart=bash -c 'date +%%s >>/tmp/defer-reactivation.log; sleep 5'

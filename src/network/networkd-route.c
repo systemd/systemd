@@ -444,7 +444,7 @@ static int route_to_string(const Route *route, Manager *manager, char **ret) {
         if (in_addr_is_set(route->family, &route->prefsrc))
                 (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
         (void) route_scope_to_string_alloc(route->scope, &scope);
-        (void) manager_get_route_table_to_string(manager, route->table, /* append_num = */ true, &table);
+        (void) manager_get_route_table_to_string(manager, route->table, /* append_num= */ true, &table);
         (void) route_protocol_full_to_string_alloc(route->protocol, &proto);
         (void) route_flags_to_string_alloc(route->flags, &flags);
 
@@ -906,7 +906,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
         assert(route);
         assert(link);
 
-        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return false;
 
         if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
@@ -2007,6 +2007,12 @@ int config_parse_route_section(
 
         if (streq(section, "Network")) {
                 assert(streq_ptr(lvalue, "Gateway"));
+
+                /* Clear all previously defined routes when Gateway= (empty) is set in [Network] section */
+                if (isempty(rvalue)) {
+                        network->routes_by_section = hashmap_free(network->routes_by_section);
+                        return 0;
+                }
 
                 /* we are not in an Route section, so use line number instead */
                 r = route_new_static(network, filename, line, &route);

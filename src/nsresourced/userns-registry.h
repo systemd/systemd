@@ -39,7 +39,7 @@ int userns_registry_lock(int dir_fd);
 
 int userns_registry_load_by_start_uid(int dir_fd, uid_t start, UserNamespaceInfo **ret);
 int userns_registry_load_by_start_gid(int dir_fd, gid_t start, UserNamespaceInfo **ret);
-int userns_registry_load_by_userns_inode(int dir_fd, uint64_t userns, UserNamespaceInfo **ret);
+int userns_registry_load_by_userns_inode(int dir_fd, uint64_t inode, UserNamespaceInfo **ret);
 int userns_registry_load_by_name(int dir_fd, const char *name, UserNamespaceInfo **ret);
 
 int userns_registry_store(int dir_fd, UserNamespaceInfo *info);

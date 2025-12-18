@@ -196,7 +196,7 @@
             <para>Set the linux kernel image to use for direct kernel boot.
             If a directory type image is used and <option>--linux=</option> was omitted, vmspawn will search for boot loader entries
             according to the
-            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> assuming
+            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> assuming
             XBOOTLDR to be located at /boot and ESP to be /efi respectively.
             If no kernel was installed into the image then the image will fail to boot.</para>
 
@@ -210,7 +210,7 @@
           <listitem>
             <para>Set the initrd to use for direct kernel boot.
             If the <option>--linux=</option> supplied is a
-            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>
+            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>
             Type #2 entry, then this argument is not required.
             If no initrd was installed into the image then the image will fail to boot.</para>
 
@@ -739,7 +739,7 @@ $ ssh root@vsock/$my_vsock_cid -i /run/user/$UID/systemd/vmspawn/machine-*-syste
       <member><citerefentry project='debian'><refentrytitle>mkosi</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
-      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink></member>
+      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink></member>
     </simplelist></para>
   </refsect1>
 </refentry>

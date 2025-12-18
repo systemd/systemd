@@ -170,7 +170,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         if (!b->anonymous_auth) {
                 l = lines[i++];
                 if (lines[i] - l == 4 + 2) {
-                        if (memcmp(l, "DATA", 4))
+                        if (memcmp(l, "DATA", 4) != 0)
                                 return -EPERM;
                 } else if (lines[i] - l == 3 + 32 + 2) {
                         /*
@@ -182,7 +182,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
                          * wrong reply. We ignore the "<id>" parameter, though,
                          * since it has no real value.
                          */
-                        if (memcmp(l, "OK ", 3))
+                        if (memcmp(l, "OK ", 3) != 0)
                                 return -EPERM;
                 } else
                         return -EPERM;
@@ -193,7 +193,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
 
         if (lines[i] - l != 3 + 32 + 2)
                 return -EPERM;
-        if (memcmp(l, "OK ", 3))
+        if (memcmp(l, "OK ", 3) != 0)
                 return -EPERM;
 
         b->auth = b->anonymous_auth ? BUS_AUTH_ANONYMOUS : BUS_AUTH_EXTERNAL;
@@ -268,7 +268,7 @@ static int verify_anonymous_token(sd_bus *b, const char *p, size_t l) {
         if (l % 2 != 0)
                 return 0;
 
-        r = unhexmem_full(p, l, /* secure = */ false, (void**) &token, &len);
+        r = unhexmem_full(p, l, /* secure= */ false, (void**) &token, &len);
         if (r < 0)
                 return 0;
 
@@ -300,7 +300,7 @@ static int verify_external_token(sd_bus *b, const char *p, size_t l) {
         if (l % 2 != 0)
                 return 0;
 
-        r = unhexmem_full(p, l, /* secure = */ false, (void**) &token, &len);
+        r = unhexmem_full(p, l, /* secure= */ false, (void**) &token, &len);
         if (r < 0)
                 return 0;
 
@@ -668,7 +668,7 @@ static int bus_socket_read_auth(sd_bus *b) {
         b->rbuffer_size += k;
 
         if (handle_cmsg) {
-                r = bus_process_cmsg(b, &mh, /* allow_fds = */ false);
+                r = bus_process_cmsg(b, &mh, /* allow_fds= */ false);
                 if (r < 0)
                         return r;
         }

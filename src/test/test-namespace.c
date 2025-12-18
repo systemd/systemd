@@ -14,6 +14,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "libmount-util.h"
 #include "namespace-util.h"
 #include "namespace.h"
 #include "pidref.h"
@@ -203,6 +204,7 @@ TEST(protect_kernel_logs) {
                 .root_directory_fd = -EBADF,
         };
         pid_t pid;
+        int r;
 
         if (geteuid() > 0) {
                 (void) log_tests_skipped("not root");
@@ -214,6 +216,13 @@ TEST(protect_kernel_logs) {
                 (void) log_tests_skipped("in container");
                 return;
         }
+
+        r = dlopen_libmount();
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                (void) log_tests_skipped("libmount support not compiled in");
+                return;
+        }
+        ASSERT_OK(r);
 
         pid = fork();
         ASSERT_OK_ERRNO(pid);

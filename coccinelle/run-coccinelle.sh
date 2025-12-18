@@ -33,6 +33,11 @@ case "$1" in
         ;;
 esac
 
+if ! command -v spatch >/dev/null; then
+    echo 'Please install spatch (package "coccinelle")'
+    exit 1
+fi
+
 if ! parallel -h >/dev/null; then
     echo 'Please install GNU parallel (package "parallel")'
     exit 1

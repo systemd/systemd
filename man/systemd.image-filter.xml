@@ -24,7 +24,7 @@
     <title>Description</title>
 
     <para>In systemd, whenever a disk image (DDI) implementing the <ulink
-    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
+    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable
     Partitions Specification</ulink> is activated, a filter may be specified controlling which partitions to
     consider for mounting. Such a disk image dissection filter is a string that contains per-partition-type
     patterns, separated by colons (<literal>:</literal>). The individual rules consist of a partition

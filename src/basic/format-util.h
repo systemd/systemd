@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "cgroup-util.h"
 #include "basic-forward.h"
-#include "stdio-util.h"
+#include "cgroup-util.h"
+#include "stdio-util.h"         /* IWYU pragma: keep */
 
 assert_cc(sizeof(pid_t) == sizeof(int32_t));
 #define PID_PRI PRIi32

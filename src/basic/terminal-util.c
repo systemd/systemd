@@ -377,7 +377,7 @@ int ask_string_full(
                                               /* n_columns= */ SIZE_MAX,
                                               /* column_width= */ SIZE_MAX,
                                               /* ellipsize_percentage= */ 0,
-                                              /* grey_prefix=*/ string,
+                                              /* grey_prefix= */ string,
                                               /* with_numbers= */ false);
                                 if (r < 0)
                                         goto fail;
@@ -730,7 +730,7 @@ int acquire_terminal(
                                                 .fd = notify,
                                                 .events = POLLIN,
                                         },
-                                        /* n_fds = */ 1,
+                                        /* n_fds= */ 1,
                                         left,
                                         &poll_ss);
                         if (r < 0)
@@ -1095,7 +1095,7 @@ bool tty_is_vc(const char *tty) {
          * about whether it's strictly valid, but only asking "does this fall into the vt category?", for which
          * "yes" seems to be a better answer. */
 
-        return vtnr_from_tty_raw(tty, /* ret = */ NULL) >= 0;
+        return vtnr_from_tty_raw(tty, /* ret= */ NULL) >= 0;
 }
 
 bool tty_is_console(const char *tty) {
@@ -1387,7 +1387,7 @@ int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_col
         if (!colskey)
                 return -ENOMEM;
 
-        r = proc_cmdline_get_key_many(/* flags = */ 0,
+        r = proc_cmdline_get_key_many(/* flags= */ 0,
                                       rowskey, &rowsvalue,
                                       colskey, &colsvalue);
         if (r < 0)
@@ -1655,7 +1655,7 @@ int openpt_allocate_in_namespace(
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
 
-        r = pidref_namespace_open(pidref, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, &usernsfd, &rootfd);
+        r = pidref_namespace_open(pidref, &pidnsfd, &mntnsfd, /* ret_netns_fd= */ NULL, &usernsfd, &rootfd);
         if (r < 0)
                 return r;
 
@@ -2071,7 +2071,9 @@ int terminal_get_cursor_position(
         }
 
 finish:
-        RET_GATHER(r, RET_NERRNO(tcsetattr(input_fd, TCSANOW, &old_termios)));
+        /* We ignore failure here and in similar cases below. We already got a reply and if cleanup fails,
+         * this doesn't change the validity of the result. */
+        (void) tcsetattr(input_fd, TCSANOW, &old_termios);
         return r;
 }
 
@@ -2260,7 +2262,6 @@ static int scan_background_color_response(
 }
 
 int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue) {
-        _cleanup_close_ int nonblock_input_fd = -EBADF;
         int r;
 
         assert(ret_red);
@@ -2280,24 +2281,23 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
                 return 0;
         }
 
+        /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read()
+         * should someone else process the POLLIN. Do all subsequent operations on the new fd. */
+        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (r < 0)
+                return r;
+
         struct termios old_termios;
-        if (tcgetattr(STDIN_FILENO, &old_termios) < 0)
+        if (tcgetattr(nonblock_input_fd, &old_termios) < 0)
                 return -errno;
 
         struct termios new_termios = old_termios;
         termios_disable_echo(&new_termios);
 
-        if (tcsetattr(STDIN_FILENO, TCSANOW, &new_termios) < 0)
+        if (tcsetattr(nonblock_input_fd, TCSANOW, &new_termios) < 0)
                 return -errno;
 
         r = loop_write(STDOUT_FILENO, ANSI_OSC "11;?" ANSI_ST, SIZE_MAX);
-        if (r < 0)
-                goto finish;
-
-        /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
-         * else process the POLLIN. */
-
-        nonblock_input_fd = r = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (r < 0)
                 goto finish;
 
@@ -2359,7 +2359,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         }
 
 finish:
-        RET_GATHER(r, RET_NERRNO(tcsetattr(STDIN_FILENO, TCSANOW, &old_termios)));
+        (void) tcsetattr(nonblock_input_fd, TCSANOW, &old_termios);
         return r;
 }
 
@@ -2369,7 +2369,6 @@ int terminal_get_size_by_dsr(
                 unsigned *ret_rows,
                 unsigned *ret_columns) {
 
-        _cleanup_close_ int nonblock_input_fd = -EBADF;
         int r;
 
         assert(input_fd >= 0);
@@ -2397,14 +2396,20 @@ int terminal_get_size_by_dsr(
         if (r < 0)
                 return log_debug_errno(r, "Called with distinct input/output fds: %m");
 
+        /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read()
+         * should someone else process the POLLIN. Do all subsequent operations on the new fd. */
+        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (r < 0)
+                return r;
+
         struct termios old_termios;
-        if (tcgetattr(input_fd, &old_termios) < 0)
+        if (tcgetattr(nonblock_input_fd, &old_termios) < 0)
                 return log_debug_errno(errno, "Failed to get terminal settings: %m");
 
         struct termios new_termios = old_termios;
         termios_disable_echo(&new_termios);
 
-        if (tcsetattr(input_fd, TCSANOW, &new_termios) < 0)
+        if (tcsetattr(nonblock_input_fd, TCSANOW, &new_termios) < 0)
                 return log_debug_errno(errno, "Failed to set new terminal settings: %m");
 
         unsigned saved_row = 0, saved_column = 0;
@@ -2414,13 +2419,6 @@ int terminal_get_size_by_dsr(
                        "\x1B[32766;32766H" /* Position cursor really far to the right and to the bottom, but let's stay within the 16bit signed range */
                        "\x1B[6n",          /* Request cursor position again */
                        SIZE_MAX);
-        if (r < 0)
-                goto finish;
-
-        /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
-         * else process the POLLIN. */
-
-        nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (r < 0)
                 goto finish;
 
@@ -2514,9 +2512,9 @@ int terminal_get_size_by_dsr(
 finish:
         /* Restore cursor position */
         if (saved_row > 0 && saved_column > 0)
-                RET_GATHER(r, terminal_set_cursor_position(output_fd, saved_row, saved_column));
+                (void) terminal_set_cursor_position(output_fd, saved_row, saved_column);
+        (void) tcsetattr(nonblock_input_fd, TCSANOW, &old_termios);
 
-        RET_GATHER(r, RET_NERRNO(tcsetattr(input_fd, TCSANOW, &old_termios)));
         return r;
 }
 
@@ -2669,7 +2667,6 @@ int terminal_get_terminfo_by_dcs(int fd, char **ret_name) {
         }
 
 finish:
-        /* We ignore failure here. We already got a reply and if cleanup fails, we can't help that. */
         (void) tcsetattr(fd, TCSANOW, &old_termios);
         return r;
 }

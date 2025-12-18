@@ -17,8 +17,8 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     ARGS+=(--profile=trusted)
 fi
 
-unsquashfs -no-xattrs -d /tmp/minimal_0 /usr/share/minimal_0.raw
-unsquashfs -no-xattrs -d /tmp/minimal_1 /usr/share/minimal_1.raw
+unsquashfs -force -no-xattrs -d /tmp/minimal_0 /usr/share/minimal_0.raw
+unsquashfs -force -no-xattrs -d /tmp/minimal_1 /usr/share/minimal_1.raw
 
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 minimal-app0
 
@@ -32,13 +32,13 @@ systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
 systemctl is-active minimal-app0-foo.service && exit 1
 
-portablectl list | grep -q -F "minimal_1"
-busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1'
+portablectl list | grep -F "minimal_1" >/dev/null
+busctl tree org.freedesktop.portable1 --no-pager | grep -F '/org/freedesktop/portable1/image/minimal_5f1' >/dev/null
 
 portablectl detach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
-portablectl list | grep -q -F "No images."
-busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
+portablectl list | grep -F "No images." >/dev/null
+busctl tree org.freedesktop.portable1 --no-pager | grep -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1 >/dev/null
 
 mkdir /tmp/rootdir /tmp/app0 /tmp/app1 /tmp/overlay /tmp/os-release-fix /tmp/os-release-fix/etc
 mount /tmp/app0.raw /tmp/app0
@@ -90,11 +90,11 @@ portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime --extension /tmp/
 systemctl is-active app0.service
 systemctl is-active app1.service
 
-portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | grep -q -f /tmp/rootdir/usr/lib/os-release
-portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | grep -q -f /tmp/app0/usr/lib/extension-release.d/extension-release.app0
-portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | grep -q -f /tmp/app1/usr/lib/extension-release.d/extension-release.app2
-portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | grep -q -f /tmp/app1/usr/lib/systemd/system/app1.service
-portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | grep -q -f /tmp/app0/usr/lib/systemd/system/app0.service
+portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | grep -f /tmp/rootdir/usr/lib/os-release >/dev/null
+portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | grep -f /tmp/app0/usr/lib/extension-release.d/extension-release.app0 >/dev/null
+portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | grep -f /tmp/app1/usr/lib/extension-release.d/extension-release.app2 >/dev/null
+portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | grep -f /tmp/app1/usr/lib/systemd/system/app1.service >/dev/null
+portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | grep -f /tmp/app0/usr/lib/systemd/system/app0.service >/dev/null
 
 grep -q -F "LogExtraFields=PORTABLE=app0" /run/systemd/system.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_ROOT=rootdir" /run/systemd/system.attached/app0.service.d/20-portable.conf

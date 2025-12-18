@@ -57,11 +57,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdTxtData*, dnssd_txtdata_free);
 int dnssd_render_instance_name(Manager *m, DnssdRegisteredService *s, char **ret);
 int dnssd_load(Manager *manager);
 int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtItem **ret_item);
-int dnssd_txt_item_new_from_data(const char *key, const void *value, const size_t size, DnsTxtItem **ret_item);
+int dnssd_txt_item_new_from_data(const char *key, const void *data, size_t size, DnsTxtItem **ret_item);
 int dnssd_update_rrs(DnssdRegisteredService *s);
 int dnssd_signal_conflict(Manager *manager, const char *name);
 
-const struct ConfigPerfItem* resolved_dnssd_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* resolved_dnssd_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_name);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_subtype);

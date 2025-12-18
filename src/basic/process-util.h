@@ -86,7 +86,7 @@ int kill_and_sigcont(pid_t pid, int sig);
 int pid_is_kernel_thread(pid_t pid);
 int pidref_is_kernel_thread(const PidRef *pid);
 
-int getenv_for_pid(pid_t pid, const char *field, char **_value);
+int getenv_for_pid(pid_t pid, const char *field, char **ret);
 
 int pid_is_alive(pid_t pid);
 int pidref_is_alive(const PidRef *pidref);
@@ -121,7 +121,7 @@ int opinionated_personality(unsigned long *ret);
 const char* sigchld_code_to_string(int i) _const_;
 int sigchld_code_from_string(const char *s) _pure_;
 
-int sched_policy_to_string_alloc(int i, char **s);
+int sched_policy_to_string_alloc(int i, char **ret);
 int sched_policy_from_string(const char *s);
 
 static inline pid_t PTR_TO_PID(const void *p) {
@@ -187,8 +187,9 @@ typedef enum ForkFlags {
         FORK_NEW_NETNS          = 1 << 20, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_NEW_PIDNS          = 1 << 21, /* Run child in its own PID namespace                                 💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_FREEZE             = 1 << 22, /* Don't return in child, just call freeze() instead */
+        FORK_ALLOW_DLOPEN       = 1 << 23, /* Do not block dlopen() in child */
 
-        _FORK_PID_ONLY          = 1 << 23, /* Don't open a pidfd referencing the child process */
+        _FORK_PID_ONLY          = 1 << 24, /* Don't open a pidfd referencing the child process */
 } ForkFlags;
 
 int pidref_safe_fork_full(

@@ -15,7 +15,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "tpm2-util.h"
+#include "tpm2-util.h"                  /* IWYU pragma: keep */
 #include "utf8.h"
 
 #define EFI_TCG2_BOOT_HASH_ALG_SHA1   0x01

@@ -17,7 +17,6 @@
 #include "strv.h"
 #include "unit.h"
 #include "varlink-cgroup.h"
-#include "varlink-common.h"
 #include "varlink-execute.h"
 #include "varlink-unit.h"
 #include "varlink-util.h"
@@ -298,7 +297,7 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_BOOLEAN("CanIsolate", unit_can_isolate_refuse_manual(u)),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("CanClean", can_clean_build_json, u),
                         SD_JSON_BUILD_PAIR_BOOLEAN("CanFreeze", unit_can_freeze(u)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("CanLiveMount", unit_can_live_mount(u, /* error= */ NULL) >= 0),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("CanLiveMount", unit_can_live_mount(u, /* reterr_error= */ NULL) >= 0),
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("JobId", u->job ? u->job->id : 0),
                         SD_JSON_BUILD_PAIR_BOOLEAN("NeedDaemonReload", unit_need_daemon_reload(u)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("ConditionResult", u->condition_result),
@@ -488,7 +487,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r < 0)
                 return r;
         if (unit)
-                return list_unit_one_with_selinux_access_check(link, unit, /* more = */ false);
+                return list_unit_one_with_selinux_access_check(link, unit, /* more= */ false);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
@@ -499,7 +498,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
                         continue;
 
                 if (previous) {
-                        r = list_unit_one(link, previous, /* more = */ true);
+                        r = list_unit_one(link, previous, /* more= */ true);
                         if (r < 0)
                                 return r;
                 }
@@ -508,7 +507,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         }
 
         if (previous)
-                return list_unit_one(link, previous, /* more = */ false);
+                return list_unit_one(link, previous, /* more= */ false);
 
         return sd_varlink_error(link, "io.systemd.Manager.NoSuchUnit", NULL);
 }

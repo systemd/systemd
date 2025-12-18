@@ -11,7 +11,7 @@ int udev_event_spawn(
                 bool accept_failure,
                 const char *cmd,
                 char *result,
-                size_t ressize,
+                size_t result_size,
                 bool *ret_truncated);
 void udev_event_execute_run(UdevEvent *event);
 

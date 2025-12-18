@@ -32,11 +32,11 @@ static inline int rtnl_get_ifname_full(sd_netlink **rtnl, int ifindex, char **re
                         ifindex,
                         ret_name,
                         ret_altnames,
-                        /* ret_iftype = */ NULL,
-                        /* ret_flags = */ NULL,
-                        /* ret_kind = */ NULL,
-                        /* ret_hw_addr = */ NULL,
-                        /* ret_permanent_hw_addr = */ NULL);
+                        /* ret_iftype= */ NULL,
+                        /* ret_flags= */ NULL,
+                        /* ret_kind= */ NULL,
+                        /* ret_hw_addr= */ NULL,
+                        /* ret_permanent_hw_addr= */ NULL);
 }
 static inline int rtnl_get_ifname(sd_netlink **rtnl, int ifindex, char **ret) {
         return rtnl_get_ifname_full(rtnl, ifindex, ret, NULL);
@@ -56,8 +56,8 @@ static inline int rtnl_get_link_info(
         return rtnl_get_link_info_full(
                         rtnl,
                         ifindex,
-                        /* ret_name = */ NULL,
-                        /* ret_altnames = */ NULL,
+                        /* ret_name= */ NULL,
+                        /* ret_altnames= */ NULL,
                         ret_iftype,
                         ret_flags,
                         ret_kind,
@@ -68,11 +68,11 @@ static inline int rtnl_get_link_hw_addr(sd_netlink **rtnl, int ifindex, struct h
         return rtnl_get_link_info(
                         rtnl,
                         ifindex,
-                        /* ret_iftype = */ NULL,
-                        /* ret_flags = */ NULL,
-                        /* ret_kind = */ NULL,
+                        /* ret_iftype= */ NULL,
+                        /* ret_flags= */ NULL,
+                        /* ret_kind= */ NULL,
                         ret,
-                        /* ret_permanent_hw_addr = */ NULL);
+                        /* ret_permanent_hw_addr= */ NULL);
 }
 
 typedef enum ResolveInterfaceNameFlag {
@@ -157,8 +157,8 @@ int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, c
 int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data);
 int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data);
 
-int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, struct hw_addr_data *data);
-int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short type, int family, union in_addr_union *data);
+int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, struct hw_addr_data *ret);
+int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short type, int family, union in_addr_union *ret);
 
 void rtattr_append_attribute_internal(struct rtattr *rta, unsigned short type, const void *data, size_t data_length);
 int rtattr_append_attribute(struct rtattr **rta, unsigned short type, const void *data, size_t data_length);
@@ -168,4 +168,4 @@ void netlink_seal_message(sd_netlink *nl, sd_netlink_message *m);
 size_t netlink_get_reply_callback_count(sd_netlink *nl);
 
 /* TODO: to be exported later */
-int sd_netlink_sendv(sd_netlink *nl, sd_netlink_message **messages, size_t msgcnt, uint32_t **ret_serial);
+int sd_netlink_sendv(sd_netlink *nl, sd_netlink_message **messages, size_t msgcount, uint32_t **ret_serial);

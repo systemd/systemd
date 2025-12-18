@@ -266,6 +266,12 @@ EOF
 testcase_multipath_basic_failover() {
     local dmpath i path wwid
 
+    . /etc/os-release
+    if [[ "${ID_LIKE:-}" == "alpine" ]]; then
+        echo "multipath on alpine/postmarketos is broken, skipping the test" | tee --append /skipped
+        exit 77
+    fi
+
     # Configure multipath
     cat >/etc/multipath.conf <<\EOF
 defaults {
@@ -631,8 +637,8 @@ testcase_lvm_basic() {
     )
 
     . /etc/os-release
-    if [[ "$ID" == "ubuntu" ]]; then
-        echo "LVM on Ubuntu is broken, skipping the test" | tee --append /skipped
+    if [[ "$ID" == "ubuntu" || "${ID_LIKE:-}" == "alpine" ]]; then
+        echo "LVM on Ubuntu/alpine/postmarketos is broken, skipping the test" | tee --append /skipped
         exit 77
     fi
 

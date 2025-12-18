@@ -108,10 +108,10 @@ int dns_server_new(
                 Link *link,
                 DnsDelegate *delegate,
                 int family,
-                const union in_addr_union *address,
+                const union in_addr_union *in_addr,
                 uint16_t port,
                 int ifindex,
-                const char *server_string,
+                const char *server_name,
                 ResolveConfigSource config_source);
 
 DnsServer* dns_server_ref(DnsServer *s);
@@ -148,7 +148,7 @@ DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_uni
 void dns_server_unlink_all(DnsServer *first);
 void dns_server_unlink_on_reload(DnsServer *server);
 bool dns_server_unlink_marked(DnsServer *first);
-void dns_server_mark_all(DnsServer *first);
+void dns_server_mark_all(DnsServer *server);
 
 int manager_parse_search_domains_and_warn(Manager *m, const char *string);
 int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string);

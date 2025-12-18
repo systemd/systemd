@@ -170,7 +170,7 @@
     or credentials) or bind encryption to booted kernels.</para>
 
     <para>For further details about the UKI concept, see the <ulink
-    url="https://uapi-group.org/specifications/specs/unified_kernel_image/">UKI specification</ulink>.</para>
+    url="https://uapi-group.org/specifications/specs/unified_kernel_image/">UAPI.5 UKI specification</ulink>.</para>
   </refsect1>
 
   <refsect1>
@@ -806,7 +806,7 @@
       <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
-      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink></member>
+      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink></member>
       <member><ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink></member>
       <member><citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

@@ -432,7 +432,8 @@ def save_active_units():
             'systemd-resolved-varlink.socket',
             'systemd-resolved.service',
             'systemd-timesyncd.service',
-            'firewalld.service'
+            'firewalld.service',
+            'nftables.service',
     ]:
         if call(f'systemctl is-active --quiet {u}') == 0:
             call(f'systemctl stop {u}')
@@ -4633,6 +4634,21 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertNotIn('149.10.124.59', output)
         self.assertIn('default via 149.10.124.60 proto static', output)
 
+    def test_gateway_clear_routes(self):
+        copy_network_unit('25-gateway-clear-routes.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        print('### ip -4 route show dev dummy98')
+        output = check_output('ip -4 route show dev dummy98')
+        print(output)
+        # All routes should be cleared - no default gateway, no [Route] section routes
+        self.assertNotIn('default via 10.0.0.2', output)
+        self.assertNotIn('192.168.1.0/24', output)
+        self.assertNotIn('192.168.2.0/24', output)
+        # Only the directly connected network should remain
+        self.assertIn('10.0.0.0/24 proto kernel scope link src 10.0.0.1', output)
+
     def test_ip_route_ipv6_src_route(self):
         # a dummy device does not make the addresses go through tentative state, so we
         # reuse a bond from an earlier test, which does make the addresses go through
@@ -8614,9 +8630,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         start_networkd()
         self.wait_online('veth-peer:carrier')
-        masq = lambda bs: ':'.join(f'{b:02x}' for b in bs)
-        start_dnsmasq('--dhcp-option=114,' + masq(b'http://\x00invalid/url'),
-                      '--dhcp-option=option6:103,' + masq(b'http://\x00/invalid/url'))
+        start_dnsmasq('--dhcp-option=114,http://|invalid/url',
+                      '--dhcp-option=option6:103,http://|invalid/url')
 
         check(self, True, True)
         check(self, True, False)
@@ -8907,7 +8922,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.teardown_nftset('addr6', 'network6', 'ifindex')
 
-    def verify_dhcp4_6rd(self, tunnel_name, address_prefix, border_router):
+    def verify_dhcp4_6rd(self, tunnel_name, address_prefix, address_prefix_re, border_router):
         print('### ip -4 address show dev veth-peer scope global')
         output = check_output('ip -4 address show dev veth-peer scope global')
         print(output)
@@ -9072,7 +9087,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         output = check_output(f'ip -6 address show dev {tunnel_name}')
         print(output)
         self.assertRegex(output, 'inet6 2001:db8:6464:[0-9a-f]+0[23]:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*/64 (metric 256 |)scope global dynamic')
-        self.assertRegex(output, fr'inet6 ::{address_prefix}[0-9]+/96 scope global')
+        self.assertRegex(output, fr'inet6 ::{address_prefix_re}/96 scope global')
 
         print(f'### ip -6 route show dev {tunnel_name}')
         output = check_output(f'ip -6 route show dev {tunnel_name}')
@@ -9084,7 +9099,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route show default')
         print(output)
         self.assertIn('default', output)
-        self.assertIn(f'via ::{border_router} dev {tunnel_name}', output)
+        self.assertRegex(output, fr'via ::{border_router} dev {tunnel_name}')
 
     def test_dhcp4_6rd(self):
         def get_dhcp_6rd_prefix(link):
@@ -9144,13 +9159,13 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.wait_online(f'{tunnel_name}:routable')
 
-        self.verify_dhcp4_6rd(tunnel_name, '10.100.100.1', '10.0.0.1')
+        self.verify_dhcp4_6rd(tunnel_name, '10.100.100.1', '(10.100.100.1[0-9][0-9]|a64:64[6-9a-c][0-9a-f])', '(10.0.0.1|a00:1)')
 
         # Test case for reconfigure
         networkctl_reconfigure('dummy98', 'dummy99')
         self.wait_online('dummy98:routable', 'dummy99:degraded')
 
-        self.verify_dhcp4_6rd(tunnel_name, '10.100.100.1', '10.0.0.1')
+        self.verify_dhcp4_6rd(tunnel_name, '10.100.100.1', '(10.100.100.1[0-9][0-9]|a64:64[6-9a-c][0-9a-f])', '(10.0.0.1|a00:1)')
 
         # Change the address range and (border) router, then if check the same tunnel is reused.
         stop_dnsmasq()
@@ -9164,7 +9179,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.wait_online('veth99:routable', 'test1:routable', 'dummy97:routable', 'dummy98:routable', 'dummy99:degraded',
                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable')
 
-        self.verify_dhcp4_6rd(tunnel_name, '10.100.100.2', '10.0.0.2')
+        self.verify_dhcp4_6rd(tunnel_name, '10.100.100.2', '(10.100.100.2[0-5][0-9]|a64:64[c-f][0-9a-f])', '(10.0.0.2|a00:2)')
 
 class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
 
@@ -9360,7 +9375,7 @@ class NetworkdSysctlTest(unittest.TestCase, Utilities):
         tear_down_common()
 
     @unittest.skipUnless(compare_kernel_version("6.12"), reason="On kernels <= 6.12, bpf_current_task_under_cgroup() isn't available for program types BPF_PROG_TYPE_CGROUP_SYSCTL")
-    def check_sysctl_watch(self):
+    def test_sysctl_monitor(self):
         copy_network_unit('12-dummy.network', '12-dummy.netdev', '12-dummy.link')
         start_networkd()
 
@@ -9383,6 +9398,7 @@ class NetworkdSysctlTest(unittest.TestCase, Utilities):
         self.assertRegex(log, r"Foreign process 'sysctl\[\d+\]' changed sysctl '/proc/sys/net/ipv6/conf/dummy98/proxy_ndp' from '0' to '1', conflicting with our setting to '0'")
         self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/hop_limit'", log)
         self.assertNotIn("changed sysctl '/proc/sys/net/ipv6/conf/dummy98/max_addresses'", log)
+        self.assertNotIn("Sysctl monitor BPF returned error", log)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

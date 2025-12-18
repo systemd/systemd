@@ -12,6 +12,7 @@
 #include "chase.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "cryptsetup-util.h"
 #include "data-fd-util.h"
 #include "dirent-util.h"
 #include "discover-image.h"
@@ -28,6 +29,7 @@
 #include "glyph-util.h"
 #include "install.h"
 #include "iovec-util.h"
+#include "libmount-util.h"
 #include "log-context.h"
 #include "log.h"
 #include "loop-util.h"
@@ -420,6 +422,10 @@ static int portable_extract_by_path(
 
                 BLOCK_SIGNALS(SIGCHLD);
 
+                /* Load some libraries before we fork workers off that want to use them */
+                (void) dlopen_cryptsetup();
+                (void) dlopen_libmount();
+
                 r = mkdtemp_malloc("/tmp/inspect-XXXXXX", &tmpdir);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create temporary directory: %m");
@@ -734,7 +740,7 @@ static int extract_image_and_extensions(
 
                 e = strv_env_pairs_get(extension_release, "PORTABLE_PREFIXES");
                 if (e) {
-                        r = strv_split_and_extend(&valid_prefixes, e, WHITESPACE, /* filter_duplicates = */ true);
+                        r = strv_split_and_extend(&valid_prefixes, e, WHITESPACE, /* filter_duplicates= */ true);
                         if (r < 0)
                                 return r;
                 }

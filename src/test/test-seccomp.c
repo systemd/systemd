@@ -176,7 +176,7 @@ TEST(syscall_filter_set_find) {
 TEST(filter_sets) {
         int r;
 
-        CHECK_SECCOMP(/* skip_container = */ false);
+        CHECK_SECCOMP(/* skip_container= */ false);
 
         for (unsigned i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
 
@@ -293,7 +293,7 @@ TEST(restrict_namespace) {
         assert_se(namespace_flags_from_string(s, &ul) == 0 && ul == NAMESPACE_FLAGS_ALL);
         s = mfree(s);
 
-        CHECK_SECCOMP(/* skip_container = */ false);
+        CHECK_SECCOMP(/* skip_container= */ false);
 
         ASSERT_OK(r = safe_fork("(restrict-namespace)", FORK_LOG | FORK_WAIT, NULL));
         if (r == 0) {
@@ -350,7 +350,7 @@ TEST(protect_sysctl) {
         int r;
 
         /* in containers _sysctl() is likely missing anyway */
-        CHECK_SECCOMP(/* skip_container = */ true);
+        CHECK_SECCOMP(/* skip_container= */ true);
 
         _cleanup_free_ char *seccomp = NULL;
         assert_se(get_proc_field("/proc/self/status", "Seccomp", &seccomp) == 0);
@@ -386,7 +386,7 @@ TEST(protect_syslog) {
         int r;
 
         /* in containers syslog() is likely missing anyway */
-        CHECK_SECCOMP(/* skip_container = */ true);
+        CHECK_SECCOMP(/* skip_container= */ true);
 
         ASSERT_OK(r = safe_fork("(protect-syslog)", FORK_LOG | FORK_WAIT, NULL));
         if (r == 0) {
@@ -409,7 +409,7 @@ TEST(protect_syslog) {
 TEST(restrict_address_families) {
         int r;
 
-        CHECK_SECCOMP(/* skip_container = */ false);
+        CHECK_SECCOMP(/* skip_container= */ false);
 
         ASSERT_OK(r = safe_fork("(restrict-address-families)", FORK_LOG | FORK_WAIT, NULL));
         if (r == 0) {
@@ -486,7 +486,7 @@ TEST(restrict_realtime) {
         int r;
 
         /* in containers RT privs are likely missing anyway */
-        CHECK_SECCOMP(/* skip_container = */ true);
+        CHECK_SECCOMP(/* skip_container= */ true);
 
         ASSERT_OK(r = safe_fork("(restrict-realtime)", FORK_LOG | FORK_WAIT, NULL));
         if (r == 0) {
@@ -529,7 +529,7 @@ TEST(restrict_realtime) {
 TEST(memory_deny_write_execute_mmap) {
         int r;
 
-        CHECK_SECCOMP(/* skip_container = */ false);
+        CHECK_SECCOMP(/* skip_container= */ false);
 
 #if HAVE_VALGRIND_VALGRIND_H
         if (RUNNING_ON_VALGRIND) {
@@ -590,7 +590,7 @@ TEST(memory_deny_write_execute_shmat) {
                 log_debug("arch %s: SCMP_SYS(shmdt) = %d", seccomp_arch_to_string(arch), SCMP_SYS(shmdt));
         }
 
-        CHECK_SECCOMP(/* skip_container = */ false);
+        CHECK_SECCOMP(/* skip_container= */ false);
 
 #if HAVE_VALGRIND_VALGRIND_H
         if (RUNNING_ON_VALGRIND) {
@@ -611,7 +611,10 @@ TEST(memory_deny_write_execute_shmat) {
                 void *p;
 
                 p = shmat(shmid, NULL, 0);
-                assert_se(p != MAP_FAILED);
+                if (p == MAP_FAILED) {
+                        log_tests_skipped_errno(errno, "shmat() is already disabled");
+                        _exit(EXIT_SUCCESS);
+                }
                 assert_se(shmdt(p) == 0);
 
                 p = shmat(shmid, NULL, SHM_EXEC);
@@ -643,7 +646,7 @@ TEST(memory_deny_write_execute_shmat) {
 TEST(restrict_archs) {
         int r;
 
-        CHECK_SECCOMP(/* skip_container = */ false);
+        CHECK_SECCOMP(/* skip_container= */ false);
 
         ASSERT_OK(r = safe_fork("(restrict-archs)", FORK_LOG | FORK_WAIT, NULL));
         if (r == 0) {
@@ -670,7 +673,7 @@ TEST(restrict_archs) {
 TEST(load_syscall_filter_set_raw) {
         int r;
 
-        CHECK_SECCOMP(/* skip_container = */ false);
+        CHECK_SECCOMP(/* skip_container= */ false);
 
         ASSERT_OK(r = safe_fork("(load-filter)", FORK_LOG | FORK_WAIT, NULL));
         if (r == 0) {
@@ -772,7 +775,7 @@ TEST(load_syscall_filter_set_raw) {
 TEST(native_syscalls_filtered) {
         int r;
 
-        CHECK_SECCOMP(/* skip_container = */ false);
+        CHECK_SECCOMP(/* skip_container= */ false);
 
         ASSERT_OK(r = safe_fork("(native-syscalls)", FORK_LOG | FORK_WAIT, NULL));
         if (r == 0) {
@@ -820,7 +823,7 @@ TEST(lock_personality) {
         unsigned long current_opinionated;
         int r;
 
-        CHECK_SECCOMP(/* skip_container = */ false);
+        CHECK_SECCOMP(/* skip_container= */ false);
 
         assert_se(opinionated_personality(&current_opinionated) >= 0);
 
@@ -895,7 +898,7 @@ static int try_fchmodat2(int dirfd, const char *path, mode_t mode, int flags) {
 TEST(restrict_suid_sgid) {
         int r;
 
-        CHECK_SECCOMP(/* skip_container = */ false);
+        CHECK_SECCOMP(/* skip_container= */ false);
 
         ASSERT_OK(r = safe_fork("(suid-sgid)", FORK_LOG | FORK_WAIT, NULL));
         if (r == 0) {
@@ -1119,7 +1122,7 @@ static void test_seccomp_suppress_sync_child(void) {
 TEST(seccomp_suppress_sync) {
         int r;
 
-        CHECK_SECCOMP(/* skip_container = */ false);
+        CHECK_SECCOMP(/* skip_container= */ false);
 
         ASSERT_OK(r = safe_fork("(suppress-sync)", FORK_LOG | FORK_WAIT, NULL));
         if (r == 0) {

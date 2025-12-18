@@ -27,7 +27,7 @@ static int property_get_unit(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         _cleanup_free_ char *p = NULL;
         Job *j = ASSERT_PTR(userdata);
@@ -42,13 +42,13 @@ static int property_get_unit(
         return sd_bus_message_append(reply, "(so)", j->unit->id, p);
 }
 
-int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Job *j = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
 
-        r = mac_selinux_unit_access_check(j->unit, message, "stop", error);
+        r = mac_selinux_unit_access_check(j->unit, message, "stop", reterr_error);
         if (r < 0)
                 return r;
 
@@ -56,7 +56,7 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
         if (!sd_bus_track_contains(j->bus_track, sd_bus_message_get_sender(message))) {
 
                 /* And for everybody else consult polkit */
-                r = bus_verify_manage_units_async(j->manager, message, error);
+                r = bus_verify_manage_units_async(j->manager, message, reterr_error);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -68,7 +68,7 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ Job **list = NULL;
         Job *j = userdata;
@@ -142,7 +142,7 @@ const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-static int bus_job_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_job_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         Job *j;
         int r;
@@ -160,7 +160,7 @@ static int bus_job_find(sd_bus *bus, const char *path, const char *interface, vo
         return 1;
 }
 
-static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;

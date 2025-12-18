@@ -86,16 +86,16 @@ int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_col
 int chvt(int vt);
 
 int read_one_char(FILE *f, char *ret, usec_t timeout, bool echo, bool *need_nl);
-int ask_char(char *ret, const char *replies, const char *text, ...) _printf_(3, 4);
+int ask_char(char *ret, const char *replies, const char *fmt, ...) _printf_(3, 4);
 
 typedef int (*GetCompletionsCallback)(const char *key, char ***ret_list, void *userdata);
-int ask_string_full(char **ret, GetCompletionsCallback cb, void *userdata, const char *text, ...) _printf_(4, 5);
+int ask_string_full(char **ret, GetCompletionsCallback get_completions, void *userdata, const char *text, ...) _printf_(4, 5);
 #define ask_string(ret, text, ...) ask_string_full(ret, NULL, NULL, text, ##__VA_ARGS__)
 
 bool any_key_to_proceed(void);
 int show_menu(char **x, size_t n_columns, size_t column_width, unsigned ellipsize_percentage, const char *grey_prefix, bool with_numbers);
 
-int vt_disallocate(const char *name);
+int vt_disallocate(const char *tty_path);
 
 int resolve_dev_console(char **ret);
 int get_kernel_consoles(char ***ret);

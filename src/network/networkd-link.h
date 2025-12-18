@@ -225,7 +225,7 @@ void link_enter_failed(Link *link);
 void link_set_state(Link *link, LinkState state);
 void link_check_ready(Link *link);
 
-void link_update_operstate(Link *link, bool also_update_bond_master);
+void link_update_operstate(Link *link, bool also_update_master);
 
 bool link_has_carrier(Link *link);
 bool link_multicast_enabled(Link *link);

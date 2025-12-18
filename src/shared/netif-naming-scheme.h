@@ -43,6 +43,7 @@ typedef enum NamingSchemeFlags {
         NAMING_DEVICETREE_PORT_ALIASES   = 1 << 19, /* Include aliases of OF nodes of a netdev itself, not just its parent. See PR #33958. */
         NAMING_USE_INTERFACE_PROPERTY    = 1 << 20, /* Use INTERFACE udev property, rather than sysname, when no renaming is requested. */
         NAMING_DEVICETREE_ALIASES_WLAN   = 1 << 21, /* Generate names from devicetree aliases for WLAN devices */
+        NAMING_MCTP                      = 1 << 22, /* Use "mc" prefix for MCTP devices */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -65,6 +66,7 @@ typedef enum NamingSchemeFlags {
         NAMING_V257 = NAMING_V255 | NAMING_FIRMWARE_NODE_SUN | NAMING_DEVICETREE_PORT_ALIASES,
         NAMING_V258 = NAMING_V257 | NAMING_USE_INTERFACE_PROPERTY,
         NAMING_V259 = NAMING_V258 | NAMING_DEVICETREE_ALIASES_WLAN,
+        NAMING_V260 = NAMING_V259 | NAMING_MCTP,
 
         EXTRA_NET_NAMING_SCHEMES
 
@@ -96,10 +98,10 @@ typedef enum NamePolicy {
 } NamePolicy;
 
 const char* name_policy_to_string(NamePolicy p) _const_;
-NamePolicy name_policy_from_string(const char *p) _pure_;
+NamePolicy name_policy_from_string(const char *s) _pure_;
 
 const char* alternative_names_policy_to_string(NamePolicy p) _const_;
-NamePolicy alternative_names_policy_from_string(const char *p) _pure_;
+NamePolicy alternative_names_policy_from_string(const char *s) _pure_;
 
 int device_get_sysattr_int_filtered(sd_device *device, const char *sysattr, int *ret_value);
 int device_get_sysattr_unsigned_filtered(sd_device *device, const char *sysattr, unsigned *ret_value);

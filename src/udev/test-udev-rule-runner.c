@@ -134,7 +134,7 @@ static int run(int argc, char *argv[]) {
                 usleep_safe(us);
         }
 
-        assert_se(udev_rules_load(&rules, RESOLVE_NAME_EARLY, /* extra = */ NULL) == 0);
+        assert_se(udev_rules_load(&rules, RESOLVE_NAME_EARLY, /* extra= */ NULL) == 0);
 
         const char *syspath = strjoina("/sys", devpath);
         r = device_new_from_synthetic_event(&dev, syspath, action);

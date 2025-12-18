@@ -84,7 +84,7 @@ int seccomp_filter_set_add_by_name(Hashmap *filter, bool add, const char *name);
 int seccomp_filter_set_add(Hashmap *filter, bool add, const SyscallFilterSet *set);
 
 int seccomp_add_syscall_filter_item(
-                scmp_filter_ctx *ctx,
+                scmp_filter_ctx *seccomp,
                 const char *name,
                 uint32_t action,
                 char **exclude,

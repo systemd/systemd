@@ -9,7 +9,6 @@
 #include "build.h"
 #include "conf-files.h"
 #include "constants.h"
-#include "creds-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -20,12 +19,9 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "pretty-print.h"
-#include "recurse-dir.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
-#include "time-util.h"
 #include "tmpfile-util.h"
 #include "tpm2-util.h"
 
@@ -102,7 +98,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TPM2_DEVICE:
                         if (streq(optarg, "list"))
-                                return tpm2_list_devices(/* legend = */ true, /* quiet = */ false);
+                                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
                         if (free_and_strdup(&arg_tpm2_device, streq(optarg, "auto") ? NULL : optarg) < 0)
                                 return log_oom();

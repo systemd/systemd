@@ -77,7 +77,7 @@ int config_parse_many(
                 ConfigParseFlags flags,
                 void *userdata,
                 Hashmap **ret_stats_by_path,  /* possibly NULL */
-                char ***ret_drop_in_files);   /* possibly NULL */
+                char ***ret_dropin_files);   /* possibly NULL */
 
 int config_parse_standard_file_with_dropins_full(
                 const char *root,
@@ -165,7 +165,7 @@ static inline bool section_is_invalid(ConfigSection *section) {
 #define log_section_full_errno_zerook(section, level, error, ...)       \
         ({                                                              \
                 const ConfigSection *_s = (section);                    \
-                log_syntax(/* unit = */ NULL,                           \
+                log_syntax(/* unit= */ NULL,                            \
                            level,                                       \
                            _s ? _s->filename : NULL,                    \
                            _s ? _s->line : 0,                           \

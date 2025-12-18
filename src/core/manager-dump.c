@@ -15,13 +15,13 @@
 #include "unit-serialize.h"
 #include "version.h"
 
-void manager_dump_jobs(Manager *s, FILE *f, char **patterns, const char *prefix) {
+void manager_dump_jobs(Manager *m, FILE *f, char **patterns, const char *prefix) {
         Job *j;
 
-        assert(s);
+        assert(m);
         assert(f);
 
-        HASHMAP_FOREACH(j, s->jobs) {
+        HASHMAP_FOREACH(j, m->jobs) {
 
                 if (!strv_fnmatch_or_empty(patterns, j->unit->id, FNM_NOESCAPE))
                         continue;
@@ -46,14 +46,14 @@ int manager_get_dump_jobs_string(Manager *m, char **patterns, const char *prefix
         return memstream_finalize(&ms, ret, NULL);
 }
 
-void manager_dump_units(Manager *s, FILE *f, char **patterns, const char *prefix) {
+void manager_dump_units(Manager *m, FILE *f, char **patterns, const char *prefix) {
         Unit *u;
         const char *t;
 
-        assert(s);
+        assert(m);
         assert(f);
 
-        HASHMAP_FOREACH_KEY(u, t, s->units) {
+        HASHMAP_FOREACH_KEY(u, t, m->units) {
                 if (u->id != t)
                         continue;
 

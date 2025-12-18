@@ -2075,6 +2075,10 @@ enum ethtool_link_mode_bit_indices {
 	ETHTOOL_LINK_MODE_800000baseDR4_2_Full_BIT	 = 118,
 	ETHTOOL_LINK_MODE_800000baseSR4_Full_BIT	 = 119,
 	ETHTOOL_LINK_MODE_800000baseVR4_Full_BIT	 = 120,
+	ETHTOOL_LINK_MODE_1600000baseCR8_Full_BIT	 = 121,
+	ETHTOOL_LINK_MODE_1600000baseKR8_Full_BIT	 = 122,
+	ETHTOOL_LINK_MODE_1600000baseDR8_Full_BIT	 = 123,
+	ETHTOOL_LINK_MODE_1600000baseDR8_2_Full_BIT	 = 124,
 
 	/* must be last entry */
 	__ETHTOOL_LINK_MODE_MASK_NBITS
@@ -2188,6 +2192,7 @@ enum ethtool_link_mode_bit_indices {
 #define SPEED_200000		200000
 #define SPEED_400000		400000
 #define SPEED_800000		800000
+#define SPEED_1600000		1600000
 
 #define SPEED_UNKNOWN		-1
 
@@ -2378,6 +2383,7 @@ enum {
 #define	RXH_L4_B_0_1	(1 << 6) /* src port in case of TCP/UDP/SCTP */
 #define	RXH_L4_B_2_3	(1 << 7) /* dst port in case of TCP/UDP/SCTP */
 #define	RXH_GTP_TEID	(1 << 8) /* teid in case of GTP */
+#define	RXH_IP6_FL	(1 << 9) /* IPv6 flow label */
 #define	RXH_DISCARD	(1 << 31)
 
 #define	RX_CLS_FLOW_DISC	0xffffffffffffffffULL

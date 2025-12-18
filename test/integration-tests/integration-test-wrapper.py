@@ -75,6 +75,18 @@ class Summary:
         )
 
 
+def tools_os_release(field: str) -> str:
+    return subprocess.run(
+        [
+            'bash',
+            '-c',
+            f'set -eu; . /etc/os-release; echo ${field}',
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+    ).stdout.rstrip()
+
+
 def process_coredumps(args: argparse.Namespace, journal_file: Path) -> bool:
     # Collect executable paths of all coredumps and filter out the expected ones.
 
@@ -584,7 +596,6 @@ def main() -> None:
         ),
         '--credential', f'systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}',
         '--runtime-network=none',
-        '--runtime-scratch=no',
         *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
         *args.mkosi_args,
         '--firmware', firmware,
@@ -616,6 +627,16 @@ def main() -> None:
         *(['--', '--capability=CAP_BPF'] if not vm else []),
     ]  # fmt: skip
 
+    # XXX: debug for https://github.com/systemd/systemd/issues/38240
+    if vm:
+        # Tracing is not supported in centos/fedora qemu builds
+        if tools_os_release('ID') in ('centos', 'fedora'):
+            cmd += ['--qemu-args=-d cpu_reset,guest_errors -D /dev/stderr']
+        else:
+            cmd += [
+                '--qemu-args=-d cpu_reset,guest_errors,trace:kvm_run_exit_system_event,trace:qemu_system_*_request -D /dev/stderr'  # noqa: E501
+            ]
+
     try:
         result = subprocess.run(cmd)
 
@@ -623,6 +644,10 @@ def main() -> None:
         if args.vm and result.returncode == 247 and args.exit_code != 247:
             if journal_file:
                 journal_file.unlink(missing_ok=True)
+            print(
+                f'Test {args.name} failed due to QEMU crash (error 247), retrying...',
+                file=sys.stderr,
+            )
             result = subprocess.run(cmd)
             if args.vm and result.returncode == 247 and args.exit_code != 247:
                 print(
@@ -630,6 +655,10 @@ def main() -> None:
                     file=sys.stderr,
                 )
                 exit(77)
+            print(
+                f'Test {args.name} worked on re-run after QEMU crash (error 247)',
+                file=sys.stderr,
+            )
     except KeyboardInterrupt:
         result = subprocess.CompletedProcess(args=cmd, returncode=-signal.SIGINT)
 

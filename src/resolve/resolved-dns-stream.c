@@ -427,7 +427,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                 }
 
                                 ss = dns_stream_read(s,
-                                          (uint8_t*) DNS_PACKET_DATA(s->read_packet) + s->n_read - sizeof(s->read_size),
+                                          DNS_PACKET_DATA(s->read_packet) + s->n_read - sizeof(s->read_size),
                                           sizeof(s->read_size) + be16toh(s->read_size) - s->n_read);
                                 if (ss < 0) {
                                         if (!ERRNO_IS_TRANSIENT(ss))

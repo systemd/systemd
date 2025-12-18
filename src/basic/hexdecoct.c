@@ -112,7 +112,7 @@ int unhexmem_full(
                 size_t l,
                 bool secure,
                 void **ret_data,
-                size_t *ret_len) {
+                size_t *ret_size) {
 
         _cleanup_free_ uint8_t *buf = NULL;
         size_t buf_size;
@@ -150,8 +150,8 @@ int unhexmem_full(
 
         *z = 0;
 
-        if (ret_len)
-                *ret_len = (size_t) (z - buf);
+        if (ret_size)
+                *ret_size = (size_t) (z - buf);
         if (ret_data)
                 *ret_data = TAKE_PTR(buf);
 

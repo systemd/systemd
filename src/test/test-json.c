@@ -734,10 +734,10 @@ TEST(tokenizer) {
         test_tokenizer_one("18446744073709551616", JSON_TOKEN_REAL, (double) 18446744073709551616.0L, JSON_TOKEN_END);
         test_tokenizer_one("-9223372036854775809", JSON_TOKEN_REAL, (double) -9223372036854775809.0L, JSON_TOKEN_END);
         test_tokenizer_one("-1234", JSON_TOKEN_INTEGER, (int64_t) -1234, JSON_TOKEN_END);
-        test_tokenizer_one("3.141", JSON_TOKEN_REAL, (double) 3.141, JSON_TOKEN_END);
-        test_tokenizer_one("0.0", JSON_TOKEN_REAL, (double) 0.0, JSON_TOKEN_END);
-        test_tokenizer_one("7e3", JSON_TOKEN_REAL, (double) 7e3, JSON_TOKEN_END);
-        test_tokenizer_one("-7e-3", JSON_TOKEN_REAL, (double) -7e-3, JSON_TOKEN_END);
+        test_tokenizer_one("3.141", JSON_TOKEN_REAL, 3.141, JSON_TOKEN_END);
+        test_tokenizer_one("0.0", JSON_TOKEN_REAL, 0.0, JSON_TOKEN_END);
+        test_tokenizer_one("7e3", JSON_TOKEN_REAL, 7e3, JSON_TOKEN_END);
+        test_tokenizer_one("-7e-3", JSON_TOKEN_REAL, -7e-3, JSON_TOKEN_END);
         test_tokenizer_one("true", JSON_TOKEN_BOOLEAN, true, JSON_TOKEN_END);
         test_tokenizer_one("false", JSON_TOKEN_BOOLEAN, false, JSON_TOKEN_END);
         test_tokenizer_one("null", JSON_TOKEN_NULL, JSON_TOKEN_END);

@@ -2,7 +2,7 @@
 
 #include <fcntl.h>
 #include <linux/auto_dev-ioctl.h>
-#include <sys/mount.h>
+#include <sys/mount.h>                  /* IWYU pragma: keep */
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -262,7 +262,7 @@ static void automount_set_state(Automount *a, AutomountState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(a), "Changed %s -> %s", automount_state_to_string(old_state), automount_state_to_string(state));
 
-        unit_notify(UNIT(a), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(a), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 }
 
 static int automount_coldplug(Unit *u) {
@@ -324,7 +324,7 @@ static void automount_dump(Unit *u, FILE *f, const char *prefix) {
 static void automount_enter_dead(Automount *a, AutomountResult f) {
         assert(a);
 
-        if (a->result == AUTOMOUNT_SUCCESS)
+        if (a->result == AUTOMOUNT_SUCCESS || IN_SET(f, AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT, AUTOMOUNT_FAILURE_START_LIMIT_HIT))
                 a->result = f;
 
         unit_log_result(UNIT(a), a->result == AUTOMOUNT_SUCCESS, automount_result_to_string(a->result));
@@ -781,7 +781,7 @@ static void automount_enter_running(Automount *a) {
                 goto fail;
         }
 
-        r = manager_add_job(UNIT(a)->manager, JOB_START, trigger, JOB_REPLACE, &error, /* ret = */ NULL);
+        r = manager_add_job(UNIT(a)->manager, JOB_START, trigger, JOB_REPLACE, &error, /* ret= */ NULL);
         if (r < 0) {
                 log_unit_warning(UNIT(a), "Failed to queue mount startup job: %s", bus_error_message(&error, r));
                 goto fail;
@@ -997,7 +997,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                         goto fail;
                 }
 
-                r = manager_add_job(UNIT(a)->manager, JOB_STOP, trigger, JOB_REPLACE, &error, /* ret = */ NULL);
+                r = manager_add_job(UNIT(a)->manager, JOB_STOP, trigger, JOB_REPLACE, &error, /* ret= */ NULL);
                 if (r < 0) {
                         log_unit_warning(UNIT(a), "Failed to queue unmount job: %s", bus_error_message(&error, r));
                         goto fail;
@@ -1032,6 +1032,9 @@ static void automount_reset_failed(Unit *u) {
 
 static bool automount_supported(void) {
         static int supported = -1;
+
+        if (!unit_type_supported(UNIT_MOUNT))
+                return false;
 
         if (supported < 0)
                 supported = access("/dev/autofs", F_OK) >= 0;

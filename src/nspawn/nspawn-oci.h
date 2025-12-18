@@ -4,4 +4,4 @@
 #include "shared-forward.h"
 #include "nspawn-settings.h"
 
-int oci_load(FILE *f, const char *path, Settings **ret);
+int oci_load(FILE *f, const char *bundle, Settings **ret);

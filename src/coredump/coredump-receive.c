@@ -8,7 +8,6 @@
 #include "coredump-submit.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
-#include "fd-util.h"
 #include "log.h"
 #include "socket-util.h"
 

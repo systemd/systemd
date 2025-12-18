@@ -324,14 +324,14 @@ bool is_ascii(const char16_t *f) {
         return true;
 }
 
-char16_t **strv_free(char16_t **v) {
-        if (!v)
+char16_t **strv_free(char16_t **l) {
+        if (!l)
                 return NULL;
 
-        for (char16_t **i = v; *i; i++)
+        for (char16_t **i = l; *i; i++)
                 free(*i);
 
-        return mfree(v);
+        return mfree(l);
 }
 
 EFI_STATUS open_directory(

@@ -148,8 +148,8 @@ static inline unsigned DNS_PACKET_RRCOUNT(DnsPacket *p) {
                 (unsigned) DNS_PACKET_ARCOUNT(p);
 }
 
-int dns_packet_new(DnsPacket **p, DnsProtocol protocol, size_t min_alloc_dsize, size_t max_size);
-int dns_packet_new_query(DnsPacket **p, DnsProtocol protocol, size_t min_alloc_dsize, bool dnssec_checking_disabled);
+int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t min_alloc_dsize, size_t max_size);
+int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t min_alloc_dsize, bool dnssec_checking_disabled);
 
 int dns_packet_dup(DnsPacket **ret, DnsPacket *p);
 
@@ -174,16 +174,16 @@ int dns_packet_validate_query(DnsPacket *p);
 
 int dns_packet_is_reply_for(DnsPacket *p, const DnsResourceKey *key);
 
-int dns_packet_append_blob(DnsPacket *p, const void *d, size_t sz, size_t *start);
+int dns_packet_append_blob(DnsPacket *p, const void *d, size_t l, size_t *start);
 int dns_packet_append_uint8(DnsPacket *p, uint8_t v, size_t *start);
 int dns_packet_append_uint16(DnsPacket *p, uint16_t v, size_t *start);
 int dns_packet_append_uint32(DnsPacket *p, uint32_t v, size_t *start);
 int dns_packet_append_string(DnsPacket *p, const char *s, size_t *start);
 int dns_packet_append_raw_string(DnsPacket *p, const void *s, size_t size, size_t *start);
-int dns_packet_append_label(DnsPacket *p, const char *s, size_t l, bool canonical_candidate, size_t *start);
+int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, bool canonical_candidate, size_t *start);
 int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compression, bool canonical_candidate, size_t *start);
-int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, const DnsAnswerFlags flags, size_t *start);
-int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAnswerFlags flags, size_t *start, size_t *rdata_start);
+int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, DnsAnswerFlags flags, size_t *start);
+int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, DnsAnswerFlags flags, size_t *start, size_t *rdata_start);
 int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, bool include_rfc6975, const char *nsid, int rcode, size_t *ret_start);
 int dns_packet_append_question(DnsPacket *p, DnsQuestion *q);
 int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a, unsigned *completed);

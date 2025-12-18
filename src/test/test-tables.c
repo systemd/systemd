@@ -29,7 +29,7 @@
 #include "service.h"
 #include "show-status.h"
 #include "socket.h"
-#include "socket-util.h"
+#include "socket-label.h"
 #include "swap.h"
 #include "test-tables.h"
 #include "tests.h"

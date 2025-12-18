@@ -173,12 +173,12 @@ int ethtool_set_eee_settings(
                 uint32_t advertise);
 
 const char* duplex_to_string(Duplex d) _const_;
-Duplex duplex_from_string(const char *d) _pure_;
+Duplex duplex_from_string(const char *s) _pure_;
 
 int wol_options_to_string_alloc(uint32_t opts, char **ret);
 
 const char* port_to_string(NetDevPort port) _const_;
-NetDevPort port_from_string(const char *port) _pure_;
+NetDevPort port_from_string(const char *s) _pure_;
 
 const char* mdi_to_string(int mdi) _const_;
 

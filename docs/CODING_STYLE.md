@@ -67,6 +67,18 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   const char *foo(const char *input);
   ```
 
+- Casts should be written like this:
+
+  ```c
+  (const char*) s;
+  ```
+
+  instead of this:
+
+  ```c
+  (const char *)s;
+  ```
+
 - Single-line `if` blocks should not be enclosed in `{}`. Write this:
 
   ```c
@@ -583,8 +595,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   code. (With one exception: it is OK to log with DEBUG level from any code,
   with the exception of maybe inner loops).
 
-- In public API calls, you **must** validate all your input arguments for
-  programming error with `assert_return()` and return a sensible return
+- In libsystemd public API calls, you **must** validate all your input arguments
+  for programming error with `assert_return()` and return a sensible return
   code. In all other calls, it is recommended to check for programming errors
   with a more brutal `assert()`. We are more forgiving to public users than for
   ourselves! Note that `assert()` and `assert_return()` really only should be
@@ -982,5 +994,14 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   macro exists for your specific use case, please add a new assertion macro in a
   separate commit.
 
+- Use `ASSERT_OK_ERRNO()` and similar macros instead of `ASSERT_OK()` when
+  calling glibc APIs that return the error in `errno`.
+
 - When modifying existing tests, please convert the test to use the new assertion
   macros from `tests.h` if it is not already using those.
+
+## Integration Tests
+
+- Never use `grep -q` in a pipeline, use `grep >/dev/null` instead. The former
+  will generate `SIGPIPE` for the previous command in the pipeline when it finds
+  a match which will cause the test to fail unexpectedly.

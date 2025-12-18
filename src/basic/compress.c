@@ -1029,7 +1029,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 #endif
 }
 
-int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
+int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
 #if HAVE_LZ4
         size_t c;
         _cleanup_(LZ4F_freeDecompressionContextp) LZ4F_decompressionContext_t ctx = NULL;
@@ -1047,7 +1047,7 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
         if (sym_LZ4F_isError(c))
                 return -ENOMEM;
 
-        if (fstat(in, &st) < 0)
+        if (fstat(fdf, &st) < 0)
                 return log_debug_errno(errno, "fstat() failed: %m");
 
         if (file_offset_beyond_memory_size(st.st_size))
@@ -1057,7 +1057,7 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
         if (!buf)
                 return -ENOMEM;
 
-        src = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, in, 0);
+        src = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fdf, 0);
         if (src == MAP_FAILED)
                 return -errno;
 
@@ -1080,7 +1080,7 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
                         goto cleanup;
                 }
 
-                r = loop_write(out, buf, produced);
+                r = loop_write(fdt, buf, produced);
                 if (r < 0)
                         goto cleanup;
         }

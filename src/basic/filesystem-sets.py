@@ -56,6 +56,7 @@ NAME_TO_MAGIC = {
     # gfs is an old version of gfs2 and reuses the magic
     'gfs':             ['GFS2_MAGIC'],
     'gfs2':            ['GFS2_MAGIC'],
+    'gmem':            ['GUEST_MEMFD_MAGIC'],
     'hostfs':          ['HOSTFS_SUPER_MAGIC'],
     'hpfs':            ['HPFS_SUPER_MAGIC'],
     'hugetlbfs':       ['HUGETLBFS_MAGIC'],

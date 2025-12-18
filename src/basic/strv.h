@@ -155,12 +155,14 @@ static inline void strv_print(char * const *l) {
         strv_print_full(l, NULL);
 }
 
-char* startswith_strv(const char *s, char * const *l);
+char* startswith_strv_internal(const char *s, char * const *l);
+#define startswith_strv(s, l) const_generic(s, startswith_strv_internal(s, l))
 
 #define STARTSWITH_SET(p, ...)                                  \
         startswith_strv(p, STRV_MAKE(__VA_ARGS__))
 
-char* endswith_strv(const char *s, char * const *l);
+char* endswith_strv_internal(const char *s, char * const *l);
+#define endswith_strv(s, l) const_generic(s, endswith_strv_internal(s, l))
 
 #define ENDSWITH_SET(p, ...)                                    \
         endswith_strv(p, STRV_MAKE(__VA_ARGS__))

@@ -33,7 +33,7 @@
     file descriptors for the file systems contained therein to clients, via a Varlink IPC API.</para>
 
     <para>The disk images provided must contain a raw file system image or must follow the <ulink
-    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification/">Discoverable
+    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification/">UAPI.2 Discoverable
     Partitions Specification</ulink>. Before mounting any file systems authenticity of the disk image is
     established in one or a combination of the following ways:</para>
 

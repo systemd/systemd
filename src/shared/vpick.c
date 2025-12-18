@@ -343,7 +343,7 @@ static int make_choice(
                 unsigned found_tries_done = UINT_MAX, found_tries_left = UINT_MAX;
                 _cleanup_free_ char *dname = NULL;
                 size_t found_architecture_index = SIZE_MAX;
-                const char *e;
+                char *e;
 
                 dname = strdup((*entry)->d_name);
                 if (!dname)

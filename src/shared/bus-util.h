@@ -35,8 +35,8 @@ int bus_connect_user_systemd(sd_bus **ret);
 int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret);
 int bus_connect_capsule_bus(const char *capsule, sd_bus **ret);
 
-int bus_connect_transport(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **bus);
-int bus_connect_transport_systemd(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **bus);
+int bus_connect_transport(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **ret);
+int bus_connect_transport_systemd(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **ret);
 
 int bus_log_address_error(int r, BusTransport transport);
 int bus_log_connect_full(int log_level, int r, BusTransport transport, RuntimeScope scope);

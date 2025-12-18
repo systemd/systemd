@@ -761,7 +761,7 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
         assert(link->network);
         assert(link->network->dhcp_server_address);
 
-        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return false;
 
         if (!link_has_carrier(link))
@@ -832,7 +832,6 @@ int config_parse_dhcp_server_relay_agent_suboption(
                 void *userdata) {
 
         char **suboption_value = data;
-        char* p;
 
         assert(filename);
         assert(lvalue);
@@ -843,7 +842,7 @@ int config_parse_dhcp_server_relay_agent_suboption(
                 return 0;
         }
 
-        p = startswith(rvalue, "string:");
+        const char *p = startswith(rvalue, "string:");
         if (!p) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse %s=%s'. Invalid format, ignoring.", lvalue, rvalue);

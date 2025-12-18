@@ -12,7 +12,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "io-util.h"
-#include "udev-util.h"
 
 /**
  * SECTION:libudev-queue
@@ -62,6 +61,11 @@ static struct udev_queue* udev_queue_free(struct udev_queue *udev_queue) {
 
         safe_close(udev_queue->fd);
         return mfree(udev_queue);
+}
+
+static int udev_queue_is_empty(void) {
+        return access("/run/udev/queue", F_OK) < 0 ?
+                (errno == ENOENT ? true : -errno) : false;
 }
 
 /**

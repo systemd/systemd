@@ -15,7 +15,7 @@ executables += [
         executable_template + {
                 'name' : 'systemd-tmpfiles',
                 'public' : true,
-                'sources' : systemd_tmpfiles_sources + systemd_tmpfiles_extract_sources,
+                'sources' : systemd_tmpfiles_sources,
                 'extract' : systemd_tmpfiles_extract_sources,
                 'dependencies' : libacl_cflags,
         },

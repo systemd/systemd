@@ -73,7 +73,7 @@ typedef struct Condition {
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate);
 Condition* condition_free(Condition *c);
-Condition* condition_free_list_type(Condition *first, ConditionType type);
+Condition* condition_free_list_type(Condition *head, ConditionType type);
 static inline Condition* condition_free_list(Condition *first) {
         return condition_free_list_type(first, _CONDITION_TYPE_INVALID);
 }
@@ -85,7 +85,7 @@ typedef const char* (*condition_to_string_t)(ConditionType t) _const_;
 bool condition_test_list(Condition *first, char **env, condition_to_string_t to_string, condition_test_logger_t logger, void *userdata);
 
 void condition_dump(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string);
-void condition_dump_list(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string);
+void condition_dump_list(Condition *first, FILE *f, const char *prefix, condition_to_string_t to_string);
 
 const char* condition_type_to_string(ConditionType t) _const_;
 ConditionType condition_type_from_string(const char *s) _pure_;

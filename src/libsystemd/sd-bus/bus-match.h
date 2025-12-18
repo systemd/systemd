@@ -77,7 +77,7 @@ typedef enum BusMatchScope {
         BUS_MATCH_DRIVER,
 } BusMatchScope;
 
-int bus_match_run(sd_bus *bus, BusMatchNode *root, sd_bus_message *m);
+int bus_match_run(sd_bus *bus, BusMatchNode *node, sd_bus_message *m);
 
 int bus_match_add(BusMatchNode *root, BusMatchComponent *components, size_t n_components, BusMatchCallback *callback);
 int bus_match_remove(BusMatchNode *root, BusMatchCallback *callback);

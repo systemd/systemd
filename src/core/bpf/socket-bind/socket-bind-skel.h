@@ -7,11 +7,11 @@
  * fine given that LGPL-2.1-or-later downgrades to GPL if needed.
  */
 
-#include "bpf-dlopen.h"
+#include "bpf-dlopen.h"                                 /* IWYU pragma: keep */
 
 /* libbpf is used via dlopen(), so rename symbols */
 #define bpf_object__open_skeleton sym_bpf_object__open_skeleton
 #define bpf_object__load_skeleton sym_bpf_object__load_skeleton
 #define bpf_object__destroy_skeleton sym_bpf_object__destroy_skeleton
 
-#include "bpf/socket-bind/socket-bind.skel.h"
+#include "bpf/socket-bind/socket-bind.skel.h"           /* IWYU pragma: export */

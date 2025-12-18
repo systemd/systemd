@@ -48,7 +48,7 @@ executables += [
         executable_template + {
                 'name' : 'systemd-analyze',
                 'public' : conf.get('ENABLE_ANALYZE') == 1,
-                'sources' : systemd_analyze_sources + systemd_analyze_extract_sources,
+                'sources' : systemd_analyze_sources,
                 'extract' : systemd_analyze_extract_sources,
                 'include_directories' : core_includes,
                 'link_with' : [

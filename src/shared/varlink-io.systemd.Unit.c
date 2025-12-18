@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "build.h"
 #include "varlink-idl-common.h"
-#include "varlink-io.systemd.Unit.h"
 
 /* CGroupContext */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(

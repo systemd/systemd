@@ -22,7 +22,7 @@ int parse_errno(const char *t);
 int parse_fd(const char *t);
 int parse_user_shell(const char *s, char **ret_sh, bool *ret_copy);
 
-int parse_capability_set(const char *s, uint64_t initial, uint64_t *capability_set);
+int parse_capability_set(const char *s, uint64_t initial, uint64_t *current);
 
 #define SAFE_ATO_REFUSE_PLUS_MINUS (1U << 30)
 #define SAFE_ATO_REFUSE_LEADING_ZERO (1U << 29)
@@ -38,7 +38,7 @@ static inline int safe_atou(const char *s, unsigned *ret_u) {
 int safe_atou_bounded(const char *s, unsigned min, unsigned max, unsigned *ret);
 
 int safe_atoi(const char *s, int *ret_i);
-int safe_atolli(const char *s, long long *ret_i);
+int safe_atolli(const char *s, long long *ret_lli);
 
 int safe_atou8_full(const char *s, unsigned base, uint8_t *ret);
 
@@ -131,9 +131,9 @@ static inline int safe_atozu(const char *s, size_t *ret_u) {
 
 int safe_atod(const char *s, double *ret_d);
 
-int parse_fractional_part_u(const char **s, size_t digits, unsigned *res);
+int parse_fractional_part_u(const char **p, size_t digits, unsigned *res);
 
-int parse_nice(const char *p, int *ret);
+int parse_nice(const char *s, int *ret);
 
 int parse_ip_port(const char *s, uint16_t *ret);
 int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high, bool allow_zero);

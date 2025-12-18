@@ -10,7 +10,6 @@
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "memstream-util.h"
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
@@ -156,14 +155,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SIGNATURE:
-                        r = parse_path_argument(optarg, /*suppress_root=*/ false, &arg_signature);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_signature);
                         if (r < 0)
                                 return r;
 
                         break;
 
                 case ARG_CONTENT:
-                        r = parse_path_argument(optarg, /*suppress_root=*/ false, &arg_content);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_content);
                         if (r < 0)
                                 return r;
 
@@ -174,7 +173,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_OUTPUT:
-                        r = parse_path_argument(optarg, /*suppress_root=*/ false, &arg_output);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_output);
                         if (r < 0)
                                 return r;
 
@@ -208,7 +207,7 @@ static int verb_validate(int argc, char *argv[], void *userdata) {
                                        "No private key specified, use --private-key=.");
 
         if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                 if (r < 0)
                         return r;
         }
@@ -256,7 +255,7 @@ static int verb_public(int argc, char *argv[], void *userdata) {
                 _cleanup_(X509_freep) X509 *certificate = NULL;
 
                 if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                        r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                         if (r < 0)
                                 return r;
                 }
@@ -303,21 +302,9 @@ static int verb_public(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
 
-                _cleanup_(memstream_done) MemStream m = {};
-                FILE *tf = memstream_init(&m);
-                if (!tf)
-                        return log_oom();
-
-                if (i2d_PUBKEY_fp(tf, private_key) != 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to extract public key from private key file '%s'.", arg_private_key);
-
-                fflush(tf);
-                rewind(tf);
-
-                if (!d2i_PUBKEY_fp(tf, &public_key))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to parse extracted public key of private key file '%s'.", arg_private_key);
+                r = openssl_extract_public_key(private_key, &public_key);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract public key from private key file '%s': %m", arg_private_key);
         } else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "One of --certificate=, or --private-key= must be specified");
 
@@ -343,7 +330,7 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--output= must be specified");
 
         if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                 if (r < 0)
                         return r;
         }

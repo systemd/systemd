@@ -5,6 +5,6 @@ DefaultDependencies=no
 
 [Service]
 ExecStart=+touch /tmp/test-exec_privatetmp_disconnected
-ExecStart=+sh -x -c 'test x$$TMPDIR = x'
+ExecStart=+bash -x -c 'test x$$TMPDIR = x'
 Type=oneshot
 PrivateTmp=disconnected

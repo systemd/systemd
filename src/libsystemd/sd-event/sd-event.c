@@ -3026,13 +3026,13 @@ static int event_source_online(
         return 1;
 }
 
-_public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
+_public_ int sd_event_source_set_enabled(sd_event_source *s, int enabled) {
         int r;
 
-        assert_return(IN_SET(m, SD_EVENT_OFF, SD_EVENT_ON, SD_EVENT_ONESHOT), -EINVAL);
+        assert_return(IN_SET(enabled, SD_EVENT_OFF, SD_EVENT_ON, SD_EVENT_ONESHOT), -EINVAL);
 
         /* Quick mode: if the source doesn't exist, SD_EVENT_OFF is a noop. */
-        if (m == SD_EVENT_OFF && !s)
+        if (enabled == SD_EVENT_OFF && !s)
                 return 0;
 
         assert_return(s, -EINVAL);
@@ -3040,15 +3040,15 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
 
         /* If we are dead anyway, we are fine with turning off sources, but everything else needs to fail. */
         if (s->event->state == SD_EVENT_FINISHED)
-                return m == SD_EVENT_OFF ? 0 : -ESTALE;
+                return enabled == SD_EVENT_OFF ? 0 : -ESTALE;
 
-        if (s->enabled == m) /* No change? */
+        if (s->enabled == enabled) /* No change? */
                 return 0;
 
-        if (m == SD_EVENT_OFF)
-                r = event_source_offline(s, m, s->ratelimited);
+        if (enabled == SD_EVENT_OFF)
+                r = event_source_offline(s, enabled, s->ratelimited);
         else
-                r = event_source_online(s, m, s->ratelimited);
+                r = event_source_online(s, enabled, s->ratelimited);
         if (r < 0)
                 return r;
 
@@ -3620,7 +3620,7 @@ static int process_timer(
                          * again. */
                         assert(s->ratelimited);
 
-                        r = event_source_leave_ratelimit(s, /* run_callback = */ true);
+                        r = event_source_leave_ratelimit(s, /* run_callback= */ true);
                         if (r < 0)
                                 return r;
                         else if (r == 1)
@@ -5151,7 +5151,7 @@ _public_ int sd_event_source_set_ratelimit(sd_event_source *s, uint64_t interval
 
         /* When ratelimiting is configured we'll always reset the rate limit state first and start fresh,
          * non-ratelimited. */
-        r = event_source_leave_ratelimit(s, /* run_callback = */ false);
+        r = event_source_leave_ratelimit(s, /* run_callback= */ false);
         if (r < 0)
                 return r;
 
@@ -5214,7 +5214,7 @@ _public_ int sd_event_source_leave_ratelimit(sd_event_source *s) {
         if (!s->ratelimited)
                 return 0;
 
-        r = event_source_leave_ratelimit(s, /* run_callback = */ false);
+        r = event_source_leave_ratelimit(s, /* run_callback= */ false);
         if (r < 0)
                 return r;
 
@@ -5311,7 +5311,7 @@ _public_ int sd_event_source_set_memory_pressure_type(sd_event_source *s, const 
         if (!space)
                 return -EINVAL;
 
-        size_t l = (char*) space - (char*) s->memory_pressure.write_buffer;
+        size_t l = space - (char*) s->memory_pressure.write_buffer;
         b = memdup_suffix0(s->memory_pressure.write_buffer, l);
         if (!b)
                 return -ENOMEM;
@@ -5357,7 +5357,7 @@ _public_ int sd_event_source_set_memory_pressure_period(sd_event_source *s, uint
         if (!space)
                 return -EINVAL;
 
-        size_t l = (char*) space - (char*) s->memory_pressure.write_buffer;
+        size_t l = space - (char*) s->memory_pressure.write_buffer;
         b = memdup_suffix0(s->memory_pressure.write_buffer, l);
         if (!b)
                 return -ENOMEM;

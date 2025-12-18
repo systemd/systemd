@@ -2,24 +2,24 @@
 #
 # Czech translation for systemd.
 #
-# Daniel Rusek <mail@asciiwolf.com>, 2022, 2023.
-# Pavel Borecki <pavel.borecki@gmail.com>, 2023, 2024.
+# Daniel Rusek <mail@asciiwolf.com>, 2022, 2023, 2025.
+# Pavel Borecki <pavel.borecki@gmail.com>, 2023, 2024, 2025.
 # Jan Kalabza <jan.kalabza@gmail.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-17 08:58+0000\n"
-"PO-Revision-Date: 2025-02-10 02:01+0000\n"
-"Last-Translator: Jan Kalabza <jan.kalabza@gmail.com>\n"
+"POT-Creation-Date: 2025-11-26 01:17+0000\n"
+"PO-Revision-Date: 2025-12-05 15:00+0000\n"
+"Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
 "Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
 "main/cs/>\n"
 "Language: cs\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
-"|| n%100>=20) ? 1 : 2);\n"
-"X-Generator: Weblate 5.9.2\n"
+"Plural-Forms: nplurals=3; plural="
+"(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -120,7 +120,7 @@ msgstr "Aktualizujte svůj domovský adresář"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to update your home area."
-msgstr "Pro aktualizaci domovské adresáře je nutné ověření."
+msgstr "Pro aktualizaci domovské adresáře je vyžadováno ověření."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -146,19 +146,18 @@ msgstr "Aktivovat domovskou složku"
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
-msgstr "K aktivaci domovského adresáře uživatele je nutné ověření."
+msgstr "K aktivaci domovského adresáře uživatele je vyžadováno ověření."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Spravovat klíče pro podepisování domovské složky"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
-"Pro správu systémových služeb nebo dalších jednotek je vyžadováno ověření."
+"Pro správu klíčů pro podepisování domovských složek je vyžadováno ověření."
 
-#: src/home/pam_systemd_home.c:334
+#: src/home/pam_systemd_home.c:333
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -167,30 +166,30 @@ msgstr ""
 "Domovská složka uživatele %s v tuto chvíli není dostupná, připojte prosím "
 "potřebné úložné zařízení nebo záložní souborový systém."
 
-#: src/home/pam_systemd_home.c:339
+#: src/home/pam_systemd_home.c:338
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "Příliš časté pokusy o přihlášení uživatele %s, zkuste to znovu později."
 
-#: src/home/pam_systemd_home.c:351
+#: src/home/pam_systemd_home.c:350
 msgid "Password: "
 msgstr "Heslo: "
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:352
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "Neplatné heslo nebo nedostačující pro ověření se uživatele %s."
 
-#: src/home/pam_systemd_home.c:354
+#: src/home/pam_systemd_home.c:353
 msgid "Sorry, try again: "
 msgstr "Je nám líto, zkuste znovu: "
 
-#: src/home/pam_systemd_home.c:376
+#: src/home/pam_systemd_home.c:375
 msgid "Recovery key: "
 msgstr "Obnovovací klíč: "
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:377
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -199,20 +198,20 @@ msgstr ""
 "Heslo/obnovovací klíč jsou nesprávné nebo nedostatečné pro ověření uživatele "
 "%s."
 
-#: src/home/pam_systemd_home.c:379
+#: src/home/pam_systemd_home.c:378
 msgid "Sorry, reenter recovery key: "
 msgstr "Je nám líto, zadejte obnovovací klíč znovu: "
 
-#: src/home/pam_systemd_home.c:399
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Bezpečnostní token uživatele %s není vložen."
 
-#: src/home/pam_systemd_home.c:400 src/home/pam_systemd_home.c:403
+#: src/home/pam_systemd_home.c:399 src/home/pam_systemd_home.c:402
 msgid "Try again with password: "
 msgstr "Zkuste znovu s heslem: "
 
-#: src/home/pam_systemd_home.c:402
+#: src/home/pam_systemd_home.c:401
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -221,26 +220,26 @@ msgstr ""
 "Nesprávné nebo nedostatečné heslo a není vložen nakonfigurovaný bezpečnostní "
 "token uživatele %s."
 
-#: src/home/pam_systemd_home.c:422
+#: src/home/pam_systemd_home.c:421
 msgid "Security token PIN: "
 msgstr "PIN bezpečnostního tokenu: "
 
-#: src/home/pam_systemd_home.c:439
+#: src/home/pam_systemd_home.c:438
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "Ověřte se prosím fyzicky na bezpečnostním tokenu uživatele %s."
 
-#: src/home/pam_systemd_home.c:450
+#: src/home/pam_systemd_home.c:449
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Potvrďte prosím přítomnost na bezpečnostním tokenu uživatele %s."
 
-#: src/home/pam_systemd_home.c:461
+#: src/home/pam_systemd_home.c:460
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Ověřte prosím uživatele na bezpečnostním tokenu uživatele %s."
 
-#: src/home/pam_systemd_home.c:470
+#: src/home/pam_systemd_home.c:469
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -248,86 +247,86 @@ msgstr ""
 "PIN bezpečnostního tokenu je uzamčen, nejprve jej prosím odemkněte. (Tip: "
 "Vyjmutí a opětovné vložení může stačit.)"
 
-#: src/home/pam_systemd_home.c:478
+#: src/home/pam_systemd_home.c:477
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "Nesprávný PIN bezpečnostního tokenu pro uživatele %s."
 
-#: src/home/pam_systemd_home.c:479 src/home/pam_systemd_home.c:498
-#: src/home/pam_systemd_home.c:517
+#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:516
 msgid "Sorry, retry security token PIN: "
 msgstr "Je nám líto, zkuste PIN bezpečnostního tokenu znovu: "
 
-#: src/home/pam_systemd_home.c:497
+#: src/home/pam_systemd_home.c:496
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "PIN bezpečnostního tokenu uživatele %s je nesprávný (zbývá jen několik "
 "pokusů!)"
 
-#: src/home/pam_systemd_home.c:516
+#: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "PIN bezpečnostního tokenu uživatele %s je nesprávný (zbývá pouze jeden "
 "pokus!)"
 
-#: src/home/pam_systemd_home.c:683
+#: src/home/pam_systemd_home.c:682
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "Domovská složka uživatele %s v tuto chvíli není aktivní – nejprve se "
 "přihlaste lokálně."
 
-#: src/home/pam_systemd_home.c:685
+#: src/home/pam_systemd_home.c:684
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "Domovská složka uživatele %s je v tuto chvíli uzamčená – nejprve lokálně "
 "odemkněte."
 
-#: src/home/pam_systemd_home.c:717
+#: src/home/pam_systemd_home.c:718
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "Příliš mnoho neúspěšných pokusů o přihlášení uživatele %s, proto odmítnuto."
 
-#: src/home/pam_systemd_home.c:1016
+#: src/home/pam_systemd_home.c:1017
 msgid "User record is blocked, prohibiting access."
 msgstr "Záznam uživatele je blokován, přístup proto zamezen."
 
-#: src/home/pam_systemd_home.c:1020
+#: src/home/pam_systemd_home.c:1021
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Záznam uživatele ještě není platný, přístup proto zamezen."
 
-#: src/home/pam_systemd_home.c:1024
+#: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Záznam uživatele již není platný, přístup proto zamezen."
 
-#: src/home/pam_systemd_home.c:1029 src/home/pam_systemd_home.c:1078
+#: src/home/pam_systemd_home.c:1030 src/home/pam_systemd_home.c:1079
 msgid "User record not valid, prohibiting access."
 msgstr "Záznam uživatele neplatný, přístup proto zamezen."
 
-#: src/home/pam_systemd_home.c:1039
+#: src/home/pam_systemd_home.c:1040
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Příliš mnoho přihlášení, zkuste znovu za %s."
 
-#: src/home/pam_systemd_home.c:1050
+#: src/home/pam_systemd_home.c:1051
 msgid "Password change required."
 msgstr "Je vyžadována změna hesla."
 
-#: src/home/pam_systemd_home.c:1054
+#: src/home/pam_systemd_home.c:1055
 msgid "Password expired, change required."
 msgstr "Platnost hesla skončila, je zapotřebí ho změnit."
 
-#: src/home/pam_systemd_home.c:1060
+#: src/home/pam_systemd_home.c:1061
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Platnost hesla skončila, ale není možné ho změnit – přihlášení proto "
 "odmítnuto."
 
-#: src/home/pam_systemd_home.c:1064
+#: src/home/pam_systemd_home.c:1065
 msgid "Password will expire soon, please change."
 msgstr "Platnost hesla brzy skončí – změňte si ho."
 
@@ -389,7 +388,7 @@ msgstr "Import obrazu disku"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import an image."
-msgstr "Pro import obrazu je nutné ověření."
+msgstr "Pro import obrazu je vyžadováno ověření."
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
@@ -414,7 +413,7 @@ msgstr "Zrušit přenos obrazu disku"
 #: src/import/org.freedesktop.import1.policy:53
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
-msgstr "Pro zrušení probíhajícího přenosu obrazu disku je nutné ověření."
+msgstr "Pro zrušení probíhajícího přenosu obrazu disku je vyžadováno ověření."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -802,7 +801,7 @@ msgstr "Nastavit zprávu všem uživatelům"
 
 #: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message."
-msgstr "Pro nastavení zprávy na zdi je nutné ověření."
+msgstr "Pro nastavení zprávy na zdi je vyžadováno ověření."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -879,19 +878,19 @@ msgstr "Vytvoření místního virtuálního počítače nebo kontejneru"
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr ""
-"K vytvoření místního virtuálního počítače nebo kontejneru je nutné ověření."
+"K vytvoření místního virtuálního počítače nebo kontejneru je vyžadováno "
+"ověření."
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
 msgid "Register a local virtual machine or container"
-msgstr "Vytvoření místního virtuálního počítače nebo kontejneru"
+msgstr "Zaregistrovat lokální virtuální stroj nebo kontejner"
 
 #: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
-"K vytvoření místního virtuálního počítače nebo kontejneru je nutné ověření."
+"K zaregistrování lokálního virtuálního stroje nebo kontejneru je vyžadováno "
+"ověření."
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
@@ -1050,8 +1049,8 @@ msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
-"Ověření je nutné k určení, zda je k dispozici trvalé úložiště pro systemd-"
-"networkd."
+"K určení, zda je k dispozici trvalé úložiště pro systemd-networkd je "
+"vyžadováno ověření."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1087,7 +1086,7 @@ msgstr "Registrovat službu DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 msgid "Authentication is required to register a DNS-SD service."
-msgstr "Pro registraci služby DNS-SD je nutné ověření."
+msgstr "Pro registraci služby DNS-SD je vyžadováno ověření."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
@@ -1115,12 +1114,11 @@ msgstr "Pro přihlášení k odběru výsledků dotazu je vyžadováno ověřen�
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "Přihlásit se k odběru nastavení DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "Pro přihlášení k odběru výsledků dotazu je vyžadováno ověření."
+msgstr "Pro přihlášení k odběru nastavení DNS je vyžadováno ověření."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1152,7 +1150,7 @@ msgstr "Obnovit statistiky"
 
 #: src/resolve/org.freedesktop.resolve1.policy:199
 msgid "Authentication is required to reset statistics."
-msgstr "Pro resetování statistik je nutné ověření."
+msgstr "Pro resetování statistik je vyžadováno ověření."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
@@ -1188,7 +1186,7 @@ msgstr "Vyčištění starých aktualizací systému"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
 msgid "Authentication is required to cleanup old system updates."
-msgstr "K vyčištění starých aktualizací systému je nutné ověření."
+msgstr "K vyčištění starých aktualizací systému je vyžadováno ověření."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
@@ -1259,11 +1257,12 @@ msgid ""
 msgstr "Pro odeslání UNIX signálu procesům „$(unit)” je vyžadováno ověření."
 
 #: src/core/dbus-unit.c:620
-#, fuzzy
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "Pro odeslání UNIX signálu procesům „$(unit)” je vyžadováno ověření."
+msgstr ""
+"Pro odeslání UNIX signálu procesům nebo podskupině „$(unit)” je vyžadováno "
+"ověření."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."

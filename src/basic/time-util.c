@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
-#include <sys/mman.h>
 #include <sys/timerfd.h>
 #include <threads.h>
 #include <unistd.h>
@@ -10,15 +9,14 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
+#include "hexdecoct.h"          /* IWYU pragma: keep */
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "hexdecoct.h"
 #include "io-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -1062,31 +1060,31 @@ int parse_timestamp(const char *t, usec_t *ret) {
         size_t t_len = strlen(t);
         if (t_len > 2 && t[t_len - 1] == 'Z') {
                 /* Try to parse as RFC3339-style welded UTC: "1985-04-12T23:20:50.52Z" */
-                r = parse_timestamp_impl(t, t_len - 1, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+                r = parse_timestamp_impl(t, t_len - 1, /* utc= */ true, /* isdst= */ -1, /* gmtoff= */ 0, ret);
                 if (r >= 0)
                         return r;
         }
 
         /* RFC3339-style welded offset: "1990-12-31T15:59:60-08:00" */
         if (t_len > 7 && IN_SET(t[t_len - 6], '+', '-') && t[t_len - 7] != ' ' && parse_gmtoff(&t[t_len - 6], &gmtoff) >= 0)
-                return parse_timestamp_impl(t, t_len - 6, /* utc = */ true, /* isdst = */ -1, gmtoff, ret);
+                return parse_timestamp_impl(t, t_len - 6, /* utc= */ true, /* isdst= */ -1, gmtoff, ret);
 
         const char *tz = strrchr(t, ' ');
         if (!tz)
-                return parse_timestamp_impl(t, /* max_len = */ SIZE_MAX, /* utc = */ false, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+                return parse_timestamp_impl(t, /* max_len= */ SIZE_MAX, /* utc= */ false, /* isdst= */ -1, /* gmtoff= */ 0, ret);
 
         size_t max_len = tz - t;
         tz++;
 
         /* Shortcut, parse the string as UTC. */
         if (streq(tz, "UTC"))
-                return parse_timestamp_impl(t, max_len, /* utc = */ true, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+                return parse_timestamp_impl(t, max_len, /* utc= */ true, /* isdst= */ -1, /* gmtoff= */ 0, ret);
 
         /* If the timezone is compatible with RFC-822/ISO 8601 (e.g. +06, or -03:00) then parse the string as
          * UTC and shift the result. Note, this must be earlier than the timezone check with tzname[], as
          * tzname[] may be in the same format. */
         if (parse_gmtoff(tz, &gmtoff) >= 0)
-                return parse_timestamp_impl(t, max_len, /* utc = */ true, /* isdst = */ -1, gmtoff, ret);
+                return parse_timestamp_impl(t, max_len, /* utc= */ true, /* isdst= */ -1, gmtoff, ret);
 
         /* Check if the last word matches tzname[] of the local timezone. Note, this must be done earlier
          * than the check by timezone_is_valid() below, as some short timezone specifications have their own
@@ -1098,7 +1096,7 @@ int parse_timestamp(const char *t, usec_t *ret) {
                         continue;
 
                 /* The specified timezone matches tzname[] of the local timezone. */
-                return parse_timestamp_impl(t, max_len, /* utc = */ false, /* isdst = */ j, /* gmtoff = */ 0, ret);
+                return parse_timestamp_impl(t, max_len, /* utc= */ false, /* isdst= */ j, /* gmtoff= */ 0, ret);
         }
 
         /* If the last word is a valid timezone file (e.g. Asia/Tokyo), then save the current timezone, apply
@@ -1106,15 +1104,15 @@ int parse_timestamp(const char *t, usec_t *ret) {
         if (timezone_is_valid(tz, LOG_DEBUG)) {
                 SAVE_TIMEZONE;
 
-                if (setenv("TZ", tz, /* overwrite = */ true) < 0)
+                if (setenv("TZ", tz, /* overwrite= */ true) < 0)
                         return negative_errno();
 
-                return parse_timestamp_impl(t, max_len, /* utc = */ false, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+                return parse_timestamp_impl(t, max_len, /* utc= */ false, /* isdst= */ -1, /* gmtoff= */ 0, ret);
         }
 
         /* Otherwise, assume that the last word is a part of the time and try to parse the whole string as a
          * local time. */
-        return parse_timestamp_impl(t, SIZE_MAX, /* utc = */ false, /* isdst = */ -1, /* gmtoff = */ 0, ret);
+        return parse_timestamp_impl(t, SIZE_MAX, /* utc= */ false, /* isdst= */ -1, /* gmtoff= */ 0, ret);
 }
 
 static const char* extract_multiplier(const char *p, usec_t *ret) {
@@ -1158,9 +1156,7 @@ static const char* extract_multiplier(const char *p, usec_t *ret) {
         assert(ret);
 
         FOREACH_ELEMENT(i, table) {
-                char *e;
-
-                e = startswith(p, i->suffix);
+                const char *e = startswith(p, i->suffix);
                 if (e) {
                         *ret = i->usec;
                         return e;
@@ -1176,7 +1172,7 @@ int parse_time(const char *t, usec_t *ret, usec_t default_unit) {
         assert(t);
         assert(default_unit > 0);
 
-        p = skip_leading_chars(t, /* bad = */ NULL);
+        p = skip_leading_chars(t, /* bad= */ NULL);
         s = startswith(p, "infinity");
         if (s) {
                 if (!in_charset(s, WHITESPACE))
@@ -1194,7 +1190,7 @@ int parse_time(const char *t, usec_t *ret, usec_t default_unit) {
                 long long l;
                 char *e;
 
-                p = skip_leading_chars(p, /* bad = */ NULL);
+                p = skip_leading_chars(p, /* bad= */ NULL);
                 if (*p == 0) {
                         if (!something)
                                 return -EINVAL;
@@ -1336,9 +1332,7 @@ static const char* extract_nsec_multiplier(const char *p, nsec_t *ret) {
         assert(ret);
 
         FOREACH_ELEMENT(i, table) {
-                char *e;
-
-                e = startswith(p, i->suffix);
+                const char *e = startswith(p, i->suffix);
                 if (e) {
                         *ret = i->nsec;
                         return e;
@@ -1634,7 +1628,7 @@ int verify_timezone(const char *name, int log_level) {
 void reset_timezonep(char **p) {
         assert(p);
 
-        (void) set_unset_env("TZ", *p, /* overwrite = */ true);
+        (void) set_unset_env("TZ", *p, /* overwrite= */ true);
         tzset();
         *p = mfree(*p);
 }
@@ -1806,8 +1800,6 @@ int time_change_fd(void) {
         };
 
         _cleanup_close_ int fd = -EBADF;
-
-        assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
 
         /* Uses TFD_TIMER_CANCEL_ON_SET to get notifications whenever CLOCK_REALTIME makes a jump relative to
          * CLOCK_MONOTONIC. */

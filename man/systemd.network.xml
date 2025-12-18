@@ -747,6 +747,9 @@ DuplicateAddressDetection=none</programlisting></para>
           This is a short-hand for a [Route] section only containing a <varname>Gateway=</varname> key.
           This option may be specified more than once.</para>
 
+          <para>If an empty string is specified, then the all previous assignments in both [Network] and
+          [Route] sections are cleared.</para>
+
           <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
@@ -6454,7 +6457,7 @@ Gateway=192.168.0.1</programlisting>
     <example>
       <title>DHCP on ethernet links</title>
 
-      <programlisting># /etc/systemd/network/80-dhcp.network
+      <programlisting># /etc/systemd/network/60-dhcp.network
 [Match]
 Name=en*
 

@@ -514,7 +514,7 @@ static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
 
 usec_t manager_default_timeout(RuntimeScope scope);
 
-int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager **m);
+int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager **ret);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
@@ -538,14 +538,14 @@ int manager_add_job_full(
                 JobMode mode,
                 TransactionAddFlags extra_flags,
                 Set *affected_jobs,
-                sd_bus_error *error,
+                sd_bus_error *reterr_error,
                 Job **ret);
 int manager_add_job(
                 Manager *m,
                 JobType type,
                 Unit *unit,
                 JobMode mode,
-                sd_bus_error *error,
+                sd_bus_error *reterr_error,
                 Job **ret);
 
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret);

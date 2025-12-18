@@ -203,7 +203,7 @@ can_do_rootless_nspawn() {
     # Need to have bpf-lsm
     grep -q bpf /sys/kernel/security/lsm &&
     # ...and libbpf installed
-    find /usr/lib* -name "libbpf.so.*" 2>/dev/null | grep -q . &&
+    find /usr/lib* -name "libbpf.so.*" 2>/dev/null | grep . >/dev/null &&
 
     # Ensure mountfsd/nsresourced are listening
     systemctl start systemd-mountfsd.socket systemd-nsresourced.socket &&
@@ -222,7 +222,7 @@ can_do_rootless_nspawn() {
            io.systemd.NamespaceResource.AllocateUserRange \
            '{"name":"test-supported","size":65536,"userNamespaceFileDescriptor":0}' \
            2>&1 || true) |
-        grep -q "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"
+        grep "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported" >/dev/null
 }
 
 # Bump the reboot counter and call systemctl with the given arguments
@@ -453,3 +453,42 @@ generate_locale() {
         locale-gen "$locale"
     fi
 }
+
+built_with_musl() (
+    set +ex
+    ! systemd-analyze --quiet condition 'ConditionVersion=glibc $= ?*'
+)
+
+check_nss_module() (
+    set +e
+
+    local name="${1:?}"
+    local have=
+    local i
+
+    if [[ ! -e /etc/nsswitch.conf ]]; then
+        : "/etc/nsswitch.conf not found."
+        return 1
+    fi
+
+    if ! find /usr/lib* -name "libnss_${name}.so.*" 2>/dev/null | grep . >/dev/null; then
+        : "NSS module $name not found."
+        return 1
+    fi
+
+    if [[ "$name" == systemd ]]; then
+        for i in passwd group shadow; do
+            if ! grep -qE "^$i:.*[[:space:]]*systemd" /etc/nsswitch.conf; then
+                : "systemd NSS module is not enabled for $i database."
+                return 1
+            fi
+        done
+    else
+        if ! grep -qE "^hosts:.*[[:space:]]*$name" /etc/nsswitch.conf; then
+            : "$name NSS module is not enabled for hosts database."
+            return 1
+        fi
+    fi
+
+    return 0
+)

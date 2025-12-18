@@ -2622,7 +2622,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-hash-sig="))) {
                         iovec_done(&c->root_hash_sig);
-                        r= unbase64mem(val, &c->root_hash_sig.iov_base, &c->root_hash_sig.iov_len);
+                        r = unbase64mem(val, &c->root_hash_sig.iov_base, &c->root_hash_sig.iov_len);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-ephemeral="))) {
@@ -3701,7 +3701,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         _cleanup_free_ void *d = NULL;
                         size_t size;
 
-                        r = unbase64mem_full(data, SIZE_MAX, /* secure = */ true, &d, &size);
+                        r = unbase64mem_full(data, SIZE_MAX, /* secure= */ true, &d, &size);
                         if (r < 0)
                                 return r;
 
@@ -3740,21 +3740,21 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (c->root_image_policy)
                                 return -EINVAL; /* duplicated */
 
-                        r = image_policy_from_string(val, &c->root_image_policy);
+                        r = image_policy_from_string(val, /* graceful= */ false, &c->root_image_policy);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-mount-image-policy="))) {
                         if (c->mount_image_policy)
                                 return -EINVAL; /* duplicated */
 
-                        r = image_policy_from_string(val, &c->mount_image_policy);
+                        r = image_policy_from_string(val, /* graceful= */ false, &c->mount_image_policy);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-extension-image-policy="))) {
                         if (c->extension_image_policy)
                                 return -EINVAL; /* duplicated */
 
-                        r = image_policy_from_string(val, &c->extension_image_policy);
+                        r = image_policy_from_string(val, /* graceful= */ false, &c->extension_image_policy);
                         if (r < 0)
                                 return r;
                 } else

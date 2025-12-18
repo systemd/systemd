@@ -1639,7 +1639,6 @@ static int bus_append_root_hash(sd_bus_message *m, const char *field, const char
 }
 
 static int bus_append_root_hash_signature(sd_bus_message *m, const char *field, const char *eq) {
-        char *value;
         _cleanup_free_ void *roothash_sig_decoded = NULL;
         size_t roothash_sig_decoded_size = 0;
         int r;
@@ -1648,7 +1647,8 @@ static int bus_append_root_hash_signature(sd_bus_message *m, const char *field, 
         if (path_is_absolute(eq))
                 return bus_append_string(m, "RootHashSignaturePath", eq);
 
-        if (!(value = startswith(eq, "base64:")))
+        const char *value = startswith(eq, "base64:");
+        if (!value)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Failed to decode %s value '%s': neither a path nor starts with 'base64:'.",
                                        field, eq);
@@ -2564,7 +2564,6 @@ static const BusProperty kill_properties[] = {
         { "RestartKillSignal",                     bus_append_signal_from_string                 },
         { "FinalKillSignal",                       bus_append_signal_from_string                 },
         { "WatchdogSignal",                        bus_append_signal_from_string                 },
-        { "ReloadSignal",                          bus_append_signal_from_string                 },
         {}
 };
 
@@ -2659,6 +2658,7 @@ static const BusProperty service_properties[] = {
         { "RestartForceExitStatus",                bus_append_exit_status                        },
         { "SuccessExitStatus",                     bus_append_exit_status                        },
         { "OpenFile",                              bus_append_open_file                          },
+        { "ReloadSignal",                          bus_append_signal_from_string                 },
         {}
 };
 
@@ -3106,7 +3106,7 @@ static int unit_freezer_action(UnitFreezer *f, bool freeze) {
         r = bus_call_method(f->bus, bus_systemd_mgr,
                             freeze ? "FreezeUnit" : "ThawUnit",
                             &error,
-                            /* ret_reply = */ NULL,
+                            /* ret_reply= */ NULL,
                             "s",
                             f->name);
         if (r < 0) {

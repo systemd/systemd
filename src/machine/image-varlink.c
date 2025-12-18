@@ -14,7 +14,6 @@
 #include "image-varlink.h"
 #include "io-util.h"
 #include "json-util.h"
-#include "machine-pool.h"
 #include "machined.h"
 #include "operation.h"
 #include "process-util.h"
@@ -280,7 +279,11 @@ int vl_method_set_pool_limit(sd_varlink *link, sd_json_variant *parameters, sd_v
         }
 
         /* Set up the machine directory if necessary */
-        r = setup_machine_directory(/* error = */ NULL, /* use_btrfs_subvol= */ true, /* use_btrfs_quota= */ true);
+        r = image_setup_pool(
+                        manager->runtime_scope,
+                        IMAGE_MACHINE,
+                        /* use_btrfs_subvol= */ true,
+                        /* use_btrfs_quota= */ true);
         if (r < 0)
                 return r;
 
@@ -319,7 +322,7 @@ static int clean_pool_done_internal(Operation *operation, FILE *file, int child_
         assert(operation);
         assert(operation->link);
 
-        r = clean_pool_read_first_entry(file, child_error, /* error = */ NULL);
+        r = clean_pool_read_first_entry(file, child_error, /* error= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read first entry from tmp file: %m");
 
@@ -337,7 +340,7 @@ static int clean_pool_done_internal(Operation *operation, FILE *file, int child_
                         break;
 
                 if (previous_name) {
-                        r = clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more = */ true);
+                        r = clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more= */ true);
                         if (r < 0)
                                 return r;
                         /* freeing memory to avoid memleak at the following assignment */
@@ -349,7 +352,7 @@ static int clean_pool_done_internal(Operation *operation, FILE *file, int child_
         }
 
         if (previous_name)
-                return clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more = */ false);
+                return clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more= */ false);
 
         return sd_varlink_error(operation->link, "io.systemd.MachineImage.NoSuchImage", NULL);
 }

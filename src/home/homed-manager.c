@@ -255,7 +255,7 @@ int manager_new(Manager **ret) {
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to allocate memory pressure watch, ignoring: %m");
 
-        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata = */ NULL);
+        r = sd_event_add_signal(m->event, /* ret= */ NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
@@ -861,7 +861,7 @@ static int manager_assess_image(
                 const char *dir_path,
                 const char *dentry_name) {
 
-        char *luks_suffix, *directory_suffix;
+        const char *luks_suffix, *directory_suffix;
         _cleanup_free_ char *path = NULL;
         struct stat st;
         int r;
@@ -1162,9 +1162,9 @@ static int manager_listen_notify(Manager *m) {
                                                        * of a client before it exits. */
                         on_notify_socket,
                         m,
-                        /* accept_fds = */ true,
+                        /* accept_fds= */ true,
                         &m->notify_socket_path,
-                        /* ret_event_source = */ NULL);
+                        /* ret_event_source= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 
@@ -1889,7 +1889,7 @@ static int manager_rebalance_calculate(Manager *m) {
                 assert(h->rebalance_usage <= usage_sum);
                 assert(h->rebalance_weight <= weight_sum);
 
-                d = ((double) (free_sum / 4096) * (double) h->rebalance_weight) / (double) weight_sum; /* Calculate new space for this home in units of 4K */
+                d = ((double) (free_sum / 4096.0) * (double) h->rebalance_weight) / (double) weight_sum; /* Calculate new space for this home in units of 4K */
 
                 /* Convert from units of 4K back to bytes */
                 if (d >= (double) (UINT64_MAX/4096))

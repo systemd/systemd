@@ -237,10 +237,20 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
 
         assert(path);
 
+        /* First try to send SIG0 recursively to ensure all child cgroups can be killed. */
+        if (recurse)
+                r = cg_kill_recursive(path, /* sig= */ 0, CGROUP_IGNORE_SELF,
+                                      /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
+        else
+                r = cg_kill(path, /* sig= */ 0, CGROUP_IGNORE_SELF,
+                            /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send SIG0 to processes in cgroup '%s': %m", path);
+
         if (dry_run) {
                 _cleanup_free_ char *cg_path = NULL;
 
-                r = cg_get_path(path, /* suffix = */ NULL, &cg_path);
+                r = cg_get_path(path, /* suffix= */ NULL, &cg_path);
                 if (r < 0)
                         return r;
 

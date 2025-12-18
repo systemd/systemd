@@ -60,9 +60,9 @@ int sd_dhcp_server_set_boot_server_address(sd_dhcp_server *server, const struct 
 int sd_dhcp_server_set_boot_server_name(sd_dhcp_server *server, const char *name);
 int sd_dhcp_server_set_boot_filename(sd_dhcp_server *server, const char *filename);
 int sd_dhcp_server_set_bind_to_interface(sd_dhcp_server *server, int enabled);
-int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *timezone);
+int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *tz);
 int sd_dhcp_server_set_domain_name(sd_dhcp_server *server, const char *domain_name);
-int sd_dhcp_server_set_router(sd_dhcp_server *server, const struct in_addr *address);
+int sd_dhcp_server_set_router(sd_dhcp_server *server, const struct in_addr *router);
 
 int sd_dhcp_server_set_servers(
                 sd_dhcp_server *server,

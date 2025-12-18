@@ -50,7 +50,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-importd',
                 'dbus' : true,
-                'sources' : systemd_importd_sources + systemd_importd_extract_sources,
+                'sources' : systemd_importd_sources,
                 'extract' : systemd_importd_extract_sources,
                 'dependencies' : [common_deps, threads],
         },

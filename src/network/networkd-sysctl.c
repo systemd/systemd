@@ -5,6 +5,7 @@
 #include "sd-messages.h"
 
 #include "af-list.h"
+#include "bpf-dlopen.h"
 #include "conf-parser.h"
 #include "alloc-util.h"
 #include "cgroup-util.h"
@@ -52,6 +53,8 @@ static int sysctl_event_handler(void *ctx, void *data, size_t data_sz) {
                                          "Unexpected sysctl event, disabling sysctl monitoring: %d", we->version);
 
         if (we->errorcode != 0) {
+                /* The log message is checked in test-network/systemd-networkd-tests.py. Please update the
+                 * test when the log message is changed. */
                 log_warning_errno(we->errorcode, "Sysctl monitor BPF returned error: %m");
                 return 0;
         }
@@ -68,6 +71,8 @@ static int sysctl_event_handler(void *ctx, void *data, size_t data_sz) {
                 return 0;
 
         if (!strneq(value, we->newvalue, sizeof(we->newvalue)))
+                /* The log message is checked in test-network/systemd-networkd-tests.py. Please update the
+                 * test when the log message is changed. */
                 log_struct(LOG_WARNING,
                            LOG_MESSAGE_ID(SD_MESSAGE_SYSCTL_CHANGED_STR),
                            LOG_ITEM("OBJECT_PID=" PID_FMT, we->pid),
@@ -526,7 +531,7 @@ int link_set_ipv6_mtu(Link *link, int log_level) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
 
-        if (sd_event_source_get_enabled(link->ipv6_mtu_wait_synced_event_source, /* ret = */ NULL) > 0) {
+        if (sd_event_source_get_enabled(link->ipv6_mtu_wait_synced_event_source, /* ret= */ NULL) > 0) {
                 log_link_debug(link, "Waiting for IPv6 MTU is synced to link MTU, delaying to set IPv6 MTU.");
                 return 0;
         }
@@ -593,7 +598,7 @@ static int link_set_ipv6_mtu_async_impl(Link *link) {
                         link->manager->event, &link->ipv6_mtu_wait_synced_event_source,
                         CLOCK_BOOTTIME, 100 * USEC_PER_MSEC, 0,
                         ipv6_mtu_wait_synced_handler, link,
-                        /* priority = */ 0, "ipv6-mtu-wait-synced", /* force_reset = */ true);
+                        /* priority= */ 0, "ipv6-mtu-wait-synced", /* force_reset= */ true);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure timer event source for waiting for IPv6 MTU being synced: %m");
 

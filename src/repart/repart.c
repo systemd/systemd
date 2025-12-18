@@ -50,6 +50,7 @@
 #include "initrd-util.h"
 #include "io-util.h"
 #include "json-util.h"
+#include "libmount-util.h"
 #include "list.h"
 #include "loop-util.h"
 #include "main-func.h"
@@ -2240,7 +2241,7 @@ static int config_parse_make_symlinks(
                         continue;
                 }
 
-                r = specifier_printf(path, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, /*userdata=*/ NULL, &d);
+                r = specifier_printf(path, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &d);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to expand specifiers in Subvolumes= parameter, ignoring: %s", path);
@@ -2294,7 +2295,7 @@ static int config_parse_subvolumes(
                         continue;
                 }
 
-                r = specifier_printf(path, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, /*userdata=*/ NULL, &d);
+                r = specifier_printf(path, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, /* userdata= */ NULL, &d);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to expand specifiers in Subvolumes= parameter, ignoring: %s", path);
@@ -3131,7 +3132,7 @@ static int context_copy_from_one(Context *context, const char *src) {
         if (r < 0)
                 return log_error_errno(r, "%s is not a file nor a block device: %m", src);
 
-        r = fdisk_new_context_at(fd, /* path = */ NULL, /* read_only = */ true, /* sector_size = */ UINT32_MAX, &c);
+        r = fdisk_new_context_at(fd, /* path= */ NULL, /* read_only= */ true, /* sector_size= */ UINT32_MAX, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to create fdisk context: %m");
 
@@ -3601,7 +3602,7 @@ static int context_load_partition_table(Context *context) {
                         context->sector_size = fdisk_get_sector_size(c);
                         context->default_fs_sector_size = fs_secsz;
                         context->grain_size = MAX(context->sector_size, 4096U);
-                        return /* from_scratch = */ true;
+                        return /* from_scratch= */ true;
                 }
 
                 r = -EINVAL;
@@ -5444,7 +5445,7 @@ static int partition_format_verity_hash(
                 return log_error_errno(r, "libcryptsetup not found, cannot setup verity: %m");
 
         if (!node) {
-                r = partition_target_prepare(context, p, p->new_size, /*need_path=*/ true, &t);
+                r = partition_target_prepare(context, p, p->new_size, /* need_path= */ true, &t);
                 if (r < 0)
                         return r;
 
@@ -5768,13 +5769,13 @@ static int context_copy_blocks(Context *context) {
                 usec_t start_timestamp = now(CLOCK_MONOTONIC);
 
                 r = partition_target_prepare(context, p, p->new_size,
-                                             /*need_path=*/ p->encrypt != ENCRYPT_OFF || p->siblings[VERITY_HASH],
+                                             /* need_path= */ p->encrypt != ENCRYPT_OFF || p->siblings[VERITY_HASH],
                                              &t);
                 if (r < 0)
                         return r;
 
                 if (p->encrypt != ENCRYPT_OFF && t->loop) {
-                        r = partition_encrypt(context, p, t, /* offline = */ false);
+                        r = partition_encrypt(context, p, t, /* offline= */ false);
                         if (r < 0)
                                 return r;
                 }
@@ -5798,7 +5799,7 @@ static int context_copy_blocks(Context *context) {
                 log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
 
                 if (p->encrypt != ENCRYPT_OFF && !t->loop) {
-                        r = partition_encrypt(context, p, t, /* offline = */ true);
+                        r = partition_encrypt(context, p, t, /* offline= */ true);
                         if (r < 0)
                                 return r;
                 }
@@ -5817,7 +5818,7 @@ static int context_copy_blocks(Context *context) {
 
                 if (p->siblings[VERITY_HASH] && !partition_defer(context, p->siblings[VERITY_HASH])) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
-                                                         /* node = */ NULL, partition_target_path(t));
+                                                         /* node= */ NULL, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
@@ -6144,7 +6145,7 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
         struct stat st, rst;
         int r;
 
-        r = chase_and_stat(source, arg_copy_source, CHASE_PREFIX_ROOT, /*ret_path=*/ NULL, &st);
+        r = chase_and_stat(source, arg_copy_source, CHASE_PREFIX_ROOT, /* ret_path= */ NULL, &st);
         if (r < 0)
                 return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_copy_source), source);
 
@@ -6154,7 +6155,7 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
         if (stat(empty_to_root(arg_copy_source), &rst) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", empty_to_root(arg_copy_source));
 
-        pfd = chase_and_open_parent(source, arg_copy_source, CHASE_PREFIX_ROOT, /*ret_filename=*/ NULL);
+        pfd = chase_and_open_parent(source, arg_copy_source, CHASE_PREFIX_ROOT, /* ret_filename= */ NULL);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase '%s/%s': %m", strempty(arg_copy_source), source);
 
@@ -6616,6 +6617,8 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
          * appear in the host namespace. Hence we fork a child that has its own file system namespace and
          * detached mount propagation. */
 
+        (void) dlopen_libmount();
+
         r = safe_fork("(sd-copy)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
         if (r < 0)
                 return r;
@@ -6790,7 +6793,7 @@ static int context_mkfs(Context *context) {
                  * for cryptsetup's offline encryption. */
                 r = partition_target_prepare(context, p,
                                              p->new_size - (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_KEEP_FREE : 0),
-                                             /*need_path=*/ true,
+                                             /* need_path= */ true,
                                              &t);
                 if (r < 0)
                         return r;
@@ -6800,7 +6803,7 @@ static int context_mkfs(Context *context) {
                         if (r < 0)
                                 return r;
 
-                        r = partition_encrypt(context, p, t, /* offline = */ false);
+                        r = partition_encrypt(context, p, t, /* offline= */ false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to encrypt device: %m");
                 }
@@ -6868,7 +6871,7 @@ static int context_mkfs(Context *context) {
                         if (r < 0)
                                 return r;
 
-                        r = partition_encrypt(context, p, t, /* offline = */ true);
+                        r = partition_encrypt(context, p, t, /* offline= */ true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to encrypt device: %m");
                 }
@@ -6883,7 +6886,7 @@ static int context_mkfs(Context *context) {
 
                 if (p->siblings[VERITY_HASH] && !partition_defer(context, p->siblings[VERITY_HASH])) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
-                                                         /* node = */ NULL, partition_target_path(t));
+                                                         /* node= */ NULL, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
@@ -8294,13 +8297,12 @@ static int context_fstab(Context *context) {
         switch (arg_append_fstab) {
         case APPEND_AUTO: {
                 r = read_full_file(path, &c, NULL);
-                if (r < 0) {
-                        if (r == -ENOENT) {
-                                log_debug("File fstab not found in %s", path);
-                                break;
-                        }
-                        return log_error_errno(r, "Failed to open %s: %m", path);
+                if (r == -ENOENT) {
+                        log_debug("File fstab not found in %s", path);
+                        break;
                 }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open %s: %m", path);
 
                 const char *acs, *ace;
                 acs = find_line(c, AUTOMATIC_FSTAB_HEADER_START);
@@ -8775,7 +8777,7 @@ static int context_load_keys(Context *context) {
 
         if (arg_certificate) {
                 if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                        r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                         if (r < 0)
                                 return r;
                 }
@@ -8791,7 +8793,7 @@ static int context_load_keys(Context *context) {
 
         if (arg_private_key) {
                 if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                        r = parse_path_argument(arg_private_key, /*suppress_root=*/ false, &arg_private_key);
+                        r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
                         if (r < 0)
                                 return r;
                 }
@@ -9306,7 +9308,7 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_free_ char *device = NULL;
 
                         if (streq(optarg, "list"))
-                                return tpm2_list_devices(/* legend = */ true, /* quiet = */ false);
+                                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
                         if (!streq(optarg, "auto")) {
                                 device = strdup(optarg);
@@ -9710,11 +9712,10 @@ static int parse_efi_variable_factory_reset(void) {
                 return 0;
 
         r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE_STR("FactoryReset"), &value);
-        if (r < 0) {
-                if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
-                        return 0;
+        if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return 0;
+        if (r < 0)
                 return log_error_errno(r, "Failed to read EFI variable FactoryReset: %m");
-        }
 
         log_warning("Warning, EFI variable FactoryReset is in use, please migrate to use FactoryResetRequest instead, support will be removed in v260!");
 
@@ -9735,11 +9736,10 @@ static int remove_efi_variable_factory_reset(void) {
         // FIXME: Remove this in v260, see above
 
         r = efi_set_variable(EFI_SYSTEMD_VARIABLE_STR("FactoryReset"), NULL, 0);
-        if (r < 0) {
-                if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
-                        return 0;
+        if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return 0;
+        if (r < 0)
                 return log_error_errno(r, "Failed to remove EFI variable FactoryReset: %m");
-        }
 
         log_info("Successfully unset EFI variable FactoryReset.");
         return 0;
@@ -10669,7 +10669,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        (void) context_dump(context, /*late=*/ false);
+        (void) context_dump(context, /* late= */ false);
 
         r = context_write_partition_table(context);
         if (r < 0)
@@ -10679,7 +10679,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        (void) context_dump(context, /*late=*/ true);
+        (void) context_dump(context, /* late= */ true);
 
         context_disarm_auto_removal(context);
 

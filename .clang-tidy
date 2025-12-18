@@ -4,7 +4,29 @@ Checks: '
     -*,
     misc-header-include-cycle,
     readability-duplicate-include,
-    bugprone-argument-comment
+    bugprone-argument-comment,
+    misc-include-cleaner
+'
+CheckOptions:
+  misc-include-cleaner.MissingIncludes: 'false'
+  # These all lead to common false positives by clang-tidy where it tries to
+  # remove these includes even though they're required in some situations (many
+  # of them related to musl).
+  misc-include-cleaner.IgnoreHeaders: '
+    endian\.h;
+    getopt\.h;
+    sys/stat\.h;
+    sys/statvfs\.h;
+    sys/syscall\.h;
+    sys/timex\.h;
+    sys/uio\.h;
+    netinet/in\.h;
+    net/if\.h;
+    net/if_arp\.h;
+    runtime-scope\.h;
+    varlink-io\.systemd\..*;
+    varlink-idl-common\.h;
+    unistd\.h
 '
 WarningsAsErrors: '*'
 HeaderFileExtensions:

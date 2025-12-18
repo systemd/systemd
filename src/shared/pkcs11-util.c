@@ -265,11 +265,11 @@ int pkcs11_token_login(
                 CK_SLOT_ID slotid,
                 const CK_TOKEN_INFO *token_info,
                 const char *friendly_name,
-                const char *askpw_icon,
-                const char *askpw_keyring,
-                const char *askpw_credential,
+                const char *ask_password_icon,
+                const char *ask_password_keyring,
+                const char *ask_password_credential,
                 usec_t until,
-                AskPasswordFlags askpw_flags,
+                AskPasswordFlags ask_password_flags,
                 char **ret_used_pin) {
 
         _cleanup_free_ char *token_uri_string = NULL, *token_uri_escaped = NULL, *id = NULL, *token_label = NULL;
@@ -324,7 +324,7 @@ int pkcs11_token_login(
                         if (!passwords)
                                 return log_oom();
 
-                } else if (FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
+                } else if (FLAGS_SET(ask_password_flags, ASK_PASSWORD_HEADLESS))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the 'PIN' environment variable.");
                 else {
                         _cleanup_free_ char *text = NULL;
@@ -351,16 +351,16 @@ int pkcs11_token_login(
                         AskPasswordRequest req = {
                                 .tty_fd = -EBADF,
                                 .message = text,
-                                .icon = askpw_icon,
+                                .icon = ask_password_icon,
                                 .id = id,
-                                .keyring = askpw_keyring,
-                                .credential = askpw_credential,
+                                .keyring = ask_password_keyring,
+                                .credential = ask_password_credential,
                                 .until = until,
                                 .hup_fd = -EBADF,
                         };
 
                         /* We never cache PINs, simply because it's fatal if we use wrong PINs, since usually there are only 3 tries */
-                        r = ask_password_auto(&req, askpw_flags, &passwords);
+                        r = ask_password_auto(&req, ask_password_flags, &passwords);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to query PIN for security token '%s': %m", token_label);
                 }

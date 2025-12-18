@@ -89,7 +89,7 @@ int sigset_add_many_internal(sigset_t *ss, ...) {
         return r;
 }
 
-int sigprocmask_many_internal(int how, sigset_t *old, ...) {
+int sigprocmask_many_internal(int how, sigset_t *ret_old_mask, ...) {
         va_list ap;
         sigset_t ss;
         int r;
@@ -97,14 +97,14 @@ int sigprocmask_many_internal(int how, sigset_t *old, ...) {
         if (sigemptyset(&ss) < 0)
                 return -errno;
 
-        va_start(ap, old);
+        va_start(ap, ret_old_mask);
         r = sigset_add_many_ap(&ss, ap);
         va_end(ap);
 
         if (r < 0)
                 return r;
 
-        return RET_NERRNO(sigprocmask(how, &ss, old));
+        return RET_NERRNO(sigprocmask(how, &ss, ret_old_mask));
 }
 
 static const char *const static_signal_table[] = {

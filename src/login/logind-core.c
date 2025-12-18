@@ -244,11 +244,14 @@ int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret) {
 
 int manager_add_button(Manager *m, const char *name, Button **ret_button) {
         Button *b;
+        bool is_new;
 
         assert(m);
         assert(name);
 
         b = hashmap_get(m->buttons, name);
+        is_new = !b;
+
         if (!b) {
                 b = button_new(m, name);
                 if (!b)
@@ -258,7 +261,7 @@ int manager_add_button(Manager *m, const char *name, Button **ret_button) {
         if (ret_button)
                 *ret_button = b;
 
-        return 0;
+        return is_new;
 }
 
 int manager_process_seat_device(Manager *m, sd_device *d) {
@@ -328,7 +331,7 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
         return 0;
 }
 
-int manager_process_button_device(Manager *m, sd_device *d) {
+int manager_process_button_device(Manager *m, sd_device *d, Button **ret_button) {
         const char *sysname;
         Button *b;
         int r;
@@ -340,28 +343,39 @@ int manager_process_button_device(Manager *m, sd_device *d) {
                 return r;
 
         if (device_for_action(d, SD_DEVICE_REMOVE) ||
-            sd_device_has_current_tag(d, "power-switch") <= 0)
+            sd_device_has_current_tag(d, "power-switch") <= 0) {
 
-                button_free(hashmap_get(m->buttons, sysname));
-
-        else {
-                const char *sn;
-
-                r = manager_add_button(m, sysname, &b);
-                if (r < 0)
-                        return r;
-
-                r = device_get_seat(d, &sn);
-                if (r < 0)
-                        return r;
-
-                button_set_seat(b, sn);
-
-                r = button_open(b);
-                if (r < 0) /* event device doesn't have any keys or switches relevant to us? (or any other error
-                            * opening the device?) let's close the button again. */
-                        button_free(b);
+                b = hashmap_get(m->buttons, sysname);
+                goto unwatch;
         }
+
+        r = manager_add_button(m, sysname, &b);
+        if (r < 0)
+                return r;
+        bool is_new = r > 0;
+
+        const char *sn;
+        r = device_get_seat(d, &sn);
+        if (r < 0)
+                return r;
+
+        button_set_seat(b, sn);
+
+        r = button_open(b);
+        if (r < 0) /* event device doesn't have any keys or switches relevant to us? (or any other error
+                    * opening the device?) let's close the button again. */
+                goto unwatch;
+
+        if (ret_button)
+                *ret_button = b;
+
+        return is_new;
+
+unwatch:
+        button_free(b);
+
+        if (ret_button)
+                *ret_button = NULL;
 
         return 0;
 }
@@ -758,14 +772,13 @@ int manager_read_efi_boot_loader_entries(Manager *m) {
                 return 0;
 
         r = efi_loader_get_entries(&m->efi_boot_loader_entries);
-        if (r < 0) {
-                if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r)) {
-                        log_debug_errno(r, "Boot loader reported no entries.");
-                        m->efi_boot_loader_entries_set = true;
-                        return 0;
-                }
-                return log_error_errno(r, "Failed to determine entries reported by boot loader: %m");
+        if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                log_debug_errno(r, "Boot loader reported no entries.");
+                m->efi_boot_loader_entries_set = true;
+                return 0;
         }
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine entries reported by boot loader: %m");
 
         m->efi_boot_loader_entries_set = true;
         return 1;

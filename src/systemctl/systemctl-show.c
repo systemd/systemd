@@ -17,7 +17,6 @@
 #include "errno-util.h"
 #include "exec-util.h"
 #include "exit-status.h"
-#include "extract-word.h"
 #include "format-util.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
@@ -941,7 +940,7 @@ static void print_status_info(
                                 i->id,
                                 i->log_namespace,
                                 arg_output,
-                                /* n_columns = */ 0,
+                                /* n_columns= */ 0,
                                 i->inactive_exit_timestamp_monotonic,
                                 arg_lines,
                                 get_output_flags() | OUTPUT_BEGIN_NEWLINE,

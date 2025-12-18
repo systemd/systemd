@@ -3,6 +3,6 @@
 Description=Test for Group
 
 [Service]
-ExecStart=sh -x -c 'test "$$(id -n -g)" = "nfsnobody"'
+ExecStart=bash -x -c 'test "$$(id -n -g)" = "nfsnobody"'
 Type=oneshot
 Group=nfsnobody

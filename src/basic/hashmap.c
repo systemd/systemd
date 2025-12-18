@@ -1372,7 +1372,7 @@ void* _hashmap_get(HashmapBase *h, const void *key) {
         return entry_value(h, e);
 }
 
-void* hashmap_get2(Hashmap *h, const void *key, void **key2) {
+void* hashmap_get2(Hashmap *h, const void *key, void **ret) {
         struct plain_hashmap_entry *e;
         unsigned hash, idx;
 
@@ -1385,8 +1385,8 @@ void* hashmap_get2(Hashmap *h, const void *key, void **key2) {
                 return NULL;
 
         e = plain_bucket_at(h, idx);
-        if (key2)
-                *key2 = (void*) e->b.key;
+        if (ret)
+                *ret = (void*) e->b.key;
 
         return e->value;
 }
@@ -1421,29 +1421,29 @@ void* _hashmap_remove(HashmapBase *h, const void *key) {
         return data;
 }
 
-void* hashmap_remove2(Hashmap *h, const void *key, void **rkey) {
+void* hashmap_remove2(Hashmap *h, const void *key, void **ret) {
         struct plain_hashmap_entry *e;
         unsigned hash, idx;
         void *data;
 
         if (!h) {
-                if (rkey)
-                        *rkey = NULL;
+                if (ret)
+                        *ret = NULL;
                 return NULL;
         }
 
         hash = bucket_hash(h, key);
         idx = bucket_scan(h, hash, key);
         if (idx == IDX_NIL) {
-                if (rkey)
-                        *rkey = NULL;
+                if (ret)
+                        *ret = NULL;
                 return NULL;
         }
 
         e = plain_bucket_at(h, idx);
         data = e->value;
-        if (rkey)
-                *rkey = (void*) e->b.key;
+        if (ret)
+                *ret = (void*) e->b.key;
 
         remove_entry(h, idx);
 

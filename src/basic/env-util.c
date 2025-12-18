@@ -605,10 +605,10 @@ int strv_env_get_merged(char **l, char ***ret) {
         return 0;
 }
 
-char** strv_env_clean_with_callback(char **e, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
+char** strv_env_clean_with_callback(char **l, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
         int k = 0;
 
-        STRV_FOREACH(p, e) {
+        STRV_FOREACH(p, l) {
                 size_t n;
                 bool duplicate = false;
 
@@ -631,13 +631,13 @@ char** strv_env_clean_with_callback(char **e, void (*invalid_callback)(const cha
                         continue;
                 }
 
-                e[k++] = *p;
+                l[k++] = *p;
         }
 
-        if (e)
-                e[k] = NULL;
+        if (l)
+                l[k] = NULL;
 
-        return e;
+        return l;
 }
 
 static int strv_extend_with_length(char ***l, const char *s, size_t n) {

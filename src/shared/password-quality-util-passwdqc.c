@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "password-quality-util-passwdqc.h"
+
+#if HAVE_PASSWDQC
+
+#include <passwdqc.h>
+
 #include "alloc-util.h"
 #include "dlfcn-util.h"
 #include "errno-util.h"
 #include "log.h"
 #include "memory-util.h"
-#include "password-quality-util-passwdqc.h"
 #include "strv.h"
-
-#if HAVE_PASSWDQC
 
 static void *passwdqc_dl = NULL;
 
@@ -114,7 +117,7 @@ int check_password_quality(
 
                 check_reason = sym_passwdqc_check(&params->qc, password, old, &pw);
         } else
-                check_reason = sym_passwdqc_check(&params->qc, password, old, /* pw = */ NULL);
+                check_reason = sym_passwdqc_check(&params->qc, password, old, /* pw= */ NULL);
 
         if (check_reason) {
                 if (ret_error) {

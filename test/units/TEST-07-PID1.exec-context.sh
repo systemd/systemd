@@ -175,7 +175,7 @@ if ! systemd-detect-virt -cq; then
     systemd-run --wait --pipe --unit "$SERVICE_NAME" "${ARGUMENTS[@]}" \
         bash -xec "test -r /dev/null; test ! -w /dev/null; test ! -r $LODEV; test -w $LODEV; test ! -r /dev/tty; test ! -w /dev/tty"
 
-    if ! systemctl --version | grep -qF -- "-BPF_FRAMEWORK"; then
+    if ! systemctl --version | grep -F -- "-BPF_FRAMEWORK" >/dev/null; then
         # SocketBind*=
         ARGUMENTS=(
             -p SocketBindAllow=
@@ -356,7 +356,7 @@ systemd-run \
     -p DynamicUser=yes \
     -p EnvironmentFile=-/usr/lib/systemd/systemd-asan-env \
     -p NotifyAccess=all \
-    sh -c 'touch /tmp/a && touch /var/tmp/b && ! test -f /tmp/b && ! test -f /var/tmp/a && systemd-notify --ready && sleep infinity'
+    bash -c 'touch /tmp/a && touch /var/tmp/b && ! test -f /tmp/b && ! test -f /var/tmp/a && systemd-notify --ready && sleep infinity'
 (! ls /tmp/systemd-private-"$(tr -d '-' < /proc/sys/kernel/random/boot_id)"-test-07-dynamic-user-tmp.service-* &>/dev/null)
 (! ls /var/tmp/systemd-private-"$(tr -d '-' < /proc/sys/kernel/random/boot_id)"-test-07-dynamic-user-tmp.service-* &>/dev/null)
 systemctl is-active test-07-dynamic-user-tmp.service

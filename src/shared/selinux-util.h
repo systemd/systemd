@@ -101,7 +101,7 @@ int mac_selinux_get_our_label(char **ret_label);
 int mac_selinux_get_peer_label(int socket_fd, char **ret_label);
 int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **ret_label);
 
-int mac_selinux_create_file_prepare_at(int dirfd, const char *path, mode_t mode);
+int mac_selinux_create_file_prepare_at(int dir_fd, const char *path, mode_t mode);
 static inline int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
         return mac_selinux_create_file_prepare_at(AT_FDCWD, path, mode);
 }

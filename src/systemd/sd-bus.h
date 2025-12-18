@@ -57,10 +57,10 @@ int sd_bus_new(sd_bus **ret);
 int sd_bus_set_address(sd_bus *bus, const char *address);
 int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd);
 int sd_bus_set_exec(sd_bus *bus, const char *path, char *const *argv);
-int sd_bus_get_address(sd_bus *bus, const char **address);
+int sd_bus_get_address(sd_bus *bus, const char **ret);
 int sd_bus_set_bus_client(sd_bus *bus, int b);
 int sd_bus_is_bus_client(sd_bus *bus);
-int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t bus_id);
+int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id);
 int sd_bus_is_server(sd_bus *bus);
 int sd_bus_set_anonymous(sd_bus *bus, int b);
 int sd_bus_is_anonymous(sd_bus *bus);
@@ -439,8 +439,8 @@ const char* sd_bus_track_contains(sd_bus_track *track, const char *name);
 const char* sd_bus_track_first(sd_bus_track *track);
 const char* sd_bus_track_next(sd_bus_track *track);
 
-int sd_bus_track_set_destroy_callback(sd_bus_track *s, sd_bus_destroy_t callback);
-int sd_bus_track_get_destroy_callback(sd_bus_track *s, sd_bus_destroy_t *ret);
+int sd_bus_track_set_destroy_callback(sd_bus_track *track, sd_bus_destroy_t callback);
+int sd_bus_track_get_destroy_callback(sd_bus_track *track, sd_bus_destroy_t *ret);
 
 /* Define helpers so that __attribute__((cleanup(sd_bus_unrefp))) and similar may be used. */
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus, sd_bus_unref);

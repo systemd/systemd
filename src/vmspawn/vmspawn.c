@@ -1330,12 +1330,12 @@ static int start_systemd_journal_remote(
         _cleanup_free_ char *sd_journal_remote = NULL;
         r = find_executable_full(
                         "systemd-journal-remote",
-                        /* root = */ NULL,
+                        /* root= */ NULL,
                         STRV_MAKE(LIBEXECDIR),
-                        /* use_path_envvar = */ true, /* systemd-journal-remote should be installed in
+                        /* use_path_envvar= */ true, /* systemd-journal-remote should be installed in
                                                         * LIBEXECDIR, but for supporting fancy setups. */
                         &sd_journal_remote,
-                        /* ret_fd = */ NULL);
+                        /* ret_fd= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
 
@@ -2288,7 +2288,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask=*/ NULL, SIGCHLD) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGCHLD) >= 0);
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         r = sd_event_new(&event);
@@ -2705,7 +2705,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         const char *e = secure_getenv("SYSTEMD_VMSPAWN_QEMU_EXTRA");
         if (e) {
                 r = strv_split_and_extend_full(&cmdline, e,
-                                               /* separators = */ NULL, /* filter_duplicates = */ false,
+                                               /* separators= */ NULL, /* filter_duplicates= */ false,
                                                EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse $SYSTEMD_VMSPAWN_QEMU_EXTRA: %m");
@@ -2719,7 +2719,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug("Executing: %s", joined);
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask=*/ NULL, SIGCHLD) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGCHLD) >= 0);
 
         _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
@@ -2871,7 +2871,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Exit when the child exits */
         r = event_add_child_pidref(event, /* ret= */ NULL, &child_pidref, WEXITED, on_child_exit, /* userdata= */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to watch qemu process: &m");
+                return log_error_errno(r, "Failed to watch qemu process: %m");
 
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
@@ -2897,7 +2897,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 } else if (!isempty(arg_background))
                         (void) pty_forward_set_background_color(forward, arg_background);
 
-                (void) pty_forward_set_window_title(forward, GLYPH_GREEN_CIRCLE, /* hostname = */ NULL,
+                (void) pty_forward_set_window_title(forward, GLYPH_GREEN_CIRCLE, /* hostname= */ NULL,
                                                     STRV_MAKE("Virtual Machine", arg_machine));
         }
 

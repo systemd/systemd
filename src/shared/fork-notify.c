@@ -77,7 +77,7 @@ static int on_child_notify(sd_event_source *s, int fd, uint32_t revents, void *u
                         return 0;
                 }
                 if (error <= 0) {
-                        log_debug("Received non-positive ERRNO= notification message, ignoring: %m");
+                        log_debug("Received non-positive ERRNO= notification message, ignoring: %d", error);
                         return 0;
                 }
 
@@ -109,7 +109,7 @@ int fork_notify(char * const *argv, PidRef *ret_pidref) {
                         SD_EVENT_PRIORITY_NORMAL-10, /* We want the notification message from the child before the SIGCHLD */
                         on_child_notify,
                         &child,
-                        /* accept_fds = */ false,
+                        /* accept_fds= */ false,
                         &addr_string,
                         &notify_event_source);
         if (r < 0)
@@ -219,7 +219,7 @@ int journal_fork(RuntimeScope scope, char * const* units, PidRef *ret_pidref) {
                         "-q",
                         "--follow",
                         "--no-pager",
-                        "--lines=1",
+                        "--lines=0",
                         "--synchronize-on-exit=yes");
         if (!argv)
                 return log_oom_debug();

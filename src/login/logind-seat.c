@@ -389,7 +389,7 @@ static int static_node_acl(Seat *s) {
                         RET_GATHER(ret, log_debug_errno(r, "Failed to apply ACL on '%s': %m", node ?: de->d_name));
 
                         /* Better be safe than sorry and reset ACL */
-                        r = devnode_acl(fd, /* uid = */ 0);
+                        r = devnode_acl(fd, /* uid= */ 0);
                         if (r >= 0 || r == -ENOENT)
                                 continue;
                 }

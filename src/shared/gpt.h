@@ -50,7 +50,7 @@ static inline bool partition_designator_is_verity(PartitionDesignator d) {
 }
 
 const char* partition_designator_to_string(PartitionDesignator d) _const_;
-PartitionDesignator partition_designator_from_string(const char *name) _pure_;
+PartitionDesignator partition_designator_from_string(const char *s) _pure_;
 
 const char* partition_mountpoint_to_string(PartitionDesignator d) _const_;
 

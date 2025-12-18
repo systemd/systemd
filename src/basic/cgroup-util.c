@@ -241,7 +241,7 @@ int cg_enumerate_subgroups(const char *path, DIR **ret) {
 
         /* This is not recursive! */
 
-        r = cg_get_path(path, /* suffix = */ NULL, &fs);
+        r = cg_get_path(path, /* suffix= */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -479,7 +479,7 @@ int cg_set_xattr(const char *path, const char *name, const void *value, size_t s
         assert(name);
         assert(value || size <= 0);
 
-        r = cg_get_path(path, /* suffix = */ NULL, &fs);
+        r = cg_get_path(path, /* suffix= */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -493,7 +493,7 @@ int cg_get_xattr(const char *path, const char *name, char **ret, size_t *ret_siz
         assert(path);
         assert(name);
 
-        r = cg_get_path(path, /* suffix = */ NULL, &fs);
+        r = cg_get_path(path, /* suffix= */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -507,7 +507,7 @@ int cg_get_xattr_bool(const char *path, const char *name) {
         assert(path);
         assert(name);
 
-        r = cg_get_path(path, /* suffix = */ NULL, &fs);
+        r = cg_get_path(path, /* suffix= */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -521,7 +521,7 @@ int cg_remove_xattr(const char *path, const char *name) {
         assert(path);
         assert(name);
 
-        r = cg_get_path(path, /* suffix = */ NULL, &fs);
+        r = cg_get_path(path, /* suffix= */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -1193,7 +1193,7 @@ int cg_path_get_slice(const char *p, char **ret_slice) {
                 const char *s;
                 int n;
 
-                n = path_find_first_component(&p, /* accept_dot_dot = */ false, &s);
+                n = path_find_first_component(&p, /* accept_dot_dot= */ false, &s);
                 if (n < 0)
                         return n;
                 if (!valid_slice_name(s, n))
@@ -1487,7 +1487,7 @@ int cg_get_owner(const char *path, uid_t *ret_uid) {
 
         assert(ret_uid);
 
-        r = cg_get_path(path, /* suffix = */ NULL, &f);
+        r = cg_get_path(path, /* suffix= */ NULL, &f);
         if (r < 0)
                 return r;
 
@@ -1525,7 +1525,7 @@ int cg_get_keyed_attribute(
         if (r < 0)
                 return r;
 
-        r = read_full_file(filename, &contents, /* ret_size = */ NULL);
+        r = read_full_file(filename, &contents, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1628,18 +1628,18 @@ int cg_mask_to_string(CGroupMask mask, char **ret) {
         return 0;
 }
 
-int cg_mask_from_string(const char *value, CGroupMask *ret) {
+int cg_mask_from_string(const char *s, CGroupMask *ret) {
         CGroupMask m = 0;
 
         assert(ret);
-        assert(value);
+        assert(s);
 
         for (;;) {
                 _cleanup_free_ char *n = NULL;
                 CGroupController v;
                 int r;
 
-                r = extract_first_word(&value, &n, NULL, 0);
+                r = extract_first_word(&s, &n, NULL, 0);
                 if (r < 0)
                         return r;
                 if (r == 0)

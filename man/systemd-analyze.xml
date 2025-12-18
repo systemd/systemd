@@ -464,7 +464,7 @@ $ eog targets.svg</programlisting>
       <title><command>systemd-analyze exit-status <optional><replaceable>STATUS</replaceable>...</optional></command></title>
 
       <para>This command prints a list of exit statuses along with their "class", i.e. the source of the
-      definition (one of <literal>glibc</literal>, <literal>systemd</literal>, <literal>LSB</literal>, or
+      definition (one of <literal>libc</literal>, <literal>systemd</literal>, <literal>LSB</literal>, or
       <literal>BSD</literal>), see the Process Exit Codes section in
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       If no additional arguments are specified, all known statuses are shown. Otherwise, only the
@@ -475,8 +475,8 @@ $ eog targets.svg</programlisting>
 
         <programlisting>$ systemd-analyze exit-status 0 1 {63..65}
 NAME    STATUS CLASS
-SUCCESS 0      glibc
-FAILURE 1      glibc
+SUCCESS 0      libc
+FAILURE 1      libc
 -       63     -
 USAGE   64     BSD
 DATAERR 65     BSD
@@ -966,7 +966,7 @@ stored sock 0:8   4213190 -      socket:[4213190] ro
       <para>This command analyzes the specified image policy string, as per
       <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
       policy is normalized and simplified. For each currently defined partition identifier (as per the <ulink
-      url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
+      url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable
       Partitions Specification</ulink>) the effect of the image policy string is shown in tabular form.</para>
 
       <example>

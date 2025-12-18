@@ -628,6 +628,10 @@ sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*
 sensor:modalias:platform:lis3lv02d:dmi:*svn*HP*:*
  ACCEL_LOCATION=base
 
+# HP OmniBook Ultra Flip Laptop 14-fh0xxx
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnHP:pnHPOmniBookUltraFlipLaptop14-fh0xxx:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, -1
+
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
 sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
@@ -756,10 +760,6 @@ sensor:modalias:acpi:BMA250E*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-1030:*
 sensor:modalias:acpi:SMO8500*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-830:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
-# IdeaPad D330-10IGM (both 81H3 and 81MD product names)
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
-
 # IdeaPad Miix 300
 sensor:modalias:acpi:SMO8500*:dmi:bvnLENOVO:*:pvrMIIX300-*:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
@@ -768,7 +768,7 @@ sensor:modalias:acpi:SMO8500*:dmi:bvnLENOVO:*:pvrMIIX300-*:*
 # a portrait LCD panel, versions with bvr 1HCN3?WW have a landscape panel
 sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN4?WW:*:svnLENOVO:pn80SG:*
 sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN2?WW:*:svnLENOVO:pn80SG:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, -1
 
 # IdeaPad Miix 310 BIOS version bvr1HCN3?WW (variant 3)
 sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN3?WW:*:svnLENOVO:pn80SG:*
@@ -801,11 +801,6 @@ sensor:modalias:i2c:bmc150_accel:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
 
 # Yoga Tablet 2 851F/L
 sensor:modalias:acpi:ACCL0001*:dmi:*:svnLENOVO:pn60072:pvr851*:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
-
-# IdeaPad Duet 3 10IGL5 (82AT) and 10IGL5-LTE (82HK)
-sensor:modalias:acpi:SMO8B30*:dmi:*:svnLENOVO*:pn82AT:*
-sensor:modalias:acpi:SMO8B30*:dmi:*:svnLENOVO*:pn82HK:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
@@ -1258,8 +1253,15 @@ sensor:modalias:acpi:SMO8500*:dmi:bvnAmericanMegatrendsInc.:bvr5.6.5:bd11/20/201
 #########################################
 # Wortmann
 #########################################
+
+# Wortmann AG TERRA PAD 1061
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnWortmann_AG:pnTERRA_PAD_1061:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, -1
+
+# Wortmann AG TERRA PAD 1061
+# This is a variant with another sensor.
+sensor:modalias:acpi:SMO8500*:dmi:*:svnWortmann_AG:pnTERRA_PAD_1061:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
 # Yours

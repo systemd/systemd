@@ -1105,9 +1105,9 @@ static int action_dissect(
 
                 r = sd_json_buildo(
                                 &v,
-                                SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(bn)),
+                                SD_JSON_BUILD_PAIR_STRING("name", bn),
                                 SD_JSON_BUILD_PAIR_CONDITION(size != UINT64_MAX, "size", SD_JSON_BUILD_INTEGER(size)),
-                                SD_JSON_BUILD_PAIR("sectorSize", SD_JSON_BUILD_INTEGER(m->sector_size)),
+                                SD_JSON_BUILD_PAIR_INTEGER("sectorSize", m->sector_size),
                                 SD_JSON_BUILD_PAIR_CONDITION(a >= 0, "architecture", SD_JSON_BUILD_STRING(architecture_to_string(a))),
                                 SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->image_uuid), "imageUuid", SD_JSON_BUILD_UUID(m->image_uuid)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!!m->hostname, "hostname", SD_JSON_BUILD_STRING(m->hostname)),
@@ -1117,16 +1117,16 @@ static int action_dissect(
                                 SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->initrd_release), "initrdRelease", JSON_BUILD_STRV_ENV_PAIR(m->initrd_release)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->sysext_release), "sysextRelease", JSON_BUILD_STRV_ENV_PAIR(m->sysext_release)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->confext_release), "confextRelease", JSON_BUILD_STRV_ENV_PAIR(m->confext_release)),
-                                SD_JSON_BUILD_PAIR("useBootableUefi", SD_JSON_BUILD_BOOLEAN(dissected_image_is_bootable_uefi(m))),
-                                SD_JSON_BUILD_PAIR("useBootableContainer", SD_JSON_BUILD_BOOLEAN(dissected_image_is_bootable_os(m))),
-                                SD_JSON_BUILD_PAIR("useInitrd", SD_JSON_BUILD_BOOLEAN(dissected_image_is_initrd(m))),
-                                SD_JSON_BUILD_PAIR("usePortableService", SD_JSON_BUILD_BOOLEAN(dissected_image_is_portable(m))),
-                                SD_JSON_BUILD_PAIR("useSystemExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "system"))),
-                                SD_JSON_BUILD_PAIR("useInitRDSystemExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "initrd"))),
-                                SD_JSON_BUILD_PAIR("usePortableSystemExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "portable"))),
-                                SD_JSON_BUILD_PAIR("useConfigurationExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "system"))),
-                                SD_JSON_BUILD_PAIR("useInitRDConfigurationExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "initrd"))),
-                                SD_JSON_BUILD_PAIR("usePortableConfigurationExtension", SD_JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "portable"))));
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useBootableUefi", dissected_image_is_bootable_uefi(m)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useBootableContainer", dissected_image_is_bootable_os(m)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useInitrd", dissected_image_is_initrd(m)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("usePortableService", dissected_image_is_portable(m)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useSystemExtension", strv_contains(sysext_scopes, "system")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useInitRDSystemExtension", strv_contains(sysext_scopes, "initrd")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("usePortableSystemExtension", strv_contains(sysext_scopes, "portable")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useConfigurationExtension", strv_contains(confext_scopes, "system")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("useInitRDConfigurationExtension", strv_contains(confext_scopes, "initrd")),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("usePortableConfigurationExtension", strv_contains(confext_scopes, "portable")));
                 if (r < 0)
                         return log_oom();
         }
@@ -1204,7 +1204,7 @@ static int action_dissect(
         }
 
         if (!sd_json_format_enabled(arg_json_format_flags)) {
-                (void) table_set_header(t, arg_legend);
+                table_set_header(t, arg_legend);
 
                 r = table_print(t, NULL);
                 if (r < 0)
@@ -2177,9 +2177,6 @@ static int run(int argc, char *argv[]) {
 
                         if (arg_loop_ref || arg_loop_ref_auto) /* yes, the 2nd check is strictly speaking redundant, given the normalization we did above, but let's be explicit here */
                                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--loop-ref=/--loop-ref-auto not supported when operating via systemd-mountfsd.");
-
-                        if (verity_settings_set(&arg_verity_settings))
-                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Externally configured verity settings not supported when operating via systemd-mountfsd.");
 
                         /* Don't run things in private userns, if the mount shall be attached to the host */
                         if (!IN_SET(arg_action, ACTION_MOUNT, ACTION_WITH)) {

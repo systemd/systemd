@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 BEGIN{
+        print "#include <linux/audit.h>"
+        print ""
+        print "#include \"audit-type.h\""
         print "const char *audit_type_to_string(int type) {"
         print "        switch (type) {"
 }

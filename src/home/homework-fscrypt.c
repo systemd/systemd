@@ -71,12 +71,10 @@ static int fscrypt_unlink_key(UserRecord *h) {
                 char *d;
 
                 r = keyring_describe(*key, &description);
-                if (r < 0) {
-                        if (r == -ENOKEY) /* Something else deleted it already, that's ok. */
-                                continue;
-
+                if (r == -ENOKEY) /* Something else deleted it already, that's ok. */
+                        continue;
+                if (r < 0)
                         return log_error_errno(r, "Failed to describe key id %d: %m", *key);
-                }
 
                 /* The description is the final element as per manpage. */
                 d = strrchr(description, ';');
@@ -338,11 +336,11 @@ static int fscrypt_setup(
                 if (!e)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "xattr %s lacks ':' separator.", xa);
 
-                r = unbase64mem_full(value, e - value, /* secure = */ false, &salt, &salt_size);
+                r = unbase64mem_full(value, e - value, /* secure= */ false, &salt, &salt_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode salt of %s: %m", xa);
 
-                r = unbase64mem_full(e + 1, vsize - (e - value) - 1, /* secure = */ false, &encrypted, &encrypted_size);
+                r = unbase64mem_full(e + 1, vsize - (e - value) - 1, /* secure= */ false, &encrypted, &encrypted_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode encrypted key of %s: %m", xa);
 

@@ -1011,7 +1011,7 @@ static int getaddrinfo_done(sd_resolve_query* q) {
 
 int resolve_getnameinfo_with_destroy_callback(
                 sd_resolve *resolve,
-                sd_resolve_query **ret_query,
+                sd_resolve_query **ret,
                 const struct sockaddr *sa, socklen_t salen,
                 int flags,
                 uint64_t get,
@@ -1033,7 +1033,7 @@ int resolve_getnameinfo_with_destroy_callback(
         assert_return(callback, -EINVAL);
         assert_return(!resolve_pid_changed(resolve), -ECHILD);
 
-        r = alloc_query(resolve, !ret_query, &q);
+        r = alloc_query(resolve, !ret, &q);
         if (r < 0)
                 return r;
 
@@ -1068,8 +1068,8 @@ int resolve_getnameinfo_with_destroy_callback(
         resolve->n_outstanding++;
         q->destroy_callback = destroy_callback;
 
-        if (ret_query)
-                *ret_query = q;
+        if (ret)
+                *ret = q;
 
         TAKE_PTR(q);
 

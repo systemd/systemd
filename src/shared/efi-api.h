@@ -11,7 +11,7 @@ int efi_reboot_to_firmware_supported(void);
 int efi_get_reboot_to_firmware(void);
 int efi_set_reboot_to_firmware(bool value);
 
-int efi_get_boot_option(uint16_t nr, char **ret_title, sd_id128_t *ret_part_uuid, char **ret_path, bool *ret_active);
+int efi_get_boot_option(uint16_t id, char **ret_title, sd_id128_t *ret_part_uuid, char **ret_path, bool *ret_active);
 int efi_add_boot_option(uint16_t id, const char *title, uint32_t part, uint64_t pstart, uint64_t psize, sd_id128_t part_uuid, const char *path);
 int efi_remove_boot_option(uint16_t id);
 int efi_get_boot_order(uint16_t **ret_order);

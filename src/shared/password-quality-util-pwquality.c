@@ -1,5 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "password-quality-util-pwquality.h"
+
+#if HAVE_PWQUALITY
+
+#include <pwquality.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -8,11 +13,8 @@
 #include "errno-util.h"
 #include "log.h"
 #include "password-quality-util.h"
-#include "password-quality-util-pwquality.h"
 #include "string-util.h"
 #include "strv.h"
-
-#if HAVE_PWQUALITY
 
 static void *pwquality_dl = NULL;
 

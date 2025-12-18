@@ -10,7 +10,6 @@
 #include "coredump-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "iovec-wrapper.h"
 #include "log.h"
 #include "signal-util.h"
 

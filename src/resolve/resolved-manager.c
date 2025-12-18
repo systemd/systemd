@@ -641,6 +641,7 @@ static void manager_set_defaults(Manager *m) {
         m->cache_from_localhost = false;
         m->stale_retention_usec = 0;
         m->refuse_record_types = set_free(m->refuse_record_types);
+        m->resolv_conf_stat = (struct stat) {};
 }
 
 static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
@@ -1307,7 +1308,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
                 r = sd_json_variant_append_arraybo(
                                 &janswer,
                                 SD_JSON_BUILD_PAIR_CONDITION(!!v, "rr", SD_JSON_BUILD_VARIANT(v)),
-                                SD_JSON_BUILD_PAIR("raw", SD_JSON_BUILD_BASE64(rri->rr->wire_format, rri->rr->wire_format_size)),
+                                SD_JSON_BUILD_PAIR_BASE64("raw", rri->rr->wire_format, rri->rr->wire_format_size),
                                 SD_JSON_BUILD_PAIR_CONDITION(rri->ifindex > 0, "ifindex", SD_JSON_BUILD_INTEGER(rri->ifindex)));
                 if (r < 0)
                         return log_debug_errno(r, "Failed to append notification entry to array: %m");
@@ -1315,7 +1316,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
 
         r = varlink_many_notifybo(
                         m->varlink_query_results_subscription,
-                        SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(dns_transaction_state_to_string(q->state))),
+                        SD_JSON_BUILD_PAIR_STRING("state", dns_transaction_state_to_string(q->state)),
                         SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_DNSSEC_FAILED,
                                                      "result", SD_JSON_BUILD_STRING(dnssec_result_to_string(q->answer_dnssec_result))),
                         SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_RCODE_FAILURE,
@@ -1332,7 +1333,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
                                                             DNS_TRANSACTION_RCODE_FAILURE) &&
                                                      q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
                                                      "extendedDNSErrorMessage", SD_JSON_BUILD_STRING(q->answer_ede_msg)),
-                        SD_JSON_BUILD_PAIR("question", SD_JSON_BUILD_VARIANT(jquestion)),
+                        SD_JSON_BUILD_PAIR_VARIANT("question", jquestion),
                         SD_JSON_BUILD_PAIR_CONDITION(!!jcollected_questions,
                                                      "collectedQuestions", SD_JSON_BUILD_VARIANT(jcollected_questions)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!janswer,
@@ -1618,20 +1619,20 @@ int manager_is_own_hostname(Manager *m, const char *name) {
         return 0;
 }
 
-int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
+int manager_compile_dns_servers(Manager *m, OrderedSet **servers) {
         Link *l;
         int r;
 
         assert(m);
-        assert(dns);
+        assert(servers);
 
-        r = ordered_set_ensure_allocated(dns, &dns_server_hash_ops);
+        r = ordered_set_ensure_allocated(servers, &dns_server_hash_ops);
         if (r < 0)
                 return r;
 
         /* First add the system-wide servers and domains */
         LIST_FOREACH(servers, s, m->dns_servers) {
-                r = ordered_set_put(*dns, s);
+                r = ordered_set_put(*servers, s);
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
@@ -1641,7 +1642,7 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
         /* Then, add the per-link servers */
         HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(servers, s, l->dns_servers) {
-                        r = ordered_set_put(*dns, s);
+                        r = ordered_set_put(*servers, s);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)
@@ -1652,7 +1653,7 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
         DnsDelegate *d;
         HASHMAP_FOREACH(d, m->delegates)
                 LIST_FOREACH(servers, s, d->dns_servers) {
-                        r = ordered_set_put(*dns, s);
+                        r = ordered_set_put(*servers, s);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)
@@ -1660,9 +1661,9 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
                 }
 
         /* If we found nothing, add the fallback servers */
-        if (ordered_set_isempty(*dns)) {
+        if (ordered_set_isempty(*servers)) {
                 LIST_FOREACH(servers, s, m->fallback_dns_servers) {
-                        r = ordered_set_put(*dns, s);
+                        r = ordered_set_put(*servers, s);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)
@@ -2151,10 +2152,10 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                 return r;
 
         return dns_configuration_json_append(
-                        /* ifname = */ NULL,
-                        /* ifindex = */ 0,
-                        /* delegate = */ NULL,
-                        /* default_route = */ -1,
+                        /* ifname= */ NULL,
+                        /* ifindex= */ 0,
+                        /* delegate= */ NULL,
+                        /* default_route= */ -1,
                         manager_get_dns_server(m),
                         m->dns_servers,
                         m->fallback_dns_servers,
@@ -2209,11 +2210,11 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
         return dns_configuration_json_append(
                         l->ifname,
                         l->ifindex,
-                        /* delegate = */ NULL,
+                        /* delegate= */ NULL,
                         link_get_default_route(l),
                         link_get_dns_server(l),
                         l->dns_servers,
-                        /* fallback_dns_servers = */ NULL,
+                        /* fallback_dns_servers= */ NULL,
                         l->search_domains,
                         l->dnssec_negative_trust_anchors,
                         scopes,
@@ -2221,7 +2222,7 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
                         link_get_dns_over_tls_mode(l),
                         link_get_llmnr_support(l),
                         link_get_mdns_support(l),
-                        /* resolv_conf_mode = */ _RESOLV_CONF_MODE_INVALID,
+                        /* resolv_conf_mode= */ _RESOLV_CONF_MODE_INVALID,
                         configuration);
 }
 
@@ -2237,21 +2238,21 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
                 return r;
 
         return dns_configuration_json_append(
-                        /* ifname = */ NULL,
-                        /* ifindex = */ 0,
+                        /* ifname= */ NULL,
+                        /* ifindex= */ 0,
                         d->id,
                         d->default_route > 0, /* Defaults to false. See dns_scope_is_default_route(). */
                         dns_delegate_get_dns_server(d),
                         d->dns_servers,
-                        /* fallback_dns_servers = */ NULL,
+                        /* fallback_dns_servers= */ NULL,
                         d->search_domains,
-                        /* negative_trust_anchors = */ NULL,
+                        /* negative_trust_anchors= */ NULL,
                         scopes,
-                        /* dnssec_mode = */ _DNSSEC_MODE_INVALID,
-                        /* dns_over_tls_mode = */ _DNS_OVER_TLS_MODE_INVALID,
-                        /* llmnr_support = */ _RESOLVE_SUPPORT_INVALID,
-                        /* mdns_support = */ _RESOLVE_SUPPORT_INVALID,
-                        /* resolv_conf_mode = */ _RESOLV_CONF_MODE_INVALID,
+                        /* dnssec_mode= */ _DNSSEC_MODE_INVALID,
+                        /* dns_over_tls_mode= */ _DNS_OVER_TLS_MODE_INVALID,
+                        /* llmnr_support= */ _RESOLVE_SUPPORT_INVALID,
+                        /* mdns_support= */ _RESOLVE_SUPPORT_INVALID,
+                        /* resolv_conf_mode= */ _RESOLV_CONF_MODE_INVALID,
                         configuration);
 }
 

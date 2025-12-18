@@ -121,7 +121,7 @@ static void context_reset_timer(Context *context) {
                 r = event_reset_time_relative(
                                 context->event, &context->idle_time, CLOCK_MONOTONIC,
                                 arg_exit_idle_time, 0, idle_time_cb, context,
-                                SD_EVENT_PRIORITY_NORMAL, "idle-timer", /* force_reset = */ true);
+                                SD_EVENT_PRIORITY_NORMAL, "idle-timer", /* force_reset= */ true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to reset idle timer, ignoring: %m");
         }

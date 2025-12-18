@@ -69,6 +69,10 @@ int image_name_lock(RuntimeScope scope, const char *name, int operation, LockFil
 
 int image_set_limit(Image *i, uint64_t referenced_max);
 int image_set_pool_limit(RuntimeScope scope, ImageClass class, uint64_t referenced_max);
+int image_get_pool_path(RuntimeScope scope, ImageClass class, char **ret);
+int image_get_pool_usage(RuntimeScope scope, ImageClass class, uint64_t *ret);
+int image_get_pool_limit(RuntimeScope scope, ImageClass class, uint64_t *ret);
+int image_setup_pool(RuntimeScope scope, ImageClass class, bool use_btrfs_subvol, bool use_btrfs_quota);
 
 int image_read_metadata(Image *i, const ImagePolicy *image_policy, RuntimeScope scope);
 

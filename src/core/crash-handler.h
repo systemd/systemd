@@ -12,7 +12,7 @@ typedef enum CrashAction {
 } CrashAction;
 
 const char* crash_action_to_string(CrashAction action);
-CrashAction crash_action_from_string(const char *action);
+CrashAction crash_action_from_string(const char *s);
 
 _noreturn_ void freeze_or_exit_or_reboot(void);
 void install_crash_handler(void);

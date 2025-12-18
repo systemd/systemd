@@ -596,7 +596,7 @@ RULES = [
             not_exp_links   = ["foo3", "foo4", "foo5", "foo6", "foo7", "foo8"],
         ),
         rules = r"""
-        SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c 'echo foo3 foo4 foo5 foo6 foo7 foo8 foo9 | sed  s/foo9/bar9/'", KERNEL=="sda5", SYMLINK+="%c{7}"
+        SUBSYSTEMS=="scsi", PROGRAM=="/bin/bash -c 'echo foo3 foo4 foo5 foo6 foo7 foo8 foo9 | sed  s/foo9/bar9/'", KERNEL=="sda5", SYMLINK+="%c{7}"
         """),
 
     Rules.new(
@@ -618,7 +618,7 @@ RULES = [
             not_exp_links   = ["foo1"],
         ),
         rules = r"""
-        SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c 'printf %%s \"foo1 foo2\" | grep \"foo1 foo2\"'", KERNEL=="sda5", SYMLINK+="%c{2}"
+        SUBSYSTEMS=="scsi", PROGRAM=="/bin/bash -c 'printf %%s \"foo1 foo2\" | grep \"foo1 foo2\"'", KERNEL=="sda5", SYMLINK+="%c{2}"
         """),
 
     Rules.new(
@@ -629,7 +629,7 @@ RULES = [
             not_exp_links   = ["foo1"],
         ),
         rules = r"""
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c \"printf %%s 'foo1 foo2' | grep 'foo1 foo2'\"", KERNEL=="sda5", SYMLINK+="%c{2}"
+SUBSYSTEMS=="scsi", PROGRAM=="/bin/bash -c \"printf %%s 'foo1 foo2' | grep 'foo1 foo2'\"", KERNEL=="sda5", SYMLINK+="%c{2}"
         """),
 
     Rules.new(
@@ -640,7 +640,7 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c \"printf %%s 'foo1 foo2' | grep 'foo1 f
             not_exp_links   = ["foo1", "foo3"],
         ),
         rules = r"""
-        SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c 'printf \"%%s %%s\" \"foo1 foo2\" \"foo3\"| grep \"foo1 foo2\"'", KERNEL=="sda5", SYMLINK+="%c{2}"
+        SUBSYSTEMS=="scsi", PROGRAM=="/bin/bash -c 'printf \"%%s %%s\" \"foo1 foo2\" \"foo3\"| grep \"foo1 foo2\"'", KERNEL=="sda5", SYMLINK+="%c{2}"
         """),
 
     Rules.new(

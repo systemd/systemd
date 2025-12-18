@@ -685,7 +685,7 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
 
         log_debug("Announcing packet size %zu in egress EDNS(0) packet.", packet_size);
 
-        return dns_packet_append_opt(packet, packet_size, edns_do, /* include_rfc6975 = */ true, NULL, 0, NULL);
+        return dns_packet_append_opt(packet, packet_size, edns_do, /* include_rfc6975= */ true, NULL, 0, NULL);
 }
 
 int dns_server_ifindex(const DnsServer *s) {
@@ -817,7 +817,7 @@ static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
         if (r != 0)
                 return r;
 
-        return streq_ptr(x->server_name, y->server_name);
+        return strcmp_ptr(x->server_name, y->server_name);
 }
 
 DEFINE_HASH_OPS(dns_server_hash_ops, DnsServer, dns_server_hash_func, dns_server_compare_func);

@@ -123,14 +123,14 @@ int boot_config_load_type1(
                 BootConfig *config,
                 FILE *f,
                 const char *root,
-                const BootEntrySource source,
+                BootEntrySource source,
                 const char *dir,
-                const char *id);
+                const char *filename);
 
 int boot_config_finalize(BootConfig *config);
 int boot_config_load(BootConfig *config, const char *esp_path, const char *xbootldr_path);
 int boot_config_load_auto(BootConfig *config, const char *override_esp_path, const char *override_xbootldr_path);
-int boot_config_augment_from_loader(BootConfig *config, char **list, bool auto_only);
+int boot_config_augment_from_loader(BootConfig *config, char **found_by_loader, bool auto_only);
 
 int boot_config_select_special_entries(BootConfig *config, bool skip_efivars);
 

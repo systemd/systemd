@@ -59,6 +59,7 @@
 #include "killall.h"
 #include "kmod-setup.h"
 #include "label-util.h"
+#include "libmount-util.h"
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -840,7 +841,7 @@ static int parse_config_file(void) {
                                 (const char* const*) files,
                                 (const char* const*) dirs,
                                 "user.conf.d",
-                                /* root = */ NULL,
+                                /* root= */ NULL,
                                 "Manager\0",
                                 config_item_table_lookup, items,
                                 CONFIG_PARSE_WARN,
@@ -1426,7 +1427,7 @@ static int os_release_status(void) {
                 }
         }
 
-        if (support_end && os_release_support_ended(support_end, /* quiet = */ false, /* ret_eol = */ NULL) > 0)
+        if (support_end && os_release_support_ended(support_end, /* quiet= */ false, /* ret_eol= */ NULL) > 0)
                 /* pretty_name may include the version already, so we'll print the version only if we
                  * have it and we're not using pretty_name. */
                 status_printf(ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL, 0,
@@ -1997,19 +1998,19 @@ static int do_reexecute(
                 /* If we're supposed to switch root, preemptively check the existence of a usable init.
                  * Otherwise the system might end up in a completely undebuggable state afterwards. */
                 if (switch_root_init) {
-                        r = chase_and_access(switch_root_init, switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path = */ NULL);
+                        r = chase_and_access(switch_root_init, switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path= */ NULL);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to chase configured init %s/%s: %m",
                                                   switch_root_dir, switch_root_init);
                 } else {
-                        r = chase_and_access(SYSTEMD_BINARY_PATH, switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path = */ NULL);
+                        r = chase_and_access(SYSTEMD_BINARY_PATH, switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path= */ NULL);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to chase our own binary %s/%s: %m",
                                                 switch_root_dir, SYSTEMD_BINARY_PATH);
                 }
 
                 if (r < 0) {
-                        r = chase_and_access("/sbin/init", switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path = */ NULL);
+                        r = chase_and_access("/sbin/init", switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path= */ NULL);
                         if (r < 0) {
                                 *ret_error_message = "Switch root target contains no usable init";
                                 return log_error_errno(r, "Failed to chase %s/sbin/init", switch_root_dir);
@@ -2354,7 +2355,7 @@ static void log_execution_mode(bool *ret_first_boot) {
                         /* Let's check whether we are in first boot. First, check if an override was
                          * specified on the kernel command line. If yes, we honour that. */
 
-                        r = proc_cmdline_get_bool("systemd.condition_first_boot", /* flags = */ 0, &first_boot);
+                        r = proc_cmdline_get_bool("systemd.condition_first_boot", /* flags= */ 0, &first_boot);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to parse systemd.condition_first_boot= kernel command line argument, ignoring: %m");
 
@@ -2446,7 +2447,7 @@ static int initialize_runtime(
 
                 if (!skip_setup) {
                         /* Check that /usr/ is either on the same file system as / or mounted already. */
-                        if (dir_is_empty("/usr", /* ignore_hidden_or_backup = */ true) > 0) {
+                        if (dir_is_empty("/usr", /* ignore_hidden_or_backup= */ true) > 0) {
                                 *ret_error_message = "Refusing to run in unsupported environment where /usr/ is not populated";
                                 return -ENOEXEC;
                         }
@@ -2457,11 +2458,11 @@ static int initialize_runtime(
                         (void) import_credentials();
 
                         (void) os_release_status();
-                        (void) machine_id_setup(/* root = */ NULL, arg_machine_id,
+                        (void) machine_id_setup(/* root= */ NULL, arg_machine_id,
                                                 (first_boot ? MACHINE_ID_SETUP_FORCE_TRANSIENT : 0) |
                                                 (arg_machine_id_from_firmware ? MACHINE_ID_SETUP_FORCE_FIRMWARE : 0),
-                                                /* ret = */ NULL);
-                        (void) hostname_setup(/* really = */ true);
+                                                /* ret= */ NULL);
+                        (void) hostname_setup(/* really= */ true);
                         (void) loopback_setup();
 
                         bump_unix_max_dgram_qlen();
@@ -3307,6 +3308,13 @@ int main(int argc, char *argv[]) {
                                    "  systemd.unified_cgroup_hierarchy=0");
 
                 error_message = "Detected unsupported legacy cgroup hierarchy, refusing execution";
+                goto finish;
+        }
+
+        /* Building without libmount is allowed, but if it is compiled in, then we must be able to load it */
+        r = dlopen_libmount();
+        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                error_message = "Failed to load libmount.so";
                 goto finish;
         }
 

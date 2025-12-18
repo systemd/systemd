@@ -123,7 +123,7 @@ Operation *operation_free(Operation *o) {
         safe_close(o->extra_fd);
 
         if (o->pid > 1)
-                (void) sigkill_wait(o->pid);
+                sigkill_wait(o->pid);
 
         sd_bus_message_unref(o->message);
 

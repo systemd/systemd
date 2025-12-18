@@ -108,7 +108,7 @@ endif
 ############################################################
 
 test_compare_versions_sh = files('test-compare-versions.sh')
-if want_tests != 'false'
+if want_tests != 'false' and executables_by_name.has_key('systemd-analyze')
         exe = executables_by_name.get('systemd-analyze')
         test('test-compare-versions',
              test_compare_versions_sh,
@@ -151,7 +151,7 @@ endif
 ############################################################
 
 test_fstab_generator_sh = files('test-fstab-generator.sh')
-if want_tests != 'false'
+if want_tests != 'false' and executables_by_name.has_key('systemd-fstab-generator')
         exe = executables_by_name.get('systemd-fstab-generator')
         test('test-fstab-generator',
              test_fstab_generator_sh,

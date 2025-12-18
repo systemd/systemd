@@ -385,7 +385,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         name = dns_question_first_name(packet->question);
         log_info("Processing question for name '%s'", name);
 
-        (void) dns_question_dump(packet->question, stdout);
+        dns_question_dump(packet->question, stdout);
 
         r = make_reply_packet(packet, &reply);
         if (r < 0) {

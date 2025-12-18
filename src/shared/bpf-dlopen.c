@@ -2,6 +2,7 @@
 
 #include "bpf-dlopen.h"
 #include "dlfcn-util.h"
+#include "errno-util.h"
 #include "initrd-util.h"
 #include "log.h"
 
@@ -73,7 +74,6 @@ static int bpf_print_func(enum libbpf_print_level level, const char *fmt, va_lis
 }
 
 int dlopen_bpf_full(int log_level) {
-        _cleanup_(dlclosep) void *dl = NULL;
         static int cached = 0;
         int r;
 
@@ -87,17 +87,20 @@ int dlopen_bpf_full(int log_level) {
 
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 
-        dl = dlopen("libbpf.so.1", RTLD_NOW|RTLD_NODELETE);
-        if (!dl) {
+        _cleanup_(dlclosep) void *dl = NULL;
+        r = dlopen_safe("libbpf.so.1", &dl, /* reterr_dlerror= */ NULL);
+        if (r < 0) {
                 /* libbpf < 1.0.0 (we rely on 0.1.0+) provide most symbols we care about, but
                  * unfortunately not all until 0.7.0. See bpf-compat.h for more details.
                  * Once we consider we can assume 0.7+ is present we can just use the same symbol
                  * list for both files, and when we assume 1.0+ is present we can remove this dlopen */
-                dl = dlopen("libbpf.so.0", RTLD_NOW|RTLD_NODELETE);
-                if (!dl)
-                        return cached = log_full_errno(in_initrd() ? LOG_DEBUG : log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                       "Neither libbpf.so.1 nor libbpf.so.0 are installed, cgroup BPF features disabled: %s",
-                                                       dlerror());
+                const char *dle = NULL;
+                r = dlopen_safe("libbpf.so.0", &dl, &dle);
+                if (r < 0) {
+                        log_full_errno(in_initrd() ? LOG_DEBUG : log_level, r,
+                                       "Neither libbpf.so.1 nor libbpf.so.0 are installed, cgroup BPF features disabled: %s", dle ?: STRERROR(r));
+                        return (cached = -EOPNOTSUPP); /* turn into recognizable error */
+                }
 
                 log_debug("Loaded 'libbpf.so.0' via dlopen()");
 

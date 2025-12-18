@@ -7,23 +7,27 @@
 #include "basic-forward.h"
 #include "string-util-fundamental.h" /* IWYU pragma: export */
 
-static inline char* strstr_ptr(const char *haystack, const char *needle) {
+static inline char* strstr_ptr_internal(const char *haystack, const char *needle) {
         if (!haystack || !needle)
                 return NULL;
-        return strstr(haystack, needle);
+        return (char*) strstr(haystack, needle);
 }
 
-static inline char* strstrafter(const char *haystack, const char *needle) {
-        char *p;
+#define strstr_ptr(haystack, needle) \
+        const_generic(haystack, strstr_ptr_internal(haystack, needle))
 
+static inline char* strstrafter_internal(const char *haystack, const char *needle) {
         /* Returns NULL if not found, or pointer to first character after needle if found */
 
-        p = strstr_ptr(haystack, needle);
+        char *p = (char*) strstr_ptr(haystack, needle);
         if (!p)
                 return NULL;
 
         return p + strlen(needle);
 }
+
+#define strstrafter(haystack, needle) \
+        const_generic(haystack, strstrafter_internal(haystack, needle))
 
 static inline const char* strnull(const char *s) {
         return s ?: "(null)";
@@ -287,15 +291,25 @@ char* strdupcspn(const char *a, const char *reject);
                 (char*) memdupa_suffix0(_t, strnlen(_t, n));            \
         })
 
-char* find_line_startswith(const char *haystack, const char *needle);
-char* find_line(const char *haystack, const char *needle);
-char* find_line_after(const char *haystack, const char *needle);
+char* find_line_startswith_internal(const char *haystack, const char *needle);
+#define find_line_startswith(haystack, needle) \
+        const_generic(haystack, find_line_startswith_internal(haystack, needle))
+
+char* find_line_internal(const char *haystack, const char *needle);
+#define find_line(haystack, needle) \
+        const_generic(haystack, find_line_internal(haystack, needle))
+
+char* find_line_after_internal(const char *haystack, const char *needle);
+#define find_line_after(haystack, needle) \
+        const_generic(haystack, find_line_after_internal(haystack, needle))
 
 bool version_is_valid(const char *s) _pure_;
 bool version_is_valid_versionspec(const char *s) _pure_;
 
 ssize_t strlevenshtein(const char *x, const char *y);
 
-char* strrstr(const char *haystack, const char *needle) _pure_;
+char* strrstr_internal(const char *haystack, const char *needle) _pure_;
+#define strrstr(haystack, needle) \
+        const_generic(haystack, strrstr_internal(haystack, needle))
 
 size_t str_common_prefix(const char *a, const char *b) _pure_;

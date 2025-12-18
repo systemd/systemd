@@ -13,7 +13,7 @@ at_exit() {
     set +e
 
     machinectl status long-running &>/dev/null && machinectl kill --signal=KILL long-running
-    mountpoint -q /var/lib/machines && timeout 30 sh -c "until umount /var/lib/machines; do sleep .5; done"
+    mountpoint -q /var/lib/machines && timeout 30 bash -c "until umount /var/lib/machines; do sleep .5; done"
     [[ -n "${NSPAWN_FRAGMENT:-}" ]] && rm -f "/etc/systemd/nspawn/$NSPAWN_FRAGMENT" "/var/lib/machines/$NSPAWN_FRAGMENT"
     rm -f /run/systemd/nspawn/*.nspawn
 }
@@ -308,8 +308,8 @@ timeout 30 bash -c "while varlinkctl call /run/systemd/machine/io.systemd.Machin
 # test io.systemd.Machine.List with sshAddress and sshPrivateKeyPath fields
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Register '{"name": "registered-container", "class": "container", "sshAddress": "localhost", "sshPrivateKeyPath": "/non-existent"}'
 timeout 30 bash -c "until varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{\"name\":\"registered-container\"}'; do sleep 0.5; done"
-varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"registered-container"}' | jq '.sshAddress' | grep -q 'localhost'
-varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"registered-container"}' | jq '.sshPrivateKeyPath' | grep -q 'non-existent'
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"registered-container"}' | jq '.sshAddress' | grep 'localhost' >/dev/null
+varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name":"registered-container"}' | jq '.sshPrivateKeyPath' | grep 'non-existent' >/dev/null
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Unregister '{"name": "registered-container"}'
 
 # test io.systemd.Machine.List with addresses, OSRelease, and UIDShift fields
@@ -369,7 +369,7 @@ journalctl --sync
 (! journalctl -u systemd-machined.service --since="$TS" --grep 'Connection busy')
 machinectl terminate container-without-os-release
 
-(ip addr show lo | grep -q 192.168.1.100) || ip address add 192.168.1.100/24 dev lo
+(ip addr show lo | grep 192.168.1.100 >/dev/null) || ip address add 192.168.1.100/24 dev lo
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'addresses')
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host", "acquireMetadata": "yes"}' | grep 'addresses'
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List '{"name": ".host"}' | grep 'OSRelease')

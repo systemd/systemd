@@ -150,7 +150,7 @@ int journal_file_open(
                 JournalFile **ret);
 
 int journal_file_set_offline_thread_join(JournalFile *f);
-JournalFile* journal_file_close(JournalFile *j);
+JournalFile* journal_file_close(JournalFile *f);
 int journal_file_fstat(JournalFile *f);
 DEFINE_TRIVIAL_CLEANUP_FUNC(JournalFile*, journal_file_close);
 

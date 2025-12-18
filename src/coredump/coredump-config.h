@@ -58,6 +58,6 @@ int coredump_parse_config(CoredumpConfig *config);
 uint64_t coredump_storage_size_max(const CoredumpConfig *config);
 
 /* Defined in generated coredump-gperf.c */
-const struct ConfigPerfItem* coredump_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* coredump_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_coredump_storage);

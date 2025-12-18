@@ -379,12 +379,12 @@ static int monitor_add_inotify_watch(int fd) {
         return wd;
 }
 
-int sd_network_monitor_new(sd_network_monitor **m, const char *category) {
+int sd_network_monitor_new(sd_network_monitor **ret, const char *category) {
         _cleanup_close_ int fd = -EBADF;
         int k;
         bool good = false;
 
-        assert_return(m, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
         if (fd < 0)
@@ -401,7 +401,7 @@ int sd_network_monitor_new(sd_network_monitor **m, const char *category) {
         if (!good)
                 return -EINVAL;
 
-        *m = FD_TO_MONITOR(TAKE_FD(fd));
+        *ret = FD_TO_MONITOR(TAKE_FD(fd));
         return 0;
 }
 

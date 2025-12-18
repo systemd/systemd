@@ -4,7 +4,12 @@ set -eux
 set -o pipefail
 
 # shellcheck source=test/units/util.sh
- . "$(dirname "$0")"/util.sh
+. "$(dirname "$0")"/util.sh
+
+if [[ -L $(command -v sleep) ]]; then
+    # coreutils is built with --enable-single-binary=symlinks, and we cannot rename it.
+    exit 0
+fi
 
 # Make sure the binary name fits into 15 characters
 CORE_TEST_BIN="/tmp/test-dump"

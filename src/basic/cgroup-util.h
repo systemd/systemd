@@ -216,7 +216,7 @@ static inline int cg_pidref_get_unit(const PidRef *pidref, char **ret_unit) {
 }
 int cg_pid_get_user_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup);
 static inline int cg_pid_get_user_unit(pid_t pid, char **ret_unit) {
-        return cg_pid_get_unit_full(pid, ret_unit, NULL);
+        return cg_pid_get_user_unit_full(pid, ret_unit, NULL);
 }
 int cg_pidref_get_user_unit_full(const PidRef *pidref, char **ret_unit, char **ret_subgroup);
 static inline int cg_pidref_get_user_unit(const PidRef *pidref, char **ret_unit) {

@@ -1062,7 +1062,8 @@ static int parse_argv(int argc, char *argv[]) {
                                                 /* ret_shell= */ NULL,
                                                 /* flags= */ 0);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to resolve user '%s': %m", optarg);
+                                        return log_error_errno(r, "Failed to resolve user '%s': %s",
+                                                               optarg, STRERROR_USER(r));
                         }
                         break;
 

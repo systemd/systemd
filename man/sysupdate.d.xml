@@ -84,8 +84,8 @@
       <listitem><para>A file <literal>https://download.example.com/foobarOS_47.root.xz</literal> should be
       downloaded, decompressed and written to a previously unused partition with GPT partition type UUID
       4f68bce3-e8cd-4db1-96e7-fbcaf984b709 for x86-64, as per <ulink
-      url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
-      Specification</ulink>.</para></listitem>
+      url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2
+      Discoverable Partitions Specification</ulink>.</para></listitem>
 
       <listitem><para>Similarly, a file <literal>https://download.example.com/foobarOS_47.verity.xz</literal>
       should be downloaded, decompressed and written to a previously empty partition with GPT partition type
@@ -93,7 +93,7 @@
       for x86-64 root file systems).</para></listitem>
 
       <listitem><para>Finally, a file <literal>https://download.example.com/foobarOS_47.efi</literal> (a
-      unified kernel, as per <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
+      unified kernel, as per <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader
       Specification</ulink> Type #2) should be downloaded, decompressed and written to the $BOOT file system,
       i.e. to <filename>EFI/Linux/foobarOS_47.efi</filename> in the ESP or XBOOTLDR partition.</para></listitem>
     </orderedlist>
@@ -368,21 +368,21 @@
             <entry><literal>@a</literal></entry>
             <entry>GPT partition flag NoAuto</entry>
             <entry>Either <literal>0</literal> or <literal>1</literal></entry>
-            <entry>Controls NoAuto bit of the GPT partition flags, as per <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>; only relevant if target resource type chosen as <constant>partition</constant></entry>
+            <entry>Controls NoAuto bit of the GPT partition flags, as per <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions Specification</ulink>; only relevant if target resource type chosen as <constant>partition</constant></entry>
           </row>
 
           <row>
             <entry><literal>@g</literal></entry>
             <entry>GPT partition flag GrowFileSystem</entry>
             <entry>Either <literal>0</literal> or <literal>1</literal></entry>
-            <entry>Controls GrowFileSystem bit of the GPT partition flags, as per <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>; only relevant if target resource type chosen as <constant>partition</constant></entry>
+            <entry>Controls GrowFileSystem bit of the GPT partition flags, as per <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions Specification</ulink>; only relevant if target resource type chosen as <constant>partition</constant></entry>
           </row>
 
           <row>
             <entry><literal>@r</literal></entry>
             <entry>Read-only flag</entry>
             <entry>Either <literal>0</literal> or <literal>1</literal></entry>
-            <entry>Controls ReadOnly bit of the GPT partition flags, as per <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink> and other output read-only flags, see <varname>ReadOnly=</varname> below</entry>
+            <entry>Controls ReadOnly bit of the GPT partition flags, as per <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions Specification</ulink> and other output read-only flags, see <varname>ReadOnly=</varname> below</entry>
           </row>
 
           <row>
@@ -681,12 +681,12 @@
         <para>If set to <constant>root</constant>, <constant>esp</constant>, <constant>xbootldr</constant>,
         the specified <varname>Path=</varname> will be resolved relative to the mount point of the
         corresponding partition, as defined by the
-        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
+        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader
         Specification</ulink>.</para>
 
         <para>If set to <constant>boot</constant>, the specified <varname>Path=</varname> will be resolved
         relative to the mount point of the $BOOT partition (i.e. the ESP or XBOOTLDR), as defined by the
-        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
+        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader
         Specification</ulink>.</para>
 
         <para>If set to <constant>explicit</constant>, the specified <varname>Path=</varname> will be
@@ -753,7 +753,7 @@
         overall <varname>PartitionFlags=</varname> flags setting and the individual flag settings
         <varname>PartitionNoAuto=</varname> and <varname>PartitionGrowFileSystem=</varname> are used (or the
         wildcards for them), then the latter override the former, i.e. the individual flag bit overrides the
-        overall flags value. See <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
+        overall flags value. See <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable
         Partitions Specification</ulink> for details about these flags.</para>
 
         <para>Note that these settings are not used for matching, they only have effect on newly written
@@ -767,7 +767,7 @@
 
         <listitem><para>Controls whether to mark the resulting file, subvolume or partition read-only. If the
         target type is <constant>partition</constant> this controls the ReadOnly partition flag, as per
-        <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
+        <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions
         Specification</ulink>, similar to the <varname>PartitionNoAuto=</varname> and
         <varname>PartitionGrowFileSystem=</varname> flags described above. If the target type is
         <constant>regular-file</constant>, the writable bit is removed from the access mode. If the
@@ -987,7 +987,7 @@ TriesDone=0
 InstancesMax=2</programlisting></para>
 
         <para>The above installs a unified kernel image into the $BOOT partition, as per
-        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
+        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader
         Specification</ulink> Type #2. This defines three possible patterns for the names of the kernel
         images, as per <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot Assessment</ulink>,
         and ensures when installing new kernels, they are set up with 3 tries left. No more than two parallel

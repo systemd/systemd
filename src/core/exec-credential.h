@@ -29,7 +29,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSetCredential*, exec_set_credential_free);
 ExecLoadCredential* exec_load_credential_free(ExecLoadCredential *lc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecLoadCredential*, exec_load_credential_free);
 
-ExecImportCredential* exec_import_credential_free(ExecImportCredential *lc);
+ExecImportCredential* exec_import_credential_free(ExecImportCredential *ic);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecImportCredential*, exec_import_credential_free);
 
 int exec_context_put_load_credential(ExecContext *c, const char *id, const char *path, bool encrypted);
@@ -51,7 +51,7 @@ int exec_context_get_credential_directory(
                 const char *unit,
                 char **ret);
 
-int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_root, const char *unit);
+int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_prefix, const char *unit);
 
 int exec_setup_credentials(
                 const ExecContext *context,

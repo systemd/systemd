@@ -505,13 +505,14 @@ static int pid_notify_with_fds_internal(
         if (r == -EPROTO)
                 r = socket_address_parse_vsock(&address, e);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Address NOTIFY_SOCKET='%s' is neither UNIX nor VSOCK, refusing: %m", e);
         msghdr.msg_namelen = address.size;
 
         /* If we didn't get an address (which is a normal pattern when specifying VSOCK tuples) error out,
          * we always require a specific CID. */
         if (address.sockaddr.vm.svm_family == AF_VSOCK && address.sockaddr.vm.svm_cid == VMADDR_CID_ANY)
-                return -EINVAL;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "VSOCK address in NOTIFY_SOCKET='%s' doesn't have CID, refusing.", e);
 
         type = address.type == 0 ? SOCK_DGRAM : address.type;
 
@@ -610,7 +611,8 @@ static int pid_notify_with_fds_internal(
                 } else {
                         /* Unless we're using SOCK_STREAM, we expect to write all the contents immediately. */
                         if (type != SOCK_STREAM && (size_t) n < iovec_total_size(msghdr.msg_iov, msghdr.msg_iovlen))
-                                return -EIO;
+                                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                                       "Incomplete notify message sent to '%s': %m", e);
 
                         /* Make sure we only send fds and ucred once, even if we're using SOCK_STREAM. */
                         msghdr.msg_control = NULL;
@@ -631,6 +633,7 @@ static int pid_notify_with_fds_internal(
                         return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Unexpectedly received data on notify socket.");
         }
 
+        log_debug("Notify message sent to '%s': \"%s\"", e, state);
         return 1;
 }
 
@@ -780,7 +783,7 @@ _public_ int sd_pidfd_get_inode_id(int pidfd, uint64_t *ret) {
         /* Are pidfds backed by pidfs where the unique inode id is relevant? Note that the pidfd
          * passed to us is extrinsic and hence cannot be trusted to initialize our "have_pidfs" cache,
          * instead pidfd_check_pidfs() will allocate one internally. */
-        r = pidfd_check_pidfs(/* pid_fd = */ -EBADF);
+        r = pidfd_check_pidfs(/* pid_fd= */ -EBADF);
         if (r <= 0)
                 return -EOPNOTSUPP;
 

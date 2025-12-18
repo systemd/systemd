@@ -144,32 +144,32 @@ char ascii_toupper(char x) {
         return x;
 }
 
-char* ascii_strlower(char *t) {
-        assert(t);
+char* ascii_strlower(char *s) {
+        assert(s);
 
-        for (char *p = t; *p; p++)
+        for (char *p = s; *p; p++)
                 *p = ascii_tolower(*p);
 
-        return t;
+        return s;
 }
 
-char* ascii_strupper(char *t) {
-        assert(t);
+char* ascii_strupper(char *s) {
+        assert(s);
 
-        for (char *p = t; *p; p++)
+        for (char *p = s; *p; p++)
                 *p = ascii_toupper(*p);
 
-        return t;
+        return s;
 }
 
-char* ascii_strlower_n(char *t, size_t n) {
+char* ascii_strlower_n(char *s, size_t n) {
         if (n <= 0)
-                return t;
+                return s;
 
         for (size_t i = 0; i < n; i++)
-                t[i] = ascii_tolower(t[i]);
+                s[i] = ascii_tolower(s[i]);
 
-        return t;
+        return s;
 }
 
 int ascii_strcasecmp_n(const char *a, const char *b, size_t n) {
@@ -332,7 +332,7 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         x = ((new_length - need_space) * percent + 50) / 100;
         assert(x <= new_length - need_space);
 
-        write_ellipsis(mempcpy(t, s, x), /* unicode = */ false);
+        write_ellipsis(mempcpy(t, s, x), /* unicode= */ false);
         suffix_len = new_length - x - need_space;
         memcpy(t + x + 3, s + old_length - suffix_len, suffix_len);
         *(t + x + 3 + suffix_len) = '\0';
@@ -454,7 +454,7 @@ char* ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                 return NULL;
 
         memcpy_safe(e, s, len);
-        write_ellipsis(e + len, /* unicode = */ true);
+        write_ellipsis(e + len, /* unicode= */ true);
 
         char *dst = e + len + 3;
 
@@ -533,7 +533,7 @@ char* cellescape(char *buf, size_t len, const char *s) {
         }
 
         if (i + 4 <= len) /* yay, enough space */
-                i += write_ellipsis(buf + i, /* unicode = */ false);
+                i += write_ellipsis(buf + i, /* unicode= */ false);
         else if (i + 3 <= len) { /* only space for ".." */
                 buf[i++] = '.';
                 buf[i++] = '.';
@@ -1348,16 +1348,14 @@ char* strdupcspn(const char *a, const char *reject) {
         return strndup(a, strcspn(a, reject));
 }
 
-char* find_line_startswith(const char *haystack, const char *needle) {
-        char *p;
-
+char* find_line_startswith_internal(const char *haystack, const char *needle) {
         assert(haystack);
         assert(needle);
 
         /* Finds the first line in 'haystack' that starts with the specified string. Returns a pointer to the
          * first character after it */
 
-        p = strstr(haystack, needle);
+        char *p = (char*) strstr(haystack, needle);
         if (!p)
                 return NULL;
 
@@ -1371,16 +1369,14 @@ char* find_line_startswith(const char *haystack, const char *needle) {
         return p + strlen(needle);
 }
 
-char* find_line(const char *haystack, const char *needle) {
-        char *p;
-
+char* find_line_internal(const char *haystack, const char *needle) {
         assert(haystack);
         assert(needle);
 
         /* Finds the first line in 'haystack' that match the specified string. Returns a pointer to the
          * beginning of the line */
 
-        p = find_line_startswith(haystack, needle);
+        char *p = (char*) find_line_startswith(haystack, needle);
         if (!p)
                 return NULL;
 
@@ -1390,16 +1386,14 @@ char* find_line(const char *haystack, const char *needle) {
         return NULL;
 }
 
-char* find_line_after(const char *haystack, const char *needle) {
-        char *p;
-
+char* find_line_after_internal(const char *haystack, const char *needle) {
         assert(haystack);
         assert(needle);
 
         /* Finds the first line in 'haystack' that match the specified string. Returns a pointer to the
          * next line after it */
 
-        p = find_line_startswith(haystack, needle);
+        char *p = (char*) find_line_startswith(haystack, needle);
         if (!p)
                 return NULL;
 
@@ -1499,7 +1493,7 @@ ssize_t strlevenshtein(const char *x, const char *y) {
         return t1[yl];
 }
 
-char* strrstr(const char *haystack, const char *needle) {
+char* strrstr_internal(const char *haystack, const char *needle) {
         /* Like strstr() but returns the last rather than the first occurrence of "needle" in "haystack". */
 
         if (!haystack || !needle)
@@ -1508,7 +1502,7 @@ char* strrstr(const char *haystack, const char *needle) {
         /* Special case: for the empty string we return the very last possible occurrence, i.e. *after* the
          * last char, not before. */
         if (*needle == 0)
-                return strchr(haystack, 0);
+                return (char*) strchr(haystack, 0);
 
         for (const char *p = strstr(haystack, needle), *q; p; p = q) {
                 q = strstr(p + 1, needle);

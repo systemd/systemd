@@ -16,7 +16,6 @@
 #include "bus-print-properties.h"
 #include "bus-util.h"
 #include "constants.h"
-#include "env-util.h"
 #include "format-table.h"
 #include "in-addr-util.h"
 #include "log.h"
@@ -81,7 +80,7 @@ static int print_status_info(const StatusInfo *i) {
         SAVE_TIMEZONE;
 
         /* Set the new $TZ */
-        if (setenv("TZ", isempty(i->timezone) ? "UTC" : i->timezone, /* overwrite = */ true) < 0)
+        if (setenv("TZ", isempty(i->timezone) ? "UTC" : i->timezone, /* overwrite= */ true) < 0)
                 log_warning_errno(errno, "Failed to set TZ environment variable, ignoring: %m");
         else
                 tzset();

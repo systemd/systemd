@@ -97,9 +97,6 @@ def setUpModule():
     if os.path.isdir('/run/systemd/resolve'):
         os.chmod('/run/systemd/resolve', 0o755)
         shutil.chown('/run/systemd/resolve', 'systemd-resolve', 'systemd-resolve')
-    if os.path.isdir('/run/systemd/resolve.hook'):
-        os.chmod('/run/systemd/resolve.hook', 0o755)
-        shutil.chown('/run/systemd/resolve.hook', 'systemd-network', 'systemd-network')
     if os.path.isdir('/run/systemd/netif'):
         os.chmod('/run/systemd/netif', 0o755)
         shutil.chown('/run/systemd/netif', 'systemd-network', 'systemd-network')
@@ -975,9 +972,6 @@ EOF
 # For the networkd instance invoked below cannot support varlink connection.
 # Hence, 'networkctl persistent-storage yes' cannot be used.
 export SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY=1
-
-# Don't try to register resolved hook for our testcase
-export SYSTEMD_NETWORK_RESOLVE_HOOK=0
 
 # Generate debugging logs.
 export SYSTEMD_LOG_LEVEL=debug

@@ -194,7 +194,7 @@ int session_save(Session *s);
 int session_load(Session *s);
 int session_kill(Session *s, KillWhom whom, int signo, sd_bus_error *error);
 
-SessionState session_get_state(Session *u);
+SessionState session_get_state(Session *s);
 
 const char* session_state_to_string(SessionState t) _const_;
 SessionState session_state_from_string(const char *s) _pure_;

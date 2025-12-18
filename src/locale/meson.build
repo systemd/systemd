@@ -29,7 +29,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-localed',
                 'dbus' : true,
-                'sources' : systemd_localed_sources + systemd_localed_extract_sources,
+                'sources' : systemd_localed_sources,
                 'extract' : systemd_localed_extract_sources,
                 'dependencies' : libxkbcommon_deps,
         },

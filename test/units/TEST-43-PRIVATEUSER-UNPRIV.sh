@@ -84,12 +84,12 @@ runas testuser systemd-run --wait --user --unit=test-caps \
 
 runas testuser systemd-run --wait --user --unit=test-devices \
     -p PrivateDevices=yes -p PrivateIPC=yes \
-    sh -c "ls -1 /dev/ | wc -l | grep -q -F 18"
+    bash -c "ls -1 /dev/ | wc -l | grep -F 18 >/dev/null"
 
 # Same check as test/test-execute/exec-privatenetwork-yes.service
 runas testuser systemd-run --wait --user --unit=test-network \
     -p PrivateNetwork=yes \
-    sh -x -c '! ip link | grep -E "^[0-9]+: " | grep -Ev ": (lo|(erspan|gre|gretap|ip_vti|ip6_vti|ip6gre|ip6tnl|sit|tunl)0@.*):"'
+    bash -x -c '! ip link | grep -E "^[0-9]+: " | grep -Ev ": (lo|(erspan|gre|gretap|ip_vti|ip6_vti|ip6gre|ip6tnl|sit|tunl)0@.*):"'
 
 (! runas testuser systemd-run --wait --user --unit=test-hostname \
     -p ProtectHostname=yes \
@@ -101,11 +101,11 @@ runas testuser systemd-run --wait --user --unit=test-network \
 
 (! runas testuser systemd-run --wait --user --unit=test-kernel-tunable \
     -p ProtectKernelTunables=yes \
-    sh -c "echo 0 >/proc/sys/user/max_user_namespaces")
+    bash -c "echo 0 >/proc/sys/user/max_user_namespaces")
 
 (! runas testuser systemd-run --wait --user --unit=test-kernel-mod \
     -p ProtectKernelModules=yes \
-    sh -c "modprobe -r overlay && modprobe overlay")
+    bash -c "modprobe -r overlay && modprobe overlay")
 
 if sysctl kernel.dmesg_restrict=0; then
     (! runas testuser systemd-run --wait --user --unit=test-kernel-log \
@@ -113,7 +113,7 @@ if sysctl kernel.dmesg_restrict=0; then
         dmesg)
 fi
 
-unsquashfs -no-xattrs -d /tmp/img /usr/share/minimal_0.raw
+unsquashfs -force -no-xattrs -d /tmp/img /usr/share/minimal_0.raw
 runas testuser systemd-run --wait --user --unit=test-root-dir \
     -p RootDirectory=/tmp/img \
     grep MARKER=1 /etc/os-release
@@ -128,7 +128,7 @@ umount /tmp/img_bind
 # Unprivileged overlayfs was added to Linux 5.11, so try to detect it first
 mkdir -p /tmp/a /tmp/b /tmp/c
 if unshare --mount --user --map-root-user mount -t overlay overlay /tmp/c -o lowerdir=/tmp/a:/tmp/b; then
-    unsquashfs -no-xattrs -d /tmp/app2 /tmp/app1.raw
+    unsquashfs -force -no-xattrs -d /tmp/app2 /tmp/app1.raw
     runas testuser systemd-run --wait --user --unit=test-extension-dir \
         -p ExtensionDirectories=/tmp/app2 \
         -p TemporaryFileSystem=/run -p RootDirectory=/tmp/img \

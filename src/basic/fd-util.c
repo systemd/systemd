@@ -998,6 +998,21 @@ int fd_vet_accmode(int fd, int mode) {
         return -EPROTOTYPE;
 }
 
+int fd_is_writable(int fd) {
+        int r;
+
+        assert(fd >= 0);
+
+        r = fd_vet_accmode(fd, O_WRONLY);
+        if (r >= 0)
+                return true;
+
+        if (IN_SET(r, -EPROTOTYPE, -EBADFD, -EISDIR))
+                return false;
+
+        return r;
+}
+
 int fd_verify_safe_flags_full(int fd, int extra_flags) {
         int flags, unexpected_flags;
 

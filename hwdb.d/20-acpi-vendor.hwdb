@@ -246,6 +246,9 @@ acpi:JUMP*:
 acpi:KIOX*:
  ID_VENDOR_FROM_DATABASE=Kionix, Inc.
 
+acpi:KOMF*:
+ ID_VENDOR_FROM_DATABASE=Kontron France
+
 acpi:LNRO*:
  ID_VENDOR_FROM_DATABASE=Linaro, Ltd.
 
@@ -407,6 +410,9 @@ acpi:UBLX*:
 
 acpi:UBOO*:
  ID_VENDOR_FROM_DATABASE=Das U-Boot
+
+acpi:UBTI*:
+ ID_VENDOR_FROM_DATABASE=Ubiquiti Inc.
 
 acpi:ULRV*:
  ID_VENDOR_FROM_DATABASE=UltraRISC Technology (Shanghai) Co., Ltd

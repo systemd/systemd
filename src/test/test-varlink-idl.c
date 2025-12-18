@@ -8,8 +8,8 @@
 #include "sd-varlink-idl.h"
 
 #include "bootspec.h"
-#include "dissect-image.h"
 #include "fd-util.h"
+#include "gpt.h"
 #include "json-util.h"
 #include "network-util.h"
 #include "pretty-print.h"

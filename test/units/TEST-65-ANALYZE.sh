@@ -79,8 +79,12 @@ systemd-analyze dump "*.socket" "*.service" aaaaaaa ... >/dev/null
 systemd-analyze dump systemd-journald.service >/dev/null
 (! systemd-analyze dump "")
 (! systemd-analyze dump --global systemd-journald.service)
-# malloc
-systemd-analyze malloc >/dev/null
+# malloc (supported only when built with glibc)
+if built_with_musl; then
+    (! systemd-analyze malloc)
+else
+    systemd-analyze malloc >/dev/null
+fi
 (! systemd-analyze malloc --global)
 # unit-files
 systemd-analyze unit-files >/dev/null
@@ -416,7 +420,7 @@ systemd-analyze security --offline=true /tmp/testfile.service
 (! systemd-analyze security --threshold=90 --offline=true /tmp/testfile.service)
 
 # Ensure we print the list of ACLs, see https://github.com/systemd/systemd/issues/23185
-systemd-analyze security --offline=true /tmp/testfile.service | grep -q -F "/dev/sda"
+systemd-analyze security --offline=true /tmp/testfile.service | grep -F "/dev/sda" >/dev/null
 
 # Make sure that running generators under systemd-analyze verify works.
 # Note: sd-analyze spawns generators in a sandbox which makes gcov unhapy, so temporarily override
@@ -1005,9 +1009,9 @@ systemd-analyze security --threshold=25 --offline=true \
 
 rm /tmp/img/usr/lib/systemd/system/testfile.service
 
-if systemd-analyze --version | grep -q -F "+ELFUTILS"; then
+if systemd-analyze --version | grep -F "+ELFUTILS" >/dev/null; then
     systemd-analyze inspect-elf /lib/systemd/systemd
-    systemd-analyze inspect-elf --json=short /lib/systemd/systemd | grep -q -F '"elfType":"executable"'
+    systemd-analyze inspect-elf --json=short /lib/systemd/systemd | grep -F '"elfType":"executable"' >/dev/null
 
     # For some unknown reason the .note.dlopen sections are removed when building with sanitizers, so only
     # run this test if we're not running under sanitizers.
@@ -1079,13 +1083,13 @@ check deny no "$name"
 
 # Let's also test the "image-policy" verb
 
-systemd-analyze image-policy '*' 2>&1 | grep -q -F "Long form: =verity+signed+encrypted+unprotected+unused+absent"
-systemd-analyze image-policy '-' 2>&1 | grep -q -F "Long form: =unused+absent"
-systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -F "Long form: usr=verity:home=encrypted:=unused+absent"
-systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -e '^home \+encrypted \+'
-systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -e '^usr \+verity \+'
-systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -e '^root \+ignore \+'
-systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -e '^usr-verity \+unprotected \+'
+systemd-analyze image-policy '*' 2>&1 | grep -F "Long form: =verity+signed+encrypted+unprotected+unused+absent" >/dev/null
+systemd-analyze image-policy '-' 2>&1 | grep -F "Long form: =unused+absent" >/dev/null
+systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -F "Long form: usr=verity:home=encrypted:=unused+absent" >/dev/null
+systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -e '^home \+encrypted \+' >/dev/null
+systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -e '^usr \+verity \+' >/dev/null
+systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -e '^root \+ignore \+' >/dev/null
+systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -e '^usr-verity \+unprotected \+' >/dev/null
 
 (! systemd-analyze image-policy 'doedel')
 
@@ -1146,7 +1150,7 @@ Description=Test unit for systemd-analyze unit-shell
 [Service]
 Type=notify
 NotifyAccess=all
-ExecStart=sh -c "echo 'Hello from test unit' >/tmp/testfile; systemd-notify --ready; sleep infinity"
+ExecStart=bash -c "echo 'Hello from test unit' >/tmp/testfile; systemd-notify --ready; sleep infinity"
 PrivateTmp=disconnected
 EOF
 # Start the service

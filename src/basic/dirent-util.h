@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <dirent.h>     /* IWYU pragma: export */
+#include <dirent.h>             /* IWYU pragma: export */
 
 #include "basic-forward.h"
-#include "path-util.h"
+#include "path-util.h"          /* IWYU pragma: keep */
 
 bool dirent_is_file(const struct dirent *de) _pure_;
 bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) _pure_;

@@ -60,10 +60,10 @@ grep -q '^PRIORITY=6$' /tmp/output
 ID="$(systemd-id128 new)"
 echo -e 'HEAD\nTAIL\nTAIL' | systemd-cat -t "$ID"
 journalctl --sync
-journalctl -b -t "$ID" | grep -q HEAD
-journalctl -b -t "$ID" | grep -q TAIL
-journalctl -b -t "$ID" --truncate-newline | grep -q HEAD
-journalctl -b -t "$ID" --truncate-newline | grep -q -v TAIL
+journalctl -b -t "$ID" | grep HEAD >/dev/null
+journalctl -b -t "$ID" | grep TAIL >/dev/null
+journalctl -b -t "$ID" --truncate-newline | grep HEAD >/dev/null
+journalctl -b -t "$ID" --truncate-newline | grep -v TAIL >/dev/null
 
 # '-b all' negates earlier use of -b (-b and -m are otherwise exclusive)
 journalctl -b -1 -b all -m >/dev/null
@@ -93,7 +93,7 @@ grep -vq "^_PID=$PID" /tmp/output
 # https://github.com/systemd/systemd/issues/15654
 ID=$(systemd-id128 new)
 printf "This will\nusually fail\nand be truncated\n" >/tmp/expected
-systemd-cat -t "$ID" sh -c 'env echo -n "This will";echo;env echo -n "usually fail";echo;env echo -n "and be truncated";echo;'
+systemd-cat -t "$ID" bash -c 'env echo -n "This will"; echo; env echo -n "usually fail"; echo; env echo -n "and be truncated"; echo;'
 journalctl --sync
 journalctl -b -o cat -t "$ID" >/tmp/output
 diff /tmp/expected /tmp/output
@@ -221,7 +221,7 @@ journalctl --follow --merge | head -n1 | grep .
 rm -f /tmp/issue-26746-log /tmp/issue-26746-cursor
 ID="$(systemd-id128 new)"
 journalctl -t "$ID" --follow --cursor-file=/tmp/issue-26746-cursor | tee /tmp/issue-26746-log &
-systemd-cat -t "$ID" sh -c 'echo hogehoge'
+systemd-cat -t "$ID" bash -c 'echo hogehoge'
 # shellcheck disable=SC2016
 timeout 10 bash -c 'until [[ -f /tmp/issue-26746-log && "$(cat /tmp/issue-26746-log)" =~ hogehoge ]]; do sleep .5; done'
 pkill -TERM journalctl

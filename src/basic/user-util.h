@@ -9,14 +9,29 @@
 #include <shadow.h>
 
 #include "basic-forward.h"
+#include "errno-util.h"
 
-/* Users managed by systemd-homed. See https://systemd.io/UIDS-GIDS for details how this range fits into the rest of the world */
+/* Users managed by systemd-homed. See https://systemd.io/UIDS-GIDS for details
+ * how this range fits into the rest of the world. */
 #define HOME_UID_MIN ((uid_t) 60001)
 #define HOME_UID_MAX ((uid_t) 60513)
 
 /* Users mapped from host into a container */
 #define MAP_UID_MIN ((uid_t) 60514)
 #define MAP_UID_MAX ((uid_t) 60577)
+
+/* A helper to print an error message when user or group resolution fails. */
+const char* strerror_user(int errnum, char *buf, size_t buflen);
+#define STRERROR_USER(errnum) strerror_user(errnum, (char[ERRNO_BUF_LEN]){}, ERRNO_BUF_LEN)
+const char* strerror_group(int errnum, char *buf, size_t buflen);
+#define STRERROR_GROUP(errnum) strerror_group(errnum, (char[ERRNO_BUF_LEN]){}, ERRNO_BUF_LEN)
+
+static inline bool ERRNO_IS_NEG_BAD_ACCOUNT(intmax_t r) {
+        return IN_SET(r,
+                      -ESRCH,
+                      -ENOEXEC);
+}
+_DEFINE_ABS_WRAPPER(BAD_ACCOUNT);
 
 bool uid_is_valid(uid_t uid) _const_;
 
@@ -56,7 +71,7 @@ char* gid_to_name(gid_t gid);
 int in_gid(gid_t gid);
 int in_group(const char *name);
 
-int merge_gid_lists(const gid_t *list1, size_t size1, const gid_t *list2, size_t size2, gid_t **result);
+int merge_gid_lists(const gid_t *list1, size_t size1, const gid_t *list2, size_t size2, gid_t **ret);
 int getgroups_alloc(gid_t **ret);
 
 int get_home_dir(char **ret);

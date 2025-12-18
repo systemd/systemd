@@ -23,7 +23,7 @@ static int bus_automount_set_transient_property(
                 const char *name,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Unit *u = UNIT(a);
 
@@ -34,16 +34,16 @@ static int bus_automount_set_transient_property(
         flags |= UNIT_PRIVATE;
 
         if (streq(name, "Where"))
-                return bus_set_transient_path(u, name, &a->where, message, flags, error);
+                return bus_set_transient_path(u, name, &a->where, message, flags, reterr_error);
 
         if (streq(name, "ExtraOptions"))
-                return bus_set_transient_string(u, name, &a->extra_options, message, flags, error);
+                return bus_set_transient_string(u, name, &a->extra_options, message, flags, reterr_error);
 
         if (streq(name, "TimeoutIdleUSec"))
-                return bus_set_transient_usec_fix_0(u, name, &a->timeout_idle_usec, message, flags, error);
+                return bus_set_transient_usec_fix_0(u, name, &a->timeout_idle_usec, message, flags, reterr_error);
 
         if (streq(name, "DirectoryMode"))
-                return bus_set_transient_mode_t(u, name, &a->directory_mode, message, flags, error);
+                return bus_set_transient_mode_t(u, name, &a->directory_mode, message, flags, reterr_error);
 
         return 0;
 }
@@ -53,7 +53,7 @@ int bus_automount_set_property(
                 const char *name,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Automount *a = AUTOMOUNT(u);
 
@@ -62,7 +62,7 @@ int bus_automount_set_property(
         assert(message);
 
         if (u->transient && u->load_state == UNIT_STUB) /* This is a transient unit? let's load a little more */
-                return bus_automount_set_transient_property(a, name, message, flags, error);
+                return bus_automount_set_transient_property(a, name, message, flags, reterr_error);
 
         return 0;
 }

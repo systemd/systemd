@@ -27,7 +27,7 @@ typedef enum LocaleVariable {
         _VARIABLE_LC_INVALID = -EINVAL,
 } LocaleVariable;
 
-int get_locales(char ***l);
+int get_locales(char ***ret);
 bool locale_is_valid(const char *name);
 int locale_is_installed(const char *name);
 

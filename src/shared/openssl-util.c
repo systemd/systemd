@@ -1108,7 +1108,7 @@ int digest_and_sign(
                 bool invalid_digest = ERR_GET_REASON(ERR_peek_last_error()) == EVP_R_INVALID_DIGEST;
                 r = log_openssl_errors("Failed to initialize signature context");
                 return invalid_digest ? -EADDRNOTAVAIL : r;
-}
+        }
 
         /* Determine signature size */
         size_t ss;
@@ -1415,8 +1415,8 @@ static int load_key_from_provider(
 
         _cleanup_(OSSL_STORE_closep) OSSL_STORE_CTX *store = OSSL_STORE_open(
                         private_key_uri,
-                        /*ui_method=*/ NULL,
-                        /*ui_method=*/ NULL,
+                        /* ui_method= */ NULL,
+                        /* ui_method= */ NULL,
                         /* post_process= */ NULL,
                         /* post_process_data= */ NULL);
         if (!store)
@@ -1455,7 +1455,7 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
         if (ENGINE_init(e) == 0)
                 return log_openssl_errors("Failed to initialize signing engine '%s'", engine);
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(e, private_key_uri, /*ui_method=*/ NULL, /*callback_data=*/ NULL);
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(e, private_key_uri, /* ui_method= */ NULL, /* callback_data= */ NULL);
         if (!private_key)
                 return log_openssl_errors("Failed to load private key from '%s'", private_key_uri);
         REENABLE_WARNING;
@@ -1619,8 +1619,8 @@ static int load_x509_certificate_from_provider(const char *provider, const char 
 
         _cleanup_(OSSL_STORE_closep) OSSL_STORE_CTX *store = OSSL_STORE_open(
                         certificate_uri,
-                        /*ui_method=*/ NULL,
-                        /*ui_method=*/ NULL,
+                        /* ui_method= */ NULL,
+                        /* ui_method= */ NULL,
                         /* post_process= */ NULL,
                         /* post_process_data= */ NULL);
         if (!store)
@@ -1750,6 +1750,33 @@ int openssl_load_private_key(
                 if (ret_user_interface)
                         *ret_user_interface = TAKE_PTR(ui);
         }
+
+        return 0;
+}
+
+int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
+        int r;
+
+        assert(private_key);
+        assert(ret);
+
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *tf = memstream_init(&m);
+        if (!tf)
+                return log_oom();
+
+        if (i2d_PUBKEY_fp(tf, private_key) != 1)
+                return -EIO;
+
+        _cleanup_(erase_and_freep) char *buf = NULL;
+        size_t len;
+        r = memstream_finalize(&m, &buf, &len);
+        if (r < 0)
+                return r;
+
+        const unsigned char *t = (unsigned char*) buf;
+        if (!d2i_PUBKEY(ret, &t, len))
+                return -EIO;
 
         return 0;
 }

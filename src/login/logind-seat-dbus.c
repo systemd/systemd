@@ -146,7 +146,7 @@ int bus_seat_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = seat_stop_sessions(s, /* force = */ true);
+        r = seat_stop_sessions(s, /* force= */ true);
         if (r < 0)
                 return r;
 

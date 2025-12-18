@@ -31,8 +31,8 @@ PTYForward* pty_forward_free(PTYForward *f);
 int pty_forward_honor_vhangup(PTYForward *f);
 bool pty_forward_vhangup_honored(const PTYForward *f);
 
-void pty_forward_set_hangup_handler(PTYForward *f, PTYForwardHangupHandler handler, void *userdata);
-void pty_forward_set_hotkey_handler(PTYForward *f, PTYForwardHotkeyHandler handler, void *userdata);
+void pty_forward_set_hangup_handler(PTYForward *f, PTYForwardHangupHandler cb, void *userdata);
+void pty_forward_set_hotkey_handler(PTYForward *f, PTYForwardHotkeyHandler cb, void *userdata);
 
 int pty_forward_drain(PTYForward *f);
 

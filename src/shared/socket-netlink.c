@@ -15,6 +15,7 @@
 #include "netlink-sock-diag.h"
 #include "netlink-util.h"
 #include "parse-util.h"
+#include "socket-label.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -183,8 +184,18 @@ int make_socket_fd(int log_level, const char* address, int type, int flags) {
 
         a.type = type;
 
-        fd = socket_address_listen(&a, type | flags, SOMAXCONN_DELUXE, SOCKET_ADDRESS_DEFAULT,
-                                   NULL, false, false, false, 0755, 0644, NULL);
+        fd = socket_address_listen(
+                        &a,
+                        type | flags,
+                        SOMAXCONN_DELUXE, SOCKET_ADDRESS_DEFAULT,
+                        /* bind_to_device= */ NULL,
+                        /* reuse_port= */ false,
+                        /* free_bind= */ false,
+                        /* transparent= */ false,
+                        0755,
+                        0644,
+                        /* selinux_label= */ NULL,
+                        /* smack_label= */ NULL);
         if (fd < 0 || log_get_max_level() >= log_level) {
                 _cleanup_free_ char *p = NULL;
 

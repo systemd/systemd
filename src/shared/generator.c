@@ -36,7 +36,7 @@ static int symlink_unless_exists(const char *target, const char *linkpath) {
 int generator_open_unit_file_full(
                 const char *dir,
                 const char *source,
-                const char *fn,
+                const char *filename,
                 FILE **ret_file,
                 char **ret_final_path,
                 char **ret_temp_path) {
@@ -60,9 +60,9 @@ int generator_open_unit_file_full(
 
                 *ret_temp_path = TAKE_PTR(p);
         } else {
-                assert(fn);
+                assert(filename);
 
-                p = path_join(dir, fn);
+                p = path_join(dir, filename);
                 if (!p)
                         return log_oom();
 
@@ -233,7 +233,7 @@ static int write_fsck_sysroot_service(
         if (r < 0)
                 return log_error_errno(r, "Failed to convert device \"%s\" to unit name: %m", what);
 
-        r = generator_open_unit_file(dir, /* source = */ NULL, unit, &f);
+        r = generator_open_unit_file(dir, /* source= */ NULL, unit, &f);
         if (r < 0)
                 return r;
 
@@ -578,7 +578,7 @@ int generator_hook_up_mkswap(
                 return log_error_errno(r, "Failed to make unit name from path \"%s\": %m",
                                        what);
 
-        r = generator_open_unit_file(dir, /* source = */ NULL, unit, &f);
+        r = generator_open_unit_file(dir, /* source= */ NULL, unit, &f);
         if (r < 0)
                 return r;
 
@@ -660,7 +660,7 @@ int generator_hook_up_mkfs(
                 return log_error_errno(r, "Failed to make unit name from path \"%s\": %m",
                                        where);
 
-        r = generator_open_unit_file(dir, /* source = */ NULL, unit, &f);
+        r = generator_open_unit_file(dir, /* source= */ NULL, unit, &f);
         if (r < 0)
                 return r;
 

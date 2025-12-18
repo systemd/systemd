@@ -11,7 +11,7 @@ executables += [
         executable_template + {
                 'name' : 'busctl',
                 'public' : true,
-                'sources' : busctl_sources + busctl_extract_sources,
+                'sources' : busctl_sources,
                 'extract' : busctl_extract_sources,
         },
         test_template + {

@@ -34,6 +34,7 @@ SUBSYSTEM=="net", IMPORT{builtin}="net_driver"
 SUBSYSTEM=="ptp", GROUP="clock", MODE="0660"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK+="ptp_kvm"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK+="ptp_hyperv"
+SUBSYSTEM=="ptp", ATTR{clock_name}=="ptp_vmw", SYMLINK+="ptp_vmware"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="s390 Physical Clock", SYMLINK+="ptp_s390_physical"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="s390 STCKE Clock", SYMLINK+="ptp_s390_stcke"
 

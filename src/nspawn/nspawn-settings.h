@@ -249,7 +249,7 @@ int settings_allocate_properties(Settings *s);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Settings*, settings_free);
 
-const struct ConfigPerfItem* nspawn_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* nspawn_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_capability);
 CONFIG_PARSER_PROTOTYPE(config_parse_expose_port);

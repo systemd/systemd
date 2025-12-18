@@ -15,7 +15,6 @@
 #include "extract-word.h"
 #include "log.h"
 #include "path-util.h"
-#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -214,7 +213,7 @@ int udev_ping(usec_t timeout_usec, bool ignore_connection_failure) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to udev via varlink: %m");
 
-        r = varlink_call_and_log(link, "io.systemd.service.Ping", /* parameters = */ NULL, /* reply = */ NULL);
+        r = varlink_call_and_log(link, "io.systemd.service.Ping", /* parameters= */ NULL, /* reply= */ NULL);
         if (r < 0)
                 return r;
 

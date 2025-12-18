@@ -248,11 +248,11 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
          * accidentally however, hence let's unset the bit first. */
 
         r = chattr_full(AT_FDCWD, p,
-                        /* value = */ 0,
-                        /* mask = */ FS_IMMUTABLE_FL,
-                        /* ret_previous = */ &saved_flags,
-                        /* ret_final = */ NULL,
-                        /* flags = */ 0);
+                        /* value= */ 0,
+                        /* mask= */ FS_IMMUTABLE_FL,
+                        /* ret_previous= */ &saved_flags,
+                        /* ret_final= */ NULL,
+                        /* flags= */ 0);
         if (r < 0 && r != -ENOENT)
                 log_debug_errno(r, "Failed to drop FS_IMMUTABLE_FL flag from '%s', ignoring: %m", p);
 
@@ -288,7 +288,7 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
 
         /* For some reason efivarfs doesn't update mtime automatically. Let's do it manually then. This is
          * useful for processes that cache EFI variables to detect when changes occurred. */
-        if (futimens(fd, /* times = */ NULL) < 0)
+        if (futimens(fd, /* times= */ NULL) < 0)
                 log_debug_errno(errno, "Failed to update mtime/atime on %s, ignoring: %m", p);
 
         r = 0;

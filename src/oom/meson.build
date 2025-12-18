@@ -18,7 +18,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-oomd',
                 'dbus' : true,
-                'sources' : systemd_oomd_sources + systemd_oomd_extract_sources,
+                'sources' : systemd_oomd_sources,
                 'extract' : systemd_oomd_extract_sources,
                 'dependencies' : libatomic,
         },

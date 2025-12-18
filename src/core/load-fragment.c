@@ -1015,7 +1015,7 @@ int config_parse_exec(
                         /* Check explicitly for an unquoted semicolon as command separator token. */
                         if (p[0] == ';' && (!p[1] || strchr(WHITESPACE, p[1]))) {
                                 p++;
-                                p = skip_leading_chars(p, /* bad = */ NULL);
+                                p = skip_leading_chars(p, /* bad= */ NULL);
                                 semicolon = true;
                                 break;
                         }
@@ -1024,7 +1024,7 @@ int config_parse_exec(
                          * extract_first_word() would return the same for all of those. */
                         if (p[0] == '\\' && p[1] == ';' && (!p[2] || strchr(WHITESPACE, p[2]))) {
                                 p += 2;
-                                p = skip_leading_chars(p, /* bad = */ NULL);
+                                p = skip_leading_chars(p, /* bad= */ NULL);
 
                                 if (strv_extend(&args, ";") < 0)
                                         return log_oom();
@@ -2817,7 +2817,7 @@ int config_parse_pass_environ(
                         return log_oom();
         }
 
-        r = strv_extend_strv_consume(passenv, TAKE_PTR(n), /* filter_duplicates = */ true);
+        r = strv_extend_strv_consume(passenv, TAKE_PTR(n), /* filter_duplicates= */ true);
         if (r < 0)
                 return log_oom();
 
@@ -2886,7 +2886,7 @@ int config_parse_unset_environ(
                         return log_oom();
         }
 
-        r = strv_extend_strv_consume(unsetenv, TAKE_PTR(n), /* filter_duplicates = */ true);
+        r = strv_extend_strv_consume(unsetenv, TAKE_PTR(n), /* filter_duplicates= */ true);
         if (r < 0)
                 return log_oom();
 
@@ -4678,7 +4678,7 @@ int config_parse_set_credential(
         size_t size;
 
         if (encrypted) {
-                r = unbase64mem_full(p, SIZE_MAX, /* secure = */ true, &d, &size);
+                r = unbase64mem_full(p, SIZE_MAX, /* secure= */ true, &d, &size);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -5573,16 +5573,13 @@ int config_parse_emergency_action(
                 runtime_scope = ltype; /* otherwise, assume the scope is passed in via ltype */
 
         r = parse_emergency_action(rvalue, runtime_scope, x);
-        if (r < 0) {
-                if (r == -EOPNOTSUPP)
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "%s= specified as %s mode action, ignoring: %s",
-                                   lvalue, runtime_scope_to_string(runtime_scope), rvalue);
-                else
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
+        if (r == -EOPNOTSUPP)
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                "%s= specified as %s mode action, ignoring: %s",
+                                lvalue, runtime_scope_to_string(runtime_scope), rvalue);
+        else if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                                "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
 
         return 0;
 }
@@ -6634,7 +6631,7 @@ int config_parse_protect_hostname(
                         return 0;
                 }
 
-                if (!hostname_is_valid(h, /* flags = */ 0))
+                if (!hostname_is_valid(h, /* flags= */ 0))
                         return log_syntax(unit, LOG_WARNING, filename, line, 0,
                                           "Invalid hostname is specified to %s=, ignoring: %s", lvalue, h);
 

@@ -28,5 +28,5 @@ systemctl start badbin_assert.socket
 
 socat - ABSTRACT-CONNECT:badbin_assert.socket
 
-timeout 10 sh -c 'while systemctl is-active badbin_assert.service; do sleep .5; done'
+timeout 10 bash -c 'while systemctl is-active badbin_assert.service; do sleep .5; done'
 [[ "$(systemctl show -P ExecMainStatus badbin_assert.service)" == 203 ]]

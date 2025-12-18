@@ -32,7 +32,7 @@ struct Barrier {
 
 #define BARRIER_NULL {-EBADF, -EBADF, {-EBADF, -EBADF}, 0}
 
-int barrier_create(Barrier *obj);
+int barrier_create(Barrier *b);
 Barrier* barrier_destroy(Barrier *b);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Barrier*, barrier_destroy);

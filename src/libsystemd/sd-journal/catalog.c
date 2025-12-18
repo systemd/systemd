@@ -210,23 +210,21 @@ static int finish_item(
 }
 
 int catalog_file_lang(const char *filename, char **ret) {
-        char *beg, *end, *lang;
-
         assert(filename);
         assert(ret);
 
-        end = endswith(filename, ".catalog");
+        const char *end = endswith(filename, ".catalog");
         if (!end)
                 return 0;
 
-        beg = end - 1;
+        const char *beg = end - 1;
         while (beg > filename && !IN_SET(*beg, '.', '/') && end - beg < 32)
                 beg--;
 
         if (*beg != '.' || end <= beg + 1)
                 return 0;
 
-        lang = strndup(beg + 1, end - beg - 1);
+        char *lang = strndup(beg + 1, end - beg - 1);
         if (!lang)
                 return -ENOMEM;
 
@@ -553,7 +551,8 @@ static int open_mmap(const char *database, int *ret_fd, struct stat *ret_st, voi
 }
 
 static const char* find_id(const void *p, sd_id128_t id) {
-        CatalogItem *f = NULL, key = { .id = id };
+        CatalogItem key = { .id = id };
+        const CatalogItem *f = NULL;
         const CatalogHeader *h = ASSERT_PTR(p);
         const char *loc;
 

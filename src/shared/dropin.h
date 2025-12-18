@@ -32,4 +32,4 @@ int unit_file_find_dropin_paths(
                 const char *file_suffix,
                 const char *name,
                 const Set *aliases,
-                char ***paths);
+                char ***ret);

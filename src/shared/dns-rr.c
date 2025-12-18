@@ -4,7 +4,7 @@
 
 #include "alloc-util.h"
 #include "bitmap.h"
-#include "dns-answer.h"
+#include "dns-answer.h"                 /* IWYU pragma: keep */
 #include "dns-domain.h"
 #include "dns-packet.h"
 #include "dns-rr.h"
@@ -878,7 +878,7 @@ static char *format_svc_param_value(DnsSvcParam *i) {
                 size_t offset = 0;
                 _cleanup_strv_free_ char **values_strv = NULL;
                 while (offset < i->length) {
-                        size_t sz = (uint8_t) i->value[offset++];
+                        size_t sz = i->value[offset++];
 
                         char *alpn = cescape_length((char *)&i->value[offset], sz);
                         if (!alpn)
@@ -2183,9 +2183,9 @@ int dns_resource_key_to_json(DnsResourceKey *key, sd_json_variant **ret) {
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("class", SD_JSON_BUILD_INTEGER(key->class)),
-                        SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_INTEGER(key->type)),
-                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(dns_resource_key_name(key))));
+                        SD_JSON_BUILD_PAIR_INTEGER("class", key->class),
+                        SD_JSON_BUILD_PAIR_INTEGER("type", key->type),
+                        SD_JSON_BUILD_PAIR_STRING("name", dns_resource_key_name(key)));
 }
 
 int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret) {
@@ -2313,11 +2313,11 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
         case DNS_TYPE_SRV:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("priority", SD_JSON_BUILD_UNSIGNED(rr->srv.priority)),
-                                SD_JSON_BUILD_PAIR("weight", SD_JSON_BUILD_UNSIGNED(rr->srv.weight)),
-                                SD_JSON_BUILD_PAIR("port", SD_JSON_BUILD_UNSIGNED(rr->srv.port)),
-                                SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(rr->srv.name)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("priority", rr->srv.priority),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("weight", rr->srv.weight),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("port", rr->srv.port),
+                                SD_JSON_BUILD_PAIR_STRING("name", rr->srv.name));
 
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
@@ -2325,15 +2325,15 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
         case DNS_TYPE_DNAME:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(rr->ptr.name)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_STRING("name", rr->ptr.name));
 
         case DNS_TYPE_HINFO:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("cpu", SD_JSON_BUILD_STRING(rr->hinfo.cpu)),
-                                SD_JSON_BUILD_PAIR("os", SD_JSON_BUILD_STRING(rr->hinfo.os)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_STRING("cpu", rr->hinfo.cpu),
+                                SD_JSON_BUILD_PAIR_STRING("os", rr->hinfo.os));
 
         case DNS_TYPE_SPF:
         case DNS_TYPE_TXT: {
@@ -2345,90 +2345,90 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
 
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("items", SD_JSON_BUILD_VARIANT(l)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_VARIANT("items", l));
         }
 
         case DNS_TYPE_A:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
                                 SD_JSON_BUILD_PAIR("address", JSON_BUILD_IN4_ADDR(&rr->a.in_addr)));
 
         case DNS_TYPE_AAAA:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
                                 SD_JSON_BUILD_PAIR("address", JSON_BUILD_IN6_ADDR(&rr->aaaa.in6_addr)));
 
         case DNS_TYPE_SOA:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("mname", SD_JSON_BUILD_STRING(rr->soa.mname)),
-                                SD_JSON_BUILD_PAIR("rname", SD_JSON_BUILD_STRING(rr->soa.rname)),
-                                SD_JSON_BUILD_PAIR("serial", SD_JSON_BUILD_UNSIGNED(rr->soa.serial)),
-                                SD_JSON_BUILD_PAIR("refresh", SD_JSON_BUILD_UNSIGNED(rr->soa.refresh)),
-                                SD_JSON_BUILD_PAIR("expire", SD_JSON_BUILD_UNSIGNED(rr->soa.retry)),
-                                SD_JSON_BUILD_PAIR("minimum", SD_JSON_BUILD_UNSIGNED(rr->soa.minimum)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_STRING("mname", rr->soa.mname),
+                                SD_JSON_BUILD_PAIR_STRING("rname", rr->soa.rname),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("serial", rr->soa.serial),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("refresh", rr->soa.refresh),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("expire", rr->soa.retry),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("minimum", rr->soa.minimum));
 
         case DNS_TYPE_MX:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("priority", SD_JSON_BUILD_UNSIGNED(rr->mx.priority)),
-                                SD_JSON_BUILD_PAIR("exchange", SD_JSON_BUILD_STRING(rr->mx.exchange)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("priority", rr->mx.priority),
+                                SD_JSON_BUILD_PAIR_STRING("exchange", rr->mx.exchange));
         case DNS_TYPE_LOC:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("version", SD_JSON_BUILD_UNSIGNED(rr->loc.version)),
-                                SD_JSON_BUILD_PAIR("size", SD_JSON_BUILD_UNSIGNED(rr->loc.size)),
-                                SD_JSON_BUILD_PAIR("horiz_pre", SD_JSON_BUILD_UNSIGNED(rr->loc.horiz_pre)),
-                                SD_JSON_BUILD_PAIR("vert_pre", SD_JSON_BUILD_UNSIGNED(rr->loc.vert_pre)),
-                                SD_JSON_BUILD_PAIR("latitude", SD_JSON_BUILD_UNSIGNED(rr->loc.latitude)),
-                                SD_JSON_BUILD_PAIR("longitude", SD_JSON_BUILD_UNSIGNED(rr->loc.longitude)),
-                                SD_JSON_BUILD_PAIR("altitude", SD_JSON_BUILD_UNSIGNED(rr->loc.altitude)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("version", rr->loc.version),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("size", rr->loc.size),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("horiz_pre", rr->loc.horiz_pre),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("vert_pre", rr->loc.vert_pre),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("latitude", rr->loc.latitude),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("longitude", rr->loc.longitude),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("altitude", rr->loc.altitude));
 
         case DNS_TYPE_DS:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("keyTag", SD_JSON_BUILD_UNSIGNED(rr->ds.key_tag)),
-                                SD_JSON_BUILD_PAIR("algorithm", SD_JSON_BUILD_UNSIGNED(rr->ds.algorithm)),
-                                SD_JSON_BUILD_PAIR("digestType", SD_JSON_BUILD_UNSIGNED(rr->ds.digest_type)),
-                                SD_JSON_BUILD_PAIR("digest", SD_JSON_BUILD_HEX(rr->ds.digest, rr->ds.digest_size)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("keyTag", rr->ds.key_tag),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("algorithm", rr->ds.algorithm),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("digestType", rr->ds.digest_type),
+                                SD_JSON_BUILD_PAIR_HEX("digest", rr->ds.digest, rr->ds.digest_size));
 
         case DNS_TYPE_SSHFP:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("algorithm", SD_JSON_BUILD_UNSIGNED(rr->sshfp.algorithm)),
-                                SD_JSON_BUILD_PAIR("fptype", SD_JSON_BUILD_UNSIGNED(rr->sshfp.fptype)),
-                                SD_JSON_BUILD_PAIR("fingerprint", SD_JSON_BUILD_HEX(rr->sshfp.fingerprint, rr->sshfp.fingerprint_size)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("algorithm", rr->sshfp.algorithm),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("fptype", rr->sshfp.fptype),
+                                SD_JSON_BUILD_PAIR_HEX("fingerprint", rr->sshfp.fingerprint, rr->sshfp.fingerprint_size));
 
         case DNS_TYPE_DNSKEY:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(rr->dnskey.flags)),
-                                SD_JSON_BUILD_PAIR("protocol", SD_JSON_BUILD_UNSIGNED(rr->dnskey.protocol)),
-                                SD_JSON_BUILD_PAIR("algorithm", SD_JSON_BUILD_UNSIGNED(rr->dnskey.algorithm)),
-                                SD_JSON_BUILD_PAIR("dnskey", SD_JSON_BUILD_BASE64(rr->dnskey.key, rr->dnskey.key_size)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("flags", rr->dnskey.flags),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("protocol", rr->dnskey.protocol),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("algorithm", rr->dnskey.algorithm),
+                                SD_JSON_BUILD_PAIR_BASE64("dnskey", rr->dnskey.key, rr->dnskey.key_size));
 
         case DNS_TYPE_RRSIG:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("signer", SD_JSON_BUILD_STRING(rr->rrsig.signer)),
-                                SD_JSON_BUILD_PAIR("typeCovered", SD_JSON_BUILD_UNSIGNED(rr->rrsig.type_covered)),
-                                SD_JSON_BUILD_PAIR("algorithm", SD_JSON_BUILD_UNSIGNED(rr->rrsig.algorithm)),
-                                SD_JSON_BUILD_PAIR("labels", SD_JSON_BUILD_UNSIGNED(rr->rrsig.labels)),
-                                SD_JSON_BUILD_PAIR("originalTtl", SD_JSON_BUILD_UNSIGNED(rr->rrsig.original_ttl)),
-                                SD_JSON_BUILD_PAIR("expiration", SD_JSON_BUILD_UNSIGNED(rr->rrsig.expiration)),
-                                SD_JSON_BUILD_PAIR("inception", SD_JSON_BUILD_UNSIGNED(rr->rrsig.inception)),
-                                SD_JSON_BUILD_PAIR("keyTag", SD_JSON_BUILD_UNSIGNED(rr->rrsig.key_tag)),
-                                SD_JSON_BUILD_PAIR("signature", SD_JSON_BUILD_BASE64(rr->rrsig.signature, rr->rrsig.signature_size)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_STRING("signer", rr->rrsig.signer),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("typeCovered", rr->rrsig.type_covered),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("algorithm", rr->rrsig.algorithm),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("labels", rr->rrsig.labels),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("originalTtl", rr->rrsig.original_ttl),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("expiration", rr->rrsig.expiration),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("inception", rr->rrsig.inception),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("keyTag", rr->rrsig.key_tag),
+                                SD_JSON_BUILD_PAIR_BASE64("signature", rr->rrsig.signature, rr->rrsig.signature_size));
 
         case DNS_TYPE_NSEC: {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *bm = NULL;
@@ -2439,9 +2439,9 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
 
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("nextDomain", SD_JSON_BUILD_STRING(rr->nsec.next_domain_name)),
-                                SD_JSON_BUILD_PAIR("types", SD_JSON_BUILD_VARIANT(bm)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_STRING("nextDomain", rr->nsec.next_domain_name),
+                                SD_JSON_BUILD_PAIR_VARIANT("types", bm));
         }
 
         case DNS_TYPE_NSEC3: {
@@ -2453,23 +2453,23 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
 
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("algorithm", SD_JSON_BUILD_UNSIGNED(rr->nsec3.algorithm)),
-                                SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(rr->nsec3.flags)),
-                                SD_JSON_BUILD_PAIR("iterations", SD_JSON_BUILD_UNSIGNED(rr->nsec3.iterations)),
-                                SD_JSON_BUILD_PAIR("salt", SD_JSON_BUILD_HEX(rr->nsec3.salt, rr->nsec3.salt_size)),
-                                SD_JSON_BUILD_PAIR("hash", SD_JSON_BUILD_BASE32HEX(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size)),
-                                SD_JSON_BUILD_PAIR("types", SD_JSON_BUILD_VARIANT(bm)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("algorithm", rr->nsec3.algorithm),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("flags", rr->nsec3.flags),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("iterations", rr->nsec3.iterations),
+                                SD_JSON_BUILD_PAIR_HEX("salt", rr->nsec3.salt, rr->nsec3.salt_size),
+                                SD_JSON_BUILD_PAIR_BASE32HEX("hash", rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size),
+                                SD_JSON_BUILD_PAIR_VARIANT("types", bm));
         }
 
         case DNS_TYPE_TLSA:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("certUsage", SD_JSON_BUILD_UNSIGNED(rr->tlsa.cert_usage)),
-                                SD_JSON_BUILD_PAIR("selector", SD_JSON_BUILD_UNSIGNED(rr->tlsa.selector)),
-                                SD_JSON_BUILD_PAIR("matchingType", SD_JSON_BUILD_UNSIGNED(rr->tlsa.matching_type)),
-                                SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_HEX(rr->tlsa.data, rr->tlsa.data_size)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("certUsage", rr->tlsa.cert_usage),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("selector", rr->tlsa.selector),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("matchingType", rr->tlsa.matching_type),
+                                SD_JSON_BUILD_PAIR_HEX("data", rr->tlsa.data, rr->tlsa.data_size));
 
         case DNS_TYPE_SVCB:
         case DNS_TYPE_HTTPS: {
@@ -2480,31 +2480,31 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
 
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("priority", SD_JSON_BUILD_UNSIGNED(rr->svcb.priority)),
-                                SD_JSON_BUILD_PAIR("target", SD_JSON_BUILD_STRING(rr->svcb.target_name)),
-                                SD_JSON_BUILD_PAIR("svcparams", SD_JSON_BUILD_VARIANT(p)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("priority", rr->svcb.priority),
+                                SD_JSON_BUILD_PAIR_STRING("target", rr->svcb.target_name),
+                                SD_JSON_BUILD_PAIR_VARIANT("svcparams", p));
         }
 
         case DNS_TYPE_CAA:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(rr->caa.flags)),
-                                SD_JSON_BUILD_PAIR("tag", SD_JSON_BUILD_STRING(rr->caa.tag)),
-                                SD_JSON_BUILD_PAIR("value", SD_JSON_BUILD_OCTESCAPE(rr->caa.value, rr->caa.value_size)));
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("flags", rr->caa.flags),
+                                SD_JSON_BUILD_PAIR_STRING("tag", rr->caa.tag),
+                                SD_JSON_BUILD_PAIR_OCTESCAPE("value", rr->caa.value, rr->caa.value_size));
 
         case DNS_TYPE_NAPTR:
                 return sd_json_buildo(
                                 ret,
-                                SD_JSON_BUILD_PAIR("key", SD_JSON_BUILD_VARIANT(k)),
-                                SD_JSON_BUILD_PAIR("order", SD_JSON_BUILD_UNSIGNED(rr->naptr.order)),
-                                SD_JSON_BUILD_PAIR("preference", SD_JSON_BUILD_UNSIGNED(rr->naptr.preference)),
+                                SD_JSON_BUILD_PAIR_VARIANT("key", k),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("order", rr->naptr.order),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("preference", rr->naptr.preference),
                                 /* NB: we name this flags field here naptrFlags, because there's already another "flags" field (for example in CAA) which has a different type */
-                                SD_JSON_BUILD_PAIR("naptrFlags", SD_JSON_BUILD_STRING(rr->naptr.flags)),
-                                SD_JSON_BUILD_PAIR("services", SD_JSON_BUILD_STRING(rr->naptr.services)),
-                                SD_JSON_BUILD_PAIR("regexp", SD_JSON_BUILD_STRING(rr->naptr.regexp)),
-                                SD_JSON_BUILD_PAIR("replacement", SD_JSON_BUILD_STRING(rr->naptr.replacement)));
+                                SD_JSON_BUILD_PAIR_STRING("naptrFlags", rr->naptr.flags),
+                                SD_JSON_BUILD_PAIR_STRING("services", rr->naptr.services),
+                                SD_JSON_BUILD_PAIR_STRING("regexp", rr->naptr.regexp),
+                                SD_JSON_BUILD_PAIR_STRING("replacement", rr->naptr.replacement));
 
         default:
                 /* Can't provide broken-down format */

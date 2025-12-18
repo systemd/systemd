@@ -14,7 +14,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "parse-util.h"
 #include "reread-partition-table.h"
 #include "set.h"
 #include "string-util.h"
@@ -180,11 +179,11 @@ static int process_partition(
                  * just to make a point. */
                 partition = sd_device_unref(partition);
 
-                r = block_device_remove_partition(fd, subnode, (int) nr);
+                r = block_device_remove_partition(fd, subnode, nr);
                 if (r < 0)
                         return log_device_debug_errno(d, r, "Failed to remove kernel partition device '%s' in order to recreate it: %m", subnode);
 
-                /* And now add it the partition anew*/
+                /* And now add it the partition anew */
                 log_device_debug(d, "Successfully removed kernel partition device '%s' in order to recreate it.", subnode);
         }
 

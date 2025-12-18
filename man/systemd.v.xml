@@ -81,7 +81,7 @@
 
     <para>The variable part of the filenames in the <literal>.v/</literal> directories are filtered and
     compared primarily with a version comparison, implementing <ulink
-    url="https://uapi-group.org/specifications/specs/version_format_specification/">Version Format
+    url="https://uapi-group.org/specifications/specs/version_format_specification/">UAPI.10 Version Format
     Specification</ulink>. However, additional rules apply:</para>
 
     <itemizedlist>

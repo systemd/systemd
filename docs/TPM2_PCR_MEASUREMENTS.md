@@ -17,7 +17,7 @@ to systemd's UEFI-mode measurements, and if the latter are not done the former
 aren't made either.
 
 See
-[Linux TPM PCR Registry](https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/)
+[UAPI.7 Linux TPM PCR Registry](https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/)
 for an overview of PCRs.
 
 systemd will measure to PCRs 5 (`boot-loader-config`), 11 (`kernel-boot`),
@@ -108,8 +108,8 @@ trailing NUL bytes).
 ### PCR 11, `EV_IPL`, PE section name
 
 A measurement is made for each PE section of the UKI that is defined by the
-[UKI
-specification](https://uapi-group.org/specifications/specs/unified_kernel_image/),
+[UAPI.5 UKI
+Specification](https://uapi-group.org/specifications/specs/unified_kernel_image/),
 in the canonical order described in the specification.
 
 Happens once for each UKI-defined PE section of the UKI, in the canonical UKI
