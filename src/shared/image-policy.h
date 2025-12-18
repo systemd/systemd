@@ -97,6 +97,8 @@ PartitionPolicyFlags partition_policy_flags_reduce(PartitionPolicyFlags flags);
 PartitionPolicyFlags partition_policy_flags_from_string(const char *s, bool graceful);
 int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, char **ret);
 
+int partition_policy_determine_fstype(const ImagePolicy *policy, PartitionDesignator designator, bool *ret_encrypted, char **ret_fstype);
+
 int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret);
 int image_policy_to_string(const ImagePolicy *policy, bool simplify, char **ret);
 

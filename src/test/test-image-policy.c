@@ -201,4 +201,68 @@ TEST(image_policy_ignore_designators) {
         test_policy_ignore_designators_one("~", ((const PartitionDesignator[]) { PARTITION_VAR, PARTITION_ESP, PARTITION_VAR }), 2, "var=ignore:esp=ignore:=absent");
 }
 
+TEST(partition_policy_determine_fstype) {
+        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+        _cleanup_free_ char *fstype = NULL;
+        bool encrypted;
+        int r;
+
+        ASSERT_OK(image_policy_from_string("root=ext4+encrypted", /* graceful= */ false, &p));
+        r = partition_policy_determine_fstype(p, PARTITION_ROOT, &encrypted, &fstype);
+        ASSERT_GT(r, 0);
+        ASSERT_STREQ(fstype, "ext4");
+        ASSERT_TRUE(encrypted);
+
+        fstype = mfree(fstype);
+        p = image_policy_free(p);
+        ASSERT_OK(image_policy_from_string("usr=verity+erofs", /* graceful= */ false, &p));
+        r = partition_policy_determine_fstype(p, PARTITION_USR, &encrypted, &fstype);
+        ASSERT_GT(r, 0);
+        ASSERT_STREQ(fstype, "erofs");
+        ASSERT_FALSE(encrypted);
+        fstype = mfree(fstype);
+        r = partition_policy_determine_fstype(p, PARTITION_ROOT, &encrypted, &fstype);
+        ASSERT_EQ(r, 0);
+        ASSERT_FALSE(fstype);
+        ASSERT_FALSE(encrypted);
+
+        fstype = mfree(fstype);
+        p = image_policy_free(p);
+        ASSERT_OK(image_policy_from_string("root=ext4+erofs", /* graceful= */ false, &p));
+        r = partition_policy_determine_fstype(p, PARTITION_ROOT, &encrypted, &fstype);
+        ASSERT_EQ(r, 0);
+        ASSERT_FALSE(fstype);
+        ASSERT_FALSE(encrypted);
+
+        fstype = mfree(fstype);
+        p = image_policy_free(p);
+        ASSERT_OK(image_policy_from_string("root=encrypted", /* graceful= */ false, &p));
+        r = partition_policy_determine_fstype(p, PARTITION_ROOT, &encrypted, &fstype);
+        ASSERT_EQ(r, 0);
+        ASSERT_FALSE(fstype);
+        ASSERT_FALSE(encrypted);
+
+        fstype = mfree(fstype);
+        p = image_policy_free(p);
+        ASSERT_OK(image_policy_from_string("", /* graceful= */ false, &p));
+        r = partition_policy_determine_fstype(p, PARTITION_ROOT, &encrypted, &fstype);
+        ASSERT_EQ(r, 0);
+        ASSERT_FALSE(fstype);
+        ASSERT_FALSE(encrypted);
+
+        fstype = mfree(fstype);
+        r = partition_policy_determine_fstype(/* policy= */ NULL, PARTITION_ROOT, &encrypted, &fstype);
+        ASSERT_EQ(r, 0);
+        ASSERT_FALSE(fstype);
+        ASSERT_FALSE(encrypted);
+
+        fstype = mfree(fstype);
+        p = image_policy_free(p);
+        ASSERT_OK(image_policy_from_string("root=encrypted+signed+btrfs", /* graceful= */ false, &p));
+        r = partition_policy_determine_fstype(p, PARTITION_ROOT, &encrypted, &fstype);
+        ASSERT_GT(r, 0);
+        ASSERT_STREQ(fstype, "btrfs");
+        ASSERT_FALSE(encrypted);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
