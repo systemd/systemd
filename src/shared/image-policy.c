@@ -491,6 +491,43 @@ int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, 
         return (int) m;
 }
 
+int partition_policy_determine_fstype(
+                const ImagePolicy *policy,
+                PartitionDesignator designator,
+                bool *ret_encrypted,
+                char **ret_fstype) {
+
+        _cleanup_free_ char *fstype = NULL;
+        PartitionPolicyFlags policy_flags;
+        int r;
+
+        assert(designator >= 0 && designator < _PARTITION_DESIGNATOR_MAX);
+        assert(ret_fstype);
+
+        policy_flags = image_policy_get_exhaustively(policy, designator);
+        if (policy_flags < 0)
+                return policy_flags;
+
+        /* The policy fstype flags translate to the literal fstype name of each filesystem. */
+        r = partition_policy_flags_to_string(policy_flags & _PARTITION_POLICY_FSTYPE_MASK, /* simplify= */ true, &fstype);
+        if (r < 0)
+                return r;
+        /* Input must be a single filesystem type, if the policy specifies more than one, return NULL */
+        if (r != 1) {
+                if (ret_encrypted)
+                        *ret_encrypted = false;
+                *ret_fstype = NULL;
+                return 0;
+        }
+
+        /* If the policy also allows unprotected or verity filesystems, don't set the 'encrypted' flag */
+        if (ret_encrypted)
+                *ret_encrypted = (policy_flags & PARTITION_POLICY_ENCRYPTED) &&
+                                 !(policy_flags & (PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_UNPROTECTED));
+        *ret_fstype = TAKE_PTR(fstype);
+        return 1;
+}
+
 static bool partition_policy_flags_extended_equal(PartitionPolicyFlags a, PartitionPolicyFlags b) {
         return partition_policy_flags_extend(a) == partition_policy_flags_extend(b);
 }
