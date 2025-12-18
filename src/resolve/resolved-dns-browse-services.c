@@ -155,7 +155,7 @@ static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userd
         return 0;
 }
 
-int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, usec_t until) {
+int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until) {
         _cleanup_(dnssd_discovered_service_unrefp) DnssdDiscoveredService *s = NULL;
         int r;
 
@@ -173,6 +173,7 @@ int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_
                 .service_browser = sb,
                 .rr = dns_resource_record_copy(rr),
                 .family = owner_family,
+                .ifindex = ifindex,
                 .until = until,
                 .query = NULL,
                 .rr_ttl_state = DNS_RECORD_TTL_STATE_80_PERCENT,
@@ -350,16 +351,16 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                 if (!type)
                         continue;
 
-                r = dns_add_new_service(sb, item->rr, owner_family, item->until);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to add new DNS service: %m");
-                        goto finish;
-                }
-
                 /* When browsing all interfaces (ifindex <= 0), report the actual
                  * interface where the service was discovered. Otherwise, echo
                  * back the requested interface. */
                 reported_ifindex = (sb->ifindex <= 0 && item->ifindex > 0) ? item->ifindex : sb->ifindex;
+
+                r = dns_add_new_service(sb, item->rr, owner_family, reported_ifindex, item->until);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to add new DNS service: %m");
+                        goto finish;
+                }
 
                 log_debug("Add into the list %s, %s, %s, %s, %d",
                           strna(name),
@@ -422,11 +423,10 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                         }
                 }
 
-                dns_remove_service(sb, service);
+                /* Capture ifindex before removing the service */
+                reported_ifindex = service->ifindex;
 
-                /* For removal, we don't have the original item->ifindex, so use
-                 * sb->ifindex. TODO: Track per-service ifindex in DnssdDiscoveredService. */
-                reported_ifindex = sb->ifindex;
+                dns_remove_service(sb, service);
 
                 log_debug("Remove from the list %s, %s, %s, %s, %d",
                           strna(name),
