@@ -18,48 +18,74 @@ static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_t
         char utf8[DECIMAL_STR_MAX(usec_t)];
         char16_t *encoded;
         usec_t timeout;
-        bool menu_disabled = false;
+        uint64_t loader_features = 0;
+        bool use_arg1 = false;
         int r;
 
         assert(arg1);
         assert(ret_timeout);
         assert(ret_timeout_size);
 
+        assert_cc(STRLEN("menu-force") < ELEMENTSOF(utf8));
+        assert_cc(STRLEN("menu-hidden") < ELEMENTSOF(utf8));
         assert_cc(STRLEN("menu-disabled") < ELEMENTSOF(utf8));
 
-        /* Note: Since there is no way to query if the bootloader supports the string tokens, we explicitly
-         * set their numerical value(s) instead. This means that some of the sd-boot internal ABI has leaked
-         * although the ship has sailed and the side-effects are self-contained.
+        /* Use feature EFI_LOADER_FEATURE_MENU_DISABLE as a mark that the boot loader supports the other
+         * string values too. When unsupported, convert to the timeout with the closest meaning.
          */
-        if (streq(arg1, "menu-force"))
-                timeout = USEC_INFINITY;
-        else if (streq(arg1, "menu-hidden"))
-                timeout = 0;
-        else if (streq(arg1, "menu-disabled")) {
-                uint64_t loader_features = 0;
 
+        if (streq(arg1, "menu-force")) {
                 (void) efi_loader_get_features(&loader_features);
-                if (!(loader_features & EFI_LOADER_FEATURE_MENU_DISABLE)) {
-                        if (arg_graceful() == ARG_GRACEFUL_NO)
-                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Loader does not support 'menu-disabled'.");
 
-                        log_warning("Loader does not support 'menu-disabled', setting anyway.");
+                if (loader_features & EFI_LOADER_FEATURE_MENU_DISABLE)
+                        use_arg1 = true;
+                else {
+                        log_debug("Using infinite timeout instead of '%s'.", arg1);
+                        timeout = USEC_INFINITY;
                 }
-                menu_disabled = true;
+
+        } else if (streq(arg1, "menu-hidden")) {
+                (void) efi_loader_get_features(&loader_features);
+
+                if (loader_features & EFI_LOADER_FEATURE_MENU_DISABLE)
+                        use_arg1 = true;
+                else {
+                        log_debug("Using zero timeout instead of '%s'.", arg1);
+                        timeout = 0;
+                }
+
+        } else if (streq(arg1, "menu-disabled")) {
+                (void) efi_loader_get_features(&loader_features);
+
+                if (loader_features & EFI_LOADER_FEATURE_MENU_DISABLE)
+                        use_arg1 = true;
+                else {
+                        if (arg_graceful() == ARG_GRACEFUL_NO)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Loader does not support '%s'.", arg1);
+                        log_warning("Using zero timeout instead of '%s'.", arg1);
+                        timeout = 0;
+                }
+
         } else {
                 r = parse_time(arg1, &timeout, USEC_PER_SEC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse timeout '%s': %m", arg1);
-                if (timeout != USEC_INFINITY && timeout > UINT32_MAX * USEC_PER_SEC)
-                        log_warning("Timeout is too long and will be treated as 'menu-force' instead.");
+
+                assert_cc(USEC_INFINITY > UINT32_MAX * USEC_PER_SEC);
+                if (timeout <= UINT32_MAX * USEC_PER_SEC)
+                        timeout = DIV_ROUND_UP(timeout, USEC_PER_SEC);
+                else {
+                        if (timeout != USEC_INFINITY)
+                                log_info("Timeout is too long and will be treated as 'menu-force' instead.");
+                        return parse_timeout("menu-force", ret_timeout, ret_timeout_size);
+                }
         }
 
-        if (menu_disabled)
-                xsprintf(utf8, "menu-disabled");
-        else
-                xsprintf(utf8, USEC_FMT, MIN(timeout / USEC_PER_SEC, UINT32_MAX));
+        if (!use_arg1)
+                xsprintf(utf8, USEC_FMT, timeout);
 
-        encoded = utf8_to_utf16(utf8, SIZE_MAX);
+        encoded = utf8_to_utf16(use_arg1 ? arg1 : utf8, SIZE_MAX);
         if (!encoded)
                 return log_oom();
 
