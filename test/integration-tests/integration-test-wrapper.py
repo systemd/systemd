@@ -615,10 +615,6 @@ def main() -> None:
         *(['--', '--capability=CAP_BPF'] if not vm else []),
     ]  # fmt: skip
 
-    # XXX: debug for https://github.com/systemd/systemd/issues/38240
-    if vm:
-        cmd += ['--qemu-args=-d cpu_reset,guest_errors -D /dev/stderr']
-
     try:
         result = subprocess.run(cmd)
 
