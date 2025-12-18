@@ -576,10 +576,6 @@ Features:
 * The bind(AF_UNSPEC) construct (for resetting sockets to their initial state)
   should be blocked in many cases because it punches holes in many sandboxes.
 
-* find a nice way to opt-in into auto-masking SIGCHLD on first
-  sd_event_add_child(), and then get rid of many more explicit sigprocmask()
-  calls.
-
 * introduce new structure Tpm2CombinedPolicy, that combines the various TPm2
   policy bits into one structure, i.e. public key info, pcr masks, pcrlock
   stuff, pin and so on. Then pass that around in tpm2_seal() and tpm2_unseal().
