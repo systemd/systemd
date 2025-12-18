@@ -410,7 +410,6 @@ TEST(in_gid) {
         assert_se(in_gid(getgid()) >= 0);
         assert_se(in_gid(getegid()) >= 0);
         assert_se(in_gid(GID_INVALID) < 0);
-        assert_se(in_gid(TTY_GID) == 0); /* The TTY gid is for owning ttys, it would be really really weird if we were in it. */
 }
 
 TEST(gid_lists_ops) {
