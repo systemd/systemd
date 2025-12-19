@@ -111,6 +111,7 @@ bool image_policy_equal(const ImagePolicy *a, const ImagePolicy *b);       /* ch
 int image_policy_equivalent(const ImagePolicy *a, const ImagePolicy *b);   /* checks if the outcome is the same, i.e. for all partitions results in the same decisions. */
 
 int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePolicy **ret);
+int image_policy_union(const ImagePolicy *a, const ImagePolicy *b, ImagePolicy **ret);
 
 ImagePolicy* image_policy_free(ImagePolicy *p);
 
