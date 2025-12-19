@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Sched ext with prio 0
+
+[Service]
+ExecStart=true
+CPUSchedulingPriority=0
+CPUSchedulingPolicy=ext
