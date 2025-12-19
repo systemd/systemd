@@ -4,6 +4,12 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+#if !HAVE_RT_SIGQUEUEINFO
+int missing_rt_sigqueueinfo(pid_t tgid, int sig, siginfo_t *info) {
+        return syscall(__NR_rt_sigqueueinfo, tgid, sig, info);
+}
+#endif
+
 #if !HAVE_RT_TGSIGQUEUEINFO
 int missing_rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig, siginfo_t *info) {
         return syscall(__NR_rt_tgsigqueueinfo, tgid, tid, sig, info);
