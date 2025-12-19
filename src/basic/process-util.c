@@ -1956,10 +1956,18 @@ int set_oom_score_adjust(int value) {
         if (!oom_score_adjust_is_valid(value))
                 return -EINVAL;
 
-        xsprintf(t, "%i", value);
+        xsprintf(t, "%i\n", value);    /* include newline */
 
-        return write_string_file("/proc/self/oom_score_adj", t,
-                                 WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_DISABLE_BUFFER);
+        int fd = open("/proc/self/oom_score_adj", O_WRONLY | O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        ssize_t l = strlen(t);
+        ssize_t r = write(fd, t, l);
+        int saved_errno = (r < 0 || r != l) ? (r < 0 ? errno : EIO) : 0;
+        close(fd);
+
+        return saved_errno ? -saved_errno : 0;
 }
 
 int get_oom_score_adjust(int *ret) {
