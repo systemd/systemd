@@ -55,14 +55,14 @@
 #define LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC (2*USEC_PER_MINUTE)
 
 static int parse_caps(
-                pam_handle_t *handle,
+                pam_handle_t *pamh,
                 const char *value,
                 uint64_t *caps) {
 
         bool subtract;
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(value);
 
         if (value[0] == '~') {
@@ -87,7 +87,7 @@ static int parse_caps(
 
                 c = capability_from_name(s);
                 if (c < 0) {
-                        pam_syslog(handle, LOG_WARNING, "Unknown capability, ignoring: %s", s);
+                        pam_syslog(pamh, LOG_WARNING, "Unknown capability, ignoring: %s", s);
                         continue;
                 }
 
@@ -111,7 +111,7 @@ static int parse_caps(
 }
 
 static int parse_argv(
-                pam_handle_t *handle,
+                pam_handle_t *pamh,
                 int argc, const char **argv,
                 const char **class,
                 const char **type,
@@ -123,7 +123,7 @@ static int parse_argv(
 
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(argc >= 0);
         assert(argc == 0 || argv);
 
@@ -145,7 +145,7 @@ static int parse_argv(
                 } else if ((p = startswith(argv[i], "area="))) {
 
                         if (!isempty(p) && !filename_is_valid(p))
-                                pam_syslog(handle, LOG_WARNING, "Area name specified among PAM module parameters is not valid, ignoring: %s", p);
+                                pam_syslog(pamh, LOG_WARNING, "Area name specified among PAM module parameters is not valid, ignoring: %s", p);
                         else if (area)
                                 *area = p;
 
@@ -156,72 +156,69 @@ static int parse_argv(
                 } else if ((p = startswith(argv[i], "debug="))) {
                         r = parse_boolean(p);
                         if (r < 0)
-                                pam_syslog(handle, LOG_WARNING, "Failed to parse debug= argument, ignoring: %s", p);
+                                pam_syslog(pamh, LOG_WARNING, "Failed to parse debug= argument, ignoring: %s", p);
                         else if (debug)
                                 *debug = r;
 
                 } else if ((p = startswith(argv[i], "default-capability-bounding-set="))) {
-                        r = parse_caps(handle, p, default_capability_bounding_set);
+                        r = parse_caps(pamh, p, default_capability_bounding_set);
                         if (r < 0)
-                                pam_syslog(handle, LOG_WARNING, "Failed to parse default-capability-bounding-set= argument, ignoring: %s", p);
+                                pam_syslog(pamh, LOG_WARNING, "Failed to parse default-capability-bounding-set= argument, ignoring: %s", p);
 
                 } else if ((p = startswith(argv[i], "default-capability-ambient-set="))) {
-                        r = parse_caps(handle, p, default_capability_ambient_set);
+                        r = parse_caps(pamh, p, default_capability_ambient_set);
                         if (r < 0)
-                                pam_syslog(handle, LOG_WARNING, "Failed to parse default-capability-ambient-set= argument, ignoring: %s", p);
+                                pam_syslog(pamh, LOG_WARNING, "Failed to parse default-capability-ambient-set= argument, ignoring: %s", p);
 
                 } else
-                        pam_syslog(handle, LOG_WARNING, "Unknown parameter '%s', ignoring.", argv[i]);
+                        pam_syslog(pamh, LOG_WARNING, "Unknown parameter '%s', ignoring.", argv[i]);
         }
 
         return 0;
 }
 
-static int acquire_user_record(
-                pam_handle_t *handle,
-                UserRecord **ret_record) {
-
+static int acquire_user_record(pam_handle_t *pamh, UserRecord **ret_record) {
         int r;
 
-        assert(handle);
+        assert(pamh);
 
         const char *username = NULL;
-        r = pam_get_user(handle, &username, NULL);
+        r = pam_get_user(pamh, &username, NULL);
         if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get user name: @PAMERR@");
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get user name: @PAMERR@");
         if (isempty(username))
-                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR, "User name not valid.");
+                return pam_syslog_pam_error(pamh, LOG_ERR, PAM_SERVICE_ERR, "User name not valid.");
 
         /* If pam_systemd_homed (or some other module) already acquired the user record we can reuse it
          * here. */
         _cleanup_free_ char *field = strjoin("systemd-user-record-", username);
         if (!field)
-                return pam_log_oom(handle);
+                return pam_log_oom(pamh);
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         const char *json = NULL;
-        r = pam_get_data(handle, field, (const void**) &json);
+        r = pam_get_data(pamh, field, (const void**) &json);
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM user record data: @PAMERR@");
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get PAM user record data: @PAMERR@");
         if (r == PAM_SUCCESS && json) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                 /* Parse cached record */
                 r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
                 if (r < 0)
-                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to parse JSON user record: %m");
+                        return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to parse JSON user record: %m");
 
                 ur = user_record_new();
                 if (!ur)
-                        return pam_log_oom(handle);
+                        return pam_log_oom(pamh);
 
                 r = user_record_load(ur, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_PERMISSIVE);
                 if (r < 0)
-                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to load user record: %m");
+                        return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to load user record: %m");
 
                 /* Safety check if cached record actually matches what we are looking for */
                 if (!user_record_matches_user_name(ur, username))
-                        return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR,
+                        return pam_syslog_pam_error(pamh, LOG_ERR, PAM_SERVICE_ERR,
                                                     "Acquired user record does not match user name.");
         } else {
                 _cleanup_free_ char *formatted = NULL;
@@ -229,28 +226,28 @@ static int acquire_user_record(
                 /* Request the record ourselves */
                 r = userdb_by_name(username, /* match= */ NULL, /* flags= */ 0, &ur);
                 if (r < 0) {
-                        pam_syslog_errno(handle, LOG_ERR, r, "Failed to get user record: %m");
+                        pam_syslog_errno(pamh, LOG_ERR, r, "Failed to get user record: %m");
                         return PAM_USER_UNKNOWN;
                 }
 
                 if (!uid_is_valid(ur->uid))
-                        return pam_syslog_pam_error(handle, LOG_ERR, PAM_USER_UNKNOWN,
+                        return pam_syslog_pam_error(pamh, LOG_ERR, PAM_USER_UNKNOWN,
                                                     "User record of user '%s' has no UID, refusing.", username);
 
                 r = sd_json_variant_format(ur->json, 0, &formatted);
                 if (r < 0)
-                        return pam_syslog_errno(handle, LOG_ERR, r, "Failed to format user JSON: %m");
+                        return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to format user JSON: %m");
 
                 /* And cache it for everyone else */
-                r = pam_set_data(handle, field, formatted, pam_cleanup_free);
+                r = pam_set_data(pamh, field, formatted, pam_cleanup_free);
                 if (r != PAM_SUCCESS)
-                        return pam_syslog_pam_error(handle, LOG_ERR, r,
+                        return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                                     "Failed to set PAM user record data '%s': @PAMERR@", field);
                 TAKE_PTR(formatted);
         }
 
         if (!uid_is_valid(ur->uid))
-                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SERVICE_ERR,
+                return pam_syslog_pam_error(pamh, LOG_ERR, PAM_SERVICE_ERR,
                                             "Acquired user record does not have a UID.");
 
         if (ret_record)
@@ -365,10 +362,10 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         return 0;
 }
 
-static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
+static int append_session_memory_max(pam_handle_t *pamh, sd_bus_message *m, const char *limit) {
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(m);
 
         if (isempty(limit))
@@ -384,17 +381,17 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
         uint64_t val;
         r = parse_size(limit, 1024, &val);
         if (r < 0) {
-                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.memory_max, ignoring: %s", limit);
+                pam_syslog(pamh, LOG_WARNING, "Failed to parse systemd.memory_max, ignoring: %s", limit);
                 return 0;
         }
 
         return sd_bus_message_append(m, "(sv)", "MemoryMax", "t", val);
 }
 
-static int append_session_runtime_max_sec(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
+static int append_session_runtime_max_sec(pam_handle_t *pamh, sd_bus_message *m, const char *limit) {
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(m);
 
         /* No need to parse "infinity" here, it will be set by default later in scope_init() */
@@ -404,17 +401,17 @@ static int append_session_runtime_max_sec(pam_handle_t *handle, sd_bus_message *
         usec_t val;
         r = parse_sec(limit, &val);
         if (r < 0) {
-                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.runtime_max_sec: %s, ignoring.", limit);
+                pam_syslog(pamh, LOG_WARNING, "Failed to parse systemd.runtime_max_sec: %s, ignoring.", limit);
                 return 0;
         }
 
         return sd_bus_message_append(m, "(sv)", "RuntimeMaxUSec", "t", (uint64_t) val);
 }
 
-static int append_session_tasks_max(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
+static int append_session_tasks_max(pam_handle_t *pamh, sd_bus_message *m, const char *limit) {
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(m);
 
         /* No need to parse "infinity" here, it will be set unconditionally later in manager_start_scope() */
@@ -424,17 +421,17 @@ static int append_session_tasks_max(pam_handle_t *handle, sd_bus_message *m, con
         uint64_t val;
         r = safe_atou64(limit, &val);
         if (r < 0) {
-                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.tasks_max, ignoring: %s", limit);
+                pam_syslog(pamh, LOG_WARNING, "Failed to parse systemd.tasks_max, ignoring: %s", limit);
                 return 0;
         }
 
         return sd_bus_message_append(m, "(sv)", "TasksMax", "t", val);
 }
 
-static int append_session_cpu_weight(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
+static int append_session_cpu_weight(pam_handle_t *pamh, sd_bus_message *m, const char *limit) {
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(m);
 
         if (isempty(limit))
@@ -443,17 +440,17 @@ static int append_session_cpu_weight(pam_handle_t *handle, sd_bus_message *m, co
         uint64_t val;
         r = cg_cpu_weight_parse(limit, &val);
         if (r < 0) {
-                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.cpu_weight, ignoring: %s", limit);
+                pam_syslog(pamh, LOG_WARNING, "Failed to parse systemd.cpu_weight, ignoring: %s", limit);
                 return 0;
         }
 
         return sd_bus_message_append(m, "(sv)", "CPUWeight", "t", val);
 }
 
-static int append_session_io_weight(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
+static int append_session_io_weight(pam_handle_t *pamh, sd_bus_message *m, const char *limit) {
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(m);
 
         if (isempty(limit))
@@ -462,17 +459,17 @@ static int append_session_io_weight(pam_handle_t *handle, sd_bus_message *m, con
         uint64_t val;
         r = cg_weight_parse(limit, &val);
         if (r < 0) {
-                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.io_weight, ignoring: %s", limit);
+                pam_syslog(pamh, LOG_WARNING, "Failed to parse systemd.io_weight, ignoring: %s", limit);
                 return 0;
         }
 
         return sd_bus_message_append(m, "(sv)", "IOWeight", "t", val);
 }
 
-static const char* getenv_harder(pam_handle_t *handle, const char *key, const char *fallback) {
+static const char* getenv_harder(pam_handle_t *pamh, const char *key, const char *fallback) {
         const char *v;
 
-        assert(handle);
+        assert(pamh);
         assert(key);
 
         /* Looks for an environment variable, preferably in the environment block associated with the
@@ -481,7 +478,7 @@ static const char* getenv_harder(pam_handle_t *handle, const char *key, const ch
          * PAM services don't have to be reworked to set systemd-specific properties, but these properties
          * can still be set from the unit file Environment= block. */
 
-        v = pam_getenv(handle, key);
+        v = pam_getenv(pamh, key);
         if (!isempty(v))
                 return v;
 
@@ -496,20 +493,20 @@ static const char* getenv_harder(pam_handle_t *handle, const char *key, const ch
         return fallback;
 }
 
-static bool getenv_harder_bool(pam_handle_t *handle, const char *key, bool fallback) {
+static bool getenv_harder_bool(pam_handle_t *pamh, const char *key, bool fallback) {
         const char *v;
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(key);
 
-        v = getenv_harder(handle, key, NULL);
+        v = getenv_harder(pamh, key, NULL);
         if (isempty(v))
                 return fallback;
 
         r = parse_boolean(v);
         if (r < 0) {
-                pam_syslog(handle, LOG_WARNING,
+                pam_syslog(pamh, LOG_WARNING,
                            "Failed to parse environment variable value '%s' of '%s', falling back to using '%s'.",
                            v, key, true_false(fallback));
                 return fallback;
@@ -518,20 +515,20 @@ static bool getenv_harder_bool(pam_handle_t *handle, const char *key, bool fallb
         return r;
 }
 
-static uint32_t getenv_harder_uint32(pam_handle_t *handle, const char *key, uint32_t fallback) {
+static uint32_t getenv_harder_uint32(pam_handle_t *pamh, const char *key, uint32_t fallback) {
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(key);
 
-        const char *v = getenv_harder(handle, key, NULL);
+        const char *v = getenv_harder(pamh, key, NULL);
         if (isempty(v))
                 return fallback;
 
         uint32_t u;
         r = safe_atou32(v, &u);
         if (r < 0) {
-                pam_syslog(handle, LOG_WARNING,
+                pam_syslog(pamh, LOG_WARNING,
                            "Failed to parse environment variable value '%s' of '%s' as unsigned integer, falling back to using %" PRIu32 ".",
                            v, key, fallback);
                 return fallback;
@@ -540,10 +537,10 @@ static uint32_t getenv_harder_uint32(pam_handle_t *handle, const char *key, uint
         return u;
 }
 
-static int update_environment(pam_handle_t *handle, const char *key, const char *value) {
+static int update_environment(pam_handle_t *pamh, const char *key, const char *value) {
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(key);
 
         /* Updates the environment, and removes environment variables if value is NULL or empty. Also, log
@@ -554,29 +551,29 @@ static int update_environment(pam_handle_t *handle, const char *key, const char 
                  * call it without the variable actually being set. Hence we check explicitly if it's set
                  * before. */
 
-                if (!pam_getenv(handle, key))
+                if (!pam_getenv(pamh, key))
                         return PAM_SUCCESS;
 
-                r = pam_putenv(handle, key);
+                r = pam_putenv(pamh, key);
                 if (!IN_SET(r, PAM_SUCCESS, PAM_BAD_ITEM))
-                        return pam_syslog_pam_error(handle, LOG_WARNING, r,
+                        return pam_syslog_pam_error(pamh, LOG_WARNING, r,
                                                     "Failed to unset %s environment variable: @PAMERR@", key);
 
                 return PAM_SUCCESS;
         }
 
-        r = pam_misc_setenv(handle, key, value, /* readonly= */ false);
+        r = pam_misc_setenv(pamh, key, value, /* readonly= */ false);
         if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                             "Failed to set environment variable %s: @PAMERR@", key);
 
         return PAM_SUCCESS;
 }
 
-static int propagate_credential_to_environment(pam_handle_t *handle, bool debug, const char *credential, const char *varname) {
+static int propagate_credential_to_environment(pam_handle_t *pamh, bool debug, const char *credential, const char *varname) {
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(credential);
         assert(varname);
 
@@ -586,22 +583,22 @@ static int propagate_credential_to_environment(pam_handle_t *handle, bool debug,
 
         r = read_credential(credential, (void**) &value, /* ret_size= */ NULL);
         if (r < 0) {
-                pam_debug_syslog_errno(handle, debug, r, "Failed to read credential '%s', ignoring: %m", credential);
+                pam_debug_syslog_errno(pamh, debug, r, "Failed to read credential '%s', ignoring: %m", credential);
                 return PAM_SUCCESS;
         }
 
-        r = pam_misc_setenv(handle, varname, value, 0);
+        r = pam_misc_setenv(pamh, varname, value, 0);
         if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                             "Failed to set environment variable %s: @PAMERR@", varname);
 
         return PAM_SUCCESS;
 }
 
-static bool validate_runtime_directory(pam_handle_t *handle, const char *path, uid_t uid) {
+static bool validate_runtime_directory(pam_handle_t *pamh, const char *path, uid_t uid) {
         struct stat st;
 
-        assert(handle);
+        assert(pamh);
         assert(path);
 
         /* Some extra paranoia: let's not set $XDG_RUNTIME_DIR if the directory we'd set it to isn't actually
@@ -612,49 +609,49 @@ static bool validate_runtime_directory(pam_handle_t *handle, const char *path, u
          * otherwise we might end up setting $XDG_RUNTIME_DIR to some directory owned by the wrong user. */
 
         if (!path_is_absolute(path)) {
-                pam_syslog(handle, LOG_ERR, "Provided runtime directory '%s' is not absolute.", path);
+                pam_syslog(pamh, LOG_ERR, "Provided runtime directory '%s' is not absolute.", path);
                 goto fail;
         }
 
         if (lstat(path, &st) < 0) {
-                pam_syslog_errno(handle, LOG_ERR, errno, "Failed to stat() runtime directory '%s': %m", path);
+                pam_syslog_errno(pamh, LOG_ERR, errno, "Failed to stat() runtime directory '%s': %m", path);
                 goto fail;
         }
 
         if (!S_ISDIR(st.st_mode)) {
-                pam_syslog(handle, LOG_ERR, "Runtime directory '%s' is not actually a directory.", path);
+                pam_syslog(pamh, LOG_ERR, "Runtime directory '%s' is not actually a directory.", path);
                 goto fail;
         }
 
         if (st.st_uid != uid) {
-                pam_syslog(handle, LOG_ERR, "Runtime directory '%s' is not owned by UID " UID_FMT ", as it should.", path, uid);
+                pam_syslog(pamh, LOG_ERR, "Runtime directory '%s' is not owned by UID " UID_FMT ", as it should.", path, uid);
                 goto fail;
         }
 
         return true;
 
 fail:
-        pam_syslog(handle, LOG_WARNING, "Not setting $XDG_RUNTIME_DIR, as the directory is not in order.");
+        pam_syslog(pamh, LOG_WARNING, "Not setting $XDG_RUNTIME_DIR, as the directory is not in order.");
         return false;
 }
 
-static int pam_putenv_and_log(pam_handle_t *handle, const char *e, bool debug) {
+static int pam_putenv_and_log(pam_handle_t *pamh, const char *e, bool debug) {
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(e);
 
-        r = pam_putenv(handle, e);
+        r = pam_putenv(pamh, e);
         if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                             "Failed to set PAM environment variable %s: @PAMERR@", e);
 
-        pam_debug_syslog(handle, debug, "PAM environment variable %s set based on user record.", e);
+        pam_debug_syslog(pamh, debug, "PAM environment variable %s set based on user record.", e);
         return PAM_SUCCESS;
 }
 
 static int apply_user_record_settings(
-                pam_handle_t *handle,
+                pam_handle_t *pamh,
                 UserRecord *ur,
                 bool debug,
                 uint64_t default_capability_bounding_set,
@@ -662,16 +659,16 @@ static int apply_user_record_settings(
         _cleanup_strv_free_ char **langs = NULL;
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(ur);
 
         if (ur->umask != MODE_INVALID) {
                 umask(ur->umask);
-                pam_debug_syslog(handle, debug, "Set user umask to %04o based on user record.", ur->umask);
+                pam_debug_syslog(pamh, debug, "Set user umask to %04o based on user record.", ur->umask);
         }
 
         STRV_FOREACH(i, ur->environment) {
-                r = pam_putenv_and_log(handle, *i, debug);
+                r = pam_putenv_and_log(pamh, *i, debug);
                 if (r != PAM_SUCCESS)
                         return r;
         }
@@ -681,25 +678,25 @@ static int apply_user_record_settings(
 
                 joined = strjoin("EMAIL=", ur->email_address);
                 if (!joined)
-                        return pam_log_oom(handle);
+                        return pam_log_oom(pamh);
 
-                r = pam_putenv_and_log(handle, joined, debug);
+                r = pam_putenv_and_log(pamh, joined, debug);
                 if (r != PAM_SUCCESS)
                         return r;
         }
 
         if (ur->time_zone) {
                 if (!timezone_is_valid(ur->time_zone, LOG_DEBUG))
-                        pam_debug_syslog(handle, debug,
+                        pam_debug_syslog(pamh, debug,
                                          "Time zone specified in user record is not valid locally, not setting $TZ.");
                 else {
                         _cleanup_free_ char *joined = NULL;
 
                         joined = strjoin("TZ=:", ur->time_zone);
                         if (!joined)
-                                return pam_log_oom(handle);
+                                return pam_log_oom(pamh);
 
-                        r = pam_putenv_and_log(handle, joined, debug);
+                        r = pam_putenv_and_log(pamh, joined, debug);
                         if (r != PAM_SUCCESS)
                                 return r;
                 }
@@ -707,21 +704,21 @@ static int apply_user_record_settings(
 
         r = user_record_languages(ur, &langs);
         if (r < 0)
-                pam_syslog_errno(handle, LOG_ERR, r,
+                pam_syslog_errno(pamh, LOG_ERR, r,
                                  "Failed to acquire user's language preferences, ignoring: %m");
         else if (strv_isempty(langs))
                 ; /* User has no preference set so we do nothing */
         else if (locale_is_installed(langs[0]) <= 0)
-                pam_debug_syslog(handle, debug,
+                pam_debug_syslog(pamh, debug,
                                  "Preferred languages specified in user record are not installed locally, not setting $LANG or $LANGUAGE.");
         else {
                 _cleanup_free_ char *lang = NULL;
 
                 lang = strjoin("LANG=", langs[0]);
                 if (!lang)
-                        return pam_log_oom(handle);
+                        return pam_log_oom(pamh);
 
-                r = pam_putenv_and_log(handle, lang, debug);
+                r = pam_putenv_and_log(pamh, lang, debug);
                 if (r != PAM_SUCCESS)
                         return r;
 
@@ -730,13 +727,13 @@ static int apply_user_record_settings(
 
                         joined = strv_join(langs, ":");
                         if (!joined)
-                                return pam_log_oom(handle);
+                                return pam_log_oom(pamh);
 
                         language = strjoin("LANGUAGE=", joined);
                         if (!language)
-                                return pam_log_oom(handle);
+                                return pam_log_oom(pamh);
 
-                        r = pam_putenv_and_log(handle, language, debug);
+                        r = pam_putenv_and_log(pamh, language, debug);
                         if (r != PAM_SUCCESS)
                                 return r;
                 }
@@ -744,10 +741,10 @@ static int apply_user_record_settings(
 
         if (nice_is_valid(ur->nice_level)) {
                 if (nice(ur->nice_level) < 0)
-                        pam_syslog_errno(handle, LOG_WARNING, errno,
+                        pam_syslog_errno(pamh, LOG_WARNING, errno,
                                          "Failed to set nice level to %i, ignoring: %m", ur->nice_level);
                 else
-                        pam_debug_syslog(handle, debug,
+                        pam_debug_syslog(pamh, debug,
                                          "Nice level set to %i, based on user record.", ur->nice_level);
         }
 
@@ -757,10 +754,10 @@ static int apply_user_record_settings(
 
                 r = setrlimit_closest(rl, ur->rlimits[rl]);
                 if (r < 0)
-                        pam_syslog_errno(handle, LOG_ERR, r,
+                        pam_syslog_errno(pamh, LOG_ERR, r,
                                          "Failed to set resource limit %s, ignoring: %m", rlimit_to_string(rl));
                 else
-                        pam_debug_syslog(handle, debug,
+                        pam_debug_syslog(pamh, debug,
                                          "Resource limit %s set, based on user record.", rlimit_to_string(rl));
         }
 
@@ -778,14 +775,14 @@ static int apply_user_record_settings(
 
                 r = capability_ambient_set_apply(a, /* also_inherit= */ true);
                 if (r < 0)
-                        pam_syslog_errno(handle, LOG_ERR, r,
+                        pam_syslog_errno(pamh, LOG_ERR, r,
                                          "Failed to set ambient capabilities, ignoring: %m");
         }
 
         if (b != CAP_MASK_UNSET && !cap_test_all(b)) {
                 r = capability_bounding_set_drop(b, /* right_now= */ false);
                 if (r < 0)
-                        pam_syslog_errno(handle, LOG_ERR, r,
+                        pam_syslog_errno(pamh, LOG_ERR, r,
                                          "Failed to set bounding capabilities, ignoring: %m");
         }
 
@@ -830,7 +827,7 @@ typedef struct SessionContext {
 
 static int create_session_message(
                 sd_bus *bus,
-                pam_handle_t *handle,
+                pam_handle_t *pamh,
                 UserRecord *ur,
                 const SessionContext *context,
                 bool avoid_pidfd,
@@ -841,7 +838,7 @@ static int create_session_message(
         int r;
 
         assert(bus);
-        assert(handle);
+        assert(pamh);
         assert(ur);
         assert(context);
         assert(ret);
@@ -885,23 +882,23 @@ static int create_session_message(
         if (r < 0)
                 return r;
 
-        r = append_session_memory_max(handle, m, context->memory_max);
+        r = append_session_memory_max(pamh, m, context->memory_max);
         if (r < 0)
                 return r;
 
-        r = append_session_runtime_max_sec(handle, m, context->runtime_max_sec);
+        r = append_session_runtime_max_sec(pamh, m, context->runtime_max_sec);
         if (r < 0)
                 return r;
 
-        r = append_session_tasks_max(handle, m, context->tasks_max);
+        r = append_session_tasks_max(pamh, m, context->tasks_max);
         if (r < 0)
                 return r;
 
-        r = append_session_cpu_weight(handle, m, context->cpu_weight);
+        r = append_session_cpu_weight(pamh, m, context->cpu_weight);
         if (r < 0)
                 return r;
 
-        r = append_session_io_weight(handle, m, context->io_weight);
+        r = append_session_io_weight(pamh, m, context->io_weight);
         if (r < 0)
                 return r;
 
@@ -914,12 +911,12 @@ static int create_session_message(
 }
 
 static void session_context_mangle(
-                pam_handle_t *handle,
+                pam_handle_t *pamh,
                 SessionContext *c,
                 UserRecord *ur,
                 bool debug) {
 
-        assert(handle);
+        assert(pamh);
         assert(c);
         assert(ur);
 
@@ -975,21 +972,21 @@ static void session_context_mangle(
         }
 
         if (c->seat && !streq(c->seat, "seat0") && c->vtnr != 0) {
-                pam_debug_syslog(handle, debug, "Ignoring vtnr %"PRIu32" for %s which is not seat0.", c->vtnr, c->seat);
+                pam_debug_syslog(pamh, debug, "Ignoring vtnr %"PRIu32" for %s which is not seat0.", c->vtnr, c->seat);
                 c->vtnr = 0;
         }
 
         if (isempty(c->type)) {
                 c->type = !isempty(c->display) ? "x11" :
                               !isempty(c->tty) ? "tty" : "unspecified";
-                pam_debug_syslog(handle, debug, "Automatically chose session type '%s'.", c->type);
+                pam_debug_syslog(pamh, debug, "Automatically chose session type '%s'.", c->type);
         }
 
         if (!c->area)
                 c->area = ur->default_area;
 
         if (!isempty(c->area) && !filename_is_valid(c->area)) {
-                pam_syslog(handle, LOG_WARNING, "Specified area '%s' is not a valid filename, ignoring area request.", c->area);
+                pam_syslog(pamh, LOG_WARNING, "Specified area '%s' is not a valid filename, ignoring area request.", c->area);
                 c->area = NULL;
         }
 
@@ -1038,14 +1035,14 @@ static void session_context_mangle(
                         ;
                 }
 
-                pam_debug_syslog(handle, debug, "Automatically chose session class '%s'.", c->class);
+                pam_debug_syslog(pamh, debug, "Automatically chose session class '%s'.", c->class);
         }
 
         if (c->incomplete) {
                 if (streq(c->class, "user"))
                         c->class = "user-incomplete";
                 else
-                        pam_syslog(handle, LOG_WARNING, "PAM session of class '%s' is incomplete, which is not supported, ignoring.", c->class);
+                        pam_syslog(pamh, LOG_WARNING, "PAM session of class '%s' is incomplete, which is not supported, ignoring.", c->class);
         }
 
         c->remote = !isempty(c->remote_host) && !is_localhost(c->remote_host);
@@ -1062,7 +1059,7 @@ static bool can_use_varlink(const SessionContext *c) {
 }
 
 static int register_session(
-                pam_handle_t *handle,
+                pam_handle_t *pamh,
                 SessionContext *c,
                 UserRecord *ur,
                 bool debug,
@@ -1072,7 +1069,7 @@ static int register_session(
 
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(c);
         assert(ur);
         assert(ret_seat);
@@ -1081,19 +1078,19 @@ static int register_session(
 
         /* We don't register session class none with logind */
         if (streq(c->class, "none")) {
-                pam_debug_syslog(handle, debug, "Skipping logind registration for session class none.");
+                pam_debug_syslog(pamh, debug, "Skipping logind registration for session class none.");
                 *ret_seat = *ret_type = *ret_runtime_dir = NULL;
                 return PAM_SUCCESS;
         }
 
         /* Make most of this a NOP on non-logind systems */
         if (!logind_running()) {
-                pam_debug_syslog(handle, debug, "Skipping logind registration as logind is not running.");
+                pam_debug_syslog(pamh, debug, "Skipping logind registration as logind is not running.");
                 *ret_seat = *ret_type = *ret_runtime_dir = NULL;
                 return PAM_SUCCESS;
         }
 
-        pam_debug_syslog(handle, debug,
+        pam_debug_syslog(pamh, debug,
                          "Asking logind to create session: "
                          "uid="UID_FMT" pid="PID_FMT" service=%s type=%s class=%s desktop=%s seat=%s vtnr=%"PRIu32" tty=%s display=%s remote=%s remote_user=%s remote_host=%s",
                          ur->uid, getpid_cached(),
@@ -1101,7 +1098,7 @@ static int register_session(
                          c->type, c->class, strempty(c->desktop),
                          strempty(c->seat), c->vtnr, strempty(c->tty), strempty(c->display),
                          yes_no(c->remote), strempty(c->remote_user), strempty(c->remote_host));
-        pam_debug_syslog(handle, debug,
+        pam_debug_syslog(pamh, debug,
                          "Session limits: "
                          "memory_max=%s tasks_max=%s cpu_weight=%s io_weight=%s runtime_max_sec=%s",
                          strna(c->memory_max), strna(c->tasks_max), strna(c->cpu_weight), strna(c->io_weight), strna(c->runtime_max_sec));
@@ -1117,20 +1114,20 @@ static int register_session(
 
                 r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Login");
                 if (r < 0)
-                        pam_debug_syslog_errno(handle, debug, r, "Failed to connect to logind via Varlink, falling back to D-Bus: %m");
+                        pam_debug_syslog_errno(pamh, debug, r, "Failed to connect to logind via Varlink, falling back to D-Bus: %m");
                 else {
                         r = sd_varlink_set_allow_fd_passing_output(vl, true);
                         if (r < 0)
-                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to enable output fd passing on Varlink socket: %m");
+                                return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to enable output fd passing on Varlink socket: %m");
 
                         r = sd_varlink_set_relative_timeout(vl, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC);
                         if (r < 0)
-                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to set relative timeout on Varlink socket: %m");
+                                return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to set relative timeout on Varlink socket: %m");
 
                         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
                         r = pidref_set_self(&pidref);
                         if (r < 0)
-                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to acquire PID reference on ourselves: %m");
+                                return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to acquire PID reference on ourselves: %m");
 
                         sd_json_variant *vreply = NULL;
                         const char *error_id = NULL;
@@ -1153,16 +1150,16 @@ static int register_session(
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteUser", c->remote_user),
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteHost", c->remote_host));
                         if (r < 0)
-                                return pam_syslog_errno(handle, LOG_ERR, r,
+                                return pam_syslog_errno(pamh, LOG_ERR, r,
                                                         "Failed to issue io.systemd.Login.CreateSession varlink call: %m");
                         if (streq_ptr(error_id, "io.systemd.Login.AlreadySessionMember")) {
                                 /* We are already in a session, don't do anything */
-                                pam_debug_syslog(handle, debug, "Not creating session: %s", error_id);
+                                pam_debug_syslog(pamh, debug, "Not creating session: %s", error_id);
                                 *ret_seat = *ret_type= *ret_runtime_dir = NULL;
                                 return PAM_SUCCESS;
                         }
                         if (error_id)
-                                return pam_syslog_errno(handle, LOG_ERR, sd_varlink_error_to_errno(error_id, vreply),
+                                return pam_syslog_errno(pamh, LOG_ERR, sd_varlink_error_to_errno(error_id, vreply),
                                                         "Varlink call io.systemd.Login.CreateSession failed: %s", error_id);
 
                         struct {
@@ -1187,7 +1184,7 @@ static int register_session(
 
                         r = sd_json_dispatch(vreply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
                         if (r < 0)
-                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to parse CreateSession() reply: %m");
+                                return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to parse CreateSession() reply: %m");
 
                         id = p.id;
                         runtime_path = p.runtime_path;
@@ -1209,50 +1206,50 @@ static int register_session(
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
                 /* Talk to logind over the message bus */
-                r = pam_acquire_bus_connection(handle, "pam-systemd", debug, &bus, &d);
+                r = pam_acquire_bus_connection(pamh, "pam-systemd", debug, &bus, &d);
                 if (r != PAM_SUCCESS)
                         return r;
 
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 r = create_session_message(
                                 bus,
-                                handle,
+                                pamh,
                                 ur,
                                 c,
                                 /* avoid_pidfd= */ false,
                                 &m);
                 if (r < 0)
-                        return pam_bus_log_create_error(handle, r);
+                        return pam_bus_log_create_error(pamh, r);
 
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
                 if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
                         sd_bus_error_free(&error);
-                        pam_debug_syslog(handle, debug,
+                        pam_debug_syslog(pamh, debug,
                                          "CreateSessionWithPIDFD() API is not available, retrying with CreateSession().");
 
                         m = sd_bus_message_unref(m);
                         r = create_session_message(bus,
-                                                   handle,
+                                                   pamh,
                                                    ur,
                                                    c,
                                                    /* avoid_pidfd= */ true,
                                                    &m);
                         if (r < 0)
-                                return pam_bus_log_create_error(handle, r);
+                                return pam_bus_log_create_error(pamh, r);
 
                         r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
                 }
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error, BUS_ERROR_SESSION_BUSY)) {
                                 /* We are already in a session, don't do anything */
-                                pam_debug_syslog(handle, debug,
+                                pam_debug_syslog(pamh, debug,
                                                  "Not creating session: %s", bus_error_message(&error, r));
                                 *ret_seat = *ret_type = *ret_runtime_dir = NULL;
                                 return PAM_SUCCESS;
                         }
 
-                        pam_syslog(handle, LOG_ERR,
+                        pam_syslog(pamh, LOG_ERR,
                                    "Failed to create session: %s", bus_error_message(&error, r));
                         return PAM_SESSION_ERR;
                 }
@@ -1269,10 +1266,10 @@ static int register_session(
                                 &real_vtnr,
                                 &existing);
                 if (r < 0)
-                        return pam_bus_log_parse_error(handle, r);
+                        return pam_bus_log_parse_error(pamh, r);
         }
 
-        pam_debug_syslog(handle, debug,
+        pam_debug_syslog(pamh, debug,
                          "Reply from logind: "
                          "id=%s object_path=%s runtime_path=%s seat=%s vtnr=%u original_uid=%u",
                          id, strna(object_path), runtime_path, real_seat, real_vtnr, original_uid);
@@ -1280,7 +1277,7 @@ static int register_session(
         /* Please update manager_default_environment() in core/manager.c accordingly if more session envvars
          * shall be added. */
 
-        r = update_environment(handle, "XDG_SESSION_ID", id);
+        r = update_environment(pamh, "XDG_SESSION_ID", id);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1290,21 +1287,21 @@ static int register_session(
 
         _cleanup_free_ char *real_type = strdup(c->type); /* make copy because this might point to env block, which we are going to update shortly */
         if (!real_type)
-                return pam_log_oom(handle);
+                return pam_log_oom(pamh);
 
-        r = update_environment(handle, "XDG_SESSION_TYPE", c->type);
+        r = update_environment(pamh, "XDG_SESSION_TYPE", c->type);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = update_environment(handle, "XDG_SESSION_CLASS", c->class);
+        r = update_environment(pamh, "XDG_SESSION_CLASS", c->class);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = update_environment(handle, "XDG_SESSION_DESKTOP", c->desktop);
+        r = update_environment(pamh, "XDG_SESSION_DESKTOP", c->desktop);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = update_environment(handle, "XDG_SEAT", real_seat);
+        r = update_environment(pamh, "XDG_SEAT", real_seat);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1312,28 +1309,28 @@ static int register_session(
                 char buf[DECIMAL_STR_MAX(real_vtnr)];
                 xsprintf(buf, "%u", real_vtnr);
 
-                r = update_environment(handle, "XDG_VTNR", buf);
+                r = update_environment(pamh, "XDG_VTNR", buf);
                 if (r != PAM_SUCCESS)
                         return r;
         }
 
-        r = pam_set_data(handle, "systemd.existing", INT_TO_PTR(!!existing), NULL);
+        r = pam_set_data(pamh, "systemd.existing", INT_TO_PTR(!!existing), NULL);
         if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to install existing flag: @PAMERR@");
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to install existing flag: @PAMERR@");
 
         /* Don't set $XDG_RUNTIME_DIR if the user we now authenticated for does not match the
          * original user of the session. We do this in order not to result in privileged apps
          * clobbering the runtime directory unnecessarily. */
         _cleanup_free_ char *rt = NULL;
-        if (original_uid == ur->uid && validate_runtime_directory(handle, runtime_path, ur->uid))
+        if (original_uid == ur->uid && validate_runtime_directory(pamh, runtime_path, ur->uid))
                 if (strdup_to(&rt, runtime_path) < 0)
-                        return pam_log_oom(handle);
+                        return pam_log_oom(pamh);
 
         /* Everything worked, hence let's patch in the data we learned. Since 'real_set' points into the
          * D-Bus message, let's copy it and return it as a buffer */
         _cleanup_free_ char *rs = NULL;
         if (strdup_to(&rs, real_seat) < 0)
-                return pam_log_oom(handle);
+                return pam_log_oom(pamh);
 
         c->vtnr = real_vtnr;
         c->seat = *ret_seat = TAKE_PTR(rs);
@@ -1343,7 +1340,7 @@ static int register_session(
         return PAM_SUCCESS;
 }
 
-static int import_shell_credentials(pam_handle_t *handle, bool debug) {
+static int import_shell_credentials(pam_handle_t *pamh, bool debug) {
 
         static const char *const propagate[] = {
                 "shell.prompt.prefix", "SHELL_PROMPT_PREFIX",
@@ -1353,10 +1350,10 @@ static int import_shell_credentials(pam_handle_t *handle, bool debug) {
         };
         int r;
 
-        assert(handle);
+        assert(pamh);
 
         STRV_FOREACH_PAIR(k, v, propagate) {
-                r = propagate_credential_to_environment(handle, debug, *k, *v);
+                r = propagate_credential_to_environment(pamh, debug, *k, *v);
                 if (r != PAM_SUCCESS)
                         return r;
         }
@@ -1422,13 +1419,13 @@ fail:
 }
 
 static int make_area_runtime_directory(
-                pam_handle_t *handle,
+                pam_handle_t *pamh,
                 UserRecord *ur,
                 const char *runtime_directory,
                 const char *area,
                 char **ret) {
 
-        assert(handle);
+        assert(pamh);
         assert(ur);
         assert(runtime_directory);
         assert(area);
@@ -1439,29 +1436,27 @@ static int make_area_runtime_directory(
 
         _cleanup_close_ int fd = open(runtime_directory, O_CLOEXEC|O_PATH|O_DIRECTORY);
         if (fd < 0)
-                return pam_syslog_errno(handle, LOG_ERR, errno, "Unable to open runtime directory '%s': %m", runtime_directory);
+                return pam_syslog_errno(pamh, LOG_ERR, errno, "Unable to open runtime directory '%s': %m", runtime_directory);
 
         _cleanup_close_ int fd_areas = mkdir_chown_open_directory(fd, "Areas", ur->uid, user_record_gid(ur), 0755);
         if (fd_areas < 0)
-                return pam_syslog_errno(handle, LOG_ERR, fd_areas, "Unable to create 'Areas' directory below '%s': %m", runtime_directory);
+                return pam_syslog_errno(pamh, LOG_ERR, fd_areas, "Unable to create 'Areas' directory below '%s': %m", runtime_directory);
 
         _cleanup_close_ int fd_area = mkdir_chown_open_directory(fd_areas, area, ur->uid, user_record_gid(ur), 0755);
         if (fd_area < 0)
-                return pam_syslog_errno(handle, LOG_ERR, fd_area, "Unable to create '%s' directory below '%s/Areas': %m", area, runtime_directory);
+                return pam_syslog_errno(pamh, LOG_ERR, fd_area, "Unable to create '%s' directory below '%s/Areas': %m", area, runtime_directory);
 
         char *j = path_join(runtime_directory, "Areas", area);
         if (!j)
-                return pam_log_oom(handle);
+                return pam_log_oom(pamh);
 
         *ret = j;
         return 0;
 }
 
-static int export_legacy_dbus_address(
-                pam_handle_t *handle,
-                const char *runtime) {
+static int export_legacy_dbus_address(pam_handle_t *pamh, const char *runtime) {
 
-        assert(handle);
+        assert(pamh);
         assert(runtime);
 
         /* We need to export $DBUS_SESSION_BUS_ADDRESS because various applications will not connect
@@ -1479,34 +1474,34 @@ static int export_legacy_dbus_address(
         const char *s = strjoina(runtime, "/bus");
         if (access(s, F_OK) < 0) {
                 if (errno != ENOENT)
-                        pam_syslog_errno(handle, LOG_WARNING, errno, "Failed to check if %s/bus exists, ignoring: %m", runtime);
+                        pam_syslog_errno(pamh, LOG_WARNING, errno, "Failed to check if %s/bus exists, ignoring: %m", runtime);
 
                 return PAM_SUCCESS;
         }
 
         _cleanup_free_ char *t = NULL;
         if (asprintf(&t, DEFAULT_USER_BUS_ADDRESS_FMT, runtime) < 0)
-                return pam_log_oom(handle);
+                return pam_log_oom(pamh);
 
-        return update_environment(handle, "DBUS_SESSION_BUS_ADDRESS", t);
+        return update_environment(pamh, "DBUS_SESSION_BUS_ADDRESS", t);
 }
 
 static int setup_runtime_directory(
-                pam_handle_t *handle,
+                pam_handle_t *pamh,
                 UserRecord *ur,
                 const char *runtime_directory,
                 const char *area) {
 
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(ur);
 
         if (!runtime_directory) {
                 /* If this is an area switch request, always reset $XDG_RUNTIME_DIR if we got nothing
                  * to ensure the main runtime dir won't be clobbered. */
                 if (area)
-                        return update_environment(handle, "XDG_RUNTIME_DIR", NULL);
+                        return update_environment(pamh, "XDG_RUNTIME_DIR", NULL);
 
                 return PAM_SUCCESS;
         }
@@ -1517,22 +1512,22 @@ static int setup_runtime_directory(
          * clean-up of the whole $XDG_RUNTIME_DIR hierarchy when the user finally logs out. */
         _cleanup_free_ char *per_area_runtime_directory = NULL;
         if (area) {
-                r = make_area_runtime_directory(handle, ur, runtime_directory, area, &per_area_runtime_directory);
+                r = make_area_runtime_directory(pamh, ur, runtime_directory, area, &per_area_runtime_directory);
                 if (r != PAM_SUCCESS)
                         return r;
 
                 runtime_directory = per_area_runtime_directory;
         }
 
-        r = update_environment(handle, "XDG_RUNTIME_DIR", runtime_directory);
+        r = update_environment(pamh, "XDG_RUNTIME_DIR", runtime_directory);
         if (r != PAM_SUCCESS)
                 return r;
 
-        return export_legacy_dbus_address(handle, runtime_directory);
+        return export_legacy_dbus_address(pamh, runtime_directory);
 }
 
 static int setup_environment(
-                pam_handle_t *handle,
+                pam_handle_t *pamh,
                 UserRecord *ur,
                 const char *runtime_directory,
                 const char *area,
@@ -1540,7 +1535,7 @@ static int setup_environment(
 
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(ur);
 
         const char *h = ASSERT_PTR(user_record_home_directory(ur));
@@ -1552,28 +1547,28 @@ static int setup_environment(
         if (area) {
                 _cleanup_free_ char *j = path_join(h, "Areas", area);
                 if (!j)
-                        return pam_log_oom(handle);
+                        return pam_log_oom(pamh);
 
                 _cleanup_close_ int fd = -EBADF;
                 r = chase(j, /* root= */ NULL, CHASE_MUST_BE_DIRECTORY, &ha, &fd);
                 if (r < 0) {
                         /* Log the precise error */
-                        pam_syslog_errno(handle, LOG_WARNING, r, "Path '%s' of requested user area '%s' is not accessible, reverting to regular home directory: %m", j, area);
+                        pam_syslog_errno(pamh, LOG_WARNING, r, "Path '%s' of requested user area '%s' is not accessible, reverting to regular home directory: %m", j, area);
 
                         /* Also tell the user directly at login, but a bit more vague */
-                        pam_info(handle, "Path '%s' of requested user area '%s' is not accessible, reverting to regular home directory.", j, area);
+                        pam_info(pamh, "Path '%s' of requested user area '%s' is not accessible, reverting to regular home directory.", j, area);
                         area = NULL;
                 } else {
                         /* Validate that the target is definitely owned by user */
                         struct stat st;
                         if (fstat(fd, &st) < 0)
-                                return pam_syslog_errno(handle, LOG_ERR, errno, "Unable to fstat() target area directory '%s': %m", ha);
+                                return pam_syslog_errno(pamh, LOG_ERR, errno, "Unable to fstat() target area directory '%s': %m", ha);
 
                         if (st.st_uid != ur->uid) {
-                                pam_syslog(handle, LOG_ERR, "Path '%s' of requested user area '%s' is not owned by user, reverting to regular home directory.", ha, area);
+                                pam_syslog(pamh, LOG_ERR, "Path '%s' of requested user area '%s' is not owned by user, reverting to regular home directory.", ha, area);
 
                                 /* Also tell the user directly at login. */
-                                pam_info(handle, "Path '%s' of requested user area '%s' is not owned by user, reverting to regular home directory.", ha, area);
+                                pam_info(pamh, "Path '%s' of requested user area '%s' is not owned by user, reverting to regular home directory.", ha, area);
                                 area = NULL;
                         } else {
                                 /* All good, now make a copy of the area string, since we quite likely are
@@ -1581,30 +1576,30 @@ static int setup_environment(
                                  * update_environment() call below */
                                 area_copy = strdup(area);
                                 if (!area_copy)
-                                        return pam_log_oom(handle);
+                                        return pam_log_oom(pamh);
 
-                                pam_debug_syslog(handle, debug, "Area '%s' selected, setting $HOME to '%s'.", area, ha);
+                                pam_debug_syslog(pamh, debug, "Area '%s' selected, setting $HOME to '%s'.", area, ha);
                                 h = ha;
                                 area = area_copy;
                         }
                 }
         }
 
-        r = update_environment(handle, "XDG_AREA", area);
+        r = update_environment(pamh, "XDG_AREA", area);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = update_environment(handle, "HOME", h);
+        r = update_environment(pamh, "HOME", h);
         if (r != PAM_SUCCESS)
                 return r;
 
-        return setup_runtime_directory(handle, ur, runtime_directory, area);
+        return setup_runtime_directory(pamh, ur, runtime_directory, area);
 }
 
-static int open_osc_context(pam_handle_t *handle, const char *session_type, UserRecord *ur, bool debug) {
+static int open_osc_context(pam_handle_t *pamh, const char *session_type, UserRecord *ur, bool debug) {
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(ur);
 
         /* If this is a TTY session, then output the session start OSC sequence */
@@ -1612,7 +1607,7 @@ static int open_osc_context(pam_handle_t *handle, const char *session_type, User
         if (!streq_ptr(session_type, "tty"))
                 return PAM_SUCCESS;
 
-        const char *e = pam_getenv(handle, "TERM");
+        const char *e = pam_getenv(pamh, "TERM");
         if (!e)
                 e = getenv("TERM");
         if (streq_ptr(e, "dumb"))
@@ -1630,7 +1625,7 @@ static int open_osc_context(pam_handle_t *handle, const char *session_type, User
          * so that we don't delay tty hang-up. */
         _cleanup_close_ int tty_opath_fd = fd_reopen(STDOUT_FILENO, O_PATH|O_CLOEXEC);
         if (tty_opath_fd < 0)
-                pam_debug_syslog_errno(handle, debug, tty_opath_fd, "Failed to pin TTY, ignoring: %m");
+                pam_debug_syslog_errno(pamh, debug, tty_opath_fd, "Failed to pin TTY, ignoring: %m");
         else
                 tty_opath_fd = fd_move_above_stdio(tty_opath_fd);
 
@@ -1638,32 +1633,32 @@ static int open_osc_context(pam_handle_t *handle, const char *session_type, User
         sd_id128_t osc_id;
         r = osc_context_open_session(
                         ur->user_name,
-                        pam_getenv(handle, "XDG_SESSION_ID"),
+                        pam_getenv(pamh, "XDG_SESSION_ID"),
                         &osc,
                         &osc_id);
         if (r < 0)
-                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to prepare OSC sequence: %m");
+                return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to prepare OSC sequence: %m");
 
         r = loop_write(STDOUT_FILENO, osc, SIZE_MAX);
         if (r < 0)
-                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to write OSC sequence to TTY: %m");
+                return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to write OSC sequence to TTY: %m");
 
         /* Remember the OSC context id, so that we can close it cleanly later */
         _cleanup_free_ sd_id128_t *osc_id_copy = newdup(sd_id128_t, &osc_id, 1);
         if (!osc_id_copy)
-                return pam_log_oom(handle);
+                return pam_log_oom(pamh);
 
-        r = pam_set_data(handle, "systemd.osc-context-id", osc_id_copy, pam_cleanup_free);
+        r = pam_set_data(pamh, "systemd.osc-context-id", osc_id_copy, pam_cleanup_free);
         if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                             "Failed to set PAM OSC sequence ID data: @PAMERR@");
 
         TAKE_PTR(osc_id_copy);
 
         if (tty_opath_fd >= 0) {
-                r = pam_set_data(handle, "systemd.osc-context-fd", FD_TO_PTR(tty_opath_fd), pam_cleanup_close);
+                r = pam_set_data(pamh, "systemd.osc-context-fd", FD_TO_PTR(tty_opath_fd), pam_cleanup_close);
                 if (r != PAM_SUCCESS)
-                        return pam_syslog_pam_error(handle, LOG_ERR, r,
+                        return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                                     "Failed to set PAM OSC sequence fd data: @PAMERR@");
 
                 TAKE_FD(tty_opath_fd);
@@ -1672,32 +1667,32 @@ static int open_osc_context(pam_handle_t *handle, const char *session_type, User
         return PAM_SUCCESS;
 }
 
-static int close_osc_context(pam_handle_t *handle, bool debug) {
+static int close_osc_context(pam_handle_t *pamh, bool debug) {
         int r;
 
-        assert(handle);
+        assert(pamh);
 
         const void *p;
         int tty_opath_fd = -EBADF;
-        r = pam_get_data(handle, "systemd.osc-context-fd", &p);
+        r = pam_get_data(pamh, "systemd.osc-context-fd", &p);
         if (r == PAM_SUCCESS)
                 tty_opath_fd = PTR_TO_FD(p);
         else if (r != PAM_NO_MODULE_DATA)
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM OSC context fd: @PAMERR@");
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get PAM OSC context fd: @PAMERR@");
         if (tty_opath_fd < 0)
                 return PAM_SUCCESS;
 
         const sd_id128_t *osc_id = NULL;
-        r = pam_get_data(handle, "systemd.osc-context-id", (const void**) &osc_id);
+        r = pam_get_data(pamh, "systemd.osc-context-id", (const void**) &osc_id);
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM OSC context id data: @PAMERR@");
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get PAM OSC context id data: @PAMERR@");
         if (!osc_id)
                 return PAM_SUCCESS;
 
         /* Now open the original TTY again, so that we can write on it */
         _cleanup_close_ int fd = fd_reopen(tty_opath_fd, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                pam_debug_syslog_errno(handle, debug, fd, "Failed to reopen TTY, ignoring: %m");
+                pam_debug_syslog_errno(pamh, debug, fd, "Failed to reopen TTY, ignoring: %m");
                 return PAM_SUCCESS;
         }
 
@@ -1712,24 +1707,24 @@ static int close_osc_context(pam_handle_t *handle, bool debug) {
         _cleanup_free_ char *osc = NULL;
         r = osc_context_close(*osc_id, &osc);
         if (r < 0)
-                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to prepare OSC sequence: %m");
+                return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to prepare OSC sequence: %m");
 
         /* When we are closing things, the TTY might not take our writes anymore. Accept that gracefully. */
         r = loop_write(fd, osc, SIZE_MAX);
         if (r < 0)
-                pam_debug_syslog_errno(handle, debug, r, "Failed to write OSC sequence to TTY, ignoring: %m");
+                pam_debug_syslog_errno(pamh, debug, r, "Failed to write OSC sequence to TTY, ignoring: %m");
 
         return PAM_SUCCESS;
 }
 
 _public_ PAM_EXTERN int pam_sm_open_session(
-                pam_handle_t *handle,
+                pam_handle_t *pamh,
                 int flags,
                 int argc, const char **argv) {
 
         int r;
 
-        assert(handle);
+        assert(pamh);
 
         r = dlopen_libpam();
         if (r < 0)
@@ -1740,7 +1735,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         uint64_t default_capability_bounding_set = CAP_MASK_UNSET, default_capability_ambient_set = CAP_MASK_UNSET;
         const char *class_pam = NULL, *type_pam = NULL, *desktop_pam = NULL, *area_pam = NULL;
         bool debug = false;
-        if (parse_argv(handle,
+        if (parse_argv(pamh,
                        argc, argv,
                        &class_pam,
                        &type_pam,
@@ -1751,69 +1746,69 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                        &default_capability_ambient_set) < 0)
                 return PAM_SESSION_ERR;
 
-        pam_debug_syslog(handle, debug, "pam-systemd: initializing...");
+        pam_debug_syslog(pamh, debug, "pam-systemd: initializing...");
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        r = acquire_user_record(handle, &ur);
+        r = acquire_user_record(pamh, &ur);
         if (r != PAM_SUCCESS)
                 return r;
 
         SessionContext c = {};
         r = pam_get_item_many(
-                        handle,
+                        pamh,
                         PAM_SERVICE,  &c.service,
                         PAM_XDISPLAY, &c.display,
                         PAM_TTY,      &c.tty,
                         PAM_RUSER,    &c.remote_user,
                         PAM_RHOST,    &c.remote_host);
         if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
 
-        c.seat = getenv_harder(handle, "XDG_SEAT", NULL);
-        c.vtnr = getenv_harder_uint32(handle, "XDG_VTNR", 0);
-        c.type = getenv_harder(handle, "XDG_SESSION_TYPE", type_pam);
-        c.class = getenv_harder(handle, "XDG_SESSION_CLASS", class_pam);
-        c.desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", desktop_pam);
-        c.area = getenv_harder(handle, "XDG_AREA", area_pam);
-        c.incomplete = getenv_harder_bool(handle, "XDG_SESSION_INCOMPLETE", false);
+        c.seat = getenv_harder(pamh, "XDG_SEAT", NULL);
+        c.vtnr = getenv_harder_uint32(pamh, "XDG_VTNR", 0);
+        c.type = getenv_harder(pamh, "XDG_SESSION_TYPE", type_pam);
+        c.class = getenv_harder(pamh, "XDG_SESSION_CLASS", class_pam);
+        c.desktop = getenv_harder(pamh, "XDG_SESSION_DESKTOP", desktop_pam);
+        c.area = getenv_harder(pamh, "XDG_AREA", area_pam);
+        c.incomplete = getenv_harder_bool(pamh, "XDG_SESSION_INCOMPLETE", false);
 
         r = pam_get_data_many(
-                        handle,
+                        pamh,
                         "systemd.memory_max",      &c.memory_max,
                         "systemd.tasks_max",       &c.tasks_max,
                         "systemd.cpu_weight",      &c.cpu_weight,
                         "systemd.io_weight",       &c.io_weight,
                         "systemd.runtime_max_sec", &c.runtime_max_sec);
         if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM data: @PAMERR@");
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get PAM data: @PAMERR@");
 
-        session_context_mangle(handle, &c, ur, debug);
+        session_context_mangle(pamh, &c, ur, debug);
 
         _cleanup_free_ char *seat_buffer = NULL, *type_buffer = NULL, *runtime_dir = NULL;
-        r = register_session(handle, &c, ur, debug, &seat_buffer, &type_buffer, &runtime_dir);
+        r = register_session(pamh, &c, ur, debug, &seat_buffer, &type_buffer, &runtime_dir);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = import_shell_credentials(handle, debug);
+        r = import_shell_credentials(pamh, debug);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = setup_environment(handle, ur, runtime_dir, c.area, debug);
+        r = setup_environment(pamh, ur, runtime_dir, c.area, debug);
         if (r != PAM_SUCCESS)
                 return r;
 
         if (default_capability_ambient_set == CAP_MASK_UNSET)
                 default_capability_ambient_set = pick_default_capability_ambient_set(ur, c.service, c.seat);
 
-        r = apply_user_record_settings(handle, ur, debug, default_capability_bounding_set, default_capability_ambient_set);
+        r = apply_user_record_settings(pamh, ur, debug, default_capability_bounding_set, default_capability_ambient_set);
         if (r != PAM_SUCCESS)
                 return r;
 
-        return open_osc_context(handle, c.type, ur, debug);
+        return open_osc_context(pamh, c.type, ur, debug);
 }
 
 _public_ PAM_EXTERN int pam_sm_close_session(
-                pam_handle_t *handle,
+                pam_handle_t *pamh,
                 int flags,
                 int argc, const char **argv) {
 
@@ -1822,11 +1817,11 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         const char *id;
         int r;
 
-        assert(handle);
+        assert(pamh);
 
         pam_log_setup();
 
-        if (parse_argv(handle,
+        if (parse_argv(pamh,
                        argc, argv,
                        /* class= */ NULL,
                        /* type= */ NULL,
@@ -1837,25 +1832,25 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                        /* default_capability_ambient_set= */ NULL) < 0)
                 return PAM_SESSION_ERR;
 
-        pam_debug_syslog(handle, debug, "pam-systemd: shutting down...");
+        pam_debug_syslog(pamh, debug, "pam-systemd: shutting down...");
 
         /* Only release session if it wasn't pre-existing when we
          * tried to create it */
-        r = pam_get_data(handle, "systemd.existing", &existing);
+        r = pam_get_data(pamh, "systemd.existing", &existing);
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r,
+                return pam_syslog_pam_error(pamh, LOG_ERR, r,
                                             "Failed to get PAM systemd.existing data: @PAMERR@");
 
-        (void) close_osc_context(handle, debug);
+        (void) close_osc_context(pamh, debug);
 
-        id = pam_getenv(handle, "XDG_SESSION_ID");
+        id = pam_getenv(pamh, "XDG_SESSION_ID");
         if (id && !existing) {
                 _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
                 bool done = false;
 
                 r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Login");
                 if (r < 0)
-                        pam_debug_syslog_errno(handle, debug, r, "Failed to connect to logind via Varlink, falling back to D-Bus: %m");
+                        pam_debug_syslog_errno(pamh, debug, r, "Failed to connect to logind via Varlink, falling back to D-Bus: %m");
                 else {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *vreply = NULL;
                         const char *error_id = NULL;
@@ -1866,10 +1861,10 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                                         &error_id,
                                         SD_JSON_BUILD_PAIR_STRING("Id", id));
                         if (r < 0)
-                                return pam_syslog_errno(handle, LOG_ERR, r,
+                                return pam_syslog_errno(pamh, LOG_ERR, r,
                                                         "Failed to issue io.systemd.Login.ReleaseSession varlink call: %m");
                         if (error_id)
-                                return pam_syslog_errno(handle, LOG_ERR, sd_varlink_error_to_errno(error_id, vreply),
+                                return pam_syslog_errno(pamh, LOG_ERR, sd_varlink_error_to_errno(error_id, vreply),
                                                         "Varlink call io.systemd.Login.ReleaseSession failed: %s", error_id);
 
                         done = true;
@@ -1883,13 +1878,13 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                         /* Before we go and close the FIFO we need to tell logind that this is a clean session
                          * shutdown, so that it doesn't just go and slaughter us immediately after closing the fd */
 
-                        r = pam_acquire_bus_connection(handle, "pam-systemd", debug, &bus, &d);
+                        r = pam_acquire_bus_connection(pamh, "pam-systemd", debug, &bus, &d);
                         if (r != PAM_SUCCESS)
                                 return r;
 
                         r = bus_call_method(bus, bus_login_mgr, "ReleaseSession", &error, NULL, "s", id);
                         if (r < 0)
-                                return pam_syslog_pam_error(handle, LOG_ERR, PAM_SESSION_ERR,
+                                return pam_syslog_pam_error(pamh, LOG_ERR, PAM_SESSION_ERR,
                                                             "Failed to release session: %s", bus_error_message(&error, r));
                 }
         }
