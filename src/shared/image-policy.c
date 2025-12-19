@@ -785,21 +785,24 @@ static bool partition_policy_flags_has_unspecified(PartitionPolicyFlags flags) {
         return false;
 }
 
-int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePolicy **ret) {
+static int policy_intersect_or_union(const ImagePolicy *a, const ImagePolicy *b, bool intersect, ImagePolicy **ret) {
         _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
 
-        /* Calculates the intersection of the specified policies, i.e. only what is permitted in both. This
-         * might fail with -ENAVAIL if the intersection is an "impossible policy". For example, if a root
-         * partition my neither be used, nor be absent, nor be unused then this is considered
-         * "impossible".  */
+        /* Calculates the intersection or union of the specified policies, i.e. only what is permitted in
+         * both or either. This might fail with -ENAVAIL if the intersection is an "impossible policy". For
+         * example, if a root partition my neither be used, nor be absent, nor be unused then this is
+         * considered "impossible". */
 
         p = image_policy_new(_PARTITION_DESIGNATOR_MAX);
         if (!p)
                 return -ENOMEM;
 
         p->default_flags =
-                partition_policy_flags_extend(image_policy_default(a)) &
-                partition_policy_flags_extend(image_policy_default(b));
+                intersect ?
+                        (partition_policy_flags_extend(image_policy_default(a)) &
+                         partition_policy_flags_extend(image_policy_default(b))) :
+                        (partition_policy_flags_extend(image_policy_default(a)) |
+                         partition_policy_flags_extend(image_policy_default(b)));
 
         if (partition_policy_flags_has_unspecified(p->default_flags)) /* Intersection empty? */
                 return -ENAVAIL;
@@ -824,10 +827,15 @@ int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePoli
                         return y;
 
                 /* Mask it */
-                z = x & y;
+                if (intersect)
+                        z = x & y;
+                else
+                        z = x | y;
 
-                /* Check if the intersection is empty for this partition. If so, generate a clear error */
-                if (partition_policy_flags_has_unspecified(z))
+                /* Check if the intersection is empty for this partition. If so, generate a clear error.
+                 * If the partition has to be absent, then it won't have read-only/growfs flags, as
+                 * image_policy_get_exhaustively() intentionally strips them, so skip the check. */
+                if (z != PARTITION_POLICY_ABSENT && partition_policy_flags_has_unspecified(z))
                         return -ENAVAIL;
 
                 df = partition_policy_normalized_flags(
@@ -855,6 +863,14 @@ int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePoli
                 *ret = TAKE_PTR(p);
 
         return 0;
+}
+
+int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePolicy **ret) {
+        return policy_intersect_or_union(a, b, /* intersect= */ true, ret);
+}
+
+int image_policy_union(const ImagePolicy *a, const ImagePolicy *b, ImagePolicy **ret) {
+        return policy_intersect_or_union(a, b, /* intersect= */ false, ret);
 }
 
 ImagePolicy* image_policy_free(ImagePolicy *p) {
