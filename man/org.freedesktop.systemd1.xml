@@ -4860,7 +4860,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       has no main PID. The control PID is the PID of the current start/stop/reload process running and is 0
       if no such process is currently running. That means that <varname>ExecMainPID</varname> and
       <varname>MainPID</varname> differ in the way that the latter immediately reflects whether a main
-      process is currently running while the latter possible contains information collected from the last run
+      process is currently running while the former possibly contains information collected from the last run
       even if the process is no longer around.</para>
 
       <para><varname>StatusText</varname>, <varname>StatusErrno</varname>, <varname>StatusBusError</varname>,
