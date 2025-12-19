@@ -1715,9 +1715,11 @@ int add_matches_for_unit_full(sd_journal *j, MatchUnitFlag flags, const char *un
                 /* Look for messages from the service itself */
                 (r = journal_add_match_pair(j, "_SYSTEMD_UNIT", unit)) ||
 
-                /* Look for messages from PID 1 about this service */
+                /* Look for messages from PID 1 about this service. Note that the actual match is placed
+                 * on init.scope rather than _PID=1, as we want to match messages from helper processes
+                 * forked off by init too. */
                 (r = sd_journal_add_disjunction(j)) ||
-                (r = sd_journal_add_match(j, "_PID=1", SIZE_MAX)) ||
+                (r = sd_journal_add_match(j, "_SYSTEMD_CGROUP=/init.scope", SIZE_MAX)) ||
                 (r = journal_add_match_pair(j, "UNIT", unit)) ||
 
                 /* Look for messages from authorized daemons about this service */
