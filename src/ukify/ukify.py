@@ -313,6 +313,7 @@ class UkifyConfig:
     tools: list[Path]
     uname: Optional[str]
     verb: str
+    no_osrel: bool
     files: list[str] = dataclasses.field(default_factory=list)
 
     @classmethod
@@ -1402,7 +1403,7 @@ def make_uki(opts: UkifyConfig) -> None:
 
     sections = [
         # name,      content,         measure?
-        ('.osrel',   opts.os_release, True),
+        ('.osrel',   None if opts.no_osrel else opts.os_release, True),
         ('.cmdline', opts.cmdline,    True),
         ('.dtb',     opts.devicetree, True),
         *(('.dtbauto', dtb, True) for dtb in opts.devicetree_auto),
@@ -1476,6 +1477,9 @@ def make_uki(opts: UkifyConfig) -> None:
         '.sbat',
         '.profile',
     }
+
+    if opts.no_osrel:
+        to_import.remove('.osrel')
 
     for profile in opts.join_profiles:
         pe = pefile.PE(profile, fast_load=True)
@@ -1931,6 +1935,13 @@ CONFIG_ITEMS = [
         metavar='TEXT|@PATH',
         help='path to os-release file [.osrel section]',
         config_key='UKI/OSRelease',
+    ),
+    ConfigItem(
+        '--no-osrel-section',
+        help='do not insert the .osrel section',
+        dest='no_osrel',
+        action='store_true',
+        default=False,
     ),
     ConfigItem(
         '--cmdline',
