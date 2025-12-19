@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "dissect-image.h"
 #include "extract-word.h"
 #include "image-policy.h"
 #include "log.h"
@@ -273,6 +274,61 @@ static ImagePolicy* image_policy_new(size_t n_policies) {
                 .default_flags = PARTITION_POLICY_IGNORE,
         };
         return p;
+}
+
+ImagePolicy* image_policy_new_from_dissected(const DissectedImage *image, const VeritySettings *verity) {
+        assert(image);
+
+        ImagePolicy *image_policy = image_policy_new(_PARTITION_DESIGNATOR_MAX);
+        if (!image_policy)
+                return NULL;
+
+        /* Default to 'absent', only what we find is allowed to be used */
+        image_policy->default_flags = PARTITION_POLICY_ABSENT;
+
+        for (PartitionDesignator pd = 0; pd < _PARTITION_DESIGNATOR_MAX; pd++) {
+                PartitionPolicyFlags f = 0;
+
+                if (!image->partitions[pd].found)
+                        f |= PARTITION_POLICY_ABSENT;
+                else {
+                        const char *fstype;
+
+                        if (image->partitions[pd].decrypted_fstype) {
+                                fstype = image->partitions[pd].decrypted_fstype;
+                                f |= PARTITION_POLICY_ENCRYPTED;
+                        } else
+                                fstype = image->partitions[pd].fstype;
+                        if (streq_ptr(fstype, "btrfs"))
+                                f |= PARTITION_POLICY_BTRFS;
+                        else if (streq_ptr(fstype, "erofs"))
+                                f |= PARTITION_POLICY_EROFS;
+                        else if (streq_ptr(fstype, "ext4"))
+                                f |= PARTITION_POLICY_EXT4;
+                        else if (streq_ptr(fstype, "f2fs"))
+                                f |= PARTITION_POLICY_F2FS;
+                        else if (streq_ptr(fstype, "squashfs"))
+                                f |= PARTITION_POLICY_SQUASHFS;
+                        else if (streq_ptr(fstype, "vfat"))
+                                f |= PARTITION_POLICY_VFAT;
+                        else if (streq_ptr(fstype, "xfs"))
+                                f |= PARTITION_POLICY_XFS;
+
+                        if (image->verity_sig_ready || (verity && iovec_is_set(&verity->root_hash_sig)))
+                                f |= PARTITION_POLICY_SIGNED;
+                        else if (image->verity_ready || (verity && iovec_is_set(&verity->root_hash)))
+                                f |= PARTITION_POLICY_VERITY;
+
+                        if (image->partitions[pd].growfs)
+                                f |= PARTITION_POLICY_GROWFS_ON;
+                }
+
+                image_policy->policies[pd].designator = pd;
+                image_policy->policies[pd].flags = f;
+                image_policy->n_policies++;
+        }
+
+        return image_policy;
 }
 
 int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret) {
@@ -785,21 +841,24 @@ static bool partition_policy_flags_has_unspecified(PartitionPolicyFlags flags) {
         return false;
 }
 
-int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePolicy **ret) {
+static int policy_intersect_or_union(const ImagePolicy *a, const ImagePolicy *b, bool intersect, ImagePolicy **ret) {
         _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
 
-        /* Calculates the intersection of the specified policies, i.e. only what is permitted in both. This
-         * might fail with -ENAVAIL if the intersection is an "impossible policy". For example, if a root
-         * partition my neither be used, nor be absent, nor be unused then this is considered
-         * "impossible".  */
+        /* Calculates the intersection or union of the specified policies, i.e. only what is permitted in
+         * both or either. This might fail with -ENAVAIL if the intersection is an "impossible policy". For
+         * example, if a root partition my neither be used, nor be absent, nor be unused then this is
+         * considered "impossible". */
 
         p = image_policy_new(_PARTITION_DESIGNATOR_MAX);
         if (!p)
                 return -ENOMEM;
 
         p->default_flags =
-                partition_policy_flags_extend(image_policy_default(a)) &
-                partition_policy_flags_extend(image_policy_default(b));
+                intersect ?
+                        (partition_policy_flags_extend(image_policy_default(a)) &
+                         partition_policy_flags_extend(image_policy_default(b))) :
+                        (partition_policy_flags_extend(image_policy_default(a)) |
+                         partition_policy_flags_extend(image_policy_default(b)));
 
         if (partition_policy_flags_has_unspecified(p->default_flags)) /* Intersection empty? */
                 return -ENAVAIL;
@@ -824,10 +883,15 @@ int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePoli
                         return y;
 
                 /* Mask it */
-                z = x & y;
+                if (intersect)
+                        z = x & y;
+                else
+                        z = x | y;
 
-                /* Check if the intersection is empty for this partition. If so, generate a clear error */
-                if (partition_policy_flags_has_unspecified(z))
+                /* Check if the intersection is empty for this partition. If so, generate a clear error.
+                 * If the partition has to be absent, then it won't have read-only/growfs flags, as
+                 * image_policy_get_exhaustively() intentionally strips them, so skip the check. */
+                if (z != PARTITION_POLICY_ABSENT && partition_policy_flags_has_unspecified(z))
                         return -ENAVAIL;
 
                 df = partition_policy_normalized_flags(
@@ -855,6 +919,14 @@ int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePoli
                 *ret = TAKE_PTR(p);
 
         return 0;
+}
+
+int image_policy_intersect(const ImagePolicy *a, const ImagePolicy *b, ImagePolicy **ret) {
+        return policy_intersect_or_union(a, b, /* intersect= */ true, ret);
+}
+
+int image_policy_union(const ImagePolicy *a, const ImagePolicy *b, ImagePolicy **ret) {
+        return policy_intersect_or_union(a, b, /* intersect= */ false, ret);
 }
 
 ImagePolicy* image_policy_free(ImagePolicy *p) {
