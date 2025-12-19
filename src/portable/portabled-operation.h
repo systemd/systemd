@@ -2,13 +2,14 @@
 #pragma once
 
 #include "list.h"
+#include "pidref.h"
 #include "portabled-forward.h"
 
 #define OPERATIONS_MAX 64
 
 typedef struct Operation {
         Manager *manager;
-        pid_t pid;
+        PidRef pidref;
         sd_bus_message *message;
         int errno_fd;
         int extra_fd;
@@ -17,5 +18,5 @@ typedef struct Operation {
         LIST_FIELDS(Operation, operations);
 } Operation;
 
-int operation_new(Manager *manager, pid_t child, sd_bus_message *message, int errno_fd, Operation **ret);
+int operation_new(Manager *manager, PidRef *child, sd_bus_message *message, int errno_fd, Operation **ret);
 Operation *operation_free(Operation *o);

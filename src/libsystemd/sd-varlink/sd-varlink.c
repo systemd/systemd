@@ -26,6 +26,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "pidfd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -149,6 +150,8 @@ static int varlink_new(sd_varlink **ret) {
                 .allow_fd_passing_input = -1,
 
                 .af = -1,
+
+                .exec_pidref = PIDREF_NULL,
         };
 
         *ret = v;
@@ -209,7 +212,7 @@ _public_ int sd_varlink_connect_address(sd_varlink **ret, const char *address) {
 
 _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, char **_argv) {
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         _cleanup_free_ char *command = NULL;
         _cleanup_strv_free_ char **argv = NULL;
         int r;
@@ -239,13 +242,13 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
         if (r < 0)
                 return log_debug_errno(r, "Failed to disable O_NONBLOCK for varlink socket: %m");
 
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "(sd-vlexec)",
                         /* stdio_fds= */ NULL,
                         /* except_fds= */ (int[]) { pair[1] },
                         /* n_except_fds= */ 1,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
-                        &pid);
+                        &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to spawn process: %m");
         if (r == 0) {
@@ -266,7 +269,7 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
                         _exit(EXIT_FAILURE);
                 }
 
-                xsprintf(spid, PID_FMT, pid);
+                xsprintf(spid, PID_FMT, pidref.pid);
 
                 uint64_t pidfdid;
                 if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
@@ -298,7 +301,7 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
 
         v->output_fd = v->input_fd = TAKE_FD(pair[0]);
         v->af = AF_UNIX;
-        v->exec_pid = TAKE_PID(pid);
+        v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
         *ret = v;
@@ -318,7 +321,7 @@ static int ssh_path(const char **ret) {
 
 static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -356,13 +359,13 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
         if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, pair) < 0)
                 return log_debug_errno(errno, "Failed to allocate AF_UNIX socket pair: %m");
 
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "(sd-vlssh)",
                         /* stdio_fds= */ (int[]) { pair[1], pair[1], STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
-                        &pid);
+                        &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to spawn process: %m");
         if (r == 0) {
@@ -382,7 +385,7 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
 
         v->output_fd = v->input_fd = TAKE_FD(pair[0]);
         v->af = AF_UNIX;
-        v->exec_pid = TAKE_PID(pid);
+        v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
         *ret = v;
@@ -391,7 +394,7 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
 
 static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         _cleanup_close_pair_ int input_pipe[2] = EBADF_PAIR, output_pipe[2] = EBADF_PAIR;
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -440,13 +443,13 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         if (pipe2(output_pipe, O_CLOEXEC) < 0)
                 return log_debug_errno(errno, "Failed to allocate output pipe: %m");
 
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "(sd-vlssh)",
                         /* stdio_fds= */ (int[]) { input_pipe[0], output_pipe[1], STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
-                        &pid);
+                        &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to spawn process: %m");
         if (r == 0) {
@@ -475,7 +478,7 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         v->input_fd = TAKE_FD(output_pipe[0]);
         v->output_fd = TAKE_FD(input_pipe[1]);
         v->af = AF_UNSPEC;
-        v->exec_pid = TAKE_PID(pid);
+        v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
         *ret = v;
@@ -648,10 +651,7 @@ static void varlink_clear(sd_varlink *v) {
 
         v->event = sd_event_unref(v->event);
 
-        if (v->exec_pid > 0) {
-                sigterm_wait(v->exec_pid);
-                v->exec_pid = 0;
-        }
+        pidref_done_sigterm_wait(&v->exec_pidref);
 
         v->peer_pidfd = safe_close(v->peer_pidfd);
 }
