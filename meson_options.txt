@@ -426,6 +426,8 @@ option('pwquality', type : 'feature', deprecated : { 'true' : 'enabled', 'false'
        description : 'libpwquality support')
 option('microhttpd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libµhttpd support')
+option('libcrypt', type : 'feature',
+       description : 'libcrypt/libxcrypt support')
 option('libcryptsetup', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libcryptsetup support')
 option('libcryptsetup-plugins', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
