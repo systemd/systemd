@@ -684,78 +684,6 @@ int mstack_open_images(
         return 0;
 }
 
-static int clone_mount_for_ownership(int mount_fd, const char *temp_mount_dir) {
-        int r;
-
-        assert(mount_fd >= 0);
-
-        /* Clone a detached mount (that quite likely is owned by a foreign userns, i.e. mountfsd's), taking
-         * possession of it, so that our own user namespace owns it. For this we have to jump through quite
-         * some hoops, because the kernel currently doesn't allow us to just call open_tree(OPEN_TREE_CLONE)
-         * directly to get a clone of a mount that is detached and owned by another userns. Hence here's what
-         * we do: we clone short-lived child in a new mount namespace owned by our userns. There, we attach
-         * the mount (invisible to anyone else). Then we open *another* mount namespace, also owned by our
-         * userns. This clones the namespace, and implicitly makes all mounts attached to it ours. Then we
-         * use open_tree(OPEN_TREE_CLONE) to get our own detached mount. This we send back to the parent,
-         * which then can use it. */
-
-        _cleanup_close_pair_ int transfer_fds[2] = EBADF_PAIR;
-        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, transfer_fds);
-        if (r < 0)
-                return log_debug_errno(errno, "Failed to create socket pair: %m");
-
-        _cleanup_close_pair_ int errno_pipe_fds[2] = EBADF_PAIR;
-        if (pipe2(errno_pipe_fds, O_CLOEXEC|O_NONBLOCK) < 0)
-                return log_debug_errno(errno, "Failed to open pipe: %m");
-
-        /* Fork a child. Note that we set FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE here, i.e. get a new mount namespace */
-        r = safe_fork_full(
-                        "(takemnt)",
-                        /* stdio_fds= */ NULL,
-                        (int[]) { mount_fd, transfer_fds[1], errno_pipe_fds[1] }, 3,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
-                        /* ret_pid= */ NULL);
-        if (r < 0) {
-                errno_pipe_fds[1] = safe_close(errno_pipe_fds[1]);
-
-                int q = read_errno(errno_pipe_fds[0]);
-                if (q < 0 && q != -EIO)
-                        return q;
-
-                return r;
-        }
-        if (r == 0) { /* Child */
-
-                /* Attach mount to temporary directory */
-                if (move_mount(mount_fd, "", -EBADF, temp_mount_dir, MOVE_MOUNT_F_EMPTY_PATH) < 0)
-                        report_errno_and_exit(errno_pipe_fds[1], -errno);
-
-                /* Now open the 2nd new mount namespace. This changes the ownershipo of the mount we attached above. */
-                if (unshare(CLONE_NEWNS) < 0)
-                        report_errno_and_exit(errno_pipe_fds[1], -errno);
-
-                /* And now clone it the attached mount that is now ours */
-                _cleanup_close_ int cloned_fd = open_tree(AT_FDCWD, temp_mount_dir, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC);
-                if (cloned_fd < 0)
-                        report_errno_and_exit(errno_pipe_fds[1], cloned_fd);
-
-                /* And send it to the parent */
-                r = send_one_fd(transfer_fds[1], cloned_fd, /* flags= */ 0);
-                if (r < 0)
-                        report_errno_and_exit(errno_pipe_fds[1], r);
-
-                /* We are done */
-                report_errno_and_exit(errno_pipe_fds[1], 0);
-        }
-
-        /* Accept the new cloned mount */
-        _cleanup_close_ int cloned_fd = receive_one_fd(transfer_fds[0], 0);
-        if (cloned_fd < 0)
-                return cloned_fd;
-
-        return TAKE_FD(cloned_fd);
-}
-
 static int mstack_has_writable_layers(MStack *mstack, MStackFlags flags) {
         assert(mstack);
 
@@ -823,7 +751,7 @@ static int mstack_make_overlayfs(
 
                         /* overlayfs refuses to work with layers on mounts not owned by our userns, hence create a
                          * clone that is owned by our userns */
-                        _cleanup_close_ int cloned_fd = clone_mount_for_ownership(ASSERT_FD(mount_get_fd(m)), temp_mount_dir);
+                        _cleanup_close_ int cloned_fd = mount_fd_clone(ASSERT_FD(mount_get_fd(m)), /* recursive= */ false, /* replacement_fd= */ NULL);
                         if (cloned_fd < 0)
                                 report_errno_and_exit(errno_pipe_fds[1], cloned_fd);
 
