@@ -19,7 +19,6 @@
 #include "systemctl-daemon-reload.h"
 #include "systemctl-enable.h"
 #include "systemctl-start-unit.h"
-#include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
 #include "unit-name.h"
 #include "verbs.h"
@@ -94,10 +93,6 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
         const char *operation = strjoina("to ", verb);
         r = mangle_names(operation, ASSERT_PTR(strv_skip(argv, 1)), &names);
-        if (r < 0)
-                return r;
-
-        r = enable_sysv_units(verb, names);
         if (r < 0)
                 return r;
 
