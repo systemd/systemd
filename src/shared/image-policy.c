@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "dissect-image.h"
 #include "extract-word.h"
 #include "image-policy.h"
 #include "log.h"
@@ -176,6 +177,28 @@ PartitionPolicyFlags image_policy_get_exhaustively(const ImagePolicy *policy, Pa
         return flags;
 }
 
+static PartitionPolicyFlags policy_flag_from_fstype(const char *s) {
+        if (!s)
+                return _PARTITION_POLICY_FLAGS_INVALID;
+
+        if (streq(s, "btrfs"))
+                return PARTITION_POLICY_BTRFS;
+        if (streq(s, "erofs"))
+                return PARTITION_POLICY_EROFS;
+        if (streq(s, "ext4"))
+                return PARTITION_POLICY_EXT4;
+        if (streq(s, "f2fs"))
+                return PARTITION_POLICY_F2FS;
+        if (streq(s, "squashfs"))
+                return PARTITION_POLICY_SQUASHFS;
+        if (streq(s, "vfat"))
+                return PARTITION_POLICY_VFAT;
+        if (streq(s, "xfs"))
+                return PARTITION_POLICY_XFS;
+
+        return _PARTITION_POLICY_FLAGS_INVALID;
+}
+
 static PartitionPolicyFlags policy_flag_from_string_one(const char *s) {
         assert(s);
 
@@ -207,22 +230,8 @@ static PartitionPolicyFlags policy_flag_from_string_one(const char *s) {
                 return PARTITION_POLICY_GROWFS_ON;
         if (streq(s, "growfs-off"))
                 return PARTITION_POLICY_GROWFS_OFF;
-        if (streq(s, "btrfs"))
-                return PARTITION_POLICY_BTRFS;
-        if (streq(s, "erofs"))
-                return PARTITION_POLICY_EROFS;
-        if (streq(s, "ext4"))
-                return PARTITION_POLICY_EXT4;
-        if (streq(s, "f2fs"))
-                return PARTITION_POLICY_F2FS;
-        if (streq(s, "squashfs"))
-                return PARTITION_POLICY_SQUASHFS;
-        if (streq(s, "vfat"))
-                return PARTITION_POLICY_VFAT;
-        if (streq(s, "xfs"))
-                return PARTITION_POLICY_XFS;
 
-        return _PARTITION_POLICY_FLAGS_INVALID;
+        return policy_flag_from_fstype(s);
 }
 
 PartitionPolicyFlags partition_policy_flags_from_string(const char *s, bool graceful) {
@@ -273,6 +282,51 @@ static ImagePolicy* image_policy_new(size_t n_policies) {
                 .default_flags = PARTITION_POLICY_IGNORE,
         };
         return p;
+}
+
+ImagePolicy* image_policy_new_from_dissected(const DissectedImage *image, const VeritySettings *verity) {
+        assert(image);
+
+        ImagePolicy *image_policy = image_policy_new(_PARTITION_DESIGNATOR_MAX);
+        if (!image_policy)
+                return NULL;
+
+        /* Default to 'absent', only what we find is allowed to be used */
+        image_policy->default_flags = PARTITION_POLICY_ABSENT;
+
+        for (PartitionDesignator pd = 0; pd < _PARTITION_DESIGNATOR_MAX; pd++) {
+                PartitionPolicyFlags f = 0;
+
+                if (!image->partitions[pd].found)
+                        f |= PARTITION_POLICY_ABSENT;
+                else {
+                        if (streq_ptr(image->partitions[pd].fstype, "crypto_LUKS"))
+                                f |= PARTITION_POLICY_ENCRYPTED;
+                        else {
+                                PartitionPolicyFlags fstype_flag = policy_flag_from_fstype(image->partitions[pd].fstype);
+                                if (fstype_flag != _PARTITION_POLICY_FLAGS_INVALID)
+                                        f |= fstype_flag;
+                        }
+
+                        if (!verity || verity->designator < 0 || verity->designator == pd) {
+                                if (image->verity_sig_ready || (verity && iovec_is_set(&verity->root_hash_sig)))
+                                        f |= PARTITION_POLICY_SIGNED;
+                                else if (image->verity_ready || (verity && iovec_is_set(&verity->root_hash)))
+                                        f |= PARTITION_POLICY_VERITY;
+                        }
+
+                        if (image->partitions[pd].growfs)
+                                f |= PARTITION_POLICY_GROWFS_ON;
+                }
+
+                image_policy->policies[pd] = (PartitionPolicy) {
+                        .designator = pd,
+                        .flags = f,
+                };
+                image_policy->n_policies++;
+        }
+
+        return image_policy;
 }
 
 int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret) {
