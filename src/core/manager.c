@@ -4350,7 +4350,7 @@ static bool manager_journal_is_running(Manager *m) {
         u = manager_get_unit(m, SPECIAL_JOURNALD_SERVICE);
         if (!u)
                 return false;
-        if (!IN_SET(SERVICE(u)->state, SERVICE_RELOAD, SERVICE_RUNNING))
+        if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)) || SERVICE(u)->state == SERVICE_EXITED)
                 return false;
 
         return true;
