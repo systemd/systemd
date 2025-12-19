@@ -91,6 +91,11 @@ TEST(ASSERT) {
         ASSERT_SIGNAL(ASSERT_STREQ(null, "bar"), SIGABRT);
         ASSERT_SIGNAL(ASSERT_STREQ("foo", "bar"), SIGABRT);
 
+        ASSERT_NOT_STREQ("foo", "bar");
+        ASSERT_NOT_STREQ("foo", NULL);
+        ASSERT_SIGNAL(ASSERT_NOT_STREQ("foo", "foo"), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_NOT_STREQ(NULL, NULL), SIGABRT);
+
         ASSERT_EQ(0, 0);
         ASSERT_EQ(-1, -1);
         ASSERT_SIGNAL(ASSERT_EQ(255, -1), SIGABRT);
