@@ -124,7 +124,7 @@ static int validate_image_fd(int fd, MountImageParameters *p) {
                         return r;
         }
 
-        fl = fd_verify_safe_flags(fd);
+        fl = fd_verify_safe_flags_full(fd, O_NONBLOCK);
         if (fl < 0)
                 return log_debug_errno(fl, "Image file descriptor has unsafe flags set: %m");
 
@@ -353,6 +353,8 @@ static int vl_method_mount_image(
         }
 
         r = validate_image_fd(image_fd, &p);
+        if (r == -EREMOTEIO)
+                return sd_varlink_errorbo(link, "io.systemd.MountFileSystem.BadFileDescriptorFlags", SD_JSON_BUILD_PAIR_STRING("parameter", "imageFileDescriptor"));
         if (r < 0)
                 return r;
 
@@ -1003,6 +1005,7 @@ static int vl_method_mount_directory(
 typedef struct MakeDirectoryParameters {
         unsigned parent_fd_idx;
         const char *name;
+        mode_t mode;
 } MakeDirectoryParameters;
 
 static int vl_method_make_directory(
@@ -1012,14 +1015,16 @@ static int vl_method_make_directory(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "parentFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MakeDirectoryParameters, parent_fd_idx), SD_JSON_MANDATORY },
-                { "name",                 SD_JSON_VARIANT_STRING,   json_dispatch_const_filename, offsetof(MakeDirectoryParameters, name),          SD_JSON_MANDATORY },
+                { "parentFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,        offsetof(MakeDirectoryParameters, parent_fd_idx), SD_JSON_MANDATORY },
+                { "name",                 SD_JSON_VARIANT_STRING,        json_dispatch_const_filename, offsetof(MakeDirectoryParameters, name),          SD_JSON_MANDATORY },
+                { "mode",                 _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,    offsetof(MakeDirectoryParameters, mode),          SD_JSON_STRICT    },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
         MakeDirectoryParameters p = {
                 .parent_fd_idx = UINT_MAX,
+                .mode = MODE_INVALID,
         };
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
         int r;
@@ -1027,6 +1032,11 @@ static int vl_method_make_directory(
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
+
+        if (p.mode == MODE_INVALID)
+                p.mode = 0700;
+        else
+                p.mode &= 0775; /* refuse generating world writable dirs */
 
         if (p.parent_fd_idx == UINT_MAX)
                 return sd_varlink_error_invalid_parameter_name(link, "parentFileDescriptor");
@@ -1089,11 +1099,11 @@ static int vl_method_make_directory(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, 0700);
+        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, p.mode);
         if (fd < 0)
                 return fd;
 
-        r = RET_NERRNO(fchmod(fd, 0700)); /* Set mode explicitly, as paranoia regarding umask games */
+        r = RET_NERRNO(fchmod(fd, p.mode)); /* Set mode explicitly, as paranoia regarding umask games */
         if (r < 0)
                 goto fail;
 
