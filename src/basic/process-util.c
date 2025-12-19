@@ -1484,11 +1484,6 @@ pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata) {
         return pid;
 }
 
-static void restore_sigsetp(sigset_t **ssp) {
-        if (*ssp)
-                (void) sigprocmask(SIG_SETMASK, *ssp, NULL);
-}
-
 static int fork_flags_to_signal(ForkFlags flags) {
         return (flags & FORK_DEATHSIG_SIGTERM) ? SIGTERM :
                 (flags & FORK_DEATHSIG_SIGINT) ? SIGINT :
@@ -1505,7 +1500,7 @@ int pidref_safe_fork_full(
 
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
-        _unused_ _cleanup_(restore_sigsetp) sigset_t *saved_ssp = NULL;
+        _unused_ _cleanup_(block_signals_reset) sigset_t *saved_ssp = NULL;
         bool block_signals = false, block_all = false, intermediary = false;
         _cleanup_close_pair_ int pidref_transport_fds[2] = EBADF_PAIR;
         int prio, r;
