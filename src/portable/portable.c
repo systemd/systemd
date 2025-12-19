@@ -27,6 +27,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "image-policy.h"
 #include "install.h"
 #include "iovec-util.h"
 #include "libmount-util.h"
@@ -364,10 +365,12 @@ static int portable_extract_by_path(
                 const ImagePolicy *image_policy,
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files,
+                ImagePolicy **ret_pinned_image_policy,
                 sd_bus_error *error) {
 
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata* os_release = NULL;
+        _cleanup_(image_policy_freep) ImagePolicy *pinned_image_policy = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         int r;
 
@@ -397,6 +400,7 @@ static int portable_extract_by_path(
         } else if (r < 0)
                 return log_debug_errno(r, "Failed to set up loopback device for %s: %m", path);
         else {
+                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
                 _cleanup_(rmdir_and_freep) char *tmpdir = NULL;
                 _cleanup_close_pair_ int seq[2] = EBADF_PAIR;
@@ -448,6 +452,24 @@ static int portable_extract_by_path(
                         sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Device '%s' is loopback block device with partition scanning turned off, please turn it on.", path);
                 if (r < 0)
                         return r;
+
+                r = verity_settings_load(&verity, path, NULL, NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to load root hash: %m");
+
+                r = dissected_image_load_verity_sig_partition(m, d->fd, &verity);
+                if (r < 0)
+                        return r;
+
+                r = dissected_image_guess_verity_roothash(m, &verity);
+                if (r < 0)
+                        return r;
+
+                if (ret_pinned_image_policy) {
+                        pinned_image_policy = image_policy_new_from_dissected(m, &verity);
+                        if (!pinned_image_policy)
+                                return -ENOMEM;
+                }
 
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, seq) < 0)
                         return log_debug_errno(errno, "Failed to allocated SOCK_SEQPACKET socket: %m");
@@ -558,6 +580,9 @@ static int portable_extract_by_path(
         if (ret_os_release)
                 *ret_os_release = TAKE_PTR(os_release);
 
+        if (ret_pinned_image_policy)
+                *ret_pinned_image_policy = TAKE_PTR(pinned_image_policy);
+
         return 0;
 }
 
@@ -575,9 +600,12 @@ static int extract_image_and_extensions(
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files,
                 char ***ret_valid_prefixes,
+                ImagePolicy **ret_pinned_root_image_policy,
+                ImagePolicy **ret_pinned_ext_image_policy,
                 sd_bus_error *error) {
 
         _cleanup_free_ char *id = NULL, *id_like = NULL, *version_id = NULL, *sysext_level = NULL, *confext_level = NULL;
+        _cleanup_(image_policy_freep) ImagePolicy *pinned_root_image_policy = NULL, *pinned_ext_image_policy = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
@@ -669,6 +697,7 @@ static int extract_image_and_extensions(
                         image_policy,
                         &os_release,
                         &unit_files,
+                        &pinned_root_image_policy,
                         error);
         if (r < 0)
                 return r;
@@ -700,6 +729,7 @@ static int extract_image_and_extensions(
 
         ORDERED_HASHMAP_FOREACH(ext, extension_images) {
                 _cleanup_(portable_metadata_unrefp) PortableMetadata *extension_release_meta = NULL;
+                _cleanup_(image_policy_freep) ImagePolicy *policy = NULL;
                 _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
                 _cleanup_strv_free_ char **extension_release = NULL;
                 const char *e;
@@ -713,6 +743,7 @@ static int extract_image_and_extensions(
                                 image_policy,
                                 &extension_release_meta,
                                 &extra_unit_files,
+                                &policy,
                                 error);
                 if (r < 0)
                         return r;
@@ -720,6 +751,19 @@ static int extract_image_and_extensions(
                 r = hashmap_move(unit_files, extra_unit_files);
                 if (r < 0)
                         return r;
+
+                if (!pinned_ext_image_policy && policy)
+                        pinned_ext_image_policy = TAKE_PTR(policy);
+                else if (policy) {
+                        _cleanup_(image_policy_freep) ImagePolicy *intersected_policy = NULL;
+
+                        /* There is a single policy for all extension images, so we need a union */
+                        r = image_policy_union(pinned_ext_image_policy, policy, &intersected_policy);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to merge extension image policies: %m");
+
+                        free_and_replace(pinned_ext_image_policy, intersected_policy);
+                }
 
                 if (!validate_extension && !ret_valid_prefixes && !ret_extension_releases)
                         continue;
@@ -768,6 +812,10 @@ static int extract_image_and_extensions(
                 *ret_unit_files = TAKE_PTR(unit_files);
         if (ret_valid_prefixes)
                 *ret_valid_prefixes = TAKE_PTR(valid_prefixes);
+        if (ret_pinned_root_image_policy)
+                *ret_pinned_root_image_policy = TAKE_PTR(pinned_root_image_policy);
+        if (ret_pinned_ext_image_policy)
+                *ret_pinned_ext_image_policy = TAKE_PTR(pinned_ext_image_policy);
 
         return 0;
 }
@@ -808,6 +856,8 @@ int portable_extract(
                         &os_release,
                         &unit_files,
                         ret_valid_prefixes ? &valid_prefixes : NULL,
+                        /* pinned_root_image_policy= */ NULL,
+                        /* pinned_ext_image_policy= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -1110,6 +1160,8 @@ static int install_chroot_dropin(
                 ImageType type,
                 OrderedHashmap *extension_images,
                 OrderedHashmap *extension_releases,
+                const ImagePolicy *pinned_root_image_policy,
+                const ImagePolicy *pinned_ext_image_policy,
                 const PortableMetadata *m,
                 const PortableMetadata *os_release,
                 const char *dropin_dir,
@@ -1151,6 +1203,18 @@ static int install_chroot_dropin(
                                "Environment=PORTABLE=", base_name, "\n"
                                "LogExtraFields=PORTABLE=", base_name, "\n"))
                         return -ENOMEM;
+
+                if (pinned_root_image_policy) {
+                        _cleanup_free_ char *policy_str = NULL;
+
+                        r = image_policy_to_string(pinned_root_image_policy, /* simplify= */ true, &policy_str);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to serialize pinned image policy: %m");
+
+                        if (!strextend(&text,
+                                       "RootImagePolicy=", policy_str, "\n"))
+                                return -ENOMEM;
+                }
 
                 /* If we have a single image then PORTABLE= will point to it, so we add
                  * PORTABLE_NAME_AND_VERSION= with the os-release fields and we are done. But if we have
@@ -1200,6 +1264,18 @@ static int install_chroot_dropin(
                                                 * stacking multiple images, so list those too. */
                                                "LogExtraFields=PORTABLE_EXTENSION=", extension_base_name, "\n"))
                                         return -ENOMEM;
+
+                                if (pinned_ext_image_policy) {
+                                        _cleanup_free_ char *policy_str = NULL;
+
+                                        r = image_policy_to_string(pinned_ext_image_policy, /* simplify= */ true, &policy_str);
+                                        if (r < 0)
+                                                return log_debug_errno(r, "Failed to serialize pinned image policy: %m");
+
+                                        if (!strextend(&text,
+                                                       "ExtensionImagePolicy=", policy_str, "\n"))
+                                                return -ENOMEM;
+                                }
 
                                 /* Look for image/version identifiers in the extension release files. We
                                  * look for all possible IDs, but typically only 1 or 2 will be set, so
@@ -1317,6 +1393,8 @@ static int attach_unit_file(
                 ImageType type,
                 OrderedHashmap *extension_images,
                 OrderedHashmap *extension_releases,
+                const ImagePolicy *pinned_root_image_policy,
+                const ImagePolicy *pinned_ext_image_policy,
                 const PortableMetadata *m,
                 const PortableMetadata *os_release,
                 const char *profile,
@@ -1362,7 +1440,20 @@ static int attach_unit_file(
          * is reloaded while we are creating things here: as long as only the drop-ins exist the unit doesn't exist at
          * all for PID 1. */
 
-        r = install_chroot_dropin(image_path, type, extension_images, extension_releases, m, os_release, dropin_dir, flags, &chroot_dropin, changes, n_changes);
+        r = install_chroot_dropin(
+                        image_path,
+                        type,
+                        extension_images,
+                        extension_releases,
+                        pinned_root_image_policy,
+                        pinned_ext_image_policy,
+                        m,
+                        os_release,
+                        dropin_dir,
+                        flags,
+                        &chroot_dropin,
+                        changes,
+                        n_changes);
         if (r < 0)
                 return r;
 
@@ -1631,6 +1722,7 @@ int portable_attach(
                 size_t *n_changes,
                 sd_bus_error *error) {
 
+        _cleanup_(image_policy_freep) ImagePolicy *pinned_root_image_policy = NULL, *pinned_ext_image_policy = NULL;
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
@@ -1656,6 +1748,8 @@ int portable_attach(
                         &os_release,
                         &unit_files,
                         &valid_prefixes,
+                        &pinned_root_image_policy,
+                        &pinned_ext_image_policy,
                         error);
         if (r < 0)
                 return r;
@@ -1720,8 +1814,20 @@ int portable_attach(
                 }
 
         HASHMAP_FOREACH(item, unit_files) {
-                r = attach_unit_file(&paths, image->path, image->type, extension_images, extension_releases,
-                                     item, os_release, profile, flags, changes, n_changes);
+                r = attach_unit_file(
+                                &paths,
+                                image->path,
+                                image->type,
+                                extension_images,
+                                extension_releases,
+                                pinned_root_image_policy,
+                                pinned_ext_image_policy,
+                                item,
+                                os_release,
+                                profile,
+                                flags,
+                                changes,
+                                n_changes);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to attach unit '%s': %m", item->name);
         }
