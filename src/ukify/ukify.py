@@ -1477,6 +1477,9 @@ def make_uki(opts: UkifyConfig) -> None:
         '.profile',
     }
 
+    if not opts.os_release:
+        to_import.remove('.osrel')
+
     for profile in opts.join_profiles:
         pe = pefile.PE(profile, fast_load=True)
         prev_len = len(uki.sections)
@@ -2412,7 +2415,12 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
     opts.os_release = resolve_at_path(opts.os_release)
 
-    if not opts.os_release and opts.linux:
+    if opts.os_release == '':
+        # If --os-release= with an empty string was passed, treat that as
+        # explicitly disabling the .osrel section, and do not fallback to the
+        # system's os-release files.
+        pass
+    elif opts.os_release is None and opts.linux:
         p = Path('/etc/os-release')
         if not p.exists():
             p = Path('/usr/lib/os-release')

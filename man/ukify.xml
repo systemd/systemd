@@ -357,7 +357,10 @@
           <listitem><para>The os-release description (the <literal>.osrel</literal> section). The argument
           may be a literal string, or <literal>@</literal> followed by a path name. If not specified, the
           <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
-          will be picked up from the host system.</para>
+          will be picked up from the host system. If explicitly set to an empty string, the ".osrel" section
+          is omitted from the UKI (this is not recommended in most cases, and causes the resulting artifact
+          to not be recognized as a UKI by other tools like <command>kernel-install</command>
+          and <command>bootctl</command>).</para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
