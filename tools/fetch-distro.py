@@ -35,7 +35,7 @@ def parse_args():
     return p.parse_args()
 
 def read_config(distro: str):
-    cmd = ['mkosi', '--json', '-d', distro, 'summary']
+    cmd = ['mkosi', '--json', '-d', distro, '-f', 'summary']
     if args.profile:
         cmd += ['--profile', args.profile]
     print(f"+ {shlex.join(cmd)}")
