@@ -340,6 +340,17 @@
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><option>--no-osrel-section</option></term>
+
+          <listitem><para>Do not include the ".osrel" section when building the UKI.
+          This option should not be used in most cases, and causes the resulting artifact
+          to not be recognized as a UKI by other tools like <command>kernel-install</command>
+          and <command>bootctl</command></para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        </varlistentry>
+
         <xi:include href="standard-options.xml" xpointer="help" />
         <xi:include href="standard-options.xml" xpointer="version" />
       </variablelist>
