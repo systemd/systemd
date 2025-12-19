@@ -4,40 +4,6 @@ if conf.get('ENABLE_IMPORTD') != 1
         subdir_done()
 endif
 
-systemd_importd_sources = files(
-        'importd.c',
-)
-systemd_importd_extract_sources = files(
-        'import-common.c',
-        'import-compress.c',
-        'qcow2-util.c',
-)
-
-systemd_pull_sources = files(
-        'pull.c',
-        'pull-raw.c',
-        'pull-tar.c',
-        'pull-job.c',
-        'pull-common.c',
-        'curl-util.c',
-)
-
-systemd_import_sources = files(
-        'import.c',
-        'import-raw.c',
-        'import-tar.c',
-)
-
-systemd_import_fs_sources = files(
-        'import-fs.c',
-)
-
-systemd_export_sources = files(
-        'export.c',
-        'export-tar.c',
-        'export-raw.c',
-)
-
 common_deps = [
         libbzip2,
         libcurl,
@@ -50,14 +16,27 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-importd',
                 'dbus' : true,
-                'sources' : systemd_importd_sources,
-                'extract' : systemd_importd_extract_sources,
+                'sources' : files(
+                        'importd.c',
+                ),
+                'extract' : files(
+                        'import-common.c',
+                        'import-compress.c',
+                        'qcow2-util.c',
+                ),
                 'dependencies' : [common_deps, threads],
         },
         libexec_template + {
                 'name' : 'systemd-pull',
                 'public' : true,
-                'sources' : systemd_pull_sources,
+                'sources' : files(
+                        'pull.c',
+                        'pull-raw.c',
+                        'pull-tar.c',
+                        'pull-job.c',
+                        'pull-common.c',
+                        'curl-util.c',
+                ),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps + [
                         libopenssl,
@@ -66,21 +45,31 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-import',
                 'public' : true,
-                'sources' : systemd_import_sources,
+                'sources' : files(
+                        'import.c',
+                        'import-raw.c',
+                        'import-tar.c',
+                ),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
         },
         libexec_template + {
                 'name' : 'systemd-import-fs',
                 'public' : true,
-                'sources' : systemd_import_fs_sources,
+                'sources' : files(
+                        'import-fs.c',
+                ),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
         },
         libexec_template + {
                 'name' : 'systemd-export',
                 'public' : true,
-                'sources' : systemd_export_sources,
+                'sources' : files(
+                        'export.c',
+                        'export-tar.c',
+                        'export-raw.c',
+                ),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
         },
