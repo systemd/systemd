@@ -224,14 +224,6 @@ static int receive_ucred(int transport_fd, struct ucred *ret_ucred) {
 }
 
 int coredump_send_to_container(CoredumpContext *context) {
-        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        pid_t child;
-        struct ucred ucred = {
-                .pid = context->pidref.pid,
-                .uid = context->uid,
-                .gid = context->gid,
-        };
         int r;
 
         assert(context);
@@ -255,6 +247,15 @@ int coredump_send_to_container(CoredumpContext *context) {
         if (r <= 0)
                 return r;
 
+        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
+        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        struct ucred ucred = {
+                .pid = context->pidref.pid,
+                .uid = context->uid,
+                .gid = context->gid,
+        };
+
         r = RET_NERRNO(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair));
         if (r < 0)
                 return log_debug_errno(r, "Failed to create socket pair: %m");
@@ -267,7 +268,7 @@ int coredump_send_to_container(CoredumpContext *context) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to open namespaces of PID " PID_FMT ": %m", leader_pid.pid);
 
-        r = namespace_fork("(sd-coredumpns)", "(sd-coredump)", NULL, 0,
+        r = namespace_fork("(sd-coredumpns)", "(sd-coredump)",
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                            pidnsfd, mntnsfd, netnsfd, usernsfd, rootfd, &child);
         if (r < 0)
@@ -325,7 +326,7 @@ int coredump_send_to_container(CoredumpContext *context) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to send metadata to container: %m");
 
-        r = wait_for_terminate_and_check("(sd-coredumpns)", child, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-coredumpns)", &child, 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to wait for child to terminate: %m");
         if (r != EXIT_SUCCESS)
