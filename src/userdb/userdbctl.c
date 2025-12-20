@@ -1547,6 +1547,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --chain                 Chain another command\n"
                "     --uid-min=ID            Filter by minimum UID/GID (default 0)\n"
                "     --uid-max=ID            Filter by maximum UID/GID (default 4294967294)\n"
+               "     --uuid=UUID             Filter by UUID\n"
                "  -z --fuzzy                 Do a fuzzy name search\n"
                "     --disposition=VALUE     Filter by disposition\n"
                "  -I                         Equivalent to --disposition=intrinsic\n"
