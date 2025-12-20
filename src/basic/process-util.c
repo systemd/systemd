@@ -1251,10 +1251,6 @@ bool sched_policy_is_valid(int i) {
         return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR, SCHED_EXT);
 }
 
-bool sched_priority_is_valid(int i) {
-        return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
-}
-
 bool sched_policy_supported(int policy) {
         return sched_get_priority_min(policy) >= 0;
 }
