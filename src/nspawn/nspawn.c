@@ -3020,6 +3020,7 @@ static int pick_paths(void) {
                 r = path_pick_update_warn(
                                 &arg_directory,
                                 &filter,
+                                /* n_filters= */ 1,
                                 PICK_ARCHITECTURE|PICK_TRIES,
                                 &result);
                 if (r < 0) {
@@ -3039,6 +3040,7 @@ static int pick_paths(void) {
                 r = path_pick_update_warn(
                                 &arg_image,
                                 &filter,
+                                /* n_filters= */ 1,
                                 PICK_ARCHITECTURE|PICK_TRIES,
                                 &result);
                 if (r < 0)
@@ -3056,6 +3058,7 @@ static int pick_paths(void) {
                 r = path_pick_update_warn(
                                 &arg_template,
                                 &filter,
+                                /* n_filters= */ 1,
                                 PICK_ARCHITECTURE,
                                 &result);
                 if (r < 0)
