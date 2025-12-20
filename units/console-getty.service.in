@@ -11,7 +11,7 @@
 Description=Console Getty
 Documentation=man:agetty(8) man:systemd-getty-generator(8)
 After=systemd-user-sessions.service plymouth-quit-wait.service getty-pre.target
-{% if HAVE_SYSV_COMPAT %}
+{% if HAVE_SYSV_RC_LOCAL %}
 After=rc-local.service
 {% endif %}
 Before=getty.target
