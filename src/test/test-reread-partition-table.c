@@ -26,7 +26,7 @@ static void sfdisk(const char *sfdisk_path, LoopDevice *loop, const char *defini
         _cleanup_close_ int memfd = memfd_new_and_seal("sfdisk", definition, SIZE_MAX);
         ASSERT_OK(memfd);
 
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "(sfdisk)",
                         (int[]) { memfd, STDOUT_FILENO, STDERR_FILENO },
                         /* except_fds= */ NULL,

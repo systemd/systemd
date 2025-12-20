@@ -557,7 +557,10 @@ static int unmerge(
                 return r;
         need_to_reload = r > 0;
 
-        r = safe_fork("(sd-unmerge)", FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, /* ret= */ NULL);
+        r = pidref_safe_fork(
+                        "(sd-unmerge)",
+                        FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
