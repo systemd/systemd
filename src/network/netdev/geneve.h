@@ -3,9 +3,9 @@
 
 #include <linux/if_link.h>
 
-#include "shared-forward.h"
 #include "in-addr-util.h"
 #include "netdev.h"
+#include "shared-forward.h"
 
 #define GENEVE_VID_MAX (1u << 24) - 1
 
@@ -44,8 +44,7 @@ typedef struct Geneve {
 DEFINE_NETDEV_CAST(GENEVE, Geneve);
 extern const NetDevVTable geneve_vtable;
 
-const char* geneve_df_to_string(GeneveDF d) _const_;
-GeneveDF geneve_df_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(geneve_df, GeneveDF);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_geneve_vni);
 CONFIG_PARSER_PROTOTYPE(config_parse_geneve_address);

@@ -2,8 +2,8 @@
  * Copyright © 2020 VMware, Inc. */
 #pragma once
 
-#include "shared-forward.h"
 #include "netdev.h"
+#include "shared-forward.h"
 
 typedef enum BareUDPProtocol {
         BARE_UDP_PROTOCOL_IPV4    = ETH_P_IP,
@@ -25,7 +25,6 @@ typedef struct BareUDP {
 DEFINE_NETDEV_CAST(BAREUDP, BareUDP);
 extern const NetDevVTable bare_udp_vtable;
 
-const char* bare_udp_protocol_to_string(BareUDPProtocol d) _const_;
-BareUDPProtocol bare_udp_protocol_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(bare_udp_protocol, BareUDPProtocol);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_bare_udp_iftype);

@@ -72,4 +72,4 @@ int bus_query_sender_pidref(sd_bus_message *m, PidRef *ret);
 
 int bus_get_instance_id(sd_bus *bus, sd_id128_t *ret);
 
-const char* bus_transport_to_string(BusTransport transport) _const_;
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(bus_transport, BusTransport);

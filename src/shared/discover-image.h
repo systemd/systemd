@@ -61,8 +61,7 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope);
 int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope scope);
 int image_read_only(Image *i, bool b, RuntimeScope scope);
 
-const char* image_type_to_string(ImageType t) _const_;
-ImageType image_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(image_type, ImageType);
 
 int image_path_lock(RuntimeScope scope, const char *path, int operation, LockFile *global, LockFile *local);
 int image_name_lock(RuntimeScope scope, const char *name, int operation, LockFile *ret);

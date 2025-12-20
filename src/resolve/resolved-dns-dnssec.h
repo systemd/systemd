@@ -75,8 +75,6 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
 int dnssec_test_positive_wildcard(DnsAnswer *a, const char *name, const char *source, const char *zone, bool *authenticated);
 
-const char* dnssec_result_to_string(DnssecResult m) _const_;
-DnssecResult dnssec_result_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);
 
-const char* dnssec_verdict_to_string(DnssecVerdict m) _const_;
-DnssecVerdict dnssec_verdict_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dnssec_verdict, DnssecVerdict);

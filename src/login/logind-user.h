@@ -83,10 +83,8 @@ int user_check_linger_file(const User *u);
 void user_elect_display(User *u);
 void user_update_last_session_timer(User *u);
 
-const char* user_state_to_string(UserState s) _const_;
-UserState user_state_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(user_state, UserState);
 
-const char* user_gc_mode_to_string(UserGCMode m) _const_;
-UserGCMode user_gc_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(user_gc_mode, UserGCMode);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_compat_user_tasks_max);

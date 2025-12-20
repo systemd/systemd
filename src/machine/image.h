@@ -10,8 +10,7 @@ typedef enum ImageCleanPoolMode {
         _IMAGE_CLEAN_POOL_INVALID = -EINVAL,
 } ImageCleanPoolMode;
 
-ImageCleanPoolMode image_clean_pool_mode_from_string(const char *s) _pure_;
-const char* image_clean_pool_mode_to_string(ImageCleanPoolMode mode) _const_;
+DECLARE_STRING_TABLE_LOOKUP(image_clean_pool_mode, ImageCleanPoolMode);
 
 int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operation **ret_operation);
 int clean_pool_read_first_entry(FILE *file, int child_error, sd_bus_error *error);

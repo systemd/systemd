@@ -97,8 +97,7 @@ void inode_hash_func(const struct stat *q, struct siphash *state);
 int inode_compare_func(const struct stat *a, const struct stat *b);
 extern const struct hash_ops inode_hash_ops;
 
-const char* inode_type_to_string(mode_t m) _const_;
-mode_t inode_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(inode_type, mode_t);
 
 /* Macros that check whether the stat/statx structures have been initialized already. For "struct stat" we
  * use a check for .st_dev being non-zero, since the kernel unconditionally fills that in, mapping the file

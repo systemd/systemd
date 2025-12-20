@@ -172,18 +172,15 @@ int ethtool_set_eee_settings(
                 usec_t tx_lpi_timer_usec,
                 uint32_t advertise);
 
-const char* duplex_to_string(Duplex d) _const_;
-Duplex duplex_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(duplex, Duplex);
 
-int wol_options_to_string_alloc(uint32_t opts, char **ret);
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(wol_options, uint32_t);
 
-const char* port_to_string(NetDevPort port) _const_;
-NetDevPort port_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(port, NetDevPort);
 
-const char* mdi_to_string(int mdi) _const_;
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(mdi, int);
 
-const char* ethtool_link_mode_bit_to_string(enum ethtool_link_mode_bit_indices val) _const_;
-enum ethtool_link_mode_bit_indices ethtool_link_mode_bit_from_string(const char *str) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(ethtool_link_mode_bit, enum ethtool_link_mode_bit_indices);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_duplex);
 CONFIG_PARSER_PROTOTYPE(config_parse_wol);

@@ -17,8 +17,7 @@ static inline int ioprio_prio_value(int class, int data) {
         return IOPRIO_PRIO_VALUE_HINT(class, IOPRIO_PRIO_LEVEL(data), IOPRIO_PRIO_HINT(data));
 }
 
-int ioprio_class_to_string_alloc(int i, char **ret);
-int ioprio_class_from_string(const char *s);
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int);
 
 static inline bool ioprio_class_is_valid(int i) {
         return IN_SET(i, IOPRIO_CLASS_NONE, IOPRIO_CLASS_RT, IOPRIO_CLASS_BE, IOPRIO_CLASS_IDLE);

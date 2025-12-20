@@ -14,8 +14,7 @@ typedef enum ImageClass {
         _IMAGE_CLASS_INVALID = -EINVAL,
 } ImageClass;
 
-const char* image_class_to_string(ImageClass cl) _const_;
-ImageClass image_class_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(image_class, ImageClass);
 
 /* The *_extension_release flavours will look for /usr/lib/extension-release/extension-release.NAME
  * for sysext images and for /etc/extension-release.d/extension-release.NAME for confext images

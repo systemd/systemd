@@ -270,32 +270,23 @@ usec_t service_restart_usec_next(const Service *s) _pure_;
 
 int service_determine_exec_selinux_label(Service *s, char **ret);
 
-const char* service_restart_to_string(ServiceRestart i) _const_;
-ServiceRestart service_restart_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
 
-const char* service_restart_mode_to_string(ServiceRestartMode i) _const_;
-ServiceRestartMode service_restart_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(service_restart_mode, ServiceRestartMode);
 
-const char* service_type_to_string(ServiceType i) _const_;
-ServiceType service_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(service_type, ServiceType);
 
-const char* service_exit_type_to_string(ServiceExitType i) _const_;
-ServiceExitType service_exit_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(service_exit_type, ServiceExitType);
 
-const char* service_exec_command_to_string(ServiceExecCommand i) _const_;
-ServiceExecCommand service_exec_command_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(service_exec_command, ServiceExecCommand);
 
-const char* service_exec_ex_command_to_string(ServiceExecCommand i) _const_;
-ServiceExecCommand service_exec_ex_command_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(service_exec_ex_command, ServiceExecCommand);
 
-const char* notify_state_to_string(NotifyState i) _const_;
-NotifyState notify_state_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(notify_state, NotifyState);
 
-const char* service_result_to_string(ServiceResult i) _const_;
-ServiceResult service_result_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(service_result, ServiceResult);
 
-const char* service_timeout_failure_mode_to_string(ServiceTimeoutFailureMode i) _const_;
-ServiceTimeoutFailureMode service_timeout_failure_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(service_timeout_failure_mode, ServiceTimeoutFailureMode);
 
 DEFINE_CAST(SERVICE, Service);
 

@@ -232,5 +232,4 @@ int usleep_safe(usec_t usec);
 
 int time_change_fd(void);
 
-const char* timestamp_style_to_string(TimestampStyle t) _const_;
-TimestampStyle timestamp_style_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(timestamp_style, TimestampStyle);
