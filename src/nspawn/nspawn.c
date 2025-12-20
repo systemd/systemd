@@ -3013,13 +3013,14 @@ static int pick_paths(void) {
 
         if (arg_directory) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
-                PickFilter filter = pick_filter_image_dir;
+                PickFilter filter = *pick_filter_image_dir;
 
                 filter.architecture = arg_architecture;
 
                 r = path_pick_update_warn(
                                 &arg_directory,
                                 &filter,
+                                /* n_filters= */ 1,
                                 PICK_ARCHITECTURE|PICK_TRIES,
                                 &result);
                 if (r < 0) {
@@ -3032,13 +3033,14 @@ static int pick_paths(void) {
 
         if (arg_image) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
-                PickFilter filter = pick_filter_image_raw;
+                PickFilter filter = *pick_filter_image_raw;
 
                 filter.architecture = arg_architecture;
 
                 r = path_pick_update_warn(
                                 &arg_image,
                                 &filter,
+                                /* n_filters= */ 1,
                                 PICK_ARCHITECTURE|PICK_TRIES,
                                 &result);
                 if (r < 0)
@@ -3049,13 +3051,14 @@ static int pick_paths(void) {
 
         if (arg_template) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
-                PickFilter filter = pick_filter_image_dir;
+                PickFilter filter = *pick_filter_image_dir;
 
                 filter.architecture = arg_architecture;
 
                 r = path_pick_update_warn(
                                 &arg_template,
                                 &filter,
+                                /* n_filters= */ 1,
                                 PICK_ARCHITECTURE,
                                 &result);
                 if (r < 0)
