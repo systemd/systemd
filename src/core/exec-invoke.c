@@ -5469,8 +5469,12 @@ int exec_invoke(
 
                 r = sched_setattr(/* pid= */ 0, &attr, /* flags= */ 0);
                 if (r < 0) {
-                        *exit_status = EXIT_SETSCHEDULER;
-                        return log_error_errno(errno, "Failed to set up CPU scheduling: %m");
+                        if (errno != EINVAL || sched_policy_supported(attr.sched_policy)) {
+                                *exit_status = EXIT_SETSCHEDULER;
+                                return log_error_errno(errno, "Failed to set up CPU scheduling: %m");
+                        }
+
+                        log_warning_errno(errno, "CPU scheduling policy %u is not supported, ignoring: %m", attr.sched_policy);
                 }
         }
 
