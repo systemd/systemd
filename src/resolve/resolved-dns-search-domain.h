@@ -36,8 +36,7 @@ int dns_search_domain_new(
                 DnsDelegate *delegate,
                 const char *name);
 
-DnsSearchDomain* dns_search_domain_ref(DnsSearchDomain *d);
-DnsSearchDomain* dns_search_domain_unref(DnsSearchDomain *d);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsSearchDomain, dns_search_domain);
 
 void dns_search_domain_unlink(DnsSearchDomain *d);
 void dns_search_domain_move_back_and_unmark(DnsSearchDomain *d);

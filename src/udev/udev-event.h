@@ -45,8 +45,7 @@ typedef struct UdevEvent {
 } UdevEvent;
 
 UdevEvent* udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode);
-UdevEvent* udev_event_ref(UdevEvent *event);
-UdevEvent* udev_event_unref(UdevEvent *event);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(UdevEvent, udev_event);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevEvent*, udev_event_unref);
 
 int udev_event_execute_rules(UdevEvent *event, UdevRules *rules);

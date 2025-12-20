@@ -38,8 +38,7 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_lldp_multicast_mode_t) {
 } sd_lldp_multicast_mode_t;
 
 int sd_lldp_tx_new(sd_lldp_tx **ret);
-sd_lldp_tx *sd_lldp_tx_ref(sd_lldp_tx *lldp_tx);
-sd_lldp_tx *sd_lldp_tx_unref(sd_lldp_tx *lldp_tx);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_lldp_tx);
 
 int sd_lldp_tx_start(sd_lldp_tx *lldp_tx);
 int sd_lldp_tx_stop(sd_lldp_tx *lldp_tx);

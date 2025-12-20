@@ -74,6 +74,16 @@ typedef void* (*mfree_func_t)(void *p);
         DEFINE_TRIVIAL_REF_FUNC(type, name);                    \
         DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func);
 
+#define DECLARE_TRIVIAL_REF_FUNC(type, name) \
+        type* name##_ref(type *p)
+
+#define DECLARE_TRIVIAL_UNREF_FUNC(type, name) \
+        type* name##_unref(type *p)
+
+#define DECLARE_TRIVIAL_REF_UNREF_FUNC(type, name)      \
+        DECLARE_TRIVIAL_REF_FUNC(type, name);           \
+        DECLARE_TRIVIAL_UNREF_FUNC(type, name)
+
 #define DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
         DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name);                    \
         DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func);

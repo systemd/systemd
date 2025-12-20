@@ -38,8 +38,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex);
 int sd_dhcp_server_set_ifname(sd_dhcp_server *server, const char *ifname);
 int sd_dhcp_server_get_ifname(sd_dhcp_server *server, const char **ret);
 
-sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server);
-sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server);
 
 int sd_dhcp_server_attach_event(sd_dhcp_server *server, sd_event *event, int64_t priority);
 int sd_dhcp_server_detach_event(sd_dhcp_server *server);

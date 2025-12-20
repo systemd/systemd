@@ -416,8 +416,7 @@ typedef struct Network {
         char **ntp;
 } Network;
 
-Network *network_ref(Network *network);
-Network *network_unref(Network *network);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Network, network);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_unref);
 
 int network_load(Manager *manager, OrderedHashmap **ret);

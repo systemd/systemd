@@ -26,8 +26,7 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_ndisc_router_solicit sd_ndisc_router_solicit;
 
-sd_ndisc_router_solicit *sd_ndisc_router_solicit_ref(sd_ndisc_router_solicit *rs);
-sd_ndisc_router_solicit *sd_ndisc_router_solicit_unref(sd_ndisc_router_solicit *rs);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router_solicit);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc_router_solicit, sd_ndisc_router_solicit_unref);
 
 int sd_ndisc_router_solicit_get_sender_address(sd_ndisc_router_solicit *rs, struct in6_addr *ret);

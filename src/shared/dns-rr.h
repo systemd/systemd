@@ -334,8 +334,7 @@ DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *
 DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname);
 int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key, char *name);
 DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name);
-DnsResourceKey* dns_resource_key_ref(DnsResourceKey *key);
-DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsResourceKey, dns_resource_key);
 
 #define DNS_RESOURCE_KEY_REPLACE(a, b)          \
         do {                                    \
@@ -374,8 +373,7 @@ bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b);
 
 DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key);
 DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name);
-DnsResourceRecord* dns_resource_record_ref(DnsResourceRecord *rr);
-DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsResourceRecord, dns_resource_record);
 
 #define DNS_RR_REPLACE(a, b)                    \
         do {                                    \

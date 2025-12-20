@@ -27,8 +27,7 @@ struct ip6_hdr;
 
 typedef struct sd_ndisc_redirect sd_ndisc_redirect;
 
-sd_ndisc_redirect* sd_ndisc_redirect_ref(sd_ndisc_redirect *rd);
-sd_ndisc_redirect* sd_ndisc_redirect_unref(sd_ndisc_redirect *rd);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_redirect);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc_redirect, sd_ndisc_redirect_unref);
 
 int sd_ndisc_redirect_set_sender_address(sd_ndisc_redirect *rd, const struct in6_addr *addr);

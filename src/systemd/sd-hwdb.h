@@ -23,8 +23,7 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_hwdb sd_hwdb;
 
-sd_hwdb *sd_hwdb_ref(sd_hwdb *hwdb);
-sd_hwdb *sd_hwdb_unref(sd_hwdb *hwdb);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_hwdb);
 
 int sd_hwdb_new(sd_hwdb **ret);
 int sd_hwdb_new_from_path(const char *path, sd_hwdb **ret);
