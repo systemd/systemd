@@ -249,6 +249,7 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                         return log_debug_errno(errno, "Failed to call socketpair(): %m");
 
+                _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
                 r = namespace_fork("(sd-addrns)",
                                    "(sd-addr)",
                                    FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
@@ -360,6 +361,7 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                         return log_debug_errno(errno, "Failed to call socketpair(): %m");
 
+                _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
                 r = namespace_fork("(sd-osrelns)",
                                    "(sd-osrel)",
                                    FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
