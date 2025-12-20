@@ -285,7 +285,7 @@ TEST(pid_get_cmdline_harder) {
         }
 #endif
 
-        r = ASSERT_OK(safe_fork("(cmdline)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret_pid= */ NULL));
+        r = ASSERT_OK(safe_fork("(cmdline)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, NULL));
         if (r == 0) {
                 r = detach_mount_namespace();
                 if (r < 0) {
@@ -573,7 +573,7 @@ TEST(getpid_cached) {
         ASSERT_EQ(a, b);
         ASSERT_EQ(a, c);
 
-        r = ASSERT_OK(safe_fork("(getpid)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret_pid= */ NULL));
+        r = ASSERT_OK(safe_fork("(getpid)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, NULL));
 
         if (r == 0) {
                 /* In child */

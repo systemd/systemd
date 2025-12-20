@@ -1457,7 +1457,7 @@ int mount_fd_clone(int mount_fd, bool recursive, int *replacement_fd) {
                         /* stdio_fds= */ NULL,
                         (int[]) { mount_fd, transfer_fds[1], errno_pipe_fds[1] }, 3,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_REOPEN_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
-                        /* ret_pid= */ NULL);
+                        /* ret= */ NULL);
         if (r < 0) {
                 errno_pipe_fds[1] = safe_close(errno_pipe_fds[1]);
 
