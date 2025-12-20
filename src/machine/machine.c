@@ -1242,14 +1242,13 @@ int machine_copy_from_to_operation(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        // TODO: port to PidRef and donate child rather than destroying it
         Operation *operation;
         r = operation_new(manager, machine, &child, errno_pipe_fd[0], &operation);
         if (r < 0)
                 return r;
 
         TAKE_FD(errno_pipe_fd[0]);
-        pidref_done(&child);
+        TAKE_PIDREF(child);
 
         *ret = operation;
         return 0;

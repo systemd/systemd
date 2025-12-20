@@ -174,7 +174,7 @@ static int do_execute(
                         _cleanup_(pidref_freep) PidRef *dup = NULL;
                         r = pidref_dup(&pidref, &dup);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to duplicate pid reference: %m");
 
                         r = hashmap_ensure_put(&pids, &pidref_hash_ops_free_free, dup, t);
                         if (r < 0)
@@ -222,11 +222,10 @@ static int do_execute(
         }
 
         while (!hashmap_isempty(pids)) {
+                _cleanup_(pidref_freep) PidRef *pidref = NULL;
                 _cleanup_free_ char *t = NULL;
-                void *p;
 
-                t = ASSERT_PTR(hashmap_steal_first_key_and_value(pids, &p));
-                _cleanup_(pidref_freep) PidRef *pidref = p;
+                t = ASSERT_PTR(hashmap_steal_first_key_and_value(pids, (void**) &pidref));
 
                 r = pidref_wait_for_terminate_and_check(t, pidref, WAIT_LOG);
                 if (r < 0)
@@ -275,7 +274,7 @@ int execute_strv(
 
         const char *process_name = strjoina("(", name, ")");
 
-        PidRef executor_pidref = PIDREF_NULL;
+        _cleanup_(pidref_done) PidRef executor_pidref = PIDREF_NULL;
         r = pidref_safe_fork(process_name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &executor_pidref);
         if (r < 0)
                 return r;

@@ -554,7 +554,7 @@ int bus_image_common_remove(
         if (r < 0)
                 return r;
 
-        TAKE_PIDREF(child);
+        /* We don't need to disarm child cleanup here because operation_new() takes over ownership internally. */
         errno_pipe_fd[0] = -EBADF;
 
         return 1;
