@@ -1244,7 +1244,7 @@ int machine_copy_from_to_operation(
 
         // TODO: port to PidRef and donate child rather than destroying it
         Operation *operation;
-        r = operation_new(manager, machine, child.pid, errno_pipe_fd[0], &operation);
+        r = operation_new(manager, machine, &child, errno_pipe_fd[0], &operation);
         if (r < 0)
                 return r;
 

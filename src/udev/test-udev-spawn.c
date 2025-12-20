@@ -7,7 +7,6 @@
 #include "alloc-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
-#include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -103,8 +102,6 @@ int main(int argc, char *argv[]) {
         }
 
         test_setup_logging(LOG_DEBUG);
-
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         test_event_spawn_cat(true, SIZE_MAX);
         test_event_spawn_cat(false, SIZE_MAX);

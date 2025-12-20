@@ -11,6 +11,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "namespace-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "tmpfile-util.h"
@@ -56,7 +57,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(userns_restrict_bpf_freep) struct userns_restrict_bpf *obj = NULL;
         _cleanup_close_ int userns_fd = -EBADF, host_fd1 = -EBADF, host_tmpfs = -EBADF, afd = -EBADF, bfd = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
         log_set_max_level(LOG_DEBUG);
@@ -100,7 +101,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(afd >= 0 && bfd >= 0);
 
-        r = safe_fork("(test)", FORK_DEATHSIG_SIGKILL, &pid);
+        r = pidref_safe_fork("(test)", FORK_DEATHSIG_SIGKILL, &pidref);
         assert_se(r >= 0);
         if (r == 0) {
                 _cleanup_close_ int private_tmpfs = -EBADF;
@@ -178,7 +179,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(eventfd_write(bfd, 1) >= 0);
 
-        assert_se(wait_for_terminate_and_check("(test)", pid, WAIT_LOG) >= 0);
+        assert_se(pidref_wait_for_terminate_and_check("(test)", &pidref, WAIT_LOG) >= 0);
 
         return 0;
 }

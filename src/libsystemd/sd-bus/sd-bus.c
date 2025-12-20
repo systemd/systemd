@@ -41,7 +41,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "prioq.h"
-#include "process-util.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
@@ -262,6 +261,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .creds_mask = SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME,
                 .accept_fd = true,
                 .origin_id = origin_id_query(),
+                .busexec_pidref = PIDREF_NULL,
                 .n_groups = SIZE_MAX,
                 .close_on_exit = true,
                 .ucred = UCRED_INVALID,
@@ -1121,13 +1121,6 @@ static int bus_parse_next_address(sd_bus *b) {
         return 1;
 }
 
-static void bus_kill_exec(sd_bus *bus) {
-        if (!pid_is_valid(bus->busexec_pid))
-                return;
-
-        sigterm_wait(TAKE_PID(bus->busexec_pid));
-}
-
 static int bus_start_address(sd_bus *b) {
         int r;
 
@@ -1136,7 +1129,7 @@ static int bus_start_address(sd_bus *b) {
         for (;;) {
                 bus_close_fds(b);
 
-                bus_kill_exec(b);
+                pidref_done_sigterm_wait(&b->busexec_pidref);
 
                 /* If you provide multiple different bus-addresses, we
                  * try all of them in order and use the first one that
@@ -1778,7 +1771,7 @@ _public_ void sd_bus_close(sd_bus *bus) {
                 return;
 
         /* Don't leave ssh hanging around */
-        bus_kill_exec(bus);
+        pidref_done_sigterm_wait(&bus->busexec_pidref);
 
         bus_set_state(bus, BUS_CLOSED);
 
@@ -1809,7 +1802,7 @@ _public_ sd_bus* sd_bus_flush_close_unref(sd_bus *bus) {
                 return NULL;
 
         /* Have to do this before flush() to prevent hang */
-        bus_kill_exec(bus);
+        pidref_done_sigterm_wait(&bus->busexec_pidref);
         sd_bus_flush(bus);
 
         return sd_bus_close_unref(bus);

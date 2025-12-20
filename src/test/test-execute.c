@@ -246,18 +246,17 @@ static bool apparmor_restrict_unprivileged_userns(void) {
 }
 
 static bool have_userns_privileges(void) {
-        pid_t pid;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         int r;
 
         if (apparmor_restrict_unprivileged_userns())
                 return false;
 
-        r = safe_fork("(sd-test-check-userns)",
-                      FORK_RESET_SIGNALS |
-                      FORK_CLOSE_ALL_FDS |
-                      FORK_DEATHSIG_SIGKILL,
-                      &pid);
-        ASSERT_OK(r);
+        r = ASSERT_OK(pidref_safe_fork(
+                        "(sd-test-check-userns)",
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
+                        &pidref));
+
         if (r == 0) {
                 /* Keep CAP_SYS_ADMIN if we have it to ensure we give an
                  * accurate result to the caller. Some kernels have a
@@ -282,7 +281,7 @@ static bool have_userns_privileges(void) {
          *  EXIT_SUCCESS => we can use user namespaces
          *  EXIT_FAILURE => we can NOT use user namespaces
          *  2            => some other error occurred */
-        r = wait_for_terminate_and_check("(sd-test-check-userns)", pid, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-test-check-userns)", &pidref, 0);
         if (!IN_SET(r, EXIT_SUCCESS, EXIT_FAILURE))
                 log_debug("Failed to check if user namespaces can be used, assuming not.");
 
@@ -681,7 +680,7 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         return 1;
 }
 
-static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
+static int on_spawn_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
         int ret = -EIO;
 
         ASSERT_NOT_NULL(si);
@@ -707,8 +706,6 @@ static int find_libraries(const char *exec, char ***ret) {
         ASSERT_NOT_NULL(exec);
         ASSERT_NOT_NULL(ret);
 
-        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
-
         ASSERT_OK_ERRNO(pipe2(outpipe, O_NONBLOCK|O_CLOEXEC));
         ASSERT_OK_ERRNO(pipe2(errpipe, O_NONBLOCK|O_CLOEXEC));
 
@@ -733,8 +730,8 @@ static int find_libraries(const char *exec, char ***ret) {
         ASSERT_OK(sd_event_source_set_enabled(stdout_source, SD_EVENT_ONESHOT));
         ASSERT_OK(sd_event_add_io(e, &stderr_source, errpipe[0], EPOLLIN, on_spawn_io, NULL));
         ASSERT_OK(sd_event_source_set_enabled(stderr_source, SD_EVENT_ONESHOT));
-        ASSERT_OK(sd_event_add_child(e, &sigchld_source, pid, WEXITED, on_spawn_sigchld, NULL));
-        /* SIGCHLD should be processed after IO is complete */
+        ASSERT_OK(sd_event_add_child(e, &sigchld_source, pid, WEXITED, on_spawn_exit, NULL));
+        /* Child exit should be processed after IO is complete */
         ASSERT_OK(sd_event_source_set_priority(sigchld_source, SD_EVENT_PRIORITY_NORMAL + 1));
 
         ASSERT_OK(sd_event_loop(e));
