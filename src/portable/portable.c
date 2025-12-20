@@ -542,7 +542,7 @@ static int portable_extract_by_path(
                 if (r < 0)
                         return r;
 
-                TAKE_PIDREF(child);
+                pidref_done(&child);
         }
 
         if (!os_release)
