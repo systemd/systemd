@@ -250,12 +250,15 @@ int sync_with_progress(int fd) {
          * SYNC_PROGRESS_ATTEMPTS lapse without progress being made,
          * we assume that the sync is stalled */
         for (unsigned checks = 0; checks < SYNC_PROGRESS_ATTEMPTS; checks++) {
-                r = pidref_wait_for_terminate_full(&pidref, SYNC_TIMEOUT_USEC, /* ret_si= */ NULL);
-                if (r == 0)
+                siginfo_t si;
+
+                r = pidref_wait_for_terminate_full(&pidref, SYNC_TIMEOUT_USEC, &si);
+                if (r >= 0 && si.si_code == CLD_EXITED && si.si_status == EXIT_SUCCESS)
                         /* Sync finished without error (sync() call itself does not return an error code) */
                         return 0;
                 if (r != -ETIMEDOUT)
-                        return log_error_errno(r, "Failed to sync %s: %m", what);
+                        return log_error_errno(r < 0 ? r : SYNTHETIC_ERRNO(EPROTO),
+                                               "Failed to sync %s: %m", what);
 
                 /* Reset the check counter if we made some progress */
                 if (sync_making_progress(&dirty) > 0)
