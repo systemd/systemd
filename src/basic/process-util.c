@@ -1484,11 +1484,6 @@ pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata) {
         return pid;
 }
 
-static void restore_sigsetp(sigset_t **ssp) {
-        if (*ssp)
-                (void) sigprocmask(SIG_SETMASK, *ssp, NULL);
-}
-
 static int fork_flags_to_signal(ForkFlags flags) {
         return (flags & FORK_DEATHSIG_SIGTERM) ? SIGTERM :
                 (flags & FORK_DEATHSIG_SIGINT) ? SIGINT :
@@ -1505,7 +1500,7 @@ int pidref_safe_fork_full(
 
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
-        _unused_ _cleanup_(restore_sigsetp) sigset_t *saved_ssp = NULL;
+        _unused_ _cleanup_(block_signals_reset) sigset_t *saved_ssp = NULL;
         bool block_signals = false, block_all = false, intermediary = false;
         _cleanup_close_pair_ int pidref_transport_fds[2] = EBADF_PAIR;
         int prio, r;
@@ -1889,7 +1884,7 @@ int safe_fork_full(
         return r;
 }
 
-int namespace_fork(
+int namespace_fork_full(
                 const char *outer_name,
                 const char *inner_name,
                 int except_fds[],
@@ -1900,53 +1895,127 @@ int namespace_fork(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
-                pid_t *ret_pid) {
+                PidRef *ret) {
 
-        int r;
+        _cleanup_(pidref_done) PidRef pidref_outer = PIDREF_NULL;
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup(block_signals_reset) sigset_t *saved_ssp = NULL;
+        sigset_t ss, saved_ss;
+        int r, prio = FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG;
 
         /* This is much like safe_fork(), but forks twice, and joins the specified namespaces in the middle
          * process. This ensures that we are fully a member of the destination namespace, with pidns an all, so that
-         * /proc/self/fd works correctly. */
+         * /proc/self/fd works correctly.
+         *
+         * TODO: once we can rely on PIDFD_INFO_EXIT, do not keep the middle process around and instead
+         * return the pidfd of the inner process for direct tracking. */
+
+        /* Insist on PDEATHSIG being enabled (unless FORK_DETACH), as the pid returned is the one of
+         * the middle man, and otherwise killing of it won't be propagated to the inner child. */
+        assert((flags & (FORK_DEATHSIG_SIGKILL|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT)) != 0 ||
+               (FLAGS_SET(flags, FORK_DETACH) && !ret && !FLAGS_SET(flags, FORK_WAIT)));
         assert(!FLAGS_SET(flags, FORK_ALLOW_DLOPEN)); /* never allow loading shared library from another ns */
 
-        r = safe_fork_full(outer_name,
-                           NULL,
-                           except_fds, n_except_fds,
-                           (flags|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGKILL) & ~(FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE), ret_pid);
+        assert_se(sigemptyset(&ss) >= 0);
+        assert_se(sigaddset(&ss, SIGCHLD) >= 0);
+
+        if (sigprocmask(SIG_BLOCK, &ss, &saved_ss) < 0)
+                return log_full_errno(prio, errno, "Failed to block SIGCHLD: %m");
+        saved_ssp = &saved_ss;
+
+        if (pipe2(errno_pipe_fd, O_CLOEXEC) < 0)
+                return log_full_errno(prio, errno, "Failed to create pipe: %m");
+
+        r = pidref_safe_fork_full(
+                        outer_name,
+                        /* stdio_fds = */ NULL, /* except_fds = */ NULL, /* n_except_fds = */ 0,
+                        (flags|FORK_DEATHSIG_SIGKILL) & ~(FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_NEW_NETNS|FORK_NEW_PIDNS|FORK_FREEZE|FORK_CLOSE_ALL_FDS|FORK_PACK_FDS|FORK_CLOEXEC_OFF|FORK_WAIT|FORK_DETACH),
+                        &pidref_outer);
         if (r < 0)
                 return r;
         if (r == 0) {
-                pid_t pid;
+                _cleanup_(pidref_done) PidRef pidref_inner = PIDREF_NULL;
 
                 /* Child */
 
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                if (FLAGS_SET(flags, FORK_RESET_SIGNAL))
+                        saved_ssp = NULL;
+
                 r = namespace_enter(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd);
                 if (r < 0) {
-                        log_full_errno(FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG, r, "Failed to join namespace: %m");
-                        _exit(EXIT_FAILURE);
+                        log_full_errno(prio, r, "Failed to join namespace: %m");
+                        report_errno_and_exit(errno_pipe_fd[1], r);
                 }
 
                 /* We mask a few flags here that either make no sense for the grandchild, or that we don't have to do again */
-                r = safe_fork_full(inner_name,
-                                   NULL,
-                                   except_fds, n_except_fds,
-                                   flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO), &pid);
+                r = pidref_safe_fork_full(
+                                inner_name,
+                                NULL,
+                                except_fds, n_except_fds,
+                                flags & ~(FORK_WAIT|FORK_DETACH|FORK_RESET_SIGNALS|FORK_REARRANGE_STDIO|FORK_FLUSH_STDIO|FORK_STDOUT_TO_STDERR|FORK_RLIMIT_NOFILE_SAFE),
+                                &pidref_inner);
                 if (r < 0)
-                        _exit(EXIT_FAILURE);
+                        report_errno_and_exit(errno_pipe_fd[1], r);
                 if (r == 0) {
                         /* Child */
-                        if (ret_pid)
-                                *ret_pid = pid;
+
+                        if (!FLAGS_SET(flags, FORK_CLOSE_ALL_FDS)) {
+                                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+                                pidref_done(&pidref_outer);
+                        } else {
+                                errno_pipe_fd[1] = -EBADF;
+                                pidref_outer = PIDREF_NULL;
+                        }
+
+                        if (ret)
+                                *ret = TAKE_PIDREF(pidref_inner);
                         return 0;
                 }
 
-                r = wait_for_terminate_and_check(inner_name, pid, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                if (FLAGS_SET(flags, FORK_DETACH))
+                        _exit(EXIT_SUCCESS);
+
+                int except_fds_with_pidfd[n_except_fds + 1];
+                *mempcpy_typesafe(except_fds_with_pidfd, except_fds, n_except_fds) = pidref_inner.fd;
+
+                log_close();
+                log_set_open_when_needed(true);
+
+                (void) close_all_fds(except_fds_with_pidfd, n_except_fds + 1);
+
+                r = pidref_wait_for_terminate_and_check(
+                                inner_name,
+                                &pidref_inner,
+                                FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
                 _exit(r);
         }
 
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        r = read_errno(errno_pipe_fd[0]);
+        if (r < 0)
+                return r; /* the child logs about failures on its own, no need to duplicate here */
+
+        if (FLAGS_SET(flags, FORK_WAIT)) {
+                r = pidref_wait_for_terminate_and_check(
+                                outer_name,
+                                &pidref_outer,
+                                FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                if (r < 0)
+                        return r;
+                if (r != EXIT_SUCCESS)
+                        return -EPROTO;
+
+                pidref_done(&pidref_outer); /* has been waited for, i.e. no longer exists */
+        }
+
+        if (ret)
+                *ret = TAKE_PIDREF(pidref_outer);
         return 1;
 }
 
@@ -2346,16 +2415,15 @@ int read_errno(int errno_fd) {
                 log_debug_errno(n, "Failed to read errno: %m");
                 return -EIO;
         }
-        if (n == sizeof(r)) {
-                if (r == 0)
-                        return 0;
-                if (r < 0) /* child process reported an error, return it */
-                        return log_debug_errno(r, "Child process failed with errno: %m");
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received an errno, but it's a positive value.");
-        }
-        if (n != 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpected amount of bytes while reading errno.");
+        if (n == 0) /* the process exited without reporting an error, assuming success */
+                return 0;
+        if (n != sizeof(r))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpected amount of bytes (%zi) while reading errno.", n);
 
-        /* the process exited without reporting an error, assuming success */
-        return 0;
+        if (r == 0)
+                return 0;
+        if (r < 0) /* child process reported an error, return it */
+                return log_debug_errno(r, "Child process failed with errno: %m");
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received positive errno from child, refusing: %d", r);
 }
