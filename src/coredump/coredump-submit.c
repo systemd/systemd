@@ -494,15 +494,13 @@ static int acquire_pid_mount_tree_fd(const CoredumpConfig *config, CoredumpConte
 
         r = namespace_fork("(sd-mount-tree-ns)",
                            "(sd-mount-tree)",
-                           /* except_fds= */ NULL,
-                           /* n_except_fds= */ 0,
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT,
                            /* pidns_fd= */ -EBADF,
                            mntns_fd,
                            /* netns_fd= */ -EBADF,
                            /* userns_fd= */ -EBADF,
                            root_fd,
-                           NULL);
+                           /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {

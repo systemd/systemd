@@ -1665,15 +1665,13 @@ int openpt_allocate_in_namespace(
         r = namespace_fork(
                         "(sd-openptns)",
                         "(sd-openpt)",
-                        /* except_fds= */ NULL,
-                        /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT,
                         pidnsfd,
                         mntnsfd,
                         /* netns_fd= */ -EBADF,
                         usernsfd,
                         rootfd,
-                        /* ret_pid= */ NULL);
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
