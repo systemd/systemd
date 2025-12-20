@@ -1010,6 +1010,14 @@ static SD_VARLINK_DEFINE_ERROR(
                 NoSuchUnit,
                 SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_ERROR(
+                OnlyByDependency,
+                SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_ERROR(
+                BusShuttingDown,
+                SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
                 SD_VARLINK_SUPPORTS_MORE,
@@ -1090,4 +1098,8 @@ SD_VARLINK_DEFINE_INTERFACE(
 
                 /* Errors */
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
-                &vl_error_NoSuchUnit);
+                &vl_error_NoSuchUnit,
+                SD_VARLINK_SYMBOL_COMMENT("Unit operation may be requested by dependency only"),
+                &vl_error_OnlyByDependency,
+                SD_VARLINK_SYMBOL_COMMENT("Operation refused, the bus is shutting down"),
+                &vl_error_BusShuttingDown);
