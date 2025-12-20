@@ -3678,6 +3678,7 @@ static int pick_versions(
                               /* toplevel_fd= */ AT_FDCWD,
                               context->root_image,
                               &pick_filter_image_raw,
+                              /* n_filters= */ 1,
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0) {
@@ -3702,6 +3703,7 @@ static int pick_versions(
                               /* toplevel_fd= */ AT_FDCWD,
                               context->root_directory,
                               &pick_filter_image_dir,
+                              /* n_filters= */ 1,
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0) {
