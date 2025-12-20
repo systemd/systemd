@@ -7057,3 +7057,26 @@ int unit_queue_job_check_and_collapse_type(
 
         return 0;
 }
+
+int unit_parse_marker(const char *marker, unsigned *ret_settings, unsigned *ret_mask) {
+        bool some_plus_minus = false, b = true;
+
+        assert(marker);
+        assert(ret_settings);
+        assert(ret_mask);
+
+        if (IN_SET(marker[0], '+', '-')) {
+                b = marker[0] == '+';
+                marker++;
+                some_plus_minus = true;
+        }
+
+        UnitMarker m = unit_marker_from_string(marker);
+        if (m < 0)
+                return -EINVAL;
+
+        SET_FLAG(*ret_settings, 1u << m, b);
+        SET_FLAG(*ret_mask, 1u << m, true);
+
+        return some_plus_minus ? 1 : 0;
+}
