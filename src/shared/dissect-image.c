@@ -4428,7 +4428,7 @@ int dissected_image_acquire_metadata(
         if (r < 0)
                 goto finish;
 
-        TAKE_PIDREF(child);
+        pidref_done(&child);
 
         n = read(error_pipe[0], &v, sizeof(v));
         if (n < 0) {
