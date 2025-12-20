@@ -367,7 +367,9 @@ static int make_choice(
                                 continue;
 
                         *sfx = 0;
-                }
+                /* If no suffix is specified, don't allow any extensions. */
+                } else if (strchr(e, '.'))
+                        continue;
 
                 if (FLAGS_SET(flags, PICK_TRIES)) {
                         char *plus = strrchr(e, '+');
