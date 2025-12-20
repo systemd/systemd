@@ -8,7 +8,6 @@
 #include "log.h"
 #include "main-func.h"
 #include "mountfsd-manager.h"
-#include "signal-util.h"
 
 static int run(int argc, char *argv[]) {
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
@@ -21,8 +20,6 @@ static int run(int argc, char *argv[]) {
 
         if (argc != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
-
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         r = manager_new(&m);
         if (r < 0)

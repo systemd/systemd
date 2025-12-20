@@ -21,6 +21,7 @@
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "import-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
@@ -274,7 +275,6 @@ static int download_manifest(
         _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         _cleanup_fclose_ FILE *manifest = NULL;
         size_t size = 0;
-        pid_t pid;
         int r;
 
         assert(url);
@@ -293,11 +293,13 @@ static int download_manifest(
         log_info("%s Acquiring manifest file %s%s", glyph(GLYPH_DOWNLOAD),
                  suffixed_url, glyph(GLYPH_ELLIPSIS));
 
-        r = safe_fork_full("(sd-pull)",
-                           (int[]) { -EBADF, pfd[1], STDERR_FILENO },
-                           NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
-                           &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork_full(
+                        "(sd-pull)",
+                        (int[]) { -EBADF, pfd[1], STDERR_FILENO },
+                        NULL, 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -337,7 +339,7 @@ static int download_manifest(
 
         manifest = safe_fclose(manifest);
 
-        r = wait_for_terminate_and_check("(sd-pull)", pid, WAIT_LOG);
+        r = pidref_wait_for_terminate_and_check("(sd-pull)", &pidref, WAIT_LOG);
         if (r < 0)
                 return r;
         if (r != 0)
