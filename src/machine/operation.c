@@ -111,7 +111,7 @@ int operation_new(Manager *manager, Machine *machine, PidRef *child, int errno_f
                 return -ENOMEM;
 
         *o = (Operation) {
-                .pidref = TAKE_PIDREF(*child),
+                .pidref = *child,
                 .errno_fd = errno_fd,
                 .extra_fd = -EBADF
         };
