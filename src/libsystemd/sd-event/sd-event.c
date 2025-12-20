@@ -1619,12 +1619,9 @@ _public_ int sd_event_add_child(
         if (!callback)
                 callback = child_exit_callback;
 
-        /* As an optimization we only do these checks on the first child event source created. */
-        if (e->n_online_child_sources == 0) {
-                r = verify_sigchld(options);
-                if (r < 0)
-                        return r;
-        }
+        r = verify_sigchld(options);
+        if (r < 0)
+                return r;
 
         r = hashmap_ensure_allocated(&e->child_sources, NULL);
         if (r < 0)
@@ -1704,11 +1701,9 @@ _public_ int sd_event_add_child_pidfd(
         if (!callback)
                 callback = child_exit_callback;
 
-        if (e->n_online_child_sources == 0) {
-                r = verify_sigchld(options);
-                if (r < 0)
-                        return r;
-        }
+        r = verify_sigchld(options);
+        if (r < 0)
+                return r;
 
         r = hashmap_ensure_allocated(&e->child_sources, NULL);
         if (r < 0)
