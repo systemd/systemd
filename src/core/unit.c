@@ -5541,7 +5541,6 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
 
 int unit_fork_helper_process_full(Unit *u, const char *name, bool into_cgroup, ForkFlags flags, PidRef *ret) {
         CGroupRuntime *crt = NULL;
-        pid_t pid;
         int r;
 
         assert(u);
@@ -5560,19 +5559,11 @@ int unit_fork_helper_process_full(Unit *u, const char *name, bool into_cgroup, F
                 crt = unit_get_cgroup_runtime(u);
         }
 
-        r = safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM|flags, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM|flags, &pidref);
         if (r < 0)
                 return r;
         if (r > 0) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-                int q;
-
-                /* Parent */
-
-                q = pidref_set_pid(&pidref, pid);
-                if (q < 0)
-                        return q;
-
                 *ret = TAKE_PIDREF(pidref);
                 return r;
         }

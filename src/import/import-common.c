@@ -301,7 +301,7 @@ int import_mangle_os_tree_fd_foreign(
         assert(tree_fd >= 0);
         assert(userns_fd >= 0);
 
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "mangle-tree",
                         /* stdio_fds= */ NULL,
                         (int[]) { userns_fd, tree_fd }, 2,
@@ -401,7 +401,7 @@ int import_copy_foreign(
         if (r < 0)
                 return r;
 
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "copy-tree",
                         /* stdio_fds= */ NULL,
                         (int[]) { *userns_fd, source_fd, target_fd }, 3,
@@ -459,7 +459,7 @@ int import_remove_tree_foreign(const char *path, int *userns_fd) {
         if (r < 0)
                 return r;
 
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "rm-tree",
                         /* stdio_fds= */ NULL,
                         (int[]) { *userns_fd, tree_fd }, 2,

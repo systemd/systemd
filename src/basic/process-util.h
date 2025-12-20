@@ -177,8 +177,6 @@ typedef enum ForkFlags {
         FORK_NEW_PIDNS          = 1 << 21, /* Run child in its own PID namespace                                 💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_FREEZE             = 1 << 22, /* Don't return in child, just call freeze() instead */
         FORK_ALLOW_DLOPEN       = 1 << 23, /* Do not block dlopen() in child */
-
-        _FORK_PID_ONLY          = 1 << 24, /* Don't open a pidfd referencing the child process */
 } ForkFlags;
 
 int pidref_safe_fork_full(
@@ -191,18 +189,6 @@ int pidref_safe_fork_full(
 
 static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret) {
         return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret);
-}
-
-int safe_fork_full(
-                const char *name,
-                const int stdio_fds[3],
-                int except_fds[],
-                size_t n_except_fds,
-                ForkFlags flags,
-                pid_t *ret);
-
-static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret) {
-        return safe_fork_full(name, NULL, NULL, 0, flags, ret);
 }
 
 int namespace_fork_full(

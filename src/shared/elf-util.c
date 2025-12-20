@@ -863,12 +863,12 @@ int parse_elf_object(
          * bound since the core files have an upper size limit. It's also not doing any
          * system call or interacting with the system in any way, besides reading from
          * the file descriptor and writing into these four pipes. */
-        r = safe_fork_full("(sd-parse-elf)",
-                           NULL,
+        r = pidref_safe_fork_full("(sd-parse-elf)",
+                           /* stdio_fds= */ NULL,
                            (int[]){ fd, error_pipe[1], return_pipe[1], package_metadata_pipe[1], dlopen_metadata_pipe[1] },
                            5,
                            FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_WAIT|FORK_REOPEN_LOG,
-                           NULL);
+                           /* ret= */ NULL);
         if (r < 0) {
                 if (r == -EPROTO) { /* We should have the errno from the child, but don't clobber original error */
                         ssize_t k;
