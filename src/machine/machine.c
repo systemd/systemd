@@ -1141,9 +1141,9 @@ int machine_copy_from_to_operation(
                 Operation **ret) {
 
         _cleanup_close_ int host_fd = -EBADF, target_mntns_fd = -EBADF, source_mntns_fd = -EBADF;
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         _cleanup_free_ char *host_basename = NULL, *container_basename = NULL;
-        _cleanup_(sigkill_waitp) pid_t child = 0;
         uid_t uid_shift;
         int r;
 
@@ -1183,8 +1183,6 @@ int machine_copy_from_to_operation(
 
         r = namespace_fork("(sd-copyns)",
                            "(sd-copy)",
-                           /* except_fds= */ NULL,
-                           /* n_except_fds= */ 0,
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
                            /* pidns_fd= */ -EBADF,
                            target_mntns_fd,
@@ -1244,13 +1242,14 @@ int machine_copy_from_to_operation(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
+        // TODO: port to PidRef and donate child rather than destroying it
         Operation *operation;
-        r = operation_new(manager, machine, child, errno_pipe_fd[0], &operation);
+        r = operation_new(manager, machine, child.pid, errno_pipe_fd[0], &operation);
         if (r < 0)
                 return r;
 
         TAKE_FD(errno_pipe_fd[0]);
-        TAKE_PID(child);
+        pidref_done(&child);
 
         *ret = operation;
         return 0;
@@ -1532,8 +1531,8 @@ int machine_open_root_directory(Machine *machine) {
 
         case MACHINE_CONTAINER: {
                 _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF;
+                _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
                 _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR, fd_pass_socket[2] = EBADF_PAIR;
-                pid_t child;
 
                 r = pidref_namespace_open(&machine->leader,
                                           /* ret_pidns_fd= */ NULL,
@@ -1553,8 +1552,6 @@ int machine_open_root_directory(Machine *machine) {
                 r = namespace_fork(
                                 "(sd-openrootns)",
                                 "(sd-openroot)",
-                                /* except_fds= */ NULL,
-                                /* n_except_fds= */ 0,
                                 FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
                                 /* pidns_fd= */  -EBADF,
                                 mntns_fd,
@@ -1589,7 +1586,7 @@ int machine_open_root_directory(Machine *machine) {
                 errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
                 fd_pass_socket[1] = safe_close(fd_pass_socket[1]);
 
-                r = wait_for_terminate_and_check("(sd-openrootns)", child, /* flags= */ 0);
+                r = pidref_wait_for_terminate_and_check("(sd-openrootns)", &child, /* flags= */ 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to wait for child: %m");
 
