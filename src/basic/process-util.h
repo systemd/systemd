@@ -216,7 +216,7 @@ static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
         return safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
 }
 
-int namespace_fork(
+int namespace_fork_full(
                 const char *outer_name,
                 const char *inner_name,
                 int except_fds[],
@@ -227,7 +227,23 @@ int namespace_fork(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
-                pid_t *ret_pid);
+                PidRef *ret);
+
+static inline int namespace_fork(
+                const char *outer_name,
+                const char *inner_name,
+                ForkFlags flags,
+                int pidns_fd,
+                int mntns_fd,
+                int netns_fd,
+                int userns_fd,
+                int root_fd,
+                PidRef *ret) {
+
+        return namespace_fork_full(outer_name, inner_name, NULL, 0, flags,
+                                   pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd,
+                                   ret);
+}
 
 int set_oom_score_adjust(int value);
 int get_oom_score_adjust(int *ret);
