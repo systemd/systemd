@@ -243,7 +243,7 @@ TEST(pidref_is_remote) {
         ASSERT_FALSE(pidref_is_automatic(&p));
         ASSERT_ERROR(pidref_kill(&p, SIGTERM), EREMOTE);
         ASSERT_ERROR(pidref_kill_and_sigcont(&p, SIGTERM), EREMOTE);
-        ASSERT_ERROR(pidref_wait_for_terminate(&p, /* ret= */ NULL), EREMOTE);
+        ASSERT_ERROR(pidref_wait_for_terminate(&p, NULL), EREMOTE);
         ASSERT_ERROR(pidref_verify(&p), EREMOTE);
 }
 
