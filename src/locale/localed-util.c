@@ -573,10 +573,12 @@ int locale_gen_enable_locale(const char *locale) {
 
 int locale_gen_run(void) {
 #if HAVE_LOCALEGEN
-        pid_t pid;
         int r;
 
-        r = safe_fork("(sd-localegen)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, &pid);
+        r = pidref_safe_fork(
+                        "(locale-gen)",
+                        FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {

@@ -1155,7 +1155,7 @@ static int unprivileged_remove(Image *i) {
         if (r < 0)
                 return r;
         /* Fork off child that moves into userns and does the copying */
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "rm-tree",
                         /* stdio_fds= */ NULL,
                         (int[]) { userns_fd, tree_fd, }, 2,
@@ -1508,7 +1508,7 @@ static int unpriviled_clone(Image *i, const char *new_path) {
                 return r;
 
         /* Fork off child that moves into userns and does the copying */
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "clone-tree",
                         /* stdio_fds= */ NULL,
                         (int[]) { userns_fd, tree_fd, target_fd }, 3,

@@ -655,12 +655,13 @@ static int asynchronous_expire(int dev_autofs_fd, int ioctl_fd) {
          * child's PID, we are PID1/autoreaper after all, hence when it dies we'll automatically clean it up
          * anyway. */
 
-        r = safe_fork_full("(sd-expire)",
-                           /* stdio_fds= */ NULL,
-                           (int[]) { dev_autofs_fd, ioctl_fd },
-                           /* n_except_fds= */ 2,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
-                           /* ret= */ NULL);
+        r = pidref_safe_fork_full(
+                        "(sd-expire)",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { dev_autofs_fd, ioctl_fd },
+                        /* n_except_fds= */ 2,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
+                        /* ret= */ NULL);
         if (r != 0)
                 return r;
 

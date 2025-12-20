@@ -1576,13 +1576,9 @@ int pidref_safe_fork_full(
                 }
 
                 if (ret) {
-                        if (FLAGS_SET(flags, _FORK_PID_ONLY))
+                        r = pidref_set_pid(ret, pid);
+                        if (r < 0) /* Let's not fail for this, no matter what, the process exists after all, and that's key */
                                 *ret = PIDREF_MAKE_FROM_PID(pid);
-                        else {
-                                r = pidref_set_pid(ret, pid);
-                                if (r < 0) /* Let's not fail for this, no matter what, the process exists after all, and that's key */
-                                        *ret = PIDREF_MAKE_FROM_PID(pid);
-                        }
                 }
 
                 return 1;
@@ -1764,42 +1760,14 @@ int pidref_safe_fork_full(
                 freeze();
 
         if (ret) {
-                if (FLAGS_SET(flags, _FORK_PID_ONLY))
-                        *ret = PIDREF_MAKE_FROM_PID(getpid_cached());
-                else {
-                        r = pidref_set_self(ret);
-                        if (r < 0) {
-                                log_full_errno(prio, r, "Failed to acquire PID reference on ourselves: %m");
-                                _exit(EXIT_FAILURE);
-                        }
+                r = pidref_set_self(ret);
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to acquire PID reference on ourselves: %m");
+                        _exit(EXIT_FAILURE);
                 }
         }
 
         return 0;
-}
-
-int safe_fork_full(
-                const char *name,
-                const int stdio_fds[3],
-                int except_fds[],
-                size_t n_except_fds,
-                ForkFlags flags,
-                pid_t *ret) {
-
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        int r;
-
-        /* Getting the detached child process pid without pidfd is racy, so don't allow it if not returning
-         * a pidref to the caller. */
-        assert(!FLAGS_SET(flags, FORK_DETACH) || !ret);
-
-        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags|_FORK_PID_ONLY, ret ? &pidref : NULL);
-        if (r < 0 || !ret)
-                return r;
-
-        *ret = pidref.pid;
-
-        return r;
 }
 
 int namespace_fork_full(
