@@ -1416,7 +1416,7 @@ static int setup_pam(
 
         parent_pid = getpid_cached();
 
-        r = safe_fork("(sd-pam)", 0, NULL);
+        r = pidref_safe_fork("(sd-pam)", /* flags= */ 0, /* ret= */ NULL);
         if (r < 0)
                 goto fail;
         if (r == 0) {
