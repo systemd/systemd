@@ -845,13 +845,9 @@ int get_process_umask(pid_t pid, mode_t *ret) {
         return parse_mode(m, ret);
 }
 
-int wait_for_terminate(pid_t pid, siginfo_t *ret) {
-        return pidref_wait_for_terminate(&PIDREF_MAKE_FROM_PID(pid), ret);
-}
-
 /*
  * Return values:
- * < 0 : wait_for_terminate() failed to get the state of the
+ * < 0 : pidref_wait_for_terminate() failed to get the state of the
  *       process, the process was terminated by a signal, or
  *       failed for an unknown reason.
  * >=0 : The process terminated normally, and its exit code is
@@ -906,115 +902,6 @@ int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFl
 
         log_full(prio, "%s failed due to unknown reason.", strna(name));
         return -EPROTO;
-}
-
-int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
-        return pidref_wait_for_terminate_and_check(name, &PIDREF_MAKE_FROM_PID(pid), flags);
-}
-
-/*
- * Return values:
- *
- * < 0 : wait_for_terminate_with_timeout() failed to get the state of the process, the process timed out, the process
- *       was terminated by a signal, or failed for an unknown reason.
- *
- * >=0 : The process terminated normally with no failures.
- *
- * Success is indicated by a return value of zero, a timeout is indicated by ETIMEDOUT, and all other child failure
- * states are indicated by error is indicated by a non-zero value.
- *
- * This call assumes SIGCHLD has been blocked already, in particular before the child to wait for has been forked off
- * to remain entirely race-free.
- */
-int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
-        sigset_t mask;
-        int r;
-        usec_t until;
-
-        assert_se(sigemptyset(&mask) == 0);
-        assert_se(sigaddset(&mask, SIGCHLD) == 0);
-
-        /* Drop into a sigtimewait-based timeout. Waiting for the
-         * pid to exit. */
-        until = usec_add(now(CLOCK_MONOTONIC), timeout);
-        for (;;) {
-                usec_t n;
-                siginfo_t status = {};
-
-                n = now(CLOCK_MONOTONIC);
-                if (n >= until)
-                        break;
-
-                r = RET_NERRNO(sigtimedwait(&mask, NULL, TIMESPEC_STORE(until - n)));
-                /* Assuming we woke due to the child exiting. */
-                if (waitid(P_PID, pid, &status, WEXITED|WNOHANG) == 0) {
-                        if (status.si_pid == pid) {
-                                /* This is the correct child. */
-                                if (status.si_code == CLD_EXITED)
-                                        return status.si_status == 0 ? 0 : -EPROTO;
-                                else
-                                        return -EPROTO;
-                        }
-                }
-                /* Not the child, check for errors and proceed appropriately */
-                if (r < 0) {
-                        switch (r) {
-                        case -EAGAIN:
-                                /* Timed out, child is likely hung. */
-                                return -ETIMEDOUT;
-                        case -EINTR:
-                                /* Received a different signal and should retry */
-                                continue;
-                        default:
-                                /* Return any unexpected errors */
-                                return r;
-                        }
-                }
-        }
-
-        return -EPROTO;
-}
-
-void sigkill_wait(pid_t pid) {
-        assert(pid > 1);
-
-        (void) kill(pid, SIGKILL);
-        (void) wait_for_terminate(pid, NULL);
-}
-
-void sigkill_waitp(pid_t *pid) {
-        PROTECT_ERRNO;
-
-        if (!pid)
-                return;
-        if (*pid <= 1)
-                return;
-
-        sigkill_wait(*pid);
-}
-
-void sigterm_wait(pid_t pid) {
-        assert(pid > 1);
-
-        (void) kill_and_sigcont(pid, SIGTERM);
-        (void) wait_for_terminate(pid, NULL);
-}
-
-void sigkill_nowait(pid_t pid) {
-        assert(pid > 1);
-
-        (void) kill(pid, SIGKILL);
-}
-
-void sigkill_nowaitp(pid_t *pid) {
-        PROTECT_ERRNO;
-
-        if (!pid)
-                return;
-        if (*pid <= 1)
-                return;
-
-        sigkill_nowait(*pid);
 }
 
 int kill_and_sigcont(pid_t pid, int sig) {
@@ -1343,7 +1230,9 @@ void valgrind_summary_hack(void) {
                         exit(EXIT_SUCCESS);
                 else {
                         log_info("Spawned valgrind helper as PID "PID_FMT".", pid);
-                        (void) wait_for_terminate(pid, NULL);
+                        _cleanup_(pidref_done) PidRef pidref = PIDREF_MAKE_FROM_PID(pid);
+                        (void) pidref_set_pid(&pidref, pid);
+                        (void) pidref_wait_for_terminate(&pidref, NULL);
                 }
         }
 #endif
@@ -1501,7 +1390,7 @@ int pidref_safe_fork_full(
                 int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
-                PidRef *ret_pid) {
+                PidRef *ret) {
 
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
@@ -1515,7 +1404,7 @@ int pidref_safe_fork_full(
                (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0);
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere
-         * forking. If provided, ret_pid is initialized in both the parent and the child process, both times
+         * forking. If provided, ret is initialized in both the parent and the child process, both times
          * referencing the child process. Returns == 0 in the child and > 0 in the parent. */
 
         prio = flags & FORK_LOG ? LOG_ERR : LOG_DEBUG;
@@ -1559,7 +1448,7 @@ int pidref_safe_fork_full(
                 if (!r) {
                         /* Not a reaper process, hence do a double fork() so we are reparented to one */
 
-                        if (ret_pid && socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pidref_transport_fds) < 0)
+                        if (ret && socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pidref_transport_fds) < 0)
                                 return log_full_errno(prio, errno, "Failed to allocate pidref socket: %m");
 
                         pid = fork();
@@ -1571,9 +1460,14 @@ int pidref_safe_fork_full(
                                 pidref_transport_fds[1] = safe_close(pidref_transport_fds[1]);
 
                                 if (pidref_transport_fds[0] >= 0) {
+                                        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                                        r = pidref_set_pid(&pidref, pid);
+                                        if (r < 0)
+                                                return log_full_errno(prio, r, "Failed to open reference to PID "PID_FMT": %m", pid);
+
                                         /* Wait for the intermediary child to exit so the caller can be certain the actual child
                                          * process has been reparented by the time this function returns. */
-                                        r = wait_for_terminate_and_check(name, pid, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                                        r = pidref_wait_for_terminate_and_check(name, &pidref, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
                                         if (r < 0)
                                                 return log_full_errno(prio, r, "Failed to wait for intermediary process: %m");
                                         if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
@@ -1589,7 +1483,7 @@ int pidref_safe_fork_full(
                                         if (n < 0)
                                                 return log_full_errno(prio, n, "Failed to receive child pidref: %m");
 
-                                        *ret_pid = (PidRef) { .pid = pid, .fd = pidfd };
+                                        *ret = (PidRef) { .pid = pid, .fd = pidfd };
                                 }
 
                                 return 1; /* return in the parent */
@@ -1649,26 +1543,31 @@ int pidref_safe_fork_full(
                                 (void) sigprocmask(SIG_SETMASK, &ss, NULL);
                         }
 
-                        r = wait_for_terminate_and_check(name, pid, (flags & FORK_LOG ? WAIT_LOG : 0));
+                        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                        r = pidref_set_pid(&pidref, pid);
+                        if (r < 0)
+                                return log_full_errno(prio, r, "Failed to open reference to PID "PID_FMT": %m", pid);
+
+                        r = pidref_wait_for_terminate_and_check(name, &pidref, (flags & FORK_LOG ? WAIT_LOG : 0));
                         if (r < 0)
                                 return r;
                         if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
                                 return -EPROTO;
 
                         /* If we are in the parent and successfully waited, then the process doesn't exist anymore. */
-                        if (ret_pid)
-                                *ret_pid = PIDREF_NULL;
+                        if (ret)
+                                *ret = PIDREF_NULL;
 
                         return 1;
                 }
 
-                if (ret_pid) {
+                if (ret) {
                         if (FLAGS_SET(flags, _FORK_PID_ONLY))
-                                *ret_pid = PIDREF_MAKE_FROM_PID(pid);
+                                *ret = PIDREF_MAKE_FROM_PID(pid);
                         else {
-                                r = pidref_set_pid(ret_pid, pid);
+                                r = pidref_set_pid(ret, pid);
                                 if (r < 0) /* Let's not fail for this, no matter what, the process exists after all, and that's key */
-                                        *ret_pid = PIDREF_MAKE_FROM_PID(pid);
+                                        *ret = PIDREF_MAKE_FROM_PID(pid);
                         }
                 }
 
@@ -1850,11 +1749,11 @@ int pidref_safe_fork_full(
         if (FLAGS_SET(flags, FORK_FREEZE))
                 freeze();
 
-        if (ret_pid) {
+        if (ret) {
                 if (FLAGS_SET(flags, _FORK_PID_ONLY))
-                        *ret_pid = PIDREF_MAKE_FROM_PID(getpid_cached());
+                        *ret = PIDREF_MAKE_FROM_PID(getpid_cached());
                 else {
-                        r = pidref_set_self(ret_pid);
+                        r = pidref_set_self(ret);
                         if (r < 0) {
                                 log_full_errno(prio, r, "Failed to acquire PID reference on ourselves: %m");
                                 _exit(EXIT_FAILURE);
@@ -1871,20 +1770,20 @@ int safe_fork_full(
                 int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
-                pid_t *ret_pid) {
+                pid_t *ret) {
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         int r;
 
         /* Getting the detached child process pid without pidfd is racy, so don't allow it if not returning
          * a pidref to the caller. */
-        assert(!FLAGS_SET(flags, FORK_DETACH) || !ret_pid);
+        assert(!FLAGS_SET(flags, FORK_DETACH) || !ret);
 
-        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags|_FORK_PID_ONLY, ret_pid ? &pidref : NULL);
-        if (r < 0 || !ret_pid)
+        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags|_FORK_PID_ONLY, ret ? &pidref : NULL);
+        if (r < 0 || !ret)
                 return r;
 
-        *ret_pid = pidref.pid;
+        *ret = pidref.pid;
 
         return r;
 }
@@ -1900,7 +1799,7 @@ int namespace_fork(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
-                pid_t *ret_pid) {
+                PidRef *ret) {
 
         int r;
 
@@ -1909,14 +1808,16 @@ int namespace_fork(
          * /proc/self/fd works correctly. */
         assert(!FLAGS_SET(flags, FORK_ALLOW_DLOPEN)); /* never allow loading shared library from another ns */
 
-        r = safe_fork_full(outer_name,
-                           NULL,
-                           except_fds, n_except_fds,
-                           (flags|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGKILL) & ~(FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE), ret_pid);
+        r = pidref_safe_fork_full(
+                        outer_name,
+                        NULL,
+                        except_fds, n_except_fds,
+                        (flags|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGKILL) & ~(FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE),
+                        ret);
         if (r < 0)
                 return r;
         if (r == 0) {
-                pid_t pid;
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
                 /* Child */
 
@@ -1927,20 +1828,25 @@ int namespace_fork(
                 }
 
                 /* We mask a few flags here that either make no sense for the grandchild, or that we don't have to do again */
-                r = safe_fork_full(inner_name,
-                                   NULL,
-                                   except_fds, n_except_fds,
-                                   flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO), &pid);
+                r = pidref_safe_fork_full(
+                                inner_name,
+                                NULL,
+                                except_fds, n_except_fds,
+                                flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO),
+                                &pidref);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
                 if (r == 0) {
                         /* Child */
-                        if (ret_pid)
-                                *ret_pid = pid;
+                        if (ret)
+                                *ret = TAKE_PIDREF(pidref);
                         return 0;
                 }
 
-                r = wait_for_terminate_and_check(inner_name, pid, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                r = pidref_wait_for_terminate_and_check(
+                                inner_name,
+                                &pidref,
+                                FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -2120,7 +2026,7 @@ int posix_spawn_wrapper(
                 char * const *argv,
                 char * const *envp,
                 const char *cgroup,
-                PidRef *ret_pidref) {
+                PidRef *ret) {
 
         short flags = POSIX_SPAWN_SETSIGMASK;
         posix_spawnattr_t attr;
@@ -2140,7 +2046,7 @@ int posix_spawn_wrapper(
 
         assert(path);
         assert(argv);
-        assert(ret_pidref);
+        assert(ret);
 
         assert_se(sigfillset(&mask) >= 0);
 
@@ -2209,7 +2115,7 @@ int posix_spawn_wrapper(
         if (r != 0)
                 return -r;
 
-        r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
+        r = pidref_set_pidfd_consume(ret, TAKE_FD(pidfd));
         if (r < 0)
                 return r;
 
@@ -2221,7 +2127,7 @@ int posix_spawn_wrapper(
         if (r != 0)
                 return -r;
 
-        r = pidref_set_pid(ret_pidref, pid);
+        r = pidref_set_pid(ret, pid);
         if (r < 0)
                 return r;
 

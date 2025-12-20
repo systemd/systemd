@@ -3911,7 +3911,7 @@ int refresh_extensions_in_namespace(
         if (r == 0) {
                 /* Child (host namespace) */
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-                _cleanup_(sigkill_waitp) pid_t grandchild_pid = 0;
+                _cleanup_(pidref_done_sigkill_wait) PidRef grandchild = PIDREF_NULL;
 
                  (void) mkdir_p_label(overlay_prefix, 0555);
 
@@ -3928,9 +3928,7 @@ int refresh_extensions_in_namespace(
                         _exit(EXIT_FAILURE);
                 }
 
-                r = safe_fork("(sd-ns-refresh-exts-grandchild)",
-                                FORK_LOG|FORK_DEATHSIG_SIGKILL,
-                                &grandchild_pid);
+                r = pidref_safe_fork("(sd-ns-refresh-exts-grandchild)", FORK_LOG|FORK_DEATHSIG_SIGKILL, &grandchild);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
                 if (r == 0) {
@@ -3964,11 +3962,14 @@ int refresh_extensions_in_namespace(
                                 _exit(EXIT_FAILURE);
                 }
 
-                r = wait_for_terminate_and_check("(sd-ns-refresh-exts-grandchild)", TAKE_PID(grandchild_pid), 0);
+                r = pidref_wait_for_terminate_and_check("(sd-ns-refresh-exts-grandchild)", &grandchild, 0);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to wait for target namespace process to finish: %m");
                         _exit(EXIT_FAILURE);
                 }
+
+                TAKE_PIDREF(grandchild);
+
                 if (r != EXIT_SUCCESS) {
                         log_debug("Target namespace fork did not succeed");
                         _exit(EXIT_FAILURE);

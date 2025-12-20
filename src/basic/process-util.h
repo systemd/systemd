@@ -60,8 +60,6 @@ static inline bool SIGINFO_CODE_IS_DEAD(int code) {
         return IN_SET(code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
 }
 
-int wait_for_terminate(pid_t pid, siginfo_t *ret);
-
 typedef enum WaitFlags {
         WAIT_LOG_ABNORMAL             = 1 << 0,
         WAIT_LOG_NON_ZERO_EXIT_STATUS = 1 << 1,
@@ -71,15 +69,6 @@ typedef enum WaitFlags {
 } WaitFlags;
 
 int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFlags flags);
-int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags);
-
-int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout);
-
-void sigkill_wait(pid_t pid);
-void sigkill_waitp(pid_t *pid);
-void sigterm_wait(pid_t pid);
-void sigkill_nowait(pid_t pid);
-void sigkill_nowaitp(pid_t *pid);
 
 int kill_and_sigcont(pid_t pid, int sig);
 
@@ -198,10 +187,10 @@ int pidref_safe_fork_full(
                 int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
-                PidRef *ret_pid);
+                PidRef *ret);
 
-static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret_pid) {
-        return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
+static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret) {
+        return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret);
 }
 
 int safe_fork_full(
@@ -210,10 +199,10 @@ int safe_fork_full(
                 int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
-                pid_t *ret_pid);
+                pid_t *ret);
 
-static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
-        return safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
+static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret) {
+        return safe_fork_full(name, NULL, NULL, 0, flags, ret);
 }
 
 int namespace_fork(
@@ -227,7 +216,7 @@ int namespace_fork(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
-                pid_t *ret_pid);
+                PidRef *ret);
 
 int set_oom_score_adjust(int value);
 int get_oom_score_adjust(int *ret);
@@ -261,7 +250,7 @@ int posix_spawn_wrapper(
                 char * const *argv,
                 char * const *envp,
                 const char *cgroup,
-                PidRef *ret_pidref);
+                PidRef *ret);
 
 int proc_dir_open(DIR **ret);
 int proc_dir_read(DIR *d, pid_t *ret);
