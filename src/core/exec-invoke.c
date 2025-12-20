@@ -5478,7 +5478,10 @@ int exec_invoke(
                                 return log_error_errno(errno, "Failed to set up CPU scheduling: %m");
                         }
 
-                        log_warning_errno(errno, "CPU scheduling policy %u is not supported, ignoring: %m", attr.sched_policy);
+                        _cleanup_free_ char *s = NULL;
+                        (void) sched_policy_to_string_alloc(context->cpu_sched_policy, &s);
+
+                        log_warning_errno(errno, "CPU scheduling policy %s is not supported, proceeding without.", strna(s));
                 }
         }
 
