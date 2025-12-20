@@ -821,6 +821,7 @@ int image_find(RuntimeScope scope,
                                               /* toplevel_fd= */ AT_FDCWD,
                                               vp,
                                               &filter,
+                                              /* n_filters= */ 1,
                                               PICK_ARCHITECTURE|PICK_TRIES,
                                               &result);
                                 if (r < 0) {
@@ -1033,6 +1034,7 @@ int image_discover(
                                                       /* toplevel_fd= */ AT_FDCWD,
                                                       vp,
                                                       &filter,
+                                                      /* n_filters= */ 1,
                                                       PICK_ARCHITECTURE|PICK_TRIES,
                                                       &result);
                                         if (r < 0) {
