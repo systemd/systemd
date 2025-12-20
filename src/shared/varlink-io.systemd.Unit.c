@@ -1028,11 +1028,22 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Runtime information of the unit"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetProperties,
+                SD_VARLINK_FIELD_COMMENT("The name of the unit to operate on."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether to apply the change ephemerally or persistently."),
+                SD_VARLINK_DEFINE_INPUT(runtime, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("List of properties to set and their values, keyed by their names."),
+                SD_VARLINK_DEFINE_INPUT(properties, SD_VARLINK_OBJECT, 0));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Unit,
                 "io.systemd.Unit",
                 SD_VARLINK_SYMBOL_COMMENT("List units"),
                 &vl_method_List,
+                SD_VARLINK_SYMBOL_COMMENT("Set unit properties"),
+                &vl_method_SetProperties,
                 &vl_type_RateLimit,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's conditions"),
                 &vl_type_Condition,
