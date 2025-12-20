@@ -511,3 +511,106 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
 
         return sd_varlink_error(link, "io.systemd.Manager.NoSuchUnit", NULL);
 }
+
+typedef struct UnitSetPropertiesParameters {
+        const char *name;
+        bool runtime;
+
+        bool markers_found;
+        unsigned int markers, markers_mask;
+} UnitSetPropertiesParameters;
+
+static int unit_parse_markers(UnitSetPropertiesParameters *p, sd_json_variant *variant, sd_json_dispatch_flags_t flags) {
+        bool some_plus_minus = false, some_absolute = false;
+        unsigned settings = 0, mask = 0;
+        sd_json_variant *e;
+        int r;
+
+        assert(p);
+        assert(variant);
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Marker is not an array.");
+
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
+                if (!sd_json_variant_is_string(e))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Marker is not an array of strings.");
+
+                const char *word = sd_json_variant_string(e);
+
+                r = unit_parse_marker(word, &settings, &mask);
+                if (r < 0)
+                        return sd_varlink_error_invalid_parameter_name(NULL, "properties");
+                if (r > 0)
+                        some_plus_minus = true;
+                else
+                        some_absolute = true;
+        }
+
+        if (some_plus_minus && some_absolute)
+                return sd_varlink_error_invalid_parameter_name(NULL, "properties");
+
+        if (some_absolute || sd_json_variant_elements(variant) == 0)
+                mask = UINT_MAX;
+
+        p->markers = settings;
+        p->markers_mask = mask;
+        p->markers_found = true;
+
+        return 0;
+}
+
+static int unit_dispatch_properties(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        UnitSetPropertiesParameters *p = ASSERT_PTR(userdata);
+        int r;
+
+        if (!sd_json_variant_is_object(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an object.", strna(name));
+
+        const char *k;
+        sd_json_variant *v;
+        JSON_VARIANT_OBJECT_FOREACH(k, v, variant) {
+                if (streq(k, "Markers")) {
+                        r = unit_parse_markers(p, v, flags);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
+                log_debug("Unknown property '%s' in 'properties' object.", k);
+                return sd_varlink_error_invalid_parameter_name(NULL, "properties");
+        }
+
+        return 0;
+}
+
+int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",       SD_JSON_VARIANT_STRING,  json_dispatch_const_unit_name, offsetof(UnitSetPropertiesParameters, name),    SD_JSON_MANDATORY },
+                { "runtime",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(UnitSetPropertiesParameters, runtime), SD_JSON_MANDATORY },
+                { "properties", SD_JSON_VARIANT_OBJECT,  unit_dispatch_properties,      0,                                              SD_JSON_MANDATORY },
+                {}
+        };
+
+        UnitSetPropertiesParameters p = {};
+        Manager *manager = ASSERT_PTR(userdata);
+        Unit *unit;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        r = manager_load_unit(manager, p.name, /* path= */ NULL, /* e= */ NULL, &unit);
+        if (r < 0)
+                return varlink_error_no_such_unit(link, "name");
+
+        if (p.markers_found)
+                unit->markers = p.markers | (unit->markers & ~p.markers_mask);
+
+        return sd_varlink_reply(link, NULL);
+}

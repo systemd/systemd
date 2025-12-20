@@ -1094,6 +1094,8 @@ DECLARE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);
 
 int unit_queue_job_check_and_collapse_type(Unit *u, JobType *type, bool reload_if_possible);
 
+int unit_parse_marker(const char *marker, unsigned *ret_settings, unsigned *ret_mask);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full_errno_zerook(unit, level, error, ...)             \
