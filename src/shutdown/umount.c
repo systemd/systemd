@@ -294,7 +294,7 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
         else if (si.si_code != CLD_EXITED || si.si_status != 0) {
                 /* Try to read error code from child */
                 r = read_errno(pfd[0]);
-                if (r == -EIO)
+                if (IN_SET(r, 0, -EIO))
                         r = log_debug_errno(
                                         SYNTHETIC_ERRNO(EPROTO),
                                         "Remounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.",
@@ -305,7 +305,7 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
                                         "Remounting '%s' failed abnormally, child process " PID_FMT " failed: %m",
                                         m->path, pidref.pid);
 
-                TAKE_PIDREF(pidref); /* child exited (just not as we expected) hence don't kill anymore */
+                pidref_done(&pidref); /* child exited (just not as we expected) hence don't kill anymore */
         }
 
         return r;
@@ -364,7 +364,7 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
         else if (si.si_code != CLD_EXITED || si.si_status != 0) {
                 /* Try to read error code from child */
                 r = read_errno(pfd[0]);
-                if (r == -EIO)
+                if (IN_SET(r, 0, -EIO))
                         r = log_debug_errno(
                                         SYNTHETIC_ERRNO(EPROTO),
                                         "Unmounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.",
@@ -375,7 +375,7 @@ static int umount_with_timeout(MountPoint *m, bool last_try) {
                                         "Unmounting '%s' failed abnormally, child process " PID_FMT " failed: %m",
                                         m->path, pidref.pid);
 
-                TAKE_PIDREF(pidref); /* It died, but abnormally, no purpose in killing */
+                pidref_done(&pidref); /* It died, but abnormally, no purpose in killing */
         }
 
         return r;
