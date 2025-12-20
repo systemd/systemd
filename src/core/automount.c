@@ -660,7 +660,7 @@ static int asynchronous_expire(int dev_autofs_fd, int ioctl_fd) {
                            (int[]) { dev_autofs_fd, ioctl_fd },
                            /* n_except_fds= */ 2,
                            FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
-                           /* ret_pid= */ NULL);
+                           /* ret= */ NULL);
         if (r != 0)
                 return r;
 
