@@ -568,6 +568,7 @@ static int append_extensions(
                               /* toplevel_fd= */ AT_FDCWD,
                               m->source,
                               &pick_filter_image_raw,
+                              /* n_filters= */ 1,
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
                 if (r == -ENOENT && m->ignore_enoent)
@@ -639,6 +640,7 @@ static int append_extensions(
                               /* toplevel_fd= */ AT_FDCWD,
                               e,
                               &pick_filter_image_dir,
+                              /* n_filters= */ 1,
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
                 if (r == -ENOENT && ignore_enoent)
