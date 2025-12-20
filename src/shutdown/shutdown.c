@@ -250,7 +250,7 @@ int sync_with_progress(int fd) {
          * SYNC_PROGRESS_ATTEMPTS lapse without progress being made,
          * we assume that the sync is stalled */
         for (unsigned checks = 0; checks < SYNC_PROGRESS_ATTEMPTS; checks++) {
-                r = pidref_wait_for_terminate_full(&pidref, SYNC_TIMEOUT_USEC, /* ret= */ NULL);
+                r = pidref_wait_for_terminate_full(&pidref, SYNC_TIMEOUT_USEC, /* ret_si= */ NULL);
                 if (r == 0)
                         /* Sync finished without error (sync() call itself does not return an error code) */
                         return 0;
