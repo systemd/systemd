@@ -326,7 +326,7 @@ TEST(process_is_owned_by_uid) {
         ASSERT_OK_ZERO(process_is_owned_by_uid(&pid, getuid()));
 
         ASSERT_OK(pidref_kill(&pid, SIGKILL));
-        ASSERT_OK(pidref_wait_for_terminate(&pid, /* ret= */ NULL));
+        ASSERT_OK(pidref_wait_for_terminate(&pid, NULL));
 
         /* Test a child that runs in a userns as uid 1, but the userns is owned by us */
         ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
@@ -373,7 +373,7 @@ TEST(process_is_owned_by_uid) {
         ASSERT_OK_POSITIVE(process_is_owned_by_uid(&pid, getuid()));
 
         ASSERT_OK(pidref_kill(&pid, SIGKILL));
-        ASSERT_OK(pidref_wait_for_terminate(&pid, /* ret= */ NULL));
+        ASSERT_OK(pidref_wait_for_terminate(&pid, NULL));
 }
 
 TEST(namespace_get_leader) {
