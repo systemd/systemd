@@ -80,7 +80,7 @@ TEST(mkdir_p_safe) {
         p = mfree(p);
         ASSERT_NOT_NULL(p = path_join(tmp, "zero-mode/should-fail-to-create-child"));
         ASSERT_OK(mkdir_parents_safe(tmp, p, 0000, UID_INVALID, GID_INVALID, 0));
-        ASSERT_OK(r = safe_fork("(test-mkdir-no-cap)", FORK_DEATHSIG_SIGTERM | FORK_WAIT | FORK_LOG, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(test-mkdir-no-cap)", FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL));
         if (r == 0) {
                 (void) capability_bounding_set_drop(0, /* right_now= */ true);
                 ASSERT_ERROR(mkdir_p_safe(tmp, p, 0000, UID_INVALID, GID_INVALID, 0), EACCES);

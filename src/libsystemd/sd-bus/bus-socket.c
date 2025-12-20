@@ -1026,7 +1026,10 @@ static int connect_as(int fd, const struct sockaddr *sa, socklen_t salen, uid_t 
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return -errno;
 
-        r = safe_fork("(sd-setresuid)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT, /* ret_pid= */ NULL);
+        r = pidref_safe_fork(
+                        "(sd-setresuid)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
