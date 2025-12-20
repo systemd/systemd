@@ -7,7 +7,6 @@
 #include <sys/ioctl.h>
 #include <sys/xattr.h>
 #include <unistd.h>
-#include "pidref.h"
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
 #endif
@@ -52,6 +51,7 @@
 #include "openssl-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "reread-partition-table.h"
@@ -2606,7 +2606,7 @@ static int ext4_offline_resize_fs(
 
         _cleanup_free_ char *size_str = NULL;
         bool re_open = false, re_mount = false;
-        _cleanup_(pidref_done) PidRef resize_pidref = PIDREF_NULL, fsck_pidref = PIDREF_NULL;
+        _cleanup_(pidref_done) PidRef fsck_pidref = PIDREF_NULL;
         int r, exit_status;
 
         assert(setup);
@@ -2665,7 +2665,7 @@ static int ext4_offline_resize_fs(
         r = pidref_safe_fork(
                         "(e2resize)",
                         FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
-                        &resize_pidref);
+                        /* ret_pid= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {

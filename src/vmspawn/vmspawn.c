@@ -1085,7 +1085,7 @@ static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata
                                       si->si_pid, signal_to_string(si->si_status));
         else
                 ret = log_error_errno(SYNTHETIC_ERRNO(EPROTO),
-                                      "Got unexpected exit code %i from child,",
+                                      "Got unexpected exit code %i from child.",
                                       si->si_code);
 
         /* Regardless of whether the main qemu process or an auxiliary process died, let's exit either way
