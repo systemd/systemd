@@ -2948,7 +2948,18 @@ endif
 alias_target('gensources', generated_sources)
 
 clang_tidy = find_program('clang-tidy', required : false)
-if meson.version().version_compare('>=1.4.0')
+if meson.version().version_compare('>=1.10.0')
+        uniq = {}
+
+        foreach source : sources
+                if uniq.has_key(source.full_path())
+                        continue
+                endif
+                uniq += {source.full_path(): source}
+        endforeach
+
+        sources = uniq.values()
+
         foreach source : sources
                 if systemd_headers.contains(source)
                         continue

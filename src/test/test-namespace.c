@@ -94,7 +94,7 @@ TEST(tmpdir) {
 static void test_shareable_ns(unsigned long nsflag) {
         _cleanup_close_pair_ int s[2] = EBADF_PAIR;
         bool permission_denied = false;
-        pid_t pid1, pid2, pid3;
+        _cleanup_(pidref_done) PidRef pidref1 = PIDREF_NULL, pidref2 = PIDREF_NULL, pidref3 = PIDREF_NULL;
         int r, n = 0;
         siginfo_t si;
 
@@ -105,51 +105,48 @@ static void test_shareable_ns(unsigned long nsflag) {
 
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, s));
 
-        pid1 = fork();
-        ASSERT_OK_ERRNO(pid1);
+        r = ASSERT_OK(pidref_safe_fork("(share-ns-1)", FORK_LOG|FORK_DEATHSIG_SIGKILL, &pidref1));
 
-        if (pid1 == 0) {
+        if (r == 0) {
                 r = setup_shareable_ns(s, nsflag);
                 if (!ERRNO_IS_PRIVILEGE(r))
                         ASSERT_OK(r);
                 _exit(r >= 0 ? r : EX_NOPERM);
         }
 
-        pid2 = fork();
-        ASSERT_OK_ERRNO(pid2);
+        r = ASSERT_OK(pidref_safe_fork("(share-ns-2)", FORK_LOG|FORK_DEATHSIG_SIGKILL, &pidref2));
 
-        if (pid2 == 0) {
+        if (r == 0) {
                 r = setup_shareable_ns(s, nsflag);
                 if (!ERRNO_IS_PRIVILEGE(r))
                         ASSERT_OK(r);
                 _exit(r >= 0 ? r : EX_NOPERM);
         }
 
-        pid3 = fork();
-        ASSERT_OK_ERRNO(pid3);
+        r = ASSERT_OK(pidref_safe_fork("(share-ns-3)", FORK_LOG|FORK_DEATHSIG_SIGKILL, &pidref3));
 
-        if (pid3 == 0) {
+        if (r == 0) {
                 r = setup_shareable_ns(s, nsflag);
                 if (!ERRNO_IS_PRIVILEGE(r))
                         ASSERT_OK(r);
                 _exit(r >= 0 ? r : EX_NOPERM);
         }
 
-        ASSERT_OK(wait_for_terminate(pid1, &si));
+        ASSERT_OK(pidref_wait_for_terminate(&pidref1, &si));
         ASSERT_EQ(si.si_code, CLD_EXITED);
         if (si.si_status == EX_NOPERM)
                 permission_denied = true;
         else
                 n += si.si_status;
 
-        ASSERT_OK(wait_for_terminate(pid2, &si));
+        ASSERT_OK(pidref_wait_for_terminate(&pidref2, &si));
         ASSERT_EQ(si.si_code, CLD_EXITED);
         if (si.si_status == EX_NOPERM)
                 permission_denied = true;
         else
                 n += si.si_status;
 
-        ASSERT_OK(wait_for_terminate(pid3, &si));
+        ASSERT_OK(pidref_wait_for_terminate(&pidref3, &si));
         ASSERT_EQ(si.si_code, CLD_EXITED);
         if (si.si_status == EX_NOPERM)
                 permission_denied = true;
@@ -203,7 +200,6 @@ TEST(protect_kernel_logs) {
                 .protect_kernel_logs = true,
                 .root_directory_fd = -EBADF,
         };
-        pid_t pid;
         int r;
 
         if (geteuid() > 0) {
@@ -224,10 +220,9 @@ TEST(protect_kernel_logs) {
         }
         ASSERT_OK(r);
 
-        pid = fork();
-        ASSERT_OK_ERRNO(pid);
+        r = ASSERT_OK(safe_fork("(protect)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret_pid= */ NULL));
 
-        if (pid == 0) {
+        if (r == 0) {
                 _cleanup_close_ int fd = -EBADF;
 
                 ASSERT_OK_ERRNO(fd = open("/dev/kmsg", O_RDONLY | O_CLOEXEC));
@@ -239,8 +234,6 @@ TEST(protect_kernel_logs) {
 
                 _exit(EXIT_SUCCESS);
         }
-
-        ASSERT_OK_EQ(wait_for_terminate_and_check("ns-kernellogs", pid, WAIT_LOG), EXIT_SUCCESS);
 }
 
 TEST(idmapping_supported) {
@@ -333,7 +326,7 @@ TEST(process_is_owned_by_uid) {
         ASSERT_OK_ZERO(process_is_owned_by_uid(&pid, getuid()));
 
         ASSERT_OK(pidref_kill(&pid, SIGKILL));
-        ASSERT_OK(pidref_wait_for_terminate(&pid, /* ret= */ NULL));
+        ASSERT_OK(pidref_wait_for_terminate(&pid, NULL));
 
         /* Test a child that runs in a userns as uid 1, but the userns is owned by us */
         ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
@@ -380,7 +373,7 @@ TEST(process_is_owned_by_uid) {
         ASSERT_OK_POSITIVE(process_is_owned_by_uid(&pid, getuid()));
 
         ASSERT_OK(pidref_kill(&pid, SIGKILL));
-        ASSERT_OK(pidref_wait_for_terminate(&pid, /* ret= */ NULL));
+        ASSERT_OK(pidref_wait_for_terminate(&pid, NULL));
 }
 
 TEST(namespace_get_leader) {

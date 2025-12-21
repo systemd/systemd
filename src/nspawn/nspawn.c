@@ -2884,7 +2884,7 @@ static int recursive_chown(const char *directory, uid_t shift, uid_t range) {
 
 /*
  * Return values:
- * < 0 : wait_for_terminate() failed to get the state of the
+ * < 0 : pidref_wait_for_terminate() failed to get the state of the
  *       container, the container was terminated by a signal, or
  *       failed for an unknown reason.  No change is made to the
  *       container argument.

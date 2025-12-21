@@ -18,7 +18,7 @@
 TEST(asynchronous_sync) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         ASSERT_OK(asynchronous_sync(&pidref));
-        ASSERT_OK(pidref_wait_for_terminate(&pidref, /* ret= */ NULL));
+        ASSERT_OK(pidref_wait_for_terminate(&pidref, NULL));
 }
 
 static void wait_fd_closed(int fd) {

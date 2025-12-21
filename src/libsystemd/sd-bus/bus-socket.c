@@ -1163,7 +1163,7 @@ int bus_socket_exec(sd_bus *b) {
         assert(b->input_fd < 0);
         assert(b->output_fd < 0);
         assert(b->exec_path);
-        assert(b->busexec_pid == 0);
+        assert(!pidref_is_set(&b->busexec_pidref));
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *line = NULL;
@@ -1181,10 +1181,12 @@ int bus_socket_exec(sd_bus *b) {
         if (r < 0)
                 return -errno;
 
-        r = safe_fork_full("(sd-busexec)",
-                           (int[]) { s[1], s[1], STDERR_FILENO },
-                           NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_RLIMIT_NOFILE_SAFE, &b->busexec_pid);
+        r = pidref_safe_fork_full(
+                        "(sd-busexec)",
+                        (int[]) { s[1], s[1], STDERR_FILENO },
+                        NULL, 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_RLIMIT_NOFILE_SAFE,
+                        &b->busexec_pidref);
         if (r < 0) {
                 safe_close_pair(s);
                 return r;

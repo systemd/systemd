@@ -12,6 +12,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "main.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
@@ -127,8 +128,11 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                                                    LOG_MESSAGE_ID(SD_MESSAGE_CRASH_PROCESS_SIGNAL_STR));
                         }
 
+                        _cleanup_(pidref_done) PidRef pidref = PIDREF_MAKE_FROM_PID(pid);
+                        (void) pidref_set_pid(&pidref, pid);
+
                         /* Order things nicely. */
-                        r = wait_for_terminate(pid, &status);
+                        r = pidref_wait_for_terminate(&pidref, &status);
                         if (r < 0)
                                 log_struct_errno(LOG_EMERG, r,
                                                  LOG_MESSAGE("Caught <%s>, waitpid() failed: %m", signal_to_string(sig)),
@@ -181,7 +185,9 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                         _exit(EXIT_EXCEPTION);
                 } else {
                         log_info("Spawned crash shell as PID "PID_FMT".", pid);
-                        (void) wait_for_terminate(pid, NULL);
+                        _cleanup_(pidref_done) PidRef pidref = PIDREF_MAKE_FROM_PID(pid);
+                        (void) pidref_set_pid(&pidref, pid);
+                        (void) pidref_wait_for_terminate(&pidref, NULL);
                 }
         }
 
