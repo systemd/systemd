@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <pthread.h>
-#include <unistd.h>
-
 #include "sd-bus.h"
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -44,33 +42,33 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_END,
 };
 
-static void* thread_server(void *p) {
+static int server(void *userdata) {
         _cleanup_free_ char *suffixed = NULL, *suffixed_basename = NULL, *suffixed2 = NULL, *d = NULL;
         _cleanup_close_ int fd = -EBADF;
         union sockaddr_union u;
-        const char *path = p;
+        const char *path = ASSERT_PTR(userdata);
         int r;
 
         log_debug("Initializing server");
 
         /* Let's play some games, by slowly creating the socket directory, and renaming it in the middle */
-        usleep_safe(100 * USEC_PER_MSEC);
+        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
 
         ASSERT_OK(mkdir_parents(path, 0755));
-        usleep_safe(100 * USEC_PER_MSEC);
+        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
 
         ASSERT_OK(path_extract_directory(path, &d));
         ASSERT_OK(asprintf(&suffixed, "%s.%" PRIx64, d, random_u64()));
         ASSERT_OK_ERRNO(rename(d, suffixed));
-        usleep_safe(100 * USEC_PER_MSEC);
+        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
 
         ASSERT_OK(asprintf(&suffixed2, "%s.%" PRIx64, d, random_u64()));
         ASSERT_OK_ERRNO(symlink(suffixed2, d));
-        usleep_safe(100 * USEC_PER_MSEC);
+        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
 
         ASSERT_OK(path_extract_filename(suffixed, &suffixed_basename));
         ASSERT_OK_ERRNO(symlink(suffixed_basename, suffixed2));
-        usleep_safe(100 * USEC_PER_MSEC);
+        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
 
         socklen_t sa_len;
         r = sockaddr_un_set_path(&u.un, path);
@@ -81,13 +79,13 @@ static void* thread_server(void *p) {
         ASSERT_OK_ERRNO(fd);
 
         ASSERT_OK_ERRNO(bind(fd, &u.sa, sa_len));
-        usleep_safe(100 * USEC_PER_MSEC);
+        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
 
         ASSERT_OK_ERRNO(listen(fd, SOMAXCONN_DELUXE));
-        usleep_safe(100 * USEC_PER_MSEC);
+        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
 
         ASSERT_OK(touch(path));
-        usleep_safe(100 * USEC_PER_MSEC);
+        ASSERT_OK(sd_fiber_sleep(100 * USEC_PER_MSEC));
 
         log_debug("Initialized server");
 
@@ -101,8 +99,7 @@ static void* thread_server(void *p) {
 
                 ASSERT_OK(sd_event_new(&event));
 
-                bus_fd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
-                ASSERT_OK_ERRNO(bus_fd);
+                ASSERT_OK(bus_fd = sd_fiber_accept(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC));
 
                 log_debug("Accepted server connection");
 
@@ -129,13 +126,13 @@ static void* thread_server(void *p) {
 
         log_debug("Server done");
 
-        return NULL;
+        return 0;
 }
 
-static void* thread_client1(void *p) {
+static int client1(void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        const char *path = p, *t;
+        const char *path = ASSERT_PTR(userdata), *t;
 
         log_debug("Initializing client1");
 
@@ -151,59 +148,65 @@ static void* thread_client1(void *p) {
 
         log_debug("Client1 done");
 
-        return NULL;
-}
-
-static int client2_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        ASSERT_OK_ZERO(sd_bus_message_is_method_error(m, NULL));
-        ASSERT_OK(sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), 0));
         return 0;
 }
 
-static void* thread_client2(void *p) {
+static int client2(void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        const char *path = p, *t;
+        const char *path = ASSERT_PTR(userdata), *t;
 
         log_debug("Initializing client2");
 
-        ASSERT_OK(sd_event_new(&event));
         ASSERT_OK(sd_bus_new(&bus));
         ASSERT_OK(sd_bus_set_description(bus, "client2"));
 
         t = strjoina("unix:path=", path);
         ASSERT_OK(sd_bus_set_address(bus, t));
         ASSERT_OK(sd_bus_set_watch_bind(bus, true));
-        ASSERT_OK(sd_bus_attach_event(bus, event, 0));
+        ASSERT_OK(sd_bus_attach_event(bus, sd_fiber_get_event(), 0));
         ASSERT_OK(sd_bus_start(bus));
 
-        ASSERT_OK(sd_bus_call_method_async(bus, NULL, "foo.bar", "/foo", "foo.TestInterface", "Foobar", client2_callback, NULL, NULL));
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        ASSERT_OK(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Foobar", NULL, &m, NULL));
 
-        ASSERT_OK(sd_event_loop(event));
-
+        ASSERT_OK_ZERO(sd_bus_message_is_method_error(m, NULL));
         log_debug("Client2 done");
 
-        return NULL;
+        return 0;
 }
 
-static void request_exit(const char *path) {
+typedef struct RequestExitArgs {
+        const char *path;
+        sd_future *client1;
+        sd_future *client2;
+} RequestExitArgs;
+
+static int request_exit(void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        RequestExitArgs *args = ASSERT_PTR(userdata);
         const char *t;
+
+        /* Wait for all client fibers to complete before requesting exit */
+        ASSERT_OK(sd_fiber_await(args->client1));
+        ASSERT_OK(sd_fiber_await(args->client2));
 
         ASSERT_OK(sd_bus_new(&bus));
 
-        t = strjoina("unix:path=", path);
+        t = strjoina("unix:path=", args->path);
         ASSERT_OK(sd_bus_set_address(bus, t));
         ASSERT_OK(sd_bus_set_watch_bind(bus, true));
         ASSERT_OK(sd_bus_set_description(bus, "request-exit"));
         ASSERT_OK(sd_bus_start(bus));
 
         ASSERT_OK(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Exit", NULL, NULL, NULL));
+
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
-        pthread_t server, client1, client2;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f_server = NULL, *f_client1 = NULL, *f_client2 = NULL, *f_exit = NULL;
         char *path;
 
         test_setup_logging(LOG_DEBUG);
@@ -214,16 +217,27 @@ int main(int argc, char *argv[]) {
 
         path = strjoina(d, "/this/is/a/socket");
 
-        ASSERT_OK(-pthread_create(&server, NULL, thread_server, path));
-        ASSERT_OK(-pthread_create(&client1, NULL, thread_client1, path));
-        ASSERT_OK(-pthread_create(&client2, NULL, thread_client2, path));
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
-        ASSERT_OK(-pthread_join(client1, NULL));
-        ASSERT_OK(-pthread_join(client2, NULL));
+        ASSERT_OK(sd_future_new_fiber(e, "server", server, path, /* destroy= */ NULL, &f_server));
 
-        request_exit(path);
+        ASSERT_OK(sd_future_new_fiber(e, "client-1", client1, path, /* destroy= */ NULL, &f_client1));
+        ASSERT_OK(sd_future_new_fiber(e, "client-2", client2, path, /* destroy= */ NULL, &f_client2));
 
-        ASSERT_OK(-pthread_join(server, NULL));
+        RequestExitArgs args = {
+                .path = path,
+                .client1 = f_client1,
+                .client2 = f_client2,
+        };
+        ASSERT_OK(sd_future_new_fiber(e, "request-exit", request_exit, &args, /* destroy= */ NULL, &f_exit));
 
-        return 0;
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_OK(sd_future_result(f_client1));
+        ASSERT_OK(sd_future_result(f_client2));
+        ASSERT_OK(sd_future_result(f_exit));
+        ASSERT_OK(sd_future_result(f_server));
+
+        return EXIT_SUCCESS;
 }
