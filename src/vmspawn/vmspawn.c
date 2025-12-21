@@ -1260,7 +1260,7 @@ static int start_tpm(
         if (!argv)
                 return log_oom();
 
-        r = safe_fork("(swtpm-setup)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
+        r = pidref_safe_fork("(swtpm-setup)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, /* ret= */ NULL);
         if (r == 0) {
                 /* Child */
                 execvp(argv[0], argv);
@@ -1273,7 +1273,7 @@ static int start_tpm(
                 strv_remove(argv, "--profile-name");
                 strv_remove(argv, "default-v2");
 
-                r = safe_fork("(swtpm-setup)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
+                r = pidref_safe_fork("(swtpm-setup)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, /* ret= */ NULL);
                 if (r == 0) {
                         /* Child */
                         execvp(argv[0], argv);
@@ -1725,10 +1725,10 @@ static int generate_ssh_keypair(const char *key_path, const char *key_type) {
                 log_debug("Executing: %s", joined);
         }
 
-        r = safe_fork(
+        r = pidref_safe_fork(
                         ssh_keygen,
                         FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
-                        NULL);
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {

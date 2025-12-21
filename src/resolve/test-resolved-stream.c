@@ -8,7 +8,6 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include "sd-event.h"
@@ -20,6 +19,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "resolved-dns-server.h"
@@ -121,7 +121,6 @@ static void *tcp_dns_server(void *p) {
  * Spawns a DNS TLS server using the command line "openssl s_server" tool.
  */
 static void *tls_dns_server(void *p) {
-        pid_t openssl_pid;
         int r;
         _cleanup_close_ int fd_server = -EBADF, fd_tls = -EBADF;
         _cleanup_free_ char *cert_path = NULL, *key_path = NULL;
@@ -145,12 +144,13 @@ static void *tls_dns_server(void *p) {
                 fd_tls = fd[1];
         }
 
-        r = safe_fork_full("(test-resolved-stream-tls-openssl)",
-                           (int[]) { fd_tls, fd_tls, STDOUT_FILENO },
-                           NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_REOPEN_LOG,
-                           &openssl_pid);
-        assert_se(r >= 0);
+        _cleanup_(pidref_done) PidRef openssl_pidref = PIDREF_NULL;
+        r = ASSERT_OK(pidref_safe_fork_full(
+                        "(test-resolved-stream-tls-openssl)",
+                        (int[]) { fd_tls, fd_tls, STDOUT_FILENO },
+                        NULL, 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_REOPEN_LOG,
+                        &openssl_pidref));
         if (r == 0) {
                 /* Child */
                 execlp("openssl", "openssl", "s_server", "-accept", bind_str,
@@ -165,8 +165,8 @@ static void *tls_dns_server(void *p) {
 
                 /* Once the test is done kill the TLS server to release the port */
                 assert_se(pthread_mutex_lock(server_lock) == 0);
-                assert_se(kill(openssl_pid, SIGTERM) >= 0);
-                assert_se(waitpid(openssl_pid, NULL, 0) >= 0);
+                assert_se(pidref_kill(&openssl_pidref, SIGTERM) >= 0);
+                assert_se(pidref_wait_for_terminate(&openssl_pidref, NULL) >= 0);
                 assert_se(pthread_mutex_unlock(server_lock) == 0);
         }
 
@@ -333,7 +333,7 @@ static int try_isolate_network(void) {
         /* First test if CLONE_NEWUSER/CLONE_NEWNET can actually work for us, i.e. we can open the namespaces
          * and then still access the build dir we are run from. We do that in a child process since it's
          * nasty if we have to go back from the namespace once we entered it and realized it cannot work. */
-        r = safe_fork("(usernstest)", FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT, NULL);
+        r = pidref_safe_fork("(usernstest)", FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT, NULL);
         if (r == 0) { /* child */
                 _cleanup_free_ char *rt = NULL, *d = NULL;
 
