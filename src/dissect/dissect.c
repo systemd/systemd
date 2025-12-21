@@ -2042,6 +2042,7 @@ static int run(int argc, char *argv[]) {
                 r = path_pick_update_warn(
                                 &arg_image,
                                 &pick_filter_image_raw,
+                                /* n_filters= */ 1,
                                 PICK_ARCHITECTURE|PICK_TRIES,
                                 /* ret_result= */ NULL);
                 if (r < 0)
@@ -2052,6 +2053,7 @@ static int run(int argc, char *argv[]) {
                 r = path_pick_update_warn(
                                 &arg_root,
                                 &pick_filter_image_dir,
+                                /* n_filters= */ 1,
                                 PICK_ARCHITECTURE|PICK_TRIES,
                                 /* ret_result= */ NULL);
                 if (r < 0)
