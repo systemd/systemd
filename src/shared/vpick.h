@@ -61,4 +61,5 @@ int path_uses_vpick(const char *path);
 
 extern const PickFilter pick_filter_image_raw;
 extern const PickFilter pick_filter_image_dir;
+extern const PickFilter pick_filter_image_mstack;
 extern const PickFilter pick_filter_image_any;
