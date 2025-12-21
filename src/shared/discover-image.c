@@ -1491,6 +1491,7 @@ static int unpriviled_clone(Image *i, const char *new_path) {
         _cleanup_close_ int new_fd = -EBADF;
         r = mountfsd_make_directory(
                         new_path,
+                        MODE_INVALID,
                         /* flags= */ 0,
                         &new_fd);
         if (r < 0)
