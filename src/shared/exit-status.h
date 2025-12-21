@@ -70,6 +70,7 @@ enum {
         EXIT_CREDENTIALS,
         EXIT_BPF,
         EXIT_KSM,
+        EXIT_MEMORY_THP,
 
         EXIT_EXCEPTION = 255,  /* Whenever we want to propagate an abnormal/signal exit, in line with bash */
 };
