@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <pthread.h>
 #include <sys/socket.h>
 
 #include "sd-bus.h"
+#include "sd-event.h"
+#include "sd-future.h"
 
+#include "errno-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "string-util.h"
@@ -20,7 +22,8 @@ struct context {
         bool server_anonymous_auth;
 };
 
-static int _server(struct context *c) {
+static int server(void *userdata) {
+        struct context *c = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         sd_id128_t id;
         bool quit = false;
@@ -29,6 +32,7 @@ static int _server(struct context *c) {
         ASSERT_OK(sd_id128_randomize(&id));
 
         ASSERT_OK(sd_bus_new(&bus));
+        ASSERT_OK(sd_bus_set_description(bus, "server"));
         ASSERT_OK(sd_bus_set_fd(bus, c->fds[0], c->fds[0]));
         ASSERT_OK(sd_bus_set_server(bus, 1, id));
         ASSERT_OK(sd_bus_set_anonymous(bus, c->server_anonymous_auth));
@@ -74,17 +78,16 @@ static int _server(struct context *c) {
         return 0;
 }
 
-static void* server(void *p) {
-        return INT_TO_PTR(_server(p));
-}
-
-static int client(struct context *c) {
+static int client(void *userdata) {
+        struct context *c = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
         ASSERT_OK(sd_bus_new(&bus));
+        ASSERT_OK(sd_bus_set_description(bus, "client"));
         ASSERT_OK(sd_bus_set_fd(bus, c->fds[1], c->fds[1]));
+        ASSERT_OK(sd_bus_attach_event(bus, sd_fiber_get_event(), 0));
         ASSERT_OK(sd_bus_negotiate_fds(bus, c->client_negotiate_unix_fds));
         ASSERT_OK(sd_bus_set_anonymous(bus, c->client_anonymous_auth));
         ASSERT_OK(sd_bus_start(bus));
@@ -103,10 +106,10 @@ static int client(struct context *c) {
 static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_fds,
                     bool client_anonymous_auth, bool server_anonymous_auth) {
 
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f_server = NULL, *f_client = NULL;
         struct context c;
-        pthread_t s;
-        void *p;
-        int r, q;
+        int r = 0;
 
         zero(c);
 
@@ -117,23 +120,18 @@ static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_f
         c.client_anonymous_auth = client_anonymous_auth;
         c.server_anonymous_auth = server_anonymous_auth;
 
-        r = pthread_create(&s, NULL, server, &c);
-        if (r != 0)
-                return -r;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
-        r = client(&c);
+        ASSERT_OK(sd_future_new_fiber(e, "server", server, &c, /* destroy= */ NULL, &f_server));
+        ASSERT_OK(sd_future_new_fiber(e, "client", client, &c, /* destroy= */ NULL, &f_client));
 
-        q = pthread_join(s, &p);
-        if (q != 0)
-                return -q;
+        ASSERT_OK(sd_event_loop(e));
 
-        if (r < 0)
-                return r;
+        RET_GATHER(r, sd_future_result(f_client));
+        RET_GATHER(r, sd_future_result(f_server));
 
-        if (PTR_TO_INT(p) < 0)
-                return PTR_TO_INT(p);
-
-        return 0;
+        return r;
 }
 
 int main(int argc, char *argv[]) {
@@ -145,7 +143,7 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(test_one(false, false, false, false));
         ASSERT_OK(test_one(true, true, true, true));
         ASSERT_OK(test_one(true, true, false, true));
-        ASSERT_ERROR(test_one(true, true, true, false), EPERM);
+        ASSERT_ERROR(test_one(true, true, true, false), EACCES);
 
         return EXIT_SUCCESS;
 }

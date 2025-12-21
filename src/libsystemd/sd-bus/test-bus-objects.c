@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <pthread.h>
-
 #include "sd-bus.h"
+#include "sd-future.h"
 
 #include "alloc-util.h"
 #include "bus-internal.h"
@@ -207,9 +206,9 @@ static int enumerator3_callback(sd_bus *bus, const char *path, void *userdata, c
         return 1;
 }
 
-static void* server(void *p) {
-        struct context *c = p;
-        sd_bus *bus = NULL;
+static int server(void *userdata) {
+        struct context *c = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         sd_id128_t id;
         int r;
 
@@ -238,36 +237,25 @@ static void* server(void *p) {
                 log_error("Loop!");
 
                 r = sd_bus_process(bus, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to process requests: %m");
-                        goto fail;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process requests: %m");
 
                 if (r == 0) {
                         r = sd_bus_wait(bus, UINT64_MAX);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to wait: %m");
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to wait: %m");
 
                         continue;
                 }
         }
 
-        r = 0;
-
-fail:
-        if (bus) {
-                sd_bus_flush(bus);
-                sd_bus_unref(bus);
-        }
-
-        return INT_TO_PTR(r);
+        return 0;
 }
 
-static int client(struct context *c) {
+static int client(void *p) {
+        struct context *c = ASSERT_PTR(p);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **lines = NULL;
         const char *s;
@@ -571,16 +559,13 @@ static int client(struct context *c) {
 
         ASSERT_OK(sd_bus_call_method(bus, "org.freedesktop.systemd.test", "/foo", "org.freedesktop.systemd.test", "Exit", &error, NULL, NULL));
 
-        sd_bus_flush(bus);
-
         return 0;
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f_server = NULL, *f_client = NULL;
         struct context c = {};
-        pthread_t s;
-        void *p;
-        int r, q;
 
         test_setup_logging(LOG_DEBUG);
 
@@ -589,21 +574,16 @@ int main(int argc, char *argv[]) {
 
         ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, c.fds));
 
-        r = pthread_create(&s, NULL, server, &c);
-        if (r != 0)
-                return -r;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
-        r = client(&c);
+        ASSERT_OK(sd_future_new_fiber(e, "server", server, &c, /* destroy= */ NULL, &f_server));
+        ASSERT_OK(sd_future_new_fiber(e, "client", client, &c, /* destroy= */ NULL, &f_client));
 
-        q = pthread_join(s, &p);
-        if (q != 0)
-                return -q;
+        ASSERT_OK(sd_event_loop(e));
 
-        if (r < 0)
-                return r;
-
-        if (PTR_TO_INT(p) < 0)
-                return PTR_TO_INT(p);
+        ASSERT_OK(sd_future_result(f_server));
+        ASSERT_OK(sd_future_result(f_client));
 
         free(c.something);
         free(c.automatic_string_property);

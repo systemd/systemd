@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "env-util.h"
+#include "fiber-def.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "log-context.h"
@@ -35,10 +36,16 @@ bool log_context_enabled(void) {
 static LogContext* log_context_attach(LogContext *c) {
         assert(c);
 
-        _log_context_num_fields += strv_length(c->fields);
-        _log_context_num_fields += c->n_input_iovec;
-        _log_context_num_fields += !!c->key;
+        size_t add = strv_length(c->fields);
+        add += c->n_input_iovec;
+        add += !!c->key;
 
+        if (fiber_get_current()) {
+                fiber_get_current()->log_context_num_fields += add;
+                return LIST_PREPEND(ll, fiber_get_current()->log_context, c);
+        }
+
+        _log_context_num_fields += add;
         return LIST_PREPEND(ll, _log_context, c);
 }
 
@@ -46,11 +53,19 @@ static LogContext* log_context_detach(LogContext *c) {
         if (!c)
                 return NULL;
 
-        assert(_log_context_num_fields >= strv_length(c->fields) + c->n_input_iovec +!!c->key);
-        _log_context_num_fields -= strv_length(c->fields);
-        _log_context_num_fields -= c->n_input_iovec;
-        _log_context_num_fields -= !!c->key;
+        size_t sub = strv_length(c->fields);
+        sub += c->n_input_iovec;
+        sub += !!c->key;
 
+        if (fiber_get_current()) {
+                assert(fiber_get_current()->log_context_num_fields >= sub);
+                fiber_get_current()->log_context_num_fields -= sub;
+                LIST_REMOVE(ll, fiber_get_current()->log_context, c);
+                return NULL;
+        }
+
+        assert(_log_context_num_fields >= sub);
+        _log_context_num_fields -= sub;
         LIST_REMOVE(ll, _log_context, c);
         return NULL;
 }
@@ -62,7 +77,7 @@ LogContext* log_context_new(const char *key, const char *value) {
         if (!value)
                 return NULL;
 
-        LIST_FOREACH(ll, i, _log_context)
+        LIST_FOREACH(ll, i, log_context_head())
                 if (i->key == key && i->value == value)
                         return log_context_ref(i);
 
@@ -83,7 +98,7 @@ LogContext* log_context_new_strv(char **fields, bool owned) {
         if (!fields)
                 return NULL;
 
-        LIST_FOREACH(ll, i, _log_context)
+        LIST_FOREACH(ll, i, log_context_head())
                 if (i->fields == fields) {
                         assert(!owned);
                         return log_context_ref(i);
@@ -106,7 +121,7 @@ LogContext* log_context_new_iov(struct iovec *input_iovec, size_t n_input_iovec,
         if (!input_iovec || n_input_iovec == 0)
                 return NULL;
 
-        LIST_FOREACH(ll, i, _log_context)
+        LIST_FOREACH(ll, i, log_context_head())
                 if (i->input_iovec == input_iovec && i->n_input_iovec == n_input_iovec) {
                         assert(!owned);
                         return log_context_ref(i);
@@ -161,20 +176,20 @@ LogContext* log_context_new_iov_consume(struct iovec *input_iovec, size_t n_inpu
 }
 
 LogContext* log_context_head(void) {
-        return _log_context;
+        return fiber_get_current() ? fiber_get_current()->log_context : _log_context;
 }
 
 size_t log_context_num_contexts(void) {
         size_t n = 0;
 
-        LIST_FOREACH(ll, c, _log_context)
+        LIST_FOREACH(ll, c, log_context_head())
                 n++;
 
         return n;
 }
 
 size_t log_context_num_fields(void) {
-        return _log_context_num_fields;
+        return fiber_get_current() ? fiber_get_current()->log_context_num_fields : _log_context_num_fields;
 }
 
 void _reset_log_level(int *saved_log_level) {
