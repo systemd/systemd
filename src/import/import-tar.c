@@ -257,7 +257,7 @@ static int tar_import_fork_tar(TarImport *i) {
                         return r;
 
                 _cleanup_close_ int directory_fd = -EBADF;
-                r = mountfsd_make_directory(d, /* flags= */ 0, &directory_fd);
+                r = mountfsd_make_directory(d, MODE_INVALID, /* flags= */ 0, &directory_fd);
                 if (r < 0)
                         return r;
 
