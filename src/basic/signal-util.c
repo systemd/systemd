@@ -241,7 +241,7 @@ int signal_is_blocked(int sig) {
 int autoreaping_enabled(void) {
         struct sigaction sa;
 
-        if (sigaction(SIGCHLD, /* __act= */ NULL, &sa) < 0)
+        if (sigaction(SIGCHLD, /* act= */ NULL, &sa) < 0)
                 return -errno;
 
         return sa.sa_handler == SIG_IGN || FLAGS_SET(sa.sa_flags, SA_NOCLDWAIT);
