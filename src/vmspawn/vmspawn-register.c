@@ -12,6 +12,7 @@
 #include "errno-util.h"
 #include "json-util.h"
 #include "log.h"
+#include "path-lookup.h"
 #include "pidref.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -29,7 +30,8 @@ int register_machine(
                 unsigned cid,
                 const char *address,
                 const char *key_path,
-                bool keep_unit) {
+                bool keep_unit,
+                RuntimeScope scope) {
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
@@ -38,7 +40,23 @@ int register_machine(
         assert(service);
 
         /* First try to use varlink, as it provides more features (such as SSH support). */
-        r = sd_varlink_connect_address(&vl, "/run/systemd/machine/io.systemd.Machine");
+        _cleanup_free_ char *p = NULL;
+        r = runtime_directory_generic(scope, "systemd/machine/io.systemd.Machine", &p);
+        if (r < 0)
+                return r;
+
+        /* For backwards compatibility, fall back to the system machined instance if the user machined
+         * instance is not available. */
+        if (scope == RUNTIME_SCOPE_USER && access(p, F_OK) < 0) {
+                if (errno != ENOENT)
+                        return log_debug_errno(errno, "Failed to check if '%s' exists: %m", p);
+
+                r = runtime_directory_generic(RUNTIME_SCOPE_SYSTEM, "systemd/machine/io.systemd.Machine", &p);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_varlink_connect_address(&vl, p);
         if (r == -ENOENT || ERRNO_IS_DISCONNECT(r)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
@@ -64,7 +82,7 @@ int register_machine(
                 return 0;
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to machined on /run/systemd/machine/io.systemd.Machine: %m");
+                return log_error_errno(r, "Failed to connect to machined on %p: %m", p);
 
         return varlink_callbo_and_log(
                         vl,
