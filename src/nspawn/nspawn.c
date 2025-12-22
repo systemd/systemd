@@ -89,6 +89,7 @@
 #include "nspawn.h"
 #include "nsresource.h"
 #include "os-util.h"
+#include "parse-helpers.h"
 #include "osc-context.h"
 #include "options.h"
 #include "pager.h"
@@ -251,6 +252,8 @@ static char *arg_bind_user_shell = NULL;
 static bool arg_bind_user_shell_copy = false;
 static char **arg_bind_user_groups = NULL;
 static bool arg_suppress_sync = false;
+static Set *arg_restrict_address_families = NULL;
+static bool arg_restrict_address_families_is_allowlist = false;
 static char *arg_settings_filename = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 static ImagePolicy *arg_image_policy = NULL;
@@ -295,6 +298,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_groups, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_restrict_address_families, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
@@ -1126,6 +1130,14 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_SYSCALL_FILTER;
                         break;
                 }
+
+                OPTION_LONG("restrict-address-families", "LIST", "Restrict socket address families to the given allowlist"):
+                        r = parse_address_families(optarg, &arg_restrict_address_families, &arg_restrict_address_families_is_allowlist);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --restrict-address-families= argument: %s", optarg);
+
+                        arg_settings_mask |= SETTING_RESTRICT_ADDRESS_FAMILIES;
+                        break;
 
                 OPTION('Z', "selinux-context", "SECLABEL",
                        "Set the SELinux security context to be used by processes in the container"):
@@ -3461,7 +3473,7 @@ static int inner_child(
         } else
 #endif
         {
-                r = setup_seccomp(arg_caps_retain, arg_syscall_allow_list, arg_syscall_deny_list);
+                r = setup_seccomp(arg_caps_retain, arg_syscall_allow_list, arg_syscall_deny_list, arg_restrict_address_families, arg_restrict_address_families_is_allowlist);
                 if (r < 0)
                         return r;
         }
@@ -4949,6 +4961,12 @@ static int merge_settings(Settings *settings, const char *path) {
             settings->suppress_sync >= 0)
                 arg_suppress_sync = settings->suppress_sync;
 
+        if (!FLAGS_SET(arg_settings_mask, SETTING_RESTRICT_ADDRESS_FAMILIES) &&
+            (settings->restrict_address_families || settings->restrict_address_families_is_allowlist)) {
+                set_free_and_replace(arg_restrict_address_families, settings->restrict_address_families);
+                arg_restrict_address_families_is_allowlist = settings->restrict_address_families_is_allowlist;
+        }
+
         /* The following properties can only be set through the OCI settings logic, not from the command line, hence we
          * don't consult arg_settings_mask for them. */
 
@@ -5980,6 +5998,12 @@ static int run(int argc, char *argv[]) {
         r = load_settings();
         if (r < 0)
                 goto finish;
+
+        if (!FLAGS_SET(arg_settings_mask, SETTING_RESTRICT_ADDRESS_FAMILIES) && !arg_restrict_address_families)
+                log_notice("Note: in a future version of systemd-nspawn the default set of permitted socket address"
+                           " families will be restricted to AF_INET, AF_INET6 and AF_UNIX."
+                           " Use --restrict-address-families= to configure the set of permitted socket address"
+                           " families, or set RestrictAddressFamilies= in a .nspawn file.");
 
         /* If we're not unsharing the network namespace and are unsharing the user namespace, we won't have
          * permissions to bind ports in the container, so let's drop the CAP_NET_BIND_SERVICE capability to
