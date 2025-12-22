@@ -53,4 +53,5 @@ _arguments \
     '--volatile=[Run the system in volatile mode.]:volatile:(no yes state)' \
     "--notify-ready=[Control when the ready notification is sent]:options:(yes no)" \
     "--suppress-sync=[Control whether to suppress disk synchronization for the container payload]:options:(yes no)" \
+    '--restrict-address-families=[Restrict socket address families accessible in the container.]: : _message "address families"' \
     '*:: : _normal'
