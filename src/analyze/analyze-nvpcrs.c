@@ -28,9 +28,11 @@ static int add_nvpcr_to_table(Tpm2Context **c, Table *t, const char *name) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to read NvPCR '%s': %m", name);
 
-                h = hexmem(digest.iov_base, digest.iov_len);
-                if (!h)
-                        return log_oom();
+                if (iovec_is_set(&digest)) {
+                        h = hexmem(digest.iov_base, digest.iov_len);
+                        if (!h)
+                                return log_oom();
+                }
         } else {
                 r = tpm2_nvpcr_get_index(name, &nv_index);
                 if (r < 0)

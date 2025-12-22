@@ -7491,6 +7491,9 @@ int tpm2_nvpcr_read(
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire handle to NV index 0x%" PRIu32 ".", p.nv_index);
 
+        if (nv_handle == NULL)
+                goto finish;
+
         log_debug("Successfully acquired handle to NV index 0x%" PRIx32 ".", p.nv_index);
 
         r = tpm2_read_nv_index(
@@ -7502,6 +7505,7 @@ int tpm2_nvpcr_read(
         if (r < 0)
                 return r;
 
+finish:
         if (ret_nv_index)
                 *ret_nv_index = p.nv_index;
 
