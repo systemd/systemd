@@ -123,7 +123,6 @@ static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static RuntimeMountContext arg_runtime_mounts = {};
 static char *arg_firmware = NULL;
 static char *arg_forward_journal = NULL;
-static bool arg_privileged = false;
 static bool arg_register = true;
 static bool arg_keep_unit = false;
 static sd_id128_t arg_uuid = {};
@@ -144,6 +143,7 @@ static char **arg_bind_user = NULL;
 static char *arg_bind_user_shell = NULL;
 static bool arg_bind_user_shell_copy = false;
 static char **arg_bind_user_groups = NULL;
+static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -184,6 +184,8 @@ static int help(void) {
                "  -q --quiet               Do not show status information\n"
                "     --no-pager            Do not pipe output into a pager\n"
                "     --no-ask-password     Do not prompt for password\n"
+               "     --user                Interact with user manager\n"
+               "     --system              Interact with system manager\n"
                "\n%3$sImage:%4$s\n"
                "  -D --directory=PATH      Root directory for the VM\n"
                "  -i --image=FILE|DEVICE   Root file system disk image or device for the VM\n"
@@ -308,6 +310,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND_USER,
                 ARG_BIND_USER_SHELL,
                 ARG_BIND_USER_GROUP,
+                ARG_SYSTEM,
+                ARG_USER,
         };
 
         static const struct option options[] = {
@@ -360,6 +364,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "bind-user",         required_argument, NULL, ARG_BIND_USER         },
                 { "bind-user-shell",   required_argument, NULL, ARG_BIND_USER_SHELL   },
                 { "bind-user-group",   required_argument, NULL, ARG_BIND_USER_GROUP   },
+                { "system",            no_argument,       NULL, ARG_SYSTEM            },
+                { "user",              no_argument,       NULL, ARG_USER              },
                 {}
         };
 
@@ -728,6 +734,14 @@ static int parse_argv(int argc, char *argv[]) {
                         if (strv_extend(&arg_bind_user_groups, optarg) < 0)
                                 return log_oom();
 
+                        break;
+
+                case ARG_SYSTEM:
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                case ARG_USER:
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case '?':
@@ -1808,7 +1822,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Registration always happens on the system bus */
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
-        if (arg_register || arg_privileged) {
+        if (arg_register || arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 r = sd_bus_default_system(&system_bus);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open system bus: %m");
@@ -1823,7 +1837,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Scope allocation happens on the user bus if we are unpriv, otherwise system bus. */
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *runtime_bus = NULL;
-        if (arg_privileged)
+        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
                 runtime_bus = sd_bus_ref(system_bus);
         else {
                 r = sd_bus_default_user(&user_bus);
@@ -1949,10 +1963,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (asprintf(&subdir, "systemd/vmspawn.%" PRIx64, random_u64()) < 0)
                         return log_oom();
 
-                r = runtime_directory(
-                                arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
-                                subdir,
-                                &runtime_dir);
+                r = runtime_directory(arg_runtime_scope, subdir, &runtime_dir);
                 if (r < 0)
                         return log_error_errno(r, "Failed to lookup runtime directory: %m");
                 if (r > 0) { /* We need to create our own runtime dir */
@@ -2762,7 +2773,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         bool scope_allocated = false;
-        if (!arg_keep_unit && (!arg_register || !arg_privileged)) {
+        if (!arg_keep_unit && (!arg_register || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)) {
                 r = allocate_scope(
                                 runtime_bus,
                                 arg_machine,
@@ -2778,7 +2789,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 scope_allocated = true;
         } else {
-                if (arg_privileged)
+                if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
                         r = cg_pid_get_unit(0, &unit);
                 else
                         r = cg_pid_get_user_unit(0, &unit);
@@ -2786,7 +2797,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to get our own unit: %m");
         }
 
-        bool registered = false;
+        bool registered_system = false, registered_runtime = false;
         if (arg_register) {
                 char vm_address[STRLEN("vsock/") + DECIMAL_STR_MAX(unsigned)];
                 xsprintf(vm_address, "vsock/%u", child_cid);
@@ -2800,11 +2811,38 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 child_cid,
                                 child_cid != VMADDR_CID_ANY ? vm_address : NULL,
                                 ssh_private_key_path,
-                                arg_keep_unit || !arg_privileged);
-                if (r < 0)
-                        return r;
+                                !arg_keep_unit && arg_runtime_scope == RUNTIME_SCOPE_SYSTEM,
+                                RUNTIME_SCOPE_SYSTEM);
+                if (r < 0) {
+                        /* if privileged the request to register definitely failed */
+                        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                                return r;
 
-                registered = true;
+                        log_notice_errno(r, "Failed to register machine in system context, will try in user context.");
+                } else
+                        registered_system = true;
+
+                if (arg_runtime_scope == RUNTIME_SCOPE_USER) {
+                        r = register_machine(
+                                        runtime_bus,
+                                        arg_machine,
+                                        arg_uuid,
+                                        "systemd-vmspawn",
+                                        &child_pidref,
+                                        arg_directory,
+                                        child_cid,
+                                        child_cid != VMADDR_CID_ANY ? vm_address : NULL,
+                                        ssh_private_key_path,
+                                        !arg_keep_unit,
+                                        RUNTIME_SCOPE_USER);
+                        if (r < 0) {
+                                if (!registered_system) /* neither registration worked: fail */
+                                        return r;
+
+                                log_notice_errno(r, "Failed to register machine in user context, but succeeded in system context, will proceed.");
+                        } else
+                                registered_runtime = true;
+                }
         }
 
         /* Report that the VM is now set up */
@@ -2905,8 +2943,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (scope_allocated)
                 terminate_scope(runtime_bus, arg_machine);
 
-        if (registered)
+        if (registered_system)
                 (void) unregister_machine(system_bus, arg_machine);
+        if (registered_runtime)
+                (void) unregister_machine(runtime_bus, arg_machine);
 
         if (use_vsock) {
                 if (exit_status == INT_MAX) {
@@ -2928,8 +2968,12 @@ static int determine_names(void) {
                 if (arg_machine) {
                         _cleanup_(image_unrefp) Image *i = NULL;
 
-                        r = image_find(arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
-                                       IMAGE_MACHINE, arg_machine, NULL, &i);
+                        /* Use both user and system images in user mode, use only system images in system mode. */
+                        r = image_find(arg_runtime_scope == RUNTIME_SCOPE_USER ? _RUNTIME_SCOPE_INVALID : arg_runtime_scope,
+                                       IMAGE_MACHINE,
+                                       arg_machine,
+                                       /* root= */ NULL,
+                                       &i);
                         if (r == -ENOENT)
                                 return log_error_errno(r, "No image for machine '%s'.", arg_machine);
                         if (r < 0)
@@ -2993,7 +3037,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        arg_privileged = getuid() == 0;
+        arg_runtime_scope = getuid() == 0 ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
 
         r = parse_environment();
         if (r < 0)
