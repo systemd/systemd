@@ -20,6 +20,13 @@ CHANGES WITH 261 in spe:
           attestation environments which use hardware CC registers and not the
           TPM quote.
 
+        * systemd-nspawn gained a new --restrict-address-families= option (and
+          corresponding RestrictAddressFamilies= setting in .nspawn files) to
+          restrict which socket address families may be used in the container.
+          This is currently opt-in. In a future version, the default will be
+          changed to restrict socket address families to AF_INET, AF_INET6 and
+          AF_UNIX.
+
         New features:
 
         * A new tmpfiles.d/root.conf has been added that sets permissions
