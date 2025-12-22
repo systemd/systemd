@@ -1094,6 +1094,8 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
 const char* oom_policy_to_string(OOMPolicy i) _const_;
 OOMPolicy oom_policy_from_string(const char *s) _pure_;
 
+int unit_queue_job_check_and_collapse_type(Unit *u, JobType *type, bool reload_if_possible);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full_errno_zerook(unit, level, error, ...)             \
