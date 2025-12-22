@@ -969,7 +969,8 @@ int terminal_reset_ansi_seq(int fd) {
 
         k = loop_write_full(fd,
                             "\033[!p"      /* soft terminal reset */
-                            "\033]104\007" /* reset colors */
+                            "\033]104\007" /* reset colors via OSC104 */
+                            ANSI_NORMAL    /* reset colors */
                             "\033[?7h"     /* enable line-wrapping */
                             "\033[1G"      /* place cursor at beginning of current line */
                             "\033[0J",     /* erase till end of screen */
