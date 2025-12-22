@@ -7013,3 +7013,45 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
                 assert_not_reached();
         }
 }
+
+int unit_queue_job_check_and_collapse_type(
+                Unit *u,
+                JobType *type, /* input and output */
+                bool reload_if_possible) {
+
+        assert(u);
+        assert(type);
+
+        if (reload_if_possible && unit_can_reload(u)) {
+                if (*type == JOB_RESTART)
+                        *type = JOB_RELOAD_OR_START;
+                else if (*type == JOB_TRY_RESTART)
+                        *type = JOB_TRY_RELOAD;
+        }
+
+        if (*type == JOB_STOP && UNIT_IS_LOAD_ERROR(u->load_state) && unit_active_state(u) == UNIT_INACTIVE)
+                return -ENOENT;
+
+        if ((*type == JOB_START && u->refuse_manual_start) ||
+            (*type == JOB_STOP && u->refuse_manual_stop) ||
+            (IN_SET(*type, JOB_RESTART, JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)) ||
+            (*type == JOB_RELOAD_OR_START && job_type_collapse(*type, u) == JOB_START && u->refuse_manual_start))
+                return -EUNATCH;
+
+        /* dbus-broker issues StartUnit for activation requests, and Type=dbus services automatically
+         * gain dependency on dbus.socket. Therefore, if dbus has a pending stop job, the new start
+         * job that pulls in dbus again would cause job type conflict. Let's avoid that by rejecting
+         * job enqueuing early.
+         *
+         * Note that unlike signal_activation_request(), we can't use unit_inactive_or_pending()
+         * here. StartUnit is a more generic interface, and thus users are allowed to use e.g. systemctl
+         * to start Type=dbus services even when dbus is inactive. */
+        if (*type == JOB_START && u->type == UNIT_SERVICE && SERVICE(u)->type == SERVICE_DBUS)
+                FOREACH_STRING(dbus_unit, SPECIAL_DBUS_SOCKET, SPECIAL_DBUS_SERVICE) {
+                        Unit *dbus = manager_get_unit(u->manager, dbus_unit);
+                        if (dbus && unit_stop_pending(dbus))
+                                return -ESHUTDOWN;
+                }
+
+        return 0;
+}
