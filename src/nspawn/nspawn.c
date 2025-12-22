@@ -88,6 +88,7 @@
 #include "nspawn.h"
 #include "nsresource.h"
 #include "os-util.h"
+#include "parse-helpers.h"
 #include "osc-context.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -249,6 +250,8 @@ static char *arg_bind_user_shell = NULL;
 static bool arg_bind_user_shell_copy = false;
 static char **arg_bind_user_groups = NULL;
 static bool arg_suppress_sync = false;
+static Set *arg_restrict_address_families = NULL;
+static bool arg_restrict_address_families_is_allowlist = false;
 static char *arg_settings_filename = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 static ImagePolicy *arg_image_policy = NULL;
@@ -293,6 +296,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_groups, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_restrict_address_families, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
@@ -473,6 +477,9 @@ static int help(void) {
                "     --no-new-privileges    Set PR_SET_NO_NEW_PRIVS flag for container payload\n"
                "     --system-call-filter=LIST|~LIST\n"
                "                            Permit/prohibit specific system calls\n"
+               "     --restrict-address-families=LIST\n"
+               "                            Restrict socket address families to the given\n"
+               "                            allowlist\n"
                "  -Z --selinux-context=SECLABEL\n"
                "                            Set the SELinux security context to be used by\n"
                "                            processes in the container\n"
@@ -744,6 +751,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND_USER_SHELL,
                 ARG_BIND_USER_GROUP,
                 ARG_SUPPRESS_SYNC,
+                ARG_RESTRICT_ADDRESS_FAMILIES,
                 ARG_IMAGE_POLICY,
                 ARG_BACKGROUND,
                 ARG_CLEANUP,
@@ -825,6 +833,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "bind-user-shell",        required_argument, NULL, ARG_BIND_USER_SHELL        },
                 { "bind-user-group",        required_argument, NULL, ARG_BIND_USER_GROUP        },
                 { "suppress-sync",          required_argument, NULL, ARG_SUPPRESS_SYNC          },
+                { "restrict-address-families", required_argument, NULL, ARG_RESTRICT_ADDRESS_FAMILIES },
                 { "image-policy",           required_argument, NULL, ARG_IMAGE_POLICY           },
                 { "background",             required_argument, NULL, ARG_BACKGROUND             },
                 { "cleanup",                no_argument,       NULL, ARG_CLEANUP                },
@@ -1577,6 +1586,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         arg_settings_mask |= SETTING_SUPPRESS_SYNC;
+                        break;
+
+                case ARG_RESTRICT_ADDRESS_FAMILIES:
+                        r = parse_address_families(optarg, &arg_restrict_address_families, &arg_restrict_address_families_is_allowlist);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --restrict-address-families= argument: %s", optarg);
+
+                        arg_settings_mask |= SETTING_RESTRICT_ADDRESS_FAMILIES;
                         break;
 
                 case ARG_IMAGE_POLICY:
@@ -3651,7 +3668,7 @@ static int inner_child(
         } else
 #endif
         {
-                r = setup_seccomp(arg_caps_retain, arg_syscall_allow_list, arg_syscall_deny_list);
+                r = setup_seccomp(arg_caps_retain, arg_syscall_allow_list, arg_syscall_deny_list, arg_restrict_address_families, arg_restrict_address_families_is_allowlist);
                 if (r < 0)
                         return r;
         }
@@ -5139,6 +5156,12 @@ static int merge_settings(Settings *settings, const char *path) {
             settings->suppress_sync >= 0)
                 arg_suppress_sync = settings->suppress_sync;
 
+        if (!FLAGS_SET(arg_settings_mask, SETTING_RESTRICT_ADDRESS_FAMILIES) &&
+            (settings->restrict_address_families || settings->restrict_address_families_is_allowlist)) {
+                set_free_and_replace(arg_restrict_address_families, settings->restrict_address_families);
+                arg_restrict_address_families_is_allowlist = settings->restrict_address_families_is_allowlist;
+        }
+
         /* The following properties can only be set through the OCI settings logic, not from the command line, hence we
          * don't consult arg_settings_mask for them. */
 
@@ -6198,6 +6221,12 @@ static int run(int argc, char *argv[]) {
         r = load_settings();
         if (r < 0)
                 goto finish;
+
+        if (!FLAGS_SET(arg_settings_mask, SETTING_RESTRICT_ADDRESS_FAMILIES) && !arg_restrict_address_families)
+                log_notice("Note: in a future version of systemd-nspawn the default set of permitted socket address"
+                           " families will be restricted to AF_INET, AF_INET6 and AF_UNIX."
+                           " Use --restrict-address-families= to configure the set of permitted socket address"
+                           " families, or set RestrictAddressFamilies= in a .nspawn file.");
 
         /* If we're not unsharing the network namespace and are unsharing the user namespace, we won't have
          * permissions to bind ports in the container, so let's drop the CAP_NET_BIND_SERVICE capability to
