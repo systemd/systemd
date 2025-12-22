@@ -7491,16 +7491,18 @@ int tpm2_nvpcr_read(
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire handle to NV index 0x%" PRIu32 ".", p.nv_index);
 
-        log_debug("Successfully acquired handle to NV index 0x%" PRIx32 ".", p.nv_index);
+        if (nv_handle != NULL) {
+                log_debug("Successfully acquired handle to NV index 0x%" PRIx32 ".", p.nv_index);
 
-        r = tpm2_read_nv_index(
-                        c,
-                        /* session= */ NULL,
-                        p.nv_index,
-                        nv_handle,
-                        ret_value);
-        if (r < 0)
-                return r;
+                r = tpm2_read_nv_index(
+                                c,
+                                /* session= */ NULL,
+                                p.nv_index,
+                                nv_handle,
+                                ret_value);
+                if (r < 0)
+                        return r;
+        }
 
         if (ret_nv_index)
                 *ret_nv_index = p.nv_index;
