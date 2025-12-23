@@ -2736,24 +2736,35 @@ int dissected_image_mount(
                 assert(where);
 
                 if (FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS)) {
+                        log_debug("Checking if '%s' is an OS tree", where);
+
                         r = path_is_os_tree(where);
                         if (r < 0)
-                                return r;
-                        if (r > 0)
+                                return log_debug_errno(r, "Failed to check is '%s' is an OS tree: %m", where);
+                        if (r > 0) {
+                                log_debug("Succesfully identified '%s' as an OS tree", where);
                                 ok = true;
+                        }
                 }
                 if (!ok && FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS_EXT) && m->image_name) {
+                        log_debug("Checking if '%s' is an extension tree", where);
+
                         r = extension_has_forbidden_content(where);
                         if (r < 0)
-                                return r;
+                                return log_debug_errno(r, "Failed to check if '%s' contains content forbidden for an extension image: %m", where);
                         if (r == 0) {
-                                r = path_is_extension_tree(IMAGE_SYSEXT, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_EXTENSION_CHECK));
-                                if (r == 0)
-                                        r = path_is_extension_tree(IMAGE_CONFEXT, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_EXTENSION_CHECK));
+                                ImageClass class = IMAGE_SYSEXT;
+                                r = path_is_extension_tree(class, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_EXTENSION_CHECK));
+                                if (r == 0) {
+                                        class = IMAGE_CONFEXT;
+                                        r = path_is_extension_tree(class, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_EXTENSION_CHECK));
+                                }
                                 if (r < 0)
-                                        return r;
-                                if (r > 0)
+                                        return log_debug_errno(r, "Failed to check if '%s' is an extension tree: %m", where);
+                                if (r > 0) {
+                                        log_debug("Successfully identified '%s' as a %s extension tree", where, image_class_to_string(class));
                                         ok = true;
+                                }
                         }
                 }
 
