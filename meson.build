@@ -1021,11 +1021,10 @@ libdl = cc.find_library('dl')
 
 # On some distributions that use musl (e.g. Alpine), libintl.h may be provided by gettext rather than musl.
 # In that case, we need to explicitly link with libintl.so.
-if cc.has_function('dgettext',
+libintl = []
+if get_option('pam').enabled() and not cc.has_function('dgettext',
                    prefix : '''#include <libintl.h>''',
                    args : '-D_GNU_SOURCE')
-        libintl = []
-else
         libintl = cc.find_library('intl')
         if not cc.has_function('dgettext',
                                prefix : '''#include <libintl.h>''',
