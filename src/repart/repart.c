@@ -538,6 +538,7 @@ struct Context {
 
 #if HAVE_OPENSSL
         X509 *certificate;
+        OpenSSLAskPasswordUI *ui;
         EVP_PKEY *private_key;
 #endif
 
@@ -948,6 +949,7 @@ static Context* context_free(Context *context) {
 
 #if HAVE_OPENSSL
         X509_free(context->certificate);
+        openssl_ask_password_ui_free(context->ui);
         EVP_PKEY_free(context->private_key);
 #endif
 
@@ -8913,7 +8915,7 @@ static int context_load_keys(Context *context) {
                                         .hup_fd = -EBADF,
                                 },
                                 &context->private_key,
-                                /* ret_user_interface= */ NULL);
+                                &context->ui);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
         }
