@@ -42,9 +42,9 @@ StateDirectory=%n
 WantedBy=multi-user.target
 EOF
 
-# Configure the preset setting for the unit file
+# Configure a "disable" preset setting for the unit file
 mkdir /run/systemd/system-preset/
-echo "disable $UNIT_NAME" >/run/systemd/system-preset/99-systemd-test.preset
+echo "disable $UNIT_NAME" >/run/systemd/system-preset/99-systemd-test-disable.preset
 
 EDITOR='true' script -ec 'systemctl edit "$UNIT_NAME"' /dev/null
 [ ! -e "/etc/systemd/system/$UNIT_NAME.d/override.conf" ]
@@ -162,8 +162,8 @@ systemctl stop "$UNIT_NAME"
 
 assert_eq "$(systemctl is-system-running)" "$(systemctl is-failed)"
 
-# enable/disable/preset
-test_enable_disable_preset() {
+# enable/disable/preset disable
+test_enable_disable_preset_disable() {
     (! systemctl is-enabled "$@" "$UNIT_NAME")
     systemctl enable "$@" "$UNIT_NAME"
     systemctl is-enabled "$@" -l "$UNIT_NAME"
@@ -173,6 +173,8 @@ test_enable_disable_preset() {
     systemctl reenable "$@" "$UNIT_NAME"
     systemctl is-enabled "$@" "$UNIT_NAME"
     systemctl preset "$@" --preset-mode=enable-only "$UNIT_NAME"
+    systemctl is-enabled "$@" "$UNIT_NAME"
+    systemctl preset "$@" --preset-mode=mask-only "$UNIT_NAME"
     systemctl is-enabled "$@" "$UNIT_NAME"
     systemctl preset "$@" --preset-mode=disable-only "$UNIT_NAME"
     (! systemctl is-enabled "$@" "$UNIT_NAME")
@@ -186,8 +188,8 @@ test_enable_disable_preset() {
     (! systemctl is-enabled "$@" "$UNIT_NAME")
 }
 
-test_enable_disable_preset
-test_enable_disable_preset --root=/
+test_enable_disable_preset_disable
+test_enable_disable_preset_disable --root=/
 
 # mask/unmask/revert
 test_mask_unmask_revert() {
@@ -212,6 +214,35 @@ test_mask_unmask_revert() {
 
 test_mask_unmask_revert
 test_mask_unmask_revert --root=/
+
+# Configure a "mask" preset setting for the unit file
+echo "mask $UNIT_NAME" >/run/systemd/system-preset/98-systemd-test-mask.preset
+
+# enable/disable/preset mask
+test_enable_disable_preset_mask() {
+    (! systemctl is-enabled "$@" "$UNIT_NAME")
+    systemctl enable "$@" "$UNIT_NAME"
+    systemctl is-enabled "$@" -l "$UNIT_NAME"
+    systemctl preset "$@" "$UNIT_NAME"
+    [[ "$(systemctl is-enabled "$@" "$UNIT_NAME")" == masked ]]
+    systemctl unmask "$@" "$UNIT_NAME"
+    systemctl is-enabled "$@" "$UNIT_NAME"
+    systemctl preset "$@" --preset-mode=enable-only "$UNIT_NAME"
+    systemctl is-enabled "$@" "$UNIT_NAME"
+    systemctl preset "$@" --preset-mode=disable-only "$UNIT_NAME"
+    systemctl is-enabled "$@" "$UNIT_NAME"
+    systemctl preset "$@" --preset-mode=mask-only "$UNIT_NAME"
+    [[ "$(systemctl is-enabled "$@" "$UNIT_NAME")" == masked ]]
+    systemctl revert "$@" "$UNIT_NAME"
+    [[ "$(systemctl is-enabled "$@" "$UNIT_NAME")" == masked ]]
+    systemctl unmask "$@" "$UNIT_NAME"
+    systemctl is-enabled "$@" "$UNIT_NAME"
+    systemctl disable "$@" "$UNIT_NAME"
+    (! systemctl is-enabled "$@" "$UNIT_NAME")
+}
+
+test_enable_disable_preset_mask
+test_enable_disable_preset_mask --root=/
 
 # disable --now with template unit
 cat >/run/systemd/system/test-disable@.service <<EOF

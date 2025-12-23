@@ -1694,7 +1694,7 @@
           <para>Note that the service manager itself will perform setup steps during First Boot: it will
           initialize
           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
-          preset all units, enabling or disabling them according to the
+          preset all units, enabling, disabling, or masking them according to the
           <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           settings. Additional setup may be performed via units with
           <varname>ConditionFirstBoot=yes</varname>.</para>

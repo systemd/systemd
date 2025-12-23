@@ -178,7 +178,7 @@ _systemctl () {
                 comps=$(__systemd_properties)
                 ;;
             --preset-mode)
-                comps='full enable-only disable-only'
+                comps='full enable-only disable-only mask-only'
                 ;;
             --output|-o)
                 comps=$( systemctl --output=help 2>/dev/null )
