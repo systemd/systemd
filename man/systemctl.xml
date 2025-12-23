@@ -997,18 +997,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>preset <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
-            <para>Reset the enable/disable status of one or more unit files, as specified on
-            the command line, to the defaults configured in the preset policy files. This
-            has the same effect as <command>disable</command> or
-            <command>enable</command>, depending how the unit is listed in the preset
+            <para>Reset the enable/disable/mask status of one or more unit files, as specified on the command line, to
+            the defaults configured in the preset policy files. This has the same effect as <command>disable</command>,
+            <command>enable</command>, or <command>mask</command>, depending how the unit is listed in the preset
             files.</para>
 
-            <para>Use <option>--preset-mode=</option> to control whether units shall be
-            enabled and disabled, or only enabled, or only disabled.</para>
+            <para>Use <option>--preset-mode=</option> to control whether units shall be enabled, disabled, and masked,
+            or only enabled, or only disabled, or only masked.</para>
 
-            <para>If the unit carries no install information, it will be silently ignored
-            by this command. <replaceable>UNIT</replaceable> must be the real unit name,
-            any alias names are ignored silently.</para>
+            <para>If the unit carries no install information, it will be silently ignored by this command for the
+            enable/disable directives. <replaceable>UNIT</replaceable> must be the real unit name, any alias names are
+            ignored silently.</para>
 
             <para>For more information on the preset policy format, see
             <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
@@ -1022,12 +1021,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>preset-all</command></term>
 
           <listitem>
-            <para>Resets all installed unit files to the defaults
-            configured in the preset policy file (see above).</para>
+            <para>Resets all installed unit files to the defaults configured in the preset policy file (see above).
+            </para>
 
-            <para>Use <option>--preset-mode=</option> to control
-            whether units shall be enabled and disabled, or only
-            enabled, or only disabled.</para>
+            <para>Use <option>--preset-mode=</option> to control whether units shall be enabled, disabled, and masked,
+            or only enabled, or only disabled, or only masked.</para>
 
             <xi:include href="version-info.xml" xpointer="v215"/>
           </listitem>
@@ -1204,7 +1202,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             removed, too. Note that if a unit file has no vendor-supplied version (i.e. is only defined below
             <filename>/etc/systemd/system</filename> or <filename>/run/systemd/system</filename>, but not in a unit
             file stored below <filename>/usr/</filename>), then it is not removed. Also, if a unit is masked, it is
-            unmasked.</para>
+            unmasked. This does not apply if a unit is masked by a preset policy.</para>
 
             <para>Effectively, this command may be used to undo all changes made with <command>systemctl
             edit</command>, <command>systemctl set-property</command> and <command>systemctl mask</command> and puts
@@ -2680,13 +2678,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--preset-mode=</option></term>
 
         <listitem>
-          <para>Takes one of <literal>full</literal> (the default),
-          <literal>enable-only</literal>,
-          <literal>disable-only</literal>. When used with the
-          <command>preset</command> or <command>preset-all</command>
-          commands, controls whether units shall be disabled and
-          enabled according to the preset rules, or only enabled, or
-          only disabled.</para>
+          <para>Takes one of <literal>full</literal> (the default), <literal>enable-only</literal>,
+          <literal>disable-only</literal>, <literal>mask-only</literal>. When used with the <command>preset</command>
+          or <command>preset-all</command> commands, controls whether units shall be disabled, enabled, and masked
+          according to the preset rules, or only enabled, or only disabled, or only masked.</para>
 
           <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
