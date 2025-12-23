@@ -1024,6 +1024,33 @@ RestrictNetworkInterfaces=~eth1</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BindNetworkInterface=</varname></term>
+
+        <listitem>
+          <para>Takes the name of a network interface. This option causes every socket created by processes of this
+          unit to be bound to the specified network interface.
+          </para>
+
+          <para>It is specially useful to confine a process to a VRF, when the program does not offer native support
+          for it. It is equivalent to running the program using <constant>ip vrf exec</constant>.
+          </para>
+
+          <para>In systems using <filename>nss-resolve</filename>, the interface used for DNS resolution can be chosen
+          by using the <varname>SYSTEMD_NSS_RESOLVE_IFINDEX</varname> environment variable.</para>
+
+          <para>The feature is implemented with <constant>cgroup/sock_create</constant> cgroup-bpf hooks.</para>
+
+          <para>Example:<programlisting>[Service]
+BindNetworkInterface=vrf-mgmt
+</programlisting></para>
+
+          <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>NFTSet=</varname><replaceable>family</replaceable>:<replaceable>table</replaceable>:<replaceable>set</replaceable></term>
         <listitem>
           <para>This setting provides a method for integrating dynamic cgroup, user and group IDs into
