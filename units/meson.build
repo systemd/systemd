@@ -310,7 +310,7 @@ units = [
         {
           'file' : 'systemd-coredump.socket',
           'conditions' : ['ENABLE_COREDUMP'],
-          'symlinks' : ['sockets.target.wants/'],
+          'symlinks' : ['sockets.target.wants/', 'system-update-pre.target.wants/'],
         },
         {
           'file' : 'systemd-coredump@.service.in',
