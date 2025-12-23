@@ -633,7 +633,7 @@ static void check_partition_flags(
 }
 #endif
 
-static int make_image_name(const char *path, char **ret) {
+int dissected_image_name_from_path(const char *path, char **ret) {
         int r;
 
         assert(path);
@@ -668,7 +668,7 @@ static int dissected_image_new(const char *path, DissectedImage **ret) {
         assert(ret);
 
         if (path) {
-                r = make_image_name(path, &name);
+                r = dissected_image_name_from_path(path, &name);
                 if (r < 0)
                         return r;
         }
@@ -5295,7 +5295,7 @@ int mountfsd_mount_image(
                 return r;
 
         if (!di->image_name) {
-                r = make_image_name(path, &di->image_name);
+                r = dissected_image_name_from_path(path, &di->image_name);
                 if (r < 0)
                         return r;
         }
