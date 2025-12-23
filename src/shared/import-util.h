@@ -6,6 +6,7 @@
 typedef enum ImportType {
         IMPORT_RAW,
         IMPORT_TAR,
+        IMPORT_OCI,
         _IMPORT_TYPE_MAX,
         _IMPORT_TYPE_INVALID = -EINVAL,
 } ImportType;

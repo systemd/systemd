@@ -136,6 +136,12 @@ node /org/freedesktop/import1 {
                 in  t flags,
                 out u transfer_id,
                 out o transfer_path);
+      PullOci(in  s ref,
+              in  s local_name,
+              in  s class,
+              in  t flags,
+              out u transfer_id,
+              out o transfer_path);
       ListTransfers(out a(usssdo) transfers);
       ListTransfersEx(in  s class,
                       in  t flags,
@@ -190,6 +196,8 @@ node /org/freedesktop/import1 {
     <variablelist class="dbus-method" generated="True" extra-ref="PullRaw()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="PullRawEx()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="PullOci()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ListTransfers()"/>
 
@@ -289,6 +297,19 @@ node /org/freedesktop/import1 {
       <function>…_Ex()</function> variants also expect an image class string (as above). Like the import and
       export calls above, these calls return a pair of transfer identifier and object path for the ongoing
       download.</para>
+
+      <para><function>PullOci()</function> is similar to <function>PullTarEx()</function> or
+      <function>PullRawEx()</function> and may be used to download and import an OCI container image from an
+      OCI registry. It takes an OCI container reference as argument. The second argument is a local name for
+      the image (which will be generated as
+      <citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      directory referencing the OCI layers). It should be suitable as a hostname, similarly to the matching
+      argument of the <function>PullTar()</function>/<function>PullTarEx()</function> and
+      <function>PullRaw()</function>/<function>PullRawEx()</function> methods above. The last argument is a
+      64bit flags parameter, where bit 0 controls the <literal>force</literal> flag, bit 1 is a
+      <literal>read_only</literal> flag that controls whether the created image shall be marked
+      read-only. Like the pull calls above, this call return a pair of transfer identifier and object path
+      for the ongoing download.</para>
 
       <para><function>ImportFileSystem()</function>/<function>ImportFileSystemEx()</function> are similar to
       <function>ImportTar()</function>/<function>ImportTarEx()</function> but import a directory tree. The
@@ -464,6 +485,7 @@ node /org/freedesktop/import1/transfer/_1 {
       <function>ExportRawEx()</function>, <function>PullTarEx()</function>, <function>PullRawEx()</function>,
       <function>ListTransfersEx()</function>, <function>ListImages()</function> were added in version
       256.</para>
+      <para><function>PullOci()</function> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Transfer Objects</title>

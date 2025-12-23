@@ -132,6 +132,7 @@ shared_sources = files(
         'module-util.c',
         'mount-setup.c',
         'mount-util.c',
+        'mstack.c',
         'net-condition.c',
         'netif-naming-scheme.c',
         'netif-sriov.c',

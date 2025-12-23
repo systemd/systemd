@@ -147,8 +147,8 @@ static int open_inode_finalize(OpenInode *of) {
                 /* We adjust the UID/GID right before the mode, since doing this might affect the mode (drops
                  * suid/sgid bits).
                  *
-                 * We adjust the mode only when leaving a dir, because if we are unpriv we might lose the
-                 * ability to enter it once we do this. */
+                 * We adjust the mode only when leaving a dir, because if we are unprivileged we might lose
+                 * the ability to enter it once we do this. */
 
                 if (uid_is_valid(of->uid) || gid_is_valid(of->gid) || of->mode != MODE_INVALID) {
                         k = fchmod_and_chown_with_fallback(of->fd, /* path= */ NULL, of->mode, of->uid, of->gid);
@@ -289,6 +289,109 @@ fail:
                 (void) unlinkat(parent_fd, tmp, /* flags= */ 0);
 
         return r;
+}
+
+static int overlayfs_fsetfattr(
+                int fd,
+                const char *path,  /* purely decorative, for log purposes */
+                const char *name,  /* xattr key name */
+                const char *value  /* xattr value */) {
+        int r;
+
+        assert(fd >= 0);
+        assert(path);
+        assert(name);
+        assert(value);
+
+        /* overlayfs knows magic {user|trusted}.overlay.* xattrs for whiteouts and opaque directories. The
+         * 'user.overlay.*' ones are only checked if overlayfs is mounted with "userxattr". We set both here,
+         * to maximize the chance that things work both in privileged and unprivileged scenarios */
+        _cleanup_free_ char *n = strjoin("user.overlay.", name);
+        if (!n)
+                return log_oom();
+
+        /* Set the unprivileged version */
+        r = xsetxattr(fd, /* path= */ NULL, AT_EMPTY_PATH, n, value);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set '%s' xattr on file '%s': %m", n, path);
+
+        free(n);
+        n = strjoin("trusted.overlay.", name);
+        if (!n)
+                return log_oom();
+
+        /* Also try to set the privileged version, and be somewhat graceful when it comes to lack of privileges */
+        r = xsetxattr(fd, /* path= */ NULL, AT_EMPTY_PATH, n, value);
+        if (r < 0) {
+                if (!ERRNO_IS_NEG_PRIVILEGE(r))
+                        return log_error_errno(r, "Failed to set '%s' xattr on file '%s': %m", n, path);
+
+                log_debug_errno(r, "Lacking privileges to set '%s' xattr on file '%s', ignoring: %m", n, path);
+        }
+
+        return 0;
+}
+
+static int archive_unpack_whiteout(
+                struct archive *a,
+                struct archive_entry *entry,
+                int parent_fd,
+                const char *parent_path,      /* Full path of 'parent_fd', purely decorative for log purposes */
+                const char *filename,         /* Just the filename we are supposed to whiteout */
+                const char *path              /* Full path of the whiteout file, purely decorative for log purposes */) {
+
+        int r;
+
+        assert(a);
+        assert(entry);
+        assert(parent_fd >= 0);
+        assert(parent_path);
+        assert(filename);
+        assert(path);
+
+        _cleanup_free_ char *tmp = NULL;
+        _cleanup_close_ int fd = open_tmpfile_linkable_at(parent_fd, filename, O_CLOEXEC|O_WRONLY, &tmp);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to create whiteout file for '%s': %m", path);
+
+        r = overlayfs_fsetfattr(fd, path, "whiteout", "y");
+        if (r < 0)
+                goto fail;
+
+        /* As per https://docs.kernel.org/filesystems/overlayfs.html also mark the parent */
+        r = overlayfs_fsetfattr(parent_fd, parent_path, "opaque", "x");
+        if (r < 0)
+                goto fail;
+
+        r = link_tmpfile_at(fd, parent_fd, tmp, filename, LINK_TMPFILE_REPLACE);
+        if (r < 0) {
+                log_error_errno(r, "Failed to install regular file '%s': %m", path);
+                goto fail;
+        }
+
+        return 0; /* we do not return an fd here, because this kills an inode, and doesn't synthesize one */
+
+fail:
+        if (tmp)
+                (void) unlinkat(parent_fd, tmp, /* flags= */ 0);
+
+        return r;
+}
+
+static int archive_unpack_opaque(
+                struct archive *a,
+                struct archive_entry *entry,
+                int parent_fd,
+                const char *parent_path) {
+
+        assert(a);
+        assert(entry);
+        assert(parent_fd >= 0);
+        assert(parent_path);
+
+        /* we do not return an fd here either */
+
+        return overlayfs_fsetfattr(parent_fd, parent_path, "opaque", "y");
 }
 
 static int archive_unpack_directory(
@@ -920,15 +1023,42 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                 switch (filetype) {
 
                                 case S_IFREG:
+                                        if (FLAGS_SET(flags, TAR_OCI_WHITEOUTS)) {
+                                                if (streq(e, ".wh..wh..opq")) {
+                                                        r = archive_unpack_opaque(a, entry, parent_fd, empty_to_root(parent_path));
+                                                        if (r < 0)
+                                                                return r;
+
+                                                        /* NB: this does not create an inode! */
+                                                        break;
+                                                }
+
+                                                const char *w = startswith(e, ".wh.");
+                                                if (w) {
+                                                        r = archive_unpack_whiteout(a, entry, parent_fd, empty_to_root(parent_path), w, j);
+                                                        if (r < 0)
+                                                                return r;
+
+                                                        /* NB: this does not create an inode! */
+                                                        break;
+                                                }
+                                        }
+
                                         fd = archive_unpack_regular(a, entry, parent_fd, e, j, fflags);
+                                        if (fd < 0)
+                                                return fd;
                                         break;
 
                                 case S_IFDIR:
                                         fd = archive_unpack_directory(a, entry, parent_fd, e, j, fflags);
+                                        if (fd < 0)
+                                                return fd;
                                         break;
 
                                 case S_IFLNK:
                                         fd = archive_unpack_symlink(a, entry, parent_fd, e, j);
+                                        if (fd < 0)
+                                                return fd;
                                         break;
 
                                 case S_IFCHR:
@@ -936,6 +1066,8 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                 case S_IFIFO:
                                 case S_IFSOCK:
                                         fd = archive_unpack_special_inode(a, entry, parent_fd, e, j, filetype);
+                                        if (fd < 0)
+                                                return fd;
                                         break;
 
                                 default:
@@ -943,9 +1075,6 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                                         SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                         "Unexpected file type %i of '%s', refusing.", (int) filetype, j);
                                 }
-                                if (fd < 0)
-                                        return fd;
-
                         } else {
                                 /* This is some intermediary node in the path that we haven't opened yet. Create it with default attributes */
                                 fd = open_mkdir_at(parent_fd, e, O_CLOEXEC, 0700);
@@ -961,22 +1090,24 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                          * fully done with the inode (i.e. after creating further inodes inside of dir inodes
                          * for example), due to permission problems this might create or that the mtime
                          * changes we do might still be affected by our changes. */
-                        open_inodes[n_open_inodes++] = (OpenInode) {
-                                .fd = TAKE_FD(fd),
-                                .path = TAKE_PTR(j),
-                                .filetype = filetype,
-                                .mode = mode,
-                                .mtime = mtime,
-                                .uid = uid,
-                                .gid = gid,
-                                .fflags = fflags,
-                                .acl_access = TAKE_PTR(acl_access),
-                                .acl_default = TAKE_PTR(acl_default),
-                                .xattr = TAKE_PTR(xa),
-                                .n_xattr = n_xa,
-                        };
+                        if (fd >= 0) {
+                                open_inodes[n_open_inodes++] = (OpenInode) {
+                                        .fd = TAKE_FD(fd),
+                                        .path = TAKE_PTR(j),
+                                        .filetype = filetype,
+                                        .mode = mode,
+                                        .mtime = mtime,
+                                        .uid = uid,
+                                        .gid = gid,
+                                        .fflags = fflags,
+                                        .acl_access = TAKE_PTR(acl_access),
+                                        .acl_default = TAKE_PTR(acl_default),
+                                        .xattr = TAKE_PTR(xa),
+                                        .n_xattr = n_xa,
+                                };
 
-                        n_xa = 0;
+                                n_xa = 0;
+                        }
                 }
         }
 
