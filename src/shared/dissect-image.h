@@ -177,6 +177,7 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
 int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 
 int dissected_image_acquire_metadata(DissectedImage *m, int userns_fd, DissectImageFlags extra_flags);
+int dissected_image_name_from_path(const char *path, char **ret);
 
 Architecture dissected_image_architecture(DissectedImage *m);
 
