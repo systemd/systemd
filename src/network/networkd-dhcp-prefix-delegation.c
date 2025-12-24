@@ -157,6 +157,9 @@ static int dhcp_pd_get_assigned_subnet_prefix(Link *link, const struct in6_addr 
         return -ENOENT;
 }
 
+/* Forward declaration for use in dhcp_pd_remove */
+static void dhcp_pd_route_modify_nft_set(Route *route, Link *link, bool add);
+
 int dhcp_pd_remove(Link *link, bool only_marked) {
         int ret = 0;
 
@@ -184,6 +187,9 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
                                 sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
 
                         link_remove_dhcp_pd_subnet_prefix(link, &route->dst.in6);
+
+                        /* Remove NFTSet entries before removing the route */
+                        dhcp_pd_route_modify_nft_set(route, link, /* add = */ false);
 
                         RET_GATHER(ret, route_remove_and_cancel(route, link->manager));
                 }
@@ -274,6 +280,60 @@ static int dhcp_pd_check_ready(Link *link) {
         return 1;
 }
 
+static void dhcp_pd_route_modify_nft_set(Route *route, Link *link, bool add) {
+        int r;
+
+        assert(route);
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        if (!link->manager->nfnl)
+                return;
+
+        if (route->family != AF_INET6)
+                return;
+
+        if (route->source != NETWORK_CONFIG_SOURCE_DHCP_PD)
+                return;
+
+        NFTSetContext *nft_set_context = &link->network->dhcp_pd_nft_set_context;
+
+        FOREACH_ARRAY(nft_set, nft_set_context->sets, nft_set_context->n_sets) {
+                assert(nft_set);
+
+                switch (nft_set->source) {
+                case NFT_SET_SOURCE_ADDRESS:
+                        r = nft_set_element_modify_ip(link->manager->nfnl, add, nft_set->nfproto, route->family, nft_set->table, nft_set->set,
+                                                      &route->dst);
+                        break;
+                case NFT_SET_SOURCE_PREFIX:
+                        r = nft_set_element_modify_iprange(link->manager->nfnl, add, nft_set->nfproto, route->family, nft_set->table, nft_set->set,
+                                                           &route->dst, route->dst_prefixlen);
+                        break;
+                case NFT_SET_SOURCE_IFINDEX: {
+                        uint32_t ifindex = link->ifindex;
+                        r = nft_set_element_modify_any(link->manager->nfnl, add, nft_set->nfproto, nft_set->table, nft_set->set,
+                                                       &ifindex, sizeof(ifindex));
+                        break;
+                }
+                default:
+                        assert_not_reached();
+                }
+
+                if (r < 0)
+                        log_warning_errno(r, "Failed to %s NFT set entry: family %s, table %s, set %s, IP prefix %s, ignoring: %m",
+                                          add ? "add" : "delete",
+                                          nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set,
+                                          IN_ADDR_PREFIX_TO_STRING(route->family, &route->dst, route->dst_prefixlen));
+                else
+                        log_debug("%s NFT set entry: family %s, table %s, set %s, IP prefix %s",
+                                  add ? "Added" : "Deleted",
+                                  nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set,
+                                  IN_ADDR_PREFIX_TO_STRING(route->family, &route->dst, route->dst_prefixlen));
+        }
+}
+
 static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
@@ -284,6 +344,9 @@ static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
+
+        /* Update NFTSet entries when route is successfully configured */
+        dhcp_pd_route_modify_nft_set(route, link, /* add = */ true);
 
         r = dhcp_pd_check_ready(link);
         if (r < 0)
