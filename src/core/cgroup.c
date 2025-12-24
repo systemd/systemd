@@ -4460,11 +4460,14 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
                 return 1;
 
         if (STR_IN_SET(key, "ipv4-socket-bind-bpf-link-fd", "ipv6-socket-bind-bpf-link-fd")) {
-                int fd;
+                _cleanup_close_ int fd = -EBADF;
 
                 fd = deserialize_fd(fds, value);
-                if (fd >= 0)
-                        (void) bpf_socket_bind_add_initial_link_fd(u, fd);
+                if (fd >= 0) {
+                        r = bpf_socket_bind_add_initial_link_fd(u, fd);
+                        if (r >= 0)
+                                TAKE_FD(fd);
+                }
 
                 return 1;
         }
@@ -4498,11 +4501,15 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
         }
 
         if (streq(key, "restrict-ifaces-bpf-fd")) {
-                int fd;
+                _cleanup_close_ int fd = -EBADF;
 
                 fd = deserialize_fd(fds, value);
-                if (fd >= 0)
-                        (void) bpf_restrict_ifaces_add_initial_link_fd(u, fd);
+                if (fd >= 0) {
+                        r = bpf_restrict_ifaces_add_initial_link_fd(u, fd);
+                        if (r >= 0)
+                                TAKE_FD(fd);
+                }
+
                 return 1;
         }
 
