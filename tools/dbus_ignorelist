@@ -751,7 +751,6 @@ org.freedesktop.systemd1.Mount.AmbientCapabilities
 org.freedesktop.systemd1.Mount.AppArmorProfile
 org.freedesktop.systemd1.Mount.AttachProcesses()
 org.freedesktop.systemd1.Mount.BPFProgram
-org.freedesktop.systemd1.Mount.BindNetworkInterface
 org.freedesktop.systemd1.Mount.BindPaths
 org.freedesktop.systemd1.Mount.BindReadOnlyPaths
 org.freedesktop.systemd1.Mount.BlockIOAccounting
@@ -1019,7 +1018,6 @@ org.freedesktop.systemd1.Scope.AllowedCPUs
 org.freedesktop.systemd1.Scope.AllowedMemoryNodes
 org.freedesktop.systemd1.Scope.AttachProcesses()
 org.freedesktop.systemd1.Scope.BPFProgram
-org.freedesktop.systemd1.Scope.BindNetworkInterface
 org.freedesktop.systemd1.Scope.BlockIOAccounting
 org.freedesktop.systemd1.Scope.BlockIODeviceWeight
 org.freedesktop.systemd1.Scope.BlockIOReadBandwidth
@@ -1109,7 +1107,6 @@ org.freedesktop.systemd1.Service.AppArmorProfile
 org.freedesktop.systemd1.Service.AttachProcesses()
 org.freedesktop.systemd1.Service.BPFProgram
 org.freedesktop.systemd1.Service.BindMount()
-org.freedesktop.systemd1.Service.BindNetworkInterface
 org.freedesktop.systemd1.Service.BindPaths
 org.freedesktop.systemd1.Service.BindReadOnlyPaths
 org.freedesktop.systemd1.Service.BlockIOAccounting
@@ -1412,7 +1409,6 @@ org.freedesktop.systemd1.Slice.AllowedCPUs
 org.freedesktop.systemd1.Slice.AllowedMemoryNodes
 org.freedesktop.systemd1.Slice.AttachProcesses()
 org.freedesktop.systemd1.Slice.BPFProgram
-org.freedesktop.systemd1.Slice.BindNetworkInterface
 org.freedesktop.systemd1.Slice.BlockIOAccounting
 org.freedesktop.systemd1.Slice.BlockIODeviceWeight
 org.freedesktop.systemd1.Slice.BlockIOReadBandwidth
@@ -1491,7 +1487,6 @@ org.freedesktop.systemd1.Socket.AttachProcesses()
 org.freedesktop.systemd1.Socket.BPFProgram
 org.freedesktop.systemd1.Socket.Backlog
 org.freedesktop.systemd1.Socket.BindIPv6Only
-org.freedesktop.systemd1.Socket.BindNetworkInterface
 org.freedesktop.systemd1.Socket.BindPaths
 org.freedesktop.systemd1.Socket.BindReadOnlyPaths
 org.freedesktop.systemd1.Socket.BindToDevice
@@ -1791,7 +1786,6 @@ org.freedesktop.systemd1.Swap.AmbientCapabilities
 org.freedesktop.systemd1.Swap.AppArmorProfile
 org.freedesktop.systemd1.Swap.AttachProcesses()
 org.freedesktop.systemd1.Swap.BPFProgram
-org.freedesktop.systemd1.Swap.BindNetworkInterface
 org.freedesktop.systemd1.Swap.BindPaths
 org.freedesktop.systemd1.Swap.BindReadOnlyPaths
 org.freedesktop.systemd1.Swap.BlockIOAccounting
