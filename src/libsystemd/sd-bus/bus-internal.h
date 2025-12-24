@@ -255,8 +255,10 @@ typedef struct sd_bus {
 
         uint64_t creds_mask;
 
+        /* Accumulated fds from multiple recvmsg() calls for a single D-Bus message */
         int *fds;
         size_t n_fds;
+        bool got_ctrunc; /* MSG_CTRUNC was seen during any recvmsg() */
 
         char *exec_path;
         char **exec_argv;

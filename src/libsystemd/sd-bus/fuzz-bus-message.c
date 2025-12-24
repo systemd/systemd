@@ -23,7 +23,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(buffer = memdup(data, size));
 
-        r = bus_message_from_malloc(bus, buffer, size, NULL, 0, NULL, &m);
+        r = bus_message_from_malloc(bus, buffer, size, NULL, 0, /* got_ctrunc= */ false, NULL, &m);
         if (r == -EBADMSG)
                 return 0;
         assert_se(r >= 0);

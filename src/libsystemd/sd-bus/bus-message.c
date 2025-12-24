@@ -17,7 +17,7 @@
 #include "utf8.h"
 
 static int message_append_basic(sd_bus_message *m, char type, const void *p, const void **stored);
-static int message_parse_fields(sd_bus_message *m);
+static int message_parse_fields(sd_bus_message *m, bool got_ctrunc);
 
 static void* adjust_pointer(const void *p, void *old_base, size_t sz, void *new_base) {
 
@@ -408,6 +408,7 @@ int bus_message_from_malloc(
                 size_t length,
                 int *fds,
                 size_t n_fds,
+                bool got_ctrunc,
                 const char *label,
                 sd_bus_message **ret) {
 
@@ -437,7 +438,7 @@ int bus_message_from_malloc(
         m->iovec = m->iovec_fixed;
         m->iovec[0] = IOVEC_MAKE(buffer, length);
 
-        r = message_parse_fields(m);
+        r = message_parse_fields(m, got_ctrunc);
         if (r < 0)
                 return r;
 
@@ -4029,8 +4030,8 @@ static int message_skip_fields(
         }
 }
 
-static int message_parse_fields(sd_bus_message *m) {
-        uint32_t unix_fds = 0;
+static int message_parse_fields(sd_bus_message *m, bool got_ctrunc) {
+        uint32_t n_unix_fds_declared = 0;
         bool unix_fds_set = false;
         int r;
 
@@ -4183,7 +4184,7 @@ static int message_parse_fields(sd_bus_message *m) {
                         if (!streq(signature, "u"))
                                 return -EBADMSG;
 
-                        r = message_peek_field_uint32(m, &ri, item_size, &unix_fds);
+                        r = message_peek_field_uint32(m, &ri, item_size, &n_unix_fds_declared);
                         if (r < 0)
                                 return -EBADMSG;
 
@@ -4197,8 +4198,29 @@ static int message_parse_fields(sd_bus_message *m) {
                         return r;
         }
 
-        if (m->n_fds != unix_fds)
-                return -EBADMSG;
+        /* Validate that the number of fds we actually received via SCM_RIGHTS matches (or is compatible
+         * with) the number declared in the message header.
+         *
+         * Normally these must match exactly. However, when MSG_CTRUNC was set during recvmsg(), the kernel
+         * should have truncated the fd array (e.g., due to LSM denials blocking fd passing). In that case,
+         * we accept strictly fewer fds than declared. Any attempt to actually use a truncated fd will fail
+         * later when sd_bus_message_read_basic() finds the fd index out of range. */
+        if (got_ctrunc) {
+                /* MSG_CTRUNC?  We need to see strictly fewer fds than the header declares. */
+                if (m->n_fds >= n_unix_fds_declared) {
+                        log_error("Received a bus message with MSG_CTRUNC with %u fds received vs. %u declared", m->n_fds, n_unix_fds_declared);
+                        return -EBADMSG;
+                }
+
+                /* Log a message even in the "expected" case: it'll help people track down LSM weirdness */
+                log_warning("Received a bus message with truncated fds: %u received vs. %u sent", m->n_fds, n_unix_fds_declared);
+        } else {
+                /* No CTRUNC?  Needs to be an exact match. */
+                if (m->n_fds != n_unix_fds_declared) {
+                        log_error("Received a bus message without MSG_CTRUNC with %u fds received vs %u declared", m->n_fds, n_unix_fds_declared);
+                        return -EBADMSG;
+                }
+        }
 
         switch (m->header->type) {
 
