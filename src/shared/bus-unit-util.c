@@ -2370,6 +2370,7 @@ static const BusProperty cgroup_properties[] = {
         { "SocketBindDeny",                        bus_append_socket_filter                      },
         { "MemoryPressureThresholdSec",            bus_append_parse_sec_rename                   },
         { "NFTSet",                                bus_append_nft_set                            },
+        { "BindNetworkInterface",                  bus_append_string                             },
 
         /* While infinity is disallowed in unit file, infinity is allowed in D-Bus API which
          * means use the default memory pressure duration from oomd.conf. */
@@ -2551,7 +2552,6 @@ static const BusProperty execute_properties[] = {
         { "StateDirectoryAccounting",              bus_append_parse_boolean                      },
         { "CacheDirectoryAccounting",              bus_append_parse_boolean                      },
         { "LogsDirectoryAccounting",               bus_append_parse_boolean                      },
-        { "BindNetworkInterface",                  bus_append_string                             },
 
         { NULL, bus_try_append_resource_limit,     dump_resource_limits                          },
         {}
