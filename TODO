@@ -1774,9 +1774,6 @@ Features:
 * Figure out naming of verbs in systemd-analyze: we have (singular) capability,
   exit-status, but (plural) filesystems, architectures.
 
-* Add service setting to run a service within the specified VRF. i.e. do the
-  equivalent of "ip vrf exec".
-
 * special case some calls of chase() to use openat2() internally, so
   that the kernel does what we otherwise do.
 
