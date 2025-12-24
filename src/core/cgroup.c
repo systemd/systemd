@@ -571,7 +571,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 fprintf(f, "%sDelegateSubgroup: %s\n",
                         prefix, c->delegate_subgroup);
 
-        if (!isempty(c->bind_network_interface))
+        if (c->bind_network_interface)
                 fprintf(f, "%sBindNetworkInterface: %s\n",
                         prefix, c->bind_network_interface);
 
@@ -1698,7 +1698,7 @@ static bool unit_get_needs_bind_network_interface(Unit *u) {
         if (!c)
                 return false;
 
-        return !isempty(c->bind_network_interface);
+        return c->bind_network_interface;
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
@@ -3050,9 +3050,7 @@ int unit_check_oom(Unit *u) {
         if (!crt || !crt->cgroup_path)
                 return 0;
 
-        CGroupContext *ctx = unit_get_cgroup_context(u);
-        if (!ctx)
-                return 0;
+        CGroupContext *ctx = ASSERT_PTR(unit_get_cgroup_context(u));
 
         /* If memory.oom.group=1, then look up the oom_group_kill field, which reports how many times the
          * kernel killed every process recursively in this cgroup and its descendants, similar to
@@ -4201,6 +4199,8 @@ CGroupRuntime* cgroup_runtime_new(void) {
                 .ipv4_deny_map_fd = -EBADF,
                 .ipv6_deny_map_fd = -EBADF,
 
+                .initial_bind_network_interface_link_fd = -EBADF,
+
                 .cgroup_invalidated_mask = _CGROUP_MASK_ALL,
 
                 .deserialized_cgroup_realized = -1,
@@ -4235,6 +4235,7 @@ CGroupRuntime* cgroup_runtime_free(CGroupRuntime *crt) {
 #endif
 
         fdset_free(crt->initial_restrict_ifaces_link_fds);
+        safe_close(crt->initial_bind_network_interface_link_fd);
 
         bpf_firewall_close(crt);
 
@@ -4462,11 +4463,14 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
                 return 1;
 
         if (STR_IN_SET(key, "ipv4-socket-bind-bpf-link-fd", "ipv6-socket-bind-bpf-link-fd")) {
-                int fd;
+                _cleanup_close_ int fd = -EBADF;
 
                 fd = deserialize_fd(fds, value);
-                if (fd >= 0)
-                        (void) bpf_socket_bind_add_initial_link_fd(u, fd);
+                if (fd >= 0) {
+                        r = bpf_socket_bind_add_initial_link_fd(u, fd);
+                        if (r >= 0)
+                                TAKE_FD(fd);
+                }
 
                 return 1;
         }
@@ -4500,11 +4504,30 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
         }
 
         if (streq(key, "restrict-ifaces-bpf-fd")) {
-                int fd;
+                _cleanup_close_ int fd = -EBADF;
 
                 fd = deserialize_fd(fds, value);
-                if (fd >= 0)
-                        (void) bpf_restrict_ifaces_add_initial_link_fd(u, fd);
+                if (fd >= 0) {
+                        r = bpf_restrict_ifaces_add_initial_link_fd(u, fd);
+                        if (r >= 0)
+                                TAKE_FD(fd);
+                }
+
+                return 1;
+        }
+
+        if (streq(key, "bind-iface-bpf-fd")) {
+                _cleanup_close_ int fd = -EBADF;
+
+                fd = deserialize_fd(fds, value);
+                if (fd >= 0) {
+                        CGroupRuntime *crt = unit_setup_cgroup_runtime(u);
+                        if (!crt)
+                                log_oom_debug();
+                        else
+                                close_and_replace(crt->initial_bind_network_interface_link_fd, fd);
+                }
+
                 return 1;
         }
 
