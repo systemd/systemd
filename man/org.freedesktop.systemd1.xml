@@ -12598,6 +12598,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMKills</varname>,
       <varname>ExecReloadPost</varname>, and
       <varname>ExecReloadPostEx</varname> were added in version 259.</para>
+      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
