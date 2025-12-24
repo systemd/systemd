@@ -1192,18 +1192,18 @@ static int ask_password_conv(
         return PAM_SUCCESS;
 }
 
-static int pam_close_session_and_delete_credentials(pam_handle_t *handle, int flags) {
+static int pam_close_session_and_delete_credentials(pam_handle_t *pamh, int flags) {
         int r, s;
 
-        assert(handle);
+        assert(pamh);
 
-        r = sym_pam_close_session(handle, flags);
+        r = sym_pam_close_session(pamh, flags);
         if (r != PAM_SUCCESS)
-                pam_syslog_pam_error(handle, LOG_DEBUG, r, "pam_close_session() failed: @PAMERR@");
+                pam_syslog_pam_error(pamh, LOG_DEBUG, r, "pam_close_session() failed: @PAMERR@");
 
-        s = sym_pam_setcred(handle, PAM_DELETE_CRED | flags);
+        s = sym_pam_setcred(pamh, PAM_DELETE_CRED | flags);
         if (s != PAM_SUCCESS)
-                pam_syslog_pam_error(handle, LOG_DEBUG, r, "pam_setcred(PAM_DELETE_CRED) failed: @PAMERR@");
+                pam_syslog_pam_error(pamh, LOG_DEBUG, r, "pam_setcred(PAM_DELETE_CRED) failed: @PAMERR@");
 
         return r != PAM_SUCCESS ? r : s;
 }
@@ -1339,7 +1339,7 @@ static int setup_pam(
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         _cleanup_strv_free_ char **e = NULL;
         _cleanup_free_ char *tty = NULL;
-        pam_handle_t *handle = NULL;
+        pam_handle_t *pamh = NULL;
         sigset_t old_ss;
         int pam_code = PAM_SUCCESS, r;
         bool close_session = false;
@@ -1369,9 +1369,9 @@ static int setup_pam(
         if (log_get_max_level() < LOG_DEBUG)
                 flags |= PAM_SILENT;
 
-        pam_code = sym_pam_start(context->pam_name, user, &conv, &handle);
+        pam_code = sym_pam_start(context->pam_name, user, &conv, &pamh);
         if (pam_code != PAM_SUCCESS) {
-                handle = NULL;
+                pamh = NULL;
                 goto fail;
         }
 
@@ -1379,32 +1379,32 @@ static int setup_pam(
         if (r < 0)
                 goto fail;
         if (r > 0) {
-                pam_code = sym_pam_set_item(handle, PAM_TTY, tty);
+                pam_code = sym_pam_set_item(pamh, PAM_TTY, tty);
                 if (pam_code != PAM_SUCCESS)
                         goto fail;
         }
 
         STRV_FOREACH(nv, *env) {
-                pam_code = sym_pam_putenv(handle, *nv);
+                pam_code = sym_pam_putenv(pamh, *nv);
                 if (pam_code != PAM_SUCCESS)
                         goto fail;
         }
 
-        pam_code = sym_pam_acct_mgmt(handle, flags);
+        pam_code = sym_pam_acct_mgmt(pamh, flags);
         if (pam_code != PAM_SUCCESS)
                 goto fail;
 
-        pam_code = sym_pam_setcred(handle, PAM_ESTABLISH_CRED | flags);
+        pam_code = sym_pam_setcred(pamh, PAM_ESTABLISH_CRED | flags);
         if (pam_code != PAM_SUCCESS)
-                pam_syslog_pam_error(handle, LOG_DEBUG, pam_code, "pam_setcred(PAM_ESTABLISH_CRED) failed, ignoring: @PAMERR@");
+                pam_syslog_pam_error(pamh, LOG_DEBUG, pam_code, "pam_setcred(PAM_ESTABLISH_CRED) failed, ignoring: @PAMERR@");
 
-        pam_code = sym_pam_open_session(handle, flags);
+        pam_code = sym_pam_open_session(pamh, flags);
         if (pam_code != PAM_SUCCESS)
                 goto fail;
 
         close_session = true;
 
-        e = sym_pam_getenvlist(handle);
+        e = sym_pam_getenvlist(pamh);
         if (!e) {
                 pam_code = PAM_BUF_ERR;
                 goto fail;
@@ -1479,7 +1479,7 @@ static int setup_pam(
 
                 /* If our parent died we'll end the session */
                 if (getppid() != parent_pid) {
-                        pam_code = pam_close_session_and_delete_credentials(handle, flags);
+                        pam_code = pam_close_session_and_delete_credentials(pamh, flags);
                         if (pam_code != PAM_SUCCESS)
                                 goto child_finish;
                 }
@@ -1489,7 +1489,7 @@ static int setup_pam(
         child_finish:
                 /* NB: pam_end() when called in child processes should set PAM_DATA_SILENT to let the module
                  * know about this. See pam_end(3) */
-                (void) sym_pam_end(handle, pam_code | flags | PAM_DATA_SILENT);
+                (void) sym_pam_end(pamh, pam_code | flags | PAM_DATA_SILENT);
                 _exit(ret);
         }
 
@@ -1497,7 +1497,7 @@ static int setup_pam(
 
         /* If the child was forked off successfully it will do all the cleanups, so forget about the handle
          * here. */
-        handle = NULL;
+        pamh = NULL;
 
         /* Unblock SIGTERM again in the parent */
         assert_se(sigprocmask(SIG_SETMASK, &old_ss, NULL) >= 0);
@@ -1515,16 +1515,16 @@ static int setup_pam(
 
 fail:
         if (pam_code != PAM_SUCCESS) {
-                pam_syslog_pam_error(handle, LOG_ERR, pam_code, "PAM failed: @PAMERR@");
+                pam_syslog_pam_error(pamh, LOG_ERR, pam_code, "PAM failed: @PAMERR@");
                 r = -EPERM;  /* PAM errors do not map to errno */
         } else
                 log_error_errno(r, "PAM failed: %m");
 
-        if (handle) {
+        if (pamh) {
                 if (close_session)
-                        pam_code = pam_close_session_and_delete_credentials(handle, flags);
+                        pam_code = pam_close_session_and_delete_credentials(pamh, flags);
 
-                (void) sym_pam_end(handle, pam_code | flags);
+                (void) sym_pam_end(pamh, pam_code | flags);
         }
 
         closelog();
