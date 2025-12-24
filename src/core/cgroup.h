@@ -340,6 +340,7 @@ typedef struct CGroupRuntime {
          * responsible for binding created sockets to a given VRF interface. */
         struct bpf_link *bpf_bind_network_interface_link;
 #endif
+        int initial_bind_network_interface_link_fd;
 } CGroupRuntime;
 
 uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state);
