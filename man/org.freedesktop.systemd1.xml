@@ -12598,6 +12598,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMKills</varname>,
       <varname>ExecReloadPost</varname>, and
       <varname>ExecReloadPostEx</varname> were added in version 259.</para>
+      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12666,6 +12667,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>OOMKills</varname>, and
       <varname>UserNamespacePath</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12729,6 +12731,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>UserNamespacePath</varname>,
       <varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12790,6 +12793,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>UserNamespacePath</varname>,
       <varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -12822,6 +12826,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <function>KillSubgroup()</function> were added in version 258.</para>
       <para><varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -12852,6 +12857,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <function>KillSubgroup()</function> were added in version 258.</para>
       <para><varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>
