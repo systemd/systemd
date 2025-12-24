@@ -3050,9 +3050,7 @@ int unit_check_oom(Unit *u) {
         if (!crt || !crt->cgroup_path)
                 return 0;
 
-        CGroupContext *ctx = unit_get_cgroup_context(u);
-        if (!ctx)
-                return 0;
+        CGroupContext *ctx = ASSERT_PTR(unit_get_cgroup_context(u));
 
         /* If memory.oom.group=1, then look up the oom_group_kill field, which reports how many times the
          * kernel killed every process recursively in this cgroup and its descendants, similar to
