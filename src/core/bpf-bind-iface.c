@@ -49,25 +49,18 @@ int bpf_bind_network_interface_supported(void) {
         return (supported = bpf_can_link_program(obj->progs.sd_bind_interface));
 }
 
-int bpf_bind_network_interface_install(Unit *u) {
+static int bind_network_interface_install_impl(Unit *u, CGroupRuntime *crt) {
         _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
         _cleanup_(bind_iface_bpf_freep) struct bind_iface_bpf *obj = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ char *cgroup_path = NULL;
         _cleanup_close_ int cgroup_fd = -EBADF;
-        CGroupContext *cc;
-        CGroupRuntime *crt;
         int r, ifindex;
 
         assert(u);
+        assert(crt);
 
-        cc = unit_get_cgroup_context(u);
-        if (!cc)
-                return 0;
-
-        crt = unit_get_cgroup_runtime(u);
-        if (!crt)
-                return 0;
+        CGroupContext *cc = ASSERT_PTR(unit_get_cgroup_context(u));
 
         if (isempty(cc->bind_network_interface))
                 return 0;
@@ -118,6 +111,21 @@ int bpf_bind_network_interface_install(Unit *u) {
         return 0;
 }
 
+int bpf_bind_network_interface_install(Unit *u) {
+        CGroupRuntime *crt;
+        int r;
+
+        assert(u);
+
+        crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return 0;
+
+        r = bind_network_interface_install_impl(u, crt);
+        crt->initial_bind_network_interface_link_fd = safe_close(crt->initial_bind_network_interface_link_fd);
+        return r;
+}
+
 int bpf_bind_network_interface_serialize(Unit *u, FILE *f, FDSet *fds) {
         CGroupRuntime *crt;
 
@@ -127,7 +135,7 @@ int bpf_bind_network_interface_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (!crt)
                 return 0;
 
-        return bpf_serialize_link(f, fds, "bind-interface-fd", crt->bpf_bind_network_interface_link);
+        return bpf_serialize_link(f, fds, "bind-iface-bpf-fd", crt->bpf_bind_network_interface_link);
 }
 
 #else /* ! BPF_FRAMEWORK */
