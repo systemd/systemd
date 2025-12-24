@@ -1893,6 +1893,7 @@ int bus_cgroup_set_property(
 
                 return 1;
         }
+
         if (streq(name, "RestrictNetworkInterfaces")) {
                 int is_allow_list;
                 _cleanup_strv_free_ char **l = NULL;
@@ -1958,19 +1959,15 @@ int bus_cgroup_set_property(
                 if (r < 0)
                         return r;
 
-                if (!ifname_valid_full(s, IFNAME_VALID_ALTERNATIVE))
+                if (!isempty(s) && !ifname_valid_full(s, IFNAME_VALID_ALTERNATIVE))
                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface name: %s", s);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (isempty(s))
-                                c->bind_network_interface = mfree(c->bind_network_interface);
-                        else {
-                                r = free_and_strdup_warn(&c->bind_network_interface, s);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        unit_write_settingf(u, flags, name, "BindNetworkInterface=%s", strempty(s));
+                        r = free_and_strdup_warn(&c->bind_network_interface, empty_to_null(s));
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                unit_write_settingf(u, flags, name, "BindNetworkInterface=%s", s);
                 }
 
                 return 1;
