@@ -571,7 +571,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 fprintf(f, "%sDelegateSubgroup: %s\n",
                         prefix, c->delegate_subgroup);
 
-        if (!isempty(c->bind_network_interface))
+        if (c->bind_network_interface)
                 fprintf(f, "%sBindNetworkInterface: %s\n",
                         prefix, c->bind_network_interface);
 
@@ -1698,7 +1698,7 @@ static bool unit_get_needs_bind_network_interface(Unit *u) {
         if (!c)
                 return false;
 
-        return !isempty(c->bind_network_interface);
+        return c->bind_network_interface;
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
