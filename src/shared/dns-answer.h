@@ -40,8 +40,7 @@ typedef struct DnsAnswer {
 } DnsAnswer;
 
 DnsAnswer *dns_answer_new(size_t n);
-DnsAnswer *dns_answer_ref(DnsAnswer *a);
-DnsAnswer *dns_answer_unref(DnsAnswer *a);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsAnswer, dns_answer);
 
 #define DNS_ANSWER_REPLACE(a, b)                \
         do {                                    \

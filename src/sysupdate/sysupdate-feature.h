@@ -17,8 +17,7 @@ typedef struct Feature {
 
 Feature *feature_new(void);
 
-Feature *feature_ref(Feature *f);
-Feature *feature_unref(Feature *f);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Feature, feature);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Feature*, feature_unref);
 
 extern const struct hash_ops feature_hash_ops;

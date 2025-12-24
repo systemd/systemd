@@ -130,8 +130,7 @@ enum {
         DNS_QUERY_CNAME,
 };
 
-DnsQueryCandidate* dns_query_candidate_ref(DnsQueryCandidate*);
-DnsQueryCandidate* dns_query_candidate_unref(DnsQueryCandidate*);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsQueryCandidate, dns_query_candidate);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQueryCandidate*, dns_query_candidate_unref);
 
 void dns_query_candidate_notify(DnsQueryCandidate *c);

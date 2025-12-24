@@ -207,8 +207,7 @@ bool link_is_ready_to_configure_by_name(Manager *manager, const char *name, bool
 
 void link_ntp_settings_clear(Link *link);
 void link_dns_settings_clear(Link *link);
-Link* link_unref(Link *link);
-Link* link_ref(Link *link);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Link, link);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 DEFINE_TRIVIAL_DESTRUCTOR(link_netlink_destroy_callback, Link, link_unref);
 
