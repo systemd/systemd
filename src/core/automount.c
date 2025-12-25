@@ -803,10 +803,6 @@ static int automount_start(Unit *u) {
         if (path_is_mount_point(a->where) > 0)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(EEXIST), "Path %s is already a mount point, refusing start.", a->where);
 
-        r = unit_test_trigger_loaded(u);
-        if (r < 0)
-                return r;
-
         r = unit_acquire_invocation_id(u);
         if (r < 0)
                 return r;
@@ -1045,6 +1041,10 @@ static bool automount_supported(void) {
 static int automount_test_startable(Unit *u) {
         Automount *a = ASSERT_PTR(AUTOMOUNT(u));
         int r;
+
+        r = unit_test_trigger_loaded(u);
+        if (r < 0)
+                return r;
 
         r = unit_test_start_limit(u);
         if (r < 0) {

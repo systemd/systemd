@@ -668,10 +668,6 @@ static int timer_start(Unit *u) {
 
         assert(IN_SET(t->state, TIMER_DEAD, TIMER_FAILED));
 
-        r = unit_test_trigger_loaded(u);
-        if (r < 0)
-                return r;
-
         r = unit_acquire_invocation_id(u);
         if (r < 0)
                 return r;
@@ -916,6 +912,10 @@ static int timer_can_clean(Unit *u, ExecCleanMask *ret) {
 static int timer_test_startable(Unit *u) {
         Timer *t = ASSERT_PTR(TIMER(u));
         int r;
+
+        r = unit_test_trigger_loaded(u);
+        if (r < 0)
+                return r;
 
         r = unit_test_start_limit(u);
         if (r < 0) {

@@ -2623,20 +2623,6 @@ static int socket_start(Unit *u) {
         Socket *s = ASSERT_PTR(SOCKET(u));
         int r;
 
-        /* Cannot run this without the service being around */
-        if (UNIT_ISSET(s->service)) {
-                Service *service = ASSERT_PTR(SERVICE(UNIT_DEREF(s->service)));
-
-                if (UNIT(service)->load_state != UNIT_LOADED)
-                        return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT),
-                                                    "Socket service %s not loaded, refusing.", UNIT(service)->id);
-
-                /* If the service is already active we cannot start the socket */
-                if (SOCKET_SERVICE_IS_ACTIVE(service, /* allow_finalize= */ false))
-                        return log_unit_error_errno(u, SYNTHETIC_ERRNO(EBUSY),
-                                                    "Socket service %s already active, refusing.", UNIT(service)->id);
-        }
-
         assert(IN_SET(s->state, SOCKET_DEAD, SOCKET_FAILED));
 
         r = unit_acquire_invocation_id(u);
@@ -3641,6 +3627,20 @@ static int socket_test_startable(Unit *u) {
                    SOCKET_START_CHOWN,
                    SOCKET_START_POST))
                 return false;
+
+        /* Cannot run this without the service being around */
+        if (UNIT_ISSET(s->service)) {
+                Service *service = ASSERT_PTR(SERVICE(UNIT_DEREF(s->service)));
+
+                if (UNIT(service)->load_state != UNIT_LOADED)
+                        return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT),
+                                                    "Socket service %s not loaded, refusing.", UNIT(service)->id);
+
+                /* If the service is already active we cannot start the socket */
+                if (SOCKET_SERVICE_IS_ACTIVE(service, /* allow_finalize= */ false))
+                        return log_unit_error_errno(u, SYNTHETIC_ERRNO(EBUSY),
+                                                    "Socket service %s already active, refusing.", UNIT(service)->id);
+        }
 
         r = unit_test_start_limit(u);
         if (r < 0) {
