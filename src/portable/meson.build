@@ -48,6 +48,9 @@ install_data('org.freedesktop.portable1.conf',
              install_dir : dbuspolicydir)
 install_data('org.freedesktop.portable1.service',
              install_dir : dbussystemservicedir)
+install_data('org.freedesktop.portable1.service-for-session',
+             install_dir : dbussessionservicedir,
+             rename : 'org.freedesktop.portable1.service')
 install_data('org.freedesktop.portable1.policy',
              install_dir : polkitpolicydir)
 
