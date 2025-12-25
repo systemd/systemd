@@ -13,8 +13,7 @@ typedef enum ColorMode {
         _COLOR_MODE_INVALID = -EINVAL,
 } ColorMode;
 
-const char* color_mode_to_string(ColorMode m) _const_;
-ColorMode color_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(color_mode, ColorMode);
 
 ColorMode get_color_mode(void);
 static inline bool colors_enabled(void) {

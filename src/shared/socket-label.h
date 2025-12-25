@@ -11,9 +11,8 @@ typedef enum SocketAddressBindIPv6Only {
         _SOCKET_ADDRESS_BIND_IPV6_ONLY_INVALID = -EINVAL,
 } SocketAddressBindIPv6Only;
 
-const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
-SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s) _pure_;
-SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
+DECLARE_STRING_TABLE_LOOKUP_FROM_STRING(socket_address_bind_ipv6_only_or_bool, SocketAddressBindIPv6Only);
 
 int socket_address_listen(
                 const SocketAddress *a,

@@ -87,16 +87,13 @@ bool condition_test_list(Condition *first, char **env, condition_to_string_t to_
 void condition_dump(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string);
 void condition_dump_list(Condition *first, FILE *f, const char *prefix, condition_to_string_t to_string);
 
-const char* condition_type_to_string(ConditionType t) _const_;
-ConditionType condition_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
 void condition_types_list(void);
 
-const char* assert_type_to_string(ConditionType t) _const_;
-ConditionType assert_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(assert_type, ConditionType);
 void assert_types_list(void);
 
-const char* condition_result_to_string(ConditionResult r) _const_;
-ConditionResult condition_result_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(condition_result, ConditionResult);
 
 static inline bool condition_takes_path(ConditionType t) {
         return IN_SET(t,

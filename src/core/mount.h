@@ -99,10 +99,8 @@ char* mount_get_what_escaped(const Mount *m);
 char* mount_get_options_escaped(const Mount *m);
 const char* mount_get_fstype(const Mount *m);
 
-const char* mount_exec_command_to_string(MountExecCommand i) _const_;
-MountExecCommand mount_exec_command_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(mount_exec_command, MountExecCommand);
 
-const char* mount_result_to_string(MountResult i) _const_;
-MountResult mount_result_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(mount_result, MountResult);
 
 DEFINE_CAST(MOUNT, Mount);

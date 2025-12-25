@@ -178,8 +178,6 @@ static inline uint64_t dns_transaction_source_to_query_flags(DnsTransactionSourc
         }
 }
 
-const char* dns_transaction_state_to_string(DnsTransactionState p) _const_;
-DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
 
-const char* dns_transaction_source_to_string(DnsTransactionSource p) _const_;
-DnsTransactionSource dns_transaction_source_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dns_transaction_source, DnsTransactionSource);
