@@ -1839,7 +1839,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
         created_dir = TAKE_PTR(mounted_dir);
 
         if (rmdir(created_dir) < 0)
-                log_warning_errno(r, "Failed to remove directory '%s', ignoring: %m", created_dir);
+                log_warning_errno(errno, "Failed to remove directory '%s', ignoring: %m", created_dir);
 
         temp = TAKE_PTR(created_dir);
 
