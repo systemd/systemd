@@ -279,7 +279,6 @@ int bus_read_mount_options(
 
         while ((r = sd_bus_message_read(message, "(ss)", &partition, &mount_options)) > 0) {
                 _cleanup_free_ char *escaped = NULL;
-                _cleanup_free_ MountOptions *o = NULL;
                 PartitionDesignator partition_designator;
 
                 if (chars_intersect(mount_options, WHITESPACE))
@@ -295,19 +294,18 @@ int bus_read_mount_options(
                 if (!escaped)
                         return -ENOMEM;
 
-                if (!strextend_with_separator(&format_str, separator, partition, ":", escaped))
-                        return -ENOMEM;
+                if (!isempty(escaped)) {
+                        if (!strextend_with_separator(&format_str, separator, partition, ":", escaped))
+                                return -ENOMEM;
 
-                o = new(MountOptions, 1);
-                if (!o)
-                        return -ENOMEM;
-                *o = (MountOptions) {
-                        .partition_designator = partition_designator,
-                        .options = strdup(mount_options),
-                };
-                if (!o->options)
-                        return -ENOMEM;
-                LIST_APPEND(mount_options, options, TAKE_PTR(o));
+                        if (!options) {
+                                options = new0(MountOptions, 1);
+                                if (!options)
+                                        return -ENOMEM;
+                        }
+                        free_and_replace(options->options[partition_designator], escaped);
+                } else if (options)
+                        options->options[partition_designator] = mfree(options->options[partition_designator]);
         }
         if (r < 0)
                 return r;
@@ -323,7 +321,7 @@ int bus_read_mount_options(
                                 return -ENOMEM;
                         free_and_replace(*ret_format_str, final);
                 }
-                LIST_JOIN(mount_options, *ret_options, options);
+                *ret_options = TAKE_PTR(options);
         }
 
         return 0;

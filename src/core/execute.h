@@ -183,7 +183,7 @@ typedef struct ExecContext {
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
         struct iovec root_hash, root_hash_sig;
-        LIST_HEAD(MountOptions, root_image_options);
+        MountOptions *root_image_options;
         bool root_ephemeral;
         bool working_directory_missing_ok:1;
         bool working_directory_home:1;
