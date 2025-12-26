@@ -1785,7 +1785,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
                         return log_error_errno(r, "Failed to unlock loopback block device: %m");
         }
 
-        rcode = pidref_safe_fork("(with)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, /* ret= */ NULL);
+        rcode = pidref_safe_fork("(with)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT, /* ret= */ NULL);
         if (rcode == 0) {
                 /* Child */
 
