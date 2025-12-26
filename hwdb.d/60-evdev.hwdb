@@ -704,6 +704,13 @@ evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoideapadY700-14ISK:*
  EVDEV_ABS_35=::27
  EVDEV_ABS_36=::29
 
+#Lenovo Y50-70
+evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoY50-70**
+ EVDEV_ABS_00=164:3918:37
+ EVDEV_ABS_01=120:1935:26
+ EVDEV_ABS_35=164:3918:37
+ EVDEV_ABS_36=120:1935:26
+
 # Lenovo Ideapad 310S-14ISK
 evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoideapad310S-14ISK:*
  EVDEV_ABS_00=113:3960:37
