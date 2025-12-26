@@ -1799,7 +1799,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
                         _exit(EXIT_FAILURE);
                 }
 
-                if (setenv("SYSTEMD_DISSECT_DEVICE", d->node, /* overwrite= */ true) < 0) {
+                if (d && setenv("SYSTEMD_DISSECT_DEVICE", d->node, /* overwrite= */ true) < 0) {
                         log_error_errno(errno, "Failed to set $SYSTEMD_DISSECT_DEVICE: %m");
                         _exit(EXIT_FAILURE);
                 }
