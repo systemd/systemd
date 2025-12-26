@@ -21,6 +21,7 @@ typedef struct Manager {
         sd_event *event;
         sd_resolve *resolve;
         sd_bus *bus;
+        sd_bus_slot *slot_mm;
         sd_varlink_server *varlink_server;
         sd_varlink_server *varlink_resolve_hook_server;
         Set *query_filter_subscriptions;
@@ -98,6 +99,9 @@ typedef struct Manager {
         /* Wiphy */
         Hashmap *wiphy_by_index;
         Hashmap *wiphy_by_name;
+
+        /* ModemManager support */
+        Hashmap *modems_by_path;
 
         /* For link speed meter */
         bool use_speed_meter;
