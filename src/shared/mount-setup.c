@@ -49,19 +49,20 @@ static int cgroupfs_mount_options(int priority, const char *type, char **ret) {
         assert(streq(type, "cgroup2"));
         assert(ret);
 
-        _cleanup_free_ char *opts = NULL;
-        FOREACH_STRING(o, "memory_recursiveprot", "memory_hugetlb_accounting") {
-                r = mount_option_supported("cgroup2", o, /* value= */ NULL);
+        /* memory_hugetlb_accounting mount option is since kernel v6.7 (8cba9576df601c384abd334a503c3f6e1e29eefb). */
+
+        r = mount_option_supported("cgroup2", "memory_hugetlb_accounting", /* value= */ NULL);
+        if (r <= 0) {
                 if (r < 0)
-                        log_full_errno(priority, r, "Failed to determine whether cgroupfs supports '%s' mount option, assuming not: %m", o);
-                else if (r == 0)
-                        log_debug("'%s' not supported by cgroupfs, not using mount option.", o);
-                else if (!strextend_with_separator(&opts, ",", o))
-                        return log_oom_full(priority);
+                        log_full_errno(priority, r, "Failed to determine whether cgroupfs supports 'memory_hugetlb_accounting' mount option, assuming not: %m");
+                else
+                        log_debug("'memory_hugetlb_accounting' not supported by cgroupfs, not using mount option.");
+
+                *ret = NULL;
+                return 0;
         }
 
-        *ret = TAKE_PTR(opts);
-        return 0;
+        return strdup_to(ret, "memory_hugetlb_accounting");
 }
 
 int mount_cgroupfs(const char *path) {
@@ -81,7 +82,7 @@ int mount_cgroupfs(const char *path) {
                 return r;
 
         /* These options shall be kept in sync with those in mount_table below. */
-        if (!strprepend_with_separator(&opts, ",", "nsdelegate"))
+        if (!strprepend_with_separator(&opts, ",", "nsdelegate,memory_recursiveprot"))
                 return log_oom();
 
         return mount_nofollow_verbose(LOG_ERR, "cgroup2", path, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
