@@ -1206,11 +1206,19 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
 
                 /* Keep units that are triggered by units we want to keep around. */
                 bool keep = false;
-                UNIT_FOREACH_DEPENDENCY(o, u, UNIT_ATOM_TRIGGERED_BY)
-                        if (!shall_stop_on_isolate(tr, o)) {
+                UNIT_FOREACH_DEPENDENCY(o, u, UNIT_ATOM_TRIGGERED_BY) {
+                        if (o->ignore_on_isolate) {
                                 keep = true;
                                 break;
                         }
+
+                        /* Keep triggered units only if their triggers are actually not stopped. */
+                        Job *j = hashmap_get(tr->jobs, o);
+                        if (j && j->type != JOB_STOP) {
+                                keep = true;
+                                break;
+                        }
+                }
                 if (keep)
                         continue;
 
