@@ -11,8 +11,8 @@ We welcome all contributions to systemd. If you notice a bug or a missing
 feature, please feel invited to fix it, and submit your work as a
 [GitHub Pull Request (PR)](https://github.com/systemd/systemd/pull/new).
 
-Please make sure to follow our [Coding Style](/CODING_STYLE) when submitting
-patches. Also have a look at our [Contribution Guidelines](/CONTRIBUTING).
+Please make sure to follow our [Coding Style](./CODING_STYLE.md) when submitting
+patches. Also have a look at our [Contribution Guidelines](./CONTRIBUTING.md).
 
 When adding new functionality, tests should be added. For shared functionality
 (in `src/basic/` and `src/shared/`) unit tests should be sufficient. The general
@@ -187,7 +187,7 @@ Those are not useful when compiling for distribution and can be disabled by sett
 
 ## Sanitizers in mkosi
 
-See [Testing systemd using sanitizers](/TESTING_WITH_SANITIZERS) for more information on how to build with sanitizers enabled in mkosi.
+See [Testing systemd using sanitizers](./TESTING_WITH_SANITIZERS.md) for more information on how to build with sanitizers enabled in mkosi.
 
 ## Debugging binaries that need to run as root in vscode
 
