@@ -2180,8 +2180,9 @@ static int run(int argc, char *argv[]) {
                         if (arg_loop_ref || arg_loop_ref_auto) /* yes, the 2nd check is strictly speaking redundant, given the normalization we did above, but let's be explicit here */
                                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--loop-ref=/--loop-ref-auto not supported when operating via systemd-mountfsd.");
 
-                        /* Don't run things in private userns, if the mount shall be attached to the host */
-                        if (!IN_SET(arg_action, ACTION_MOUNT, ACTION_WITH)) {
+                        /* Don't run things in private userns, if the mount shall be attached to the host
+                         * or if we're copying from/to the host. */
+                        if (!IN_SET(arg_action, ACTION_MOUNT, ACTION_WITH, ACTION_COPY_FROM, ACTION_COPY_TO)) {
                                 userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K); /* allocate 64K users by default */
                                 if (userns_fd < 0)
                                         return log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
