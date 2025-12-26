@@ -1785,7 +1785,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
                         return log_error_errno(r, "Failed to unlock loopback block device: %m");
         }
 
-        rcode = pidref_safe_fork("(with)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, /* ret= */ NULL);
+        rcode = pidref_safe_fork("(with)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT, /* ret= */ NULL);
         if (rcode == 0) {
                 /* Child */
 
@@ -1813,10 +1813,14 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
                                 log_warning_errno(errno, "Failed to execute $SHELL, falling back to /bin/sh: %m");
                         }
 
+                        log_close();
                         execl("/bin/sh", "sh", NULL);
+                        log_open();
                         log_error_errno(errno, "Failed to invoke /bin/sh: %m");
                 } else {
+                        log_close();
                         execvp(arg_argv[0], arg_argv);
+                        log_open();
                         log_error_errno(errno, "Failed to execute '%s': %m", arg_argv[0]);
                 }
 
