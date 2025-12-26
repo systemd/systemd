@@ -14,6 +14,7 @@
 #include "argv-util.h"
 #include "blockdev-util.h"
 #include "build.h"
+#include "capability-util.h"
 #include "chase.h"
 #include "copy.h"
 #include "device-util.h"
@@ -837,7 +838,14 @@ static int parse_argv(int argc, char *argv[]) {
         } else
                 arg_via_service = r;
 
-        if (!IN_SET(arg_action, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_DISCOVER, ACTION_VALIDATE) && geteuid() != 0)
+        r = have_effective_cap(CAP_SYS_ADMIN);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if we have CAP_SYS_ADMIN: %m");
+
+        if (IN_SET(arg_action, ACTION_MOUNT, ACTION_UMOUNT) && r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to have CAP_SYS_ADMIN to mount/unmount images");
+
+        if (IN_SET(arg_action, ACTION_ATTACH, ACTION_DETACH, ACTION_SHIFT) && geteuid() != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be root.");
 
         SET_FLAG(arg_flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH, isatty_safe(STDIN_FILENO));
@@ -1721,7 +1729,7 @@ static int action_umount(const char *path) {
                 return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
 
         r = loop_device_open(dev, 0, LOCK_EX, &d);
-        if (r < 0)
+        if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
                 return log_device_error_errno(dev, r, "Failed to open loopback block device: %m");
 
         /* We've locked the loop device, now we're ready to unmount. To allow the unmount to succeed, we have
@@ -1733,7 +1741,8 @@ static int action_umount(const char *path) {
                 return log_error_errno(r, "Failed to unmount '%s': %m", canonical);
 
         /* We managed to lock and unmount successfully? That means we can try to remove the loop device. */
-        loop_device_unrelinquish(d);
+        if (d)
+                loop_device_unrelinquish(d);
 
         if (arg_rmdir) {
                 r = RET_NERRNO(rmdir(canonical));
@@ -2114,7 +2123,7 @@ static int run(int argc, char *argv[]) {
                         else
                                 r = loop_device_make_by_path(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
                         if (r < 0) {
-                                if (!ERRNO_IS_PRIVILEGE(r) || !IN_SET(arg_action, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_SHIFT))
+                                if (!ERRNO_IS_PRIVILEGE(r) || !IN_SET(arg_action, ACTION_MOUNT, ACTION_UMOUNT, ACTION_WITH, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_SHIFT))
                                         return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
                                 log_debug_errno(r, "Lacking permissions to set up loopback block device for %s, using service: %m", arg_image);
