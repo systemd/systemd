@@ -1277,19 +1277,16 @@ if libcryptsetup_plugins.enabled()
 endif
 
 libcryptsetup = dependency('libcryptsetup',
-                           version : libcryptsetup_plugins.enabled() ? '>= 2.4.0' : '>= 2.0.1',
+                           version : '>= 2.4.0',
                            required : libcryptsetup)
 libcryptsetup_cflags = libcryptsetup.partial_dependency(includes: true, compile_args: true)
 
 have = libcryptsetup.found()
 conf.set10('HAVE_LIBCRYPTSETUP', have)
+conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS',
+           libcryptsetup_plugins.allowed() and have)
 
 foreach ident : [
-                'crypt_activate_by_token_pin',   # 2.4
-                'crypt_logf',                    # 2.4
-                'crypt_reencrypt_run',           # 2.4
-                'crypt_token_external_path',     # 2.4
-                'crypt_token_max',               # 2.4
                 'crypt_set_keyring_to_link',     # 2.7
                 'crypt_token_set_external_path', # 2.7
         ]
@@ -1300,12 +1297,6 @@ foreach ident : [
                 dependencies : libcryptsetup)
         conf.set10('HAVE_' + ident.to_upper(), have_ident)
 endforeach
-
-conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS',
-           libcryptsetup_plugins.allowed() and
-           conf.get('HAVE_CRYPT_ACTIVATE_BY_TOKEN_PIN') == 1 and
-           conf.get('HAVE_CRYPT_LOGF') == 1 and
-           conf.get('HAVE_CRYPT_TOKEN_EXTERNAL_PATH') == 1)
 
 libcurl = dependency('libcurl',
                      version : '>= 7.32.0',
