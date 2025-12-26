@@ -1144,7 +1144,7 @@ static void check_get_or_create_srk(Tpm2Context *c) {
         assert_se(memcmp_nn(qname->name, qname->size, qname2->name, qname2->size) == 0);
 }
 
-#if HAVE_OPENSSL && OPENSSL_VERSION_MAJOR >= 3
+#if HAVE_OPENSSL
 static void calculate_seal_and_unseal(
                 Tpm2Context *c,
                 TPM2_HANDLE parent_index,
@@ -1228,7 +1228,7 @@ static int check_calculate_seal(Tpm2Context *c) {
 
         return 0;
 }
-#endif /* HAVE_OPENSSL && OPENSSL_VERSION_MAJOR >= 3 */
+#endif /* HAVE_OPENSSL */
 
 static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
         TPM2B_DIGEST policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
@@ -1330,7 +1330,7 @@ TEST_RET(tests_which_require_tpm) {
         check_get_or_create_srk(c);
         check_seal_unseal(c);
 
-#if HAVE_OPENSSL && OPENSSL_VERSION_MAJOR >= 3 /* calculating sealed object requires openssl >= 3 */
+#if HAVE_OPENSSL
         r = check_calculate_seal(c);
 #endif
 

@@ -103,15 +103,12 @@ static const struct {
 } digest_size_table[] = {
         /* SHA1 "family" */
         { "sha1",     20, },
-#if OPENSSL_VERSION_MAJOR >= 3
         { "sha-1",    20, },
-#endif
         /* SHA2 family */
         { "sha224",   28, },
         { "sha256",   32, },
         { "sha384",   48, },
         { "sha512",   64, },
-#if OPENSSL_VERSION_MAJOR >= 3
         { "sha-224",  28, },
         { "sha2-224", 28, },
         { "sha-256",  32, },
@@ -120,7 +117,6 @@ static const struct {
         { "sha2-384", 48, },
         { "sha-512",  64, },
         { "sha2-512", 64, },
-#endif
         /* SHA3 family */
         { "sha3-224", 28, },
         { "sha3-256", 32, },
@@ -296,7 +292,6 @@ TEST(hmac_many) {
 }
 
 TEST(kdf_kb_hmac_derive) {
-#if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_free_ void *derived_key = NULL;
 
         DEFINE_HEX_PTR(key, "d7ac57124f28371eacaec475b74869d26b4cd64586412a607ce0a9e0c63d468c");
@@ -306,12 +301,8 @@ TEST(kdf_kb_hmac_derive) {
 
         assert_se(kdf_kb_hmac_derive("COUNTER", "SHA256", key, key_len, salt, strlen(salt), info, info_len, /* seed= */ NULL, /* seed_size= */ 0, 64, &derived_key) >= 0);
         assert_se(memcmp_nn(derived_key, 64, expected_derived_key, expected_derived_key_len) == 0);
-#else
-        log_tests_skipped("KDF-KB requires OpenSSL >= 3");
-#endif
 }
 
-#if OPENSSL_VERSION_MAJOR >= 3
 static void check_ss_derive(const char *hex_key, const char *hex_salt, const char *hex_info, const char *hex_expected) {
         DEFINE_HEX_PTR(key, hex_key);
         DEFINE_HEX_PTR(salt, hex_salt);
@@ -322,10 +313,8 @@ static void check_ss_derive(const char *hex_key, const char *hex_salt, const cha
         assert_se(kdf_ss_derive("SHA256", key, key_len, salt, salt_len, info, info_len, expected_len, &derived_key) >= 0);
         assert_se(memcmp_nn(derived_key, expected_len, expected, expected_len) == 0);
 }
-#endif
 
 TEST(kdf_ss_derive) {
-#if OPENSSL_VERSION_MAJOR >= 3
         check_ss_derive(
                 "01166ad6b05d1fad8cdb50d1902170e9",
                 "feea805789dc8d0b57da5d4d61886b1a",
@@ -343,9 +332,6 @@ TEST(kdf_ss_derive) {
                 "b75e3b65d1bb845dee581c7e14cfebc6e882946e90273b77ebe289faaf7de248",
                 "ed25a0043d6c1eb28296da1f9ab138dafee18f4c937bfc43601d4ee6e7634199",
                 "30EB1A1E9DEA7DE4DDB8F3FDF50A01E30581D606C1228D98AFF691DF743AC2EE9D99EFD2AE1946C079AA18C9524877FA65D5065F0DAED058AB3416AF80EB2B73");
-#else
-        log_tests_skipped("KDF-SS requires OpenSSL >= 3");
-#endif
 }
 
 static void check_cipher(
