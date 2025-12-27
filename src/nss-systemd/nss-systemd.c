@@ -75,6 +75,8 @@ static const struct group root_group = {
 static const struct sgrp root_sgrp = {
         .sg_namp = (char*) "root",
         .sg_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
+        .sg_adm = (char*[]) { NULL },
+        .sg_mem = (char*[]) { NULL },
 };
 
 static const struct group nobody_group = {
@@ -87,6 +89,8 @@ static const struct group nobody_group = {
 static const struct sgrp nobody_sgrp = {
         .sg_namp = (char*) NOBODY_GROUP_NAME,
         .sg_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
+        .sg_adm = (char*[]) { NULL },
+        .sg_mem = (char*[]) { NULL },
 };
 
 typedef struct GetentData {
@@ -257,10 +261,16 @@ static enum nss_status copy_synthesized_sgrp(
         assert(src);
         assert(src->sg_namp);
         assert(src->sg_passwd);
+        assert(src->sg_adm);
+        assert(*src->sg_adm == NULL);
+        assert(src->sg_mem);
+        assert(*src->sg_mem == NULL);
 
         size_t required =
                 strlen(src->sg_namp) + 1 +
-                strlen(src->sg_passwd) + 1;
+                strlen(src->sg_passwd) + 1 +
+                sizeof(char*) +
+                sizeof(char*);
 
         if (buflen < required) {
                 *errnop = ERANGE;
@@ -272,7 +282,9 @@ static enum nss_status copy_synthesized_sgrp(
         *dest = *src;
 
         /* String fields point into the user-provided buffer */
-        dest->sg_namp = buffer;
+        dest->sg_adm = (char**) buffer;
+        dest->sg_mem = (char**) mempcpy(dest->sg_adm, src->sg_adm, sizeof(char*));
+        dest->sg_namp = mempcpy(dest->sg_mem, src->sg_mem, sizeof(char*));
         dest->sg_passwd = stpcpy(dest->sg_namp, src->sg_namp) + 1;
         strcpy(dest->sg_passwd, src->sg_passwd);
 
