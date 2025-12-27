@@ -315,7 +315,7 @@ enum nss_status userdb_getgrnam(
                  * accessible via non-NSS. Hence let's do what we have to do, and query NSS after all to
                  * acquire it, so that we can extend it (that's because glibc's group merging feature will
                  * merge groups only if both GID and name match and thus we need to have both first). It
-                 * sucks behaving recursively likely this, but it's apparently what everybody does. We break
+                 * sucks behaving recursively like this, but it's apparently what everybody does. We break
                  * the recursion for ourselves via the _nss_systemd_block_nss() lock. */
 
                 r = _nss_systemd_block(true);
