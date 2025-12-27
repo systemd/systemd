@@ -223,6 +223,8 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                         r = copy_directory_at_full(
                                         fd, NULL,
                                         AT_FDCWD, dest,
+                                        /* override_uid= */ UID_INVALID,
+                                        /* override_gid= */ GID_INVALID,
                                         COPY_REFLINK|
                                         COPY_SAME_MOUNT|
                                         COPY_HARDLINKS|

@@ -1497,7 +1497,7 @@ static int prepare_ns(const char *process_name) {
 
                 /* Copy unit files to make them accessible even when unprivileged. */
                 ASSERT_OK(get_testdata_dir("test-execute/", &unit_dir));
-                ASSERT_OK(copy_directory_at(AT_FDCWD, unit_dir, AT_FDCWD, PRIVATE_UNIT_DIR, COPY_MERGE_EMPTY));
+                ASSERT_OK(copy_directory_at(AT_FDCWD, unit_dir, AT_FDCWD, PRIVATE_UNIT_DIR, UID_INVALID, GID_INVALID, COPY_MERGE_EMPTY));
 
                 /* Mount tmpfs on the following directories to make not StateDirectory= or friends disturb the host. */
                 ASSERT_OK_OR(get_build_exec_dir(&build_dir), -ENOEXEC);
