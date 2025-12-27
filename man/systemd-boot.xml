@@ -595,6 +595,15 @@
 
         <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderDtbName</varname></term>
+
+        <listitem><para>Canonical file name for the DeviceTree file compatible with this system. Read by the
+        bootloader. This variable is used when "devicetree-dir" command is specified in the boot entry.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>Many of these variables are defined by the <ulink

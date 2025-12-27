@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "devicetree.h"
+#include "efi-efivars.h"
 #include "proto/dt-fixup.h"
 #include "util.h"
 
@@ -173,6 +174,98 @@ static const char* devicetree_get_compatible(const void *dtb) {
         }
 
         return NULL;
+}
+
+static EFI_STATUS devicetree_find_matching_file(char16_t **name, EFI_FILE *root_dir, char16_t *dtb_dir_name) {
+        _cleanup_file_close_ EFI_FILE *dir_handle = NULL;
+        _cleanup_free_ EFI_FILE_INFO *info = NULL;
+        size_t info_size = 1;
+        size_t read_size = 0;
+        EFI_STATUS err;
+
+        err = root_dir->Open(root_dir, &dir_handle, dtb_dir_name, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        info = xmalloc(info_size);
+
+        do {
+                read_size = info_size;
+
+                err = root_dir->Read(dir_handle, &read_size, info);
+                if (err == EFI_BUFFER_TOO_SMALL) {
+                        info_size = read_size;
+                        free(info);
+                        info = xmalloc(info_size);
+                        continue;
+                } else if (err != EFI_SUCCESS) {
+                        return err;
+                }
+
+                if (read_size != 0) {
+                        _cleanup_free_ char16_t *full_name = xasprintf("%ls\\%ls", dtb_dir_name, info->FileName);
+
+                        if (info->Attribute & EFI_FILE_DIRECTORY && info->FileName[0] != u'.') {
+                                err = devicetree_find_matching_file(name, root_dir, full_name);
+                                if (err != EFI_NOT_FOUND)
+                                        return err;
+                        } else if (!(info->Attribute & EFI_FILE_DIRECTORY)) {
+                                _cleanup_file_close_ EFI_FILE *dtb_handle = NULL;
+                                _cleanup_free_ void *dtb = NULL;
+                                size_t len = info->FileSize;
+
+                                err = root_dir->Open(root_dir, &dtb_handle, full_name, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY);
+                                if (err != EFI_SUCCESS)
+                                        return err;
+
+                                dtb = xmalloc(len);
+
+                                err = dtb_handle->Read(dtb_handle, &len, dtb);
+                                if (err != EFI_SUCCESS)
+                                        return err;
+
+                                err = devicetree_match(dtb, len);
+                                if (err == EFI_SUCCESS) {
+                                        *name = xstrdup16(full_name);
+                                        return err;
+                                }
+                        }
+                }
+        } while (read_size != 0);
+
+        return EFI_NOT_FOUND;
+}
+
+/* This function finds "canonical" (relative) name of the
+ * DeviceTree blob that is compatible with the system.
+ *
+ * First, it checks if the "LoaderDtbName" variable is set.
+ * If it is, we already know the file name and just return it.
+ *
+ * Then, as a last resort, it checks if passed devicetree-dir
+ * contains a file that has the same "compatible" value as
+ * firmware provided DeviceTree.
+ */
+EFI_STATUS devicetree_get_canonical_name(char16_t **name, EFI_FILE *root_dir, char16_t *dtb_dir_name) {
+        EFI_STATUS err;
+
+        err = efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderDtbName", name);
+        if (err == EFI_SUCCESS)
+                return err;
+
+        if (firmware_devicetree_exists()) {
+                char16_t *full_path = NULL;
+                err = devicetree_find_matching_file(&full_path, root_dir, dtb_dir_name);
+                if (err == EFI_SUCCESS) {
+                        /* Strip the directory prefix. */
+                        *name = xstrdup16(&full_path[strlen16(dtb_dir_name)]);
+                        free(full_path);
+
+                        return EFI_SUCCESS;
+                }
+        }
+
+        return EFI_UNSUPPORTED;
 }
 
 bool firmware_devicetree_exists(void) {
