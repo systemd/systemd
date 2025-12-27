@@ -5141,12 +5141,11 @@ int unit_setup_exec_runtime(Unit *u) {
         return r;
 }
 
-CGroupRuntime *unit_setup_cgroup_runtime(Unit *u) {
-        size_t offset;
-
+CGroupRuntime* unit_setup_cgroup_runtime(Unit *u) {
         assert(u);
+        assert(UNIT_HAS_CGROUP_CONTEXT(u));
 
-        offset = UNIT_VTABLE(u)->cgroup_runtime_offset;
+        size_t offset = UNIT_VTABLE(u)->cgroup_runtime_offset;
         assert(offset > 0);
 
         CGroupRuntime **rt = (CGroupRuntime**) ((uint8_t*) u + offset);
