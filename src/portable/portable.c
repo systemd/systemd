@@ -595,7 +595,8 @@ static int extract_image_and_extensions(
                 r = path_pick(/* toplevel_path= */ NULL,
                               /* toplevel_fd= */ AT_FDCWD,
                               name_or_path,
-                              &pick_filter_image_any,
+                              pick_filter_image_any,
+                              ELEMENTSOF(pick_filter_image_any),
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0)
@@ -633,7 +634,8 @@ static int extract_image_and_extensions(
                                 r = path_pick(/* toplevel_path= */ NULL,
                                               /* toplevel_fd= */ AT_FDCWD,
                                               *p,
-                                              &pick_filter_image_any,
+                                              pick_filter_image_any,
+                                              ELEMENTSOF(pick_filter_image_any),
                                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                               &ext_result);
                                 if (r < 0)
@@ -1782,7 +1784,8 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
                         r = path_pick(/* toplevel_path= */ NULL,
                                       /* toplevel_fd= */ AT_FDCWD,
                                       *image_name_or_path,
-                                      &pick_filter_image_any,
+                                      pick_filter_image_any,
+                                      ELEMENTSOF(pick_filter_image_any),
                                       PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                       &result);
                         if (r < 0)
