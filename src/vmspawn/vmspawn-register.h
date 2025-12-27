@@ -13,6 +13,7 @@ int register_machine(
                 unsigned cid,
                 const char *address,
                 const char *key_path,
-                bool keep_unit);
+                bool allocate_unit,
+                RuntimeScope scope);
 
 int unregister_machine(sd_bus *bus, const char *machine_name);
