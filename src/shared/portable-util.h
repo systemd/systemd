@@ -6,4 +6,5 @@
 
 #define PORTABLE_PROFILE_DIRS CONF_PATHS_NULSTR("systemd/portable/profile")
 
-int find_portable_profile(const char *name, const char *unit, char **ret_path);
+int portable_profile_dirs(RuntimeScope scope, char ***ret);
+int find_portable_profile(RuntimeScope scope, const char *name, const char *unit, char **ret_path);

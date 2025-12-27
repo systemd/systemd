@@ -110,7 +110,7 @@ int portable_get_state(
                 PortableState *ret,
                 sd_bus_error *error);
 
-int portable_get_profiles(char ***ret);
+int portable_get_profiles(RuntimeScope scope, char ***ret);
 
 void portable_changes_free(PortableChange *changes, size_t n_changes);
 

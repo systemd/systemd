@@ -3,12 +3,10 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "btrfs-util.h"
 #include "bus-error.h"
 #include "bus-object.h"
 #include "bus-polkit.h"
 #include "discover-image.h"
-#include "fd-util.h"
 #include "hashmap.h"
 #include "io-util.h"
 #include "log.h"
@@ -28,10 +26,15 @@ static int property_get_pool_path(
                 void *userdata,
                 sd_bus_error *error) {
 
+        _cleanup_free_ char *dir = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+
         assert(bus);
         assert(reply);
 
-        return sd_bus_message_append(reply, "s", "/var/lib/portables");
+        (void) image_get_pool_path(m->runtime_scope, IMAGE_PORTABLE, &dir);
+
+        return sd_bus_message_append(reply, "s", strempty(dir));
 }
 
 static int property_get_pool_usage(
@@ -43,19 +46,13 @@ static int property_get_pool_usage(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_close_ int fd = -EBADF;
         uint64_t usage = UINT64_MAX;
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(bus);
         assert(reply);
 
-        fd = open("/var/lib/portables", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
-        if (fd >= 0) {
-                BtrfsQuotaInfo q;
-
-                if (btrfs_subvol_get_subtree_quota_fd(fd, 0, &q) >= 0)
-                        usage = q.referenced;
-        }
+        (void) image_get_pool_usage(m->runtime_scope, IMAGE_PORTABLE, &usage);
 
         return sd_bus_message_append(reply, "t", usage);
 }
@@ -69,19 +66,13 @@ static int property_get_pool_limit(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_close_ int fd = -EBADF;
+        Manager *m = ASSERT_PTR(userdata);
         uint64_t size = UINT64_MAX;
 
         assert(bus);
         assert(reply);
 
-        fd = open("/var/lib/portables", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
-        if (fd >= 0) {
-                BtrfsQuotaInfo q;
-
-                if (btrfs_subvol_get_subtree_quota_fd(fd, 0, &q) >= 0)
-                        size = q.referenced_max;
-        }
+        (void) image_get_pool_limit(m->runtime_scope, IMAGE_PORTABLE, &size);
 
         return sd_bus_message_append(reply, "t", size);
 }
@@ -96,12 +87,13 @@ static int property_get_profiles(
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(bus);
         assert(reply);
 
-        r = portable_get_profiles(&l);
+        r = portable_get_profiles(m->runtime_scope, &l);
         if (r < 0)
                 return r;
 
@@ -319,16 +311,18 @@ static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_e
                         flags |= PORTABLE_RUNTIME;
         }
 
-        r = bus_verify_polkit_async(
-                        message,
-                        "org.freedesktop.portable1.attach-images",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = bus_verify_polkit_async(
+                                message,
+                                "org.freedesktop.portable1.attach-images",
+                                /* details= */ NULL,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         r = portable_detach(
                         m->runtime_scope,
@@ -374,21 +368,21 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (!FILE_SIZE_VALID_OR_INFINITY(limit))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
-        r = bus_verify_polkit_async(
-                        message,
-                        "org.freedesktop.portable1.manage-images",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = bus_verify_polkit_async(
+                                message,
+                                "org.freedesktop.portable1.manage-images",
+                                /* details= */ NULL,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
-        (void) btrfs_qgroup_set_limit("/var/lib/portables", 0, limit);
-
-        r = btrfs_subvol_set_subtree_quota_limit("/var/lib/portables", 0, limit);
-        if (r == -ENOTTY)
+        r = image_set_pool_limit(m->runtime_scope, IMAGE_MACHINE, limit);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to adjust quota limit: %m");
