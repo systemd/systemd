@@ -132,6 +132,13 @@ evdev:input:b0003v05ACp025B*
  EVDEV_ABS_35=::94
  EVDEV_ABS_36=::92
 
+# MacbookPro12,1 (unibody, Early 2015)
+evdev:input:b0003v05ACp0273*
+ EVDEV_ABS_00=::97
+ EVDEV_ABS_01=::92
+ EVDEV_ABS_35=::97
+ EVDEV_ABS_36=::92
+
 # MacBook8,1 (2015), MacBook9,1 (2016), MacBook10,1 (2017)
 evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBook8,1:*
 evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBook9,1:*
