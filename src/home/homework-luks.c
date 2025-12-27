@@ -2665,7 +2665,7 @@ static int ext4_offline_resize_fs(
         r = pidref_safe_fork(
                         "(e2resize)",
                         FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
-                        /* ret_pid= */ NULL);
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {

@@ -12,6 +12,7 @@
 #include "oomd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "set.h"
 #include "tests.h"
@@ -39,11 +40,10 @@ static int enter_cgroup_root_cached(void) {
         return saved_result;
 }
 
-static int fork_and_sleep(unsigned sleep_min) {
-        pid_t pid;
+static int fork_and_sleep(unsigned sleep_min, PidRef *ret) {
         int r;
 
-        ASSERT_OK(r = safe_fork("(test-oom-child)", /* flags= */ 0, &pid));
+        r = pidref_safe_fork("(test-oom-child)", FORK_LOG|FORK_DEATHSIG_SIGKILL, ret);
         if (r == 0) {
                 usec_t timeout = usec_add(now(CLOCK_MONOTONIC), sleep_min * USEC_PER_MINUTE);
                 for (;;) {
@@ -56,7 +56,7 @@ static int fork_and_sleep(unsigned sleep_min) {
                 }
         }
 
-        return pid;
+        return r;
 }
 
 TEST(oomd_cgroup_kill) {
@@ -81,12 +81,12 @@ TEST(oomd_cgroup_kill) {
         /* Do this twice to also check the increment behavior on the xattrs */
         for (size_t i = 0; i < 2; i++) {
                 _cleanup_free_ char *v = NULL;
-                pid_t pid[2];
+                _cleanup_(pidref_done) PidRef one = PIDREF_NULL, two = PIDREF_NULL;
 
-                for (size_t j = 0; j < 2; j++) {
-                        pid[j] = fork_and_sleep(5);
-                        ASSERT_OK(cg_attach(subcgroup, pid[j]));
-                }
+                ASSERT_OK(fork_and_sleep(5, &one));
+                ASSERT_OK(cg_attach(subcgroup, one.pid));
+                ASSERT_OK(fork_and_sleep(5, &two));
+                ASSERT_OK(cg_attach(subcgroup, two.pid));
 
                 ASSERT_OK_POSITIVE(oomd_cgroup_kill(subcgroup, false /* recurse */, false /* dry run */));
 

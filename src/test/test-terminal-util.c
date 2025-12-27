@@ -385,11 +385,12 @@ TEST(terminal_new_session) {
         ASSERT_OK(pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, NULL));
         ASSERT_OK(peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
 
-        r = safe_fork_full("test-term-session",
-                           (int[]) { peer_fd, peer_fd, peer_fd },
-                           NULL, 0,
-                           FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_REARRANGE_STDIO,
-                           NULL);
+        r = pidref_safe_fork_full(
+                        "test-term-session",
+                        (int[]) { peer_fd, peer_fd, peer_fd },
+                        NULL, 0,
+                        FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_REARRANGE_STDIO,
+                        NULL);
         ASSERT_OK(r);
         if (r == 0) {
                 ASSERT_OK(terminal_new_session());

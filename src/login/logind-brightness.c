@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "bus-message-util.h"
 #include "device-util.h"
+#include "event-util.h"
 #include "format-util.h"
 #include "hash-funcs.h"
 #include "logind.h"
@@ -41,8 +42,6 @@ typedef struct BrightnessWriter {
 
         sd_device *device;
         char *path;
-
-        pid_t child;
 
         uint32_t brightness;
         bool again;
@@ -111,8 +110,6 @@ static int on_brightness_writer_exit(sd_event_source *s, const siginfo_t *si, vo
         assert(s);
         assert(si);
 
-        assert(si->si_pid == w->child);
-        w->child = 0;
         w->child_event_source = sd_event_source_unref(w->child_event_source);
 
         brightness_writer_reply(w,
@@ -142,10 +139,13 @@ static int brightness_writer_fork(BrightnessWriter *w) {
 
         assert(w);
         assert(w->manager);
-        assert(w->child == 0);
         assert(!w->child_event_source);
 
-        r = safe_fork("(sd-bright)", FORK_DEATHSIG_SIGKILL|FORK_REARRANGE_STDIO|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &w->child);
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(sd-bright)",
+                        FORK_DEATHSIG_SIGKILL|FORK_REARRANGE_STDIO|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG,
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -163,9 +163,15 @@ static int brightness_writer_fork(BrightnessWriter *w) {
                 _exit(EXIT_SUCCESS);
         }
 
-        r = sd_event_add_child(w->manager->event, &w->child_event_source, w->child, WEXITED, on_brightness_writer_exit, w);
+        r = event_add_child_pidref(w->manager->event, &w->child_event_source, &pidref, WEXITED, on_brightness_writer_exit, w);
         if (r < 0)
-                return log_error_errno(r, "Failed to watch brightness writer child " PID_FMT ": %m", w->child);
+                return log_error_errno(r, "Failed to watch brightness writer child " PID_FMT ": %m", pidref.pid);
+
+        r = sd_event_source_set_child_process_own(w->child_event_source, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to take ownership of child process: %m");
+
+        pidref_done(&pidref);
 
         return 0;
 }

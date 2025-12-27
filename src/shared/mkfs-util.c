@@ -152,7 +152,10 @@ static int do_mcopy(const char *node, const char *root) {
         if (strv_extend(&argv, "::") < 0)
                 return log_oom();
 
-        r = safe_fork("(mcopy)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS, NULL);
+        r = pidref_safe_fork(
+                        "(mcopy)",
+                        FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -683,13 +686,13 @@ int make_filesystem(
                 log_debug("Executing mkfs command: %s", strna(j));
         }
 
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "(mkfs)",
                         stdio_fds,
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
                         fork_flags,
-                        /* ret_pid= */ NULL);
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {

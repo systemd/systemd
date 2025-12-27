@@ -224,8 +224,10 @@ static void test_capability_get_ambient(void) {
         if (r <= 0)
                 return (void) log_tests_skipped("Lacking CAP_LINUX_IMMUTABLE, skipping getambient test.");
 
-        r = safe_fork("(getambient)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL);
-        ASSERT_OK(r);
+        r = ASSERT_OK(pidref_safe_fork(
+                        "(getambient)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG,
+                        NULL));
 
         if (r == 0) {
                 int x, y;

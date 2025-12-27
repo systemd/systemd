@@ -42,8 +42,10 @@ TEST(asynchronous_close) {
         asynchronous_close(fd);
         wait_fd_closed(fd);
 
-        r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT, NULL);
-        ASSERT_OK(r);
+        r = ASSERT_OK(pidref_safe_fork(
+                        "(subreaper)",
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT,
+                        NULL));
 
         if (r == 0) {
                 /* child */
@@ -84,8 +86,10 @@ TEST(asynchronous_rm_rf) {
         /* Do this once more, from a subreaper. Which is nice, because we can watch the async child even
          * though detached */
 
-        r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT, NULL);
-        ASSERT_OK(r);
+        r = ASSERT_OK(pidref_safe_fork(
+                        "(subreaper)",
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT,
+                        NULL));
 
         if (r == 0) {
                 _cleanup_free_ char *tt = NULL, *kk = NULL;

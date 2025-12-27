@@ -1452,12 +1452,12 @@ int mount_fd_clone(int mount_fd, bool recursive, int *replacement_fd) {
                 return log_debug_errno(errno, "Failed to open pipe: %m");
 
         /* Fork a child. Note that we set FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE here, i.e. get a new mount namespace */
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "(sd-clonemnt)",
                         /* stdio_fds= */ NULL,
                         (int[]) { mount_fd, transfer_fds[1], errno_pipe_fds[1] }, 3,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_REOPEN_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
-                        /* ret_pid= */ NULL);
+                        /* ret= */ NULL);
         if (r < 0) {
                 errno_pipe_fds[1] = safe_close(errno_pipe_fds[1]);
 

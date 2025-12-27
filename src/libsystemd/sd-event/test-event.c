@@ -851,7 +851,7 @@ TEST(fork) {
         ASSERT_OK_ZERO(sd_event_prepare(e));
 
         /* Check that after a fork the cleanup functions return NULL */
-        r = safe_fork("(bus-fork-test)", FORK_WAIT|FORK_LOG, NULL);
+        r = pidref_safe_fork("(bus-fork-test)", FORK_WAIT|FORK_LOG, NULL);
         if (r == 0) {
                 ASSERT_NOT_NULL(e);
                 ASSERT_NULL(sd_event_ref(e));

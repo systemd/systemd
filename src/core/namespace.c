@@ -3502,7 +3502,6 @@ static int is_extension_overlay(const char *path, int fd) {
 static int unpeel_get_fd(const char *mount_path, int *ret_fd) {
         _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
         _cleanup_close_ int fs_fd = -EBADF;
-        pid_t pid;
         int r;
 
         assert(mount_path);
@@ -3513,7 +3512,7 @@ static int unpeel_get_fd(const char *mount_path, int *ret_fd) {
                 return log_debug_errno(errno, "Failed to create socket pair: %m");
 
         /* Clone mount namespace here to unpeel without affecting live process */
-        r = safe_fork("(sd-ns-unpeel)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, &pid);
+        r = pidref_safe_fork("(sd-ns-unpeel)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -3903,9 +3902,10 @@ int refresh_extensions_in_namespace(
          *    overlays to obtain FDs the underlying directories, over which we will reapply the overlays
          * 3. In the child again, receive the FDs and reapply the overlays
          */
-        r = safe_fork("(sd-ns-refresh-exts)",
-                      FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
-                      NULL);
+        r = pidref_safe_fork(
+                        "(sd-ns-refresh-exts)",
+                        FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {

@@ -611,7 +611,10 @@ int main(int argc, char *argv[]) {
                         /* We cheat and exec kexec to avoid doing all its work */
                         log_info("Rebooting with kexec.");
 
-                        r = safe_fork("(sd-kexec)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
+                        r = pidref_safe_fork(
+                                        "(sd-kexec)",
+                                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT,
+                                        /* ret= */ NULL);
                         if (r == 0) {
                                 /* Child */
 

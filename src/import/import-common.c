@@ -301,12 +301,12 @@ int import_mangle_os_tree_fd_foreign(
         assert(tree_fd >= 0);
         assert(userns_fd >= 0);
 
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "mangle-tree",
                         /* stdio_fds= */ NULL,
                         (int[]) { userns_fd, tree_fd }, 2,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT,
-                        /* ret_pid= */ NULL);
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -401,12 +401,12 @@ int import_copy_foreign(
         if (r < 0)
                 return r;
 
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "copy-tree",
                         /* stdio_fds= */ NULL,
                         (int[]) { *userns_fd, source_fd, target_fd }, 3,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT,
-                        /* ret_pid= */ NULL);
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -459,12 +459,12 @@ int import_remove_tree_foreign(const char *path, int *userns_fd) {
         if (r < 0)
                 return r;
 
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "rm-tree",
                         /* stdio_fds= */ NULL,
                         (int[]) { *userns_fd, tree_fd }, 2,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT,
-                        /* ret_pid= */ NULL);
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {

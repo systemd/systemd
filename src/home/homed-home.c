@@ -2233,9 +2233,10 @@ int home_killall(Home *h) {
         assert(h->uid > 0); /* We never should be UID 0 */
 
         /* Let's kill everything matching the specified UID */
-        r = safe_fork("(sd-killer)",
-                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_WAIT|FORK_LOG|FORK_REOPEN_LOG,
-                      NULL);
+        r = pidref_safe_fork(
+                        "(sd-killer)",
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_WAIT|FORK_LOG|FORK_REOPEN_LOG,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
