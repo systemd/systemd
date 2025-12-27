@@ -418,7 +418,8 @@ int nss_pack_group_record_shadow(
                 size_t buflen) {
 
         const char *hashed;
-        size_t required;
+        char **array = NULL, *p;
+        size_t i = 0, n = 0, required;
 
         assert(hr);
         assert(sgrp);
@@ -429,15 +430,46 @@ int nss_pack_group_record_shadow(
         assert_se(hashed = strv_isempty(hr->hashed_password) ? PASSWORD_LOCKED_AND_INVALID : hr->hashed_password[0]);
         required += strlen(hashed) + 1;
 
+        STRV_FOREACH(m, hr->members) {
+                required += sizeof(char*);  /* space for array entry */
+                required += strlen(*m) + 1;
+                n++;
+        }
+        required += sizeof(char*); /* trailing NULL in array entry for members */
+        n++;
+        STRV_FOREACH(m, hr->administrators) {
+                required += sizeof(char*);  /* space for array entry */
+                required += strlen(*m) + 1;
+                n++;
+        }
+        required += sizeof(char*); /* trailing NULL in array entry for admins */
+        n++;
+
         if (buflen < required)
                 return -ERANGE;
 
-        *sgrp = (struct sgrp) {
-                .sg_namp = buffer,
-        };
-
         assert(buffer);
 
+        p = buffer + sizeof(void*) * (n + 1); /* place member strings right after the ptr array */
+
+        array = (char**) buffer; /* place ptr array at beginning of buffer, under assumption buffer is aligned */
+        sgrp->sg_mem = array;
+        STRV_FOREACH(m, hr->members) {
+                array[i++] = p;
+                p = stpcpy(p, *m) + 1;
+        }
+        array[i++] = NULL;
+
+        sgrp->sg_adm = &array[i];
+        STRV_FOREACH(m, hr->administrators) {
+                array[i++] = p;
+                p = stpcpy(p, *m) + 1;
+        }
+        array[i++] = NULL;
+
+        assert_se(i == n);
+
+        sgrp->sg_namp = p;
         sgrp->sg_passwd = stpcpy(sgrp->sg_namp, hr->group_name) + 1;
         strcpy(sgrp->sg_passwd, hashed);
 
