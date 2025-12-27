@@ -27,6 +27,10 @@ typedef struct Image {
         usec_t crtime;
         usec_t mtime;
 
+        struct file_handle *fh;
+        uint64_t on_mount_id;
+        uint64_t inode;
+
         uint64_t usage;
         uint64_t usage_exclusive;
         uint64_t limit;

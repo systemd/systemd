@@ -36,6 +36,7 @@ _systemd-sysext() {
         [ARG]='--root
                --json
                --noexec
+               --always-refresh
                --image-policy
                --mutable'
     )
