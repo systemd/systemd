@@ -25,8 +25,10 @@ Traditionally, policy about what services shall be enabled and what services sha
 This made it cumbersome to implement different policies per spin or per site, or to create software packages that do the right thing on more than one distribution.
 The enablement _mechanism_ was also encoding the enablement _policy_.
 
-systemd 32 and newer support package "preset" policies.
+systemd 32 and newer supports package "preset" policies.
 These encode which units shall be enabled by default when they are installed, and which units shall not be enabled.
+
+Since version 260, systemd gained a new preset operation: mask. This allows to specify in the policy which units shall be masked by default when they are installed, refusing their enablement unless they are explicitly unmasked.
 
 Preset files may be written for specific distributions, for specific spins or for specific sites, in order to enforce different policies as needed.
 Preset policies are stored in .preset files in /usr/lib/systemd/system-preset/ (or /usr/lib/systemd/initrd-preset/ for initrds).
@@ -34,7 +36,7 @@ If no policy exists the default implied policy of "enable everything" is enforce
 
 The policy encoded in preset files is applied to a unit by invoking "systemctl preset ".
 It is recommended to use this command in all package post installation scriptlets.
-"systemctl preset " is identical to "systemctl enable " resp. "systemctl disable " depending on the policy.
+"systemctl preset " is identical to "systemctl enable ", "systemctl disable ", or "systemctl mask " depending on the policy.
 
 Preset files allow clean separation of enablement mechanism (inside the package scriptlets, by invoking "systemctl preset"), and enablement policy (centralized in the preset files).
 

@@ -60,6 +60,7 @@ static const char *const preset_action_past_tense_table[_PRESET_ACTION_MAX] = {
         [PRESET_UNKNOWN] = "unknown",
         [PRESET_ENABLE]  = "enabled",
         [PRESET_DISABLE] = "disabled",
+        [PRESET_MASK]    = "masked",
         [PRESET_IGNORE]  = "ignored",
 };
 
@@ -1502,6 +1503,11 @@ static int unit_file_load_or_readlink(
                 return r;
         bool outside_search_path = r > 0;
 
+        if (outside_search_path && endswith(info->symlink_target, "/run/systemd/preset-mask")) {
+                info->install_mode = INSTALL_MODE_MASKED;
+                return 0;
+        }
+
         r = null_or_empty_path_with_root(info->symlink_target, lp->root_dir);
         if (r < 0 && r != -ENOENT)
                 return log_debug_errno(r, "Failed to stat %s: %m", info->symlink_target);
@@ -2392,6 +2398,8 @@ int unit_file_unmask(
         bool dry_run = flags & UNIT_FILE_DRY_RUN;
 
         STRV_FOREACH(name, names) {
+                _cleanup_free_ char *path = NULL, *target = NULL;
+
                 if (!unit_name_is_valid(*name, UNIT_NAME_ANY))
                         return -EINVAL;
 
@@ -2418,9 +2426,14 @@ int unit_file_unmask(
                         TAKE_PTR(info.name);  /* … and give it back here */
                 }
 
-                _cleanup_free_ char *path = path_make_absolute(*name, config_path);
+                path = path_make_absolute(*name, config_path);
                 if (!path)
                         return -ENOMEM;
+
+                /* Shortcut to detect if the unit is masked by preset,
+                 * as null_or_empty_path() would return -ENOENT. */
+                if (readlink_malloc(path, &target) == 0 && streq(target, "/run/systemd/preset-mask"))
+                        goto add_todo;
 
                 r = null_or_empty_path(path);
                 if (r == -ENOENT)
@@ -2429,7 +2442,7 @@ int unit_file_unmask(
                         return r;
                 if (r == 0)
                         continue;
-
+add_todo:
                 if (!GREEDY_REALLOC0(todo, n_todo + 2))
                         return -ENOMEM;
 
@@ -2664,7 +2677,7 @@ int unit_file_revert(
 
                 /* OK, there's a vendor version, hence drop all configuration versions */
                 STRV_FOREACH(p, lp.search_path) {
-                        _cleanup_free_ char *path = NULL;
+                        _cleanup_free_ char *path = NULL, *target = NULL;
                         struct stat st;
 
                         path = path_make_absolute(*name, *p);
@@ -2676,6 +2689,11 @@ int unit_file_revert(
                                 if (r != -ENOENT)
                                         return install_changes_add(changes, n_changes, r, path, NULL);
                         } else if (S_ISREG(st.st_mode) || S_ISLNK(st.st_mode)) {
+                                if (S_ISLNK(st.st_mode) &&
+                                    readlink_malloc(path, &target) == 0 &&
+                                    streq(target, "/run/systemd/preset-mask"))
+                                        continue;
+
                                 r = path_is_config(&lp, path, true);
                                 if (r < 0)
                                         return install_changes_add(changes, n_changes, r, path, NULL);
@@ -3392,6 +3410,18 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                         .action = PRESET_DISABLE,
                                 };
 
+                        } else if ((parameter = first_word(line, "mask"))) {
+                                char *pattern;
+
+                                pattern = strdup(parameter);
+                                if (!pattern)
+                                        return -ENOMEM;
+
+                                rule = (UnitFilePresetRule) {
+                                        .pattern = pattern,
+                                        .action = PRESET_MASK,
+                                };
+
                         } else if ((parameter = first_word(line, "ignore"))) {
                                 char *pattern;
 
@@ -3510,6 +3540,10 @@ static int query_presets(const char *name, const UnitFilePresets *presets, char 
                 log_debug("Preset files say disable %s.", name);
                 return PRESET_DISABLE;
 
+        case PRESET_MASK:
+                log_debug("Preset files say mask %s.", name);
+                return PRESET_MASK;
+
         case PRESET_IGNORE:
                 log_debug("Preset files say ignore %s.", name);
                 return PRESET_IGNORE;
@@ -3538,6 +3572,7 @@ static int execute_preset(
                 UnitFileFlags file_flags,
                 InstallContext *plus,
                 InstallContext *minus,
+                char * const *masks,
                 const LookupPaths *lp,
                 const char *config_path,
                 char * const *files,
@@ -3552,7 +3587,24 @@ static int execute_preset(
         assert(lp);
         assert(config_path);
 
-        if (mode != UNIT_FILE_PRESET_ENABLE_ONLY) {
+        if (!IN_SET(mode, UNIT_FILE_PRESET_ENABLE_ONLY, UNIT_FILE_PRESET_DISABLE_ONLY))
+                STRV_FOREACH(name, masks) {
+                        _cleanup_free_ char *path = NULL;
+
+                        path = path_make_absolute(*name, config_path);
+                        if (!path)
+                                return -ENOMEM;
+
+                        RET_GATHER(r, create_symlink(
+                                        lp,
+                                        "/run/systemd/preset-mask",
+                                        path,
+                                        file_flags & UNIT_FILE_FORCE,
+                                        changes,
+                                        n_changes));
+                }
+
+        if (!IN_SET(mode, UNIT_FILE_PRESET_ENABLE_ONLY, UNIT_FILE_PRESET_MASK_ONLY)) {
                 _cleanup_set_free_ Set *remove_symlinks_to = NULL;
 
                 r = install_context_mark_for_removal(minus, lp, &remove_symlinks_to, config_path, changes, n_changes);
@@ -3563,7 +3615,7 @@ static int execute_preset(
         } else
                 r = 0;
 
-        if (mode != UNIT_FILE_PRESET_DISABLE_ONLY) {
+        if (!IN_SET(mode, UNIT_FILE_PRESET_DISABLE_ONLY, UNIT_FILE_PRESET_MASK_ONLY)) {
                 int q;
 
                 /* Returns number of symlinks that where supposed to be installed. */
@@ -3582,10 +3634,34 @@ static int execute_preset(
         return r;
 }
 
+static int preset_mask_check_and_remove(
+                const char *name,
+                const char *config_path) {
+
+        _cleanup_free_ char *path = NULL, *target = NULL;
+
+        assert(name);
+        assert(config_path);
+
+        path = path_make_absolute(name, config_path);
+        if (!path)
+                return -ENOMEM;
+
+        if (readlink_malloc(path, &target) == 0 && streq(target, "/run/systemd/preset-mask")) {
+                if (unlink(path) < 0)
+                        return log_error_errno(errno, "Failed to remove %s: %m", path);
+
+                log_info("Removed '%s'.", path);
+        }
+
+        return 0;
+}
+
 static int preset_prepare_one(
                 RuntimeScope scope,
                 InstallContext *plus,
                 InstallContext *minus,
+                char ***masks,
                 LookupPaths *lp,
                 const char *name,
                 const UnitFilePresets *presets,
@@ -3616,21 +3692,40 @@ static int preset_prepare_one(
         if (r == PRESET_ENABLE) {
                 if (instance_name_list)
                         STRV_FOREACH(s, instance_name_list) {
+                                r = preset_mask_check_and_remove(*s, lp->persistent_config);
+                                if (r < 0)
+                                        return r;
+
                                 r = install_info_discover_and_check(plus, lp, *s, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                                                     &info, changes, n_changes);
                                 if (r < 0)
                                         return r;
                         }
                 else {
+                        r = preset_mask_check_and_remove(name, lp->persistent_config);
+                        if (r < 0)
+                                return r;
+
                         r = install_info_discover_and_check(plus, lp, name, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                                             &info, changes, n_changes);
                         if (r < 0)
                                 return r;
                 }
 
-        } else if (r == PRESET_DISABLE)
+        } else if (r == PRESET_DISABLE) {
+                r = preset_mask_check_and_remove(name, lp->persistent_config);
+                if (r < 0)
+                        return r;
+
                 r = install_info_discover(minus, lp, name, SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                           &info, changes, n_changes);
+
+        } else if (r == PRESET_MASK) {
+                if (!unit_name_is_valid(name, UNIT_NAME_ANY))
+                        return -EINVAL;
+
+                r = strv_extend(masks, name);
+        }
 
         return r;
 }
@@ -3645,6 +3740,7 @@ int unit_file_preset(
                 size_t *n_changes) {
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
+        _cleanup_strv_free_ char **masks = NULL;
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
         const char *config_path;
@@ -3667,12 +3763,12 @@ int unit_file_preset(
                 return r;
 
         STRV_FOREACH(name, names) {
-                r = preset_prepare_one(scope, &plus, &minus, &lp, *name, &presets, changes, n_changes);
+                r = preset_prepare_one(scope, &plus, &minus, &masks, &lp, *name, &presets, changes, n_changes);
                 if (r < 0)
                         return r;
         }
 
-        return execute_preset(file_flags, &plus, &minus, &lp, config_path, names, mode, changes, n_changes);
+        return execute_preset(file_flags, &plus, &minus, masks, &lp, config_path, names, mode, changes, n_changes);
 }
 
 int unit_file_preset_all(
@@ -3684,6 +3780,7 @@ int unit_file_preset_all(
                 size_t *n_changes) {
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
+        _cleanup_strv_free_ char **masks = NULL;
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
         const char *config_path = NULL;
@@ -3725,7 +3822,16 @@ int unit_file_preset_all(
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
-                        k = preset_prepare_one(scope, &plus, &minus, &lp, de->d_name, &presets, changes, n_changes);
+                        k = preset_prepare_one(
+                                        scope,
+                                        &plus,
+                                        &minus,
+                                        &masks,
+                                        &lp,
+                                        de->d_name,
+                                        &presets,
+                                        changes,
+                                        n_changes);
                         if (k < 0 &&
                             !IN_SET(k, -EEXIST,
                                        -ERFKILL,
@@ -3745,7 +3851,7 @@ int unit_file_preset_all(
                 }
         }
 
-        return execute_preset(file_flags, &plus, &minus, &lp, config_path, NULL, mode, changes, n_changes);
+        return execute_preset(file_flags, &plus, &minus, masks, &lp, config_path, NULL, mode, changes, n_changes);
 }
 
 static UnitFileList* unit_file_list_free(UnitFileList *f) {
@@ -3882,6 +3988,7 @@ static const char* const unit_file_preset_mode_table[_UNIT_FILE_PRESET_MODE_MAX]
         [UNIT_FILE_PRESET_FULL]         = "full",
         [UNIT_FILE_PRESET_ENABLE_ONLY]  = "enable-only",
         [UNIT_FILE_PRESET_DISABLE_ONLY] = "disable-only",
+        [UNIT_FILE_PRESET_MASK_ONLY]    = "mask-only",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_preset_mode, UnitFilePresetMode);
