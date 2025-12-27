@@ -2758,7 +2758,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         /* Make sure the cgroup and state files are always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                 SET_FLAG(u->markers,
-                         (1u << UNIT_MARKER_NEEDS_RELOAD)|(1u << UNIT_MARKER_NEEDS_RESTART),
+                         (1u << UNIT_MARKER_NEEDS_RELOAD)|(1u << UNIT_MARKER_NEEDS_RESTART)|(1u << UNIT_MARKER_NEEDS_STOP),
                          false);
                 unit_prune_cgroup(u);
                 unit_unlink_state_files(u);
@@ -7086,8 +7086,25 @@ int parse_unit_marker(const char *marker, unsigned *settings, unsigned *mask) {
         if (m < 0)
                 return -EINVAL;
 
+        /* When +- are not used, last one wins, so reset the bitmask before storing the new result */
+        if (!some_plus_minus)
+                *settings = 0;
+
         SET_FLAG(*settings, 1u << m, b);
         SET_FLAG(*mask, 1u << m, true);
 
         return some_plus_minus;
+}
+
+unsigned unit_normalize_markers(unsigned markers) {
+        /* Follow the job merging logic */
+
+        /* Reload loses against everything */
+        if (BIT_SET(markers, UNIT_MARKER_NEEDS_RESTART) || BIT_SET(markers, UNIT_MARKER_NEEDS_STOP))
+                CLEAR_BIT(markers, UNIT_MARKER_NEEDS_RELOAD);
+        /* Stop wins against everything */
+        if (BIT_SET(markers, UNIT_MARKER_NEEDS_STOP))
+                CLEAR_BITS(markers, UNIT_MARKER_NEEDS_RESTART, UNIT_MARKER_NEEDS_RELOAD);
+
+        return markers;
 }
