@@ -55,7 +55,14 @@ CHANGES WITH 260 in spe:
 
           Device nodes should not be owned by a non-system user/group. It is
           recommended to check udev rules files with 'udevadm verify' and/or
-          'udevadm test' commands .
+          'udevadm test' commands.
+
+        * systemd-repart will now make use of mkfs.xfs's support for
+          populating XFS filesystems from a directory. This support was
+          added in xfsprogs 6.17.0 released 20 October 2025. As there is no
+          proper way to detect whether mkfs.xfs supports populating from a
+          directory or not, we make use of it unconditionally and have dropped
+          support for the old way using protofiles.
 
         New system interfaces and components:
 
