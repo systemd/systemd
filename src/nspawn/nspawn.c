@@ -5492,7 +5492,7 @@ static int run_container(
                                 ifi,
                                 arg_container_service_name);
                 if (r < 0) {
-                        if (arg_privileged) /* if privileged the request to register definitely failed */
+                        if (arg_privileged || !ERRNO_IS_NEG_PRIVILEGE(r)) /* if privileged the request to register definitely failed */
                                 return r;
 
                         log_notice_errno(r, "Failed to register machine in system context, will try in user context.");

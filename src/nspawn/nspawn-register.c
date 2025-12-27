@@ -234,6 +234,8 @@ int register_machine(
                         &error);
         if (r >= 0)
                 return 0;
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return r;
         if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
                 return log_error_errno(r, "Failed to register machine: %s", bus_error_message(&error, r));
 
@@ -253,6 +255,8 @@ int register_machine(
                         pidref_is_set(pid) ? (uint32_t) pid->pid : 0,
                         strempty(directory),
                         local_ifindex > 0 ? 1 : 0, local_ifindex);
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return r;
         if (r < 0)
                 return log_error_errno(r, "Failed to register machine: %s", bus_error_message(&error, r));
 
