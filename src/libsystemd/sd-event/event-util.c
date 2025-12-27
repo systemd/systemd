@@ -6,9 +6,11 @@
 #include "event-source.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "hash-funcs.h"
 #include "log.h"
 #include "pidref.h"
+#include "signal-util.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -252,7 +254,8 @@ void event_source_unref_many(sd_event_source **array, size_t n) {
 }
 
 static int event_forward_signal_callback(sd_event_source *s, const struct signalfd_siginfo *ssi, void *userdata) {
-        sd_event_source *child = ASSERT_PTR(userdata);
+        PidRef *pidref = ASSERT_PTR(userdata);
+        int r;
 
         assert(ssi);
 
@@ -272,17 +275,30 @@ static int event_forward_signal_callback(sd_event_source *s, const struct signal
         si.si_int = ssi->ssi_int;
         si.si_ptr = UINT64_TO_PTR(ssi->ssi_ptr);
 
-        return sd_event_source_send_child_signal(child, ssi->ssi_signo, &si, /* flags= */ 0);
-}
+        log_debug("Forwarding signal %s to process " PID_FMT, signal_to_string(ssi->ssi_signo), pidref->pid);
 
-static void event_forward_signal_destroy(void *userdata) {
-        sd_event_source *child = ASSERT_PTR(userdata);
-        sd_event_source_unref(child);
+        r = pidref_kill_full(pidref, ssi->ssi_signo, &si);
+        if (r < 0 && r != -ESRCH) {
+                log_debug("Failed to forward signal %s to process with pid "PID_FMT": %m", signal_to_string(ssi->ssi_signo), pidref->pid);
+
+                if (sd_event_source_get_exit_on_failure(s) <= 0)
+                        return r;
+
+                /* If we can't forward a signal for w.e. reason and exit-on-failure is enabled for the event
+                 * source, we terminate the event loop with a zero exit code. We don't propagate the error to
+                 * make signal forwarding a graceful operation. We'll forward signals if we can, and if we
+                 * can't, we'll instead terminate the event loop as we can't stop the child process via
+                 * signal forwarding. Naturally, this should only be enabled for signals where exiting with
+                 * a zero exit code makes sense, such as SIGINT or SIGTERM. */
+                return sd_event_exit(sd_event_source_get_event(s), 0);
+        }
+
+        return 0;
 }
 
 int event_forward_signals(
                 sd_event *e,
-                sd_event_source *child,
+                PidRef *pidref,
                 const int *signals,
                 size_t n_signals,
                 sd_event_source ***ret_sources,
@@ -295,11 +311,13 @@ int event_forward_signals(
         CLEANUP_ARRAY(sources, n_sources, event_source_unref_many);
 
         assert(e);
-        assert(child);
-        assert(child->type == SOURCE_CHILD);
+        assert(pidref);
         assert(signals || n_signals == 0);
         assert(ret_sources);
         assert(ret_n_sources);
+
+        /* NOTE: The input pidref's lifetime must exceed the lifetime of all the event sources returned
+         * by this function. */
 
         if (n_signals == 0) {
                 *ret_sources = NULL;
@@ -313,15 +331,11 @@ int event_forward_signals(
 
         FOREACH_ARRAY(sig, signals, n_signals) {
                 _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-                r = sd_event_add_signal(e, &s, *sig | SD_EVENT_SIGNAL_PROCMASK, event_forward_signal_callback, child);
+
+                r = sd_event_add_signal(e, &s, *sig | SD_EVENT_SIGNAL_PROCMASK, event_forward_signal_callback, pidref);
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_destroy_callback(s, event_forward_signal_destroy);
-                if (r < 0)
-                        return r;
-
-                sd_event_source_ref(child);
                 sources[n_sources++] = TAKE_PTR(s);
         }
 
