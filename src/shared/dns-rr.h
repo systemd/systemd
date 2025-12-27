@@ -334,8 +334,7 @@ DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *
 DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname);
 int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key, char *name);
 DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name);
-DnsResourceKey* dns_resource_key_ref(DnsResourceKey *key);
-DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsResourceKey, dns_resource_key);
 
 #define DNS_RESOURCE_KEY_REPLACE(a, b)          \
         do {                                    \
@@ -374,8 +373,7 @@ bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b);
 
 DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key);
 DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name);
-DnsResourceRecord* dns_resource_record_ref(DnsResourceRecord *rr);
-DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsResourceRecord, dns_resource_record);
 
 #define DNS_RR_REPLACE(a, b)                    \
         do {                                    \
@@ -433,16 +431,12 @@ extern const struct hash_ops dns_resource_key_hash_ops;
 extern const struct hash_ops dns_resource_record_hash_ops;
 extern const struct hash_ops dns_resource_record_hash_ops_by_key;
 
-int dnssec_algorithm_to_string_alloc(int i, char **ret);
-int dnssec_algorithm_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_algorithm, int);
 
-int dnssec_digest_to_string_alloc(int i, char **ret);
-int dnssec_digest_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_digest, int);
 
-int sshfp_algorithm_to_string_alloc(int i, char **ret);
-int sshfp_algorithm_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sshfp_algorithm, int);
 
-int sshfp_key_type_to_string_alloc(int i, char **ret);
-int sshfp_key_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sshfp_key_type, int);
 
 int dns_json_dispatch_resource_key(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);

@@ -130,8 +130,7 @@ int sd_dhcp6_client_attach_event(
 int sd_dhcp6_client_detach_event(sd_dhcp6_client *client);
 sd_event *sd_dhcp6_client_get_event(sd_dhcp6_client *client);
 int sd_dhcp6_client_attach_device(sd_dhcp6_client *client, sd_device *dev);
-sd_dhcp6_client *sd_dhcp6_client_ref(sd_dhcp6_client *client);
-sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_client);
 int sd_dhcp6_client_new(sd_dhcp6_client **ret);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp6_client, sd_dhcp6_client_unref);

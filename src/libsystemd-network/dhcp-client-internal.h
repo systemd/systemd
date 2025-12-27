@@ -20,7 +20,7 @@ typedef enum DHCPState {
         _DHCP_STATE_INVALID                     = -EINVAL,
 } DHCPState;
 
-const char* dhcp_state_to_string(DHCPState s) _const_;
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState);
 
 typedef struct sd_dhcp_client sd_dhcp_client;
 

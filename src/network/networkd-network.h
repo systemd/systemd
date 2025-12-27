@@ -416,8 +416,7 @@ typedef struct Network {
         char **ntp;
 } Network;
 
-Network *network_ref(Network *network);
-Network *network_unref(Network *network);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Network, network);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_unref);
 
 int network_load(Manager *manager, OrderedHashmap **ret);
@@ -443,8 +442,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ignore_carrier_loss);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
-const char* keep_configuration_to_string(KeepConfiguration i) _const_;
-KeepConfiguration keep_configuration_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(keep_configuration, KeepConfiguration);
 
-const char* activation_policy_to_string(ActivationPolicy i) _const_;
-ActivationPolicy activation_policy_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy);

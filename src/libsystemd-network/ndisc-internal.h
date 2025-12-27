@@ -42,8 +42,7 @@ typedef struct sd_ndisc {
         void *userdata;
 } sd_ndisc;
 
-const char* ndisc_event_to_string(sd_ndisc_event_t e) _const_;
-sd_ndisc_event_t ndisc_event_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event_t);
 
 #define log_ndisc_errno(ndisc, error, fmt, ...)         \
         log_interface_prefix_full_errno(                \

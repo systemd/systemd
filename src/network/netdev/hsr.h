@@ -23,6 +23,6 @@ typedef struct Hsr {
 DEFINE_NETDEV_CAST(HSR, Hsr);
 extern const NetDevVTable hsr_vtable;
 
-HsrProtocol hsr_protocol_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_FROM_STRING(hsr_protocol, HsrProtocol);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_hsr_protocol);

@@ -27,8 +27,7 @@ struct in6_addr;
 typedef struct sd_ndisc_router sd_ndisc_router;
 typedef struct sd_dns_resolver sd_dns_resolver;
 
-sd_ndisc_router *sd_ndisc_router_ref(sd_ndisc_router *rt);
-sd_ndisc_router *sd_ndisc_router_unref(sd_ndisc_router *rt);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc_router, sd_ndisc_router_unref);
 
 int sd_ndisc_router_set_sender_address(sd_ndisc_router *rt, const struct in6_addr *addr);

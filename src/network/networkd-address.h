@@ -87,8 +87,7 @@ extern const struct hash_ops address_hash_ops;
 
 bool address_can_update(const Address *existing, const Address *requesting);
 
-Address* address_ref(Address *address);
-Address* address_unref(Address *address);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Address, address);
 
 int address_new(Address **ret);
 int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret);

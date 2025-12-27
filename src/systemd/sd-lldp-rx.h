@@ -41,8 +41,7 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_lldp_rx_event_t) {
 typedef void (*sd_lldp_rx_callback_t)(sd_lldp_rx *lldp_rx, sd_lldp_rx_event_t event, sd_lldp_neighbor *n, void *userdata);
 
 int sd_lldp_rx_new(sd_lldp_rx **ret);
-sd_lldp_rx *sd_lldp_rx_ref(sd_lldp_rx *lldp_rx);
-sd_lldp_rx *sd_lldp_rx_unref(sd_lldp_rx *lldp_rx);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_lldp_rx);
 
 int sd_lldp_rx_start(sd_lldp_rx *lldp_rx);
 int sd_lldp_rx_stop(sd_lldp_rx *lldp_rx);
@@ -64,8 +63,7 @@ int sd_lldp_rx_set_filter_address(sd_lldp_rx *lldp_rx, const struct ether_addr *
 
 int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret);
 
-sd_lldp_neighbor *sd_lldp_neighbor_ref(sd_lldp_neighbor *n);
-sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_lldp_neighbor);
 
 /* Access to LLDP frame metadata */
 int sd_lldp_neighbor_get_source_address(sd_lldp_neighbor *n, struct ether_addr* address);

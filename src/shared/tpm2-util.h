@@ -2,8 +2,8 @@
 #pragma once
 
 #include "bitfield.h"
-#include "shared-forward.h"
 #include "openssl-util.h"
+#include "shared-forward.h"
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN     = 1 << 0,
@@ -66,8 +66,7 @@ typedef struct Tpm2Context {
 
 int tpm2_context_new(const char *device, Tpm2Context **ret_context);
 int tpm2_context_new_or_warn(const char *device, Tpm2Context **ret_context);
-Tpm2Context *tpm2_context_ref(Tpm2Context *context);
-Tpm2Context *tpm2_context_unref(Tpm2Context *context);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Tpm2Context, tpm2_context);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Context*, tpm2_context_unref);
 
 typedef struct Tpm2Handle {
@@ -150,8 +149,7 @@ typedef enum Tpm2UserspaceEventType {
         _TPM2_USERSPACE_EVENT_TYPE_INVALID = -EINVAL,
 } Tpm2UserspaceEventType;
 
-const char* tpm2_userspace_event_type_to_string(Tpm2UserspaceEventType type) _const_;
-Tpm2UserspaceEventType tpm2_userspace_event_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
 
 int tpm2_pcr_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event, const char *description);
 int tpm2_nvpcr_get_index(const char *name, uint32_t *ret);
@@ -509,8 +507,7 @@ enum {
         _TPM2_PCR_INDEX_INVALID     = -EINVAL,
 };
 
-int tpm2_pcr_index_from_string(const char *s) _pure_;
-const char* tpm2_pcr_index_to_string(int pcr) _const_;
+DECLARE_STRING_TABLE_LOOKUP(tpm2_pcr_index, int);
 
 /* The first and last NV index handle that is not registered to any company, as per TCG's "Registry of
  * Reserved TPM 2.0 Handles and Localities", section 2.2.2. */

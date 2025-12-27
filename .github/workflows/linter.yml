@@ -77,7 +77,7 @@ jobs:
           mkosi box -- ruff check src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
 
       - name: Configure meson
-        run: mkosi box -- env CC=clang CXX=clang++ meson setup -Dlocalegen-path=/usr/bin/locale-gen -Dcompat-mutable-uid-boundaries=true build
+        run: mkosi box -- env CC=clang CXX=clang++ meson setup build
 
       - name: Run clang-tidy
         run: mkosi box -- meson test -C build --suite=clang-tidy --print-errorlogs --no-stdsplit --quiet

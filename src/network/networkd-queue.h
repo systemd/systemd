@@ -83,8 +83,7 @@ typedef struct Request {
         bool waiting_reply;
 } Request;
 
-Request *request_ref(Request *req);
-Request *request_unref(Request *req);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Request, request);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Request*, request_unref);
 
 void request_detach(Request *req);
@@ -151,7 +150,7 @@ static inline int link_queue_request(
 int manager_process_requests(Manager *manager);
 int request_call_netlink_async(sd_netlink *nl, sd_netlink_message *m, Request *req);
 
-const char* request_type_to_string(RequestType t) _const_;
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(request_type, RequestType);
 
 typedef struct RemoveRequest RemoveRequest;
 typedef int (*remove_request_netlink_handler_t)(sd_netlink *nl, sd_netlink_message *m, RemoveRequest *req);

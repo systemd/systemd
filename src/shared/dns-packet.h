@@ -308,17 +308,15 @@ enum {
         _DNS_EDE_RCODE_INVALID               = -EINVAL,
 };
 
-const char* dns_rcode_to_string(int i) _const_;
-int dns_rcode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dns_rcode, int);
 const char* format_dns_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]);
 #define FORMAT_DNS_RCODE(i) format_dns_rcode(i, (char [DECIMAL_STR_MAX(int)]) {})
 
-const char* dns_ede_rcode_to_string(int i) _const_;
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dns_ede_rcode, int);
 const char* format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]);
 #define FORMAT_DNS_EDE_RCODE(i) format_dns_ede_rcode(i, (char [DECIMAL_STR_MAX(int)]) {})
 
-const char* dns_protocol_to_string(DnsProtocol p) _const_;
-DnsProtocol dns_protocol_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dns_protocol, DnsProtocol);
 
 #define LLMNR_MULTICAST_IPV4_ADDRESS ((struct in_addr) { .s_addr = htobe32(224U << 24 | 252U) })
 #define LLMNR_MULTICAST_IPV6_ADDRESS ((struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } })
@@ -343,7 +341,7 @@ enum {
         DNS_SVC_PARAM_KEY_INVALID         = 65535 /* RFC 9460 */
 };
 
-const char* dns_svc_param_key_to_string(int i) _const_;
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(dns_svc_param_key, int);
 const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]);
 #define FORMAT_DNS_SVC_PARAM_KEY(i) format_dns_svc_param_key(i, (char [DECIMAL_STR_MAX(uint16_t)+3]) {})
 

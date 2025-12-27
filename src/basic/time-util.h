@@ -173,7 +173,7 @@ char* save_timezone(void);
 
 bool clock_supported(clockid_t clock);
 
-usec_t usec_shift_clock(usec_t, clockid_t from, clockid_t to);
+usec_t usec_shift_clock(usec_t x, clockid_t from, clockid_t to);
 
 int get_timezone(char **ret);
 const char* etc_localtime(void);
@@ -232,5 +232,4 @@ int usleep_safe(usec_t usec);
 
 int time_change_fd(void);
 
-const char* timestamp_style_to_string(TimestampStyle t) _const_;
-TimestampStyle timestamp_style_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(timestamp_style, TimestampStyle);

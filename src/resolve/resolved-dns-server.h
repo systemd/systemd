@@ -16,8 +16,7 @@ typedef enum DnsServerType {
         _DNS_SERVER_TYPE_INVALID = -EINVAL,
 } DnsServerType;
 
-const char* dns_server_type_to_string(DnsServerType i) _const_;
-DnsServerType dns_server_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dns_server_type, DnsServerType);
 
 typedef enum DnsServerFeatureLevel {
         DNS_SERVER_FEATURE_LEVEL_TCP,
@@ -37,8 +36,7 @@ typedef enum DnsServerFeatureLevel {
 #define DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_DO)
 #define DNS_SERVER_FEATURE_LEVEL_IS_UDP(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_UDP, DNS_SERVER_FEATURE_LEVEL_EDNS0, DNS_SERVER_FEATURE_LEVEL_DO)
 
-const char* dns_server_feature_level_to_string(DnsServerFeatureLevel i) _const_;
-DnsServerFeatureLevel dns_server_feature_level_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);
 
 typedef struct DnsServer {
         Manager *manager;
@@ -114,8 +112,7 @@ int dns_server_new(
                 const char *server_name,
                 ResolveConfigSource config_source);
 
-DnsServer* dns_server_ref(DnsServer *s);
-DnsServer* dns_server_unref(DnsServer *s);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsServer, dns_server);
 
 void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);

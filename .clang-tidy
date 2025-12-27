@@ -2,10 +2,33 @@
 ---
 Checks: '
     -*,
-    misc-header-include-cycle,
-    readability-duplicate-include,
     bugprone-argument-comment,
-    misc-include-cleaner
+    bugprone-chained-comparison,
+    bugprone-integer-division,
+    bugprone-misplaced-operator-in-strlen-in-alloc,
+    bugprone-misplaced-pointer-arithmetic-in-alloc,
+    bugprone-posix-return,
+    bugprone-redundant-branch-condition,
+    bugprone-sizeof-expression,
+    bugprone-suspicious-enum-usage,
+    bugprone-suspicious-semicolon,
+    bugprone-suspicious-string-compare,
+    bugprone-swapped-arguments,
+    bugprone-tautological-type-limits,
+    bugprone-unused-return-value,
+    misc-header-include-cycle,
+    misc-include-cleaner,
+    misc-misplaced-const,
+    misc-use-internal-linkage,
+    readability-avoid-const-params-in-decls,
+    readability-const-return-type,
+    readability-duplicate-include,
+    readability-inconsistent-declaration-parameter-name,
+    readability-misleading-indentation,
+    readability-named-parameter,
+    readability-redundant-casting,
+    readability-redundant-declaration,
+    readability-redundant-function-ptr-dereference
 '
 CheckOptions:
   misc-include-cleaner.MissingIncludes: 'false'
@@ -28,7 +51,9 @@ CheckOptions:
     varlink-idl-common\.h;
     unistd\.h
 '
+  misc-header-include-cycle.IgnoredFilesList: 'glib-2.0'
 WarningsAsErrors: '*'
+ExcludeHeaderFilterRegex: 'blkid\.h|gmessages\.h|gstring\.h'
 HeaderFileExtensions:
   - h
 ImplementationFileExtensions:

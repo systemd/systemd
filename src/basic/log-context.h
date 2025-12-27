@@ -57,8 +57,7 @@ LogContext* log_context_new_iov(struct iovec *input_iovec, size_t n_input_iovec,
 LogContext* log_context_new_strv_consume(char **fields);
 LogContext* log_context_new_iov_consume(struct iovec *input_iovec, size_t n_input_iovec);
 
-LogContext *log_context_ref(LogContext *c);
-LogContext *log_context_unref(LogContext *c);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(LogContext, log_context);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(LogContext*, log_context_unref);
 

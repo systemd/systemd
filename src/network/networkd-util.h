@@ -47,10 +47,9 @@ CONFIG_PARSER_PROTOTYPE(config_parse_link_local_address_family);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_masquerade);
 CONFIG_PARSER_PROTOTYPE(config_parse_mud_url);
 
-const char* network_config_source_to_string(NetworkConfigSource s) _const_;
-NetworkConfigSource network_config_source_from_string(const char* s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(network_config_source, NetworkConfigSource);
 
-int network_config_state_to_string_alloc(NetworkConfigState s, char **ret);
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(network_config_state, NetworkConfigState);
 
 #define DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(type, name)               \
         static inline void name##_update_state(                         \
@@ -124,24 +123,19 @@ int network_config_state_to_string_alloc(NetworkConfigState s, char **ret);
                                     0);                                 \
         }
 
-const char* address_family_to_string(AddressFamily b) _const_;
-AddressFamily address_family_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(address_family, AddressFamily);
 
-AddressFamily link_local_address_family_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_FROM_STRING(link_local_address_family, AddressFamily);
 
-const char* routing_policy_rule_address_family_to_string(AddressFamily b) _const_;
-AddressFamily routing_policy_rule_address_family_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(routing_policy_rule_address_family, AddressFamily);
 
-const char* nexthop_address_family_to_string(AddressFamily b) _const_;
-AddressFamily nexthop_address_family_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(nexthop_address_family, AddressFamily);
 
-const char* duplicate_address_detection_address_family_to_string(AddressFamily b) _const_;
-AddressFamily duplicate_address_detection_address_family_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(duplicate_address_detection_address_family, AddressFamily);
 
-AddressFamily dhcp_deprecated_address_family_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_deprecated_address_family, AddressFamily);
 
-const char* dhcp_lease_server_type_to_string(sd_dhcp_lease_server_type_t t) _const_;
-sd_dhcp_lease_server_type_t dhcp_lease_server_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dhcp_lease_server_type, sd_dhcp_lease_server_type_t);
 
 bool link_should_mark_config(Link *link, bool only_static, NetworkConfigSource source, uint8_t protocol);
 

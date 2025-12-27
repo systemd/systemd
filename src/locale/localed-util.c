@@ -6,7 +6,6 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "copy.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -19,12 +18,16 @@
 #include "localed-util.h"
 #include "log.h"
 #include "mkdir-label.h"
-#include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "xkbcommon-util.h"
+
+#if HAVE_LOCALEGEN
+#include "copy.h"
+#include "process-util.h"
+#endif
 
 int x11_context_verify_and_warn(const X11Context *xc, int log_level, sd_bus_error *error) {
         int r;

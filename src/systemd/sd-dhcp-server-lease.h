@@ -23,8 +23,7 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_dhcp_server_lease sd_dhcp_server_lease;
 
-sd_dhcp_server_lease *sd_dhcp_server_lease_ref(sd_dhcp_server_lease *lease);
-sd_dhcp_server_lease *sd_dhcp_server_lease_unref(sd_dhcp_server_lease *lease);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server_lease);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_server_lease, sd_dhcp_server_lease_unref);
 

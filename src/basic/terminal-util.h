@@ -124,7 +124,7 @@ bool terminal_is_dumb(void);
 bool dev_console_colors_enabled(void);
 
 int get_ctty_devnr(pid_t pid, dev_t *ret);
-int get_ctty(pid_t, dev_t *ret_devnr, char **ret);
+int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret);
 
 int getttyname_malloc(int fd, char **ret);
 int getttyname_harder(int fd, char **ret);

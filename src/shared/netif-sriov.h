@@ -41,7 +41,7 @@ typedef struct SRIOV {
         struct ether_addr mac;
 } SRIOV;
 
-const char* sr_iov_attribute_to_string(SRIOVAttribute a) _const_;
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(sr_iov_attribute, SRIOVAttribute);
 
 void sr_iov_hash_func(const SRIOV *sr_iov, struct siphash *state);
 int sr_iov_compare_func(const SRIOV *s1, const SRIOV *s2);

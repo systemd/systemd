@@ -46,8 +46,7 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_ndisc_event_t) {
 typedef void (*sd_ndisc_callback_t)(sd_ndisc *nd, sd_ndisc_event_t event, void *message, void *userdata);
 
 int sd_ndisc_new(sd_ndisc **ret);
-sd_ndisc *sd_ndisc_ref(sd_ndisc *nd);
-sd_ndisc *sd_ndisc_unref(sd_ndisc *nd);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_ndisc);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc, sd_ndisc_unref);
 
 int sd_ndisc_start(sd_ndisc *nd);
