@@ -300,7 +300,7 @@ static int run_editor_child(const EditFileContext *context) {
 
                 /* We do not fail if the editor doesn't exist because we want to try each one of them
                  * before failing. */
-                if (errno != ENOENT)
+                if (errno != ENOENT && errno != ENOTDIR)
                         return log_error_errno(errno, "Failed to execute '%s': %m", name);
         }
 
