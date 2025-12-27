@@ -75,6 +75,18 @@ sd_device_sources = files(
 
 ############################################################
 
+sd_future_sources = files(
+        'sd-future/fiber-bus.c',
+        'sd-future/fiber-event.c',
+        'sd-future/fiber-io.c',
+        'sd-future/fiber-util.c',
+        'sd-future/fiber.c',
+        'sd-future/future-util.c',
+        'sd-future/sd-future.c',
+)
+
+############################################################
+
 sd_login_sources = files('sd-login/sd-login.c')
 
 ############################################################
@@ -134,8 +146,9 @@ libsystemd_sources = files(
         'sd-resolve/sd-resolve.c',
 ) + sd_journal_sources + sd_id128_sources + sd_daemon_sources \
   + sd_event_sources + sd_bus_sources + sd_device_sources \
-  + sd_login_sources + sd_json_sources + sd_varlink_sources \
-  + sd_path_sources + sd_netlink_sources + sd_network_sources
+  + sd_future_sources + sd_login_sources + sd_json_sources \
+  + sd_varlink_sources + sd_path_sources + sd_netlink_sources \
+  + sd_network_sources
 
 sources += libsystemd_sources
 
@@ -152,6 +165,7 @@ libsystemd_static = static_library(
         dependencies : [threads,
                         libm,
                         librt,
+                        libucontext,
                         userspace],
         build_by_default : false)
 
@@ -191,7 +205,10 @@ libsystemd_tests += [
         {
                 'sources' : files('sd-event/test-event.c'),
                 'timeout' : 120,
-        }
+        },
+        {
+                'sources' : files('sd-future/test-fiber.c'),
+        },
 ]
 
 ############################################################

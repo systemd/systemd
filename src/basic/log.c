@@ -16,6 +16,7 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fiber-def.h"
 #include "format-util.h"
 #include "iovec-util.h"
 #include "list.h"
@@ -65,13 +66,14 @@ static int show_color = -1; /* tristate */
 static bool show_location = false;
 static bool show_time = false;
 static bool show_tid = false;
+static bool show_executable = false;
 
 static bool upgrade_syslog_to_journal = false;
 static bool always_reopen_console = false;
 static bool open_when_needed = false;
 static bool prohibit_ipc = false;
 
-static thread_local const char *log_prefix = NULL;
+static thread_local const char *_log_prefix = NULL;
 
 #if LOG_MESSAGE_VERIFICATION || defined(__COVERITY__)
 bool _log_message_dummy = false; /* Always false */
@@ -86,6 +88,23 @@ bool _log_message_dummy = false; /* Always false */
                         abort();                                        \
                 }                                                       \
         } while (false)
+
+static const char* log_prefix(void) {
+        return fiber_get_current() ? fiber_get_current()->log_prefix : _log_prefix;
+}
+
+const char* _log_set_prefix(const char *prefix, bool force) {
+        const char *old = log_prefix();
+
+        if (prefix || force) {
+                if (fiber_get_current())
+                        fiber_get_current()->log_prefix = prefix;
+                else
+                        _log_prefix = prefix;
+        }
+
+        return old;
+}
 
 static void log_close_console(void) {
         /* See comment in log_close_journal() */
@@ -417,7 +436,7 @@ static int write_to_console(
              header_time[FORMAT_TIMESTAMP_MAX],
              prefix[1 + DECIMAL_STR_MAX(int) + 2],
              tid_string[3 + DECIMAL_STR_MAX(pid_t) + 1];
-        struct iovec iovec[11];
+        struct iovec iovec[13];
         const char *on = NULL, *off = NULL;
         size_t n = 0;
 
@@ -441,6 +460,11 @@ static int write_to_console(
                 iovec[n++] = IOVEC_MAKE_STRING(" ");
         }
 
+        if (show_executable) {
+                iovec[n++] = IOVEC_MAKE_STRING(program_invocation_short_name);
+                iovec[n++] = IOVEC_MAKE_STRING(": ");
+        }
+
         if (show_tid) {
                 xsprintf(tid_string, "(" PID_FMT ") ", gettid());
                 iovec[n++] = IOVEC_MAKE_STRING(tid_string);
@@ -462,8 +486,8 @@ static int write_to_console(
 
         if (on)
                 iovec[n++] = IOVEC_MAKE_STRING(on);
-        if (log_prefix) {
-                iovec[n++] = IOVEC_MAKE_STRING(log_prefix);
+        if (log_prefix()) {
+                iovec[n++] = IOVEC_MAKE_STRING(log_prefix());
                 iovec[n++] = IOVEC_MAKE_STRING(": ");
         }
         iovec[n++] = IOVEC_MAKE_STRING(buffer);
@@ -534,8 +558,8 @@ static int write_to_syslog(
                 IOVEC_MAKE_STRING(header_time),
                 IOVEC_MAKE_STRING(program_invocation_short_name),
                 IOVEC_MAKE_STRING(header_pid),
-                IOVEC_MAKE_STRING(strempty(log_prefix)),
-                IOVEC_MAKE_STRING(log_prefix ? ": " : ""),
+                IOVEC_MAKE_STRING(strempty(log_prefix())),
+                IOVEC_MAKE_STRING(log_prefix() ? ": " : ""),
                 IOVEC_MAKE_STRING(buffer),
         };
         const struct msghdr msghdr = {
@@ -604,8 +628,8 @@ static int write_to_kmsg(
                 IOVEC_MAKE_STRING(header_priority),
                 IOVEC_MAKE_STRING(program_invocation_short_name),
                 IOVEC_MAKE_STRING(header_pid),
-                IOVEC_MAKE_STRING(strempty(log_prefix)),
-                IOVEC_MAKE_STRING(log_prefix ? ": " : ""),
+                IOVEC_MAKE_STRING(strempty(log_prefix())),
+                IOVEC_MAKE_STRING(log_prefix() ? ": " : ""),
                 IOVEC_MAKE_STRING(buffer),
                 IOVEC_MAKE_STRING("\n"),
         };
@@ -727,8 +751,8 @@ static int write_to_journal(
 
         iovec[n++] = IOVEC_MAKE_STRING(header);
         iovec[n++] = IOVEC_MAKE_STRING("MESSAGE=");
-        if (log_prefix) {
-                iovec[n++] = IOVEC_MAKE_STRING(log_prefix);
+        if (log_prefix()) {
+                iovec[n++] = IOVEC_MAKE_STRING(log_prefix());
                 iovec[n++] = IOVEC_MAKE_STRING(": ");
         }
         iovec[n++] = IOVEC_MAKE_STRING(buffer);
@@ -1361,6 +1385,10 @@ void log_parse_environment_variables(void) {
         e = getenv("SYSTEMD_LOG_RATELIMIT_KMSG");
         if (e && log_set_ratelimit_kmsg_from_string(e) < 0)
                 log_warning("Failed to parse log ratelimit kmsg boolean '%s', ignoring.", e);
+
+        e = getenv("SYSTEMD_LOG_EXECUTABLE");
+        if (e && log_show_executable_from_string(e) < 0)
+                log_warning("Failed to parse log executable '%s', ignoring.", e);
 }
 
 void log_parse_environment(void) {
@@ -1436,6 +1464,14 @@ bool log_get_show_tid(void) {
         return show_tid;
 }
 
+void log_show_executable(bool b) {
+        show_executable = b;
+}
+
+bool log_get_show_executable(void) {
+        return show_executable;
+}
+
 int log_show_color_from_string(const char *e) {
         int r;
 
@@ -1477,6 +1513,17 @@ int log_show_tid_from_string(const char *e) {
                 return r;
 
         log_show_tid(r);
+        return 0;
+}
+
+int log_show_executable_from_string(const char *e) {
+        int r;
+
+        r = parse_boolean(e);
+        if (r < 0)
+                return r;
+
+        log_show_executable(r);
         return 0;
 }
 
@@ -1715,13 +1762,4 @@ void log_setup(void) {
         (void) log_open();
         if (log_on_console() && show_color < 0)
                 log_show_color(true);
-}
-
-const char* _log_set_prefix(const char *prefix, bool force) {
-        const char *old = log_prefix;
-
-        if (prefix || force)
-                log_prefix = prefix;
-
-        return old;
 }
