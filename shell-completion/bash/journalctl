@@ -65,6 +65,13 @@ _journalctl() {
         return 0
     fi
 
+    # If the previous word looks like a short options group,
+    # handle it as if it were just the last short option.
+    # e.g. "-aefu" -> "-u"
+    if [[ "$prev" =~ ^-[a-zA-Z]{2,}$ ]]; then
+        prev="-${prev:(-1)}"
+    fi
+
     if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
         case $prev in
             --boot|-b)
