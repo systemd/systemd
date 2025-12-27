@@ -109,6 +109,7 @@ static bool arg_all = false;
 static uid_t arg_uid_base = UID_INVALID;
 static bool arg_quiet = false;
 static ImageFilter *arg_image_filter = NULL;
+static int arg_copy_ownership = -1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -170,6 +171,8 @@ static int help(void) {
                "     --loop-ref=NAME      Set reference string for loopback device\n"
                "     --loop-ref-auto      Derive reference string from image file name\n"
                "     --mtree-hash=BOOL    Whether to include SHA256 hash in the mtree output\n"
+               "     --copy-ownership=BOOL\n"
+               "                          Whether to copy ownership when copying files\n"
                "     --user               Discover user images\n"
                "     --system             Discover system images\n"
                "     --all                Show hidden images too\n"
@@ -306,6 +309,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USER,
                 ARG_ALL,
                 ARG_IMAGE_FILTER,
+                ARG_COPY_OWNERSHIP,
         };
 
         static const struct option options[] = {
@@ -348,6 +352,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "all",           no_argument,       NULL, ARG_ALL           },
                 { "quiet",         no_argument,       NULL, 'q'               },
                 { "image-filter",  required_argument, NULL, ARG_IMAGE_FILTER  },
+                { "copy-ownership", required_argument, NULL, ARG_COPY_OWNERSHIP },
                 {}
         };
 
@@ -630,6 +635,12 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_image_filter = TAKE_PTR(f);
                         break;
                 }
+
+                case ARG_COPY_OWNERSHIP:
+                        r = parse_tristate_argument("--copy-ownership=", optarg, &arg_copy_ownership);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -1447,6 +1458,13 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
         assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_MAKE_ARCHIVE, ACTION_SHIFT));
 
+        /* Determine whether to copy ownership:
+         * --copy-ownership=yes: always try to preserve ownership
+         * --copy-ownership=no: never preserve ownership, use current user
+         * --copy-ownership=auto (default): preserve ownership for directory trees,
+         *                              but not for regular files (since DDI password tables are typically
+         *                              distinct from the host ones, individual file ownership is less meaningful) */
+
         if (arg_image) {
                 assert(m);
 
@@ -1509,7 +1527,12 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 }
 
                 /* Try to copy as directory? */
-                r = copy_directory_at(source_fd, NULL, AT_FDCWD, arg_target, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
+                r = copy_directory_at(
+                                source_fd, /* from= */ NULL,
+                                AT_FDCWD, arg_target,
+                                arg_copy_ownership == 0 ? getuid() : UID_INVALID,
+                                arg_copy_ownership == 0 ? getgid() : GID_INVALID,
+                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                 if (r >= 0)
                         return 0;
                 if (r != -ENOTDIR)
@@ -1532,9 +1555,10 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                 (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
                 (void) copy_access(source_fd, target_fd);
+                if (arg_copy_ownership > 0)
+                        (void) copy_owner(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
-                /* When this is a regular file we don't copy ownership! */
                 return 0;
         }
 
@@ -1588,9 +1612,23 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                                 if (errno != ENOENT)
                                         return log_error_errno(errno, "Failed to open destination '%s': %m", arg_target);
 
-                                r = copy_tree_at(source_fd, ".", dfd, bn, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS, NULL, NULL);
+                                r = copy_tree_at(
+                                                source_fd, ".",
+                                                dfd, bn,
+                                                arg_copy_ownership == 0 ? getuid() : UID_INVALID,
+                                                arg_copy_ownership == 0 ? getgid() : GID_INVALID,
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
+                                                /* denylist= */ NULL,
+                                                /* subvolumes= */ NULL);
                         } else
-                                r = copy_tree_at(source_fd, ".", target_fd, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS, NULL, NULL);
+                                r = copy_tree_at(
+                                                source_fd, ".",
+                                                target_fd, ".",
+                                                arg_copy_ownership == 0 ? getuid() : UID_INVALID,
+                                                arg_copy_ownership == 0 ? getgid() : GID_INVALID,
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
+                                                /* denylist= */ NULL,
+                                                /* subvolumes= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
 
@@ -1611,9 +1649,10 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                 (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
                 (void) copy_access(source_fd, target_fd);
+                if (arg_copy_ownership > 0)
+                        (void) copy_owner(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
-                /* When this is a regular file we don't copy ownership! */
                 return 0;
         }
 
