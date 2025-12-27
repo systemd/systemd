@@ -1712,9 +1712,13 @@ int openssl_load_private_key(
 
         int r;
 
+        /* The caller must keep the OpenSSLAskPasswordUI object alive as long as the EVP_PKEY object so that
+         * the user can enter any needed hardware token pin to unlock the private key when needed. */
+
         assert(private_key);
         assert(request);
         assert(ret_private_key);
+        assert(ret_user_interface);
 
         if (private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
                 r = openssl_load_private_key_from_file(private_key, ret_private_key);
@@ -1747,8 +1751,7 @@ int openssl_load_private_key(
                                         private_key,
                                         private_key_source);
 
-                if (ret_user_interface)
-                        *ret_user_interface = TAKE_PTR(ui);
+                *ret_user_interface = TAKE_PTR(ui);
         }
 
         return 0;
