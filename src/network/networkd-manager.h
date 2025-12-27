@@ -28,8 +28,10 @@ typedef struct Manager {
         Hashmap *polkit_registry;
         int ethtool_fd;
         int persistent_storage_fd;
+        bool persistent_storage_ready;
 
         KeepConfiguration keep_configuration;
+        DHCPClientPersistLeases dhcp_client_persist_leases;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
 
         ManagerState state;
