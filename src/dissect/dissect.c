@@ -1447,6 +1447,14 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
         assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_MAKE_ARCHIVE, ACTION_SHIFT));
 
+        /* If we unshare a user namespace later on we'll have all capabilities, regardless of whether they
+         * actually mean anything or not, so do the CAP_CHOWN check before we unshare any user namespaces. */
+        r = have_effective_cap(CAP_CHOWN);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check for CAP_CHOWN: %m");
+
+        bool cap_chown = r > 0;
+
         if (arg_image) {
                 assert(m);
 
@@ -1509,7 +1517,11 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 }
 
                 /* Try to copy as directory? */
-                r = copy_directory_at(source_fd, NULL, AT_FDCWD, arg_target, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
+                r = copy_directory_at(
+                                source_fd, /* from= */ NULL,
+                                AT_FDCWD, arg_target,
+                                cap_chown ? UID_INVALID : getuid(), cap_chown ? GID_INVALID : getgid(),
+                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                 if (r >= 0)
                         return 0;
                 if (r != -ENOTDIR)
@@ -1532,6 +1544,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                 (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
                 (void) copy_access(source_fd, target_fd);
+                (void) copy_owner(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
                 /* When this is a regular file we don't copy ownership! */
@@ -1588,9 +1601,23 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                                 if (errno != ENOENT)
                                         return log_error_errno(errno, "Failed to open destination '%s': %m", arg_target);
 
-                                r = copy_tree_at(source_fd, ".", dfd, bn, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS, NULL, NULL);
+                                r = copy_tree_at(
+                                                source_fd, ".",
+                                                dfd, bn,
+                                                cap_chown ? UID_INVALID : getuid(),
+                                                cap_chown ? GID_INVALID : getgid(),
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
+                                                /* denylist= */ NULL,
+                                                /* subvolumes= */ NULL);
                         } else
-                                r = copy_tree_at(source_fd, ".", target_fd, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS, NULL, NULL);
+                                r = copy_tree_at(
+                                                source_fd, ".",
+                                                target_fd, ".",
+                                                cap_chown ? UID_INVALID : getuid(),
+                                                cap_chown ? GID_INVALID : getgid(),
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
+                                                /* denylist= */ NULL,
+                                                /* subvolumes= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
 
@@ -1611,6 +1638,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                 (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
                 (void) copy_access(source_fd, target_fd);
+                (void) copy_owner(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
                 /* When this is a regular file we don't copy ownership! */
