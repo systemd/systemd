@@ -2645,11 +2645,13 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>Markers</varname> is an array of string flags that can be set using
       <function>SetUnitProperties()</function> to indicate that the service should be reloaded or
-      restarted. Currently known values are <literal>needs-restart</literal> and
-      <literal>needs-reload</literal>. Package scripts may use the first to mark units for later restart when
-      a new version of the package is installed. Configuration management scripts may use the second to mark
-      units for a later reload when the configuration is adjusted. Those flags are not set by the manager,
-      except to unset as appropriate when the unit is stopped, restarted, or reloaded.</para>
+      restarted. Currently known values are <literal>needs-restart</literal>, <literal>needs-stop</literal>,
+      and <literal>needs-reload</literal>. Package scripts may use the first or second to mark units for
+      later restart or stop when a new version of the package is installed or removed. Configuration
+      management scripts may use the third to mark units for a later reload when the configuration is
+      adjusted. Those flags are not set by the manager, except to unset as appropriate when the unit is
+      stopped, restarted, or reloaded. If multiple markers are set at the same time, the last assignment
+      always wins.</para>
 
       <para><varname>JobTimeoutUSec</varname> maps directly to the corresponding configuration setting in the
       unit file.</para>
