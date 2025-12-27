@@ -140,7 +140,7 @@ int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret) {
 int id128_read_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t *ret) {
         _cleanup_close_ int fd = -EBADF;
 
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
         assert(path);
 
         fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY);

@@ -135,7 +135,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         assert(!FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY|CHASE_MUST_BE_REGULAR));
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
         assert(!FLAGS_SET(flags, CHASE_NO_AUTOFS|CHASE_TRIGGER_AUTOFS));
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
 
         if (FLAGS_SET(flags, CHASE_STEP))
                 assert(!ret_fd);
@@ -218,7 +218,15 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
          *    the mount point is emitted. CHASE_WARN cannot be used in PID 1.
          */
 
-        if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT)) {
+        _cleanup_close_ int _dir_fd = -EBADF;
+        if (dir_fd == XAT_FDROOT) {
+                _dir_fd = open("/", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+                if (_dir_fd < 0)
+                        return -errno;
+
+                dir_fd = _dir_fd;
+                flags &= ~CHASE_AT_RESOLVE_IN_ROOT;
+        } else if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT)) {
                 /* If we get AT_FDCWD or dir_fd points to "/", then we always resolve symlinks relative to
                  * the host's root. Hence, CHASE_AT_RESOLVE_IN_ROOT is meaningless. */
 
@@ -656,9 +664,13 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
                                       "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
                                       absolute, root);
 
-        fd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
-        if (fd < 0)
-                return -errno;
+        if (empty_or_root(root))
+                fd = XAT_FDROOT;
+        else {
+                fd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (fd < 0)
+                        return -errno;
+        }
 
         r = chaseat(fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
         if (r < 0)
