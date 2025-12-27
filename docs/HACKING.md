@@ -36,6 +36,10 @@ or via your distribution's package manager. Note that systemd regularly adopts
 newer mkosi features that are not in an official release yet so there's a good
 chance that your distribution's packaged version of mkosi will be too old.
 
+Make sure to read the "Unprivileged User Namespaces" section in the mkosi documentation
+(run `mkosi documentation` to view the mkosi docs) and apply any necessary instructions
+to make sure unprivileged user namespaces work on your system.
+
 Then, you can build, run and test systemd executables as follows:
 
 ```sh
