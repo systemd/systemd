@@ -1095,6 +1095,7 @@ DECLARE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);
 int unit_queue_job_check_and_mangle_type(Unit *u, JobType *type, bool reload_if_possible, sd_bus_error *reterr_error);
 
 int parse_unit_marker(const char *marker, unsigned *settings, unsigned *mask);
+unsigned unit_normalize_markers(unsigned existing_markers, unsigned new_markers);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
