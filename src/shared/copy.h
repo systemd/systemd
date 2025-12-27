@@ -88,9 +88,9 @@ static inline int copy_tree(const char *from, const char *to, uid_t override_uid
         return copy_tree_at_full(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags, denylist, subvolumes, NULL, NULL, NULL);
 }
 
-int copy_directory_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to, CopyFlags copy_flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
-static inline int copy_directory_at(int dir_fdf, const char *from, int dir_fdt, const char *to, CopyFlags copy_flags) {
-        return copy_directory_at_full(dir_fdf, from, dir_fdt, to, copy_flags, NULL, NULL, NULL);
+int copy_directory_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
+static inline int copy_directory_at(int dir_fdf, const char *from, int dir_fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags) {
+        return copy_directory_at_full(dir_fdf, from, dir_fdt, to, override_uid, override_gid, copy_flags, NULL, NULL, NULL);
 }
 
 int copy_bytes_full(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags, void **ret_remains, size_t *ret_remains_size, copy_progress_bytes_t progress, void *userdata);
@@ -100,6 +100,7 @@ static inline int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags cop
 
 int copy_times(int fdf, int fdt, CopyFlags flags);
 int copy_access(int fdf, int fdt);
+int copy_owner(int fdf, int fdt);
 int copy_rights_with_fallback(int fdf, int fdt, const char *patht);
 static inline int copy_rights(int fdf, int fdt) {
         return copy_rights_with_fallback(fdf, fdt, NULL); /* no fallback */
