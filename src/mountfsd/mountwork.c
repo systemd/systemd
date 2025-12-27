@@ -540,6 +540,7 @@ static int vl_method_mount_image(
 
         r = dissected_image_decrypt(
                         di,
+                        /* root= */ NULL,
                         p.password,
                         &verity,
                         use_policy,
