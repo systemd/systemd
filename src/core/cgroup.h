@@ -325,6 +325,13 @@ typedef struct CGroupRuntime {
         struct bpf_link *restrict_ifaces_egress_bpf_link;
 #endif
 
+#if BPF_FRAMEWORK
+        /* BPF link to BPF programs attached to cgroup/sock_create hooks and
+         * responsible for binding created sockets to a given VRF interface. */
+        struct bpf_link *bpf_bind_network_interface_link;
+#endif
+        int initial_bind_network_interface_link_fd;
+
         bool cgroup_members_mask_valid:1;
 
         /* Reset cgroup accounting next time we fork something off */
@@ -334,12 +341,6 @@ typedef struct CGroupRuntime {
         bool warned_clamping_cpu_quota_period:1;
 
         int deserialized_cgroup_realized; /* tristate, for backwards compat */
-
-#if BPF_FRAMEWORK
-        /* BPF link to BPF programs attached to cgroup/sock_create hooks and
-         * responsible for binding created sockets to a given VRF interface. */
-        struct bpf_link *bpf_bind_network_interface_link;
-#endif
 } CGroupRuntime;
 
 uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state);
