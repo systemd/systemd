@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/oom.h>
+#include <linux/vt.h>
 #include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
@@ -58,6 +59,7 @@
 #include "killall.h"
 #include "kmod-setup.h"
 #include "label-util.h"
+#include "libmount-util.h"
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -839,7 +841,7 @@ static int parse_config_file(void) {
                                 (const char* const*) files,
                                 (const char* const*) dirs,
                                 "user.conf.d",
-                                /* root = */ NULL,
+                                /* root= */ NULL,
                                 "Manager\0",
                                 config_item_table_lookup, items,
                                 CONFIG_PARSE_WARN,
@@ -1425,7 +1427,7 @@ static int os_release_status(void) {
                 }
         }
 
-        if (support_end && os_release_support_ended(support_end, /* quiet = */ false, /* ret_eol = */ NULL) > 0)
+        if (support_end && os_release_support_ended(support_end, /* quiet= */ false, /* ret_eol= */ NULL) > 0)
                 /* pretty_name may include the version already, so we'll print the version only if we
                  * have it and we're not using pretty_name. */
                 status_printf(ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL, 0,
@@ -1931,6 +1933,32 @@ static void finish_remaining_processes(ManagerObjective objective) {
                 broadcast_signal(SIGKILL, /* wait_for_exit= */ false, /* send_sighup= */ false, arg_defaults.timeout_stop_usec);
 }
 
+static void reduce_vt(ManagerObjective objective) {
+        int r;
+
+        if (objective != MANAGER_SOFT_REBOOT)
+                return;
+
+        /* Switches back to VT 1, and releases all other VTs, in an attempt to return to a situation similar
+         * to how it was during the original kernel initialization. This is important because if some random
+         * TTY is in foreground, /dev/console will end up pointing to it, where the future init system will
+         * then write its status output to, but where it probably shouldn't be writing to. */
+
+        r = chvt(1);
+        if (r < 0)
+                log_debug_errno(r, "Failed to switch to VT TTY 1, ignoring: %m");
+
+        _cleanup_close_ int tty0_fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        if (tty0_fd < 0)
+                return (void) log_debug_errno(tty0_fd, "Failed to open '/dev/tty0', ignoring: %m");
+
+        for (int ttynr = 2; ttynr <= VTNR_MAX; ttynr++)
+                if (ioctl(tty0_fd, VT_DISALLOCATE, ttynr) < 0)
+                        log_debug_errno(errno, "Failed to disallocate VT TTY %i, ignoring: %m", ttynr);
+                else
+                        log_debug("Successfully disallocated VT TTY %i.", ttynr);
+}
+
 static int do_reexecute(
                 ManagerObjective objective,
                 int argc,
@@ -1970,19 +1998,19 @@ static int do_reexecute(
                 /* If we're supposed to switch root, preemptively check the existence of a usable init.
                  * Otherwise the system might end up in a completely undebuggable state afterwards. */
                 if (switch_root_init) {
-                        r = chase_and_access(switch_root_init, switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path = */ NULL);
+                        r = chase_and_access(switch_root_init, switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path= */ NULL);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to chase configured init %s/%s: %m",
                                                   switch_root_dir, switch_root_init);
                 } else {
-                        r = chase_and_access(SYSTEMD_BINARY_PATH, switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path = */ NULL);
+                        r = chase_and_access(SYSTEMD_BINARY_PATH, switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path= */ NULL);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to chase our own binary %s/%s: %m",
                                                 switch_root_dir, SYSTEMD_BINARY_PATH);
                 }
 
                 if (r < 0) {
-                        r = chase_and_access("/sbin/init", switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path = */ NULL);
+                        r = chase_and_access("/sbin/init", switch_root_dir, CHASE_PREFIX_ROOT, X_OK, /* ret_path= */ NULL);
                         if (r < 0) {
                                 *ret_error_message = "Switch root target contains no usable init";
                                 return log_error_errno(r, "Failed to chase %s/sbin/init", switch_root_dir);
@@ -1998,6 +2026,7 @@ static int do_reexecute(
                 (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
 
         finish_remaining_processes(objective);
+        reduce_vt(objective);
 
         if (switch_root_dir) {
                 r = switch_root(/* new_root= */ switch_root_dir,
@@ -2326,7 +2355,7 @@ static void log_execution_mode(bool *ret_first_boot) {
                         /* Let's check whether we are in first boot. First, check if an override was
                          * specified on the kernel command line. If yes, we honour that. */
 
-                        r = proc_cmdline_get_bool("systemd.condition_first_boot", /* flags = */ 0, &first_boot);
+                        r = proc_cmdline_get_bool("systemd.condition_first_boot", /* flags= */ 0, &first_boot);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to parse systemd.condition_first_boot= kernel command line argument, ignoring: %m");
 
@@ -2418,7 +2447,7 @@ static int initialize_runtime(
 
                 if (!skip_setup) {
                         /* Check that /usr/ is either on the same file system as / or mounted already. */
-                        if (dir_is_empty("/usr", /* ignore_hidden_or_backup = */ true) > 0) {
+                        if (dir_is_empty("/usr", /* ignore_hidden_or_backup= */ true) > 0) {
                                 *ret_error_message = "Refusing to run in unsupported environment where /usr/ is not populated";
                                 return -ENOEXEC;
                         }
@@ -2429,11 +2458,11 @@ static int initialize_runtime(
                         (void) import_credentials();
 
                         (void) os_release_status();
-                        (void) machine_id_setup(/* root = */ NULL, arg_machine_id,
+                        (void) machine_id_setup(/* root= */ NULL, arg_machine_id,
                                                 (first_boot ? MACHINE_ID_SETUP_FORCE_TRANSIENT : 0) |
                                                 (arg_machine_id_from_firmware ? MACHINE_ID_SETUP_FORCE_FIRMWARE : 0),
-                                                /* ret = */ NULL);
-                        (void) hostname_setup(/* really = */ true);
+                                                /* ret= */ NULL);
+                        (void) hostname_setup(/* really= */ true);
                         (void) loopback_setup();
 
                         bump_unix_max_dgram_qlen();
@@ -2611,12 +2640,10 @@ static int do_queue_default_job(
                 return log_struct_errno(LOG_EMERG, r,
                                         LOG_MESSAGE("Failed to isolate default target: %s", bus_error_message(&error, r)),
                                         LOG_MESSAGE_ID(SD_MESSAGE_CORE_ISOLATE_TARGET_FAILED_STR));
-        } else
-                log_info("Queued %s job for default target %s.",
-                         job_type_to_string(job->type),
-                         unit_status_string(job->unit, NULL));
+        }
 
-        m->default_unit_job_id = job->id;
+        log_info("Queued %s job for default target %s.",
+                 job_type_to_string(job->type), unit_status_string(job->unit, NULL));
 
         return 0;
 }
@@ -2740,7 +2767,7 @@ static void reset_arguments(void) {
         arg_default_environment = strv_free(arg_default_environment);
         arg_manager_environment = strv_free(arg_manager_environment);
 
-        arg_capability_bounding_set = CAP_MASK_UNSET;
+        arg_capability_bounding_set = CAP_MASK_ALL;
         arg_no_new_privs = false;
         arg_protect_system = -1;
         arg_timer_slack_nsec = NSEC_INFINITY;
@@ -2810,25 +2837,23 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
                         log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
         }
 
-        /* Initialize some default rlimits for services if they haven't been configured */
-        fallback_rlimit_nofile(saved_rlimit_nofile);
-        fallback_rlimit_memlock(saved_rlimit_memlock);
-
-        /* Note that this also parses bits from the kernel command line, including "debug". */
-        log_parse_environment();
-
-        /* Initialize the show status setting if it hasn't been set explicitly yet */
+        /* Initialize the show status setting if it hasn't been explicitly set yet */
         if (arg_show_status == _SHOW_STATUS_INVALID)
                 arg_show_status = SHOW_STATUS_YES;
-
-        /* Slightly raise the OOM score for our services if we are running for unprivileged users. */
-        determine_default_oom_score_adjust();
 
         /* Push variables into the manager environment block */
         setenv_manager_environment();
 
-        /* Parse log environment variables again to take into account any new environment variables. */
+        /* Parse log environment variables to take into account any new environment variables.
+         * Note that this also parses bits from the kernel command line, including "debug". */
         log_parse_environment();
+
+        /* Initialize some default rlimits for services if they haven't been configured */
+        fallback_rlimit_nofile(saved_rlimit_nofile);
+        fallback_rlimit_memlock(saved_rlimit_memlock);
+
+        /* Slightly raise the OOM score for our services if we are running for unprivileged users. */
+        determine_default_oom_score_adjust();
 
         return 0;
 }
@@ -3283,6 +3308,13 @@ int main(int argc, char *argv[]) {
                                    "  systemd.unified_cgroup_hierarchy=0");
 
                 error_message = "Detected unsupported legacy cgroup hierarchy, refusing execution";
+                goto finish;
+        }
+
+        /* Building without libmount is allowed, but if it is compiled in, then we must be able to load it */
+        r = dlopen_libmount();
+        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                error_message = "Failed to load libmount.so";
                 goto finish;
         }
 

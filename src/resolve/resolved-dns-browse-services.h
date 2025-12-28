@@ -2,9 +2,10 @@
 #pragma once
 
 #include "sd-varlink.h"
-#include "resolved-dns-answer.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
+
+#include "dns-answer.h"
+#include "dns-question.h"
+#include "dns-rr.h"
 
 typedef struct DnsServiceBrowser DnsServiceBrowser;
 typedef struct DnssdDiscoveredService DnssdDiscoveredService;

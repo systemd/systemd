@@ -10,7 +10,7 @@ sync_in() {
 }
 
 sync_out() {
-    echo "$1" > /tmp/syncfifo1
+    echo "$1" >/tmp/syncfifo1
 }
 
 export SYSTEMD_LOG_LEVEL=debug

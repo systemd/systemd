@@ -20,7 +20,7 @@
     <refname>systemd-tpm2-setup.service</refname>
     <refname>systemd-tpm2-setup-early.service</refname>
     <refname>systemd-tpm2-setup</refname>
-    <refpurpose>Set up the TPM2 Storage Root Key (SRK) at boot</refpurpose>
+    <refpurpose>Set up the TPM2 Storage Root Key (SRK) and initialize NvPCRs at boot</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -33,7 +33,8 @@
 
     <para><filename>systemd-tpm2-setup.service</filename> and
     <filename>systemd-tpm2-setup-early.service</filename> are services that generate the Storage Root Key
-    (SRK) if it has not been generated yet, and stores it in the TPM.</para>
+    (SRK) if it has not been generated yet, and stores it in the TPM. If NvPCRs (additional PCR registers in
+    TPM NV Indexes) are defined, these are initialized with the anchoring secret.</para>
 
     <para>The services will store the public key of the SRK key pair in a PEM file in
     <filename>/run/systemd/tpm2-srk-public-key.pem</filename> and
@@ -69,6 +70,28 @@
         <filename>/var/</filename> is available).</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/usr/lib/nvpcr/*.nvpcr</filename></term>
+
+        <listitem><para>Definition files for NvPCRs.</para>
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/run/credentials/@encrypted/nvpcr-anchor.*</filename></term>
+
+        <listitem><para>Encrypted NvPCR anchor secret, received into the system via system credentials.</para>
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>$BOOT/loader/credentials/nvpcr-anchor.*.cred</filename></term>
+
+        <listitem><para>Encrypted NvPCR anchor secret, to be picked up by the kernel loader stub,
+        i.e. <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

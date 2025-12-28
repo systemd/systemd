@@ -5,7 +5,7 @@
 #include "sd-id128.h"
 
 #include "ether-addr-util.h"
-#include "forward.h"
+#include "sd-forward.h"
 #include "sparse-endian.h"
 
 #define SYSTEMD_PEN    43793

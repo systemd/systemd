@@ -3,14 +3,14 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 
+#include "dns-packet.h"
+#include "dns-question.h"
 #include "dns-type.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-question.h"
 #include "resolved-manager.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
@@ -385,7 +385,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         name = dns_question_first_name(packet->question);
         log_info("Processing question for name '%s'", name);
 
-        (void) dns_question_dump(packet->question, stdout);
+        dns_question_dump(packet->question, stdout);
 
         r = make_reply_packet(packet, &reply);
         if (r < 0) {

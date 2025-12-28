@@ -292,6 +292,32 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--root-directory=</option></term>
+
+        <listitem><para>Runs the service process with the specified root directory. Also see
+        <varname>RootDirectory=</varname> in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>Note that the path is looked up inside the file system namespace that systemd-run is running
+        in, which might be different that the file system namespace the manager process is running in. Use
+        the <varname>RootDirectory=</varname> property directly if you want the path to be looked up in the
+        manager process's file system namespace.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--same-root-dir</option></term>
+        <term><option>-R</option></term>
+
+        <listitem><para>Similar to <option>--root-directory=</option>, but uses the root directory of the
+        systemd-run process as the root directory to execute the service in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-E <replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
         <term><option>--setenv=<replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
 

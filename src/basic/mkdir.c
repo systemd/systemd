@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -112,7 +113,7 @@ int mkdirat_parents_internal(int dir_fd, const char *path, mode_t mode, uid_t ui
 
         /* drop the last component */
         path = strndupa_safe(path, e - path);
-        r = is_dir_at(dir_fd, path, /* follow = */ true);
+        r = is_dir_at(dir_fd, path, /* follow= */ true);
         if (r > 0)
                 return 0;
         if (r == 0)
@@ -202,7 +203,7 @@ int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, g
         return mkdir_p_internal(prefix, path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
-int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, usec_t ts, char **subvolumes) {
+int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, usec_t ts, Hashmap *subvolumes) {
         _cleanup_free_ char *pp = NULL, *bn = NULL;
         _cleanup_close_ int dfd = -EBADF;
         int r;
@@ -237,21 +238,25 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
         if (r < 0)
                 return r;
 
-        if (path_strv_contains(subvolumes, p))
-                r = btrfs_subvol_make_fallback(dfd, bn, m);
-        else
-                r = RET_NERRNO(mkdirat(dfd, bn, m));
-        if (r == -EEXIST)
+        XOpenFlags flags = 0;
+        if (hashmap_contains(subvolumes, p)) {
+                flags = XO_SUBVOLUME;
+                if ((PTR_TO_INT(hashmap_get(subvolumes, p)) & BTRFS_SUBVOL_NODATACOW))
+                        flags |= XO_NOCOW;
+        }
+
+        _cleanup_close_ int nfd = xopenat_full(
+                                dfd, bn,
+                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,
+                                flags,
+                                m);
+        if (nfd == -EEXIST)
                 return 0;
-        if (r < 0)
-                return r;
+        if (nfd < 0)
+                return nfd;
 
         if (ts == USEC_INFINITY && !uid_is_valid(uid) && !gid_is_valid(gid))
                 return 1;
-
-        _cleanup_close_ int nfd = openat(dfd, bn, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        if (nfd < 0)
-                return -errno;
 
         if (ts != USEC_INFINITY) {
                 struct timespec tspec;

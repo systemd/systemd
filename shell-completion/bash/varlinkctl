@@ -1,0 +1,117 @@
+# shellcheck shell=bash
+# varlinkctl(1) completion                           -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+__contains_word () {
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+}
+
+__get_interfaces() {
+    local address=$1
+    local a
+    varlinkctl list-interfaces --no-pager "$address" 2>/dev/null |
+        { while read -r a; do echo " $a"; done; }
+}
+
+__get_methods() {
+    local address=$1
+    local a
+    varlinkctl list-methods --no-pager "$address" 2>/dev/null |
+        { while read -r a; do echo " $a"; done; }
+}
+
+_varlinkctl() {
+    local i n verb comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version --no-pager -q --quiet --no-ask-password
+                      --oneway --collect --more --exec -j -E'
+        [ARG]='--graceful --timeout --push-fd --json'
+    )
+
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --json)
+                comps=$( varlinkctl --json=help 2>/dev/null )
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    local -A VERBS=(
+        [STANDALONE]='help'
+        [CALL]='call'
+        [FILE]='info list-interfaces validate-idl'
+        [ADDRESS_INTERFACES]='list-methods introspect'
+    )
+
+    for ((i=0; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+            verb=${COMP_WORDS[i]}
+            break
+        fi
+    done
+
+    n=$((COMP_CWORD - i))
+
+    if [[ -z ${verb-} ]]; then
+        comps=${VERBS[*]}
+    elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
+        comps=''
+    elif __contains_word "$verb" ${VERBS[FILE]}; then
+        comps=$(compgen -f -- "$cur")
+        compopt -o filenames
+    elif __contains_word "$verb" ${VERBS[ADDRESS_INTERFACES]}; then
+        if [[ $n -eq 1 ]] ; then
+            comps=$(compgen -f -- "$cur")
+            compopt -o filenames
+        elif [[ $n -eq 2 ]] ; then
+            comps=$( __get_interfaces ${COMP_WORDS[COMP_CWORD-1]})
+        else
+            comps=''
+        fi
+    elif __contains_word "$verb" ${VERBS[CALL]}; then
+        if [[ $n -eq 1 ]] ; then
+            comps=$(compgen -f -- "$cur")
+            compopt -o filenames
+        elif [[ $n -eq 2 ]] ; then
+            comps=$( __get_methods ${COMP_WORDS[COMP_CWORD-1]})
+        elif [[ $n -eq 3 ]] ; then
+            comps="'{}'"
+        elif [[ ${COMP_WORDS[COMP_CWORD-1]} == "--" ]] && __contains_word "--exec" ${COMP_WORDS[*]} ; then
+            comps=$(compgen -c -- "$cur")
+        else
+            comps=''
+        fi
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
+}
+
+complete -F _varlinkctl varlinkctl

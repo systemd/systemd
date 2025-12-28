@@ -98,15 +98,15 @@ static int build_user_json(UserNamespaceInfo *userns_info, uid_t offset, sd_json
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(name)),
-                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(userns_info->start_uid + offset)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
-                        SD_JSON_BUILD_PAIR("realName", SD_JSON_BUILD_STRING(realname)),
+                        SD_JSON_BUILD_PAIR_STRING("userName", name),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("uid", userns_info->start_uid + offset),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", GID_NOBODY),
+                        SD_JSON_BUILD_PAIR_STRING("realName", realname),
                         SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/")),
-                        SD_JSON_BUILD_PAIR("shell", SD_JSON_BUILD_STRING(NOLOGIN)),
-                        SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_STRING("shell", NOLOGIN),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("locked", true),
                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
-                        SD_JSON_BUILD_PAIR("disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(disposition))));
+                        SD_JSON_BUILD_PAIR_STRING("disposition", user_disposition_to_string(disposition)));
 }
 
 static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -200,7 +200,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
         if (r < 0)
                 return r;
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v)));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("record", v));
 
 not_found:
         return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
@@ -229,11 +229,11 @@ static int build_group_json(UserNamespaceInfo *userns_info, gid_t offset, sd_jso
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(name)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(userns_info->start_gid + offset)),
-                        SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(description)),
+                        SD_JSON_BUILD_PAIR_STRING("groupName", name),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", userns_info->start_gid + offset),
+                        SD_JSON_BUILD_PAIR_STRING("description", description),
                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NamespaceResource")),
-                        SD_JSON_BUILD_PAIR("disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(disposition))));
+                        SD_JSON_BUILD_PAIR_STRING("disposition", user_disposition_to_string(disposition)));
 }
 
 static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -327,7 +327,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         if (r < 0)
                 return r;
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(v)));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("record", v));
 
 not_found:
         return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
@@ -541,7 +541,7 @@ static int allocate_now(
 }
 
 static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         _cleanup_close_ int efd = -EBADF;
         uint64_t u;
         int r;
@@ -560,7 +560,7 @@ static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
         if (efd < 0)
                 return log_error_errno(errno, "Failed to allocate eventfd(): %m");
 
-        r = safe_fork("(sd-userns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid);
+        r = pidref_safe_fork("(sd-userns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG, &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -590,7 +590,7 @@ static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
 
         _cleanup_free_ char *pmap = NULL;
 
-        if (asprintf(&pmap, "/proc/" PID_FMT "/uid_map", pid) < 0)
+        if (asprintf(&pmap, "/proc/" PID_FMT "/uid_map", pidref.pid) < 0)
                 return log_oom();
 
         r = write_string_filef(pmap, 0, UID_FMT " " UID_FMT " %" PRIu32 "\n", userns_info->target_uid, userns_info->start_uid, userns_info->size);
@@ -598,7 +598,7 @@ static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
                 return log_error_errno(r, "Failed to write 'uid_map' file of user namespace: %m");
 
         pmap = mfree(pmap);
-        if (asprintf(&pmap, "/proc/" PID_FMT "/gid_map", pid) < 0)
+        if (asprintf(&pmap, "/proc/" PID_FMT "/gid_map", pidref.pid) < 0)
                 return log_oom();
 
         r = write_string_filef(pmap, 0, GID_FMT " " GID_FMT " %" PRIu32 "\n", userns_info->target_gid, userns_info->start_gid, userns_info->size);
@@ -1900,8 +1900,8 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
 
                 return sd_varlink_replybo(
                                 link,
-                                SD_JSON_BUILD_PAIR("hostInterfaceName", SD_JSON_BUILD_STRING(ifname_host)),
-                                SD_JSON_BUILD_PAIR("namespaceInterfaceName", SD_JSON_BUILD_STRING(ifname_namespace)));
+                                SD_JSON_BUILD_PAIR_STRING("hostInterfaceName", ifname_host),
+                                SD_JSON_BUILD_PAIR_STRING("namespaceInterfaceName", ifname_namespace));
 
         } else if (streq(p.mode, "tap")) {
                 /* NB: when we do the "tap" stuff we do not actually do any namespace operation here, neither

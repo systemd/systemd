@@ -82,7 +82,7 @@ int verb_is_enabled(int argc, char *argv[], void *userdata) {
         not_found = r == 0; /* Doesn't have SysV support or SYSV_UNIT_NOT_FOUND */
         enabled = r == SYSV_UNIT_ENABLED;
 
-        if (install_client_side())
+        if (install_client_side() != INSTALL_CLIENT_SIDE_NO)
                 STRV_FOREACH(name, names) {
                         UnitFileState state;
 

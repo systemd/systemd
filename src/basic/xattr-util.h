@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 int getxattr_at_malloc(int fd, const char *path, const char *name, int at_flags, char **ret, size_t *ret_size);
 static inline int getxattr_malloc(const char *path, const char *name, char **ret, size_t *ret_size) {
@@ -54,3 +54,6 @@ int getcrtime_at(int fd, const char *path, int at_flags, usec_t *ret);
 static inline int fd_getcrtime(int fd, usec_t *ret) {
         return getcrtime_at(fd, NULL, 0, ret);
 }
+
+bool xattr_is_acl(const char *name);
+bool xattr_is_selinux(const char *name);

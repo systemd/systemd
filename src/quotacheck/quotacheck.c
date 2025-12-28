@@ -50,7 +50,7 @@ static void parse_credentials(void) {
         _cleanup_free_ char *value = NULL;
         int r;
 
-        r = read_credential("quotacheck.mode", (void**) &value, /* ret_size = */ NULL);
+        r = read_credential("quotacheck.mode", (void**) &value, /* ret_size= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential 'quotacheck.mode', ignoring: %m");
         else {

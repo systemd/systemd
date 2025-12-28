@@ -381,6 +381,8 @@ DHCPServer.EmitRouter,                           config_parse_bool,             
 DHCPServer.Router,                               config_parse_in_addr_non_null,                  AF_INET,                                offsetof(Network, dhcp_server_router)
 DHCPServer.EmitTimezone,                         config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_emit_timezone)
 DHCPServer.Timezone,                             config_parse_timezone,                          0,                                      offsetof(Network, dhcp_server_timezone)
+DHCPServer.EmitDomain,                           config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_emit_domain)
+DHCPServer.Domain,                               config_parse_dns_name,                          0,                                      offsetof(Network, dhcp_server_domain)
 DHCPServer.PoolOffset,                           config_parse_uint32,                            0,                                      offsetof(Network, dhcp_server_pool_offset)
 DHCPServer.PoolSize,                             config_parse_uint32,                            0,                                      offsetof(Network, dhcp_server_pool_size)
 DHCPServer.SendVendorOption,                     config_parse_dhcp_send_option,                  0,                                      offsetof(Network, dhcp_server_send_vendor_options)
@@ -391,8 +393,10 @@ DHCPServer.BootServerName,                       config_parse_dns_name,         
 DHCPServer.BootFilename,                         config_parse_string,                            CONFIG_PARSE_STRING_SAFE_AND_ASCII,     offsetof(Network, dhcp_server_boot_filename)
 DHCPServer.RapidCommit,                          config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_rapid_commit)
 DHCPServer.PersistLeases,                        config_parse_dhcp_server_persist_leases,        0,                                      offsetof(Network, dhcp_server_persist_leases)
+DHCPServer.LocalLeaseDomain,                     config_parse_dns_name,                          0,                                      offsetof(Network, dhcp_server_local_lease_domain)
 DHCPServerStaticLease.Address,                   config_parse_dhcp_static_lease_address,         0,                                      0
 DHCPServerStaticLease.MACAddress,                config_parse_dhcp_static_lease_hwaddr,          0,                                      0
+DHCPServerStaticLease.Hostname,                  config_parse_dhcp_static_lease_hostname,        0,                                      0
 Bridge.Cost,                                     config_parse_uint32,                            0,                                      offsetof(Network, cost)
 Bridge.UseBPDU,                                  config_parse_tristate,                          0,                                      offsetof(Network, use_bpdu)
 Bridge.HairPin,                                  config_parse_tristate,                          0,                                      offsetof(Network, hairpin)

@@ -183,7 +183,7 @@ static void write_qrcode(FILE *output, QRcode *qr, unsigned row, unsigned column
         fflush(output);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(QRcode*, sym_QRcode_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(QRcode*, sym_QRcode_free, QRcode_freep, NULL);
 
 #endif
 
@@ -211,8 +211,7 @@ int print_qrcode_full(
         if (r < 0)
                 return r;
 
-        _cleanup_(sym_QRcode_freep) QRcode *qr =
-                sym_QRcode_encodeString(string, 0, QR_ECLEVEL_L, QR_MODE_8, 1);
+        _cleanup_(QRcode_freep) QRcode *qr = sym_QRcode_encodeString(string, 0, QR_ECLEVEL_L, QR_MODE_8, 1);
         if (!qr)
                 return log_oom_debug();
 

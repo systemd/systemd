@@ -186,12 +186,8 @@ int sd_lldp_tx_set_hostname(sd_lldp_tx *lldp_tx, const char *hostname) {
         assert_return(lldp_tx, -EINVAL);
 
         /* An empty string unset the previously set hostname. */
-        if (!isempty(hostname)) {
-                assert_cc(HOST_NAME_MAX < 512);
-
-                if (!hostname_is_valid(hostname, 0))
-                        return -EINVAL;
-        }
+        if (!isempty(hostname) && !hostname_is_valid(hostname, /* flags= */ 0))
+                return -EINVAL;
 
         return free_and_strdup(&lldp_tx->hostname, empty_to_null(hostname));
 }
@@ -369,7 +365,7 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
         assert(ret_packet);
 
         /* If ifname is not set yet, set ifname from ifindex. */
-        r = sd_lldp_tx_get_ifname(lldp_tx, /* ret = */ NULL);
+        r = sd_lldp_tx_get_ifname(lldp_tx, /* ret= */ NULL);
         if (r < 0)
                 return r;
 
@@ -713,7 +709,7 @@ int sd_lldp_tx_describe(sd_lldp_tx *lldp_tx, sd_json_variant **ret) {
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR_STRING("ChassisID", SD_ID128_TO_STRING(machine_id)),
+                        SD_JSON_BUILD_PAIR_ID128("ChassisID", machine_id),
                         SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawChassisID", chassis_id, chassis_id_len),
                         SD_JSON_BUILD_PAIR_STRING("PortID", lldp_tx->ifname),
                         SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawPortID", port_id, port_id_len),

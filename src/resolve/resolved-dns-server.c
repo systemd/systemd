@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -13,7 +14,6 @@
 #include "resolved-bus.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-delegate.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
@@ -685,7 +685,7 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
 
         log_debug("Announcing packet size %zu in egress EDNS(0) packet.", packet_size);
 
-        return dns_packet_append_opt(packet, packet_size, edns_do, /* include_rfc6975 = */ true, NULL, 0, NULL);
+        return dns_packet_append_opt(packet, packet_size, edns_do, /* include_rfc6975= */ true, NULL, 0, NULL);
 }
 
 int dns_server_ifindex(const DnsServer *s) {
@@ -817,7 +817,7 @@ static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
         if (r != 0)
                 return r;
 
-        return streq_ptr(x->server_name, y->server_name);
+        return strcmp_ptr(x->server_name, y->server_name);
 }
 
 DEFINE_HASH_OPS(dns_server_hash_ops, DnsServer, dns_server_hash_func, dns_server_compare_func);
@@ -1373,6 +1373,7 @@ int dns_server_dump_configuration_to_json(DnsServer *server, sd_json_variant **r
 
         return sd_json_buildo(
                         ret,
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("addressString", dns_server_string(server)),
                         JSON_BUILD_PAIR_IN_ADDR("address", &server->address, server->family),
                         SD_JSON_BUILD_PAIR_INTEGER("family", server->family),
                         SD_JSON_BUILD_PAIR_UNSIGNED("port", dns_server_port(server)),

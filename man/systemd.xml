@@ -720,6 +720,7 @@
 
       <varlistentry>
         <term><varname>$LISTEN_PID</varname></term>
+        <term><varname>$LISTEN_PIDFDID</varname></term>
         <term><varname>$LISTEN_FDS</varname></term>
         <term><varname>$LISTEN_FDNAMES</varname></term>
 

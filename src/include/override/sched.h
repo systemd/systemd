@@ -4,7 +4,8 @@
 /* sched.h includes linux/sched/types.h since glibc-2.41 (21571ca0d70302909cf72707b2a7736cf12190a0),
  * to make struct sched_attr being defined.
  * Note, this must be included before sched.h, otherwise the headers conflict with each other. */
-#include <linux/sched/types.h>
+#include <linux/sched.h>        /* IWYU pragma: export */
+#include <linux/sched/types.h>  /* IWYU pragma: export */
 
 #include_next <sched.h>         /* IWYU pragma: export */
 
@@ -53,4 +54,12 @@ int __clone2(int (*fn)(void *), void *stack_base, size_t stack_size, int flags, 
 #if !HAVE_SCHED_SETATTR
 int missing_sched_setattr(pid_t pid, struct sched_attr *attr, unsigned flags);
 #  define sched_setattr missing_sched_setattr
+#endif
+
+/* f0e1a0643a59bf1f922fa209cec86a170b784f3f (6.12),
+ * defined in sched.h in glibc since glibc-2.41. */
+#ifndef SCHED_EXT
+#  define SCHED_EXT 7
+#else
+static_assert(SCHED_EXT == 7, "");
 #endif

@@ -266,6 +266,12 @@ EOF
 testcase_multipath_basic_failover() {
     local dmpath i path wwid
 
+    . /etc/os-release
+    if [[ "${ID_LIKE:-}" == "alpine" ]]; then
+        echo "multipath on alpine/postmarketos is broken, skipping the test" | tee --append /skipped
+        exit 77
+    fi
+
     # Configure multipath
     cat >/etc/multipath.conf <<\EOF
 defaults {
@@ -611,6 +617,13 @@ EOF
 }
 
 testcase_simultaneous_events() {
+    . /etc/os-release
+    if [[ "$ID" == "debian" ]]; then
+        # See https://github.com/systemd/systemd/issues/39552
+        echo "Simultaneous events test cases are not working on Debian, skipping the test" | tee --append /skipped
+        exit 77
+    fi
+
     testcase_simultaneous_events_1
     testcase_simultaneous_events_2
     testcase_simultaneous_events_3
@@ -624,8 +637,8 @@ testcase_lvm_basic() {
     )
 
     . /etc/os-release
-    if [[ "$ID" == "ubuntu" ]]; then
-        echo "LVM on Ubuntu is broken, skipping the test" | tee --append /skipped
+    if [[ "$ID" == "ubuntu" || "${ID_LIKE:-}" == "alpine" ]]; then
+        echo "LVM on Ubuntu/alpine/postmarketos is broken, skipping the test" | tee --append /skipped
         exit 77
     fi
 
@@ -868,8 +881,8 @@ EOF
     for ((i = 0; i < ${#devices[@]}; i++)); do
         # Intentionally use weaker cipher-related settings, since we don't care
         # about security here as it's a throwaway LUKS partition
-        udevadm lock --timeout=30 --device="${devices[$i]}" \
-                cryptsetup luksFormat -q \
+        SYSTEMD_LOG_LEVEL=debug udevadm lock --timeout=30 --device="${devices[$i]}" \
+                cryptsetup luksFormat -q --debug \
                 --use-urandom --pbkdf pbkdf2 --pbkdf-force-iterations 1000 \
                 --uuid "deadbeef-dead-dead-beef-11111111111$i" --label "encdisk$i" "${devices[$i]}" /etc/btrfs_keyfile
         udevadm wait --settle --timeout=30 "/dev/disk/by-uuid/deadbeef-dead-dead-beef-11111111111$i" "/dev/disk/by-label/encdisk$i"

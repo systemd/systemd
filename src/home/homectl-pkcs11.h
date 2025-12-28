@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 int identity_add_token_pin(sd_json_variant **v, const char *pin);
 int identity_add_pkcs11_key_data(sd_json_variant **v, const char *token_uri);

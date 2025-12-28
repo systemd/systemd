@@ -39,6 +39,12 @@ create_dummy_container "$OCI/rootfs"
 mkdir -p "$OCI/rootfs/opt/var"
 mkdir -p "$OCI/rootfs/opt/readonly"
 
+if [[ -e /proc/kcore ]]; then
+    HAVE_PROC_KCORE=1
+else
+    HAVE_PROC_KCORE=0
+fi
+
 # Let's start with a simple config
 cat >"$OCI/config.json" <<EOF
 {
@@ -305,7 +311,7 @@ cat >"$OCI/config.json" <<EOF
     "hooks" : {
         "prestart" : [
             {
-                "path" : "/bin/sh",
+                "path" : "/bin/bash",
                 "args" : [
                     "-xec",
                     "echo \$PRESTART_FOO >/prestart"
@@ -325,7 +331,7 @@ cat >"$OCI/config.json" <<EOF
         ],
         "poststart" : [
             {
-                "path" : "/bin/sh",
+                "path" : "/bin/bash",
                 "args" : [
                     "touch",
                     "/poststart"
@@ -334,7 +340,7 @@ cat >"$OCI/config.json" <<EOF
         ],
         "poststop" : [
             {
-                "path" : "/bin/sh",
+                "path" : "/bin/bash",
                 "args" : [
                     "touch",
                     "/poststop"
@@ -376,8 +382,12 @@ test -b "$DEV"
 [[ "\$(stat -c '%t:%T' "$DEV")" == 4:2 ]]
 
 # Linux - maskedPaths
-test -e /proc/kcore
-cat /proc/kcore && exit 1
+if [[ "$HAVE_PROC_KCORE" == 1 ]]; then
+    test -e /proc/kcore
+    cat /proc/kcore && exit 1
+else
+    test ! -e /proc/kcore
+fi
 test ! -e /root/nonexistent
 
 # Linux - readonlyPaths
@@ -436,7 +446,7 @@ INVALID_SNIPPETS=(
     '"linux" : { "readonlyPaths" : [ "/foo", 1 ] }'
     '"linux" : { "readonlyPaths" : [ "/foo", "bar" ] }'
     # Invalid hooks
-    '"hooks" : { "prestart" : [ { "path" : "/bin/sh", "timeout" : 0 } ] }'
+    '"hooks" : { "prestart" : [ { "path" : "/bin/bash", "timeout" : 0 } ] }'
     # Invalid annotations
     '"annotations" : { "" : "bar" }'
     '"annotations" : { "foo" : 1 }'
@@ -453,7 +463,7 @@ for snippet in "${INVALID_SNIPPETS[@]}"; do
     $snippet
 }
 EOF
-    (! systemd-nspawn --oci-bundle="$OCI" sh -c 'echo hello')
+    (! systemd-nspawn --oci-bundle="$OCI" bash -c 'echo hello')
 done
 
 # Invalid OCI bundle version
@@ -465,4 +475,4 @@ cat >"$OCI/config.json" <<EOF
     }
 }
 EOF
-(! systemd-nspawn --oci-bundle="$OCI" sh -c 'echo hello')
+(! systemd-nspawn --oci-bundle="$OCI" bash -c 'echo hello')

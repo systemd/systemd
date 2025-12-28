@@ -42,8 +42,56 @@ int missing_pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags);
 
 /* defined in linux/pidfd.h */
 #ifndef PIDFD_GET_INFO
+
+/* Flags for pidfd_info. */
+#define PIDFD_INFO_PID                  (1UL << 0) /* Always returned, even if not requested */
+#define PIDFD_INFO_CREDS                (1UL << 1) /* Always returned, even if not requested */
+#define PIDFD_INFO_CGROUPID             (1UL << 2) /* Always returned if available, even if not requested */
+#define PIDFD_INFO_EXIT                 (1UL << 3) /* Only returned if requested. */
+#define PIDFD_INFO_COREDUMP             (1UL << 4) /* Only returned if requested. */
+
+#define PIDFD_INFO_SIZE_VER0            64 /* sizeof first published struct */
+
+/*
+ * Values for @coredump_mask in pidfd_info.
+ * Only valid if PIDFD_INFO_COREDUMP is set in @mask.
+ *
+ * Note, the @PIDFD_COREDUMP_ROOT flag indicates that the generated
+ * coredump should be treated as sensitive and access should only be
+ * granted to privileged users.
+ */
+#define PIDFD_COREDUMPED        (1U << 0) /* Did crash and... */
+#define PIDFD_COREDUMP_SKIP     (1U << 1) /* coredumping generation was skipped. */
+#define PIDFD_COREDUMP_USER     (1U << 2) /* coredump was done as the user. */
+#define PIDFD_COREDUMP_ROOT     (1U << 3) /* coredump was done as root. */
+
 struct pidfd_info {
+        /*
+         * This mask is similar to the request_mask in statx(2).
+         *
+         * Userspace indicates what extensions or expensive-to-calculate fields
+         * they want by setting the corresponding bits in mask. The kernel
+         * will ignore bits that it does not know about.
+         *
+         * When filling the structure, the kernel will only set bits
+         * corresponding to the fields that were actually filled by the kernel.
+         * This also includes any future extensions that might be automatically
+         * filled. If the structure size is too small to contain a field
+         * (requested or not), to avoid confusion the mask will not
+         * contain a bit for that field.
+         *
+         * As such, userspace MUST verify that mask contains the
+         * corresponding flags after the ioctl(2) returns to ensure that it is
+         * using valid data.
+         */
         __u64 mask;
+        /*
+         * The information contained in the following fields might be stale at the
+         * time it is received, as the target process might have exited as soon as
+         * the IOCTL was processed, and there is no way to avoid that. However, it
+         * is guaranteed that if the call was successful, then the information was
+         * correct and referred to the intended process at the time the work was
+         * performed. */
         __u64 cgroupid;
         __u32 pid;
         __u32 tgid;
@@ -56,11 +104,10 @@ struct pidfd_info {
         __u32 sgid;
         __u32 fsuid;
         __u32 fsgid;
-        __u32 spare0[1];
+        __s32 exit_code;     /* since kernel v6.15 (7477d7dce48a996ae4e4f0b5f7bd82de7ec9131b) */
+        __u32 coredump_mask; /* since kernel v6.16 (1d8db6fd698de1f73b1a7d72aea578fdd18d9a87) */
+        __u32 __spare1;
 };
 
 #define PIDFD_GET_INFO          _IOWR(PIDFS_IOCTL_MAGIC, 11, struct pidfd_info)
-#define PIDFD_INFO_PID          (1UL << 0)
-#define PIDFD_INFO_CREDS        (1UL << 1)
-#define PIDFD_INFO_CGROUPID     (1UL << 2)
-#endif
+#endif /* PIDFD_GET_INFO */

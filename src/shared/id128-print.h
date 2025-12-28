@@ -4,7 +4,7 @@
 
 #include "sd-id128.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum Id128PrettyPrintMode {
         ID128_PRINT_ID128,

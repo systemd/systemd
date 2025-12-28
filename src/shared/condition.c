@@ -775,7 +775,7 @@ static int condition_test_needs_update(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_NEEDS_UPDATE);
 
-        r = proc_cmdline_get_bool("systemd.condition_needs_update", /* flags = */ 0, &b);
+        r = proc_cmdline_get_bool("systemd.condition_needs_update", /* flags= */ 0, &b);
         if (r < 0)
                 log_debug_errno(r, "Failed to parse systemd.condition_needs_update= kernel command line argument, ignoring: %m");
         if (r > 0)
@@ -955,7 +955,7 @@ static int condition_test_path_is_mount_point(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_MOUNT_POINT);
 
-        return path_is_mount_point_full(c->parameter, /* root = */ NULL, AT_SYMLINK_FOLLOW) > 0;
+        return path_is_mount_point_full(c->parameter, /* root= */ NULL, AT_SYMLINK_FOLLOW) > 0;
 }
 
 static int condition_test_path_is_read_write(Condition *c, char **env) {
@@ -1091,7 +1091,7 @@ static int condition_test_psi(Condition *c, char **env) {
                         return log_debug_errno(r, "Cannot determine slice \"%s\" cgroup path: %m", slice);
 
                 /* We might be running under the user manager, so get the root path and prefix it accordingly. */
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &root_scope);
+                r = cg_pid_get_path(getpid_cached(), &root_scope);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get root cgroup path: %m");
 
@@ -1110,7 +1110,7 @@ static int condition_test_psi(Condition *c, char **env) {
                         free_and_replace(slice_path, slice_joined);
                 }
 
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, slice_path, controller, &pressure_path);
+                r = cg_get_path(slice_path, controller, &pressure_path);
                 if (r < 0)
                         return log_debug_errno(r, "Error getting cgroup pressure path from %s: %m", slice_path);
 

@@ -23,10 +23,12 @@
 #include "hashmap.h"
 #include "image-policy.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "loop-util.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "mount-util.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "nulstr-util.h"
@@ -41,6 +43,7 @@
 #include "time-util.h"
 #include "uid-classification.h"
 #include "uid-range.h"
+#include "user-util.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 #include "varlink-util.h"
 
@@ -73,7 +76,7 @@ static int json_dispatch_image_policy(const char *name, sd_json_variant *variant
         if (!sd_json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = image_policy_from_string(sd_json_variant_string(variant), &q);
+        r = image_policy_from_string(sd_json_variant_string(variant), /* graceful= */ false, &q);
         if (r < 0)
                 return json_log(variant, flags, r, "JSON field '%s' is not a valid image policy.", strna(name));
 
@@ -89,6 +92,10 @@ typedef struct MountImageParameters {
         int growfs;
         char *password;
         ImagePolicy *image_policy;
+        bool verity_sharing;
+        struct iovec verity_root_hash;
+        struct iovec verity_root_hash_sig;
+        unsigned verity_data_fd_idx;
 } MountImageParameters;
 
 static void mount_image_parameters_done(MountImageParameters *p) {
@@ -96,6 +103,8 @@ static void mount_image_parameters_done(MountImageParameters *p) {
 
         p->password = erase_and_free(p->password);
         p->image_policy = image_policy_free(p->image_policy);
+        iovec_done(&p->verity_root_hash);
+        iovec_done(&p->verity_root_hash_sig);
 }
 
 static int validate_image_fd(int fd, MountImageParameters *p) {
@@ -115,7 +124,7 @@ static int validate_image_fd(int fd, MountImageParameters *p) {
                         return r;
         }
 
-        fl = fd_verify_safe_flags(fd);
+        fl = fd_verify_safe_flags_full(fd, O_NONBLOCK);
         if (fl < 0)
                 return log_debug_errno(fl, "Image file descriptor has unsafe flags set: %m");
 
@@ -235,7 +244,7 @@ static int determine_image_policy(
 
         e = secure_getenv(envvar);
         if (e) {
-                r = image_policy_from_string(e, &envvar_policy);
+                r = image_policy_from_string(e, /* graceful= */ false, &envvar_policy);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse image policy supplied via $%s: %m", envvar);
 
@@ -283,12 +292,16 @@ static int vl_method_mount_image(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "imageFileDescriptor",         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,      offsetof(MountImageParameters, image_fd_idx),  SD_JSON_MANDATORY },
-                { "userNamespaceFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,      offsetof(MountImageParameters, userns_fd_idx), 0 },
-                { "readOnly",                    SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,  offsetof(MountImageParameters, read_only),     0 },
-                { "growFileSystems",             SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,  offsetof(MountImageParameters, growfs),        0 },
-                { "password",                    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,    offsetof(MountImageParameters, password),      0 },
-                { "imagePolicy",                 SD_JSON_VARIANT_STRING,   json_dispatch_image_policy, offsetof(MountImageParameters, image_policy),  0 },
+                { "imageFileDescriptor",         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, image_fd_idx),         SD_JSON_MANDATORY },
+                { "userNamespaceFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, userns_fd_idx),        0 },
+                { "readOnly",                    SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,    offsetof(MountImageParameters, read_only),            0 },
+                { "growFileSystems",             SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,    offsetof(MountImageParameters, growfs),               0 },
+                { "password",                    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(MountImageParameters, password),             0 },
+                { "imagePolicy",                 SD_JSON_VARIANT_STRING,   json_dispatch_image_policy,   offsetof(MountImageParameters, image_policy),         0 },
+                { "veritySharing",               SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,     offsetof(MountImageParameters, verity_sharing),       0 },
+                { "verityDataFileDescriptor",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, verity_data_fd_idx),   0 },
+                { "verityRootHash",              SD_JSON_VARIANT_STRING,   json_dispatch_unhex_iovec,    offsetof(MountImageParameters, verity_root_hash),     0 },
+                { "verityRootHashSignature",     SD_JSON_VARIANT_STRING,   json_dispatch_unbase64_iovec, offsetof(MountImageParameters, verity_root_hash_sig), 0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -297,13 +310,14 @@ static int vl_method_mount_image(
         _cleanup_(mount_image_parameters_done) MountImageParameters p = {
                 .image_fd_idx = UINT_MAX,
                 .userns_fd_idx = UINT_MAX,
+                .verity_data_fd_idx = UINT_MAX,
                 .read_only = -1,
                 .growfs = -1,
         };
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
-        _cleanup_close_ int image_fd = -EBADF, userns_fd = -EBADF;
+        _cleanup_close_ int image_fd = -EBADF, userns_fd = -EBADF, verity_data_fd = -EBADF;
         _cleanup_(image_policy_freep) ImagePolicy *use_policy = NULL;
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
         _cleanup_free_ char *ps = NULL;
@@ -319,6 +333,13 @@ static int vl_method_mount_image(
         if (r != 0)
                 return r;
 
+        /* Verity data and roothash have to be either both set, or both unset. The sig can be set only if
+         * the roothash is set. */
+        if ((p.verity_data_fd_idx != UINT_MAX) != (p.verity_root_hash.iov_len > 0))
+                return sd_varlink_error_invalid_parameter_name(link, "verityDataFileDescriptor");
+        if (p.verity_root_hash_sig.iov_len > 0 && p.verity_root_hash.iov_len == 0)
+                return sd_varlink_error_invalid_parameter_name(link, "verityRootHashSignature");
+
         if (p.image_fd_idx != UINT_MAX) {
                 image_fd = sd_varlink_peek_dup_fd(link, p.image_fd_idx);
                 if (image_fd < 0)
@@ -332,6 +353,8 @@ static int vl_method_mount_image(
         }
 
         r = validate_image_fd(image_fd, &p);
+        if (r == -EREMOTEIO)
+                return sd_varlink_errorbo(link, "io.systemd.MountFileSystem.BadFileDescriptorFlags", SD_JSON_BUILD_PAIR_STRING("parameter", "imageFileDescriptor"));
         if (r < 0)
                 return r;
 
@@ -343,6 +366,24 @@ static int vl_method_mount_image(
         if (r < 0)
                 return r;
         image_is_trusted = r;
+
+        if (p.verity_data_fd_idx != UINT_MAX) {
+                verity_data_fd = sd_varlink_peek_dup_fd(link, p.verity_data_fd_idx);
+                if (verity_data_fd < 0)
+                        return log_debug_errno(verity_data_fd, "Failed to peek verity data fd from client: %m");
+
+                r = fd_verify_safe_flags(verity_data_fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Verity data file descriptor has unsafe flags set: %m");
+
+                verity.data_path = strdup(FORMAT_PROC_FD_PATH(verity_data_fd));
+                if (!verity.data_path)
+                        return -ENOMEM;
+
+                verity.designator = PARTITION_ROOT;
+                verity.root_hash = TAKE_STRUCT(p.verity_root_hash);
+                verity.root_hash_sig = TAKE_STRUCT(p.verity_root_hash_sig);
+        }
 
         const char *polkit_details[] = {
                 "read_only", one_zero(p.read_only > 0),
@@ -403,6 +444,10 @@ static int vl_method_mount_image(
                 DISSECT_IMAGE_FSCK |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
+                (p.verity_sharing ? DISSECT_IMAGE_VERITY_SHARE : 0) |
+                /* Maybe the image is a bare filesystem. Note that this requires privileges, as it is
+                 * classified by the policy as an 'unprotected' image and will be refused otherwise. */
+                DISSECT_IMAGE_NO_PARTITION_TABLE |
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
 
         /* Let's see if we have acquired the privilege to mount untrusted images already */
@@ -497,6 +542,7 @@ static int vl_method_mount_image(
                         di,
                         p.password,
                         &verity,
+                        use_policy,
                         dissect_flags);
         if (r == -ENOKEY) /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
                            * key chain. That's great. */
@@ -552,17 +598,17 @@ static int vl_method_mount_image(
 
                 r = sd_json_variant_append_arraybo(
                                 &aj,
-                                SD_JSON_BUILD_PAIR("designator", SD_JSON_BUILD_STRING(partition_designator_to_string(d))),
-                                SD_JSON_BUILD_PAIR("writable", SD_JSON_BUILD_BOOLEAN(pp->rw)),
-                                SD_JSON_BUILD_PAIR("growFileSystem", SD_JSON_BUILD_BOOLEAN(pp->growfs)),
+                                SD_JSON_BUILD_PAIR_STRING("designator", partition_designator_to_string(d)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("writable", pp->rw),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("growFileSystem", pp->growfs),
                                 SD_JSON_BUILD_PAIR_CONDITION(pp->partno > 0, "partitionNumber", SD_JSON_BUILD_INTEGER(pp->partno)),
                                 SD_JSON_BUILD_PAIR_CONDITION(pp->architecture > 0, "architecture", SD_JSON_BUILD_STRING(architecture_to_string(pp->architecture))),
                                 SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(pp->uuid), "partitionUuid", SD_JSON_BUILD_UUID(pp->uuid)),
-                                SD_JSON_BUILD_PAIR("fileSystemType", SD_JSON_BUILD_STRING(dissected_partition_fstype(pp))),
+                                SD_JSON_BUILD_PAIR_STRING("fileSystemType", dissected_partition_fstype(pp)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!!pp->label, "partitionLabel", SD_JSON_BUILD_STRING(pp->label)),
-                                SD_JSON_BUILD_PAIR("size", SD_JSON_BUILD_INTEGER(pp->size)),
-                                SD_JSON_BUILD_PAIR("offset", SD_JSON_BUILD_INTEGER(pp->offset)),
-                                SD_JSON_BUILD_PAIR("mountFileDescriptor", SD_JSON_BUILD_INTEGER(fd_idx)),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("size", pp->size),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("offset", pp->offset),
+                                SD_JSON_BUILD_PAIR_INTEGER("mountFileDescriptor", fd_idx),
                                 JSON_BUILD_PAIR_STRV_NON_EMPTY("mountPoint", l));
                 if (r < 0)
                         return r;
@@ -572,10 +618,10 @@ static int vl_method_mount_image(
 
         return sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR("partitions", SD_JSON_BUILD_VARIANT(aj)),
-                        SD_JSON_BUILD_PAIR("imagePolicy", SD_JSON_BUILD_STRING(ps)),
-                        SD_JSON_BUILD_PAIR("imageSize", SD_JSON_BUILD_INTEGER(di->image_size)),
-                        SD_JSON_BUILD_PAIR("sectorSize", SD_JSON_BUILD_INTEGER(di->sector_size)),
+                        SD_JSON_BUILD_PAIR_VARIANT("partitions", aj),
+                        SD_JSON_BUILD_PAIR_STRING("imagePolicy", ps),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("imageSize", di->image_size),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("sectorSize", di->sector_size),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(di->image_uuid), "imageUuid", SD_JSON_BUILD_UUID(di->image_uuid)));
 }
 
@@ -636,10 +682,16 @@ static MountMapMode default_mount_map_mode(DirectoryOwnership ownership) {
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_mount_directory_mode, MountMapMode, mount_map_mode_from_string);
 
-static DirectoryOwnership validate_directory_fd(int fd, uid_t peer_uid) {
+static DirectoryOwnership validate_directory_fd(
+                int fd,
+                uid_t peer_uid,
+                uid_t *ret_current_owner_uid) {
+
         int r, fl;
 
         assert(fd >= 0);
+        assert(uid_is_valid(peer_uid));
+        assert(ret_current_owner_uid);
 
         /* Checks if the specified directory fd looks sane. Returns a DirectoryOwnership that categorizes the
          * ownership situation in comparison to the peer's UID.
@@ -664,6 +716,7 @@ static DirectoryOwnership validate_directory_fd(int fd, uid_t peer_uid) {
                 return log_debug_errno(fl, "Directory file descriptor has unsafe flags set: %m");
 
         if (st.st_uid == 0) {
+                *ret_current_owner_uid = st.st_uid;
                 if (peer_uid == 0) {
                         log_debug("Directory file descriptor points to root owned directory, who is also the peer.");
                         return DIRECTORY_IS_ROOT_PEER_OWNED;
@@ -673,6 +726,7 @@ static DirectoryOwnership validate_directory_fd(int fd, uid_t peer_uid) {
         }
         if (st.st_uid == peer_uid) {
                 log_debug("Directory file descriptor points to peer owned directory.");
+                *ret_current_owner_uid = st.st_uid;
                 return DIRECTORY_IS_PEER_OWNED;
         }
 
@@ -686,12 +740,14 @@ static DirectoryOwnership validate_directory_fd(int fd, uid_t peer_uid) {
                 /* Stop iteration if we find a directory up the tree that is neither owned by the user, nor is from the foreign UID range */
                 if (!uid_is_foreign(st.st_uid) || !gid_is_foreign(st.st_gid)) {
                         log_debug("Directory file descriptor points to directory which itself or its parents is neither owned by foreign UID range nor by the user.");
+                        *ret_current_owner_uid = st.st_uid;
                         return DIRECTORY_IS_OTHERWISE_OWNED;
                 }
 
                 /* If the peer is root, then it doesn't matter if we find a parent owned by root, let's shortcut things. */
                 if (peer_uid == 0) {
                         log_debug("Directory file descriptor is owned by foreign UID range, and peer is root.");
+                        *ret_current_owner_uid = st.st_uid;
                         return DIRECTORY_IS_FOREIGN_OWNED;
                 }
 
@@ -707,11 +763,13 @@ static DirectoryOwnership validate_directory_fd(int fd, uid_t peer_uid) {
                 /* Safety check to see if we hit the root dir */
                 if (stat_inode_same(&st, &new_st)) {
                         log_debug("Directory file descriptor is owned by foreign UID range, but didn't find parent directory that is owned by peer among ancestors.");
+                        *ret_current_owner_uid = st.st_uid;
                         return DIRECTORY_IS_OTHERWISE_OWNED;
                 }
 
                 if (new_st.st_uid == peer_uid) { /* Parent inode is owned by the peer. That's good! Everything's fine. */
                         log_debug("Directory file descriptor is owned by foreign UID range, and ancestor is owned by peer.");
+                        *ret_current_owner_uid = st.st_uid;
                         return DIRECTORY_IS_FOREIGN_OWNED;
                 }
 
@@ -720,6 +778,7 @@ static DirectoryOwnership validate_directory_fd(int fd, uid_t peer_uid) {
         }
 
         log_debug("Failed to find peer owned parent directory after %u levels, refusing.", n_level);
+        *ret_current_owner_uid = st.st_uid;
         return DIRECTORY_IS_OTHERWISE_OWNED;
 }
 
@@ -770,7 +829,8 @@ static int vl_method_mount_directory(
         if (r < 0)
                 return log_debug_errno(r, "Failed to get client UID: %m");
 
-        DirectoryOwnership owned_by = validate_directory_fd(directory_fd, peer_uid);
+        uid_t current_owner_uid;
+        DirectoryOwnership owned_by = validate_directory_fd(directory_fd, peer_uid, &current_owner_uid);
         if (owned_by == -EREMOTEIO)
                 return sd_varlink_errorbo(link, "io.systemd.MountFileSystem.BadFileDescriptorFlags", SD_JSON_BUILD_PAIR_STRING("parameter", "directoryFileDescriptor"));
         if (owned_by < 0)
@@ -835,9 +895,27 @@ static int vl_method_mount_directory(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int mount_fd = open_tree(directory_fd, "", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+        _cleanup_close_ int mount_fd = open_tree_try_drop_idmap(
+                        directory_fd,
+                        "",
+                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
         if (mount_fd < 0)
                 return log_debug_errno(errno, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
+
+        /* MOUNT_ATTR_IDMAP has possibly been cleared. Let's verify that the underlying data matches our expectations. */
+        struct stat unmapped_st;
+        if (fstat(mount_fd, &unmapped_st) < 0)
+                return log_debug_errno(errno, "Failed to stat unmapped inode: %m");
+
+        r = stat_verify_directory(&unmapped_st);
+        if (r < 0)
+                return r;
+
+        /* For now, let's simply refuse things if dropping the idmapping changed anything. For now that
+         * should be good enough, because the primary usecase for this (homed) will mount the foreign UID
+         * range 1:1. */
+        if (unmapped_st.st_uid != current_owner_uid)
+                return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Owner UID of mount after clearing ID mapping not the same anymore, refusing.");
 
         if (p.read_only > 0 && mount_setattr(
                             mount_fd, "", AT_EMPTY_PATH,
@@ -921,12 +999,13 @@ static int vl_method_mount_directory(
 
         return sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR("mountFileDescriptor", SD_JSON_BUILD_INTEGER(fd_idx)));
+                        SD_JSON_BUILD_PAIR_INTEGER("mountFileDescriptor", fd_idx));
 }
 
 typedef struct MakeDirectoryParameters {
         unsigned parent_fd_idx;
         const char *name;
+        mode_t mode;
 } MakeDirectoryParameters;
 
 static int vl_method_make_directory(
@@ -936,14 +1015,16 @@ static int vl_method_make_directory(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "parentFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MakeDirectoryParameters, parent_fd_idx), SD_JSON_MANDATORY },
-                { "name",                 SD_JSON_VARIANT_STRING,   json_dispatch_const_filename, offsetof(MakeDirectoryParameters, name),          SD_JSON_MANDATORY },
+                { "parentFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,        offsetof(MakeDirectoryParameters, parent_fd_idx), SD_JSON_MANDATORY },
+                { "name",                 SD_JSON_VARIANT_STRING,        json_dispatch_const_filename, offsetof(MakeDirectoryParameters, name),          SD_JSON_MANDATORY },
+                { "mode",                 _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,    offsetof(MakeDirectoryParameters, mode),          SD_JSON_STRICT    },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
         MakeDirectoryParameters p = {
                 .parent_fd_idx = UINT_MAX,
+                .mode = MODE_INVALID,
         };
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
         int r;
@@ -951,6 +1032,11 @@ static int vl_method_make_directory(
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
+
+        if (p.mode == MODE_INVALID)
+                p.mode = 0700;
+        else
+                p.mode &= 0775; /* refuse generating world writable dirs */
 
         if (p.parent_fd_idx == UINT_MAX)
                 return sd_varlink_error_invalid_parameter_name(link, "parentFileDescriptor");
@@ -1013,11 +1099,11 @@ static int vl_method_make_directory(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, 0700);
+        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, p.mode);
         if (fd < 0)
                 return fd;
 
-        r = RET_NERRNO(fchmod(fd, 0700)); /* Set mode explicitly, as paranoia regarding umask games */
+        r = RET_NERRNO(fchmod(fd, p.mode)); /* Set mode explicitly, as paranoia regarding umask games */
         if (r < 0)
                 goto fail;
 
@@ -1041,7 +1127,7 @@ static int vl_method_make_directory(
 
         return sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR("directoryFileDescriptor", SD_JSON_BUILD_INTEGER(fd_idx)));
+                        SD_JSON_BUILD_PAIR_INTEGER("directoryFileDescriptor", fd_idx));
 
 fail:
         (void) unlinkat(parent_fd, t ?: p.name, AT_REMOVEDIR);

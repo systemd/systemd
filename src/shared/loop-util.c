@@ -375,6 +375,44 @@ static int loop_configure(
         return 0;
 }
 
+static int fd_get_max_discard(int fd, uint64_t *ret) {
+        struct stat st;
+        char sysfs_path[STRLEN("/sys/dev/block/" ":" "/queue/discard_max_bytes") + DECIMAL_STR_MAX(dev_t) * 2 + 1];
+        _cleanup_free_ char *buffer = NULL;
+        int r;
+
+        assert(ret);
+
+        if (fstat(ASSERT_FD(fd), &st) < 0)
+                return -errno;
+
+        if (!S_ISBLK(st.st_mode))
+                return -ENOTBLK;
+
+        xsprintf(sysfs_path, "/sys/dev/block/" DEVNUM_FORMAT_STR "/queue/discard_max_bytes", DEVNUM_FORMAT_VAL(st.st_rdev));
+
+        r = read_one_line_file(sysfs_path, &buffer);
+        if (r < 0)
+                return r;
+
+        return safe_atou64(buffer, ret);
+}
+
+static int fd_set_max_discard(int fd, uint64_t max_discard) {
+        struct stat st;
+        char sysfs_path[STRLEN("/sys/dev/block/" ":" "/queue/discard_max_bytes") + DECIMAL_STR_MAX(dev_t) * 2 + 1];
+
+        if (fstat(ASSERT_FD(fd), &st) < 0)
+                return -errno;
+
+        if (!S_ISBLK(st.st_mode))
+                return -ENOTBLK;
+
+        xsprintf(sysfs_path, "/sys/dev/block/" DEVNUM_FORMAT_STR "/queue/discard_max_bytes", DEVNUM_FORMAT_VAL(st.st_rdev));
+
+        return write_string_filef(sysfs_path, WRITE_STRING_FILE_DISABLE_BUFFER, "%" PRIu64, max_discard);
+}
+
 static int loop_device_make_internal(
                 const char *path,
                 int fd,
@@ -572,6 +610,23 @@ static int loop_device_make_internal(
                 (void) usleep_safe(usec);
         }
 
+        if (S_ISBLK(st.st_mode)) {
+                /* Propagate backing device's discard byte limit to our loopback block device. We do this in
+                 * order to avoid that (supposedly quick) discard requests on the loopback device get turned
+                 * into (likely slow) zero-out requests on backing devices that do not support discarding
+                 * natively, but do support zero-out. */
+                uint64_t discard_max_bytes;
+
+                r = fd_get_max_discard(fd, &discard_max_bytes);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read 'discard_max_bytes' of backing device, ignoring: %m");
+                else {
+                        r = fd_set_max_discard(d->fd, discard_max_bytes);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to write 'discard_max_bytes' of loop device, ignoring: %m");
+                }
+        }
+
         d->backing_file = TAKE_PTR(backing_file);
         d->backing_inode = st.st_ino;
         d->backing_devno = st.st_dev;
@@ -686,8 +741,8 @@ int loop_device_make_by_path_at(
                         dir_fd == AT_FDCWD ? path : NULL,
                         fd,
                         open_flags,
-                        /* offset = */ 0,
-                        /* size = */ 0,
+                        /* offset= */ 0,
+                        /* size= */ 0,
                         sector_size,
                         loop_flags,
                         lock_op,

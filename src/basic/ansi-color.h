@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* Limits the use of ANSI colors to a subset. */
 typedef enum ColorMode {
@@ -27,6 +27,8 @@ ColorMode parse_systemd_colors(void);
 bool underline_enabled(void);
 
 void reset_ansi_feature_caches(void);
+
+bool looks_like_ansi_color_code(const char *str);
 
 /* Regular colors */
 #define ANSI_BLACK   "\x1B[0;30m" /* Some type of grey usually. */

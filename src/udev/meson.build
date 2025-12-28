@@ -116,7 +116,8 @@ endif
 udev_dependencies = [
         libacl_cflags,
         libblkid_cflags,
-        libkmod,
+        libkmod_cflags,
+        libmount_cflags,
         threads,
 ]
 
@@ -144,8 +145,8 @@ udev_binaries_dict = [
                 'name' : 'udevadm',
                 'public' : true,
                 'sources' : udevadm_sources +
-                            udevadm_extract_sources +
                             keyboard_keys_from_name_inc,
+                'extract' : udevadm_extract_sources,
                 'include_directories' : [
                         libexec_template['include_directories'],
                         include_directories('.', 'net'),
@@ -154,7 +155,6 @@ udev_binaries_dict = [
                 'link_with' : udev_link_with,
                 'install_rpath' : udev_rpath,
                 'install_tag' : 'udev',
-                'extract' : udevadm_extract_sources,
         },
         udev_plugin_template + {
                 'name' : 'ata_id',
@@ -171,10 +171,7 @@ udev_binaries_dict = [
         },
         udev_plugin_template + {
                 'name' : 'fido_id',
-                'sources' : files(
-                        'fido_id/fido_id.c',
-                        'fido_id/fido_id_desc.c',
-                ),
+                'sources' : files('fido_id/fido_id.c'),
                 'extract' : files('fido_id/fido_id_desc.c'),
         },
         udev_plugin_template + {

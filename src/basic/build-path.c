@@ -34,11 +34,11 @@ static int get_runpath_from_dynamic(const ElfW(Dyn) *d, ElfW(Addr) bias, const c
                         break;
 
                 case DT_STRTAB:
-                        /* On MIPS and RISC-V DT_STRTAB records an offset, not a valid address, so it has to be adjusted
-                         * using the bias calculated earlier. */
+                        /* On MIPS, RISC-V, or with musl, DT_STRTAB records an offset, not a valid address,
+                         * so it has to be adjusted using the bias calculated earlier. */
                         if (d->d_un.d_val != 0)
                                 strtab = (const char *) ((uintptr_t) d->d_un.d_val
-#if defined(__mips__) || defined(__riscv)
+#if defined(__mips__) || defined(__riscv) || !defined(__GLIBC__)
                                          + bias
 #endif
                                 );
@@ -264,7 +264,7 @@ int pin_callout_binary(const char *path, char **ret_path) {
         const char *e;
         if (find_environment_binary(fn, &e) >= 0) {
                 /* The environment variable counts. We'd fail if the executable is not available/invalid. */
-                r = open_and_check_executable(e, /* root = */ NULL, ret_path, &fd);
+                r = open_and_check_executable(e, /* root= */ NULL, ret_path, &fd);
                 if (r < 0)
                         return r;
 
@@ -273,13 +273,13 @@ int pin_callout_binary(const char *path, char **ret_path) {
 
         _cleanup_free_ char *np = NULL;
         if (find_build_dir_binary(fn, &np) >= 0) {
-                r = open_and_check_executable(np, /* root = */ NULL, ret_path, &fd);
+                r = open_and_check_executable(np, /* root= */ NULL, ret_path, &fd);
                 if (r >= 0)
                         return fd;
         }
 
-        r = find_executable_full(path, /* root = */ NULL,
-                                 /* exec_search_path = */ NULL, /* use_path_envvar = */ true,
+        r = find_executable_full(path, /* root= */ NULL,
+                                 /* exec_search_path= */ NULL, /* use_path_envvar= */ true,
                                  ret_path, &fd);
         if (r < 0)
                 return r;

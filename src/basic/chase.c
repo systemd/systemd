@@ -68,7 +68,7 @@ static int log_autofs_mount_point(int fd, const char *path, ChaseFlags flags) {
         (void) fd_get_path(fd, &n1);
 
         return log_warning_errno(SYNTHETIC_ERRNO(EREMOTE),
-                                 "Detected autofs mount point %s during canonicalization of %s.",
+                                 "Detected autofs mount point '%s' during canonicalization of '%s'.",
                                  strna(n1), path);
 }
 
@@ -83,7 +83,7 @@ static int log_prohibited_symlink(int fd, ChaseFlags flags) {
         (void) fd_get_path(fd, &n1);
 
         return log_warning_errno(SYNTHETIC_ERRNO(EREMCHG),
-                                 "Detected symlink where not symlink is allowed at %s, refusing.",
+                                 "Detected symlink where no symlink is allowed at '%s', refusing.",
                                  strna(n1));
 }
 
@@ -403,7 +403,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 }
 
                 /* Otherwise let's pin it by file descriptor, via O_PATH. */
-                child = r = openat_opath_with_automount(fd, first, /* automount = */ FLAGS_SET(flags, CHASE_TRIGGER_AUTOFS));
+                child = r = openat_opath_with_automount(fd, first, /* automount= */ FLAGS_SET(flags, CHASE_TRIGGER_AUTOFS));
                 if (r < 0) {
                         if (r != -ENOENT)
                                 return r;
@@ -412,11 +412,9 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                 return r;
 
                         if (FLAGS_SET(flags, CHASE_MKDIR_0755) && (!isempty(todo) || !(flags & (CHASE_PARENT|CHASE_NONEXISTENT)))) {
-                                child = xopenat_full(fd,
-                                                     first,
-                                                     O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_PATH|O_CLOEXEC,
-                                                     /* xopen_flags = */ 0,
-                                                     0755);
+                                child = xopenat(fd,
+                                                first,
+                                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_PATH|O_CLOEXEC);
                                 if (child < 0)
                                         return child;
                         } else if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo)) {

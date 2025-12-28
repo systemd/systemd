@@ -11,20 +11,20 @@
 #include "bus-object.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
 #include "format-util.h"
 #include "path-util.h"
 #include "resolve-util.h"
 #include "resolved-bus.h"
 #include "resolved-def.h"
-#include "resolved-dns-answer.h"
-#include "resolved-dns-delegate.h"
 #include "resolved-dns-delegate-bus.h"
+#include "resolved-dns-delegate.h"
 #include "resolved-dns-dnssec.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
@@ -32,10 +32,10 @@
 #include "resolved-dns-stub.h"
 #include "resolved-dns-synthesize.h"
 #include "resolved-dns-transaction.h"
-#include "resolved-dnssd.h"
 #include "resolved-dnssd-bus.h"
-#include "resolved-link.h"
+#include "resolved-dnssd.h"
 #include "resolved-link-bus.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
 #include "set.h"
@@ -644,7 +644,7 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
         if (ifindex < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
 
-        if (validate_and_mangle_query_flags(m, &flags, /* name = */ NULL, /* ok = */ 0) < 0)
+        if (validate_and_mangle_query_flags(m, &flags, /* name= */ NULL, /* ok= */ 0) < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         r = dns_question_new_reverse(&question, family, &a);
@@ -1017,7 +1017,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
 
         assert(q);
 
-        if (q->block_all_complete > 0) {
+        if (q->hook_query || q->block_all_complete > 0) {
                 TAKE_PTR(q);
                 return;
         }
@@ -1027,6 +1027,12 @@ static void resolve_service_all_complete(DnsQuery *query) {
                 bool have_success = false;
 
                 LIST_FOREACH(auxiliary_queries, aux, q->auxiliary_queries) {
+
+                        if (aux->hook_query) {
+                                /* If an auxiliary query's hook is still pending, let's wait */
+                                TAKE_PTR(q);
+                                return;
+                        }
 
                         switch (aux->state) {
 

@@ -128,7 +128,7 @@ static int parse_field(
         if (length < field_len)
                 return 0;
 
-        if (memcmp(data, field, field_len))
+        if (memcmp(data, field, field_len) != 0)
                 return 0;
 
         nl = length - field_len;
@@ -770,7 +770,7 @@ static int get_display_realtime(sd_journal *j, usec_t *ret) {
         if (r < 0)
                 return r;
 
-        (void) parse_display_realtime(j, realtime, monotonic, ret);
+        parse_display_realtime(j, realtime, monotonic, ret);
 
         /* Restart all data before */
         sd_journal_restart_data(j);
@@ -1715,9 +1715,11 @@ int add_matches_for_unit_full(sd_journal *j, MatchUnitFlag flags, const char *un
                 /* Look for messages from the service itself */
                 (r = journal_add_match_pair(j, "_SYSTEMD_UNIT", unit)) ||
 
-                /* Look for messages from PID 1 about this service */
+                /* Look for messages from PID 1 about this service. Note that the actual match is placed
+                 * on init.scope rather than _PID=1, as we want to match messages from helper processes
+                 * forked off by init too. */
                 (r = sd_journal_add_disjunction(j)) ||
-                (r = sd_journal_add_match(j, "_PID=1", SIZE_MAX)) ||
+                (r = sd_journal_add_match(j, "_SYSTEMD_CGROUP=/init.scope", SIZE_MAX)) ||
                 (r = journal_add_match_pair(j, "UNIT", unit)) ||
 
                 /* Look for messages from authorized daemons about this service */
@@ -1985,10 +1987,10 @@ static int set_matches_for_discover_id(
                 return add_matches_for_invocation_id(j, id);
 
         if (type == LOG_SYSTEM_UNIT_INVOCATION_ID)
-                return add_matches_for_unit_full(j, /* flags = */ 0, unit);
+                return add_matches_for_unit_full(j, /* flags= */ 0, unit);
 
         if (type == LOG_USER_UNIT_INVOCATION_ID)
-                return add_matches_for_user_unit_full(j, /* flags = */ 0, unit);
+                return add_matches_for_user_unit_full(j, /* flags= */ 0, unit);
 
         return -EINVAL;
 }

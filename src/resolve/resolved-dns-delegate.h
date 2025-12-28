@@ -39,7 +39,7 @@ void dns_delegate_next_dns_server(DnsDelegate *d, DnsServer *if_current);
 
 int manager_load_delegates(Manager *m);
 
-const struct ConfigPerfItem* resolved_dns_delegate_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* resolved_dns_delegate_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_delegate_dns_servers);
 CONFIG_PARSER_PROTOTYPE(config_parse_delegate_domains);

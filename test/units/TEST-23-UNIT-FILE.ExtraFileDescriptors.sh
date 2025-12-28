@@ -15,8 +15,8 @@ at_exit() {
 trap at_exit EXIT
 
 mkdir /tmp/test-extra-fd
-echo "Hello" > /tmp/test-extra-fd/1.txt
-echo "Extra" > /tmp/test-extra-fd/2.txt
+echo "Hello" >/tmp/test-extra-fd/1.txt
+echo "Extra" >/tmp/test-extra-fd/2.txt
 
 # Open files and assign FD to variables
 exec {TEST_FD1}</tmp/test-extra-fd/1.txt

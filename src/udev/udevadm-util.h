@@ -3,7 +3,7 @@
 
 #include "sd-device.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "udev-def.h"
 
 int find_device(const char *id, const char *prefix, sd_device **ret);

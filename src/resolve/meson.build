@@ -8,19 +8,14 @@ systemd_resolved_sources = files(
         'resolved.c',
 )
 systemd_resolved_extract_sources = files(
-        'dns-type.c',
         'resolved-bus.c',
         'resolved-conf.c',
-        'resolved-dns-answer.c',
         'resolved-dns-browse-services.c',
         'resolved-dns-cache.c',
         'resolved-dns-delegate.c',
         'resolved-dns-delegate-bus.c',
         'resolved-dns-dnssec.c',
-        'resolved-dns-packet.c',
         'resolved-dns-query.c',
-        'resolved-dns-question.c',
-        'resolved-dns-rr.c',
         'resolved-dns-scope.c',
         'resolved-dns-search-domain.c',
         'resolved-dns-server.c',
@@ -33,6 +28,7 @@ systemd_resolved_extract_sources = files(
         'resolved-dnssd-bus.c',
         'resolved-dnssd.c',
         'resolved-etc-hosts.c',
+        'resolved-hook.c',
         'resolved-link-bus.c',
         'resolved-link.c',
         'resolved-llmnr.c',
@@ -45,38 +41,6 @@ systemd_resolved_extract_sources = files(
 )
 
 ############################################################
-
-dns_type_list_txt = custom_target(
-        input : ['generate-dns_type-list.sed', 'dns-type.h'],
-        output : 'dns_type-list.txt',
-        command : [sed, '-n', '-r', '-f', '@INPUT0@', '@INPUT1@'],
-        capture : true)
-
-gperf_file = custom_target(
-        input : dns_type_list_txt,
-        output : 'dns_type-from-name.gperf',
-        command : [files('generate-dns_type-gperf.py'),
-                   'dns_type',
-                   'DNS_TYPE_',
-                   '@INPUT@'],
-        capture : true)
-
-dns_type_from_name_inc = custom_target(
-        input : gperf_file,
-        output : 'dns_type-from-name.inc',
-        command : [gperf,
-                   '-L', 'ANSI-C', '-t', '--ignore-case',
-                   '-N', 'lookup_dns_type',
-                   '-H', 'hash_dns_type_name',
-                   '-p', '-C',
-                   '@INPUT@'],
-        capture : true)
-
-dns_type_to_name_inc = custom_target(
-        input : ['dns_type-to-name.awk', dns_type_list_txt],
-        output : 'dns_type-to-name.inc',
-        command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
-        capture : true)
 
 resolved_gperf_c = custom_target(
         input : 'resolved-gperf.gperf',
@@ -93,8 +57,8 @@ resolved_dns_delegate_gperf_c = custom_target(
         output : 'resolved-dns-delegate-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-generated_sources += [dns_type_from_name_inc, dns_type_to_name_inc, resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
-systemd_resolved_extract_sources += [dns_type_from_name_inc, dns_type_to_name_inc, resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
+generated_sources += [resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
+systemd_resolved_extract_sources += [resolved_gperf_c, resolved_dnssd_gperf_c, resolved_dns_delegate_gperf_c]
 
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
         systemd_resolved_extract_sources += files(
@@ -117,8 +81,7 @@ executables += [
         libexec_template + resolve_common_template + {
                 'name' : 'systemd-resolved',
                 'dbus' : true,
-                'sources' : systemd_resolved_sources + systemd_resolved_extract_sources,
-                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
+                'sources' : systemd_resolved_sources,
                 'extract' : systemd_resolved_extract_sources,
         },
         executable_template + resolve_common_template + {

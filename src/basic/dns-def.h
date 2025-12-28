@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* Length of a single label, with all escaping removed, excluding any trailing dot or NUL byte */
 #define DNS_LABEL_MAX 63

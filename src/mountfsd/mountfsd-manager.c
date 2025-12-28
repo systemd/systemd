@@ -14,11 +14,11 @@
 #include "format-util.h"
 #include "log.h"
 #include "mountfsd-manager.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "umask-util.h"
@@ -51,7 +51,7 @@ static int on_worker_exit(sd_event_source *s, const siginfo_t *si, void *userdat
         else if (si->si_code == CLD_DUMPED)
                 log_warning("Worker " PID_FMT " dumped core by signal %s, ignoring.", si->si_pid, signal_to_string(si->si_status));
         else
-                log_warning("Got unexpected exit code via SIGCHLD, ignoring.");
+                log_warning("Got unexpected exit code from child, ignoring.");
 
         (void) start_workers(m, /* explicit_request= */ false); /* Fill up workers again if we fell below the low watermark */
         return 0;
@@ -141,7 +141,6 @@ static int start_one_worker(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fork new worker child: %m");
         if (r == 0) {
-                char pids[DECIMAL_STR_MAX(pid_t)];
                 /* Child */
 
                 if (m->listen_fd == 3) {
@@ -159,10 +158,19 @@ static int start_one_worker(Manager *m) {
                         safe_close(m->listen_fd);
                 }
 
-                xsprintf(pids, PID_FMT, pid);
-                if (setenv("LISTEN_PID", pids, 1) < 0) {
-                        log_error_errno(errno, "Failed to set $LISTEN_PID: %m");
+                r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, pid);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set $LISTEN_PID: %m");
                         _exit(EXIT_FAILURE);
+                }
+
+                uint64_t pidfdid;
+                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        r = setenvf("LISTEN_PIDFDID", /* overwrite= */ true, "%" PRIu64, pidfdid);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to set $LISTEN_PIDFDID: %m");
+                                _exit(EXIT_FAILURE);
+                        }
                 }
 
                 if (setenv("LISTEN_FDS", "1", 1) < 0) {

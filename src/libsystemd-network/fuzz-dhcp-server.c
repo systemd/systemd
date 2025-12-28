@@ -9,11 +9,11 @@
 #include "tmpfile-util.h"
 
 /* stub out network so that the server doesn't send */
-ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen) {
-        return len;
+ssize_t sendto(int __fd, const void *__buf, size_t __n, int flags, const struct sockaddr *__addr, socklen_t __addr_len) {
+        return __n;
 }
 
-ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
+ssize_t sendmsg(int __fd, const struct msghdr *__message, int flags) {
         return 0;
 }
 
@@ -42,7 +42,7 @@ static int add_lease(sd_dhcp_server *server, const struct in_addr *server_addres
         lease->client_id.raw[0] = 2;
         lease->client_id.raw[1] = i;
 
-        r = dhcp_server_put_lease(server, lease, /* is_static = */ false);
+        r = dhcp_server_put_lease(server, lease, /* is_static= */ false);
         if (r < 0)
                 return r;
 
@@ -56,9 +56,11 @@ static int add_static_lease(sd_dhcp_server *server, uint8_t i) {
         assert(server);
 
         return sd_dhcp_server_set_static_lease(
-                                server,
-                                &(struct in_addr) { .s_addr = htobe32(UINT32_C(10) << 24 | i)},
-                                id, ELEMENTSOF(id));
+                        server,
+                        &(struct in_addr) { .s_addr = htobe32(UINT32_C(10) << 24 | i) },
+                        id,
+                        ELEMENTSOF(id),
+                        /* hostname= */ NULL);
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {

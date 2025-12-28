@@ -5,7 +5,7 @@
 
 #include "fileio.h"
 #include "format-util.h"
-#include "forward.h"
+#include "basic-forward.h"
 #include "string-util.h"
 
 #define procfs_file_alloca(pid, field)                                  \
@@ -60,8 +60,6 @@ static inline bool SIGINFO_CODE_IS_DEAD(int code) {
         return IN_SET(code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
 }
 
-int wait_for_terminate(pid_t pid, siginfo_t *ret);
-
 typedef enum WaitFlags {
         WAIT_LOG_ABNORMAL             = 1 << 0,
         WAIT_LOG_NON_ZERO_EXIT_STATUS = 1 << 1,
@@ -71,22 +69,13 @@ typedef enum WaitFlags {
 } WaitFlags;
 
 int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFlags flags);
-int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags);
-
-int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout);
-
-void sigkill_wait(pid_t pid);
-void sigkill_waitp(pid_t *pid);
-void sigterm_wait(pid_t pid);
-void sigkill_nowait(pid_t pid);
-void sigkill_nowaitp(pid_t *pid);
 
 int kill_and_sigcont(pid_t pid, int sig);
 
 int pid_is_kernel_thread(pid_t pid);
 int pidref_is_kernel_thread(const PidRef *pid);
 
-int getenv_for_pid(pid_t pid, const char *field, char **_value);
+int getenv_for_pid(pid_t pid, const char *field, char **ret);
 
 int pid_is_alive(pid_t pid);
 int pidref_is_alive(const PidRef *pidref);
@@ -121,7 +110,7 @@ int opinionated_personality(unsigned long *ret);
 const char* sigchld_code_to_string(int i) _const_;
 int sigchld_code_from_string(const char *s) _pure_;
 
-int sched_policy_to_string_alloc(int i, char **s);
+int sched_policy_to_string_alloc(int i, char **ret);
 int sched_policy_from_string(const char *s);
 
 static inline pid_t PTR_TO_PID(const void *p) {
@@ -139,7 +128,9 @@ int pid_compare_func(const pid_t *a, const pid_t *b);
 bool nice_is_valid(int n) _const_;
 
 bool sched_policy_is_valid(int i) _const_;
-bool sched_priority_is_valid(int i) _const_;
+bool sched_policy_supported(int i);
+int sched_get_priority_min_safe(int i);
+int sched_get_priority_max_safe(int i);
 
 #define PID_AUTOMATIC ((pid_t) INT_MIN) /* special value indicating "acquire pid from connection peer" */
 
@@ -187,7 +178,9 @@ typedef enum ForkFlags {
         FORK_NEW_NETNS          = 1 << 20, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_NEW_PIDNS          = 1 << 21, /* Run child in its own PID namespace                                 💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_FREEZE             = 1 << 22, /* Don't return in child, just call freeze() instead */
-        FORK_PID_ONLY           = 1 << 23, /* Don't open a pidfd referencing the child process */
+        FORK_ALLOW_DLOPEN       = 1 << 23, /* Do not block dlopen() in child */
+
+        _FORK_PID_ONLY          = 1 << 24, /* Don't open a pidfd referencing the child process */
 } ForkFlags;
 
 int pidref_safe_fork_full(
@@ -214,7 +207,7 @@ static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
         return safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
 }
 
-int namespace_fork(
+int namespace_fork_full(
                 const char *outer_name,
                 const char *inner_name,
                 int except_fds[],
@@ -225,7 +218,23 @@ int namespace_fork(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
-                pid_t *ret_pid);
+                PidRef *ret);
+
+static inline int namespace_fork(
+                const char *outer_name,
+                const char *inner_name,
+                ForkFlags flags,
+                int pidns_fd,
+                int mntns_fd,
+                int netns_fd,
+                int userns_fd,
+                int root_fd,
+                PidRef *ret) {
+
+        return namespace_fork_full(outer_name, inner_name, NULL, 0, flags,
+                                   pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd,
+                                   ret);
+}
 
 int set_oom_score_adjust(int value);
 int get_oom_score_adjust(int *ret);

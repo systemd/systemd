@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef struct MachineBindUserData {
         /* The host's user/group records */
@@ -27,4 +27,6 @@ int machine_bind_user_prepare(
                 char **bind_user,
                 const char *bind_user_shell,
                 bool bind_user_shell_copy,
+                const char *bind_user_home_mount_directory,
+                char **bind_user_groups,
                 MachineBindUserContext **ret);

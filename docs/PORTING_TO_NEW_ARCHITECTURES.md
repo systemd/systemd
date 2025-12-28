@@ -27,7 +27,7 @@ architecture.
    partitions. Use `systemd-id128 new -p` to generate new suitable UUIDs you
    can use for this. Make sure to register your new types in the various
    functions in `gpt.c`. Also make sure to update the tables in
-   [Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification)
+   [UAPI.2 Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification)
    and `man/systemd-gpt-auto-generator.xml` accordingly.
 
 3. If your architecture supports UEFI, make sure to update the `efi_arch`

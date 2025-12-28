@@ -3,7 +3,7 @@
 
 #include "sd-device.h" /* IWYU pragma: export */
 
-#include "forward.h"
+#include "sd-forward.h"
 
 int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum);
 int device_new_from_nulstr(sd_device **ret, char *nulstr, size_t len);
@@ -14,6 +14,7 @@ int device_opendir(sd_device *device, const char *subdir, DIR **ret);
 int device_get_sysnum_unsigned(sd_device *device, unsigned *ret);
 int device_get_property_bool(sd_device *device, const char *key);
 int device_get_property_int(sd_device *device, const char *key, int *ret);
+int device_get_property_uint(sd_device *device, const char *key, unsigned *ret);
 int device_get_ifname(sd_device *device, const char **ret);
 int device_get_sysattr_int(sd_device *device, const char *sysattr, int *ret_value);
 int device_get_sysattr_unsigned_full(sd_device *device, const char *sysattr, unsigned base, unsigned *ret_value);
@@ -40,7 +41,7 @@ int device_ensure_usec_initialized(sd_device *device, sd_device *device_old);
 int device_add_devlink(sd_device *device, const char *devlink);
 int device_remove_devlink(sd_device *device, const char *devlink);
 bool device_has_devlink(sd_device *device, const char *devlink);
-int device_add_property(sd_device *device, const char *property, const char *value);
+int device_add_property(sd_device *device, const char *key, const char *value);
 int device_add_propertyf(sd_device *device, const char *key, const char *format, ...) _printf_(3, 4);
 int device_add_tag(sd_device *device, const char *tag, bool both);
 void device_remove_tag(sd_device *device, const char *tag);

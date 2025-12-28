@@ -52,7 +52,7 @@ check_mount_opts 'BPFDelegatePrograms=BPFProgTypeTracepoint,BPFProgTypeXdp,BPFPr
 check_mount_opts 'BPFDelegateAttachments=BPFFlowDissector,BPFCgroupSysctl,BPFNetfilter' 'delegate_attachs=flow_dissector:cgroup_sysctl:netfilter'
 
 # Building test-bpf-token requires BPF support
-if systemctl --version | grep -q -- -BPF_FRAMEWORK; then
+if systemctl --version | grep -- -BPF_FRAMEWORK >/dev/null; then
         exit 0
 fi
 

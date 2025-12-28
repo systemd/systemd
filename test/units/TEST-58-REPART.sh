@@ -123,6 +123,7 @@ last-lba: 2097118"
     tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root
+Format=vfat
 EOF
 
     ln -s root.conf "$defs/root2.conf"
@@ -132,6 +133,7 @@ EOF
 Type=home
 Label=home-first
 Label=home-always-too-long-xxxxxxxxxxxxxx-%v
+Format=vfat
 EOF
 
     tee "$defs/swap.conf" <<EOF
@@ -140,6 +142,12 @@ Type=swap
 SizeMaxBytes=64M
 PaddingMinBytes=92M
 EOF
+
+    systemd-repart --definitions="$defs" \
+                   --dry-run=yes \
+                   --seed="$seed" \
+                   --include-partitions=home,swap \
+                   "-"
 
     systemd-repart --offline="$OFFLINE" \
                    --definitions="$defs" \
@@ -335,13 +343,14 @@ $imgs/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79
 
     tee "$defs/extra3.conf" <<EOF
 [Partition]
-Type=linux-generic
+Type=srv
 Label=luks-format-copy
 UUID=7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0
 Format=ext4
 Encrypt=yes
 CopyFiles=$defs:/def
 SizeMinBytes=48M
+VolumeLabel=schrupfel
 EOF
 
     systemd-repart --offline="$OFFLINE" \
@@ -365,7 +374,7 @@ $imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=${ro
 $imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\"
 $imgs/zzz5 : start=     1908696, size=     2285568, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=A0A1A2A3-A4A5-A6A7-A8A9-AAABACADAEAF, name=\"custom_label\"
 $imgs/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=2A1D97E1-D0A3-46CC-A26E-ADC643926617, name=\"block-copy\"
-$imgs/zzz7 : start=     6291416, size=      131072, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=7B93D1F2-595D-4CE3-B0B9-837FBD9E63B0, name=\"luks-format-copy\""
+$imgs/zzz7 : start=     6291416, size=      131072, type=3B8F8425-20E0-4F3B-907F-1A25A76F98E8, uuid=7B93D1F2-595D-4CE3-B0B9-837FBD9E63B0, name=\"luks-format-copy\", attrs=\"GUID:59\""
 
     if systemd-detect-virt --quiet --container; then
         echo "Skipping encrypt mount tests in container."
@@ -386,6 +395,11 @@ $imgs/zzz7 : start=     6291416, size=      131072, type=0FC63DAF-8483-4772-8E79
     losetup -d "$loop"
     diff -r "$imgs/mount/def" "$defs" >/dev/null
     umount "$imgs/mount"
+
+    # Validate that the VolumeLabel= had the desired effect
+    PASSWORD="" systemd-dissect "$imgs/zzz" -M "$imgs/mount"
+    udevadm info /dev/disk/by-label/schrupfel | grep ID_FS_TYPE=crypto_LUKS >/dev/null
+    systemd-dissect -U "$imgs/mount"
 }
 
 testcase_dropin() {
@@ -933,12 +947,12 @@ EOF
     fi
 
     systemd-dissect "$imgs/verity" --root-hash "$drh"
-    systemd-dissect "$imgs/verity" --root-hash "$drh" --json=short | grep -q '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"'
+    systemd-dissect "$imgs/verity" --root-hash "$drh" --json=short | grep '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"' >/dev/null
     systemd-dissect "$imgs/verity" --root-hash "$drh" -M "$imgs/mnt"
     systemd-dissect -U "$imgs/mnt"
 
     systemd-dissect "$imgs/offline" --root-hash "$offline_drh"
-    systemd-dissect "$imgs/offline" --root-hash "$offline_drh" --json=short | grep -q '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"'
+    systemd-dissect "$imgs/offline" --root-hash "$offline_drh" --json=short | grep '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"' >/dev/null
     systemd-dissect "$imgs/offline" --root-hash "$offline_drh" -M "$imgs/mnt"
     systemd-dissect -U "$imgs/mnt"
 }
@@ -997,8 +1011,8 @@ EOF
     udevadm wait --timeout=60 --settle "${loop:?}p1" "${loop:?}p2"
 
     # Check that the verity block sizes are as expected
-    veritysetup dump "${loop}p2" | grep 'Data block size:' | grep -q '4096'
-    veritysetup dump "${loop}p2" | grep 'Hash block size:' | grep -q '1024'
+    veritysetup dump "${loop}p2" | grep 'Data block size:' | grep '4096' >/dev/null
+    veritysetup dump "${loop}p2" | grep 'Hash block size:' | grep '1024' >/dev/null
 }
 
 testcase_verity_hash_size_from_data_size() {
@@ -1075,7 +1089,7 @@ EOF
     assert_rc 0 test $data_bytes -lt $((100 * 1024 * 1024))
 
     # Check that the verity hash tree is created from the actual on-disk data, not the custom size
-    veritysetup dump "${loop}p2" | grep 'Data blocks:' | grep -q "$data_verity_blocks"
+    veritysetup dump "${loop}p2" | grep 'Data blocks:' | grep "$data_verity_blocks" >/dev/null
 }
 
 testcase_exclude_files() {
@@ -1679,6 +1693,76 @@ EOF
     grep -q 'UUID=[0-9a-f-]* /home btrfs discard,rw,nodev,suid,exec,subvol=@home,zstd:1,noatime,lazytime 0 1' "$root"/etc/fstab
 }
 
+testcase_btrfs_compression() {
+    local defs imgs loop output
+
+    if ! systemd-analyze compare-versions "$(btrfs --version | head -n 1 | awk '{ print $2 }')" ge v6.13; then
+        echo "btrfs-progs is not installed or older than v6.13, skipping test."
+        return 0
+    fi
+
+    defs="$(mktemp -d)"
+    imgs="$(mktemp -d)"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for btrfs compression with CopyFiles (OFFLINE=$OFFLINE) ***"
+
+    # Must not be in tmpfs due to exclusions. It also must be large and
+    # compressible so that the compression check succeeds later.
+    src=/etc/test-source-file
+    dd if=/dev/zero of="$src" bs=1M count=1 2>/dev/null
+
+    tee "$defs/btrfs-compressed.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=btrfs
+Compression=zstd
+CopyFiles=$src:/test-file
+SizeMinBytes=100M
+SizeMaxBytes=100M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=auto \
+                   --dry-run=no \
+                   --seed="$seed" \
+                   "$imgs/btrfs-compressed.img" 2>&1 | tee "$imgs/repart-output.txt"
+    rm "$src"
+
+    output=$(cat "$imgs/repart-output.txt")
+
+    assert_in "Rootdir from:" "$output"
+    assert_in "Compress:" "$output"
+
+    if [[ "$OFFLINE" == "yes" ]] || systemd-detect-virt --quiet --container; then
+        echo "Skipping mount verification (requires loop devices)"
+        return 0
+    fi
+    loop="$(losetup -P --show --find "$imgs/btrfs-compressed.img")"
+    # shellcheck disable=SC2064
+    trap "umount '$imgs/mount' 2>/dev/null || true; losetup -d '$loop' 2>/dev/null || true; rm -rf '$defs' '$imgs'" RETURN
+    echo "Loop device: $loop"
+    udevadm wait --timeout=60 --settle "${loop:?}p1"
+
+    mkdir -p "$imgs/mount"
+    mount -t btrfs "${loop:?}p1" "$imgs/mount"
+
+    [[ -f "$imgs/mount/test-file" ]]
+    [[ "$(stat -c%s "$imgs/mount/test-file")" == "1048576" ]]
+
+    if command -v compsize &>/dev/null; then
+        output=$(compsize "$imgs/mount/test-file" 2>&1)
+        assert_in "zstd" "$output"
+    fi
+
+    umount "$imgs/mount"
+    losetup -d "$loop"
+}
+
 testcase_varlink_list_devices() {
     REPART="$(which systemd-repart)"
     varlinkctl introspect "$REPART"
@@ -1688,6 +1772,131 @@ testcase_varlink_list_devices() {
     varlinkctl call "$REPART" --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreEmpty":true,"ignoreRoot":true}'
 
     varlinkctl call /run/systemd/io.systemd.Repart --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreEmpty":true,"ignoreRoot":true}'
+}
+
+testcase_get_size() {
+    local defs
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs'" RETURN
+
+    tee "$defs/a.conf" <<EOF
+[Partition]
+Type=root
+SizeMinBytes=15M
+EOF
+    tee "$defs/b.conf" <<EOF
+[Partition]
+Type=linux-generic
+SizeMinBytes=23M
+EOF
+
+    output="$(systemd-repart --definitions="$defs" - 2>&1)"
+    assert_in "Automatically determined minimal disk image size as 39M." "$output"
+}
+
+testcase_varlink_run() {
+    local defs
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    tee "$defs/a.conf" <<EOF
+[Partition]
+Type=root
+Format=empty
+EOF
+    tee "$defs/b.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=empty
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=50M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=yes \
+                   "$imgs/disk1.img"
+
+    REPART="$(which systemd-repart)"
+    truncate -s 50M "$imgs/disk2.img"
+    varlinkctl call "$REPART" io.systemd.Repart.Run '{"definitions":["'"$defs"'"],"empty":"force","seed":"'"$seed"'","dryRun":false,"node":"'"$imgs/disk2.img"'"}'
+
+    # Compare that the version from the command line and via Varlink result in the bit exact same output
+    cmp "$imgs/disk1.img" "$imgs/disk2.img"
+
+    # Try once more, this time with progress info
+    truncate -s 50M "$imgs/disk3.img"
+    varlinkctl --more --collect call "$REPART" io.systemd.Repart.Run '{"definitions":["'"$defs"'"],"empty":"force","seed":"'"$seed"'","dryRun":false,"node":"'"$imgs/disk3.img"'"}'
+
+    cmp "$imgs/disk1.img" "$imgs/disk3.img"
+}
+
+_test_luks2_integrity() {
+    local defs imgs output root
+
+    if [[ "$OFFLINE" != "no" ]]; then
+        return 0
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    root="$(mktemp --directory "/var/test-repart.root.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' '$root'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for LUKS2 integrity ***"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+Format=ext4
+Encrypt=key-file
+Integrity=inline
+EOF
+
+    [ -n "$1" ] && echo "IntegrityAlgorithm=$1" >> "$defs/root.conf"
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/encint.img"
+
+    loop="$(losetup -P --show --find "$imgs/encint.img")"
+    udevadm wait --timeout=60 --settle "${loop:?}p1"
+
+    volume="test-repart-luksint-$RANDOM"
+    dmstatus="$imgs/dmsetup-$RANDOM"
+
+    touch "$imgs/empty-password"
+
+    # the expectation for hmac-sha256 is 'integrity: hmac(sha256)'
+    cryptsetup luksDump "${loop}p1" | grep -q "integrity: $(echo "$1" | sed -r 's/^hmac-(.*)$/hmac(\1)/')"
+
+    cryptsetup open --type=luks2 --key-file="$imgs/empty-password" "${loop}p1" "$volume"
+    dmsetup status > "$dmstatus"
+    cryptsetup close "$volume"
+    losetup -d "$loop"
+    # Check that there's a dm-integrity entry
+    grep -q "$volume""_dif.* integrity " "$dmstatus"
+}
+
+testcase_luks2_integrity() {
+    _test_luks2_integrity ""
+    _test_luks2_integrity "hmac-sha1"
+    _test_luks2_integrity "hmac-sha256"
+    _test_luks2_integrity "hmac-sha512"
 }
 
 OFFLINE="yes"

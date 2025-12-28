@@ -78,7 +78,7 @@ static PartitionPolicyFlags partition_policy_normalized_flags(const PartitionPol
          * all needs no protection, because it *is* the protection */
         if (partition_verity_hash_to_data(policy->designator) >= 0 ||
             partition_verity_sig_to_data(policy->designator) >= 0)
-                flags &= ~(PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED);
+                flags &= ~(PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY);
 
         /* if this designator has no verity concept, then mask off verity protection flags */
         if (partition_verity_hash_of(policy->designator) < 0)
@@ -187,6 +187,8 @@ static PartitionPolicyFlags policy_flag_from_string_one(const char *s) {
                 return PARTITION_POLICY_SIGNED;
         if (streq(s, "encrypted"))
                 return PARTITION_POLICY_ENCRYPTED;
+        if (streq(s, "encryptedwithintegrity"))
+                return PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY;
         if (streq(s, "unprotected"))
                 return PARTITION_POLICY_UNPROTECTED;
         if (streq(s, "unused"))
@@ -205,11 +207,25 @@ static PartitionPolicyFlags policy_flag_from_string_one(const char *s) {
                 return PARTITION_POLICY_GROWFS_ON;
         if (streq(s, "growfs-off"))
                 return PARTITION_POLICY_GROWFS_OFF;
+        if (streq(s, "btrfs"))
+                return PARTITION_POLICY_BTRFS;
+        if (streq(s, "erofs"))
+                return PARTITION_POLICY_EROFS;
+        if (streq(s, "ext4"))
+                return PARTITION_POLICY_EXT4;
+        if (streq(s, "f2fs"))
+                return PARTITION_POLICY_F2FS;
+        if (streq(s, "squashfs"))
+                return PARTITION_POLICY_SQUASHFS;
+        if (streq(s, "vfat"))
+                return PARTITION_POLICY_VFAT;
+        if (streq(s, "xfs"))
+                return PARTITION_POLICY_XFS;
 
         return _PARTITION_POLICY_FLAGS_INVALID;
 }
 
-PartitionPolicyFlags partition_policy_flags_from_string(const char *s) {
+PartitionPolicyFlags partition_policy_flags_from_string(const char *s, bool graceful) {
         PartitionPolicyFlags flags = 0;
         int r;
 
@@ -229,8 +245,13 @@ PartitionPolicyFlags partition_policy_flags_from_string(const char *s) {
                         break;
 
                 ff = policy_flag_from_string_one(strstrip(f));
-                if (ff < 0)
+                if (ff < 0) {
+                        if (graceful) {
+                                log_debug("Unknown partition policy flag, ignoring: %s", f);
+                                continue;
+                        }
                         return -EBADRQC; /* recognizable error */
+                }
 
                 flags |= ff;
         }
@@ -254,7 +275,7 @@ static ImagePolicy* image_policy_new(size_t n_policies) {
         return p;
 }
 
-int image_policy_from_string(const char *s, ImagePolicy **ret) {
+int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret) {
         _cleanup_free_ ImagePolicy *p = NULL;
         uint64_t dmask = 0;
         ImagePolicy *t;
@@ -336,15 +357,20 @@ int image_policy_from_string(const char *s, ImagePolicy **ret) {
                         default_specified = true;
                 } else {
                         designator = partition_designator_from_string(ds);
-                        if (designator < 0)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADSLT), "Unknown partition designator: %s", ds); /* recognizable error */
+                        if (designator < 0) {
+                                if (!graceful)
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EBADSLT), "Unknown partition designator: %s", ds); /* recognizable error */
+
+                                log_debug("Unknown partition designator, ignoring: %s", ds);
+                                continue;
+                        }
                         if (dmask & (UINT64_C(1) << designator))
                                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "Partition designator specified more than once: %s", ds);
                         dmask |= UINT64_C(1) << designator;
                 }
 
                 fs = strstrip(f);
-                flags = partition_policy_flags_from_string(fs);
+                flags = partition_policy_flags_from_string(fs, graceful);
                 if (flags == -EBADRQC)
                         return log_debug_errno(flags, "Unknown partition policy flag: %s", fs);
                 if (flags < 0)
@@ -377,7 +403,7 @@ int image_policy_from_string(const char *s, ImagePolicy **ret) {
 
 int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, char **ret) {
         _cleanup_free_ char *buf = NULL;
-        const char *l[CONST_LOG2U(_PARTITION_POLICY_MASK + 1) + 1]; /* one string per known flag at most */
+        const char *l[CONST_LOG2U(_PARTITION_POLICY_MASK + _PARTITION_POLICY_FSTYPE_MASK + 1) + 1]; /* one string per known flag at most */
         size_t m = 0;
 
         assert(ret);
@@ -413,6 +439,8 @@ int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, 
                         l[m++] = "signed";
                 if (flags & PARTITION_POLICY_ENCRYPTED)
                         l[m++] = "encrypted";
+                if (flags & PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY)
+                        l[m++] = "encryptedwithintegrity";
                 if (flags & PARTITION_POLICY_UNPROTECTED)
                         l[m++] = "unprotected";
                 if (flags & PARTITION_POLICY_UNUSED)
@@ -435,6 +463,23 @@ int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, 
                         l[m++] = "growfs-on";
         }
 
+        /* These flags must translate to the literal fstype name of each filesystem, as accepted by
+         * `mount -t`. */
+        if (flags & PARTITION_POLICY_BTRFS)
+                l[m++] = "btrfs";
+        if (flags & PARTITION_POLICY_EROFS)
+                l[m++] = "erofs";
+        if (flags & PARTITION_POLICY_EXT4)
+                l[m++] = "ext4";
+        if (flags & PARTITION_POLICY_F2FS)
+                l[m++] = "f2fs";
+        if (flags & PARTITION_POLICY_SQUASHFS)
+                l[m++] = "squashfs";
+        if (flags & PARTITION_POLICY_VFAT)
+                l[m++] = "vfat";
+        if (flags & PARTITION_POLICY_XFS)
+                l[m++] = "xfs";
+
         if (m == 0)
                 buf = strdup("-");
         else {
@@ -447,7 +492,44 @@ int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, 
                 return -ENOMEM;
 
         *ret = TAKE_PTR(buf);
-        return 0;
+        return (int) m;
+}
+
+int partition_policy_determine_fstype(
+                const ImagePolicy *policy,
+                PartitionDesignator designator,
+                bool *ret_encrypted,
+                char **ret_fstype) {
+
+        _cleanup_free_ char *fstype = NULL;
+        PartitionPolicyFlags policy_flags;
+        int r;
+
+        assert(designator >= 0 && designator < _PARTITION_DESIGNATOR_MAX);
+        assert(ret_fstype);
+
+        policy_flags = image_policy_get_exhaustively(policy, designator);
+        if (policy_flags < 0)
+                return policy_flags;
+
+        /* The policy fstype flags translate to the literal fstype name of each filesystem. */
+        r = partition_policy_flags_to_string(policy_flags & _PARTITION_POLICY_FSTYPE_MASK, /* simplify= */ true, &fstype);
+        if (r < 0)
+                return r;
+        /* Input must be a single filesystem type, if the policy specifies more than one, return NULL */
+        if (r != 1) {
+                if (ret_encrypted)
+                        *ret_encrypted = false;
+                *ret_fstype = NULL;
+                return 0;
+        }
+
+        /* If the policy also allows unprotected or verity filesystems, don't set the 'encrypted' flag */
+        if (ret_encrypted)
+                *ret_encrypted = (policy_flags & (PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY)) &&
+                                 !(policy_flags & (PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_UNPROTECTED));
+        *ret_fstype = TAKE_PTR(fstype);
+        return 1;
 }
 
 static bool partition_policy_flags_extended_equal(PartitionPolicyFlags a, PartitionPolicyFlags b) {
@@ -651,7 +733,7 @@ int config_parse_image_policy(
                 return 0;
         }
 
-        r = image_policy_from_string(rvalue, &np);
+        r = image_policy_from_string(rvalue, /* graceful */ true, &np);
         if (r == -ENOTUNIQ)
                 return log_syntax(unit, LOG_ERR, filename, line, r, "Duplicate rule in image policy, refusing: %s", rvalue);
         if (r == -EBADSLT)
@@ -678,7 +760,7 @@ int parse_image_policy_argument(const char *s, ImagePolicy **policy) {
          * Hence, do not pass in uninitialized pointers.
          */
 
-        r = image_policy_from_string(s, &np);
+        r = image_policy_from_string(s, /* graceful= */ false, &np);
         if (r == -ENOTUNIQ)
                 return log_error_errno(r, "Duplicate rule in image policy: %s", s);
         if (r == -EBADSLT)
@@ -853,8 +935,8 @@ const ImagePolicy image_policy_sysext = {
          * be. */
         .n_policies = 2,
         .policies = {
-                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_USR,      PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_USR,      PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
         },
         .default_flags = PARTITION_POLICY_IGNORE,
 };
@@ -874,7 +956,7 @@ const ImagePolicy image_policy_confext = {
          * are only interested in the /etc/ tree anyway, and that's really the only place it can be. */
         .n_policies = 1,
         .policies = {
-                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
         },
         .default_flags = PARTITION_POLICY_IGNORE,
 };
@@ -891,14 +973,14 @@ const ImagePolicy image_policy_container = {
         /* For systemd-nspawn containers we use all partitions, with the exception of swap */
         .n_policies = 8,
         .policies = {
-                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_USR,      PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_HOME,     PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_SRV,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_USR,      PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_HOME,     PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_SRV,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
                 { PARTITION_ESP,      PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
                 { PARTITION_XBOOTLDR, PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_TMP,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_VAR,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_TMP,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_VAR,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
         },
         .default_flags = PARTITION_POLICY_IGNORE,
 };
@@ -907,15 +989,15 @@ const ImagePolicy image_policy_host = {
         /* For the host policy we basically use everything */
         .n_policies = 9,
         .policies = {
-                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_USR,      PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_HOME,     PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_SRV,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_USR,      PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_HOME,     PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_SRV,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
                 { PARTITION_ESP,      PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
                 { PARTITION_XBOOTLDR, PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_SWAP,     PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_TMP,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_VAR,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_SWAP,     PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_TMP,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_VAR,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
         },
         .default_flags = PARTITION_POLICY_IGNORE,
 };
@@ -924,12 +1006,12 @@ const ImagePolicy image_policy_service = {
         /* For RootImage= in services we skip ESP/XBOOTLDR and swap */
         .n_policies = 6,
         .policies = {
-                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_USR,      PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_HOME,     PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_SRV,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_TMP,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
-                { PARTITION_VAR,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_USR,      PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_HOME,     PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_SRV,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_TMP,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+                { PARTITION_VAR,      PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
         },
         .default_flags = PARTITION_POLICY_IGNORE,
 };

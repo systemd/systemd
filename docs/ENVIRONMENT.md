@@ -123,8 +123,12 @@ All tools:
 * `$SYSTEMD_NETLINK_DEFAULT_TIMEOUT` — specifies the default timeout of waiting
   replies for netlink messages from the kernel. Defaults to 25 seconds.
 
-* `$SYSTEMD_VERITY_SHARING=0` — if set, sharing dm-verity devices by
-  using a stable `<ROOTHASH>-verity` device mapper name will be disabled.
+* `$SYSTEMD_VERITY_SHARING=` — takes a boolean. If set, overrides whether
+  dm-verity devices shall be shared between multiple components by using a
+  stable `<ROOTHASH>-verity` device mapper name. The default for this depends
+  on the subsystem in question. Usually,
+  RootImage=/ExtensionImages=/MountImages= in unit files default to enabled,
+  while other uses default to disabled for this.
 
 `systemctl`:
 
@@ -230,7 +234,7 @@ All tools:
   file may be checked for by services run during system shutdown in order to
   request the appropriate operation from the boot loader in an alternative
   fashion. Note that by default only boot loader entries which follow the
-  [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification)
+  [UAPI.1 Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification)
   and are placed in the ESP or the Extended Boot Loader partition may be
   selected this way. However, if a directory `/run/boot-loader-entries/`
   exists, the entries are loaded from there instead. The directory should
@@ -409,6 +413,14 @@ All tools:
   variable. Similarly, `$SYSTEMD_CONFEXT_MUTABLE_MODE` works for confext images
   and supports the systemd-confext multi-call functionality of sysext.
 
+* `$SYSTEMD_SYSEXT_OVERLAYFS_MOUNT_OPTIONS` — this variable may be used to
+  override the overlayfs mount options applied for hierarchies managed by
+  `systemd-sysext`. Similarly, `$SYSTEMD_CONFEXT_OVERLAYFS_MOUNT_OPTIONS` works
+  for confext images and supports the systemd-confext multi-call functionality
+  of sysext. Read-only hierarchies have no mount options added by
+  default. Mutable hierarchies have the following mount options added by
+  default: `redirect_dir=on,noatime,metacopy=off,index=off`.
+
 `systemd-tmpfiles`:
 
 * `$SYSTEMD_TMPFILES_FORCE_SUBVOL` — if unset, `v`/`q`/`Q` lines will create
@@ -506,7 +518,7 @@ disk images with `--image=` or similar:
   to load the embedded Verity signature data. If enabled (which is the
   default), Verity root hash information and a suitable signature is
   automatically acquired from a signature partition, following the
-  [Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification).
+  [UAPI.2 Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification).
   If disabled any such partition is ignored. Note that this only disables
   discovery of the root hash and its signature, the Verity data partition
   itself is still searched in the GPT image.
@@ -525,6 +537,15 @@ disk images with `--image=` or similar:
   systems that may be mounted for automatically dissected disk images. If not
   specified defaults to something like: `ext4:btrfs:xfs:vfat:erofs:squashfs`
 
+* `$SYSTEMD_DISSECT_FSTYPE_<DESIGNATOR>=` – overrides the file system time to
+  use when mounting the partition of the indicated designator. The
+  `<DESIGNATOR>` string shall be one of `ROOT`, `USR`, `HOME`, `SRV`, `ESP`,
+  `XBOOTLDR`, `TMP`, `VAR` as per the [UAPI.2 Discoverable Partitions
+  Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification/). If
+  unspecified the image dissection logic will automatically probe the file
+  system type (subject to `$SYSTEMD_DISSECT_FILE_SYSTEMS`, see above), except
+  for ESP and XBOOTLDR where the file system type is set to VFAT.
+
 * `$SYSTEMD_LOOP_DIRECT_IO` – takes a boolean, which controls whether to enable
   `LO_FLAGS_DIRECT_IO` (i.e. direct IO + asynchronous IO) on loopback block
   devices when opening them. Defaults to on, set this to "0" to disable this
@@ -539,8 +560,8 @@ disk images with `--image=` or similar:
 * `$SYSTEMD_DISSECT_VERITY_GUESS` – takes a boolean. Controls whether to guess
   the Verity root hash from the partition UUIDs of a suitable pair of data
   partition and matching Verity partition: the UUIDs two are simply joined and
-  used as root hash, in accordance with the recommendations in [Discoverable
-  Partitions
+  used as root hash, in accordance with the recommendations in [UAPI.2
+  Discoverable Partitions
   Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification). Defaults
   to true.
 
@@ -557,8 +578,8 @@ disk images with `--image=` or similar:
   environment variable to the build directory and you are set. This variable
   is only supported when systemd is compiled in developer mode.
 
-Various tools that read passwords from the TTY, such as `systemd-cryptenroll`
-and `homectl`:
+Various tools that read passwords from the TTY, such as `systemd-cryptenroll`,
+`systemd-dissect` and `homectl`:
 
 * `$PASSWORD` — takes a string: the literal password to use. If this
   environment variable is set it is used as password instead of prompting the
@@ -762,15 +783,14 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 
 `systemd-run`, `run0`, `systemd-nspawn`, `systemd-vmspawn`:
 
-* `$SYSTEMD_TINT_BACKGROUND` – Takes a boolean. When false the automatic
-  tinting of the background for containers, VMs, and interactive `systemd-run`
-  and `run0` invocations is turned off. Note that this environment variable has
-  no effect if the background color is explicitly selected via the relevant
-  `--background=` switch of the tool.
+* `$SYSTEMD_TINT_BACKGROUND` – Takes a boolean. When false the automatic and
+  explicit tinting of the background (via `--background=`) for containers, VMs,
+  `systemd-pty-forward` and interactive  `systemd-run` and `run0` invocations is
+  turned off.
 
 * `$SYSTEMD_ADJUST_TERMINAL_TITLE` – Takes a boolean. When false the terminal
-  window title will not be updated for interactive invocation of the mentioned
-  tools.
+  window title will not be updated for interactive invocation of the tools
+  mentioned above.
 
 `systemd-hostnamed`, `systemd-importd`, `systemd-localed`, `systemd-machined`,
 `systemd-portabled`, `systemd-timedated`:
@@ -819,3 +839,10 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 
 * `$SYSTEMD_ETC_VCONSOLE_CONF` - override the path to the virtual console
   configuration file. The default is `/etc/vconsole.conf`.
+
+`systemd-modules-load`:
+
+* `$SYSTEMD_MODULES_LOAD_NUM_THREADS` - takes a number, which controls the
+  overall number of threads used to load modules by `systemd-modules-load`.
+  If unset, the default number of threads is equal to the number of online CPUs,
+  with a maximum of 16. If set to `0`, multi-threaded loading is disabled.

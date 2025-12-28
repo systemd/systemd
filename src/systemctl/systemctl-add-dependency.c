@@ -44,7 +44,7 @@ int verb_add_dependency(int argc, char *argv[], void *userdata) {
         else
                 assert_not_reached();
 
-        if (install_client_side()) {
+        if (install_client_side() != INSTALL_CLIENT_SIDE_NO) {
                 InstallChange *changes = NULL;
                 size_t n_changes = 0;
 

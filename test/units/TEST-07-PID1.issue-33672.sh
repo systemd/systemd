@@ -21,13 +21,13 @@ cleanup() {
 
 trap cleanup EXIT
 
-cat > /run/systemd/system/"$UNIT" <<EOF
+cat >/run/systemd/system/"$UNIT" <<EOF
 [Service]
 ExecStart=true
 EOF
 
 mkdir /run/systemd/system/"$UNIT".d
-cat > /run/systemd/system/"$UNIT".d/desc.conf <<EOF
+cat >/run/systemd/system/"$UNIT".d/desc.conf <<EOF
 [Unit]
 Description=Test NeedDaemonReload status of a masked unit with drop-ins
 EOF

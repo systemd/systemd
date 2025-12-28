@@ -9,9 +9,9 @@
 
 #include "confidential-virt.h"
 #include "confidential-virt-fundamental.h"
-#include "errno-util.h"
+#include "errno-util.h"                                 /* IWYU pragma: keep */
 #include "fd-util.h"
-#include "fileio.h"
+#include "fileio.h"                                     /* IWYU pragma: keep */
 #include "log.h"
 #include "string-table.h"
 #include "string-util.h"

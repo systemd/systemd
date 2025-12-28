@@ -113,7 +113,7 @@
 /* How many units and jobs to process of the bus queue before returning to the event loop. */
 #define MANAGER_BUS_MESSAGE_BUDGET 100U
 
-#define DEFAULT_TASKS_MAX ((CGroupTasksMax) { 15U, 100U }) /* 15% */
+#define DEFAULT_TASKS_MAX ((const CGroupTasksMax) { 15U, 100U }) /* 15% */
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
@@ -526,8 +526,9 @@ static int manager_setup_signals(Manager *m) {
 
         assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
-        /* We make liberal use of realtime signals here. On Linux/glibc we have 30 of them, between
-         * SIGRTMIN+0 ... SIGRTMIN+30 (aka SIGRTMAX). */
+        /* We make liberal use of realtime signals here. On Linux we have 29 of them, between
+         * SIGRTMIN+0 ... SIGRTMIN+29. The glibc has one more (SIGRTMAX is SIGRTMIN+30),
+         * but musl does not (SIGRTMAX is SIGRTMIN+29). */
 
         assert_se(sigemptyset(&mask) == 0);
         sigset_add_many(&mask,
@@ -572,7 +573,7 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+28, /* systemd: set log target to kmsg */
                         SIGRTMIN+29, /* systemd: set log target to syslog-or-kmsg (obsolete) */
 
-                        /* ... one free signal here SIGRTMIN+30 ... */
+                        /* ... one free signal here SIGRTMIN+30 (glibc only) ... */
                         -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
@@ -623,6 +624,7 @@ static char** sanitize_environment(char **l) {
                         "LISTEN_FDNAMES",
                         "LISTEN_FDS",
                         "LISTEN_PID",
+                        "LISTEN_PIDFDID",
                         "LOGS_DIRECTORY",
                         "LOG_NAMESPACE",
                         "MAINPID",
@@ -1003,7 +1005,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         return r;
 
 #if HAVE_LIBBPF
-                if (MANAGER_IS_SYSTEM(m) && bpf_restrict_fs_supported(/* initialize = */ true)) {
+                if (MANAGER_IS_SYSTEM(m) && bpf_restrict_fs_supported(/* initialize= */ true)) {
                         r = bpf_restrict_fs_setup(m);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to setup LSM BPF, ignoring: %m");
@@ -1508,7 +1510,7 @@ static unsigned manager_dispatch_stop_when_unneeded_queue(Manager *m) {
                 }
 
                 /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
-                r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, &error, /* ret = */ NULL);
+                r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, &error, /* ret= */ NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enqueue stop job, ignoring: %s", bus_error_message(&error, r));
         }
@@ -1549,7 +1551,7 @@ static unsigned manager_dispatch_start_when_upheld_queue(Manager *m) {
                         continue;
                 }
 
-                r = manager_add_job(u->manager, JOB_START, u, JOB_FAIL, &error, /* ret = */ NULL);
+                r = manager_add_job(u->manager, JOB_START, u, JOB_FAIL, &error, /* ret= */ NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enqueue start job, ignoring: %s", bus_error_message(&error, r));
         }
@@ -1590,7 +1592,7 @@ static unsigned manager_dispatch_stop_when_bound_queue(Manager *m) {
                         continue;
                 }
 
-                r = manager_add_job(u->manager, JOB_STOP, u, JOB_REPLACE, &error, /* ret = */ NULL);
+                r = manager_add_job(u->manager, JOB_STOP, u, JOB_REPLACE, &error, /* ret= */ NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enqueue stop job, ignoring: %s", bus_error_message(&error, r));
         }
@@ -1658,6 +1660,8 @@ static void manager_clear_jobs_and_units(Manager *m) {
         m->n_running_jobs = 0;
         m->n_installed_jobs = 0;
         m->n_failed_jobs = 0;
+
+        m->transactions_with_cycle = set_free(m->transactions_with_cycle);
 }
 
 Manager* manager_free(Manager *m) {
@@ -1940,9 +1944,9 @@ static void manager_preset_all(Manager *m) {
         CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
         log_info("Applying preset policy.");
-        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* file_flags = */ 0,
-                                 /* root_dir = */ NULL, mode, &changes, &n_changes);
-        install_changes_dump(r, "preset", changes, n_changes, /* quiet = */ false);
+        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0,
+                                 /* root_dir= */ NULL, mode, &changes, &n_changes);
+        install_changes_dump(r, "preset", changes, n_changes, /* quiet= */ false);
         if (r < 0)
                 log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
                                "Failed to populate /etc with preset unit settings, ignoring: %m");
@@ -2128,7 +2132,7 @@ int manager_add_job_full(
                 JobMode mode,
                 TransactionAddFlags extra_flags,
                 Set *affected_jobs,
-                sd_bus_error *error,
+                sd_bus_error *reterr_error,
                 Job **ret) {
 
         _cleanup_(transaction_abort_and_freep) Transaction *tr = NULL;
@@ -2141,24 +2145,26 @@ int manager_add_job_full(
         assert((extra_flags & ~_TRANSACTION_FLAGS_MASK_PUBLIC) == 0);
 
         if (mode == JOB_ISOLATE && type != JOB_START)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
 
         if (mode == JOB_ISOLATE && !unit->allow_isolate)
-                return sd_bus_error_set(error, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
+                return sd_bus_error_set(reterr_error, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
 
         if (mode == JOB_TRIGGERING && type != JOB_STOP)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=triggering is only valid for stop.");
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=triggering is only valid for stop.");
 
         if (mode == JOB_RESTART_DEPENDENCIES && type != JOB_START)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=restart-dependencies is only valid for start.");
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=restart-dependencies is only valid for start.");
+
+        tr = transaction_new(mode == JOB_REPLACE_IRREVERSIBLY, ++m->last_transaction_id);
+        if (!tr)
+                return -ENOMEM;
+
+        LOG_CONTEXT_PUSHF("TRANSACTION_ID=%" PRIu64, tr->id);
 
         log_unit_debug(unit, "Trying to enqueue job %s/%s/%s", unit->id, job_type_to_string(type), job_mode_to_string(mode));
 
         type = job_type_collapse(type, unit);
-
-        tr = transaction_new(mode == JOB_REPLACE_IRREVERSIBLY);
-        if (!tr)
-                return -ENOMEM;
 
         r = transaction_add_job_and_dependencies(
                         tr,
@@ -2170,7 +2176,7 @@ int manager_add_job_full(
                         (mode == JOB_IGNORE_DEPENDENCIES ? TRANSACTION_IGNORE_ORDER : 0) |
                         (mode == JOB_RESTART_DEPENDENCIES ? TRANSACTION_PROPAGATE_START_AS_RESTART : 0) |
                         extra_flags,
-                        error);
+                        reterr_error);
         if (r < 0)
                 return r;
 
@@ -2186,7 +2192,7 @@ int manager_add_job_full(
                         return r;
         }
 
-        r = transaction_activate(tr, m, mode, affected_jobs, error);
+        r = transaction_activate(tr, m, mode, affected_jobs, reterr_error);
         if (r < 0)
                 return r;
 
@@ -2206,10 +2212,10 @@ int manager_add_job(
         JobType type,
         Unit *unit,
         JobMode mode,
-        sd_bus_error *error,
+        sd_bus_error *reterr_error,
         Job **ret) {
 
-        return manager_add_job_full(m, type, unit, mode, 0, NULL, error, ret);
+        return manager_add_job_full(m, type, unit, mode, 0, NULL, reterr_error, ret);
 }
 
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret) {
@@ -2226,7 +2232,7 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
                 return r;
         assert(unit);
 
-        return manager_add_job_full(m, type, unit, mode, /* extra_flags = */ 0, affected_jobs, e, ret);
+        return manager_add_job_full(m, type, unit, mode, /* extra_flags= */ 0, affected_jobs, e, ret);
 }
 
 int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, Job **ret) {
@@ -2246,17 +2252,19 @@ int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name,
 }
 
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e) {
-        int r;
         _cleanup_(transaction_abort_and_freep) Transaction *tr = NULL;
+        int r;
 
         assert(m);
         assert(unit);
         assert(mode < _JOB_MODE_MAX);
         assert(mode != JOB_ISOLATE); /* Isolate is only valid for start */
 
-        tr = transaction_new(mode == JOB_REPLACE_IRREVERSIBLY);
+        tr = transaction_new(mode == JOB_REPLACE_IRREVERSIBLY, ++m->last_transaction_id);
         if (!tr)
                 return -ENOMEM;
+
+        LOG_CONTEXT_PUSHF("TRANSACTION_ID=%" PRIu64, tr->id);
 
         /* We need an anchor job */
         r = transaction_add_job_and_dependencies(tr, JOB_NOP, unit, NULL, TRANSACTION_IGNORE_REQUIREMENTS|TRANSACTION_IGNORE_ORDER, e);
@@ -2569,7 +2577,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
         /* When we are reloading, let's not wait with generating signals, since we need to exit the manager as quickly
          * as we can. There's no point in throttling generation of signals in that case. */
-        if (MANAGER_IS_RELOADING(m) || m->send_reloading_done || m->pending_reload_message)
+        if (MANAGER_IS_RELOADING(m) || m->send_reloading_done || m->pending_reload_message_dbus || m->pending_reload_message_vl)
                 budget = UINT_MAX; /* infinite budget in this case */
         else {
                 /* Anything to do at all? */
@@ -2622,8 +2630,13 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                 n++;
         }
 
-        if (m->pending_reload_message) {
+        if (m->pending_reload_message_dbus) {
                 bus_send_pending_reload_message(m);
+                n++;
+        }
+
+        if (m->pending_reload_message_vl) {
+                manager_varlink_send_pending_reload_message(m);
                 n++;
         }
 
@@ -3207,7 +3220,7 @@ static int manager_dispatch_timezone_change(
         /* Read the new timezone */
         tzset();
 
-        log_debug("Timezone has been changed (now: %s).", tzname[daylight]);
+        log_debug("Timezone has been changed (now: %s).", get_tzname(daylight));
 
         HASHMAP_FOREACH(u, m->units)
                 if (UNIT_VTABLE(u)->timezone_change)
@@ -3668,6 +3681,8 @@ void manager_reset_failed(Manager *m) {
 
         HASHMAP_FOREACH(u, m->units)
                 unit_reset_failed(u);
+
+        m->transactions_with_cycle = set_free(m->transactions_with_cycle);
 }
 
 bool manager_unit_inactive_or_pending(Manager *m, const char *name) {
@@ -3909,7 +3924,7 @@ void manager_send_reloading(Manager *m) {
         assert(m);
 
         /* Let whoever invoked us know that we are now reloading */
-        (void) notify_reloading_full(/* status = */ NULL);
+        (void) notify_reloading_full(/* status= */ NULL);
 
         /* And ensure that we'll send READY=1 again as soon as we are ready again */
         m->ready_sent = false;
@@ -4305,10 +4320,10 @@ void manager_recheck_dbus(Manager *m) {
                 if (MANAGER_IS_SYSTEM(m))
                         (void) bus_init_system(m);
         } else {
-                (void) bus_done_api(m);
+                bus_done_api(m);
 
                 if (MANAGER_IS_SYSTEM(m))
-                        (void) bus_done_system(m);
+                        bus_done_system(m);
         }
 }
 
@@ -4335,7 +4350,7 @@ static bool manager_journal_is_running(Manager *m) {
         u = manager_get_unit(m, SPECIAL_JOURNALD_SERVICE);
         if (!u)
                 return false;
-        if (!IN_SET(SERVICE(u)->state, SERVICE_RELOAD, SERVICE_RUNNING))
+        if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)) || SERVICE(u)->state == SERVICE_EXITED)
                 return false;
 
         return true;
@@ -4616,8 +4631,8 @@ ManagerState manager_state(Manager *m) {
                         return MANAGER_MAINTENANCE;
         }
 
-        /* Are there any failed units? If so, we are in degraded mode */
-        if (!set_isempty(m->failed_units))
+        /* Are there any failed units or ordering cycles? If so, we are in degraded mode */
+        if (!set_isempty(m->failed_units) || !set_isempty(m->transactions_with_cycle))
                 return MANAGER_DEGRADED;
 
         return MANAGER_RUNNING;
@@ -5194,6 +5209,22 @@ LogTarget manager_get_executor_log_target(Manager *m) {
                 return LOG_TARGET_KMSG;
 
         return log_get_target();
+}
+
+void manager_log_caller(Manager *manager, PidRef *caller, const char *method) {
+        _cleanup_free_ char *comm = NULL;
+
+        assert(manager);
+        assert(pidref_is_set(caller));
+        assert(method);
+
+        (void) pidref_get_comm(caller, &comm);
+        Unit *caller_unit = manager_get_unit_by_pidref(manager, caller);
+
+        log_notice("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
+                   method, caller->pid,
+                   comm ? " ('" : "", strempty(comm), comm ? "')" : "",
+                   caller_unit ? " (unit " : "", caller_unit ? caller_unit->id : "", caller_unit ? ")" : "");
 }
 
 static const char* const manager_state_table[_MANAGER_STATE_MAX] = {

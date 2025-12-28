@@ -242,7 +242,7 @@ int nexthops_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
                         log_nexthop_debug(nexthop, "Serializing", manager);
                 }
 
-                r = nexthop_append_json(nexthop, /* serializing = */ ifindex < 0, &array);
+                r = nexthop_append_json(nexthop, /* serializing= */ ifindex < 0, &array);
                 if (r < 0)
                         return r;
         }
@@ -299,7 +299,7 @@ static int route_append_json(Route *route, bool serializing, sd_json_variant **a
                 if (r < 0)
                         return r;
 
-                r = manager_get_route_table_to_string(route->manager, route->table, /* append_num = */ false, &table);
+                r = manager_get_route_table_to_string(route->manager, route->table, /* append_num= */ false, &table);
                 if (r < 0)
                         return r;
 
@@ -352,7 +352,7 @@ int routes_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
                         log_route_debug(route, "Serializing", manager);
                 }
 
-                r = route_append_json(route, /* serializing = */ ifindex < 0, &array);
+                r = route_append_json(route, /* serializing= */ ifindex < 0, &array);
                 if (r < 0)
                         return r;
         }
@@ -368,7 +368,7 @@ static int routing_policy_rule_append_json(RoutingPolicyRule *rule, sd_json_vari
         assert(rule->manager);
         assert(array);
 
-        r = manager_get_route_table_to_string(rule->manager, rule->table, /* append_num = */ false, &table);
+        r = manager_get_route_table_to_string(rule->manager, rule->table, /* append_num= */ false, &table);
         if (r < 0 && r != -EINVAL)
                 return r;
 
@@ -1300,6 +1300,7 @@ static int dhcp6_client_append_json(Link *link, sd_json_variant **v) {
 static int dhcp_client_lease_append_json(Link *link, sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         usec_t lease_timestamp_usec = USEC_INFINITY, t1 = USEC_INFINITY, t2 = USEC_INFINITY;
+        const char *hostname = NULL;
         int r;
 
         assert(link);
@@ -1320,10 +1321,16 @@ static int dhcp_client_lease_append_json(Link *link, sd_json_variant **v) {
         if (r < 0 && r != -ENODATA)
                 return r;
 
-        r = sd_json_buildo(&w,
-                           JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec", lease_timestamp_usec),
-                           JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec", t1),
-                           JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec", t2));
+        r = sd_dhcp_lease_get_hostname(link->dhcp_lease, &hostname);
+        if (r < 0 && r != -ENODATA)
+                return r;
+
+        r = sd_json_buildo(
+                        &w,
+                        JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec", lease_timestamp_usec),
+                        JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec", t1),
+                        JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec", t2),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", hostname));
         if (r < 0)
                 return r;
 
@@ -1542,11 +1549,11 @@ int link_build_json(Link *link, sd_json_variant **ret) {
         if (r < 0)
                 return r;
 
-        r = domains_append_json(link, /* is_route = */ false, &v);
+        r = domains_append_json(link, /* is_route= */ false, &v);
         if (r < 0)
                 return r;
 
-        r = domains_append_json(link, /* is_route = */ true, &v);
+        r = domains_append_json(link, /* is_route= */ true, &v);
         if (r < 0)
                 return r;
 
@@ -1566,7 +1573,7 @@ int link_build_json(Link *link, sd_json_variant **ret) {
         if (r < 0)
                 return r;
 
-        r = addresses_append_json(link, /* serializing = */ false, &v);
+        r = addresses_append_json(link, /* serializing= */ false, &v);
         if (r < 0)
                 return r;
 
@@ -1641,11 +1648,11 @@ int manager_build_json(Manager *manager, sd_json_variant **ret) {
         if (r < 0)
                 return r;
 
-        r = nexthops_append_json(manager, /* ifindex = */ 0, &v);
+        r = nexthops_append_json(manager, /* ifindex= */ 0, &v);
         if (r < 0)
                 return r;
 
-        r = routes_append_json(manager, /* ifindex = */ 0, &v);
+        r = routes_append_json(manager, /* ifindex= */ 0, &v);
         if (r < 0)
                 return r;
 

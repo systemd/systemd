@@ -318,7 +318,7 @@ static int json_dispatch_rlimit_value(const char *name, sd_json_variant *variant
                 uint64_t w;
 
                 w = sd_json_variant_unsigned(variant);
-                if (w == RLIM_INFINITY || (uint64_t) w != sd_json_variant_unsigned(variant))
+                if (w == RLIM_INFINITY || w != sd_json_variant_unsigned(variant))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "Resource limit value '%s' is out of range.", name);
 
                 *ret = (rlim_t) w;
@@ -462,50 +462,6 @@ static int json_dispatch_image_path(const char *name, sd_json_variant *variant, 
         return 0;
 }
 
-static int json_dispatch_umask(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        mode_t *m = userdata;
-        uint64_t k;
-
-        if (sd_json_variant_is_null(variant)) {
-                *m = MODE_INVALID;
-                return 0;
-        }
-
-        if (!sd_json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a number.", strna(name));
-
-        k = sd_json_variant_unsigned(variant);
-        if (k > 0777)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
-                                "JSON field '%s' outside of valid range 0%s0777.",
-                                strna(name), glyph(GLYPH_ELLIPSIS));
-
-        *m = (mode_t) k;
-        return 0;
-}
-
-static int json_dispatch_access_mode(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        mode_t *m = userdata;
-        uint64_t k;
-
-        if (sd_json_variant_is_null(variant)) {
-                *m = MODE_INVALID;
-                return 0;
-        }
-
-        if (!sd_json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a number.", strna(name));
-
-        k = sd_json_variant_unsigned(variant);
-        if (k > 07777)
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
-                                "JSON field '%s' outside of valid range 0%s07777.",
-                                strna(name), glyph(GLYPH_ELLIPSIS));
-
-        *m = (mode_t) k;
-        return 0;
-}
-
 static int json_dispatch_locale(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char **s = userdata;
         const char *n;
@@ -629,7 +585,7 @@ int json_dispatch_user_group_list(const char *name, sd_json_variant *variant, sd
                         return json_log(e, flags, r, "Failed to append array element: %m");
         }
 
-        r = strv_extend_strv_consume(list, TAKE_PTR(l), /* filter_duplicates = */ true);
+        r = strv_extend_strv_consume(list, TAKE_PTR(l), /* filter_duplicates= */ true);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to merge user/group arrays: %m");
 
@@ -1273,7 +1229,7 @@ static int dispatch_per_machine(const char *name, sd_json_variant *variant, sd_j
                 { "iconName",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, icon_name),                     SD_JSON_STRICT },
                 { "location",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, location),                      0              },
                 { "shell",                      SD_JSON_VARIANT_STRING,        json_dispatch_filename_or_path,       offsetof(UserRecord, shell),                         0              },
-                { "umask",                      SD_JSON_VARIANT_UNSIGNED,      json_dispatch_umask,                  offsetof(UserRecord, umask),                         0              },
+                { "umask",                      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,            offsetof(UserRecord, umask),                         SD_JSON_STRICT },
                 { "environment",                SD_JSON_VARIANT_ARRAY,         json_dispatch_strv_environment,       offsetof(UserRecord, environment),                   0              },
                 { "timeZone",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, time_zone),                     SD_JSON_STRICT },
                 { "preferredLanguage",          SD_JSON_VARIANT_STRING,        json_dispatch_locale,                 offsetof(UserRecord, preferred_language),            0              },
@@ -1287,7 +1243,7 @@ static int dispatch_per_machine(const char *name, sd_json_variant *variant, sd_j
                 { "diskSize",                   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, disk_size),                     0              },
                 { "diskSizeRelative",           _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, disk_size_relative),            0              },
                 { "skeletonDirectory",          SD_JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            SD_JSON_STRICT },
-                { "accessMode",                 SD_JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode,            offsetof(UserRecord, access_mode),                   0              },
+                { "accessMode",                 _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,            offsetof(UserRecord, access_mode),                   0              },
                 { "tasksMax",                   SD_JSON_VARIANT_UNSIGNED,      json_dispatch_tasks_or_memory_max,    offsetof(UserRecord, tasks_max),                     0              },
                 { "memoryHigh",                 SD_JSON_VARIANT_UNSIGNED,      json_dispatch_tasks_or_memory_max,    offsetof(UserRecord, memory_high),                   0              },
                 { "memoryMax",                  SD_JSON_VARIANT_UNSIGNED,      json_dispatch_tasks_or_memory_max,    offsetof(UserRecord, memory_max),                    0              },
@@ -1397,7 +1353,7 @@ static int dispatch_status(const char *name, sd_json_variant *variant, sd_json_d
                 { "rateLimitBeginUSec",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(UserRecord, ratelimit_begin_usec),          0              },
                 { "rateLimitCount",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(UserRecord, ratelimit_count),               0              },
                 { "removable",                  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,      offsetof(UserRecord, removable),                     0              },
-                { "accessMode",                 SD_JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode,      offsetof(UserRecord, access_mode),                   0              },
+                { "accessMode",                 _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,      offsetof(UserRecord, access_mode),                   0              },
                 { "fileSystemType",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(UserRecord, file_system_type),              SD_JSON_STRICT },
                 { "fallbackShell",              SD_JSON_VARIANT_STRING,        json_dispatch_filename_or_path, offsetof(UserRecord, fallback_shell),                0              },
                 { "fallbackHomeDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_home_directory,   offsetof(UserRecord, fallback_home_directory),       0              },
@@ -1633,7 +1589,7 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
                 { "lastChangeUSec",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, last_change_usec),              0              },
                 { "lastPasswordChangeUSec",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, last_password_change_usec),     0              },
                 { "shell",                      SD_JSON_VARIANT_STRING,        json_dispatch_filename_or_path,       offsetof(UserRecord, shell),                         0              },
-                { "umask",                      SD_JSON_VARIANT_UNSIGNED,      json_dispatch_umask,                  offsetof(UserRecord, umask),                         0              },
+                { "umask",                      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,            offsetof(UserRecord, umask),                         SD_JSON_STRICT },
                 { "environment",                SD_JSON_VARIANT_ARRAY,         json_dispatch_strv_environment,       offsetof(UserRecord, environment),                   0              },
                 { "timeZone",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, time_zone),                     SD_JSON_STRICT },
                 { "preferredLanguage",          SD_JSON_VARIANT_STRING,        json_dispatch_locale,                 offsetof(UserRecord, preferred_language),            0              },
@@ -1647,7 +1603,7 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
                 { "diskSize",                   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, disk_size),                     0              },
                 { "diskSizeRelative",           _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, disk_size_relative),            0              },
                 { "skeletonDirectory",          SD_JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            SD_JSON_STRICT },
-                { "accessMode",                 SD_JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode,            offsetof(UserRecord, access_mode),                   0              },
+                { "accessMode",                 _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,            offsetof(UserRecord, access_mode),                   0              },
                 { "tasksMax",                   SD_JSON_VARIANT_UNSIGNED,      json_dispatch_tasks_or_memory_max,    offsetof(UserRecord, tasks_max),                     0              },
                 { "memoryHigh",                 SD_JSON_VARIANT_UNSIGNED,      json_dispatch_tasks_or_memory_max,    offsetof(UserRecord, memory_high),                   0              },
                 { "memoryMax",                  SD_JSON_VARIANT_UNSIGNED,      json_dispatch_tasks_or_memory_max,    offsetof(UserRecord, memory_max),                    0              },
@@ -2041,7 +1997,7 @@ uint64_t user_record_luks_sector_size(UserRecord *h) {
                 return 512;
 
         /* Allow up to 4K due to dm-crypt support and 4K alignment by the homed LUKS backend */
-        return CLAMP(UINT64_C(1) << (63 - __builtin_clzl(h->luks_sector_size)), 512U, 4096U);
+        return CLAMP(UINT64_C(1) << (63 - __builtin_clzll(h->luks_sector_size)), 512U, 4096U);
 }
 
 const char* user_record_luks_pbkdf_hash_algorithm(UserRecord *h) {
@@ -2777,7 +2733,8 @@ bool userdb_match_is_set(const UserDBMatch *match) {
         return !strv_isempty(match->fuzzy_names) ||
                 !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL) ||
                 match->uid_min > 0 ||
-                match->uid_max < UID_INVALID-1;
+                match->uid_max < UID_INVALID-1 ||
+                !sd_id128_is_null(match->uuid);
 }
 
 void userdb_match_done(UserDBMatch *match) {
@@ -2834,6 +2791,9 @@ bool user_record_match(UserRecord *u, const UserDBMatch *match) {
                 return false;
 
         if (!BIT_SET(match->disposition_mask, user_record_disposition(u)))
+                return false;
+
+        if (!sd_id128_is_null(match->uuid) && !sd_id128_equal(match->uuid, u->uuid))
                 return false;
 
         if (!strv_isempty(match->fuzzy_names)) {

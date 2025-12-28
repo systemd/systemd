@@ -367,7 +367,7 @@ static int user_config_paths(char ***ret) {
         if (r < 0)
                 return r;
 
-        r = strv_extend_strv_consume(&config_dirs, TAKE_PTR(data_dirs), /* filter_duplicates = */ true);
+        r = strv_extend_strv_consume(&config_dirs, TAKE_PTR(data_dirs), /* filter_duplicates= */ true);
         if (r < 0)
                 return r;
 
@@ -1201,7 +1201,7 @@ static int fd_set_xattrs(
                            "%s extended attribute '%s=%s' on %s", *name, *value, path);
 
                 if (!arg_dry_run) {
-                        r = xsetxattr(fd, /* path = */ NULL, AT_EMPTY_PATH, *name, *value);
+                        r = xsetxattr(fd, /* path= */ NULL, AT_EMPTY_PATH, *name, *value);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set extended attribute %s=%s on '%s': %m",
                                                        *name, *value, path);
@@ -1228,7 +1228,7 @@ static int path_set_xattrs(
         if (fd < 0)
                 return fd;
 
-        return fd_set_xattrs(c, i, fd, path, /* st = */ NULL, creation);
+        return fd_set_xattrs(c, i, fd, path, /* st= */ NULL, creation);
 }
 
 static int parse_acls_from_arg(Item *item) {
@@ -2132,7 +2132,7 @@ static int create_subvolume(
                 return 0;
         }
 
-        fd = create_directory_or_subvolume(path, i->mode, /* subvol = */ true, i->allow_failure, &st, &creation);
+        fd = create_directory_or_subvolume(path, i->mode, /* subvol= */ true, i->allow_failure, &st, &creation);
         if (fd == -EEXIST)
                 return 0;
         if (fd < 0)
@@ -2420,7 +2420,7 @@ static int create_symlink(Context *c, Item *i) {
         assert(i);
 
         if (i->ignore_if_target_missing) {
-                r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path = */ NULL, /* ret_fd = */ NULL);
+                r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path= */ NULL, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
                         log_info("Symlink source path '%s/%s' does not exist, skipping line.",
@@ -3958,7 +3958,7 @@ static int parse_line(
                 _cleanup_free_ void *data = NULL;
                 size_t data_size = 0;
 
-                r = unbase64mem_full(item_binary_argument(&i), item_binary_argument_size(&i), /* secure = */ false,
+                r = unbase64mem_full(item_binary_argument(&i), item_binary_argument_size(&i), /* secure= */ false,
                                      &data, &data_size);
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to base64 decode specified argument '%s': %m", i.argument);
@@ -3992,7 +3992,8 @@ static int parse_line(
                         missing_user_or_group = true;
                 } else if (r < 0) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve user '%s': %m", u);
+                        return log_syntax(NULL, LOG_ERR, fname, line, r,
+                                          "Failed to resolve user '%s': %s", u, STRERROR_USER(r));
                 } else
                         i.uid_set = true;
         }
@@ -4013,7 +4014,8 @@ static int parse_line(
                         missing_user_or_group = true;
                 } else if (r < 0) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve group '%s': %m", g);
+                        return log_syntax(NULL, LOG_ERR, fname, line, r,
+                                          "Failed to resolve group '%s': %s", g, STRERROR_GROUP(r));
                 } else
                         i.gid_set = true;
         }
@@ -4314,14 +4316,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_IMAGE:
-#ifdef STANDALONE
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "This systemd-tmpfiles version is compiled without support for --image=.");
-#else
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
-#endif
+
                         /* Imply -E here since it makes little sense to create files persistently in the /run mountpoint of a disk image */
                         _fallthrough_;
 
@@ -4558,10 +4556,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_array_hash_ops, char, string_
                                               ItemArray, item_array_free);
 
 static int run(int argc, char *argv[]) {
-#ifndef STANDALONE
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-#endif
         _cleanup_strv_free_ char **config_dirs = NULL;
         _cleanup_(context_done) Context c = {};
         bool invalid_config = false;
@@ -4640,7 +4636,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-#ifndef STANDALONE
         if (arg_image) {
                 assert(!arg_root);
 
@@ -4664,9 +4659,6 @@ static int run(int argc, char *argv[]) {
                 if (!arg_root)
                         return log_oom();
         }
-#else
-        assert(!arg_image);
-#endif
 
         c.items = ordered_hashmap_new(&item_array_hash_ops);
         c.globs = ordered_hashmap_new(&item_array_hash_ops);

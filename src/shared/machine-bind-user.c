@@ -33,14 +33,14 @@ static int check_etc_passwd_collisions(
         if (r == -ENOENT)
                 return 0; /* no user database? then no user, hence no collision */
         if (r < 0)
-                return log_error_errno(r, "Failed to open /etc/passwd of container: %m");
+                return log_error_errno(r, "Failed to open /etc/passwd of machine: %m");
 
         for (;;) {
                 struct passwd *pw;
 
                 r = fgetpwent_sane(f, &pw);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to iterate through /etc/passwd of container: %m");
+                        return log_error_errno(r, "Failed to iterate through /etc/passwd of machine: %m");
                 if (r == 0) /* EOF */
                         return 0; /* no collision */
 
@@ -68,14 +68,14 @@ static int check_etc_group_collisions(
         if (r == -ENOENT)
                 return 0; /* no group database? then no group, hence no collision */
         if (r < 0)
-                return log_error_errno(r, "Failed to open /etc/group of container: %m");
+                return log_error_errno(r, "Failed to open /etc/group of machine: %m");
 
         for (;;) {
                 struct group *gr;
 
                 r = fgetgrent_sane(f, &gr);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to iterate through /etc/group of container: %m");
+                        return log_error_errno(r, "Failed to iterate through /etc/group of machine: %m");
                 if (r == 0)
                         return 0; /* no collision */
 
@@ -93,6 +93,8 @@ static int convert_user(
                 uid_t allocate_uid,
                 const char *shell,
                 bool shell_copy,
+                const char *home_mount_directory,
+                char **groups,
                 UserRecord **ret_converted_user,
                 GroupRecord **ret_converted_group) {
 
@@ -114,16 +116,16 @@ static int convert_user(
                 return r;
         if (r > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
-                                       "Sorry, the user '%s' already exists in the container.", u->user_name);
+                                       "Sorry, the user '%s' already exists in the machine.", u->user_name);
 
         r = check_etc_group_collisions(directory, g->group_name, GID_INVALID);
         if (r < 0)
                 return r;
         if (r > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
-                                       "Sorry, the group '%s' already exists in the container.", g->group_name);
+                                       "Sorry, the group '%s' already exists in the machine.", g->group_name);
 
-        h = path_join("/run/host/home/", u->user_name);
+        h = path_join(home_mount_directory, u->user_name);
         if (!h)
                 return log_oom();
 
@@ -137,28 +139,29 @@ static int convert_user(
         r = user_record_build(
                         &converted_user,
                         SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(u->user_name)),
-                                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(allocate_uid)),
-                                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(allocate_uid)),
+                                        SD_JSON_BUILD_PAIR_STRING("userName", u->user_name),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("uid", allocate_uid),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", allocate_uid),
                                         SD_JSON_BUILD_PAIR_CONDITION(u->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(u->disposition))),
-                                        SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(h)),
+                                        SD_JSON_BUILD_PAIR_STRING("homeDirectory", h),
                                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn")),
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("shell", shell),
+                                        SD_JSON_BUILD_PAIR_STRV("memberOf", groups),
                                         SD_JSON_BUILD_PAIR("privileged", SD_JSON_BUILD_OBJECT(
                                                                            SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(u->hashed_password), "hashedPassword", SD_JSON_BUILD_VARIANT(hp)),
                                                                            SD_JSON_BUILD_PAIR_CONDITION(!!ssh, "sshAuthorizedKeys", SD_JSON_BUILD_VARIANT(ssh))))));
         if (r < 0)
-                return log_error_errno(r, "Failed to build container user record: %m");
+                return log_error_errno(r, "Failed to build machine user record: %m");
 
         r = group_record_build(
                         &converted_group,
                         SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(g->group_name)),
-                                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(allocate_uid)),
+                                        SD_JSON_BUILD_PAIR_STRING("groupName", g->group_name),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", allocate_uid),
                                         SD_JSON_BUILD_PAIR_CONDITION(g->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(g->disposition))),
                                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn"))));
         if (r < 0)
-                return log_error_errno(r, "Failed to build container group record: %m");
+                return log_error_errno(r, "Failed to build machine group record: %m");
 
         *ret_converted_user = TAKE_PTR(converted_user);
         *ret_converted_group = TAKE_PTR(converted_group);
@@ -175,7 +178,7 @@ static int find_free_uid(const char *directory, uid_t *current_uid) {
                 if (*current_uid > MAP_UID_MAX)
                         return log_error_errno(
                                         SYNTHETIC_ERRNO(EBUSY),
-                                        "No suitable available UID in range " UID_FMT "…" UID_FMT " in container detected, can't map user.",
+                                        "No suitable available UID in range " UID_FMT "…" UID_FMT " in machine detected, can't map user.",
                                         MAP_UID_MIN, MAP_UID_MAX);
 
                 r = check_etc_passwd_collisions(directory, NULL, *current_uid);
@@ -210,6 +213,8 @@ int machine_bind_user_prepare(
                 char **bind_user,
                 const char *bind_user_shell,
                 bool bind_user_shell_copy,
+                const char *bind_user_home_mount_directory,
+                char **bind_user_groups,
                 MachineBindUserContext **ret) {
 
         _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *c = NULL;
@@ -219,7 +224,7 @@ int machine_bind_user_prepare(
         assert(ret);
 
         /* This resolves the users specified in 'bind_user', generates a minimalized JSON user + group record
-         * for it to stick in the container, allocates a UID/GID for it, and updates the custom mount table,
+         * for it to stick in the machine, allocates a UID/GID for it, and updates the custom mount table,
          * to include an appropriate bind mount mapping.
          *
          * This extends the passed custom_mounts/n_custom_mounts with the home directories, and allocates a
@@ -239,8 +244,10 @@ int machine_bind_user_prepare(
                 _cleanup_(group_record_unrefp) GroupRecord *g = NULL, *cg = NULL;
 
                 r = userdb_by_name(*n, /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &u);
+                if (r == -ENOEXEC)
+                        return log_error_errno(r, "User '%s' did not pass filter.", *n);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve user '%s': %m", *n);
+                        return log_error_errno(r, "Failed to resolve user '%s': %s", *n, STRERROR_USER(r));
 
                 /* For now, let's refuse mapping the root/nobody users explicitly. The records we generate
                  * are strictly additive, nss-systemd is typically placed last in /etc/nsswitch.conf. Thus
@@ -261,16 +268,19 @@ int machine_bind_user_prepare(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot bind user with no UID, refusing.");
 
                 r = groupdb_by_gid(user_record_gid(u), /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &g);
+                if (r == -ENOEXEC)
+                        return log_error_errno(r, "Group of user '%s' did not pass filter.", u->user_name);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve group of user '%s': %m", u->user_name);
+                        return log_error_errno(r, "Failed to resolve group of user '%s': %s",
+                                               u->user_name, STRERROR_GROUP(r));
 
-                /* We want to synthesize exactly one user + group from the host into the container. This only
+                /* We want to synthesize exactly one user + group from the host into the machine. This only
                  * makes sense if the user on the host has its own private group. We can't reasonably check
                  * this, so we just check of the name of user and group match.
                  *
                  * One of these days we might want to support users in a shared/common group too, but it's
                  * not clear to me how this would have to be mapped, precisely given that the common group
-                 * probably already exists in the container. */
+                 * probably already exists in the machine. */
                 if (!streq(u->user_name, g->group_name))
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Sorry, mapping users without private groups is currently not supported.");
@@ -279,7 +289,15 @@ int machine_bind_user_prepare(
                 if (r < 0)
                         return r;
 
-                r = convert_user(directory, u, g, current_uid, bind_user_shell, bind_user_shell_copy, &cu, &cg);
+                r = convert_user(
+                                directory,
+                                u, g,
+                                current_uid,
+                                bind_user_shell,
+                                bind_user_shell_copy,
+                                bind_user_home_mount_directory,
+                                bind_user_groups,
+                                &cu, &cg);
                 if (r < 0)
                         return r;
 

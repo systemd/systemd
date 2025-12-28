@@ -194,6 +194,7 @@ link
 linkat
 listen
 listmount
+listns
 listxattr
 listxattrat
 llistxattr
@@ -513,6 +514,7 @@ uname
 unlink
 unlinkat
 unshare
+uprobe
 uretprobe
 userfaultfd
 usr26

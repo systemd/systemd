@@ -113,7 +113,7 @@ static int do_mcopy(const char *node, const char *root) {
         assert(root);
 
         /* Return early if there's nothing to copy. */
-        if (dir_is_empty(root, /*ignore_hidden_or_backup=*/ false))
+        if (dir_is_empty(root, /* ignore_hidden_or_backup= */ false))
                 return 0;
 
         r = find_executable("mcopy", &mcopy);
@@ -466,17 +466,22 @@ int make_filesystem(
                         return log_oom();
 
                 if (compression) {
-                        _cleanup_free_ char *c = NULL;
+                        if (!root)
+                                log_warning("Btrfs compression setting ignored because no files are being copied. "
+                                            "Compression= can only be applied when CopyFiles= is also specified.");
+                        else {
+                                _cleanup_free_ char *c = NULL;
 
-                        c = strdup(compression);
-                        if (!c)
-                                return log_oom();
+                                c = strdup(compression);
+                                if (!c)
+                                        return log_oom();
 
-                        if (compression_level && !strextend(&c, ":", compression_level))
-                                return log_oom();
+                                if (compression_level && !strextend(&c, ":", compression_level))
+                                        return log_oom();
 
-                        if (strv_extend_many(&argv, "--compress", c) < 0)
-                                return log_oom();
+                                if (strv_extend_many(&argv, "--compress", c) < 0)
+                                        return log_oom();
+                        }
                 }
 
                 /* mkfs.btrfs unconditionally warns about several settings changing from v5.15 onwards which
@@ -681,17 +686,17 @@ int make_filesystem(
         r = safe_fork_full(
                         "(mkfs)",
                         stdio_fds,
-                        /*except_fds=*/ NULL,
-                        /*n_except_fds=*/ 0,
+                        /* except_fds= */ NULL,
+                        /* n_except_fds= */ 0,
                         fork_flags,
-                        /*ret_pid=*/ NULL);
+                        /* ret_pid= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
 
                 STRV_FOREACH_PAIR(k, v, env)
-                        if (setenv(*k, *v, /* replace = */ true) < 0) {
+                        if (setenv(*k, *v, /* replace= */ true) < 0) {
                                 log_error_errno(r, "Failed to set %s=%s environment variable: %m", *k, *v);
                                 _exit(EXIT_FAILURE);
                         }

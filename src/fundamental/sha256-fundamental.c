@@ -22,7 +22,7 @@
    <https://www.gnu.org/licenses/>.  */
 
 #if SD_BOOT
-#  include "efi-string.h"
+#  include "efi-string.h"       /* IWYU pragma: keep */
 #else
 #  include <string.h>
 #endif
@@ -68,7 +68,7 @@ static const uint32_t K[64] = {
         0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 };
 
-static void sha256_process_block(const void *, size_t, struct sha256_ctx *);
+static void sha256_process_block(const void *buffer, size_t len, struct sha256_ctx *ctx);
 
 /* Initialize structure containing state of computation.
    (FIPS 180-2:5.3.2)  */

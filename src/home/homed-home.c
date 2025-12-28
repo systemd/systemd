@@ -570,7 +570,7 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
                 return 0;
         }
 
-        if (lseek(fd, SEEK_SET, 0) < 0)
+        if (lseek(fd, 0, SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to seek to beginning of memfd: %m");
 
         f = take_fdopen(&fd, "r");
@@ -740,7 +740,7 @@ static void home_fixate_finish(Home *h, int ret, UserRecord *hr) {
         secret = TAKE_PTR(h->secret); /* Take possession */
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ false);
+                home_count_bad_authentication(h, ret, /* save= */ false);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_error_errno(ret, "Fixation failed: %m");
@@ -831,7 +831,7 @@ static void home_activate_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_ACTIVATING, HOME_ACTIVATING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -994,7 +994,7 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         flags = h->current_operation ? h->current_operation->call_flags : 0;
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -1069,7 +1069,7 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_UNLOCKING, HOME_UNLOCKING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -1105,7 +1105,7 @@ static void home_authenticating_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_AUTHENTICATING, HOME_AUTHENTICATING_WHILE_ACTIVE, HOME_AUTHENTICATING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -1327,7 +1327,7 @@ static int home_start_work(
         if (r == 0) {
                 /* Child */
 
-                if (setenv("NOTIFY_SOCKET", h->manager->notify_socket_path, /* overwrite = */ true) < 0) {
+                if (setenv("NOTIFY_SOCKET", h->manager->notify_socket_path, /* overwrite= */ true) < 0) {
                         log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -2011,7 +2011,7 @@ int home_passwd(Home *h,
                  * data. This is useful as a way to propagate updated user records into the LUKS backends
                  * properly. */
 
-                r = user_record_make_hashed_password(c, new_secret->password, /* extend = */ false);
+                r = user_record_make_hashed_password(c, new_secret->password, /* extend= */ false);
                 if (r < 0)
                         return r;
 
@@ -2189,7 +2189,7 @@ void home_process_notify(Home *h, char **l, int fd) {
                         return (void) log_debug_errno(r, "Failed to parse SYSTEMD_LUKS_LOCK_FD value: %m");
                 if (r > 0) {
                         if (taken_fd < 0)
-                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring: %m");
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring.");
 
                         close_and_replace(h->luks_lock_fd, taken_fd);
 
@@ -2199,7 +2199,7 @@ void home_process_notify(Home *h, char **l, int fd) {
                         home_maybe_close_luks_lock_fd(h, _HOME_STATE_INVALID);
                 } else {
                         if (taken_fd >= 0)
-                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=0 but fd passed, ignoring: %m");
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=0 but fd passed, ignoring.");
 
                         h->luks_lock_fd = safe_close(h->luks_lock_fd);
                 }
@@ -2687,7 +2687,7 @@ int home_augment_status(
                 disk_ceiling = USER_DISK_SIZE_MAX;
 
         r = sd_json_buildo(&status,
-                           SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(home_state_to_string(state))),
+                           SD_JSON_BUILD_PAIR_STRING("state", home_state_to_string(state)),
                            SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
                            SD_JSON_BUILD_PAIR("useFallback", SD_JSON_BUILD_BOOLEAN(!HOME_STATE_IS_ACTIVE(state))),
                            SD_JSON_BUILD_PAIR("fallbackShell", JSON_BUILD_CONST_STRING(BINDIR "/systemd-home-fallback-shell")),
@@ -3299,11 +3299,14 @@ int home_wait_for_worker(Home *h) {
 
         log_info("Worker process for home %s is still running while exiting. Waiting for it to finish.", h->user_name);
 
-        r = wait_for_terminate_with_timeout(h->worker_pid.pid, 30 * USEC_PER_SEC);
+        siginfo_t si;
+        r = pidref_wait_for_terminate_full(&h->worker_pid, 30 * USEC_PER_SEC, &si);
         if (r == -ETIMEDOUT)
                 log_warning_errno(r, "Waiting for worker process for home %s timed out. Ignoring.", h->user_name);
         else if (r < 0)
-                log_warning_errno(r, "Failed to wait for worker process for home %s. Ignoring.", h->user_name);
+                log_warning_errno(r, "Failed to wait for worker process for home %s, ignoring: %m", h->user_name);
+        else if (si.si_code != CLD_EXITED || si.si_status != 0)
+                log_warning("Worker process for home %s failed with non-zero exit status. Ignoring.", h->user_name);
 
         (void) hashmap_remove_value(h->manager->homes_by_worker_pid, &h->worker_pid, h);
         pidref_done(&h->worker_pid);

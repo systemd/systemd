@@ -6,7 +6,7 @@
 
 #include "sd-event.h"
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "inotify-util.h"
 #include "list.h"
 #include "ratelimit.h"

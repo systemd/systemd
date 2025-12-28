@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* Erase characters until the end of the line */
 #define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"
@@ -86,16 +86,16 @@ int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_col
 int chvt(int vt);
 
 int read_one_char(FILE *f, char *ret, usec_t timeout, bool echo, bool *need_nl);
-int ask_char(char *ret, const char *replies, const char *text, ...) _printf_(3, 4);
+int ask_char(char *ret, const char *replies, const char *fmt, ...) _printf_(3, 4);
 
 typedef int (*GetCompletionsCallback)(const char *key, char ***ret_list, void *userdata);
-int ask_string_full(char **ret, GetCompletionsCallback cb, void *userdata, const char *text, ...) _printf_(4, 5);
+int ask_string_full(char **ret, GetCompletionsCallback get_completions, void *userdata, const char *text, ...) _printf_(4, 5);
 #define ask_string(ret, text, ...) ask_string_full(ret, NULL, NULL, text, ##__VA_ARGS__)
 
 bool any_key_to_proceed(void);
 int show_menu(char **x, size_t n_columns, size_t column_width, unsigned ellipsize_percentage, const char *grey_prefix, bool with_numbers);
 
-int vt_disallocate(const char *name);
+int vt_disallocate(const char *tty_path);
 
 int resolve_dev_console(char **ret);
 int get_kernel_consoles(char ***ret);
@@ -150,6 +150,7 @@ void termios_disable_echo(struct termios *termios);
 
 int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue);
 int terminal_get_size_by_dsr(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns);
+int terminal_get_size_by_csi18(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns);
 int terminal_fix_size(int input_fd, int output_fd);
 
 int terminal_get_terminfo_by_dcs(int fd, char **ret_name);
@@ -166,6 +167,8 @@ static inline bool osc_char_is_valid(char c) {
         return (unsigned char) c >= 32 && (unsigned char) c < 127;
 }
 
+#define VTNR_MAX 63
+
 static inline bool vtnr_is_valid(unsigned n) {
-        return n >= 1 && n <= 63;
+        return n >= 1 && n <= VTNR_MAX;
 }

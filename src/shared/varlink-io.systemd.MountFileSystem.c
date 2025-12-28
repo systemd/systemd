@@ -3,7 +3,7 @@
 #include "bus-polkit.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 PartitionDesignator,
                 SD_VARLINK_DEFINE_ENUM_VALUE(root),
                 SD_VARLINK_DEFINE_ENUM_VALUE(usr),
@@ -60,6 +60,14 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(password, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Takes an image policy string (see systemd.image-policy(7) for details) to apply while mounting the image"),
                 SD_VARLINK_DEFINE_INPUT(imagePolicy, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to automatically reuse already set up dm-verity devices that share the same roothash."),
+                SD_VARLINK_DEFINE_INPUT(veritySharing, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("File descriptor of the file containing the dm-verity data, if the image is a bare filesystem rather than a DDI."),
+                SD_VARLINK_DEFINE_INPUT(verityDataFileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The expected dm-verity root hash as an hex encoded string, if the image is a bare filesystem rather than a DDI."),
+                SD_VARLINK_DEFINE_INPUT(verityRootHash, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The expected signature for the dm-verity root hash as a Base64 encoded string, if the image is a bare filesystem rather than a DDI."),
+                SD_VARLINK_DEFINE_INPUT(verityRootHashSignature, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("An array with information about contained partitions that have been prepared for mounting, as well as their mount file descriptors."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(partitions, PartitionInfo, SD_VARLINK_ARRAY),
@@ -105,6 +113,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(parentFileDescriptor, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Name of the directory to create."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Access mode of the directory to create. Note that the suid, sgid, sticky, world-writable bit is unconditionally masked off."),
+                SD_VARLINK_DEFINE_INPUT(mode, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("File descriptor referencing the newly created directory."),
                 SD_VARLINK_DEFINE_OUTPUT(directoryFileDescriptor, SD_VARLINK_INT, 0));

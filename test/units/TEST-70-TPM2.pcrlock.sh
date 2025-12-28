@@ -42,6 +42,9 @@ PCRS="1+2+3+4+5+16"
 # (as the PCR values simply won't match the log).
 rm -f /run/log/systemd/tpm2-measure.log
 
+# Reset TPM PCR 16 ("debug") explicitly, so that we can use it in a known good state
+tpm2_pcrreset 16
+
 # Ensure a truncated log doesn't crash pcrlock
 echo -n -e \\x1e >/tmp/borked
 set +e
@@ -196,7 +199,7 @@ SYSTEMD_XBOOTLDR_PATH=/tmp/fakexbootldr SYSTEMD_RELAX_XBOOTLDR_CHECKS=1 "$SD_PCR
 # Exercise Varlink API a bit (but first turn off condition)
 
 mkdir -p /run/systemd/system/systemd-pcrlock.socket.d
-cat > /run/systemd/system/systemd-pcrlock.socket.d/50-no-condition.conf <<EOF
+cat >/run/systemd/system/systemd-pcrlock.socket.d/50-no-condition.conf <<EOF
 [Unit]
 # Turn off all conditions
 ConditionSecurity=

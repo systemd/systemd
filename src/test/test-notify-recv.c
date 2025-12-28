@@ -90,12 +90,10 @@ TEST(notify_socket_prepare) {
         _cleanup_free_ char *path = NULL;
         ASSERT_OK(notify_socket_prepare_full(e, SD_EVENT_PRIORITY_NORMAL - 10, on_recv, &c, true, &path, NULL));
 
-        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
-
         ASSERT_OK(r = pidref_safe_fork("(test-notify-recv-child)", FORK_DEATHSIG_SIGTERM|FORK_LOG, &c.pidref));
         if (r == 0) {
-                ASSERT_OK_ERRNO(setenv("NOTIFY_SOCKET", path, /* overwrite = */ true));
-                ASSERT_OK_POSITIVE(sd_notify(/* unset_environment = */ false, "FIRST_MESSAGE=1"));
+                ASSERT_OK_ERRNO(setenv("NOTIFY_SOCKET", path, /* overwrite= */ true));
+                ASSERT_OK_POSITIVE(sd_notify(/* unset_environment= */ false, "FIRST_MESSAGE=1"));
 
                 _cleanup_close_ int fd1 = open("/tmp", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
                 ASSERT_OK_ERRNO(fd1);
@@ -104,7 +102,7 @@ TEST(notify_socket_prepare) {
 
                 ASSERT_OK_POSITIVE(
                         sd_pid_notify_with_fds(
-                                0, /* unset_environment = */ false,
+                                0, /* unset_environment= */ false,
                                 "SECOND_MESSAGE=1\nADDITIONAL_DATA=hoge", (int[]) { fd1, fd2 }, 2));
                 _exit(EXIT_SUCCESS);
         }

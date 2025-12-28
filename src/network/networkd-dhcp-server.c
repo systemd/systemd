@@ -8,11 +8,13 @@
 #include "conf-parser.h"
 #include "dhcp-protocol.h"
 #include "dhcp-server-lease-internal.h"
+#include "dns-domain.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
+#include "hostname-setup.h"
 #include "network-common.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-server.h"
@@ -23,6 +25,7 @@
 #include "networkd-network.h"
 #include "networkd-ntp.h"
 #include "networkd-queue.h"
+#include "networkd-resolve-hook.h"
 #include "networkd-route-util.h"
 #include "path-util.h"
 #include "set.h"
@@ -528,6 +531,36 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
         return sd_dhcp_server_set_dns(link->dhcp_server, addresses, n_addresses);
 }
 
+static int dhcp_server_set_domain(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->dhcp_server);
+
+        if (!link->network->dhcp_server_emit_domain)
+                return 0;
+
+        if (link->network->dhcp_server_domain)
+                return sd_dhcp_server_set_domain_name(link->dhcp_server, link->network->dhcp_server_domain);
+
+        /* When domain is not specified, use the domain part of the current hostname. */
+        _cleanup_free_ char *hostname = NULL;
+        r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST | GET_HOSTNAME_FALLBACK_DEFAULT, &hostname);
+        if (r < 0)
+                return r;
+
+        const char *domain = hostname;
+        r = dns_name_parent(&domain);
+        if (r < 0)
+                return r;
+
+        if (isempty(domain))
+                return -ENXIO;
+
+        return sd_dhcp_server_set_domain_name(link->dhcp_server, domain);
+}
+
 static int dhcp4_server_configure(Link *link) {
         bool acquired_uplink = false;
         sd_dhcp_option *p;
@@ -678,6 +711,12 @@ static int dhcp4_server_configure(Link *link) {
                 }
         }
 
+        r = dhcp_server_set_domain(link);
+        if (r == -ENXIO)
+                log_link_warning_errno(link, r, "Cannot get domain from the current hostname, DHCP server will not emit domain option.");
+        else if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set domain name for DHCP server: %m");
+
         ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_options) {
                 r = sd_dhcp_server_add_option(link->dhcp_server, p);
                 if (r == -EEXIST)
@@ -695,7 +734,12 @@ static int dhcp4_server_configure(Link *link) {
         }
 
         HASHMAP_FOREACH(static_lease, link->network->dhcp_static_leases_by_section) {
-                r = sd_dhcp_server_set_static_lease(link->dhcp_server, &static_lease->address, static_lease->client_id, static_lease->client_id_size);
+                r = sd_dhcp_server_set_static_lease(
+                                link->dhcp_server,
+                                &static_lease->address,
+                                static_lease->client_id,
+                                static_lease->client_id_size,
+                                static_lease->hostname);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 static lease for DHCP server: %m");
         }
@@ -703,6 +747,8 @@ static int dhcp4_server_configure(Link *link) {
         r = link_start_dhcp4_server(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");
+
+        manager_notify_hook_filters(link->manager);
 
         return 0;
 }
@@ -715,7 +761,7 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
         assert(link->network);
         assert(link->network->dhcp_server_address);
 
-        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return false;
 
         if (!link_has_carrier(link))
@@ -786,7 +832,6 @@ int config_parse_dhcp_server_relay_agent_suboption(
                 void *userdata) {
 
         char **suboption_value = data;
-        char* p;
 
         assert(filename);
         assert(lvalue);
@@ -797,7 +842,7 @@ int config_parse_dhcp_server_relay_agent_suboption(
                 return 0;
         }
 
-        p = startswith(rvalue, "string:");
+        const char *p = startswith(rvalue, "string:");
         if (!p) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse %s=%s'. Invalid format, ignoring.", lvalue, rvalue);

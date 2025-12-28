@@ -10,8 +10,16 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
+# This implements the UAPI.15 "OSC 3008: Hierarchical Context Signalling"
+# specification for the shell prompt. For details see:
+# https://uapi-group.org/specifications/specs/osc_context/
+
 # Not bash?
 [ -n "${BASH_VERSION:-}" ] || return 0
+
+# If we're on a "dumb" terminal, do not install the prompt.
+# Treat missing $TERM same as "dumb".
+[ "${TERM:-dumb}" = "dumb" ] && return 0
 
 __systemd_osc_context_escape() {
     # Escape according to the OSC 3008 spec. Since this requires shelling out
@@ -24,7 +32,10 @@ __systemd_osc_context_escape() {
 }
 
 __systemd_osc_context_common() {
-    printf ";user=%s;hostname=%s;machineid=%s;bootid=%s;pid=%s" "$USER" "$HOSTNAME" "$(</etc/machine-id)" "$(</proc/sys/kernel/random/boot_id)" "$$"
+    if [ -f /etc/machine-id ]; then
+        printf ";machineid=%s" "$(</etc/machine-id)"
+    fi
+    printf ";user=%s;hostname=%s;bootid=%s;pid=%s" "$USER" "$HOSTNAME" "$(</proc/sys/kernel/random/boot_id)" "$$"
 }
 
 __systemd_osc_context_precmdline() {
@@ -53,10 +64,21 @@ __systemd_osc_context_precmdline() {
     read -r systemd_osc_context_cmd_id </proc/sys/kernel/random/uuid
 }
 
-if [[ -n "${BASH_VERSION:-}" ]] && [[ "${TERM:-}" != "dumb" ]]; then
-    # Whenever a new prompt is shown close the previous command, and prepare new command
+__systemd_osc_context_ps0() {
+    # Skip if PROMPT_COMMAND= is cleared manually or by other profiles.
+    [ -n "${systemd_osc_context_cmd_id:-}" ] || return
+
+    printf "\033]3008;start=%s%s;type=command;cwd=%s\033\\" "$systemd_osc_context_cmd_id" "$(__systemd_osc_context_common)" "$(__systemd_osc_context_escape "$PWD")"
+}
+
+if [ -n "${BASH_VERSION:-}" ]; then
+    # Legacy bashrc will assign PROMPT_COMMAND=, which is equivalent to assigning
+    # index 0 in the array. Leave an empty spot to handle this gracefully.
+    [ -n "$(declare -p PROMPT_COMMAND 2>/dev/null)" ] || PROMPT_COMMAND+=('')
+
+    # Whenever a new prompt is shown, close the previous command, and prepare new command
     PROMPT_COMMAND+=(__systemd_osc_context_precmdline)
 
     # PS0 is shown right after a prompt completed, but before the command is executed
-    PS0='\033]3008;start=$systemd_osc_context_cmd_id$(__systemd_osc_context_common);type=command;cwd=$(__systemd_osc_context_escape "$PWD")\033\\'"${PS0:-}"
+    PS0='$(__systemd_osc_context_ps0)'"${PS0:-}"
 fi

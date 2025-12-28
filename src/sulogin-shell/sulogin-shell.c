@@ -16,6 +16,7 @@
 #include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "special.h"
@@ -66,10 +67,10 @@ static int start_target(sd_bus *bus, const char *target) {
 }
 
 static int fork_wait(const char* const cmdline[]) {
-        pid_t pid;
         int r;
 
-        r = safe_fork("(sulogin)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork("(sulogin)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -79,7 +80,7 @@ static int fork_wait(const char* const cmdline[]) {
                 _exit(EXIT_FAILURE); /* Operational error */
         }
 
-        return wait_for_terminate_and_check(cmdline[0], pid, WAIT_LOG_ABNORMAL);
+        return pidref_wait_for_terminate_and_check(cmdline[0], &pidref, WAIT_LOG_ABNORMAL);
 }
 
 static void print_mode(const char* mode) {
@@ -108,7 +109,7 @@ static int run(int argc, char *argv[]) {
                 /* We look the argument in the kernel cmdline under the same name as the environment variable
                  * to express that this is not supported at the same level as the regular kernel cmdline
                  * switches. */
-                r = proc_cmdline_get_bool("SYSTEMD_SULOGIN_FORCE", /* flags = */ 0, &force);
+                r = proc_cmdline_get_bool("SYSTEMD_SULOGIN_FORCE", /* flags= */ 0, &force);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse SYSTEMD_SULOGIN_FORCE from kernel command line, ignoring: %m");
         }

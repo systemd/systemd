@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "btrfs.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "dirent-util.h"
@@ -26,7 +27,6 @@
 #include "path-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
-#include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -657,7 +657,10 @@ static int hardlink_context_setup(
                         return -errno;
         }
 
-        r = tempfn_random_child(to, "hardlink", &c->subdir);
+        if (to)
+                r = tempfn_random_child(to, "hardlink", &c->subdir);
+        else
+                r = tempfn_random("hardlink", /* extra= */ NULL, &c->subdir);
         if (r < 0)
                 return r;
 
@@ -888,7 +891,7 @@ static int fd_copy_tree_generic(
                 gid_t override_gid,
                 CopyFlags copy_flags,
                 Hashmap *denylist,
-                Set *subvolumes,
+                Hashmap *subvolumes,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -935,7 +938,7 @@ static int fd_copy_regular(
         if (fdt < 0)
                 return -errno;
 
-        r = prepare_nocow(fdf, /*from=*/ NULL, fdt, /*chattr_mask=*/ NULL, /*chattr_flags=*/ NULL);
+        r = prepare_nocow(fdf, /* from= */ NULL, fdt, /* chattr_mask= */ NULL, /* chattr_flags= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1108,7 +1111,7 @@ static int fd_copy_directory(
                 gid_t override_gid,
                 CopyFlags copy_flags,
                 Hashmap *denylist,
-                Set *subvolumes,
+                Hashmap *subvolumes,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -1127,7 +1130,6 @@ static int fd_copy_directory(
         int r;
 
         assert(st);
-        assert(to);
 
         if (depth_left == 0)
                 return -ENAMETOOLONG;
@@ -1158,9 +1160,16 @@ static int fd_copy_directory(
 
         exists = r >= 0;
 
+        XOpenFlags flags = copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0;
+        if (hashmap_contains(subvolumes, st)) {
+                flags |= XO_SUBVOLUME;
+                if ((PTR_TO_INT(hashmap_get(subvolumes, st)) & BTRFS_SUBVOL_NODATACOW))
+                        flags |= XO_NOCOW;
+        }
+
         fdt = xopenat_lock_full(dt, to,
                                 O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|(exists ? 0 : O_CREAT|O_EXCL),
-                                (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0)|(set_contains(subvolumes, st) ? XO_SUBVOLUME : 0),
+                                flags,
                                 st->st_mode & 07777,
                                 copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE,
                                 LOCK_EX);
@@ -1257,7 +1266,7 @@ static int fd_copy_directory(
         }
 
 finish:
-        if (!exists) {
+        if (FLAGS_SET(copy_flags, COPY_MERGE_APPLY_STAT) || !exists) {
                 if (fchown(fdt,
                            uid_is_valid(override_uid) ? override_uid : st->st_uid,
                            gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
@@ -1329,7 +1338,7 @@ static int fd_copy_tree_generic(
                 gid_t override_gid,
                 CopyFlags copy_flags,
                 Hashmap *denylist,
-                Set *subvolumes,
+                Hashmap *subvolumes,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -1344,6 +1353,10 @@ static int fd_copy_tree_generic(
                 return fd_copy_directory(df, from, st, dt, to, original_device, depth_left-1, override_uid,
                                          override_gid, copy_flags, denylist, subvolumes, hardlink_context,
                                          display_path, progress_path, progress_bytes, userdata);
+
+        /* Only if we are copying a directory we are fine if the target dir is referenced by fd only */
+        if (!to)
+                return -ENOTDIR;
 
         DenyType t = PTR_TO_INT(hashmap_get(denylist, st));
         if (t == DENY_INODE) {
@@ -1374,7 +1387,7 @@ int copy_tree_at_full(
                 gid_t override_gid,
                 CopyFlags copy_flags,
                 Hashmap *denylist,
-                Set *subvolumes,
+                Hashmap *subvolumes,
                 copy_progress_path_t progress_path,
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
@@ -1382,7 +1395,6 @@ int copy_tree_at_full(
         struct stat st;
         int r;
 
-        assert(to);
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
         if (fstatat(fdf, strempty(from), &st, AT_SYMLINK_NOFOLLOW | (isempty(from) ? AT_EMPTY_PATH : 0)) < 0)
@@ -1571,7 +1583,7 @@ int copy_file_at_full(
                         return fdt;
         }
 
-        r = prepare_nocow(fdf, /*from=*/ NULL, fdt, &chattr_mask, &chattr_flags);
+        r = prepare_nocow(fdf, /* from= */ NULL, fdt, &chattr_mask, &chattr_flags);
         if (r < 0)
                 return r;
 
@@ -1772,7 +1784,7 @@ int copy_xattr(int df, const char *from, int dt, const char *to, CopyFlags copy_
                 if (r < 0)
                         return r;
 
-                RET_GATHER(ret, xsetxattr_full(dt, to, /* at_flags = */ 0, p, value, value_size, /* xattr_flags = */ 0));
+                RET_GATHER(ret, xsetxattr_full(dt, to, /* at_flags= */ 0, p, value, value_size, /* xattr_flags= */ 0));
         }
 
         return ret;

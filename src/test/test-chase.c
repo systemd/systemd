@@ -433,12 +433,12 @@ TEST(chase) {
 
         r = chase(p, NULL, CHASE_STEP, &result, NULL);
         assert_se(r == 0);
-        ASSERT_STREQ("/usr", result);
+        ASSERT_STREQ(result, "/usr");
         result = mfree(result);
 
         r = chase("/usr", NULL, CHASE_STEP, &result, NULL);
         assert_se(r > 0);
-        ASSERT_STREQ("/usr", result);
+        ASSERT_STREQ(result, "/usr");
         result = mfree(result);
 
         /* Make sure that symlinks in the "root" path are not resolved, but those below are */

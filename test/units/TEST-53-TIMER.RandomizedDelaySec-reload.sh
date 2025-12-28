@@ -15,11 +15,11 @@ set -o pipefail
 . "$(dirname "$0")"/util.sh
 
 UNIT_NAME="timer-RandomizedDelaySec-$RANDOM"
-TARGET_TS="$(date --date="tomorrow 00:10")"
+TARGET_TS="$(date --date="tomorrow 00:10" "+%a %Y-%m-%d %H:%M:%S %Z")"
 TARGET_TS_S="$(date --date="$TARGET_TS" "+%s")"
 # Maximum possible next elapse timestamp: $TARGET_TS (OnCalendar=) + 22 hours (RandomizedDelaySec=)
 MAX_NEXT_ELAPSE_REALTIME_S="$((TARGET_TS_S + 22 * 60 * 60))"
-MAX_NEXT_ELAPSE_REALTIME="$(date --date="@$MAX_NEXT_ELAPSE_REALTIME_S")"
+MAX_NEXT_ELAPSE_REALTIME="$(date --date="@$MAX_NEXT_ELAPSE_REALTIME_S" "+%a %Y-%m-%d %H:%M:%S %Z")"
 
 # Let's make sure to return the date & time back to the original state once we're done with our time
 # shenigans. One way to do this would be to use hwclock, but the RTC in VMs can be unreliable or slow to
@@ -75,16 +75,16 @@ check_elapse_timestamp() {
 systemctl restart "$UNIT_NAME.timer"
 check_elapse_timestamp
 
-# Bump the system date to 1 minute after the original calendar timer would've expired (without any random
-# delay!) - systemd should recalculate the next elapse timestamp with a new randomized delay, but it should
-# use the original inactive exit timestamp as a "base", so the final timestamp should not end up beyond the
-# original calendar timestamp + randomized delay range.
+# Bump the system date to exactly the original calendar timer time (without any random delay!) - systemd
+# should recalculate the next elapse timestamp with a new randomized delay, but it should use the original
+# inactive exit timestamp as a "base", so the final timestamp should not end up beyond the original calendar
+# timestamp + randomized delay range.
 #
 # Similarly, do the same check after doing daemon-reload, as that also forces systemd to recalculate the next
 # elapse timestamp (this goes through a slightly different codepath that actually contained the original
 # issue).
 : "Next elapse timestamp after time jump"
-date -s "tomorrow 00:11"
+date -s "tomorrow 00:10"
 check_elapse_timestamp
 
 : "Next elapse timestamp after daemon-reload"

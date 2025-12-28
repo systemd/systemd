@@ -5,7 +5,7 @@ integration_tests += [
         integration_test_template + {
                 'name' : fs.name(meson.current_source_dir()),
                 'storage': 'persistent',
-                'coredump-exclude-regex' : '/(test-usr-dump|test-dump|bash)$',
+                'coredump-exclude-regex' : '/(test-usr-dump|test-dump|test-stacktrace(-not)?-symbolized|bash)$',
                 'vm' : true,
                 'firmware' : 'auto',
         },

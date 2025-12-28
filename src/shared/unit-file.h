@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "unit-def.h"
 
 typedef enum UnitFileState {
@@ -77,4 +77,4 @@ int unit_file_find_fragment(
                 const char **ret_fragment_path,
                 Set **ret_names);
 
-const char* runlevel_to_target(const char *rl);
+const char* runlevel_to_target(const char *word);

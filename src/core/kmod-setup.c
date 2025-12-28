@@ -112,9 +112,6 @@ int kmod_setup(void) {
                  * we try to configure ::1 on the loopback device. */
                 { "ipv6",                       "/sys/module/ipv6",          false, true,  NULL               },
 
-                /* This should never be a module */
-                { "unix",                       "/proc/net/unix",            true,  true,  NULL               },
-
                 /* virtio_rng would be loaded by udev later, but real entropy might be needed very early */
                 { "virtio_rng",                 NULL,                        false, false, has_virtio_rng     },
 
@@ -151,7 +148,7 @@ int kmod_setup(void) {
         if (have_effective_cap(CAP_SYS_MODULE) <= 0)
                 return 0;
 
-        _cleanup_(sym_kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
         FOREACH_ELEMENT(kmod, kmod_table) {
                 if (kmod->path && access(kmod->path, F_OK) >= 0)
                         continue;

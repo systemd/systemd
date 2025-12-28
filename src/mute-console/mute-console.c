@@ -72,7 +72,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hq", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -167,7 +167,8 @@ static int unmute_pid1(Context *c) {
         assert(c);
 
         if (!c->muted_pid1) {
-                log_debug("Not restoring PID 1 status console output level.");
+                if (c->mute_pid1)
+                        log_debug("Not restoring PID 1 status console output level.");
                 return 0;
         }
 
@@ -185,14 +186,16 @@ static int mute_kernel(Context *c) {
 
         assert(c);
 
-        if (!arg_mute_kernel) {
+        if (!c->mute_kernel) {
                 log_debug("Muting of kernel printk() console output disabled.");
                 c->saved_kernel = -1;
                 return 0;
         }
 
         if (detect_container() > 0) {
-                log_debug("Skipping muting of print() console output, because running in a container.");
+                log_debug("Skipping muting of printk() console output, because running in a container.");
+
+                c->mute_kernel = false;
                 c->saved_kernel = -1;
                 return 0;
         }
@@ -222,7 +225,8 @@ static int unmute_kernel(Context *c) {
         assert(c);
 
         if (c->saved_kernel < 0) {
-                log_debug("Not restoring kernel printk() console output level.");
+                if (c->mute_kernel)
+                        log_debug("Not restoring kernel printk() console output level.");
                 return 0;
         }
 
@@ -244,28 +248,6 @@ static int unmute_kernel(Context *c) {
         return 0;
 }
 
-static void context_done(Context *c) {
-        assert(c);
-
-        (void) unmute_pid1(c);
-        (void) unmute_kernel(c);
-
-        if (c->link) {
-                (void) sd_varlink_set_userdata(c->link, NULL);
-                c->link = sd_varlink_flush_close_unref(c->link);
-        }
-}
-
-static Context* context_free(Context *c) {
-        if (!c)
-                return NULL;
-
-        context_done(c);
-        return mfree(c);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_free);
-
 static void vl_on_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
         assert(link);
 
@@ -273,7 +255,13 @@ static void vl_on_disconnect(sd_varlink_server *server, sd_varlink *link, void *
         if (!c)
                 return;
 
-        context_free(c);
+        (void) unmute_pid1(c);
+        (void) unmute_kernel(c);
+
+        (void) sd_varlink_set_userdata(c->link, NULL);
+        sd_varlink_flush_close_unref(c->link);
+
+        free(c);
 }
 
 static int vl_method_mute(
@@ -286,7 +274,7 @@ static int vl_method_mute(
 
         assert(link);
 
-        _cleanup_(context_freep) Context *nc = new(Context, 1);
+        _cleanup_free_ Context *nc = new(Context, 1);
         if (!nc)
                 return -ENOMEM;
 
@@ -380,7 +368,7 @@ static int run(int argc, char* argv[]) {
         if (!arg_mute_pid1 && !arg_mute_kernel)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not asked to mute anything, refusing.");
 
-        _cleanup_(context_done) Context c = {
+        Context c = {
                 .mute_pid1 = arg_mute_pid1,
                 .mute_kernel = arg_mute_kernel,
                 .saved_kernel = -1,
@@ -398,7 +386,7 @@ static int run(int argc, char* argv[]) {
         RET_GATHER(ret, mute_pid1(&c));
         RET_GATHER(ret, mute_kernel(&c));
 
-        /* Now tell service manager we area ready to go */
+        /* Now tell service manager we are ready to go */
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message =
                 notify_start("READY=1\n"
                              "STATUS=Console status output muted temporarily.",

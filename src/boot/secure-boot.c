@@ -20,7 +20,7 @@ bool secure_boot_enabled(void) {
 }
 
 SecureBootMode secure_boot_mode(void) {
-        bool secure, audit = false, deployed = false, setup = false;
+        bool secure, audit = false, deployed = false, setup = false, moksb = false;
         EFI_STATUS err;
 
         err = efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"SecureBoot", &secure);
@@ -32,8 +32,9 @@ SecureBootMode secure_boot_mode(void) {
         (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"AuditMode", &audit);
         (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"DeployedMode", &deployed);
         (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"SetupMode", &setup);
+        (void) efivar_get_boolean_u8(MAKE_GUID_PTR(SHIM_LOCK), u"MokSBStateRT", &moksb);
 
-        return decode_secure_boot_mode(secure, audit, deployed, setup);
+        return decode_secure_boot_mode(secure, audit, deployed, setup, moksb);
 }
 
 /*
@@ -165,7 +166,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
         }
 
         if (need_custom_mode && !custom_mode_enabled()) {
-                err = set_custom_mode(/* enable = */ true);
+                err = set_custom_mode(/* enable= */ true);
                 if (err != EFI_SUCCESS) {
                         log_error_status(err, "Failed to enable custom mode: %m");
                         goto out_deallocate;

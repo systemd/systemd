@@ -61,9 +61,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-homed',
                 'dbus' : true,
-                'sources' : systemd_homed_sources + systemd_homed_extract_sources,
-                'include_directories' : includes +
-                                        include_directories('.'),
+                'sources' : systemd_homed_sources,
                 'extract' : systemd_homed_extract_sources,
                 'dependencies' : [
                         libcrypt,
@@ -115,6 +113,7 @@ modules += [
                 'sources' : pam_systemd_home_sources,
                 'dependencies' : [
                         libcrypt,
+                        libintl,
                         libpam_misc,
                         libpam,
                         threads,

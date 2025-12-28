@@ -1,5 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "password-quality-util-pwquality.h"
+
+#if HAVE_PWQUALITY
+
+#include <pwquality.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -8,11 +13,8 @@
 #include "errno-util.h"
 #include "log.h"
 #include "password-quality-util.h"
-#include "password-quality-util-pwquality.h"
 #include "string-util.h"
 #include "strv.h"
-
-#if HAVE_PWQUALITY
 
 static void *pwquality_dl = NULL;
 
@@ -24,6 +26,8 @@ DLSYM_PROTOTYPE(pwquality_get_str_value) = NULL;
 DLSYM_PROTOTYPE(pwquality_read_config) = NULL;
 DLSYM_PROTOTYPE(pwquality_set_int_value) = NULL;
 DLSYM_PROTOTYPE(pwquality_strerror) = NULL;
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(pwquality_settings_t*, sym_pwquality_free_settings, pwquality_free_settingsp, NULL);
 
 static void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq) {
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
@@ -59,7 +63,7 @@ static void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq) {
 }
 
 static int pwq_allocate_context(pwquality_settings_t **ret) {
-        _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
+        _cleanup_(pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
         void *auxerror;
         int r;
@@ -86,7 +90,7 @@ static int pwq_allocate_context(pwquality_settings_t **ret) {
 }
 
 int suggest_passwords(void) {
-        _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
+        _cleanup_(pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
         _cleanup_strv_free_erase_ char **suggestions = NULL;
         _cleanup_(erase_and_freep) char *joined = NULL;
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
@@ -119,7 +123,7 @@ int suggest_passwords(void) {
 }
 
 int check_password_quality(const char *password, const char *old, const char *username, char **ret_error) {
-        _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
+        _cleanup_(pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
         void *auxerror;
         int r;

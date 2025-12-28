@@ -667,6 +667,7 @@ static void test_float_match(sd_json_variant *v) {
         assert_se(fabs(1.0 - (DBL_MIN / 2 / sd_json_variant_real(sd_json_variant_by_index(v, 9)))) <= delta);
         assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 10)) &&
                   !sd_json_variant_is_integer(sd_json_variant_by_index(v, 10)));
+        assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 10))));
         assert_se(fabs(1.0 - (-DBL_MIN / 2 / sd_json_variant_real(sd_json_variant_by_index(v, 10)))) <= delta);
 }
 
@@ -733,10 +734,10 @@ TEST(tokenizer) {
         test_tokenizer_one("18446744073709551616", JSON_TOKEN_REAL, (double) 18446744073709551616.0L, JSON_TOKEN_END);
         test_tokenizer_one("-9223372036854775809", JSON_TOKEN_REAL, (double) -9223372036854775809.0L, JSON_TOKEN_END);
         test_tokenizer_one("-1234", JSON_TOKEN_INTEGER, (int64_t) -1234, JSON_TOKEN_END);
-        test_tokenizer_one("3.141", JSON_TOKEN_REAL, (double) 3.141, JSON_TOKEN_END);
-        test_tokenizer_one("0.0", JSON_TOKEN_REAL, (double) 0.0, JSON_TOKEN_END);
-        test_tokenizer_one("7e3", JSON_TOKEN_REAL, (double) 7e3, JSON_TOKEN_END);
-        test_tokenizer_one("-7e-3", JSON_TOKEN_REAL, (double) -7e-3, JSON_TOKEN_END);
+        test_tokenizer_one("3.141", JSON_TOKEN_REAL, 3.141, JSON_TOKEN_END);
+        test_tokenizer_one("0.0", JSON_TOKEN_REAL, 0.0, JSON_TOKEN_END);
+        test_tokenizer_one("7e3", JSON_TOKEN_REAL, 7e3, JSON_TOKEN_END);
+        test_tokenizer_one("-7e-3", JSON_TOKEN_REAL, -7e-3, JSON_TOKEN_END);
         test_tokenizer_one("true", JSON_TOKEN_BOOLEAN, true, JSON_TOKEN_END);
         test_tokenizer_one("false", JSON_TOKEN_BOOLEAN, false, JSON_TOKEN_END);
         test_tokenizer_one("null", JSON_TOKEN_NULL, JSON_TOKEN_END);
@@ -1474,6 +1475,52 @@ TEST(unit_name) {
                                   },
                                   /* flags= */ 0,
                                   &data), EINVAL);
+}
+
+TEST(access_mode) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ASSERT_OK(sd_json_parse("{"
+                                " \"a\" : \"0755\", "
+                                " \"b\" : 448, "
+                                " \"c\" : null, "
+                                " \"d\" : \"01755\" "
+                                "}",
+                                /* flags= */ 0,
+                                &v,
+                                /* reterr_line= */ NULL,
+                                /* reterr_column= */ NULL));
+
+        struct {
+                mode_t a, b, c, d;
+        } mm = { 1, 2, 3, 4 };
+
+        ASSERT_OK(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          { "a", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, voffsetof(mm, a), 0 },
+                                          { "b", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, voffsetof(mm, b), 0 },
+                                          { "c", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, voffsetof(mm, c), 0 },
+                                          { "d", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, voffsetof(mm, d), 0 },
+                                          {},
+                                  },
+                                  /* flags= */ 0,
+                                  &mm));
+
+        ASSERT_EQ(mm.a, (mode_t) 0755);
+        ASSERT_EQ(mm.b, (mode_t) 0700);
+        ASSERT_EQ(mm.c, MODE_INVALID);
+        ASSERT_EQ(mm.d, (mode_t) 01755);
+
+        /* retry with SD_JSON_STRICT, where 'd' should not parse anymore */
+        ASSERT_ERROR(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          { "d", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, voffsetof(mm, d), SD_JSON_STRICT },
+                                          {},
+                                  },
+                                  /* flags= */ SD_JSON_ALLOW_EXTENSIONS,
+                                  &mm), ERANGE);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

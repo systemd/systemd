@@ -166,7 +166,7 @@ int tar_strip_suffixes(const char *name, char **ret) {
         return 0;
 }
 
-int raw_strip_suffixes(const char *p, char **ret) {
+int raw_strip_suffixes(const char *name, char **ret) {
 
         static const char suffixes[] =
                 ".xz\0"
@@ -182,7 +182,7 @@ int raw_strip_suffixes(const char *p, char **ret) {
 
         _cleanup_free_ char *q = NULL;
 
-        q = strdup(p);
+        q = strdup(name);
         if (!q)
                 return -ENOMEM;
 

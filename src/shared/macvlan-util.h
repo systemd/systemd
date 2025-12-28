@@ -3,7 +3,7 @@
 
 #include <linux/if_link.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum MacVlanMode {
         NETDEV_MACVLAN_MODE_PRIVATE = MACVLAN_MODE_PRIVATE,
@@ -16,4 +16,4 @@ typedef enum MacVlanMode {
 } MacVlanMode;
 
 const char* macvlan_mode_to_string(MacVlanMode d) _const_;
-MacVlanMode macvlan_mode_from_string(const char *d) _pure_;
+MacVlanMode macvlan_mode_from_string(const char *s) _pure_;

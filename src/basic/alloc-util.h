@@ -3,8 +3,8 @@
 
 #include <stdlib.h>
 
-#include "forward.h"
-#include "memory-util.h"
+#include "basic-forward.h"
+#include "memory-util.h"        /* IWYU pragma: keep */
 
 #if HAS_FEATURE_MEMORY_SANITIZER
 #  include <sanitizer/msan_interface.h>

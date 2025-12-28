@@ -105,7 +105,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Machine*, machine_free);
 
 void machine_release_unit(Machine *m);
 
-MachineState machine_get_state(Machine *u);
+MachineState machine_get_state(Machine *m);
 
 const char* machine_class_to_string(MachineClass t) _const_;
 MachineClass machine_class_from_string(const char *s) _pure_;

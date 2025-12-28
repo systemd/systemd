@@ -1304,6 +1304,7 @@ bool hidden_or_backup_file(const char *filename) {
          */
 
         return STR_IN_SET(dot + 1,
+                          "ignore",
                           "rpmnew",
                           "rpmsave",
                           "rpmorig",
@@ -1464,11 +1465,11 @@ int path_glob_can_match(const char *pattern, const char *prefix, char **ret) {
                 const char *p, *q;
                 int r, s;
 
-                r = path_find_first_component(&a, /* accept_dot_dot = */ false, &p);
+                r = path_find_first_component(&a, /* accept_dot_dot= */ false, &p);
                 if (r < 0)
                         return r;
 
-                s = path_find_first_component(&b, /* accept_dot_dot = */ false, &q);
+                s = path_find_first_component(&b, /* accept_dot_dot= */ false, &q);
                 if (s < 0)
                         return s;
 
@@ -1518,30 +1519,40 @@ int path_glob_can_match(const char *pattern, const char *prefix, char **ret) {
         return false;
 }
 
-const char* default_PATH(void) {
 #if HAVE_SPLIT_BIN
-        static int split = -1;
+static bool dir_is_split(const char *a, const char *b) {
         int r;
 
-        /* Check whether /usr/sbin is not a symlink and return the appropriate $PATH.
-         * On error fall back to the safe value with both directories as configured… */
-
-        if (split < 0)
-                STRV_FOREACH_PAIR(bin, sbin, STRV_MAKE("/usr/bin", "/usr/sbin",
-                                                       "/usr/local/bin", "/usr/local/sbin")) {
-                        r = inode_same(*bin, *sbin, AT_NO_AUTOMOUNT);
-                        if (r > 0 || r == -ENOENT)
-                                continue;
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to compare \"%s\" and \"%s\", using compat $PATH: %m",
-                                                *bin, *sbin);
-                        split = true;
-                        break;
-                }
-        if (split < 0)
-                split = false;
-        if (split)
-                return DEFAULT_PATH_WITH_SBIN;
+        r = inode_same(a, b, AT_NO_AUTOMOUNT);
+        if (r < 0 && r != -ENOENT) {
+                log_debug_errno(r, "Failed to compare \"%s\" and \"%s\", assuming split directories: %m", a, b);
+                return true;
+        }
+        return r == 0;
+}
 #endif
+
+const char* default_PATH(void) {
+#if HAVE_SPLIT_BIN
+        static const char *default_path = NULL;
+
+        /* Return one of the three sets of paths:
+         * a) split /usr/s?bin, /usr/local/sbin doesn't matter.
+         * b) merged /usr/s?bin, /usr/sbin is a symlink, but /usr/local/sbin is not,
+         * c) fully merged, neither /usr/sbin nor /usr/local/sbin are symlinks,
+         *
+         * On error the fallback to the safe value with both directories as configured is returned.
+         */
+
+        if (default_path)
+                return default_path;
+
+        if (dir_is_split("/usr/sbin", "/usr/bin"))
+                return (default_path = DEFAULT_PATH_WITH_FULL_SBIN);  /* a */
+        if (dir_is_split("/usr/local/sbin", "/usr/local/bin"))
+                return (default_path = DEFAULT_PATH_WITH_LOCAL_SBIN); /* b */
+        return (default_path = DEFAULT_PATH_WITHOUT_SBIN);            /* c */
+#else
         return DEFAULT_PATH_WITHOUT_SBIN;
+#endif
 }

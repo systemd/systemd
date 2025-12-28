@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 #include "list.h"
 
 /*
@@ -90,13 +90,13 @@ void _reset_log_level(int *saved_log_level);
         _LOG_CONTEXT_PUSH_KEY_VALUE(key, value, UNIQ_T(c, UNIQ))
 
 #define _LOG_CONTEXT_PUSH_STRV(strv, c) \
-        _unused_ _cleanup_(log_context_unrefp) LogContext *c = log_context_new_strv(strv, /*owned=*/ false);
+        _unused_ _cleanup_(log_context_unrefp) LogContext *c = log_context_new_strv(strv, /* owned= */ false);
 
 #define LOG_CONTEXT_PUSH_STRV(strv) \
         _LOG_CONTEXT_PUSH_STRV(strv, UNIQ_T(c, UNIQ))
 
 #define _LOG_CONTEXT_PUSH_IOV(input_iovec, n_input_iovec, c) \
-        _unused_ _cleanup_(log_context_unrefp) LogContext *c = log_context_new_iov(input_iovec, n_input_iovec, /*owned=*/ false);
+        _unused_ _cleanup_(log_context_unrefp) LogContext *c = log_context_new_iov(input_iovec, n_input_iovec, /* owned= */ false);
 
 #define LOG_CONTEXT_PUSH_IOV(input_iovec, n_input_iovec) \
         _LOG_CONTEXT_PUSH_IOV(input_iovec, n_input_iovec, UNIQ_T(c, UNIQ))

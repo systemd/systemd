@@ -13,9 +13,11 @@ typedef struct DHCPStaticLease {
         struct in_addr address;
         uint8_t *client_id;
         size_t client_id_size;
+        char *hostname;
 } DHCPStaticLease;
 
 void network_drop_invalid_static_leases(Network *network);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_static_lease_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_static_lease_hwaddr);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_static_lease_hostname);

@@ -401,7 +401,7 @@ static int create_disk(
                         keydev,
                         "keydev",
                         keyfile_timeout_value,
-                        /* canfail = */ keyfile_can_timeout > 0,
+                        /* canfail= */ keyfile_can_timeout > 0,
                         /* readonly= */ true,
                         &unit,
                         &keydev_mount);
@@ -441,7 +441,7 @@ static int create_disk(
                         headerdev,
                         "headerdev",
                         NULL,
-                        /* canfail=  */ false, /* header is always necessary */
+                        /* canfail= */ false, /* header is always necessary */
                         /* readonly= */ false, /* LUKS2 recovery requires rw header access */
                         &unit,
                         &headerdev_mount);
@@ -798,10 +798,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 static int add_crypttab_device(const char *name, const char *device, const char *keyspec, const char *options) {
         _cleanup_free_ char *keyfile = NULL, *keydev = NULL, *headerdev = NULL, *filtered_header = NULL;
         crypto_device *d = NULL;
-        char *uuid;
         int r;
 
-        uuid = startswith(device, "UUID=");
+        const char *uuid = startswith(device, "UUID=");
         if (!uuid)
                 uuid = path_startswith(device, "/dev/disk/by-uuid/");
         if (!uuid)

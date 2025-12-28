@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 #include "strv-fundamental.h"   /* IWYU pragma: export */
 
 char* strv_find(char * const *l, const char *name) _pure_;
@@ -56,7 +56,12 @@ static inline int strv_extend(char ***l, const char *value) {
 int strv_extend_many_internal(char ***l, const char *value, ...);
 #define strv_extend_many(l, ...) strv_extend_many_internal(l, __VA_ARGS__, POINTER_MAX)
 
-int strv_extendf(char ***l, const char *format, ...) _printf_(2,3);
+int strv_extendf_with_size(char ***l, size_t *n, const char *format, ...) _printf_(3,4);
+#define strv_extendf(l, ...) strv_extendf_with_size(l, NULL, __VA_ARGS__)
+
+int strv_extend_joined_with_size_sentinel(char ***l, size_t *n, ...) _sentinel_;
+#define strv_extend_joined_with_size(l, n, ...) strv_extend_joined_with_size_sentinel(l, n, __VA_ARGS__, NULL)
+#define strv_extend_joined(l, ...) strv_extend_joined_with_size(l, NULL, __VA_ARGS__)
 
 int strv_push_with_size(char ***l, size_t *n, char *value);
 static inline int strv_push(char ***l, char *value) {
@@ -150,12 +155,14 @@ static inline void strv_print(char * const *l) {
         strv_print_full(l, NULL);
 }
 
-char* startswith_strv(const char *s, char * const *l);
+char* startswith_strv_internal(const char *s, char * const *l);
+#define startswith_strv(s, l) const_generic(s, startswith_strv_internal(s, l))
 
 #define STARTSWITH_SET(p, ...)                                  \
         startswith_strv(p, STRV_MAKE(__VA_ARGS__))
 
-char* endswith_strv(const char *s, char * const *l);
+char* endswith_strv_internal(const char *s, char * const *l);
+#define endswith_strv(s, l) const_generic(s, endswith_strv_internal(s, l))
 
 #define ENDSWITH_SET(p, ...)                                    \
         endswith_strv(p, STRV_MAKE(__VA_ARGS__))

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* The enum order is used to order unit jobs in the job queue
  * when other criteria (cpu weight, nice level) are identical.
@@ -131,10 +131,11 @@ typedef enum ServiceState {
         SERVICE_START_POST,
         SERVICE_RUNNING,
         SERVICE_EXITED,                 /* Nothing is running anymore, but RemainAfterExit is true hence this is OK */
+        SERVICE_REFRESH_EXTENSIONS,     /* Refreshing extensions for a reload request */
         SERVICE_RELOAD,                 /* Reloading via ExecReload= */
         SERVICE_RELOAD_SIGNAL,          /* Reloading via SIGHUP requested */
         SERVICE_RELOAD_NOTIFY,          /* Waiting for READY=1 after RELOADING=1 notify */
-        SERVICE_REFRESH_EXTENSIONS,     /* Refreshing extensions for a reload request */
+        SERVICE_RELOAD_POST,
         SERVICE_MOUNTING,               /* Performing a live mount into the namespace of the service */
         SERVICE_STOP,                   /* No STOP_PRE state, instead just register multiple STOP executables */
         SERVICE_STOP_WATCHDOG,
@@ -324,7 +325,8 @@ UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 
 const char* freezer_state_to_string(FreezerState i) _const_;
 FreezerState freezer_state_from_string(const char *s) _pure_;
-FreezerState freezer_state_finish(FreezerState i) _const_;
+FreezerState freezer_state_finish(FreezerState state) _const_;
+FreezerState freezer_state_objective(FreezerState state) _const_;
 
 const char* unit_marker_to_string(UnitMarker m) _const_;
 UnitMarker unit_marker_from_string(const char *s) _pure_;

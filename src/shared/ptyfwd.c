@@ -19,6 +19,7 @@
 #include "hostname-setup.h"
 #include "io-util.h"
 #include "log.h"
+#include "pretty-print.h"
 #include "ptyfwd.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -130,9 +131,6 @@ static void pty_forward_disconnect(PTYForward *f) {
                 if (f->saved_stdout)
                         (void) tcsetattr(f->output_fd, TCSANOW, &f->saved_stdout_attr);
 
-                /* STDIN/STDOUT should not be non-blocking normally, so let's reset it */
-                (void) fd_nonblock(f->output_fd, false);
-
                 if (f->last_char_set && f->last_char != '\n') {
                         const char *s;
 
@@ -152,6 +150,9 @@ static void pty_forward_disconnect(PTYForward *f) {
 
                         terminal_reset_ansi_seq(f->output_fd);
                 }
+
+                /* STDIN/STDOUT should not be non-blocking normally, so let's reset it */
+                (void) fd_nonblock(f->output_fd, false);
 
                 if (f->close_output_fd)
                         f->output_fd = safe_close(f->output_fd);
@@ -318,6 +319,9 @@ static int insert_background_color(PTYForward *f, size_t offset) {
         if (!f->background_color)
                 return 0;
 
+        if (!shall_tint_background())
+                return 0;
+
         s = background_color_sequence(f);
         if (!s)
                 return -ENOMEM;
@@ -401,6 +405,9 @@ static int insert_background_fix(PTYForward *f, size_t offset) {
                 return 0;
 
         if (!f->background_color)
+                return 0;
+
+        if (!shall_tint_background())
                 return 0;
 
         if (!is_csi_background_reset_sequence(strempty(f->csi_sequence)))
@@ -605,7 +612,7 @@ static int do_shovel(PTYForward *f) {
                  * shovelling. Hence, possibly send some initial ANSI sequences. But do so only if we are
                  * talking to an actual TTY. */
 
-                if (f->background_color) {
+                if (f->background_color && shall_tint_background()) {
                         /* Erase the first line when we start */
                         f->out_buffer = background_color_sequence(f);
                         if (!f->out_buffer)

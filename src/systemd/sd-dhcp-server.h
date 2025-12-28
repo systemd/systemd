@@ -60,8 +60,9 @@ int sd_dhcp_server_set_boot_server_address(sd_dhcp_server *server, const struct 
 int sd_dhcp_server_set_boot_server_name(sd_dhcp_server *server, const char *name);
 int sd_dhcp_server_set_boot_filename(sd_dhcp_server *server, const char *filename);
 int sd_dhcp_server_set_bind_to_interface(sd_dhcp_server *server, int enabled);
-int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *timezone);
-int sd_dhcp_server_set_router(sd_dhcp_server *server, const struct in_addr *address);
+int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *tz);
+int sd_dhcp_server_set_domain_name(sd_dhcp_server *server, const char *domain_name);
+int sd_dhcp_server_set_router(sd_dhcp_server *server, const struct in_addr *router);
 
 int sd_dhcp_server_set_servers(
                 sd_dhcp_server *server,
@@ -78,7 +79,12 @@ int sd_dhcp_server_set_smtp(sd_dhcp_server *server, const struct in_addr smtp[],
 
 int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v);
 int sd_dhcp_server_add_vendor_option(sd_dhcp_server *server, sd_dhcp_option *v);
-int sd_dhcp_server_set_static_lease(sd_dhcp_server *server, const struct in_addr *address, uint8_t *client_id, size_t client_id_size);
+int sd_dhcp_server_set_static_lease(
+                sd_dhcp_server *server,
+                const struct in_addr *address,
+                uint8_t *client_id,
+                size_t client_id_size,
+                const char *hostname);
 int sd_dhcp_server_set_lease_file(sd_dhcp_server *server, int dir_fd, const char *path);
 
 int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint64_t t);
@@ -91,6 +97,8 @@ int sd_dhcp_server_forcerenew(sd_dhcp_server *server);
 int sd_dhcp_server_is_in_relay_mode(sd_dhcp_server *server);
 int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr* address);
 int sd_dhcp_server_set_relay_agent_information(sd_dhcp_server *server, const char* circuit_id, const char* remote_id);
+
+int sd_dhcp_server_get_lease_address_by_name(sd_dhcp_server *server, const char *name, struct in_addr *ret);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_server, sd_dhcp_server_unref);
 

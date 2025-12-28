@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 bool netif_has_carrier(uint8_t operstate, unsigned flags);
 int net_get_type_string(sd_device *device, uint16_t iftype, char **ret);

@@ -17,7 +17,7 @@ systemd-run --unit=exec1.service --wait -p StandardOutput=tty -p StandardError=t
 test -f /run/exec1
 
 (! systemd-run --unit=exec2.service --wait -p StandardOutput=tty -p StandardError=tty -p Type=exec \
-   -p ExecStopPost='touch /run/exec2' sh -c 'sleep 1; false')
+   -p ExecStopPost='touch /run/exec2' bash -c 'sleep 1; false')
 test -f /run/exec2
 
 cat >/tmp/forking1.sh <<EOF

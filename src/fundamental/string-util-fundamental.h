@@ -8,7 +8,7 @@
 #  include <string.h>
 #endif
 
-#include "assert-fundamental.h"
+#include "assert-fundamental.h"         /* IWYU pragma: keep */
 #include "macro-fundamental.h"
 
 /* What is interpreted as whitespace? */
@@ -55,6 +55,13 @@ static inline int strcmp_ptr(const sd_char *a, const sd_char *b) {
         return CMP(a, b);
 }
 
+static inline int strncmp_ptr(const sd_char *a, const sd_char *b, size_t n) {
+        if (a && b)
+                return strncmp(a, b, n);
+
+        return CMP(a, b);
+}
+
 static inline int strcasecmp_ptr(const sd_char *a, const sd_char *b) {
         if (a && b)
                 return strcasecmp(a, b);
@@ -64,6 +71,10 @@ static inline int strcasecmp_ptr(const sd_char *a, const sd_char *b) {
 
 static inline bool streq_ptr(const sd_char *a, const sd_char *b) {
         return strcmp_ptr(a, b) == 0;
+}
+
+static inline bool strneq_ptr(const sd_char *a, const sd_char *b, size_t n) {
+        return strncmp_ptr(a, b, n) == 0;
 }
 
 static inline bool strcaseeq_ptr(const sd_char *a, const sd_char *b) {
@@ -77,10 +88,17 @@ static inline size_t strlen_ptr(const sd_char *s) {
         return strlen(s);
 }
 
-sd_char *startswith(const sd_char *s, const sd_char *prefix) _pure_;
-sd_char *startswith_no_case(const sd_char *s, const sd_char *prefix) _pure_;
-sd_char *endswith(const sd_char *s, const sd_char *suffix) _pure_;
-sd_char *endswith_no_case(const sd_char *s, const sd_char *suffix) _pure_;
+sd_char *startswith_internal(const sd_char *s, const sd_char *prefix) _pure_;
+#define startswith(s, prefix) const_generic(s, startswith_internal(s, prefix))
+
+sd_char *startswith_no_case_internal(const sd_char *s, const sd_char *prefix) _pure_;
+#define startswith_no_case(s, prefix) const_generic(s, startswith_no_case_internal(s, prefix))
+
+sd_char *endswith_internal(const sd_char *s, const sd_char *suffix) _pure_;
+#define endswith(s, suffix) const_generic(s, endswith_internal(s, suffix))
+
+sd_char *endswith_no_case_internal(const sd_char *s, const sd_char *suffix) _pure_;
+#define endswith_no_case(s, suffix) const_generic(s, endswith_no_case_internal(s, suffix))
 
 static inline bool isempty(const sd_char *a) {
         return !a || a[0] == '\0';

@@ -3,7 +3,7 @@
 
 #include <linux/if_link.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum IPVlanMode {
         NETDEV_IPVLAN_MODE_L2 = IPVLAN_MODE_L2,
@@ -22,7 +22,7 @@ typedef enum IPVlanFlags {
 } IPVlanFlags;
 
 const char* ipvlan_mode_to_string(IPVlanMode d) _const_;
-IPVlanMode ipvlan_mode_from_string(const char *d) _pure_;
+IPVlanMode ipvlan_mode_from_string(const char *s) _pure_;
 
 const char* ipvlan_flags_to_string(IPVlanFlags d) _const_;
-IPVlanFlags ipvlan_flags_from_string(const char *d) _pure_;
+IPVlanFlags ipvlan_flags_from_string(const char *s) _pure_;

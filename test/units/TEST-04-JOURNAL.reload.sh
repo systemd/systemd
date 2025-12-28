@@ -10,8 +10,10 @@ set -o pipefail
 MACHINE_ID="$(</etc/machine-id)"
 SYSLOG_ID="$(systemd-id128 new)"
 
+SERVICE_COUNTER=0
+
 write_to_journal() {
-    local service="test-${RANDOM}.service"
+    local service="test-$((SERVICE_COUNTER++))-${RANDOM}.service"
 
     systemd-run -q --wait -u "$service" bash -c "echo service=$service invocation=\$INVOCATION_ID; journalctl --sync"
     echo "$service"

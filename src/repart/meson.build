@@ -8,7 +8,7 @@ executables += [
         executable_template + {
                 'name' : 'systemd-repart',
                 'public' : true,
-                'sources' : files('repart.c'),
+                'extract' : files('repart.c'),
                 'link_with' : [
                         libshared,
                         libshared_fdisk,
@@ -16,6 +16,7 @@ executables += [
                 'dependencies' : [
                         libblkid_cflags,
                         libfdisk,
+                        libmount_cflags,
                         libopenssl,
                         threads,
                 ],
@@ -23,8 +24,7 @@ executables += [
         executable_template + {
                 'name' : 'systemd-repart.standalone',
                 'public' : true,
-                'sources' : files('repart.c'),
-                'c_args' : '-DSTANDALONE',
+                'objects' : ['systemd-repart'],
                 'link_with' : [
                         libc_wrapper_static,
                         libbasic_static,
@@ -35,6 +35,7 @@ executables += [
                 'dependencies' : [
                         libblkid_cflags,
                         libfdisk,
+                        libmount_cflags,
                         libopenssl,
                         threads,
                 ],

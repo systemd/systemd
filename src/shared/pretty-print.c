@@ -325,7 +325,7 @@ static int cat_file_by_path(const char *p, bool *newline, CatFlags flags) {
 
         assert(p);
 
-        r = conf_file_new(p, /* root = */ NULL, CHASE_MUST_BE_REGULAR, &c);
+        r = conf_file_new(p, /* root= */ NULL, CHASE_MUST_BE_REGULAR, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to chase '%s': %m", p);
 

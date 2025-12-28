@@ -163,6 +163,7 @@ systemd-inhibit.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="
 systemd-inhibit.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="--why="]
 systemd-inhibit.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="--mode="]
 systemd-inhibit.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="--list"]
+systemd-logind.service.xml ./refsect1[title="Signal"]/
 systemd-notify.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="--ready"]
 systemd-notify.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="--pid="]
 systemd-notify.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="--status="]

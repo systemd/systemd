@@ -2,7 +2,7 @@
 #pragma once
 
 #include "conf-parser-forward.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 int fw_nftables_add_masquerade(
                 sd_netlink *nfnl,

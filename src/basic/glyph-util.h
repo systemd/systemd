@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 typedef enum Glyph {
         GLYPH_SPACE,
@@ -50,10 +50,12 @@ typedef enum Glyph {
         GLYPH_COMPUTER_DISK,
         GLYPH_WORLD,
         GLYPH_RED_CIRCLE,
+        GLYPH_ORANGE_CIRCLE,
         GLYPH_YELLOW_CIRCLE,
         GLYPH_BLUE_CIRCLE,
         GLYPH_GREEN_CIRCLE,
         GLYPH_SUPERHERO,
+        GLYPH_PUMPKIN,
         GLYPH_IDCARD,
         GLYPH_HOME,
         GLYPH_ROCKET,

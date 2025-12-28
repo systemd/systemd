@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 #if HAVE_APPARMOR
 #  include <sys/apparmor.h>
@@ -17,14 +17,16 @@ extern DLSYM_PROTOTYPE(aa_policy_cache_new);
 extern DLSYM_PROTOTYPE(aa_policy_cache_replace_all);
 extern DLSYM_PROTOTYPE(aa_policy_cache_unref);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(aa_features*, sym_aa_features_unref, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(aa_policy_cache*, sym_aa_policy_cache_unref, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(aa_features*, sym_aa_features_unref, aa_features_unrefp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(aa_policy_cache*, sym_aa_policy_cache_unref, aa_policy_cache_unrefp, NULL);
 
 int dlopen_libapparmor(void);
+bool mac_apparmor_use(void);
 #else
 static inline int dlopen_libapparmor(void) {
         return -EOPNOTSUPP;
 }
+static inline bool mac_apparmor_use(void) {
+        return false;
+}
 #endif
-
-bool mac_apparmor_use(void);

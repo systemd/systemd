@@ -365,7 +365,7 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
         assert(sd_json_variant_is_object(json));
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "version",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(DescribeParams, v.version),     0 },
+                { "version",       SD_JSON_VARIANT_STRING,  json_dispatch_version,    offsetof(DescribeParams, v.version),     0 },
                 { "newest",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, newest),        0 },
                 { "available",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, available),     0 },
                 { "installed",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, installed),     0 },
@@ -655,7 +655,7 @@ static int check_describe_finished(sd_bus_message *reply, void *userdata, sd_bus
         _cleanup_(version_done) Version v = {};
         _cleanup_free_ char *update = NULL;
         const sd_bus_error *e;
-	sd_bus_error error = {};
+        sd_bus_error error = {};
         const char *lnk = NULL;
         char *current;
         int r;

@@ -485,7 +485,7 @@ void install_changes_dump(
 
                         assert(verb);
 
-                        r = install_change_dump_error(i, &err_message, /* ret_bus_error = */ NULL);
+                        r = install_change_dump_error(i, &err_message, /* ret_bus_error= */ NULL);
                         if (r == -ENOMEM)
                                 return (void) log_oom();
                         if (r < 0)
@@ -1988,7 +1988,7 @@ static int install_info_symlink_alias(
                 }
 
                 bool broken;
-                r = chase(alias_path, lp->root_dir, CHASE_NONEXISTENT, /* ret_path = */ NULL, /* ret_fd = */ NULL);
+                r = chase(alias_path, lp->root_dir, CHASE_NONEXISTENT, /* ret_path= */ NULL, /* ret_fd= */ NULL);
                 if (r < 0 && r != -ENOENT) {
                         RET_GATHER(ret, r);
                         continue;
@@ -2090,7 +2090,7 @@ static int install_info_symlink_wants(
                 if (!path)
                         return -ENOMEM;
 
-                q = create_symlink(lp, info->path, path, /* force = */ true, changes, n_changes);
+                q = create_symlink(lp, info->path, path, /* force= */ true, changes, n_changes);
                 if (q != 0 && r >= 0)
                         r = q;
 
@@ -2519,7 +2519,7 @@ int unit_file_link(
                 if (!full)
                         return -ENOMEM;
 
-                r = verify_regular_at(AT_FDCWD, full, /* follow = */ false);
+                r = verify_regular_at(AT_FDCWD, full, /* follow= */ false);
                 if (r < 0)
                         return install_changes_add(changes, n_changes, r, *file, NULL);
 

@@ -1304,7 +1304,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         error,
                         uid,
                         leader_pid,
-                        /* leader_pidfd = */ -EBADF,
+                        /* leader_pidfd= */ -EBADF,
                         service,
                         type,
                         class,
@@ -1316,7 +1316,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         remote,
                         remote_user,
                         remote_host,
-                        /* flags = */ 0);
+                        /* flags= */ 0);
 }
 
 static int method_create_session_pidfd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1351,7 +1351,7 @@ static int method_create_session_pidfd(sd_bus_message *message, void *userdata, 
                         message,
                         error,
                         uid,
-                        /* leader_pid = */ 0,
+                        /* leader_pid= */ 0,
                         leader_fd,
                         service,
                         type,
@@ -1668,6 +1668,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                         return r;
 
                 if (manager_add_user_by_uid(m, uid, &u) >= 0) {
+                        (void) user_send_changed(u, "Linger");
                         r = user_start(u);
                         if (r < 0) {
                                 user_add_to_gc_queue(u);
@@ -1685,6 +1686,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                         /* Make sure that disabling lingering will terminate the user tracking if no sessions pin it. */
                         u->gc_mode = USER_GC_BY_PIN;
                         user_add_to_gc_queue(u);
+                        (void) user_send_changed(u, "Linger");
                 }
         }
 
@@ -1944,6 +1946,11 @@ static int send_prepare_for(Manager *m, const HandleActionData *a, bool _active)
 
         assert(m);
         assert(a);
+
+        /* Only sleep/shutdown actions emit a signal */
+        if (a->inhibit_what < 0)
+                return 0;
+
         assert(IN_SET(a->inhibit_what, INHIBIT_SHUTDOWN, INHIBIT_SLEEP));
 
         /* We need to send both old and new signal for backward compatibility. The newer one allows clients
@@ -2108,9 +2115,9 @@ static int delay_shutdown_or_sleep(
 
         r = event_reset_time_relative(
                         m->event, &m->inhibit_timeout_source,
-                        CLOCK_MONOTONIC, m->inhibit_delay_max, /* accuracy = */ 0,
+                        CLOCK_MONOTONIC, m->inhibit_delay_max, /* accuracy= */ 0,
                         manager_inhibit_timeout_handler, m,
-                        /* priority = */ 0, "inhibit-timeout", /* force_reset = */ true);
+                        /* priority= */ 0, "inhibit-timeout", /* force_reset= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset timer event source for inhibit timeout: %m");
 
@@ -2161,6 +2168,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
 
         delayed =
                 m->inhibit_delay_max > 0 &&
+                a->inhibit_what >= 0 &&
                 manager_is_inhibited(m, a->inhibit_what, NULL, MANAGER_IS_INHIBITED_CHECK_DELAY, UID_INVALID, NULL);
 
         if (delayed)
@@ -2530,7 +2538,7 @@ static int method_sleep(sd_bus_message *message, void *userdata, sd_bus_error *e
         return method_do_shutdown_or_sleep(
                         m, message,
                         HANDLE_SLEEP,
-                        /* with_flags = */ true,
+                        /* with_flags= */ true,
                         error);
 }
 
@@ -2812,15 +2820,13 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         if (elapse == USEC_INFINITY) {
                 if (m->maintenance_time) {
                         r = calendar_spec_next_usec(m->maintenance_time, now(CLOCK_REALTIME), &elapse);
-                        if (r < 0) {
-                                if (r == -ENOENT)
-                                        return sd_bus_error_set(error,
-                                                                BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED,
-                                                                "No upcoming maintenance window scheduled");
-
+                        if (r == -ENOENT)
+                                return sd_bus_error_set(error,
+                                                        BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED,
+                                                        "No upcoming maintenance window scheduled");
+                        if (r < 0)
                                 return sd_bus_error_set_errnof(error, r,
                                                                "Failed to determine next maintenance window: %m");
-                        }
 
                         log_info("Scheduled %s at maintenance window %s", type, FORMAT_TIMESTAMP(elapse));
                 } else
@@ -4427,7 +4433,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
 
                                         LIST_FOREACH(sessions_by_user, s, user->sessions)
                                                 /* Don't propagate user service failures to the client */
-                                                session_jobs_reply(s, id, unit, /* result = */ NULL);
+                                                session_jobs_reply(s, id, unit, /* result= */ NULL);
 
                                         user_save(user);
                                         break;
@@ -4660,7 +4666,7 @@ int manager_start_scope(
                                         manager,
                                         scope,
                                         pidref,
-                                        /* allow_pidfd = */ false,
+                                        /* allow_pidfd= */ false,
                                         slice,
                                         description,
                                         requires,

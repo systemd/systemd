@@ -446,9 +446,9 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *def = NULL;
         r = sd_json_buildo(
                         &def,
-                        SD_JSON_BUILD_PAIR("owner", SD_JSON_BUILD_UNSIGNED(info->owner)),
-                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(info->name)),
-                        SD_JSON_BUILD_PAIR("userns", SD_JSON_BUILD_UNSIGNED(info->userns_inode)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("owner", info->owner),
+                        SD_JSON_BUILD_PAIR_STRING("name", info->name),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("userns", info->userns_inode),
                         SD_JSON_BUILD_PAIR_CONDITION(info->size > 0, "size", SD_JSON_BUILD_UNSIGNED(info->size)),
                         SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->start_uid), "start", SD_JSON_BUILD_UNSIGNED(info->start_uid)),
                         SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(info->target_uid), "target", SD_JSON_BUILD_UNSIGNED(info->target_uid)),

@@ -46,6 +46,7 @@
 #include "password-quality-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pidref.h"
 #include "pkcs11-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
@@ -107,8 +108,8 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static bool arg_and_resize = false;
 static bool arg_and_change_password = false;
 static ExportFormat arg_export_format = EXPORT_FORMAT_FULL;
-static uint64_t arg_capability_bounding_set = UINT64_MAX;
-static uint64_t arg_capability_ambient_set = UINT64_MAX;
+static uint64_t arg_capability_bounding_set = CAP_MASK_UNSET;
+static uint64_t arg_capability_ambient_set = CAP_MASK_UNSET;
 static char *arg_blob_dir = NULL;
 static bool arg_blob_clear = false;
 static Hashmap *arg_blob_files = NULL;
@@ -604,7 +605,7 @@ static int acquire_passed_secrets(const char *user_name, UserRecord **ret) {
         r = acquire_existing_password(
                         user_name,
                         secret,
-                        /* emphasize_current_password = */ false,
+                        /* emphasize_current_password= */ false,
                         ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_NO_TTY | ASK_PASSWORD_NO_AGENT);
         if (r < 0)
                 return r;
@@ -1240,7 +1241,7 @@ static int acquire_new_password(
         if (r > 0) {
                 /* As above, this is not for use, just for testing */
 
-                r = user_record_set_password(hr, STRV_MAKE(envpw), /* prepend = */ true);
+                r = user_record_set_password(hr, STRV_MAKE(envpw), /* prepend= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to store password: %m");
 
@@ -1304,7 +1305,7 @@ static int acquire_new_password(
                                         return log_oom();
                         }
 
-                        r = user_record_set_password(hr, first, /* prepend = */ true);
+                        r = user_record_set_password(hr, first, /* prepend= */ true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to store password: %m");
 
@@ -1462,11 +1463,11 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
                         _cleanup_(erase_and_freep) char *new_password = NULL;
 
                         /* No regular (i.e. non-PKCS#11) hashed passwords set in the record, let's fix that. */
-                        r = acquire_new_password(hr->user_name, hr, /* suggest = */ true, &new_password);
+                        r = acquire_new_password(hr->user_name, hr, /* suggest= */ true, &new_password);
                         if (r < 0)
                                 return r;
 
-                        r = user_record_make_hashed_password(hr, STRV_MAKE(new_password), /* extend = */ false);
+                        r = user_record_make_hashed_password(hr, STRV_MAKE(new_password), /* extend= */ false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to hash password: %m");
                 } else {
@@ -1538,11 +1539,11 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
                                 if (show_enforce_password_policy_hint)
                                         log_info("(Use --enforce-password-policy=no to turn off password quality checks for this account.)");
 
-                                r = acquire_new_password(hr->user_name, hr, /* suggest = */ false, &new_password);
+                                r = acquire_new_password(hr->user_name, hr, /* suggest= */ false, &new_password);
                                 if (r < 0)
                                         return r;
 
-                                r = user_record_make_hashed_password(hr, STRV_MAKE(new_password), /* extend = */ false);
+                                r = user_record_make_hashed_password(hr, STRV_MAKE(new_password), /* extend= */ false);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to hash passwords: %m");
                         } else {
@@ -2116,7 +2117,7 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
         if (!new_secret)
                 return log_oom();
 
-        r = acquire_new_password(username, new_secret, /* suggest = */ true, NULL);
+        r = acquire_new_password(username, new_secret, /* suggest= */ true, NULL);
         if (r < 0)
                 return r;
 
@@ -2146,7 +2147,7 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
 
                                 log_error_errno(r, "%s", bus_error_message(&error, r));
 
-                                r = acquire_new_password(username, new_secret, /* suggest = */ false, NULL);
+                                r = acquire_new_password(username, new_secret, /* suggest= */ false, NULL);
 
                         } else if (sd_bus_error_has_name(&error, BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN))
 
@@ -2341,7 +2342,6 @@ static int with_home(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **cmdline  = NULL;
         const char *home;
         int r, ret;
-        pid_t pid;
 
         r = acquire_bus(&bus);
         if (r < 0)
@@ -2378,7 +2378,7 @@ static int with_home(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "b", /* please_suspend = */ getenv_bool("SYSTEMD_PLEASE_SUSPEND_HOME") > 0);
+                r = sd_bus_message_append(m, "b", /* please_suspend= */ getenv_bool("SYSTEMD_PLEASE_SUSPEND_HOME") > 0);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2414,7 +2414,11 @@ static int with_home(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = safe_fork("(with)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REOPEN_LOG, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(with)",
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REOPEN_LOG,
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -2428,7 +2432,7 @@ static int with_home(int argc, char *argv[], void *userdata) {
                 _exit(255);
         }
 
-        ret = wait_for_terminate_and_check(cmdline[0], pid, WAIT_LOG_ABNORMAL);
+        ret = pidref_wait_for_terminate_and_check(cmdline[0], &pidref, WAIT_LOG_ABNORMAL);
 
         /* Close the fd that pings the home now. */
         acquired_fd = safe_close(acquired_fd);
@@ -2784,7 +2788,7 @@ static int prompt_groups(const char *username, char ***ret_groups) {
                         continue;
                 }
 
-                r = groupdb_by_name(s, /* match= */ NULL, USERDB_SUPPRESS_SHADOW|USERDB_EXCLUDE_DYNAMIC_USER, /*ret=*/ NULL);
+                r = groupdb_by_name(s, /* match= */ NULL, USERDB_SUPPRESS_SHADOW|USERDB_EXCLUDE_DYNAMIC_USER, /* ret= */ NULL);
                 if (r == -ESRCH) {
                         log_notice("Specified auxiliary group does not exist, try again: %s", s);
                         continue;
@@ -2981,7 +2985,7 @@ static int verb_firstboot(int argc, char *argv[], void *userdata) {
          * tool. */
 
         bool enabled;
-        r = proc_cmdline_get_bool("systemd.firstboot", /* flags = */ 0, &enabled);
+        r = proc_cmdline_get_bool("systemd.firstboot", /* flags= */ 0, &enabled);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
         if (r > 0 && !enabled) {
@@ -3805,8 +3809,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = sd_json_variant_set_fieldbo(
                                         &arg_identity_extra_rlimits, t,
-                                        SD_JSON_BUILD_PAIR("cur", SD_JSON_BUILD_VARIANT(jcur)),
-                                        SD_JSON_BUILD_PAIR("max", SD_JSON_BUILD_VARIANT(jmax)));
+                                        SD_JSON_BUILD_PAIR_VARIANT("cur", jcur),
+                                        SD_JSON_BUILD_PAIR_VARIANT("max", jmax));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", rlimit_to_string(l));
 
@@ -3887,7 +3891,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SETENV: {
-                        _cleanup_free_ char **l = NULL;
+                        _cleanup_strv_free_ char **l = NULL;
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ne = NULL;
                         sd_json_variant *e;
 
@@ -4273,7 +4277,7 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to parse SSH authorized keys list: %m");
                         }
 
-                        r = strv_extend_strv_consume(&l, TAKE_PTR(add), /* filter_duplicates = */ true);
+                        r = strv_extend_strv_consume(&l, TAKE_PTR(add), /* filter_duplicates= */ true);
                         if (r < 0)
                                 return log_oom();
 
@@ -4784,9 +4788,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CAPABILITY_AMBIENT_SET:
                 case ARG_CAPABILITY_BOUNDING_SET: {
                         _cleanup_strv_free_ char **l = NULL;
-                        bool subtract = false;
-                        uint64_t parsed, *which, updated;
-                        const char *p, *field;
+                        uint64_t *which;
+                        const char *field;
 
                         if (c == ARG_CAPABILITY_AMBIENT_SET) {
                                 which = &arg_capability_ambient_set;
@@ -4797,42 +4800,27 @@ static int parse_argv(int argc, char *argv[]) {
                                 field = "capabilityBoundingSet";
                         }
 
-                        if (isempty(optarg)) {
+                        r = parse_capability_set(optarg, CAP_MASK_UNSET, which);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capabilities in capability string '%s'.", optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse capability string '%s': %m", optarg);
+
+                        if (*which == CAP_MASK_UNSET) {
                                 r = drop_from_identity(field);
                                 if (r < 0)
                                         return r;
 
-                                *which = UINT64_MAX;
                                 break;
                         }
 
-                        p = optarg;
-                        if (*p == '~') {
-                                subtract = true;
-                                p++;
-                        }
-
-                        r = capability_set_from_string(p, &parsed);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capabilities in capability string '%s'.", p);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse capability string '%s': %m", p);
-
-                        if (*which == UINT64_MAX)
-                                updated = subtract ? all_capabilities() & ~parsed : parsed;
-                        else if (subtract)
-                                updated = *which & ~parsed;
-                        else
-                                updated = *which | parsed;
-
-                        if (capability_set_to_strv(updated, &l) < 0)
+                        if (capability_set_to_strv(*which, &l) < 0)
                                 return log_oom();
 
                         r = sd_json_variant_set_field_strv(match_identity ?: &arg_identity_extra, field, l);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
-                        *which = updated;
                         break;
                 }
 

@@ -28,6 +28,26 @@
 #include "user-util.h"
 #include "utf8.h"
 
+#define DEFINE_STRERROR_ACCOUNT(type)                                   \
+        const char* strerror_##type(                                    \
+                        int errnum,                                     \
+                        char *buf,                                      \
+                        size_t buflen) {                                \
+                                                                        \
+                errnum = ABS(errnum);                                   \
+                switch (errnum) {                                       \
+                case ESRCH:                                             \
+                        return "Unknown " STRINGIFY(type);              \
+                case ENOEXEC:                                           \
+                        return "Not a system " STRINGIFY(type);         \
+                default:                                                \
+                        return strerror_r(errnum, buf, buflen);         \
+                }                                                       \
+        }
+
+DEFINE_STRERROR_ACCOUNT(user);
+DEFINE_STRERROR_ACCOUNT(group);
+
 bool uid_is_valid(uid_t uid) {
 
         /* Also see POSIX IEEE Std 1003.1-2008, 2016 Edition, 3.436. */
@@ -831,7 +851,7 @@ char* mangle_gecos(const char *d) {
         char *mangled;
 
         /* Makes sure the provided string becomes valid as a GEGOS field, by dropping bad chars. glibc's
-         * putwent() only changes \n and : to spaces. We do more: replace all CC too, and remove invalid
+         * putpwent() only changes \n and : to spaces. We do more: replace all CC too, and remove invalid
          * UTF-8 */
 
         mangled = strdup(d);
@@ -1090,7 +1110,7 @@ int getpwnam_malloc(const char *name, struct passwd **ret) {
                         return -ENOMEM;
 
                 struct passwd *pw = NULL;
-                r = getpwnam_r(name, buf, (char*) buf + ALIGN(sizeof(struct passwd)), (size_t) bufsize, &pw);
+                r = getpwnam_r(name, buf, (char*) buf + ALIGN(sizeof(struct passwd)), bufsize, &pw);
                 if (r == 0) {
                         if (pw) {
                                 if (ret)
@@ -1131,7 +1151,7 @@ int getpwuid_malloc(uid_t uid, struct passwd **ret) {
                         return -ENOMEM;
 
                 struct passwd *pw = NULL;
-                r = getpwuid_r(uid, buf, (char*) buf + ALIGN(sizeof(struct passwd)), (size_t) bufsize, &pw);
+                r = getpwuid_r(uid, buf, (char*) buf + ALIGN(sizeof(struct passwd)), bufsize, &pw);
                 if (r == 0) {
                         if (pw) {
                                 if (ret)
@@ -1175,7 +1195,7 @@ int getgrnam_malloc(const char *name, struct group **ret) {
                         return -ENOMEM;
 
                 struct group *gr = NULL;
-                r = getgrnam_r(name, buf, (char*) buf + ALIGN(sizeof(struct group)), (size_t) bufsize, &gr);
+                r = getgrnam_r(name, buf, (char*) buf + ALIGN(sizeof(struct group)), bufsize, &gr);
                 if (r == 0) {
                         if (gr) {
                                 if (ret)
@@ -1214,7 +1234,7 @@ int getgrgid_malloc(gid_t gid, struct group **ret) {
                         return -ENOMEM;
 
                 struct group *gr = NULL;
-                r = getgrgid_r(gid, buf, (char*) buf + ALIGN(sizeof(struct group)), (size_t) bufsize, &gr);
+                r = getgrgid_r(gid, buf, (char*) buf + ALIGN(sizeof(struct group)), bufsize, &gr);
                 if (r == 0) {
                         if (gr) {
                                 if (ret)

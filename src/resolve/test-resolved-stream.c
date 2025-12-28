@@ -13,14 +13,15 @@
 
 #include "sd-event.h"
 
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"

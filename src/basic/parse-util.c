@@ -7,6 +7,8 @@
 #include <sys/socket.h>
 
 #include "alloc-util.h"
+#include "capability-list.h"
+#include "capability-util.h"
 #include "errno-list.h"
 #include "extract-word.h"
 #include "locale-util.h"
@@ -643,7 +645,7 @@ int safe_atod(const char *s, double *ret_d) {
                 return -EINVAL;
 
         if (ret_d)
-                *ret_d = (double) d;
+                *ret_d = d;
 
         return 0;
 }
@@ -683,10 +685,10 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
         return 0;
 }
 
-int parse_nice(const char *p, int *ret) {
+int parse_nice(const char *s, int *ret) {
         int n, r;
 
-        r = safe_atoi(p, &n);
+        r = safe_atoi(s, &n);
         if (r < 0)
                 return r;
 
@@ -708,7 +710,7 @@ int parse_ip_port(const char *s, uint16_t *ret) {
         if (l == 0)
                 return -EINVAL;
 
-        *ret = (uint16_t) l;
+        *ret = l;
 
         return 0;
 }
@@ -808,4 +810,40 @@ bool nft_identifier_valid(const char *id) {
                 return false;
 
         return in_charset(id + 1, ALPHANUMERICAL "/\\_.");
+}
+
+int parse_capability_set(const char *s, uint64_t initial, uint64_t *current) {
+        int r;
+
+        assert(s);
+        assert(current);
+
+        if (isempty(s)) {
+                *current = CAP_MASK_UNSET;
+                return 1;
+        }
+
+        bool invert = false;
+        if (s[0] == '~') {
+                invert = true;
+                s++;
+        }
+
+        uint64_t parsed;
+        r = capability_set_from_string(s, &parsed);
+        if (r < 0)
+                return r;
+
+        if (parsed == 0 || *current == initial)
+                /* "~" or uninitialized data -> replace */
+                *current = invert ? all_capabilities() & ~parsed : parsed;
+        else {
+                /* previous data -> merge */
+                if (invert)
+                        *current &= ~parsed;
+                else
+                        *current |= parsed;
+        }
+
+        return r;
 }

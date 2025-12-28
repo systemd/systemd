@@ -130,11 +130,11 @@
 
     <itemizedlist>
       <listitem><para>Only disk image based containers are supported (i.e. <option>--image=</option>).
-      Directory based ones (i.e. <option>--directory=</option>) are not supported.</para></listitem>
+      Directory based ones (i.e. <option>--directory=</option>) are only supported if owned by the "foreign"
+      UID range.</para></listitem>
 
-      <listitem><para>Machine registration via <option>--machine=</option> is not supported.</para></listitem>
-
-      <listitem><para>Only <option>--private-network</option> and <option>--network-veth</option> networking modes are supported.</para></listitem>
+      <listitem><para>Only <option>--private-network</option> and <option>--network-veth</option> networking
+      modes are supported.</para></listitem>
     </itemizedlist>
 
     <para>When running in unprivileged mode, some needed functionality is provided via
@@ -327,14 +327,12 @@
           partition of type
           0fc63daf-8483-4772-8e79-3d69d8477de4.</para></listitem>
 
-          <listitem><para>A GUID partition table (GPT) with a marked
-          root partition which is mounted as the root directory of the
-          container. Optionally, GPT images may contain a home and/or
-          a server data partition which are mounted to the appropriate
-          places in the container. All these partitions must be
-          identified by the partition types defined by the <ulink
-          url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
-          Partitions Specification</ulink>.</para></listitem>
+          <listitem><para>A GUID partition table (GPT) with a marked root partition which is mounted as the
+          root directory of the container. Optionally, GPT images may contain a home and/or a server data
+          partition which are mounted to the appropriate places in the container. All these partitions must
+          be identified by the partition types defined by the <ulink
+          url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2
+          Discoverable Partitions Specification</ulink>.</para></listitem>
 
           <listitem><para>No partition table, and a single file system spanning the whole image.</para></listitem>
         </itemizedlist>
@@ -626,11 +624,10 @@
         provides protection against accidental destructive operations only.</para>
 
         <para>Note that if credentials are used in combination with a non-root <option>--user=</option>
-        (e.g.: <option>--set-credential=</option>, <option>--load-credential=</option> or
-        <option>--import-credential=</option>), then <option>--no-new-privileges=yes</option> must be used, and
-        <option>--boot</option> or <option>--as-pid2</option> must not be used, as the credentials would
-        otherwise be unreadable by the container due to missing privileges after switching to the specified
-        user.</para></listitem>
+        (e.g.: <option>--set-credential=</option> or <option>--load-credential=</option>), then
+        <option>--no-new-privileges=yes</option> must be used, and <option>--boot</option> or
+        <option>--as-pid2</option> must not be used, as the credentials would otherwise be unreadable
+        by the container due to missing privileges after switching to the specified user.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -924,7 +921,7 @@
 
         <para><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <option>--shift</option> switch may be used to shift UID/GID ownership from or to the 0, foreign or
-        specific container UID/GID base outside of any <command>systemd-nspawn</command></para> invocation.
+        specific container UID/GID base outside of any <command>systemd-nspawn</command> invocation.</para>
 
         <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
@@ -1601,7 +1598,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <listitem><para>Binds the home directory of the specified user on the host into the container. Takes
         the name of an existing user on the host as argument. May be used multiple times to bind multiple
-        users into the container. This does three things:</para>
+        users into the container. This does two things:</para>
 
         <orderedlist>
           <listitem><para>The user's home directory is bind mounted from the host into
@@ -1616,7 +1613,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
           user/group databases.</para></listitem>
         </orderedlist>
 
-        <para>The combination of the three operations above ensures that it is possible to log into the
+        <para>The combination of the two operations above ensures that it is possible to log into the
         container using the same account information as on the host. The user is only mapped transiently,
         while the container is running, and the mapping itself does not result in persistent changes to the
         container (except maybe for log messages generated at login time, and similar). Note that in
@@ -1665,6 +1662,19 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <para>This operation is only supported in combination with <option>--bind-user=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--bind-user-group=<replaceable>NAME</replaceable></option></term>
+
+        <listitem><para>When used with <option>--bind-user=</option>, includes the specified group as an
+        auxiliary group in the user records of users bound into the container. Takes a group name.</para>
+
+        <para>Note: This will not check whether the specified groups exist in the container.</para>
+
+        <para>This operation is only supported in combination with <option>--bind-user=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>

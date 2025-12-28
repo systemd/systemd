@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef int (*bus_property_set_t)(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *reterr_error, void *userdata);
 

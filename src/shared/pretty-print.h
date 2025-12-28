@@ -6,7 +6,7 @@
 
 #include "ansi-color.h"
 #include "fileio.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "glyph-util.h"
 
 #define CYLON_BUFFER_EXTRA (2*STRLEN(ANSI_RED) + STRLEN(ANSI_HIGHLIGHT_RED) + 2*STRLEN(ANSI_NORMAL))

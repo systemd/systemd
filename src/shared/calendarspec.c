@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/mman.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -11,7 +10,6 @@
 #include "log.h"
 #include "memstream-util.h"
 #include "parse-util.h"
-#include "process-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -328,7 +326,7 @@ static void _format_chain(FILE *f, int space, const CalendarComponent *c, bool s
 }
 
 static void format_chain(FILE *f, int space, const CalendarComponent *c, bool usec) {
-        _format_chain(f, space, c, /* start = */ true, usec);
+        _format_chain(f, space, c, /* start= */ true, usec);
 }
 
 int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
@@ -370,9 +368,10 @@ int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
 
                 tzset();
 
-                if (!isempty(tzname[c->dst])) {
+                const char *z = get_tzname(c->dst);
+                if (z) {
                         fputc(' ', f);
-                        fputs(tzname[c->dst], f);
+                        fputs(z, f);
                 }
         }
 
@@ -897,10 +896,11 @@ int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
 
                 /* Check if the local timezone was specified? */
                 for (j = 0; j <= 1; j++) {
-                        if (isempty(tzname[j]))
+                        const char *z = get_tzname(j);
+                        if (!z)
                                 continue;
 
-                        e = endswith_no_case(p, tzname[j]);
+                        e = endswith_no_case(p, z);
                         if (!e)
                                 continue;
                         if (e == p)
@@ -1436,7 +1436,7 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *ret_n
 
         SAVE_TIMEZONE;
 
-        r = RET_NERRNO(setenv("TZ", spec->timezone, /* overwrite = */ true));
+        r = RET_NERRNO(setenv("TZ", spec->timezone, /* overwrite= */ true));
         if (r < 0)
                 return r;
 

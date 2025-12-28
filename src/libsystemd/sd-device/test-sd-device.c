@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "libmount-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -54,7 +55,7 @@ TEST(mdio_bus) {
                         { sd_device_get_sysname,          "Qualcomm Atheros AR8031/AR8033" },
                 };
 
-                ASSERT_OK_ERRNO(setenv("SYSTEMD_DEVICE_VERIFY_SYSFS", "0", /* overwrite = */ false));
+                ASSERT_OK_ERRNO(setenv("SYSTEMD_DEVICE_VERIFY_SYSFS", "0", /* overwrite= */ false));
                 ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", "/sys/bus/", "tmpfs", 0, NULL));
                 r = mkdir_p(syspath, 0755);
                 if (ERRNO_IS_NEG_PRIVILEGE(r)) {
@@ -833,8 +834,14 @@ TEST(devname_from_devnum) {
 }
 
 static int intro(void) {
+        int r;
+
         if (path_is_mount_point("/sys") <= 0)
-                return log_tests_skipped("/sys is not mounted");
+                return log_tests_skipped("/sys/ is not mounted");
+
+        r = dlopen_libmount();
+        if (r < 0)
+                return log_tests_skipped("libmount not available.");
 
         return EXIT_SUCCESS;
 }

@@ -18,7 +18,7 @@ static int property_get_where(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Mount *m = ASSERT_PTR(userdata);
 
@@ -39,7 +39,7 @@ static int property_get_what(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         _cleanup_free_ char *escaped = NULL;
         Mount *m = ASSERT_PTR(userdata);
@@ -61,7 +61,7 @@ static int property_get_options(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         _cleanup_free_ char *escaped = NULL;
         Mount *m = ASSERT_PTR(userdata);
@@ -109,7 +109,7 @@ static int bus_mount_set_transient_property(
                 const char *name,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Unit *u = UNIT(m);
         int r;
@@ -121,7 +121,7 @@ static int bus_mount_set_transient_property(
         flags |= UNIT_PRIVATE;
 
         if (streq(name, "Where"))
-                return bus_set_transient_path(u, name, &m->where, message, flags, error);
+                return bus_set_transient_path(u, name, &m->where, message, flags, reterr_error);
 
         if (streq(name, "What")) {
                 _cleanup_free_ char *path = NULL;
@@ -138,7 +138,7 @@ static int bus_mount_set_transient_property(
 
                         /* path_is_valid is not used - see the comment for config_parse_mount_node */
                         if (strlen(path) >= PATH_MAX)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Resolved What=%s too long", path);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Resolved What=%s too long", path);
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -150,28 +150,28 @@ static int bus_mount_set_transient_property(
         }
 
         if (streq(name, "Options"))
-                return bus_set_transient_string(u, name, &m->parameters_fragment.options, message, flags, error);
+                return bus_set_transient_string(u, name, &m->parameters_fragment.options, message, flags, reterr_error);
 
         if (streq(name, "Type"))
-                return bus_set_transient_string(u, name, &m->parameters_fragment.fstype, message, flags, error);
+                return bus_set_transient_string(u, name, &m->parameters_fragment.fstype, message, flags, reterr_error);
 
         if (streq(name, "TimeoutUSec"))
-                return bus_set_transient_usec_fix_0(u, name, &m->timeout_usec, message, flags, error);
+                return bus_set_transient_usec_fix_0(u, name, &m->timeout_usec, message, flags, reterr_error);
 
         if (streq(name, "DirectoryMode"))
-                return bus_set_transient_mode_t(u, name, &m->directory_mode, message, flags, error);
+                return bus_set_transient_mode_t(u, name, &m->directory_mode, message, flags, reterr_error);
 
         if (streq(name, "SloppyOptions"))
-                return bus_set_transient_bool(u, name, &m->sloppy_options, message, flags, error);
+                return bus_set_transient_bool(u, name, &m->sloppy_options, message, flags, reterr_error);
 
         if (streq(name, "LazyUnmount"))
-                return bus_set_transient_bool(u, name, &m->lazy_unmount, message, flags, error);
+                return bus_set_transient_bool(u, name, &m->lazy_unmount, message, flags, reterr_error);
 
         if (streq(name, "ForceUnmount"))
-                return bus_set_transient_bool(u, name, &m->force_unmount, message, flags, error);
+                return bus_set_transient_bool(u, name, &m->force_unmount, message, flags, reterr_error);
 
         if (streq(name, "ReadWriteOnly"))
-                return bus_set_transient_bool(u, name, &m->read_write_only, message, flags, error);
+                return bus_set_transient_bool(u, name, &m->read_write_only, message, flags, reterr_error);
 
         return 0;
 }
@@ -181,7 +181,7 @@ int bus_mount_set_property(
                 const char *name,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Mount *m = MOUNT(u);
         int r;
@@ -190,22 +190,22 @@ int bus_mount_set_property(
         assert(name);
         assert(message);
 
-        r = bus_cgroup_set_property(u, &m->cgroup_context, name, message, flags, error);
+        r = bus_cgroup_set_property(u, &m->cgroup_context, name, message, flags, reterr_error);
         if (r != 0)
                 return r;
 
         if (u->transient && u->load_state == UNIT_STUB) {
                 /* This is a transient unit, let's load a little more */
 
-                r = bus_mount_set_transient_property(m, name, message, flags, error);
+                r = bus_mount_set_transient_property(m, name, message, flags, reterr_error);
                 if (r != 0)
                         return r;
 
-                r = bus_exec_context_set_transient_property(u, &m->exec_context, name, message, flags, error);
+                r = bus_exec_context_set_transient_property(u, &m->exec_context, name, message, flags, reterr_error);
                 if (r != 0)
                         return r;
 
-                r = bus_kill_context_set_transient_property(u, &m->kill_context, name, message, flags, error);
+                r = bus_kill_context_set_transient_property(u, &m->kill_context, name, message, flags, reterr_error);
                 if (r != 0)
                         return r;
         }

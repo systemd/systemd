@@ -25,7 +25,7 @@ executables += [
                 'name' : 'systemd-sysupdate',
                 'public' : true,
                 'conditions' : ['ENABLE_SYSUPDATE'],
-                'sources' : systemd_sysupdate_sources + systemd_sysupdate_extract_sources,
+                'sources' : systemd_sysupdate_sources,
                 'extract' : systemd_sysupdate_extract_sources,
                 'link_with' : [
                         libshared,

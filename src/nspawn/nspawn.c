@@ -18,6 +18,7 @@
 #include "sd-event.h"
 #include "sd-id128.h"
 #include "sd-netlink.h"
+#include "sd-path.h"
 
 #include "alloc-util.h"
 #include "barrier.h"
@@ -40,6 +41,7 @@
 #include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
+#include "dlfcn-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
@@ -57,6 +59,7 @@
 #include "image-policy.h"
 #include "in-addr-util.h"
 #include "io-util.h"
+#include "libmount-util.h"
 #include "log.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
@@ -239,6 +242,7 @@ static MachineCredentialContext arg_credentials = {};
 static char **arg_bind_user = NULL;
 static char *arg_bind_user_shell = NULL;
 static bool arg_bind_user_shell_copy = false;
+static char **arg_bind_user_groups = NULL;
 static bool arg_suppress_sync = false;
 static char *arg_settings_filename = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
@@ -282,6 +286,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_cpu_set, cpu_set_done);
 STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_shell, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_bind_user_groups, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
@@ -426,6 +431,10 @@ static int help(void) {
                "     --overlay-ro=PATH[:PATH...]:PATH\n"
                "                            Similar, but creates a read-only overlay mount\n"
                "     --bind-user=NAME       Bind user from host to container\n"
+               "     --bind-user-shell=BOOL|PATH\n"
+               "                            Configure the shell to use for --bind-user= users\n"
+               "     --bind-user-group=GROUP\n"
+               "                            Add an auxiliary group to --bind-user= users\n"
                "\n%3$sInput/Output:%4$s\n"
                "     --console=MODE         Select how stdin/stdout/stderr and /dev/console are\n"
                "                            set up for the container.\n"
@@ -477,7 +486,7 @@ static int parse_capability_spec(const char *spec, uint64_t *ret_mask) {
                         break;
 
                 if (streq(t, "help")) {
-                        for (int i = 0; i < capability_list_length(); i++) {
+                        for (unsigned i = 0; i < capability_list_length(); i++) {
                                 const char *name;
 
                                 name = capability_to_name(i);
@@ -657,6 +666,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOAD_CREDENTIAL,
                 ARG_BIND_USER,
                 ARG_BIND_USER_SHELL,
+                ARG_BIND_USER_GROUP,
                 ARG_SUPPRESS_SYNC,
                 ARG_IMAGE_POLICY,
                 ARG_BACKGROUND,
@@ -735,6 +745,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "load-credential",        required_argument, NULL, ARG_LOAD_CREDENTIAL        },
                 { "bind-user",              required_argument, NULL, ARG_BIND_USER              },
                 { "bind-user-shell",        required_argument, NULL, ARG_BIND_USER_SHELL        },
+                { "bind-user-group",        required_argument, NULL, ARG_BIND_USER_GROUP        },
                 { "suppress-sync",          required_argument, NULL, ARG_SUPPRESS_SYNC          },
                 { "image-policy",           required_argument, NULL, ARG_IMAGE_POLICY           },
                 { "background",             required_argument, NULL, ARG_BACKGROUND             },
@@ -1296,38 +1307,36 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT_HASH: {
-                        _cleanup_free_ void *k = NULL;
-                        size_t l;
+                        _cleanup_(iovec_done) struct iovec k = {};
 
-                        r = unhexmem(optarg, &k, &l);
+                        r = unhexmem(optarg, &k.iov_base, &k.iov_len);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse root hash: %s", optarg);
-                        if (l < sizeof(sd_id128_t))
+                        if (k.iov_len < sizeof(sd_id128_t))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash must be at least 128-bit long: %s", optarg);
 
-                        free_and_replace(arg_verity_settings.root_hash, k);
-                        arg_verity_settings.root_hash_size = l;
+                        iovec_done(&arg_verity_settings.root_hash);
+                        arg_verity_settings.root_hash = TAKE_STRUCT(k);
                         break;
                 }
 
                 case ARG_ROOT_HASH_SIG: {
+                        _cleanup_(iovec_done) struct iovec p = {};
                         char *value;
-                        size_t l;
-                        void *p;
 
                         if ((value = startswith(optarg, "base64:"))) {
-                                r = unbase64mem(value, &p, &l);
+                                r = unbase64mem(value, &p.iov_base, &p.iov_len);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
 
                         } else {
-                                r = read_full_file(optarg, (char**) &p, &l);
+                                r = read_full_file(optarg, (char**) &p.iov_base, &p.iov_len);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature file '%s': %m", optarg);
                         }
 
-                        free_and_replace(arg_verity_settings.root_hash_sig, p);
-                        arg_verity_settings.root_hash_sig_size = l;
+                        iovec_done(&arg_verity_settings.root_hash_sig);
+                        arg_verity_settings.root_hash_sig = TAKE_STRUCT(p);
                         break;
                 }
 
@@ -1511,6 +1520,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_BIND_USER_GROUP:
+                        if (!valid_user_group_name(optarg, /* flags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid bind user auxiliary group name: %s", optarg);
+
+                        if (strv_extend(&arg_bind_user_groups, optarg) < 0)
+                                return log_oom();
+
+                        break;
+
                 case ARG_SUPPRESS_SYNC:
                         r = parse_boolean_argument("--suppress-sync=", optarg, &arg_suppress_sync);
                         if (r < 0)
@@ -1526,7 +1544,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_BACKGROUND:
-                        r = free_and_strdup_warn(&arg_background, optarg);
+                        r = parse_background_argument(optarg, &arg_background);
                         if (r < 0)
                                 return r;
                         break;
@@ -1676,7 +1694,7 @@ static int verify_arguments(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --port= without private networking.");
 
         if (arg_caps_ambient) {
-                if (arg_caps_ambient == UINT64_MAX)
+                if (arg_caps_ambient == CAP_MASK_UNSET)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "AmbientCapability= does not support the value all.");
 
                 if ((arg_caps_ambient & arg_caps_retain) != arg_caps_ambient)
@@ -1686,11 +1704,15 @@ static int verify_arguments(void) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "AmbientCapability= setting is not useful for boot mode.");
         }
 
-        /* Drop duplicate --bind-user= entries */
+        /* Drop duplicate --bind-user= and --bind-user-group= entries */
         strv_uniq(arg_bind_user);
+        strv_uniq(arg_bind_user_groups);
 
         if (arg_bind_user_shell && strv_isempty(arg_bind_user))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --bind-user-shell= without --bind-user=");
+
+        if (!strv_isempty(arg_bind_user_groups) && strv_isempty(arg_bind_user))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --bind-user-group= without --bind-user=");
 
         r = custom_mount_check_all();
         if (r < 0)
@@ -1730,7 +1752,7 @@ static int in_child_chown(void) {
         return IN_SET(arg_userns_mode, USER_NAMESPACE_PICK, USER_NAMESPACE_FIXED);
 }
 
-static int userns_chown_at(int fd, const char *fname, uid_t uid, gid_t gid, int flags) {
+int userns_chown_at(int fd, const char *fname, uid_t uid, gid_t gid, int flags) {
         assert(fd >= 0 || fd == AT_FDCWD);
 
         if (!in_child_chown())
@@ -1752,6 +1774,9 @@ static int userns_chown_at(int fd, const char *fname, uid_t uid, gid_t gid, int 
                 if (gid < (gid_t) arg_uid_shift || gid >= (gid_t) (arg_uid_shift + arg_uid_range))
                         return -EOVERFLOW;
         }
+
+        if (isempty(fname))
+                flags |= AT_EMPTY_PATH;
 
         return RET_NERRNO(fchownat(fd, strempty(fname), uid, gid, flags));
 }
@@ -2210,14 +2235,14 @@ static int copy_devnodes(const char *dest) {
 
         /* Required basic device nodes. */
         FOREACH_STRING(node, "null", "zero", "full", "random", "urandom", "tty") {
-                r = copy_devnode_one(dest, node, /* check = */ false);
+                r = copy_devnode_one(dest, node, /* check= */ false);
                 if (r < 0)
                         return r;
         }
 
         /* Optional device nodes. */
         FOREACH_STRING(node, "fuse", "net/tun") {
-                r = copy_devnode_one(dest, node, /* check = */ true);
+                r = copy_devnode_one(dest, node, /* check= */ true);
                 if (r < 0)
                         return r;
         }
@@ -2664,7 +2689,7 @@ static int setup_journal(const char *directory, uid_t uid_shift, uid_t uid_range
                                 .destination = p,
                                 .destination_uid = UID_INVALID,
                         },
-                        /* n = */ 1,
+                        /* n= */ 1,
                         uid_shift,
                         uid_range,
                         arg_selinux_apifs_context,
@@ -2859,7 +2884,7 @@ static int recursive_chown(const char *directory, uid_t shift, uid_t range) {
 
 /*
  * Return values:
- * < 0 : wait_for_terminate() failed to get the state of the
+ * < 0 : pidref_wait_for_terminate() failed to get the state of the
  *       container, the container was terminated by a signal, or
  *       failed for an unknown reason.  No change is made to the
  *       container argument.
@@ -3074,7 +3099,7 @@ static int determine_names(void) {
                                 return log_oom();
 
                         if (!arg_ephemeral)
-                                arg_read_only = arg_read_only || i->read_only;
+                                arg_read_only = arg_read_only || image_is_read_only(i);
                 } else {
                         r = safe_getcwd(&arg_directory);
                         if (r < 0)
@@ -3131,7 +3156,7 @@ static int determine_names(void) {
         return 0;
 }
 
-static int chase_and_update(char **p, unsigned flags) {
+static int chase_and_update(char **p, ChaseFlags flags) {
         char *chased;
         int r;
 
@@ -3140,7 +3165,7 @@ static int chase_and_update(char **p, unsigned flags) {
         if (!*p)
                 return 0;
 
-        r = chase(*p, NULL, flags, &chased, NULL);
+        r = chase(*p, /* root= */ NULL, flags, &chased, /* ret_fd= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve path %s: %m", *p);
 
@@ -3370,7 +3395,7 @@ static int inner_child(
                 if (r < 0)
                         return log_error_errno(errno, "Failed to unshare cgroup namespace: %m");
 
-                r = mount_cgroups(/* dest = */ NULL, /* accept_existing = */ false);
+                r = mount_cgroups(/* dest= */ NULL, /* accept_existing= */ false);
         } else
                 r = bind_mount_cgroup_hierarchy();
         if (r < 0)
@@ -3829,6 +3854,7 @@ static DissectImageFlags determine_dissect_image_flags(void) {
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
                 (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS) |
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
+                DISSECT_IMAGE_VERITY_SHARE |
                 (arg_console_mode == CONSOLE_INTERACTIVE && arg_ask_password ? DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH : 0) |
                 ((arg_userns_ownership == USER_NAMESPACE_OWNERSHIP_FOREIGN) ? DISSECT_IMAGE_FOREIGN_UID :
                  (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO) ? DISSECT_IMAGE_IDENTITY_UID : 0);
@@ -4015,6 +4041,8 @@ static int outer_child(
                         arg_bind_user,
                         arg_bind_user_shell,
                         arg_bind_user_shell_copy,
+                        "/run/host/home",
+                        arg_bind_user_groups,
                         &bind_user_context);
         if (r < 0)
                 return r;
@@ -4112,7 +4140,7 @@ static int outer_child(
                                 dirs,
                                 chown_uid,
                                 chown_range,
-                                /* host_owner= */ UID_INVALID,
+                                /* source_owner= */ UID_INVALID,
                                 /* dest_owner= */ UID_INVALID,
                                 mapping);
                 if (r == -EINVAL || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
@@ -4262,7 +4290,7 @@ static int outer_child(
         (void) write_string_filef(p, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0444, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid));
 
         if (!arg_use_cgns) {
-                r = mount_cgroups(directory, /* accept_existing = */ true);
+                r = mount_cgroups(directory, /* accept_existing= */ true);
                 if (r < 0)
                         return r;
         }
@@ -4326,15 +4354,18 @@ static int outer_child(
         if (pid == 0) {
                 fd_outer_socket = safe_close(fd_outer_socket);
 
+                /* In the child refuse dlopen(), so that we never mix shared libraries from payload and parent */
+                block_dlopen();
+
                 /* The inner child has all namespaces that are requested, so that we all are owned by the
                  * user if user namespaces are turned on. */
 
                 if (arg_network_namespace_path) {
-                        r = namespace_enter(/* pidns_fd = */ -EBADF,
-                                            /* mntns_fd = */ -EBADF,
+                        r = namespace_enter(/* pidns_fd= */ -EBADF,
+                                            /* mntns_fd= */ -EBADF,
                                             netns_fd,
-                                            /* userns_fd = */ -EBADF,
-                                            /* root_fd = */ -EBADF);
+                                            /* userns_fd= */ -EBADF,
+                                            /* root_fd= */ -EBADF);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
@@ -4936,29 +4967,48 @@ static int load_settings(void) {
         if (FLAGS_SET(arg_settings_mask, _SETTINGS_MASK_ALL))
                 return 0;
 
-        /* We first look in the admin's directories in /etc and /run */
-        if (arg_privileged)
-                FOREACH_STRING(i, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
-                        _cleanup_free_ char *j = NULL;
+        /* We first look in the admin's directories in /etc/ and /run/ */
+        static const uint64_t lookup_dir_system[] = {
+                SD_PATH_SYSTEM_CONFIGURATION,
+                SD_PATH_SYSTEM_RUNTIME,
+                _SD_PATH_INVALID,
+        };
+        static const uint64_t lookup_dir_user[] = {
+                SD_PATH_USER_CONFIGURATION,
+                SD_PATH_USER_RUNTIME,
+                _SD_PATH_INVALID,
+        };
 
-                        j = path_join(i, arg_settings_filename);
-                        if (!j)
-                                return log_oom();
-
-                        f = fopen(j, "re");
-                        if (f) {
-                                p = TAKE_PTR(j);
-
-                                /* By default, we trust configuration from /etc and /run */
-                                if (arg_settings_trusted < 0)
-                                        arg_settings_trusted = true;
-
-                                break;
-                        }
-
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to open %s: %m", j);
+        const uint64_t *q = arg_privileged ? lookup_dir_system : lookup_dir_user;
+        for (; *q != _SD_PATH_INVALID; q++) {
+                _cleanup_free_ char *cd = NULL;
+                r = sd_path_lookup(*q, "systemd/nspawn", &cd);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to determine settings directory, ignoring: %m");
+                        continue;
                 }
+
+                _cleanup_free_ char *j = NULL;
+                j = path_join(cd, arg_settings_filename);
+                if (!j)
+                        return log_oom();
+
+                f = fopen(j, "re");
+                if (f) {
+                        p = TAKE_PTR(j);
+
+                        log_debug("Found settings file: %s", p);
+
+                        /* By default, we trust configuration from /etc and /run */
+                        if (arg_settings_trusted < 0)
+                                arg_settings_trusted = true;
+
+                        break;
+                }
+
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open %s: %m", j);
+        }
 
         if (!f) {
                 /* After that, let's look for a file next to the
@@ -4978,6 +5028,9 @@ static int load_settings(void) {
                         f = fopen(p, "re");
                         if (!f && errno != ENOENT)
                                 return log_error_errno(errno, "Failed to open %s: %m", p);
+
+                        if (f)
+                                log_debug("Found settings file: %s", p);
 
                         /* By default, we do not trust configuration from /var/lib/machines */
                         if (arg_settings_trusted < 0)
@@ -5357,10 +5410,10 @@ static int run_container(
                 (void) sd_bus_set_allow_interactive_authorization(system_bus, arg_ask_password);
         }
 
-        /* Scope allocation happens on the user bus if we are unpriv, otherwise system bus. */
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *runtime_bus = NULL;
-        if (!arg_keep_unit) {
+
+        if (arg_register || !arg_keep_unit) {
                 if (arg_privileged)
                         runtime_bus = sd_bus_ref(system_bus);
                 else {
@@ -5374,7 +5427,22 @@ static int run_container(
 
                         runtime_bus = sd_bus_ref(user_bus);
                 }
+        }
 
+        /* Scope allocation happens on the user bus if we are unpriv, otherwise system bus. */
+        if (arg_keep_unit) {
+                /* If we are not supposed to allocate a unit, then let's move the process now, so that we can
+                 * register things while being in the right cgroup location already. Otherwise, let's move
+                 * the process later, once we have unit and hence cgroup. */
+                r = create_subcgroup(
+                                pid,
+                                arg_keep_unit,
+                                arg_uid_shift,
+                                userns_fd,
+                                arg_userns_mode);
+                if (r < 0)
+                        return r;
+        } else {
                 /* When a new scope is created for this container, then we'll be registered as its controller, in which
                  * case PID 1 will send us a friendly RequestStop signal, when it is asked to terminate the
                  * scope. Let's hook into that, and cleanly shut down the container, and print a friendly message. */
@@ -5393,22 +5461,8 @@ static int run_container(
                         return log_error_errno(r, "Failed to request RequestStop match: %m");
         }
 
-        if (arg_keep_unit) {
-                /* If we are not supposed to allocate a unit, then let's move the process now, so that we can
-                 * register things while being in the right cgroup location already. Otherwise, let's move
-                 * the process later, once we have unit and hence cgroup. */
-                r = create_subcgroup(
-                                pid,
-                                arg_keep_unit,
-                                arg_uid_shift,
-                                userns_fd,
-                                arg_userns_mode);
-                if (r < 0)
-                        return r;
-        }
-
         bool scope_allocated = false;
-        if (!arg_keep_unit && (!arg_register || !arg_privileged)) {
+        if (!arg_keep_unit) {
                 AllocateScopeFlags flags = ALLOCATE_SCOPE_ALLOW_PIDFD;
                 r = allocate_scope(
                                 runtime_bus,
@@ -5427,10 +5481,8 @@ static int run_container(
                 scope_allocated = true;
         }
 
-        bool registered = false;
+        bool registered_system = false, registered_runtime = false;
         if (arg_register) {
-                RegisterMachineFlags flags = 0;
-                SET_FLAG(flags, REGISTER_MACHINE_KEEP_UNIT, arg_keep_unit || !arg_privileged);
                 r = register_machine(
                                 system_bus,
                                 arg_machine,
@@ -5438,18 +5490,32 @@ static int run_container(
                                 arg_directory,
                                 arg_uuid,
                                 ifi,
-                                arg_slice,
-                                arg_custom_mounts, arg_n_custom_mounts,
-                                arg_kill_signal,
-                                arg_property,
-                                arg_property_message,
-                                arg_container_service_name,
-                                arg_start_mode,
-                                flags);
-                if (r < 0)
-                        return r;
+                                arg_container_service_name);
+                if (r < 0) {
+                        if (arg_privileged) /* if privileged the request to register definitely failed */
+                                return r;
 
-                registered = true;
+                        log_notice_errno(r, "Failed to register machine in system context, will try in user context.");
+                } else
+                        registered_system = true;
+
+                if (!arg_privileged) {
+                        r = register_machine(
+                                        runtime_bus,
+                                        arg_machine,
+                                        pid,
+                                        arg_directory,
+                                        arg_uuid,
+                                        ifi,
+                                        arg_container_service_name);
+                        if (r < 0) {
+                                if (!registered_system) /* neither registration worked: fail */
+                                        return r;
+
+                                log_notice_errno(r, "Failed to register machine in user context, but succeeded in system context, will proceed.");
+                        } else
+                                registered_runtime = true;
+                }
         }
 
         if (arg_keep_unit && (arg_slice || arg_property))
@@ -5609,7 +5675,7 @@ static int run_container(
                                                 arg_console_width,
                                                 arg_console_height);
 
-                        if (!arg_background && shall_tint_background()) {
+                        if (!arg_background) {
                                 _cleanup_free_ char *bg = NULL;
 
                                 r = terminal_tint_color(220 /* blue */, &bg);
@@ -5620,7 +5686,7 @@ static int run_container(
                         } else if (!isempty(arg_background))
                                 (void) pty_forward_set_background_color(forward, arg_background);
 
-                        (void) pty_forward_set_window_title(forward, GLYPH_BLUE_CIRCLE, /* hostname = */ NULL,
+                        (void) pty_forward_set_window_title(forward, GLYPH_BLUE_CIRCLE, /* hostname= */ NULL,
                                                             STRV_MAKE("Container", arg_machine));
 
                         pty_forward_set_hotkey_handler(forward, ptyfwd_hotkey, pid);
@@ -5661,8 +5727,10 @@ static int run_container(
         r = wait_for_container(pid, &container_status);
 
         /* Tell machined that we are gone. */
-        if (registered)
+        if (registered_system)
                 (void) unregister_machine(system_bus, arg_machine);
+        if (registered_runtime)
+                (void) unregister_machine(runtime_bus, arg_machine);
 
         if (r < 0)
                 /* We failed to wait for the container, or the container exited abnormally. */
@@ -5876,6 +5944,10 @@ static int run(int argc, char *argv[]) {
         if (arg_cleanup)
                 return do_cleanup();
 
+        (void) dlopen_libmount();
+        (void) dlopen_libseccomp();
+        (void) dlopen_libselinux();
+
         r = cg_has_legacy();
         if (r < 0)
                 goto finish;
@@ -5932,7 +6004,7 @@ static int run(int argc, char *argv[]) {
          * so just turning this off here means we only turn it off in nspawn itself, not any children. */
         (void) ignore_signals(SIGPIPE);
 
-        r = fdset_new_listen_fds(&fds, /* unset = */ false);
+        r = fdset_new_listen_fds(&fds, /* unset= */ false);
         if (r < 0) {
                 log_error_errno(r, "Failed to collect file descriptors: %m");
                 goto finish;
@@ -5968,7 +6040,7 @@ static int run(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                userns_fd = nsresource_allocate_userns(userns_name, UINT64_C(0x10000));
+                userns_fd = nsresource_allocate_userns(userns_name, NSRESOURCE_UIDS_64K); /* allocate 64K UIDs */
                 if (userns_fd < 0) {
                         r = log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
                         goto finish;
@@ -5980,7 +6052,7 @@ static int run(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                arg_uid_range = UINT32_C(0x10000);
+                arg_uid_range = NSRESOURCE_UIDS_64K;
         }
 
         if (arg_directory) {
@@ -6293,7 +6365,7 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        if (dissected_image->has_verity && !arg_verity_settings.root_hash)
+                        if (dissected_image->has_verity && !iovec_is_set(&arg_verity_settings.root_hash))
                                 log_notice("Note: image %s contains verity information, but no root hash specified and no embedded "
                                            "root hash signature found! Proceeding without integrity checking.", arg_image);
 
@@ -6301,6 +6373,7 @@ static int run(int argc, char *argv[]) {
                                         dissected_image,
                                         NULL,
                                         &arg_verity_settings,
+                                        arg_image_policy ?: &image_policy_container,
                                         dissect_image_flags);
                         if (r < 0)
                                 goto finish;
@@ -6309,6 +6382,7 @@ static int run(int argc, char *argv[]) {
                                         arg_image,
                                         userns_fd,
                                         arg_image_policy,
+                                        &arg_verity_settings,
                                         dissect_image_flags,
                                         &dissected_image);
                         if (r < 0)

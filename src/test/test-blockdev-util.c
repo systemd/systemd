@@ -49,7 +49,7 @@ TEST(partscan_enabled) {
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
-        assert_se(sd_device_enumerator_add_match_subsystem(e, "block", /* match = */ true) >= 0);
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true) >= 0);
 
         FOREACH_DEVICE(e, dev) {
                 _cleanup_close_ int fd = -EBADF;
@@ -75,6 +75,32 @@ TEST(partscan_enabled) {
 
                 log_info("%s has partition scanning enabled: %s", name, yes_no(r));
         }
+}
+
+static void test_partition_node_of_one(const char *main, unsigned partition, const char *result, int retval) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        r = partition_node_of(main, partition, &s);
+        ASSERT_EQ(r, retval);
+        if (r < 0)
+                return;
+        ASSERT_STREQ(s, result);
+
+        log_info("%s with %u → %s", main, partition, result);
+}
+
+TEST(partition_node_of) {
+        test_partition_node_of_one("/dev/sda", 2, "/dev/sda2", 0);
+        test_partition_node_of_one("sda", 3, "sda3", 0);
+        test_partition_node_of_one("/dev/nvme0n1", 7, "/dev/nvme0n1p7", 0);
+        test_partition_node_of_one("nvme0n1", 8, "nvme0n1p8", 0);
+        test_partition_node_of_one("/dev/loop1", 3, "/dev/loop1p3", 0);
+        test_partition_node_of_one("", 1, NULL, -EINVAL);
+        test_partition_node_of_one("/", 1, NULL, -EADDRNOTAVAIL);
+        test_partition_node_of_one("/dev/", 1, NULL, -EISDIR);
+        test_partition_node_of_one("/sda", 1, "/sda1", 0);
+        test_partition_node_of_one(".", 1, NULL, -EADDRNOTAVAIL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

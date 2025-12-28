@@ -3,7 +3,7 @@
 
 #include "libudev.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 
 struct udev_device;
 

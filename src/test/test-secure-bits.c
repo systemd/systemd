@@ -15,20 +15,27 @@ static const char * const string_bits[] = {
 };
 
 TEST(secure_bits_basic) {
-        _cleanup_free_ char *joined = NULL, *str = NULL;
+        _cleanup_free_ char *joined = NULL, *str = NULL, *joined_ssv = NULL;
+        _cleanup_strv_free_ char **ssv = NULL;
         int r;
 
         /* Check if converting each bit from string and back to string yields
          * the same value */
         STRV_FOREACH(bit, string_bits) {
                 _cleanup_free_ char *s = NULL;
+                _cleanup_strv_free_ char **sv = NULL;
 
                 r = secure_bits_from_string(*bit);
                 assert_se(r > 0);
                 assert_se(secure_bits_is_valid(r));
+
                 assert_se(secure_bits_to_string_alloc(r, &s) >= 0);
                 printf("%s = 0x%x = %s\n", *bit, (unsigned)r, s);
                 ASSERT_STREQ(*bit, s);
+
+                ASSERT_OK(secure_bits_to_strv(r, &sv));
+                ASSERT_EQ(strv_length(sv), (size_t) 1);
+                ASSERT_STREQ(*bit, sv[0]);
         }
 
         /* Ditto, but with all bits at once */
@@ -41,7 +48,12 @@ TEST(secure_bits_basic) {
         printf("%s = 0x%x = %s\n", joined, (unsigned)r, str);
         ASSERT_STREQ(joined, str);
 
+        ASSERT_OK(secure_bits_to_strv(r, &ssv));
+        joined_ssv = strv_join(ssv, " ");
+        ASSERT_STREQ(joined, joined_ssv);
+
         str = mfree(str);
+        ssv = strv_free(ssv);
 
         /* Empty string */
         assert_se(secure_bits_from_string("") == 0);
@@ -51,8 +63,10 @@ TEST(secure_bits_basic) {
         assert_se(secure_bits_from_string("foo bar baz") == 0);
 
         /* Empty secure bits */
-        assert_se(secure_bits_to_string_alloc(0, &str) >= 0);
-        assert_se(isempty(str));
+        ASSERT_OK(secure_bits_to_string_alloc(0, &str));
+        ASSERT_TRUE(isempty(str));
+        ASSERT_OK(secure_bits_to_strv(0, &ssv));
+        ASSERT_TRUE(strv_isempty(ssv));
 
         str = mfree(str);
 

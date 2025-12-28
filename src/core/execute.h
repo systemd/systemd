@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sys/uio.h>
+
 #include "sd-id128.h"
 
 #include "bus-unit-util.h"
-#include "cgroup-util.h"
 #include "core-forward.h"
 #include "cpu-set-util.h"
 #include "exec-util.h"
@@ -111,6 +112,9 @@ typedef struct ExecSharedRuntime {
 
         /* Like netns_storage_socket, but the file descriptor is referring to the IPC namespace. */
         int ipcns_storage_socket[2];
+
+        /* Like netns_storage_socket, but the file descriptor is referring to the user namespace. */
+        int userns_storage_socket[2];
 } ExecSharedRuntime;
 
 typedef struct ExecRuntime {
@@ -178,8 +182,7 @@ typedef struct ExecContext {
 
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
-        void *root_hash, *root_hash_sig;
-        size_t root_hash_size, root_hash_sig_size;
+        struct iovec root_hash, root_hash_sig;
         LIST_HEAD(MountOptions, root_image_options);
         bool root_ephemeral;
         bool working_directory_missing_ok:1;
@@ -218,6 +221,7 @@ typedef struct ExecContext {
         /* At least one of stdin/stdout/stderr was initialized from an fd passed in. This boolean survives
          * the fds being closed. This only makes sense for transient units. */
         bool stdio_as_fds;
+        bool root_directory_as_fd;
 
         char *stdio_fdname[3];
         char *stdio_file[3];
@@ -352,6 +356,7 @@ typedef struct ExecContext {
         bool address_families_allow_list:1;
         Set *address_families;
 
+        char *user_namespace_path;
         char *network_namespace_path;
         char *ipc_namespace_path;
 
@@ -391,18 +396,16 @@ typedef enum ExecFlags {
 typedef struct ExecParameters {
         RuntimeScope runtime_scope;
 
+        ExecFlags flags;
+
         char **environment;
+        char **files_env;
 
         int *fds;
         char **fd_names;
         size_t n_socket_fds;
-        size_t n_storage_fds;
-        size_t n_extra_fds;
+        size_t n_stashed_fds;
 
-        ExecFlags flags;
-        bool selinux_context_net:1;
-
-        CGroupMask cgroup_supported;
         char *cgroup_path;
         uint64_t cgroup_id;
 
@@ -420,6 +423,7 @@ typedef struct ExecParameters {
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;
+        int root_directory_fd;
 
         /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done. */
         int exec_fd;
@@ -430,7 +434,6 @@ typedef struct ExecParameters {
 
         char *fallback_smack_process_label;
 
-        char **files_env;
         int user_lookup_fd;
         int handoff_timestamp_fd;
         int pidref_transport_fd;
@@ -443,6 +446,7 @@ typedef struct ExecParameters {
         char invocation_id_string[SD_ID128_STRING_MAX];
 
         bool debug_invocation;
+        bool selinux_context_net;
 } ExecParameters;
 
 #define EXEC_PARAMETERS_INIT(_flags)              \
@@ -451,6 +455,7 @@ typedef struct ExecParameters {
                 .stdin_fd               = -EBADF, \
                 .stdout_fd              = -EBADF, \
                 .stderr_fd              = -EBADF, \
+                .root_directory_fd      = -EBADF, \
                 .exec_fd                = -EBADF, \
                 .bpf_restrict_fs_map_fd = -EBADF, \
                 .user_lookup_fd         = -EBADF, \
@@ -465,19 +470,6 @@ static inline bool exec_input_is_terminal(ExecInput i) {
                       EXEC_INPUT_TTY_FAIL);
 }
 
-static inline bool exec_output_is_terminal(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_TTY,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
-}
-
-static inline bool exec_output_is_kmsg(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_KMSG,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE);
-}
-
 static inline bool exec_context_has_tty(const ExecContext *context) {
         assert(context);
 
@@ -486,6 +478,16 @@ static inline bool exec_context_has_tty(const ExecContext *context) {
                 exec_input_is_terminal(context->std_input) ||
                 context->std_output == EXEC_OUTPUT_TTY ||
                 context->std_error == EXEC_OUTPUT_TTY;
+}
+
+static inline bool exec_input_is_inheritable(ExecInput i) {
+        /* We assume these listed inputs refer to bidirectional streams, and hence duplicating them from
+         * stdin to stdout/stderr makes sense and hence allowing EXEC_OUTPUT_INHERIT makes sense, too.
+         * Outputs such as regular files or sealed data memfds otoh don't really make sense to be
+         * duplicated for both input and output at the same time (since they then would cause a feedback
+         * loop). */
+
+        return exec_input_is_terminal(i) || IN_SET(i, EXEC_INPUT_SOCKET, EXEC_INPUT_NAMED_FD);
 }
 
 int exec_spawn(
@@ -516,10 +518,10 @@ void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 
-int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
+int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix);
 int exec_context_destroy_mount_ns_dir(Unit *u);
 
-const char* exec_context_fdname(const ExecContext *c, int fd_index);
+const char* exec_context_fdname(const ExecContext *c, int fd_index) _pure_;
 
 bool exec_context_may_touch_console(const ExecContext *c);
 bool exec_context_maintains_privileges(const ExecContext *c);
@@ -565,7 +567,7 @@ void exec_status_handoff(ExecStatus *s, const struct ucred *ucred, const dual_ti
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
 void exec_status_reset(ExecStatus *s);
 
-int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecSharedRuntime **ret);
+int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *id, bool create, ExecSharedRuntime **ret);
 ExecSharedRuntime *exec_shared_runtime_destroy(ExecSharedRuntime *r);
 ExecSharedRuntime *exec_shared_runtime_unref(ExecSharedRuntime *r);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSharedRuntime*, exec_shared_runtime_unref);
@@ -585,8 +587,8 @@ void exec_runtime_clear(ExecRuntime *rt);
 int exec_params_needs_control_subcgroup(const ExecParameters *params);
 int exec_params_get_cgroup_path(const ExecParameters *params, const CGroupContext *c, const char *prefix, char **ret);
 void exec_params_shallow_clear(ExecParameters *p);
-void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix);
 void exec_params_deep_clear(ExecParameters *p);
+void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix);
 
 bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
 
@@ -633,7 +635,8 @@ bool exec_is_cgroup_mount_read_only(const ExecContext *context);
 
 const char* exec_get_private_notify_socket_path(const ExecContext *context, const ExecParameters *params, bool needs_sandboxing);
 
-int exec_log_level_max(const ExecContext *context, const ExecParameters *params);
+int exec_log_level_max_with_exec_params(const ExecContext *context, const ExecParameters *params);
+int exec_log_level_max(const ExecContext *context);
 
 /* These logging macros do the same logging as those in unit.h, but using ExecContext and ExecParameters
  * instead of the unit object, so that it can be used in the sd-executor context (where the unit object is
@@ -655,7 +658,7 @@ int exec_log_level_max(const ExecContext *context, const ExecParameters *params)
         LOG_CONTEXT_PUSH_KEY_VALUE(LOG_EXEC_ID_FIELD(p), p->unit_id);                              \
         LOG_CONTEXT_PUSH_KEY_VALUE(LOG_EXEC_INVOCATION_ID_FIELD(p), p->invocation_id_string);      \
         LOG_CONTEXT_PUSH_IOV(c->log_extra_fields, c->n_log_extra_fields)                           \
-        LOG_CONTEXT_SET_LOG_LEVEL(exec_log_level_max(c, p))                                        \
+        LOG_CONTEXT_SET_LOG_LEVEL(exec_log_level_max_with_exec_params(c, p))                       \
         LOG_SET_PREFIX(p->unit_id);
 
 #define LOG_CONTEXT_PUSH_EXEC(ec, ep) \

@@ -238,7 +238,7 @@
         <constant>x86</constant> (32-bit, aka i386) and <constant>x86-64</constant> (64-bit, aka amd64).</para>
 
         <para>Most of the partition type UUIDs listed above are defined in the <ulink
-        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions
         Specification</ulink>.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
@@ -254,6 +254,17 @@
         automatically used. Simple specifier expansion is supported, see below.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>VolumeLabel=</varname></term>
+
+        <listitem><para>The textual label to assign to the LUKS superblock if applicable. If not specified
+        defaults to the same string as the partition label (see <varname>Label=</varname> above), however
+        prefixed with <literal>luks-</literal>. This setting has no effect if encryption is not enabled for
+        this partition.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -612,6 +623,10 @@
                 <entry><literal>ro</literal></entry>
                 <entry>Make this subvolume read-only.</entry>
               </row>
+              <row id='C'>
+                <entry><literal>nodatacow</literal></entry>
+                <entry>Disable data CoW for this subvolume.</entry>
+              </row>
             </tbody>
           </tgroup>
         </table>
@@ -765,7 +780,7 @@
 
         <listitem><para>Configures the No-Auto, Read-Only and Grow-File-System partition flags (bit 63, 60
         and 59) of the partition table entry, as defined by the <ulink
-        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>. Only
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions Specification</ulink>. Only
         available for partition types supported by the specification. This option is a friendly way to set
         bits 63, 60 and 59 of the partition flags value without setting any of the other bits, and may be set
         via <varname>Flags=</varname> too, see above.</para>
@@ -895,6 +910,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Integrity=</varname></term>
+
+        <listitem><para>Enable integrity checking for the partition. Currently, the only supported option
+        is <varname>Integrity=inline</varname> which enables authenticated disk encryption for LUKS2 devices.
+        The option requires <varname>Encrypt=</varname> setting and can only be used in online image build.
+        Defaults to <literal>off</literal>, i.e. integrity protection is disabled.</para>
+        <para>Note: authenticated disk encryption is considered EXPERIMENTAL by cryptsetup.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IntegrityAlgorithm=</varname></term>
+        <listitem><para>Specify the integrity algorithm to be used for integrity verification. For
+        <varname>Integrity=inline</varname> the supported values are: <literal>hmac-sha1</literal>,
+        <literal>hmac-sha256</literal>(default), and <literal>hmac-sha512</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Compression=</varname></term>
 
         <listitem><para>Specifies the compression algorithm to use for the filesystem configured with
@@ -992,7 +1028,7 @@
         associated with it.</para>
 
         <para>For example, distributions can use this to implement <varname>$BOOT</varname> as defined in the
-        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification/">Boot Loader
+        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification/">UAPI.1 Boot Loader
         Specification</ulink>. Distributions may prefer to use the ESP as <varname>$BOOT</varname> whenever
         possible, but to adhere to the spec XBOOTLDR must sometimes be used instead. So, they should create
         two definitions: the first defining an ESP big enough to hold just the bootloader, and a second for

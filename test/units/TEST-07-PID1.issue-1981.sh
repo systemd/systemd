@@ -21,9 +21,9 @@ mkdir -p /run/systemd/system
 cat >/run/systemd/system/my.service <<\EOF
 [Service]
 Type=oneshot
-ExecStartPre=sh -c 'test "$TRIGGER_UNIT" = my.timer'
-ExecStartPre=sh -c 'test -n "$TRIGGER_TIMER_REALTIME_USEC"'
-ExecStartPre=sh -c 'test -n "$TRIGGER_TIMER_MONOTONIC_USEC"'
+ExecStartPre=bash -c 'test "$TRIGGER_UNIT" = my.timer'
+ExecStartPre=bash -c 'test -n "$TRIGGER_TIMER_REALTIME_USEC"'
+ExecStartPre=bash -c 'test -n "$TRIGGER_TIMER_MONOTONIC_USEC"'
 ExecStart=echo Timer runs me
 EOF
 

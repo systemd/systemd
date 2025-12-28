@@ -733,9 +733,9 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         log_struct(LOG_INFO,
                    LOG_MESSAGE_ID(SD_MESSAGE_TIMEZONE_CHANGE_STR),
                    LOG_ITEM("TIMEZONE=%s", c->zone),
-                   LOG_ITEM("TIMEZONE_SHORTNAME=%s", tzname[daylight]),
+                   LOG_ITEM("TIMEZONE_SHORTNAME=%s", get_tzname(daylight)),
                    LOG_ITEM("DAYLIGHT=%i", daylight),
-                   LOG_MESSAGE("Changed time zone to '%s' (%s).", c->zone, tzname[daylight]));
+                   LOG_MESSAGE("Changed time zone to '%s' (%s).", c->zone, get_tzname(daylight)));
 
         (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
                                               "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone",
@@ -891,7 +891,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         } else
                 timespec_store(&ts, (usec_t) utc);
 
-        /* refuse the request when the time is before systemd build date time*/
+        /* refuse the request when the time is before systemd build date time */
         if (ts.tv_sec < TIME_EPOCH)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Requested to set the clock to time before build time, refusing.");
 

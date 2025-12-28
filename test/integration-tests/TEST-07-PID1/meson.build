@@ -7,7 +7,7 @@ integration_tests += [
                         'service' : integration_test_template['configuration']['service'] + {
                                 'NotifyAccess' : 'all',
                                 # Issue: https://github.com/systemd/systemd/issues/2691
-                                'ExecStop' : 'sh -c \'kill -SEGV $$$$\'',
+                                'ExecStop' : 'bash -c \'kill -SEGV $$$$\'',
                                 'RemainAfterExit' : 'yes',
                                 'TimeoutStopSec' : '270s',
                         },

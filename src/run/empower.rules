@@ -1,0 +1,8 @@
+// Allow all actions for users who are in the "empower" group. Users are added to the
+// "empower" group by running run0 --empower.
+
+polkit.addRule(function(action, subject) {
+    if (subject.isInGroup("empower")) {
+        return polkit.Result.YES;
+    }
+});

@@ -555,7 +555,7 @@ static int journal_file_verify_header(JournalFile *f) {
         assert(f);
         assert(f->header);
 
-        if (memcmp(f->header->signature, HEADER_SIGNATURE, 8))
+        if (memcmp(f->header->signature, HEADER_SIGNATURE, 8) != 0)
                 return -EBADMSG;
 
         /* In both read and write mode we refuse to open files with incompatible
@@ -1827,7 +1827,7 @@ static int maybe_compress_payload(
                 return 0;
         }
 
-        r = compress_blob(c, src, size, dst, size - 1, rsize, /* level = */ -1);
+        r = compress_blob(c, src, size, dst, size - 1, rsize, /* level= */ -1);
         if (r < 0)
                 return log_debug_errno(r, "Failed to compress data object using %s, ignoring: %m", compression_to_string(c));
 
@@ -3935,17 +3935,21 @@ void journal_file_print_header(JournalFile *f) {
                le64toh(f->header->n_objects),
                le64toh(f->header->n_entries));
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_data)) {
+                size_t n_data_items = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
                 printf("Data objects: %"PRIu64"\n"
                        "Data hash table fill: %.1f%%\n",
                        le64toh(f->header->n_data),
-                       100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))));
+                       100.0 * (double) le64toh(f->header->n_data) / (double) n_data_items);
+        }
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_fields)) {
+                size_t n_field_items = le64toh(f->header->field_hash_table_size) / sizeof(HashItem);
                 printf("Field objects: %"PRIu64"\n"
                        "Field hash table fill: %.1f%%\n",
                        le64toh(f->header->n_fields),
-                       100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))));
+                       100.0 * (double) le64toh(f->header->n_fields) / (double) n_field_items);
+        }
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_tags))
                 printf("Tag objects: %"PRIu64"\n",
@@ -4131,28 +4135,12 @@ int journal_file_open(
                 .last_direction = _DIRECTION_INVALID,
         };
 
-        if (fname) {
-                f->path = strdup(fname);
-                if (!f->path) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-        } else {
-                assert(fd >= 0);
-
-                /* If we don't know the path, fill in something explanatory and vaguely useful */
-                if (asprintf(&f->path, "/proc/self/%i", fd) < 0) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-        }
-
         if (f->fd < 0) {
                 /* We pass O_NONBLOCK here, so that in case somebody pointed us to some character device node or FIFO
                  * or so, we likely fail quickly than block for long. For regular files O_NONBLOCK has no effect, hence
                  * it doesn't hurt in that case. */
 
-                f->fd = openat_report_new(AT_FDCWD, f->path, f->open_flags|O_CLOEXEC|O_NONBLOCK, f->mode, &newly_created);
+                f->fd = openat_report_new(AT_FDCWD, fname, f->open_flags|O_CLOEXEC|O_NONBLOCK, f->mode, &newly_created);
                 if (f->fd < 0) {
                         r = f->fd;
                         goto fail;
@@ -4165,12 +4153,23 @@ int journal_file_open(
                 if (r < 0)
                         goto fail;
 
+                r = fd_get_path(f->fd, &f->path);
+                if (r < 0)
+                        goto fail;
+
                 if (!newly_created) {
                         r = journal_file_fstat(f);
                         if (r < 0)
                                 goto fail;
                 }
         } else {
+                /* If we don't know the path, fill in something explanatory and vaguely useful */
+                f->path = strdup(fname ?: FORMAT_PROC_FD_PATH(fd));
+                if (!f->path) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
                 r = journal_file_fstat(f);
                 if (r < 0)
                         goto fail;
@@ -4635,11 +4634,12 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
                 if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL) {
+                        size_t n_data_items = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
                         log_ratelimit_full(
                                 log_level, JOURNAL_LOG_RATELIMIT,
                                 "Data hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items, %"PRIu64" file size, %"PRIu64" bytes per hash table item), suggesting rotation.",
                                 f->path,
-                                100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))),
+                                100.0 * (double) le64toh(f->header->n_data) / (double) n_data_items,
                                 le64toh(f->header->n_data),
                                 le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
                                 (uint64_t) f->last_stat.st_size,
@@ -4649,11 +4649,12 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
                 if (le64toh(f->header->n_fields) * 4ULL > (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)) * 3ULL) {
+                        size_t n_field_items = le64toh(f->header->field_hash_table_size) / sizeof(HashItem);
                         log_ratelimit_full(
                                 log_level, JOURNAL_LOG_RATELIMIT,
                                 "Field hash table of %s has a fill level at %.1f (%"PRIu64" of %"PRIu64" items), suggesting rotation.",
                                 f->path,
-                                100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))),
+                                100.0 * (double) le64toh(f->header->n_fields) / (double) n_field_items,
                                 le64toh(f->header->n_fields),
                                 le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
                         return true;

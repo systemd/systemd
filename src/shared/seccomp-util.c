@@ -2505,7 +2505,7 @@ uint32_t scmp_act_kill_process(void) {
 
 int parse_syscall_and_errno(const char *in, char **name, int *error) {
         _cleanup_free_ char *n = NULL;
-        char *p;
+        const char *p;
         int e = -1;
 
         assert(in);

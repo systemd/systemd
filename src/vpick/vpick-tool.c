@@ -15,7 +15,6 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "strv.h"
 #include "vpick.h"
 
 typedef enum {

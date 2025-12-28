@@ -313,12 +313,14 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_INT64:
         case TABLE_UINT64:
         case TABLE_UINT64_HEX:
+        case TABLE_UINT64_HEX_0x:
         case TABLE_BPS:
                 return sizeof(uint64_t);
 
         case TABLE_INT32:
         case TABLE_UINT32:
         case TABLE_UINT32_HEX:
+        case TABLE_UINT32_HEX_0x:
                 return sizeof(uint32_t);
 
         case TABLE_INT16:
@@ -455,7 +457,7 @@ static TableData *table_data_new(
 int table_add_cell_full(
                 Table *t,
                 TableCell **ret_cell,
-                TableDataType type,
+                TableDataType dt,
                 const void *data,
                 size_t minimum_width,
                 size_t maximum_width,
@@ -468,12 +470,12 @@ int table_add_cell_full(
         TableData *p;
 
         assert(t);
-        assert(type >= 0);
-        assert(type < _TABLE_DATA_TYPE_MAX);
+        assert(dt >= 0);
+        assert(dt < _TABLE_DATA_TYPE_MAX);
 
         /* Special rule: patch NULL data fields to the empty field */
         if (!data)
-                type = TABLE_EMPTY;
+                dt = TABLE_EMPTY;
 
         /* Determine the cell adjacent to the current one, but one row up */
         if (t->n_cells >= t->n_columns)
@@ -497,15 +499,15 @@ int table_add_cell_full(
         assert(align_percent <= 100);
         assert(ellipsize_percent <= 100);
 
-        uppercase = type == TABLE_HEADER;
+        uppercase = dt == TABLE_HEADER;
 
         /* Small optimization: Pretty often adjacent cells in two subsequent lines have the same data and
          * formatting. Let's see if we can reuse the cell data and ref it once more. */
 
-        if (p && table_data_matches(p, type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase))
+        if (p && table_data_matches(p, dt, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase))
                 d = table_data_ref(p);
         else {
-                d = table_data_new(type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase);
+                d = table_data_new(dt, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase);
                 if (!d)
                         return -ENOMEM;
         }
@@ -1028,12 +1030,14 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
 
                 case TABLE_UINT32:
                 case TABLE_UINT32_HEX:
+                case TABLE_UINT32_HEX_0x:
                         buffer.uint32 = va_arg(ap, uint32_t);
                         data = &buffer.uint32;
                         break;
 
                 case TABLE_UINT64:
                 case TABLE_UINT64_HEX:
+                case TABLE_UINT64_HEX_0x:
                         buffer.uint64 = va_arg(ap, uint64_t);
                         data = &buffer.uint64;
                         break;
@@ -1455,10 +1459,12 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 
                 case TABLE_UINT32:
                 case TABLE_UINT32_HEX:
+                case TABLE_UINT32_HEX_0x:
                         return CMP(a->uint32, b->uint32);
 
                 case TABLE_UINT64:
                 case TABLE_UINT64_HEX:
+                case TABLE_UINT64_HEX_0x:
                         return CMP(a->uint64, b->uint64);
 
                 case TABLE_PERCENT:
@@ -1681,7 +1687,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 else
                         ret = format_timestamp_relative_full(p, FORMAT_TIMESTAMP_RELATIVE_MAX,
                                                              d->timestamp, CLOCK_REALTIME,
-                                                             /* implicit_left = */ d->type == TABLE_TIMESTAMP_LEFT);
+                                                             /* implicit_left= */ d->type == TABLE_TIMESTAMP_LEFT);
                 if (!ret)
                         return "-";
 
@@ -1859,6 +1865,18 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 break;
         }
 
+        case TABLE_UINT32_HEX_0x: {
+                _cleanup_free_ char *p = NULL;
+
+                p = new(char, 2 + 8 + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "0x%" PRIx32, d->uint32);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
         case TABLE_UINT64: {
                 _cleanup_free_ char *p = NULL;
 
@@ -1879,6 +1897,18 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                         return NULL;
 
                 sprintf(p, "%" PRIx64, d->uint64);
+                d->formatted = TAKE_PTR(p);
+                break;
+        }
+
+        case TABLE_UINT64_HEX_0x: {
+                _cleanup_free_ char *p = NULL;
+
+                p = new(char, 2 + 16 + 1);
+                if (!p)
+                        return NULL;
+
+                sprintf(p, "0x%" PRIx64, d->uint64);
                 d->formatted = TAKE_PTR(p);
                 break;
         }
@@ -2822,10 +2852,12 @@ static int table_data_to_json(TableData *d, sd_json_variant **ret) {
 
         case TABLE_UINT32:
         case TABLE_UINT32_HEX:
+        case TABLE_UINT32_HEX_0x:
                 return sd_json_variant_new_unsigned(ret, d->uint32);
 
         case TABLE_UINT64:
         case TABLE_UINT64_HEX:
+        case TABLE_UINT64_HEX_0x:
                 return sd_json_variant_new_unsigned(ret, d->uint64);
 
         case TABLE_PERCENT:

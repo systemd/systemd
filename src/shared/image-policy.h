@@ -2,7 +2,7 @@
 #pragma once
 
 #include "conf-parser-forward.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "gpt.h"
 
 typedef enum PartitionPolicyFlags {
@@ -14,29 +14,43 @@ typedef enum PartitionPolicyFlags {
          * on. Example: a default policy of "verity+encrypted" certainly makes sense, but for /home/
          * partitions this gracefully degrades to "encrypted" (as we do not have a concept of verity for
          * /home/), and so on. */
-        PARTITION_POLICY_VERITY               = 1 << 0, /* must exist, activate with verity                 (only applies to root/usr partitions) */
-        PARTITION_POLICY_SIGNED               = 1 << 1, /* must exist, activate with signed verity          (only applies to root/usr partitions) */
-        PARTITION_POLICY_ENCRYPTED            = 1 << 2, /* must exist, activate with LUKS encryption        (applies to any data partition, but not to verity/signature partitions */
-        PARTITION_POLICY_UNPROTECTED          = 1 << 3, /* must exist, activate without encryption/verity */
-        PARTITION_POLICY_UNUSED               = 1 << 4, /* must exist, don't use */
-        PARTITION_POLICY_ABSENT               = 1 << 5, /* must not exist */
-        PARTITION_POLICY_OPEN                 = PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|
-                                                PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED|PARTITION_POLICY_ABSENT,
-        PARTITION_POLICY_IGNORE               = PARTITION_POLICY_UNUSED|PARTITION_POLICY_ABSENT,
-        _PARTITION_POLICY_USE_MASK            = PARTITION_POLICY_OPEN,
+        PARTITION_POLICY_VERITY                  = 1 << 0, /* must exist, activate with verity                 (only applies to root/usr partitions) */
+        PARTITION_POLICY_SIGNED                  = 1 << 1, /* must exist, activate with signed verity          (only applies to root/usr partitions) */
+        PARTITION_POLICY_ENCRYPTED               = 1 << 2, /* must exist, activate with LUKS encryption        (applies to any data partition, but not to verity/signature partitions */
+        PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY  = 1 << 3, /* same as PARTITION_POLICY_ENCRYPTED but also requires integrity checking */
+        PARTITION_POLICY_UNPROTECTED             = 1 << 4, /* must exist, activate without encryption/verity */
+        PARTITION_POLICY_UNUSED                  = 1 << 5, /* must exist, don't use */
+        PARTITION_POLICY_ABSENT                  = 1 << 6, /* must not exist */
+        PARTITION_POLICY_OPEN                    = PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|
+                                                   PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED|PARTITION_POLICY_ABSENT,
+        PARTITION_POLICY_IGNORE                  = PARTITION_POLICY_UNUSED|PARTITION_POLICY_ABSENT,
+        _PARTITION_POLICY_USE_MASK               = PARTITION_POLICY_OPEN,
 
-        PARTITION_POLICY_READ_ONLY_OFF        = 1 << 6, /* State of GPT partition flag "read-only" must be on */
-        PARTITION_POLICY_READ_ONLY_ON         = 1 << 7,
-        _PARTITION_POLICY_READ_ONLY_MASK      = PARTITION_POLICY_READ_ONLY_OFF|PARTITION_POLICY_READ_ONLY_ON,
-        PARTITION_POLICY_GROWFS_OFF           = 1 << 8, /* State of GPT partition flag "growfs" must be on */
-        PARTITION_POLICY_GROWFS_ON            = 1 << 9,
-        _PARTITION_POLICY_GROWFS_MASK         = PARTITION_POLICY_GROWFS_OFF|PARTITION_POLICY_GROWFS_ON,
-        _PARTITION_POLICY_PFLAGS_MASK         = _PARTITION_POLICY_READ_ONLY_MASK|_PARTITION_POLICY_GROWFS_MASK,
+        PARTITION_POLICY_READ_ONLY_OFF           = 1 << 7, /* State of GPT partition flag "read-only" must be on */
+        PARTITION_POLICY_READ_ONLY_ON            = 1 << 8,
+        _PARTITION_POLICY_READ_ONLY_MASK         = PARTITION_POLICY_READ_ONLY_OFF|PARTITION_POLICY_READ_ONLY_ON,
+        PARTITION_POLICY_GROWFS_OFF              = 1 << 9, /* State of GPT partition flag "growfs" must be on */
+        PARTITION_POLICY_GROWFS_ON               = 1 << 10,
+        _PARTITION_POLICY_GROWFS_MASK            = PARTITION_POLICY_GROWFS_OFF|PARTITION_POLICY_GROWFS_ON,
+        _PARTITION_POLICY_PFLAGS_MASK            = _PARTITION_POLICY_READ_ONLY_MASK|_PARTITION_POLICY_GROWFS_MASK,
 
-        _PARTITION_POLICY_MASK                = _PARTITION_POLICY_USE_MASK|_PARTITION_POLICY_READ_ONLY_MASK|_PARTITION_POLICY_GROWFS_MASK,
+        _PARTITION_POLICY_MASK                   = _PARTITION_POLICY_USE_MASK|_PARTITION_POLICY_READ_ONLY_MASK|_PARTITION_POLICY_GROWFS_MASK,
 
-        _PARTITION_POLICY_FLAGS_INVALID       = -EINVAL,
-        _PARTITION_POLICY_FLAGS_ERRNO_MAX     = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
+        /* Policies can impose filesystem type requirements on images. These flags translate to the literal
+         * fstype name of each filesystem. */
+        PARTITION_POLICY_BTRFS                   = 1 << 11,
+        PARTITION_POLICY_EROFS                   = 1 << 12,
+        PARTITION_POLICY_EXT4                    = 1 << 13,
+        PARTITION_POLICY_F2FS                    = 1 << 14,
+        PARTITION_POLICY_SQUASHFS                = 1 << 15,
+        PARTITION_POLICY_VFAT                    = 1 << 16,
+        PARTITION_POLICY_XFS                     = 1 << 17,
+        _PARTITION_POLICY_FSTYPE_MASK            = PARTITION_POLICY_BTRFS|PARTITION_POLICY_EROFS|PARTITION_POLICY_EXT4|
+                                                   PARTITION_POLICY_F2FS|PARTITION_POLICY_SQUASHFS|
+                                                   PARTITION_POLICY_VFAT|PARTITION_POLICY_XFS,
+
+        _PARTITION_POLICY_FLAGS_INVALID          = -EINVAL,
+        _PARTITION_POLICY_FLAGS_ERRNO_MAX        = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
 } PartitionPolicyFlags;
 
 assert_cc((_PARTITION_POLICY_USE_MASK | _PARTITION_POLICY_PFLAGS_MASK) >= 0); /* ensure flags don't collide with errno range */
@@ -80,10 +94,12 @@ static inline size_t image_policy_n_entries(const ImagePolicy *policy) {
 PartitionPolicyFlags partition_policy_flags_extend(PartitionPolicyFlags flags);
 PartitionPolicyFlags partition_policy_flags_reduce(PartitionPolicyFlags flags);
 
-PartitionPolicyFlags partition_policy_flags_from_string(const char *s);
+PartitionPolicyFlags partition_policy_flags_from_string(const char *s, bool graceful);
 int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, char **ret);
 
-int image_policy_from_string(const char *s, ImagePolicy **ret);
+int partition_policy_determine_fstype(const ImagePolicy *policy, PartitionDesignator designator, bool *ret_encrypted, char **ret_fstype);
+
+int image_policy_from_string(const char *s, bool graceful, ImagePolicy **ret);
 int image_policy_to_string(const ImagePolicy *policy, bool simplify, char **ret);
 
 /* Recognizes three special policies by equivalence */

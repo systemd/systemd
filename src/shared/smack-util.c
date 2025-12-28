@@ -64,7 +64,7 @@ int mac_smack_read_at(int fd, const char *path, SmackAttr attr, char **ret) {
                 return 0;
         }
 
-        return getxattr_at_malloc(fd, path, smack_attr_to_string(attr), /* at_flags = */ 0, ret, /* ret_size= */ NULL);
+        return getxattr_at_malloc(fd, path, smack_attr_to_string(attr), /* at_flags= */ 0, ret, /* ret_size= */ NULL);
 #else
         return -EOPNOTSUPP;
 #endif
@@ -79,9 +79,9 @@ int mac_smack_apply_at(int fd, const char *path, SmackAttr attr, const char *lab
                 return 0;
 
         if (!label)
-                return xremovexattr(fd, path, /* at_flags = */ 0, smack_attr_to_string(attr));
+                return xremovexattr(fd, path, /* at_flags= */ 0, smack_attr_to_string(attr));
 
-        return xsetxattr(fd, path, /* at_flags = */ 0, smack_attr_to_string(attr), label);
+        return xsetxattr(fd, path, /* at_flags= */ 0, smack_attr_to_string(attr), label);
 #else
         return 0;
 #endif
@@ -142,7 +142,7 @@ static int smack_fix_fd(
         else
                 return 0;
 
-        r = xsetxattr(fd, /* path = */ NULL, AT_EMPTY_PATH, "security.SMACK64", label);
+        r = xsetxattr(fd, /* path= */ NULL, AT_EMPTY_PATH, "security.SMACK64", label);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) /* If the FS doesn't support labels, then exit without warning */
                 return 0;
         if (r == -EROFS && FLAGS_SET(flags, LABEL_IGNORE_EROFS)) /* If the FS is read-only and we were told

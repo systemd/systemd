@@ -300,7 +300,7 @@ static void timer_set_state(Timer *t, TimerState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(t), "Changed %s -> %s", timer_state_to_string(old_state), timer_state_to_string(state));
 
-        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 }
 
 static void timer_enter_waiting(Timer *t, bool time_change);
@@ -324,7 +324,7 @@ static int timer_coldplug(Unit *u) {
 static void timer_enter_dead(Timer *t, TimerResult f) {
         assert(t);
 
-        if (t->result == TIMER_SUCCESS)
+        if (t->result == TIMER_SUCCESS || f == TIMER_FAILURE_START_LIMIT_HIT)
                 t->result = f;
 
         unit_log_result(UNIT(t), t->result == TIMER_SUCCESS, timer_result_to_string(t->result));
@@ -392,7 +392,9 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         continue;
 
                 if (v->base == TIMER_CALENDAR) {
-                        usec_t b, rebased, random_offset = 0;
+                        bool rebase_after_boot_time = false;
+                        usec_t b, random_offset = 0;
+                        usec_t boot_monotonic = UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
 
                         if (t->random_offset_usec != 0)
                                 random_offset = timer_get_fixed_delay_hash(t) % t->random_offset_usec;
@@ -413,12 +415,21 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                                 t->last_trigger.realtime);
                                 else
                                         b = trigger->inactive_enter_timestamp.realtime;
-                        } else if (dual_timestamp_is_set(&t->last_trigger))
+                        } else if (dual_timestamp_is_set(&t->last_trigger)) {
                                 b = t->last_trigger.realtime;
-                        else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp))
+
+                                /* Check if the last_trigger timestamp is older than the current machine
+                                 * boot. If so, this means the timestamp came from a stamp file of a
+                                 * persistent timer and we need to rebase it to make RandomizedDelaySec=
+                                 * work (see below). */
+                                if (t->last_trigger.monotonic < boot_monotonic)
+                                        rebase_after_boot_time = true;
+                        } else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp))
                                 b = UNIT(t)->inactive_exit_timestamp.realtime - random_offset;
-                        else
+                        else {
                                 b = ts.realtime - random_offset;
+                                rebase_after_boot_time = true;
+                        }
 
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
@@ -426,14 +437,15 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
 
                         v->next_elapse += random_offset;
 
-                        /* To make the delay due to RandomizedDelaySec= work even at boot, if the scheduled
-                         * time has already passed, set the time when systemd first started as the scheduled
-                         * time. Note that we base this on the monotonic timestamp of the boot, not the
-                         * realtime one, since the wallclock might have been off during boot. */
-                        rebased = map_clock_usec(UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic,
-                                                 CLOCK_MONOTONIC, CLOCK_REALTIME);
-                        if (v->next_elapse < rebased)
-                                v->next_elapse = rebased;
+                        if (rebase_after_boot_time) {
+                                /* To make the delay due to RandomizedDelaySec= work even at boot, if the scheduled
+                                 * time has already passed, set the time when systemd first started as the scheduled
+                                 * time. Note that we base this on the monotonic timestamp of the boot, not the
+                                 * realtime one, since the wallclock might have been off during boot. */
+                                usec_t rebased = map_clock_usec(boot_monotonic, CLOCK_MONOTONIC, CLOCK_REALTIME);
+                                if (v->next_elapse < rebased)
+                                        v->next_elapse = rebased;
+                        }
 
                         if (!found_realtime)
                                 t->next_elapse_realtime = v->next_elapse;
@@ -901,7 +913,7 @@ static int timer_can_clean(Unit *u, ExecCleanMask *ret) {
         return 0;
 }
 
-static int timer_can_start(Unit *u) {
+static int timer_test_startable(Unit *u) {
         Timer *t = ASSERT_PTR(TIMER(u));
         int r;
 
@@ -911,7 +923,7 @@ static int timer_can_start(Unit *u) {
                 return r;
         }
 
-        return 1;
+        return true;
 }
 
 static void activation_details_timer_serialize(const ActivationDetails *details, FILE *f) {
@@ -1088,7 +1100,7 @@ const UnitVTable timer_vtable = {
 
         .bus_set_property = bus_timer_set_property,
 
-        .can_start = timer_can_start,
+        .test_startable = timer_test_startable,
 };
 
 const ActivationDetailsVTable activation_details_timer_vtable = {

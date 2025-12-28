@@ -4,7 +4,7 @@
 #include <curl/curl.h>
 #include <sys/stat.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "import-compress.h"
 #include "openssl-util.h"
 
@@ -58,8 +58,9 @@ typedef struct PullJob {
         uint64_t uncompressed_max;
         uint64_t compressed_max;
 
-        uint8_t *payload;
-        size_t payload_size;
+        uint64_t expected_content_length;
+
+        struct iovec payload;
 
         int disk_fd;
         bool close_disk_fd;
@@ -76,12 +77,14 @@ typedef struct PullJob {
         bool calc_checksum;
         EVP_MD_CTX *checksum_ctx;
 
-        char *checksum;
+        struct iovec checksum;
+        struct iovec expected_checksum;
+
         bool sync;
         bool force_memory;
 } PullJob;
 
-int pull_job_new(PullJob **job, const char *url, CurlGlue *glue, void *userdata);
+int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata);
 PullJob* pull_job_unref(PullJob *job);
 
 int pull_job_begin(PullJob *j);

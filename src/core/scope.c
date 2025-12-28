@@ -101,7 +101,7 @@ static void scope_set_state(Scope *s, ScopeState state) {
                 log_unit_debug(UNIT(s), "Changed %s -> %s",
                                scope_state_to_string(old_state), scope_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 }
 
 static int scope_add_default_dependencies(Scope *s) {
@@ -348,7 +348,9 @@ static int scope_enter_start_chown(Scope *s) {
 
                         r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
                         if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to resolve user \"%s\": %m", user);
+                                log_unit_error_errno(UNIT(s), r,
+                                                     "Failed to resolve user '%s': %s",
+                                                     user, STRERROR_USER(r));
                                 _exit(EXIT_USER);
                         }
                 }
@@ -358,7 +360,9 @@ static int scope_enter_start_chown(Scope *s) {
 
                         r = get_group_creds(&group, &gid, 0);
                         if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to resolve group \"%s\": %m", group);
+                                log_unit_error_errno(UNIT(s), r,
+                                                     "Failed to resolve group '%s': %s",
+                                                     group, STRERROR_GROUP(r));
                                 _exit(EXIT_GROUP);
                         }
                 }

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "homed-forward.h"
 
 /* Flags supported by UpdateEx() */
 #define SD_HOMED_UPDATE_OFFLINE (UINT64_C(1) << 0)

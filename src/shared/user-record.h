@@ -5,7 +5,7 @@
 
 #include "bitfield.h"
 #include "rlimit-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
@@ -469,7 +469,7 @@ uint32_t user_record_dev_shm_limit_scale(UserRecord *h);
 const char **user_record_self_modifiable_fields(UserRecord *h);
 const char **user_record_self_modifiable_blobs(UserRecord *h);
 const char **user_record_self_modifiable_privileged(UserRecord *h);
-int user_record_self_changes_allowed(UserRecord *current, UserRecord *new);
+int user_record_self_changes_allowed(UserRecord *current, UserRecord *incoming);
 
 int user_record_build_image_path(UserStorage storage, const char *user_name_and_realm, char **ret);
 
@@ -513,6 +513,7 @@ typedef struct UserDBMatch {
                 uid_t uid_max;
                 gid_t gid_max;
         };
+        sd_id128_t uuid;
 } UserDBMatch;
 
 #define USER_DISPOSITION_MASK_ALL ((UINT64_C(1) << _USER_DISPOSITION_MAX) - UINT64_C(1))
@@ -522,6 +523,7 @@ typedef struct UserDBMatch {
                 .disposition_mask = USER_DISPOSITION_MASK_ALL,  \
                 .uid_min = 0,                                   \
                 .uid_max = UID_INVALID-1,                       \
+                .uuid = SD_ID128_NULL,                          \
        }
 
 /* Maybe useful when we want to resolve root and system user/group but want to refuse nobody user/group. */

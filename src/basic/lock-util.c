@@ -15,6 +15,7 @@
 #include "lock-util.h"
 #include "log.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -44,7 +45,7 @@ int make_lock_file_at(int dir_fd, const char *p, int operation, LockFile *ret) {
         fd = xopenat_lock_full(dfd,
                                p,
                                O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY,
-                               /* xopen_flags = */ 0,
+                               /* xopen_flags= */ 0,
                                0600,
                                LOCK_UNPOSIX,
                                operation);
@@ -154,11 +155,11 @@ static int fcntl_lock(int fd, int operation, bool ofd) {
 }
 
 int posix_lock(int fd, int operation) {
-        return fcntl_lock(fd, operation, /*ofd=*/ false);
+        return fcntl_lock(fd, operation, /* ofd= */ false);
 }
 
 int unposix_lock(int fd, int operation) {
-        return fcntl_lock(fd, operation, /*ofd=*/ true);
+        return fcntl_lock(fd, operation, /* ofd= */ true);
 }
 
 void posix_unlockpp(int **fd) {
@@ -167,7 +168,7 @@ void posix_unlockpp(int **fd) {
         if (!*fd || **fd < 0)
                 return;
 
-        (void) fcntl_lock(**fd, LOCK_UN, /*ofd=*/ false);
+        (void) fcntl_lock(**fd, LOCK_UN, /* ofd= */ false);
         *fd = NULL;
 }
 
@@ -177,7 +178,7 @@ void unposix_unlockpp(int **fd) {
         if (!*fd || **fd < 0)
                 return;
 
-        (void) fcntl_lock(**fd, LOCK_UN, /*ofd=*/ true);
+        (void) fcntl_lock(**fd, LOCK_UN, /* ofd= */ true);
         *fd = NULL;
 }
 
@@ -199,7 +200,6 @@ int lock_generic(int fd, LockType type, int operation) {
 }
 
 int lock_generic_with_timeout(int fd, LockType type, int operation, usec_t timeout) {
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
         int r;
 
         assert(fd >= 0);
@@ -223,8 +223,8 @@ int lock_generic_with_timeout(int fd, LockType type, int operation, usec_t timeo
                 return r;
 
         /* If that didn't work, try with a child */
-
-        r = safe_fork("(sd-flock)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &pid);
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork("(sd-flock)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &pidref);
         if (r < 0)
                 return log_error_errno(r, "Failed to flock block device in child process: %m");
         if (r == 0) {
@@ -256,11 +256,11 @@ int lock_generic_with_timeout(int fd, LockType type, int operation, usec_t timeo
         }
 
         siginfo_t status;
-        r = wait_for_terminate(pid, &status);
+        r = pidref_wait_for_terminate(&pidref, &status);
         if (r < 0)
                 return r;
 
-        TAKE_PID(pid);
+        pidref_done(&pidref);
 
         switch (status.si_code) {
 

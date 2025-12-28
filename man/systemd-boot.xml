@@ -39,12 +39,12 @@
 
     <itemizedlist>
       <listitem><para>Boot entries defined with <ulink
-      url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> Type #1
+      url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> Type #1
       description files located in <filename>/loader/entries/</filename> on the ESP and the Extended Boot
       Loader Partition. These usually describe Linux kernel images with associated initrd images, but
       alternatively may also describe other arbitrary EFI executables.</para></listitem>
 
-      <listitem><para>Unified kernel images, <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot
+      <listitem><para>Unified kernel images, <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot
       Loader Specification</ulink> Type #2, which are executable EFI binaries in
       <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader Partition.</para></listitem>
 
@@ -57,7 +57,7 @@
       <listitem><para>A <literal>Reboot Into Firmware Interface</literal> option, if supported by the UEFI
       firmware.</para></listitem>
 
-      <listitem><para>Secure Boot variables enrollment if the UEFI firmware is in setup-mode and files are provided
+      <listitem><para>Secure Boot variable enrollment if the UEFI firmware is in setup mode and files are provided
       on the ESP.</para></listitem>
     </itemizedlist>
 
@@ -97,7 +97,7 @@
       entropy pool initialization, providing a full entropy pool during early boot.</para></listitem>
 
       <listitem><para>The boot manager allows for Secure Boot variables to be enrolled if the UEFI firmware is
-      in setup-mode. Additionally, variables can be automatically enrolled if configured.</para></listitem>
+      in setup mode. Additionally, variables can be automatically enrolled if configured.</para></listitem>
     </itemizedlist>
 
     <para><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -373,27 +373,28 @@
     <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>Boot entry description files following the <ulink
-    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> are read from
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> are read from
     <filename>/loader/entries/</filename> on the ESP and the Extended Boot Loader partition.</para>
 
     <para>Unified kernel boot entries following the <ulink
-    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> are read from
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> are read from
     <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader partition.</para>
 
     <para>Optionally, a random seed for early boot entropy pool provisioning is stored in
     <filename>/loader/random-seed</filename> in the ESP.</para>
 
-    <para>During initialization, <command>sd-boot</command> automatically loads all driver files placed in
-    the <filename>/EFI/systemd/drivers/</filename> directory of the ESP. The files placed there must have an
-    extension of the EFI architecture ID followed by <filename>.efi</filename> (e.g. for x86-64 this means a
-    suffix of <filename>x64.efi</filename>). This may be used to automatically load file system drivers and
-    similar, to extend the native firmware support.</para>
+    <para>During initialization, <command>systemd-boot</command> automatically loads all driver files placed
+    in the <filename>/EFI/systemd/drivers/</filename> directory of the ESP. The files placed there must have
+    an extension of the EFI architecture ID followed by <filename>.efi</filename> (e.g. for x86-64 this means
+    a suffix of <filename>x64.efi</filename>). This may be used e.g. to add support for hardware not
+    supported natively by the firmware.</para>
 
     <para>Enrollment of Secure Boot variables can be performed manually or automatically if files are available
     under <filename>/loader/keys/<replaceable>NAME</replaceable>/{db,dbx,KEK,PK}.auth</filename>, <replaceable>NAME</replaceable>
     being the display name for the set of variables in the menu. If one of the sets is named <filename>auto</filename>
-    then it might be enrolled automatically depending on whether <literal>secure-boot-enroll</literal> is set
-    to force or not.</para>
+    then it might be enrolled automatically depending on the execution environment and the value of the <literal>secure-boot-enroll</literal> option.
+    See
+    <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
@@ -657,7 +658,7 @@ uki-url http://example.com/somedir/fooos.efi</programlisting>
     <title>Boot Counting</title>
 
     <para><command>systemd-boot</command> implements a simple boot counting mechanism on top of the <ulink
-    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>, for automatic and unattended
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>, for automatic and unattended
     fallback to older kernel versions/boot loader entries when a specific entry continuously fails. Any boot loader
     entry file and unified kernel image file that contains a <literal>+</literal> followed by one or two numbers (if
     two they need to be separated by a <literal>-</literal>), before the <filename>.conf</filename> or
@@ -711,18 +712,26 @@ uki-url http://example.com/somedir/fooos.efi</programlisting>
   <refsect1>
     <title>Using <command>systemd-boot</command> in virtual machines</title>
 
-    <para>When using qemu with OVMF (UEFI Firmware for virtual machines) the <option>-kernel</option> switch
-    works not only for linux kernels, but for any EFI binary, including sd-boot and unified linux
-    kernels. Example command line for loading <command>systemd-boot</command> on x64:</para>
+    <para>When using <ulink url="https://www.qemu.org/docs/master/">qemu</ulink> with
+    <ulink url="https://www.linux-kvm.org/downloads/lersek/ovmf-whitepaper-c770f8c.txt">OVMF</ulink>
+    (UEFI Firmware for virtual machines) the <option>-kernel</option> switch works not only for linux
+    kernels, but for any EFI binary, including <filename>systemd-boot</filename> and unified linux kernels
+    (UKIs). Example command line for loading <command>systemd-boot</command> on x64:</para>
 
     <para>
-      <command>qemu-system-x86_64 <replaceable>[ ... ]</replaceable>
-      -kernel /usr/lib/systemd/boot/efi/systemd-bootx64.efi</command>
+      <command>qemu-system-x86_64
+      -drive if=pflash,format=qcow2,readonly=on,file=/usr/share/edk2/ovmf/OVMF_CODE_4M.qcow2
+      -kernel /usr/lib/systemd/boot/efi/systemd-bootx64.efi
+      -drive file=<replaceable>...</replaceable>
+      <replaceable>[ ... ]</replaceable>
+      </command>
     </para>
 
-    <para>systemd-boot will detect that it was started directly instead of being loaded from ESP and will
-    search for the ESP in that case, taking into account boot order information from the hypervisor (if
-    available).</para>
+    <para>(The path to the firmware file might need to be adjusted depending on the distribution.)
+    <filename>systemd-boot</filename> will detect that it was started directly instead of being loaded from
+    ESP and will search for the ESP in that case, taking into account boot order information from the
+    hypervisor (if available). Note that for this to yield a useful result, another <option>-drive</option>
+    argument needs to be used to attach an actual disk image with an ESP.</para>
   </refsect1>
 
   <refsect1>
@@ -734,7 +743,7 @@ uki-url http://example.com/somedir/fooos.efi</programlisting>
       <member><citerefentry><refentrytitle>systemd-boot-random-seed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
-      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink></member>
+      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink></member>
       <member><ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink></member>
       <member><ulink url="https://systemd.io/TPM2_PCR_MEASUREMENTS">TPM2 PCR Measurements Made by systemd</ulink></member>
     </simplelist></para>

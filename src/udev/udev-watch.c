@@ -22,6 +22,7 @@
 #include "parse-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "reread-partition-table.h"
 #include "rm-rf.h"
 #include "set.h"
 #include "signal-util.h"
@@ -161,36 +162,6 @@ static int synthesize_change_one(sd_device *dev, sd_device *target) {
         return 0;
 }
 
-static int synthesize_change_all(sd_device *dev) {
-        int r;
-
-        assert(dev);
-
-        r = blockdev_reread_partition_table(dev);
-        if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to re-read partition table, ignoring: %m");
-        bool part_table_read = r >= 0;
-
-        /* search for partitions */
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        r = partition_enumerator_new(dev, &e);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to initialize partition enumerator, ignoring: %m");
-
-        /* We have partitions and re-read the table, the kernel already sent out a "change"
-         * event for the disk, and "remove/add" for all partitions. */
-        if (part_table_read && sd_device_enumerator_get_device_first(e))
-                return 0;
-
-        /* We have partitions but re-reading the partition table did not work, synthesize
-         * "change" for the disk and all partitions. */
-        r = synthesize_change_one(dev, dev);
-        FOREACH_DEVICE(e, d)
-                RET_GATHER(r, synthesize_change_one(dev, d));
-
-        return r;
-}
-
 static int synthesize_change_child_handler(sd_event_source *s, const siginfo_t *si, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         assert(s);
@@ -220,13 +191,13 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
                         "(udev-synth)",
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG,
                         &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* child */
-                (void) synthesize_change_all(dev);
+                (void) reread_partition_table(dev, REREADPT_FORCE_UEVENT|REREADPT_BSD_LOCK);
                 _exit(EXIT_SUCCESS);
         }
 
@@ -259,7 +230,7 @@ static int manager_process_inotify(Manager *manager, const struct inotify_event 
         if (FLAGS_SET(e->mask, IN_IGNORED)) {
                 log_debug("Received inotify event about removal of watch handle %i.", e->wd);
 
-                r = udev_watch_clear_by_wd(/* dev = */ NULL, /* dirfd = */ -EBADF, e->wd);
+                r = udev_watch_clear_by_wd(/* dev= */ NULL, /* dirfd= */ -EBADF, e->wd);
                 if (r < 0)
                         log_warning_errno(r, "Failed to remove saved symlink(s) for watch handle %i, ignoring: %m", e->wd);
 
@@ -641,11 +612,11 @@ static int notify_and_wait_signal(UdevWorker *worker, sd_device *dev, const char
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(e, /* ret = */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, on_sigusr1, worker);
+        r = sd_event_add_signal(e, /* ret= */ NULL, SIGUSR1 | SD_EVENT_SIGNAL_PROCMASK, on_sigusr1, worker);
         if (r < 0)
                 return r;
 
-        r = sd_notify(/* unset_environment = */ false, msg);
+        r = sd_notify(/* unset_environment= */ false, msg);
         if (r <= 0)
                 return r;
 

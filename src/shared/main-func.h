@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
-#include "static-destruct.h"
+#include "shared-forward.h"
+#include "static-destruct.h"    /* IWYU pragma: keep */
 
 void main_prepare(int argc, char *argv[]);
 

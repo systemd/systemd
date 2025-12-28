@@ -18,6 +18,7 @@
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -57,6 +58,7 @@ static bool arg_chain = false;
 static uint64_t arg_disposition_mask = UINT64_MAX;
 static uid_t arg_uid_min = 0;
 static uid_t arg_uid_max = UID_INVALID-1;
+static sd_id128_t arg_uuid = SD_ID128_NULL;
 static bool arg_fuzzy = false;
 static bool arg_boundaries = true;
 static sd_json_variant *arg_from_file = NULL;
@@ -411,7 +413,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
 
         if (arg_output < 0)
-                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
+                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) || !sd_id128_is_null(arg_uuid) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
                 table = table_new(" ", "name", "disposition", "uid", "gid", "realname", "home", "shell", "order");
@@ -431,6 +433,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 .disposition_mask = arg_disposition_mask,
                 .uid_min = arg_uid_min,
                 .uid_max = arg_uid_max,
+                .uuid = arg_uuid,
         };
 
         if (arg_from_file) {
@@ -522,7 +525,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 if (arg_boundaries) {
                         _cleanup_(uid_range_freep) UIDRange *uid_range = NULL;
 
-                        r = uid_range_load_userns(/* path = */ NULL, UID_RANGE_USERNS_INSIDE, &uid_range);
+                        r = uid_range_load_userns(/* path= */ NULL, UID_RANGE_USERNS_INSIDE, &uid_range);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to load /proc/self/uid_map, ignoring: %m");
 
@@ -753,7 +756,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
 
         if (arg_output < 0)
-                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
+                arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) || !sd_id128_is_null(arg_uuid) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
                 table = table_new(" ", "name", "disposition", "gid", "description", "order");
@@ -772,6 +775,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 .disposition_mask = arg_disposition_mask,
                 .gid_min = arg_uid_min,
                 .gid_max = arg_uid_max,
+                .uuid = arg_uuid,
         };
 
         if (arg_from_file) {
@@ -861,7 +865,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
 
                 if (arg_boundaries) {
                         _cleanup_(uid_range_freep) UIDRange *gid_range = NULL;
-                        r = uid_range_load_userns(/* path = */ NULL, GID_RANGE_USERNS_INSIDE, &gid_range);
+                        r = uid_range_load_userns(/* path= */ NULL, GID_RANGE_USERNS_INSIDE, &gid_range);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to load /proc/self/gid_map, ignoring: %m");
 
@@ -914,8 +918,8 @@ static int show_membership(const char *user, const char *group, Table *table) {
 
                 r = sd_json_buildo(
                                 &v,
-                                SD_JSON_BUILD_PAIR("user", SD_JSON_BUILD_STRING(user)),
-                                SD_JSON_BUILD_PAIR("group", SD_JSON_BUILD_STRING(group)));
+                                SD_JSON_BUILD_PAIR_STRING("user", user),
+                                SD_JSON_BUILD_PAIR_STRING("group", group));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -1193,6 +1197,31 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+static int write_membership(int dir_fd, const char *dir, const char *user, const char *group) {
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(dir);
+        assert(user);
+        assert(group);
+
+        _cleanup_free_ char *membership = strjoin(user, ":", group, ".membership");
+        if (!membership)
+                return log_oom();
+
+        _cleanup_close_ int fd = openat(dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create %s/%s: %m", dir, membership);
+
+        r = loop_write(fd, "{}\n", SIZE_MAX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write empty JSON object into %s/%s: %m", dir, membership);
+
+        log_info("Installed %s/%s from credential.", dir, membership);
+
+        return 0;
+}
+
 static int load_credential_one(
                 int credential_dir_fd,
                 const char *name,
@@ -1427,27 +1456,15 @@ static int load_credential_one(
 
         if (ur)
                 STRV_FOREACH(g, ur->member_of) {
-                        _cleanup_free_ char *membership = strjoin(ur->user_name, ":", *g);
-                        if (!membership)
-                                return log_oom();
-
-                        _cleanup_close_ int fd = openat(*userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
-                        if (fd < 0)
-                                return log_error_errno(errno, "Failed to create %s: %m", membership);
-
-                        log_info("Installed %s/%s from credential.", userdb_dir, membership);
+                        r = write_membership(*userdb_dir_fd, userdb_dir, ur->user_name, *g);
+                        if (r < 0)
+                                return r;
                 }
         else
                 STRV_FOREACH(u, gr->members) {
-                        _cleanup_free_ char *membership = strjoin(*u, ":", gr->group_name);
-                        if (!membership)
-                                return log_oom();
-
-                        _cleanup_close_ int fd = openat(*userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
-                        if (fd < 0)
-                                return log_error_errno(errno, "Failed to create %s: %m", membership);
-
-                        log_info("Installed %s/%s from credential.", userdb_dir, membership);
+                        r = write_membership(*userdb_dir_fd, userdb_dir, *u, gr->group_name);
+                        if (r < 0)
+                                return r;
                 }
 
         if (ur && user_record_disposition(ur) == USER_REGULAR) {
@@ -1471,7 +1488,7 @@ static int load_credential_one(
                                 return log_error_errno(errno, "Failed to chown %s: %m", hd);
 
                         r = copy_tree(user_record_skeleton_directory(ur), hd, ur->uid, user_record_gid(ur),
-                                      COPY_REFLINK|COPY_MERGE, /* denylist= */ NULL, /* subvolumes= */NULL);
+                                      COPY_REFLINK|COPY_MERGE, /* denylist= */ NULL, /* subvolumes= */ NULL);
                         if (r < 0 && r != -ENOENT)
                                 return log_error_errno(r, "Failed to copy skeleton directory to %s: %m", hd);
                 }
@@ -1555,6 +1572,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --chain                 Chain another command\n"
                "     --uid-min=ID            Filter by minimum UID/GID (default 0)\n"
                "     --uid-max=ID            Filter by maximum UID/GID (default 4294967294)\n"
+               "     --uuid=UUID             Filter by UUID\n"
                "  -z --fuzzy                 Do a fuzzy name search\n"
                "     --disposition=VALUE     Filter by disposition\n"
                "  -I                         Equivalent to --disposition=intrinsic\n"
@@ -1588,6 +1606,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CHAIN,
                 ARG_UID_MIN,
                 ARG_UID_MAX,
+                ARG_UUID,
                 ARG_DISPOSITION,
                 ARG_BOUNDARIES,
         };
@@ -1608,6 +1627,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "chain",        no_argument,       NULL, ARG_CHAIN        },
                 { "uid-min",      required_argument, NULL, ARG_UID_MIN      },
                 { "uid-max",      required_argument, NULL, ARG_UID_MAX      },
+                { "uuid",         required_argument, NULL, ARG_UUID         },
                 { "fuzzy",        no_argument,       NULL, 'z'              },
                 { "disposition",  required_argument, NULL, ARG_DISPOSITION  },
                 { "boundaries",   required_argument, NULL, ARG_BOUNDARIES   },
@@ -1691,7 +1711,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (isempty(optarg))
                                 arg_services = strv_free(arg_services);
                         else {
-                                r = strv_split_and_extend(&arg_services, optarg, ":", /* filter_duplicates = */ true);
+                                r = strv_split_and_extend(&arg_services, optarg, ":", /* filter_duplicates= */ true);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse -s/--service= argument: %m");
                         }
@@ -1789,6 +1809,12 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_uid(optarg, &arg_uid_max);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --uid-max= value: %s", optarg);
+                        break;
+
+                case ARG_UUID:
+                        r = sd_id128_from_string(optarg, &arg_uuid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --uuid= value: %s", optarg);
                         break;
 
                 case 'z':

@@ -649,7 +649,7 @@ static int nft_add_element(
          * This replicated here and each element gets added to the set
          * one-by-one.
          */
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ true, nfproto, table_name, set_name);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add= */ true, nfproto, table_name, set_name);
         if (r < 0)
                 return r;
 
@@ -693,7 +693,7 @@ static int nft_del_element(
         assert(key);
         assert(data || dlen == 0);
 
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ false, nfproto, table_name, set_name);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add= */ false, nfproto, table_name, set_name);
         if (r < 0)
                return r;
 
@@ -807,7 +807,7 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
                 return r;
 
         assert(msgcnt < ELEMENTSOF(messages));
-        r = sd_nfnl_call_batch(nfnl, messages, msgcnt, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
+        r = sd_nfnl_call_batch(nfnl, messages, msgcnt, NFNL_DEFAULT_TIMEOUT_USECS);
         if (r < 0 && r != -EEXIST)
                 return r;
 
@@ -919,7 +919,7 @@ int nft_set_element_modify_iprange(
         if (r < 0)
                 return r;
 
-        return sd_nfnl_call_batch(nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
+        return sd_nfnl_call_batch(nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS);
 }
 
 int nft_set_element_modify_ip(
@@ -959,7 +959,7 @@ int nft_set_element_modify_ip(
         if (r < 0)
                 return r;
 
-        return sd_nfnl_call_batch(nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
+        return sd_nfnl_call_batch(nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS);
 }
 
 int nft_set_element_modify_any(
@@ -987,7 +987,7 @@ int nft_set_element_modify_any(
         if (r < 0)
                 return r;
 
-        return sd_nfnl_call_batch(nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
+        return sd_nfnl_call_batch(nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS);
 }
 
 static int af_to_nfproto(int af) {
@@ -1124,7 +1124,7 @@ static int fw_nftables_add_local_dnat_internal(
                 return r;
 
         assert(msgcnt < ELEMENTSOF(messages));
-        r = sd_nfnl_call_batch(nfnl, messages, msgcnt, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
+        r = sd_nfnl_call_batch(nfnl, messages, msgcnt, NFNL_DEFAULT_TIMEOUT_USECS);
         if (r == -EOVERFLOW && af == AF_INET6) {
                 /* The current implementation of DNAT in systemd requires kernel's
                  * fdb9c405e35bdc6e305b9b4e20ebc141ed14fc81 (v5.8), and the older kernel returns

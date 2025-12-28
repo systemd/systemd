@@ -119,7 +119,7 @@ int manager_genl_process_nl80211_config(sd_netlink *genl, sd_netlink_message *me
         }
 
         if (!streq(ifname, link->ifname)) {
-                log_link_debug(link, "nl80211: received %s(%u) message with invalid interface name '%s', ignoring: %m",
+                log_link_debug(link, "nl80211: received %s(%u) message with invalid interface name '%s', ignoring.",
                                strna(nl80211_cmd_to_string(cmd)), cmd, ifname);
                 return 0;
         }
@@ -139,7 +139,7 @@ int manager_genl_process_nl80211_config(sd_netlink *genl, sd_netlink_message *me
         }
         if (r >= 0) {
                 if (len == 0) {
-                        log_link_debug(link, "nl80211: received SSID has zero length, ignoring it: %m");
+                        log_link_debug(link, "nl80211: received SSID has zero length, ignoring it.");
                         ssid = mfree(ssid);
                 } else if (strlen_ptr(ssid) != len) {
                         log_link_debug(link, "nl80211: received SSID contains NUL characters, ignoring it.");
@@ -290,7 +290,7 @@ int manager_genl_process_nl80211_mlme(sd_netlink *genl, sd_netlink_message *mess
                  * To make SSID= or other WiFi related settings in [Match] section work, let's try to
                  * reconfigure the interface. */
                 if (link->ssid && link_has_carrier(link)) {
-                        r = link_reconfigure_impl(link, /* flags = */ 0);
+                        r = link_reconfigure_impl(link, /* flags= */ 0);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
                                 link_enter_failed(link);
@@ -329,7 +329,7 @@ int manager_genl_process_nl80211_mlme(sd_netlink *genl, sd_netlink_message *mess
                 }
 
                 /* If necessary, reconfigure based on those new properties */
-                r = link_reconfigure_impl(link, /* flags = */ 0);
+                r = link_reconfigure_impl(link, /* flags= */ 0);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
                         link_enter_failed(link);

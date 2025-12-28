@@ -101,10 +101,6 @@ static int parse_roothashsig_option(const char *option, bool strict) {
         else
                 return false;
 
-        if (!HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Activation of verity device with signature requested, but cryptsetup does not support crypt_activate_by_signed_key().");
-
         free_and_replace(arg_root_hash_signature, rhs);
         arg_root_hash_signature_size = rhss;
         arg_root_hash_signature_auto = set_auto;
@@ -416,7 +412,6 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to configure data device: %m");
 
         if (arg_root_hash_signature_size > 0) {
-#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
                 r = crypt_activate_by_signed_key(cd, volume, rh, rh_size, arg_root_hash_signature, arg_root_hash_signature_size, arg_activate_flags);
                 if (r < 0) {
                         log_info_errno(r, "Unable to activate verity device '%s' with root hash signature (%m), retrying without.", volume);
@@ -427,9 +422,6 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
 
                         log_info("Activation of verity device '%s' succeeded without root hash signature.", volume);
                 }
-#else
-                assert_not_reached();
-#endif
         } else
                 r = crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
         if (r < 0)

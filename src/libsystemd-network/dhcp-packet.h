@@ -2,7 +2,7 @@
 #pragma once
 
 #include "dhcp-protocol.h"
-#include "forward.h"
+#include "sd-forward.h"
 
 int bootp_message_init(
                 DHCPMessage *message,

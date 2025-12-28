@@ -10,7 +10,7 @@
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-option.h"
-#include "forward.h"
+#include "sd-forward.h"
 #include "network-common.h"
 #include "sparse-endian.h"
 
@@ -46,6 +46,7 @@ typedef struct sd_dhcp_server {
         uint32_t pool_size;
 
         char *timezone;
+        char *domain_name;
 
         DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
         struct in_addr boot_server_address;

@@ -172,18 +172,19 @@ static int update_argv(const char name[], size_t l) {
         return 0;
 }
 
-int rename_process(const char name[]) {
+int rename_process_full(const char *comm, const char *invocation) {
         bool truncated = false;
 
-        /* This is a like a poor man's setproctitle(). It changes the comm field, argv[0], and also the glibc's
-         * internally used name of the process. For the first one a limit of 16 chars applies; to the second one in
-         * many cases one of 10 (i.e. length of "/sbin/init") — however if we have CAP_SYS_RESOURCES it is unbounded;
-         * to the third one 7 (i.e. the length of "systemd". If you pass a longer string it will likely be
-         * truncated.
+        /* This is a like a poor man's setproctitle(). It changes the comm field by the name specified by
+         * 'comm', and changes argv[0] and the glibc's internally used names of the process
+         * (program_invocation_name and program_invocation_short_name) by the name specified by 'invocation'.
+         * For the first one a limit of 16 chars applies; to the second one in many cases one of 10 (i.e.
+         * length of "/sbin/init") — however if we have CAP_SYS_RESOURCES it is unbounded; to the third one
+         * 7 (i.e. the length of "systemd". If you pass a longer string it will likely be truncated.
          *
          * Returns 0 if a name was set but truncated, > 0 if it was set but not truncated. */
 
-        if (isempty(name))
+        if (isempty(comm))
                 return -EINVAL; /* let's not confuse users unnecessarily with an empty name */
 
         if (!is_main_thread())
@@ -191,21 +192,27 @@ int rename_process(const char name[]) {
                                 * cache things without locking, and we make assumptions that PR_SET_NAME sets the
                                 * process name that isn't correct on any other threads */
 
-        size_t l = strlen(name);
+        size_t l = strlen(comm);
 
         /* First step, change the comm field. The main thread's comm is identical to the process comm. This means we
          * can use PR_SET_NAME, which sets the thread name for the calling thread. */
-        if (prctl(PR_SET_NAME, name) < 0)
+        if (prctl(PR_SET_NAME, comm) < 0)
                 log_debug_errno(errno, "PR_SET_NAME failed: %m");
         if (l >= TASK_COMM_LEN) /* Linux userspace process names can be 15 chars at max */
                 truncated = true;
+
+        /* If nothing specified, fall back to comm. */
+        if (isempty(invocation))
+                invocation = comm;
+
+        l = strlen(invocation);
 
         /* Second step, change glibc's ID of the process name. */
         if (program_invocation_name) {
                 size_t k;
 
                 k = strlen(program_invocation_name);
-                strncpy(program_invocation_name, name, k);
+                strncpy(program_invocation_name, invocation, k);
                 if (l > k)
                         truncated = true;
 
@@ -217,7 +224,7 @@ int rename_process(const char name[]) {
         /* Third step, completely replace the argv[] array the kernel maintains for us. This requires privileges, but
          * has the advantage that the argv[] array is exactly what we want it to be, and not filled up with zeros at
          * the end. This is the best option for changing /proc/self/cmdline. */
-        (void) update_argv(name, l);
+        (void) update_argv(invocation, l);
 
         /* Fourth step: in all cases we'll also update the original argv[], so that our own code gets it right too if
          * it still looks here */
@@ -226,7 +233,7 @@ int rename_process(const char name[]) {
                         size_t k;
 
                         k = strlen(saved_argv[0]);
-                        strncpy(saved_argv[0], name, k);
+                        strncpy(saved_argv[0], invocation, k);
                         if (l > k)
                                 truncated = true;
                 }

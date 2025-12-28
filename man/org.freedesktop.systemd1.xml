@@ -413,6 +413,8 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u NFailedJobs = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly at TransactionsWithOrderingCycle = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly d Progress = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as Environment = ['...', ...];
@@ -1102,6 +1104,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="NInstalledJobs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NFailedJobs"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TransactionsWithOrderingCycle"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Progress"/>
 
@@ -1808,6 +1812,9 @@ node /org/freedesktop/systemd1 {
       <para><varname>NInstalledJobs</varname> encodes how many jobs have ever been queued in total.</para>
 
       <para><varname>NFailedJobs</varname> encodes how many jobs have ever failed in total.</para>
+
+      <para><varname>TransactionsWithOrderingCycle</varname> encodes IDs of transactions that encountered
+      ordering cycle.</para>
 
       <para><varname>Progress</varname> encodes boot progress as a floating point value between 0.0 and
       1.0. This value begins at 0.0 at early-boot and ends at 1.0 when boot is finished and is based on the
@@ -2696,10 +2703,13 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>OOMPolicy=kill</varname> is enabled for the unit or not. If enabled, the property contains the
       number of times the kernel OOM killer killed all the processes in the unit's cgroup and its
       descendant cgroups. If disabled, the property contains the number of processes the kernel OOM killer
-      has killed in the unit's cgroup and its descendant cgroups.</para>
+      has killed in the unit's cgroup and its descendant cgroups. When the corresponding cgroups have not
+      been realized, it reports <constant>18446744073709551615</constant> (<constant>2^64 - 1</constant>).</para>
 
       <para><varname>ManagedOOMKills</varname> contains the number of times <command>systemd-oomd</command>
-      killed all the processes in the unit's cgroup and its descendant cgroups.</para>
+      killed all the processes in the unit's cgroup and its descendant cgroups. When the corresponding
+      cgroups have not been realized yet, it reports <constant>18446744073709551615</constant>
+      (<constant>2^64 - 1</constant>).</para>
     </refsect2>
 
     <refsect2>
@@ -2852,6 +2862,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly a(sasbttttuii) ExecReload = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
       readonly a(sasasttttuii) ExecReloadEx = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
+      readonly a(sasbttttuii) ExecReloadPost = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
+      readonly a(sasasttttuii) ExecReloadPostEx = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
       readonly a(sasbttttuii) ExecStop = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
@@ -3022,6 +3036,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly a(iiqq) SocketBindDeny = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly (bas) RestrictNetworkInterfaces = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s BindNetworkInterface = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s MemoryPressureWatch = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -3405,6 +3421,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -3532,9 +3550,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property ExecReloadEx is not documented!-->
 
-    <!--property ExecStopEx is not documented!-->
+    <!--property ExecReloadPostEx is not documented!-->
 
-    <!--property ExecStopPost is not documented!-->
+    <!--property ExecStopEx is not documented!-->
 
     <!--property ExecStopPostEx is not documented!-->
 
@@ -3687,6 +3705,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property SocketBindDeny is not documented!-->
 
     <!--property RestrictNetworkInterfaces is not documented!-->
+
+    <!--property BindNetworkInterface is not documented!-->
 
     <!--property MemoryPressureWatch is not documented!-->
 
@@ -4016,6 +4036,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property MemoryKSM is not documented!-->
 
+    <!--property UserNamespacePath is not documented!-->
+
     <!--property NetworkNamespacePath is not documented!-->
 
     <!--property IPCNamespacePath is not documented!-->
@@ -4204,6 +4226,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecReloadEx"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecReloadPost"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecReloadPostEx"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ExecStop"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecStopEx"/>
@@ -4373,6 +4399,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNetworkInterfaces"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BindNetworkInterface"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
@@ -4756,6 +4784,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="UserNamespacePath"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
@@ -4832,10 +4862,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       last watchdog ping received from the service, or 0 if none was ever received.</para>
 
       <para><varname>ExecStartPre</varname>, <varname>ExecStart</varname>, <varname>ExecStartPost</varname>,
-      <varname>ExecReload</varname>, <varname>ExecStop</varname>, and <varname>ExecStop</varname> are arrays
-      of structures where each struct contains: the binary path to execute; an array with all arguments to
-      pass to the executed command, starting with argument 0; a boolean whether it should be considered a
-      failure if the process exits uncleanly; two pairs of
+      <varname>ExecReload</varname>, <varname>ExecReloadPost</varname>, <varname>ExecStop</varname>, and
+      <varname>ExecStopPost</varname> are arrays of structures where each struct contains: the binary path
+      to execute; an array with all arguments to pass to the executed command, starting with argument 0;
+      a boolean whether it should be considered a failure if the process exits uncleanly; two pairs of
       <constant>CLOCK_REALTIME</constant>/<constant>CLOCK_MONOTONIC</constant> microsecond timestamps when
       the process began and finished running the last time, or 0 if it never ran or never finished running;
       the PID of the process, or 0 if it has not run yet; the exit code and status of the last run. This
@@ -4877,7 +4907,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       has no main PID. The control PID is the PID of the current start/stop/reload process running and is 0
       if no such process is currently running. That means that <varname>ExecMainPID</varname> and
       <varname>MainPID</varname> differ in the way that the latter immediately reflects whether a main
-      process is currently running while the latter possible contains information collected from the last run
+      process is currently running while the former possibly contains information collected from the last run
       even if the process is no longer around.</para>
 
       <para><varname>StatusText</varname>, <varname>StatusErrno</varname>, <varname>StatusBusError</varname>,
@@ -5270,6 +5300,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly (bas) RestrictNetworkInterfaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s BindNetworkInterface = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s MemoryPressureWatch = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
@@ -5652,6 +5684,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -5803,8 +5837,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property ExecStopPre is not documented!-->
 
-    <!--property ExecStopPost is not documented!-->
-
     <!--property Slice is not documented!-->
 
     <!--property ControlGroupId is not documented!-->
@@ -5954,6 +5986,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property SocketBindDeny is not documented!-->
 
     <!--property RestrictNetworkInterfaces is not documented!-->
+
+    <!--property BindNetworkInterface is not documented!-->
 
     <!--property MemoryPressureWatch is not documented!-->
 
@@ -6282,6 +6316,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property BPFDelegateAttachments is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
+
+    <!--property UserNamespacePath is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
 
@@ -6621,6 +6657,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNetworkInterfaces"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="BindNetworkInterface"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
@@ -7003,6 +7041,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="UserNamespacePath"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
@@ -7340,6 +7380,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly a(iiqq) SocketBindDeny = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly (bas) RestrictNetworkInterfaces = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s BindNetworkInterface = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s MemoryPressureWatch = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -7723,6 +7765,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -7947,6 +7991,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property SocketBindDeny is not documented!-->
 
     <!--property RestrictNetworkInterfaces is not documented!-->
+
+    <!--property BindNetworkInterface is not documented!-->
 
     <!--property MemoryPressureWatch is not documented!-->
 
@@ -8276,6 +8322,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property MemoryKSM is not documented!-->
 
+    <!--property UserNamespacePath is not documented!-->
+
     <!--property NetworkNamespacePath is not documented!-->
 
     <!--property IPCNamespacePath is not documented!-->
@@ -8521,6 +8569,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNetworkInterfaces"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BindNetworkInterface"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
@@ -8903,6 +8953,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateAttachments"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UserNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
@@ -9375,6 +9427,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly (bas) RestrictNetworkInterfaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s BindNetworkInterface = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s MemoryPressureWatch = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
@@ -9757,6 +9811,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -9963,6 +10019,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property SocketBindDeny is not documented!-->
 
     <!--property RestrictNetworkInterfaces is not documented!-->
+
+    <!--property BindNetworkInterface is not documented!-->
 
     <!--property MemoryPressureWatch is not documented!-->
 
@@ -10292,6 +10350,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property MemoryKSM is not documented!-->
 
+    <!--property UserNamespacePath is not documented!-->
+
     <!--property NetworkNamespacePath is not documented!-->
 
     <!--property IPCNamespacePath is not documented!-->
@@ -10519,6 +10579,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNetworkInterfaces"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BindNetworkInterface"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
@@ -10902,6 +10964,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="UserNamespacePath"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
@@ -11226,6 +11290,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly (bas) RestrictNetworkInterfaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s BindNetworkInterface = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s MemoryPressureWatch = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
@@ -11402,6 +11468,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property SocketBindDeny is not documented!-->
 
     <!--property RestrictNetworkInterfaces is not documented!-->
+
+    <!--property BindNetworkInterface is not documented!-->
 
     <!--property MemoryPressureWatch is not documented!-->
 
@@ -11594,6 +11662,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNetworkInterfaces"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BindNetworkInterface"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
@@ -11810,6 +11880,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly (bas) RestrictNetworkInterfaces = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s BindNetworkInterface = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s MemoryPressureWatch = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
@@ -12000,6 +12072,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property SocketBindDeny is not documented!-->
 
     <!--property RestrictNetworkInterfaces is not documented!-->
+
+    <!--property BindNetworkInterface is not documented!-->
 
     <!--property MemoryPressureWatch is not documented!-->
 
@@ -12217,6 +12291,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestrictNetworkInterfaces"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="BindNetworkInterface"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
@@ -12432,6 +12508,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>DefaultRestrictSUIDSGID</varname>,
       <function>RemoveSubgroupFromUnit()</function>, and
       <function>KillUnitSubgroup()</function> were added in version 258.</para>
+      <para><varname>TransactionsWithOrderingCycle</varname> was added in version 259.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
@@ -12516,8 +12593,12 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
-      <para><varname>OOMKills</varname>, and
-      <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>UserNamespacePath</varname>,
+      <varname>OOMKills</varname>,
+      <varname>ManagedOOMKills</varname>,
+      <varname>ExecReloadPost</varname>, and
+      <varname>ExecReloadPostEx</varname> were added in version 259.</para>
+      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12584,7 +12665,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
       <para><varname>OOMKills</varname>, and
+      <varname>UserNamespacePath</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12645,8 +12728,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
-      <para><varname>OOMKills</varname>, and
+      <para><varname>UserNamespacePath</varname>,
+      <varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12705,8 +12790,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
-      <para><varname>OOMKills</varname>, and
+      <para><varname>UserNamespacePath</varname>,
+      <varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -12739,6 +12826,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <function>KillSubgroup()</function> were added in version 258.</para>
       <para><varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -12769,6 +12857,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <function>KillSubgroup()</function> were added in version 258.</para>
       <para><varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>

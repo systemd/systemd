@@ -128,7 +128,7 @@
             from downloaded disk images. This is only supported for <literal>raw</literal> disk images.</para>
 
             <para>Note when this option is used with the purpose of mounting a disk image conforming to the
-            <ulink url="https://uapi-group.org/specifications/specs/discoverable_disk_image/">Discoverable
+            <ulink url="https://uapi-group.org/specifications/specs/discoverable_disk_image/">UAPI.3 Discoverable
             Disk Image Specification</ulink> as root file system, and the automatic GPT partition discovery
             logic as implemented by
             <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>

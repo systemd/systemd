@@ -424,7 +424,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_REPORT_URL,              "Loader reports network boot URL"       },
                         { EFI_LOADER_FEATURE_TYPE1_UKI,               "Support Type #1 uki field"             },
                         { EFI_LOADER_FEATURE_TYPE1_UKI_URL,           "Support Type #1 uki-url field"         },
-                        { EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS,   "Loader reports TPM2 active PCR banks"  },
+                        { EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS,   "Loader reports active TPM2 PCR banks"  },
                 };
                 static const struct {
                         uint64_t flag;
@@ -572,7 +572,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                                  * to _either_ of them, print a warning. */
                                 if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(stub_partition_uuid, esp_uuid) &&
                                     !sd_id128_is_null(xbootldr_uuid) && !sd_id128_equal(stub_partition_uuid, xbootldr_uuid))
-                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP and XBOOTDLR partitions "
+                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP and XBOOTLDR partitions "
                                                "("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
                                                SD_ID128_FORMAT_VAL(stub_partition_uuid),
                                                SD_ID128_FORMAT_VAL(esp_uuid),
@@ -940,7 +940,7 @@ int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, s
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -952,7 +952,7 @@ int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, s
                         /* ret_part= */ NULL,
                         /* ret_pstart= */ NULL,
                         /* ret_psize= */ NULL,
-                        /* ret_uuid=*/ NULL,
+                        /* ret_uuid= */ NULL,
                         &esp_devid);
         if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
                 return log_error_errno(r, "Failed to determine ESP location: %m");

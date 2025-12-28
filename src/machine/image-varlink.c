@@ -14,7 +14,6 @@
 #include "image-varlink.h"
 #include "io-util.h"
 #include "json-util.h"
-#include "machine-pool.h"
 #include "machined.h"
 #include "operation.h"
 #include "process-util.h"
@@ -116,7 +115,7 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         ImageUpdateParameters p = IMAGE_UPDATE_PARAMETERS_NULL;
         Image *image;
-        pid_t child;
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         int r;
 
         assert(link);
@@ -157,7 +156,7 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return log_debug_errno(errno, "Failed to open pipe: %m");
 
-        r = safe_fork("(sd-imgclone)", FORK_RESET_SIGNALS, &child);
+        r = pidref_safe_fork("(sd-imgclone)", FORK_RESET_SIGNALS, &child);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fork: %m");
         if (r == 0) {
@@ -168,12 +167,11 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = operation_new_with_varlink_reply(manager, /* machine= */ NULL, child, link, errno_pipe_fd[0], /* ret= */ NULL);
-        if (r < 0) {
-                sigkill_wait(child);
+        r = operation_new_with_varlink_reply(manager, /* machine= */ NULL, &child, link, errno_pipe_fd[0], /* ret= */ NULL);
+        if (r < 0)
                 return r;
-        }
 
+        TAKE_PIDREF(child);
         TAKE_FD(errno_pipe_fd[0]);
         return 1;
 }
@@ -189,7 +187,7 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         const char *image_name;
         Image *image;
-        pid_t child;
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         int r;
 
         assert(link);
@@ -226,7 +224,7 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return log_debug_errno(errno, "Failed to open pipe: %m");
 
-        r = safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
+        r = pidref_safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fork: %m");
         if (r == 0) {
@@ -237,12 +235,11 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = operation_new_with_varlink_reply(manager, /* machine= */ NULL, child, link, errno_pipe_fd[0], /* ret= */ NULL);
-        if (r < 0) {
-                sigkill_wait(child);
+        r = operation_new_with_varlink_reply(manager, /* machine= */ NULL, &child, link, errno_pipe_fd[0], /* ret= */ NULL);
+        if (r < 0)
                 return r;
-        }
 
+        TAKE_PIDREF(child);
         TAKE_FD(errno_pipe_fd[0]);
         return 1;
 }
@@ -280,7 +277,11 @@ int vl_method_set_pool_limit(sd_varlink *link, sd_json_variant *parameters, sd_v
         }
 
         /* Set up the machine directory if necessary */
-        r = setup_machine_directory(/* error = */ NULL, /* use_btrfs_subvol= */ true, /* use_btrfs_quota= */ true);
+        r = image_setup_pool(
+                        manager->runtime_scope,
+                        IMAGE_MACHINE,
+                        /* use_btrfs_subvol= */ true,
+                        /* use_btrfs_quota= */ true);
         if (r < 0)
                 return r;
 
@@ -319,7 +320,7 @@ static int clean_pool_done_internal(Operation *operation, FILE *file, int child_
         assert(operation);
         assert(operation->link);
 
-        r = clean_pool_read_first_entry(file, child_error, /* error = */ NULL);
+        r = clean_pool_read_first_entry(file, child_error, /* error= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read first entry from tmp file: %m");
 
@@ -337,7 +338,7 @@ static int clean_pool_done_internal(Operation *operation, FILE *file, int child_
                         break;
 
                 if (previous_name) {
-                        r = clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more = */ true);
+                        r = clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more= */ true);
                         if (r < 0)
                                 return r;
                         /* freeing memory to avoid memleak at the following assignment */
@@ -349,7 +350,7 @@ static int clean_pool_done_internal(Operation *operation, FILE *file, int child_
         }
 
         if (previous_name)
-                return clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more = */ false);
+                return clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more= */ false);
 
         return sd_varlink_error(operation->link, "io.systemd.MachineImage.NoSuchImage", NULL);
 }

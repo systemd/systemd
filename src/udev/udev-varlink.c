@@ -18,12 +18,12 @@ static int vl_method_reload(sd_varlink *link, sd_json_variant *parameters, sd_va
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
         log_debug("Received io.systemd.service.Reload()");
-        manager_reload(userdata, /* force = */ true);
+        manager_reload(userdata, /* force= */ true);
         return sd_varlink_reply(link, NULL);
 }
 
@@ -112,7 +112,7 @@ static int vl_method_revert(sd_varlink *link, sd_json_variant *parameters, sd_va
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -128,7 +128,7 @@ static int vl_method_start_stop_exec_queue(sd_varlink *link, sd_json_variant *pa
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -154,7 +154,7 @@ static int vl_method_exit(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 

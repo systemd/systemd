@@ -8,6 +8,7 @@
 #include "bpf-dlopen.h"
 #if HAVE_VMLINUX_H
 #include "bpf-link.h"
+#include "bpf/userns-restrict/userns-restrict-skel.h"
 #endif
 #include "build-path.h"
 #include "common-signal.h"
@@ -20,12 +21,12 @@
 #include "mkdir.h"
 #include "nsresourced-manager.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "recurse-dir.h"
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -57,7 +58,7 @@ static int on_worker_exit(sd_event_source *s, const siginfo_t *si, void *userdat
         else if (si->si_code == CLD_DUMPED)
                 log_warning("Worker " PID_FMT " dumped core by signal %s, ignoring.", si->si_pid, signal_to_string(si->si_status));
         else
-                log_warning("Got unexpected exit code via SIGCHLD, ignoring.");
+                log_warning("Got unexpected exit code from child, ignoring.");
 
         (void) start_workers(m, /* explicit_request= */ false); /* Fill up workers again if we fell below the low watermark */
         return 0;
@@ -68,7 +69,7 @@ static int on_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, voi
 
         assert(s);
 
-        (void) start_workers(m, /* explicit_request=*/ true); /* Workers told us there's more work, let's add one more worker as long as we are below the high watermark */
+        (void) start_workers(m, /* explicit_request= */ true); /* Workers told us there's more work, let's add one more worker as long as we are below the high watermark */
         return 0;
 }
 
@@ -79,7 +80,7 @@ static int on_deferred_start_worker(sd_event_source *s, uint64_t usec, void *use
 
         m->deferred_start_worker_event_source = sd_event_source_unref(m->deferred_start_worker_event_source);
 
-        (void) start_workers(m, /* explicit_request=*/ false);
+        (void) start_workers(m, /* explicit_request= */ false);
         return 0;
 }
 
@@ -177,7 +178,6 @@ static int start_one_worker(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fork new worker child: %m");
         if (r == 0) {
-                char pids[DECIMAL_STR_MAX(pid_t)];
                 /* Child */
 
                 if (m->listen_fd == 3) {
@@ -195,10 +195,19 @@ static int start_one_worker(Manager *m) {
                         safe_close(m->listen_fd);
                 }
 
-                xsprintf(pids, PID_FMT, pid);
-                if (setenv("LISTEN_PID", pids, 1) < 0) {
-                        log_error_errno(errno, "Failed to set $LISTEN_PID: %m");
+                r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, pid);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set $LISTEN_PID: %m");
                         _exit(EXIT_FAILURE);
+                }
+
+                uint64_t pidfdid;
+                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        r = setenvf("LISTEN_PIDFDID", /* overwrite= */ true, "%" PRIu64, pidfdid);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to set $LISTEN_PIDFDID: %m");
+                                _exit(EXIT_FAILURE);
+                        }
                 }
 
                 if (setenv("LISTEN_FDS", "1", 1) < 0) {

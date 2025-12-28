@@ -13,6 +13,7 @@
 #include "base-filesystem.h"
 #include "bitfield.h"
 #include "chase.h"
+#include "cryptsetup-util.h"
 #include "dev-setup.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
@@ -24,6 +25,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "iovec-util.h"
 #include "label-util.h"
 #include "list.h"
 #include "lock-util.h"
@@ -135,8 +137,9 @@ static const BindMount bind_log_sockets_table[] = {
         { (char*) "/run/systemd/journal/dev-log", (char*) "/run/systemd/journal/dev-log", .read_only = true, .nosuid = true, .noexec = true, .nodev = true, .ignore_enoent = true },
 };
 
-/* If MountAPIVFS= is used, let's mount /sys, /proc, /dev and /run into the it, but only as a fallback if the user hasn't mounted
- * something there already. These mounts are hence overridden by any other explicitly configured mounts. */
+/* If MountAPIVFS= is used, let's mount /proc/, /dev/, /sys/, and /run/, but only as a fallback if the user
+ * hasn't mounted something already. These mounts are hence overridden by any other explicitly configured
+ * mounts. */
 static const MountEntry apivfs_table[] = {
         { "/proc",               MOUNT_PROCFS,       false },
         { "/dev",                MOUNT_BIND_DEV,     false },
@@ -190,8 +193,8 @@ static const MountEntry protect_kernel_logs_dev_table[] = {
 };
 
 /*
- * ProtectHome=read-only table, protect $HOME and $XDG_RUNTIME_DIR and rest of
- * system should be protected by ProtectSystem=
+ * ProtectHome=read-only. Protect $HOME and $XDG_RUNTIME_DIR and rest of
+ * system should be protected by ProtectSystem=.
  */
 static const MountEntry protect_home_read_only_table[] = {
         { "/home",               MOUNT_READ_ONLY,     true  },
@@ -199,37 +202,37 @@ static const MountEntry protect_home_read_only_table[] = {
         { "/root",               MOUNT_READ_ONLY,     true  },
 };
 
-/* ProtectHome=tmpfs table */
+/* ProtectHome=tmpfs */
 static const MountEntry protect_home_tmpfs_table[] = {
         { "/home",               MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
         { "/run/user",           MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
         { "/root",               MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0700" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
 };
 
-/* ProtectHome=yes table */
+/* ProtectHome=yes */
 static const MountEntry protect_home_yes_table[] = {
         { "/home",               MOUNT_INACCESSIBLE, true  },
         { "/run/user",           MOUNT_INACCESSIBLE, true  },
         { "/root",               MOUNT_INACCESSIBLE, true  },
 };
 
-/* ProtectControlGroups=yes table */
+/* ProtectControlGroups=yes */
 static const MountEntry protect_control_groups_yes_table[] = {
         { "/sys/fs/cgroup",      MOUNT_READ_ONLY,         false  },
 };
 
-/* ProtectControlGroups=private table. Note mount_private_apivfs() always use MS_NOSUID|MS_NOEXEC|MS_NODEV so
- * flags is not set here. */
+/* ProtectControlGroups=private. Note mount_private_apivfs() always use MS_NOSUID|MS_NOEXEC|MS_NODEV so
+ * flags are not set here. */
 static const MountEntry protect_control_groups_private_table[] = {
         { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = false },
 };
 
-/* ProtectControlGroups=strict table */
+/* ProtectControlGroups=strict */
 static const MountEntry protect_control_groups_strict_table[] = {
         { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = true },
 };
 
-/* ProtectSystem=yes table */
+/* ProtectSystem=yes */
 static const MountEntry protect_system_yes_table[] = {
         { "/usr",                MOUNT_READ_ONLY,     false },
         { "/boot",               MOUNT_READ_ONLY,     true  },
@@ -244,9 +247,9 @@ static const MountEntry protect_system_full_table[] = {
         { "/etc",                MOUNT_READ_ONLY,     false },
 };
 
-/* ProtectSystem=strict table. In this strict mode, we mount everything read-only, except for /proc, /dev,
- * /sys which are the kernel API VFS, which are left writable, but PrivateDevices= + ProtectKernelTunables=
- * protect those, and these options should be fully orthogonal.  (And of course /home and friends are also
+/* ProtectSystem=strict. In this strict mode, we mount everything read-only, except for /proc, /dev, and
+ * /sys which are the kernel API VFS and left writable. PrivateDevices= + ProtectKernelTunables=
+ * protect those, and these options should be fully orthogonal. (And of course /home and friends are also
  * left writable, as ProtectHome= shall manage those, orthogonally).
  */
 static const MountEntry protect_system_strict_table[] = {
@@ -259,7 +262,7 @@ static const MountEntry protect_system_strict_table[] = {
         { "/root",               MOUNT_READ_WRITE_IMPLICIT, true  },      /* ProtectHome= */
 };
 
-/* ProtectHostname=yes able */
+/* ProtectHostname=yes */
 static const MountEntry protect_hostname_yes_table[] = {
         { "/proc/sys/kernel/hostname",   MOUNT_READ_ONLY, false },
         { "/proc/sys/kernel/domainname", MOUNT_READ_ONLY, false },
@@ -1019,7 +1022,7 @@ static bool verity_has_later_duplicates(MountList *ml, const MountEntry *needle)
         assert(needle >= ml->mounts && needle < ml->mounts + ml->n_mounts);
         assert(needle->mode == MOUNT_EXTENSION_IMAGE);
 
-        if (needle->verity.root_hash_size == 0)
+        if (!iovec_is_set(&needle->verity.root_hash))
                 return false;
 
         /* Overlayfs rejects supplying the same directory inode twice as determined by filesystem UUID and
@@ -1032,10 +1035,7 @@ static bool verity_has_later_duplicates(MountList *ml, const MountEntry *needle)
         for (const MountEntry *m = needle + 1; m < ml->mounts + ml->n_mounts; m++) {
                 if (m->mode != MOUNT_EXTENSION_IMAGE)
                         continue;
-                if (memcmp_nn(m->verity.root_hash,
-                              m->verity.root_hash_size,
-                              needle->verity.root_hash,
-                              needle->verity.root_hash_size) == 0)
+                if (iovec_memcmp(&m->verity.root_hash, &needle->verity.root_hash) == 0)
                         return true;
         }
 
@@ -1359,7 +1359,7 @@ static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) 
 
         /* We assume /run/systemd/journal/ is available if not changing root, which isn't entirely accurate
          * but shouldn't matter, as either way the user would get ENOENT when accessing /dev/log */
-        if ((!p->root_image && !p->root_directory) || p->bind_log_sockets) {
+        if ((!p->root_image && !p->root_directory && p->root_directory_fd < 0) || p->bind_log_sockets) {
                 const char *devlog = strjoina(temporary_mount, "/dev/log");
                 if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
                         log_debug_errno(errno,
@@ -1475,7 +1475,7 @@ static int mount_private_apivfs(
                 /* We lack permissions to mount a new instance, and it is not already mounted. But we can
                  * access the host's, so as a final fallback bind-mount it to the destination, as most likely
                  * we are inside a user manager in an unprivileged user namespace. */
-                r = mount_nofollow_verbose(LOG_DEBUG, bind_source, entry_path, /* fstype = */ NULL, MS_BIND|MS_REC, /* options = */ NULL);
+                r = mount_nofollow_verbose(LOG_DEBUG, bind_source, entry_path, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
                 if (r < 0)
                         return r;
 
@@ -1485,12 +1485,12 @@ static int mount_private_apivfs(
                 return r;
 
         /* OK. We have a new mount instance. Let's clear an existing mount and its submounts. */
-        r = umount_recursive(entry_path, /* flags = */ 0);
+        r = umount_recursive(entry_path, /* flags= */ 0);
         if (r < 0)
                 log_debug_errno(r, "Failed to unmount directories below '%s', ignoring: %m", entry_path);
 
         /* Then, move the new mount instance. */
-        r = mount_nofollow_verbose(LOG_DEBUG, temporary_mount, entry_path, /* fstype = */ NULL, MS_MOVE, /* options = */ NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, temporary_mount, entry_path, /* fstype= */ NULL, MS_MOVE, /* options= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1503,13 +1503,13 @@ static int mount_private_apivfs(
 static int mount_private_sysfs(const MountEntry *m, const NamespaceParameters *p) {
         assert(m);
         assert(p);
-        return mount_private_apivfs("sysfs", mount_entry_path(m), "/sys", /* opts = */ NULL, p->runtime_scope);
+        return mount_private_apivfs("sysfs", mount_entry_path(m), "/sys", /* opts= */ NULL, p->runtime_scope);
 }
 
 static int mount_private_cgroup2fs(const MountEntry *m, const NamespaceParameters *p) {
         assert(m);
         assert(p);
-        return mount_private_apivfs("cgroup2", mount_entry_path(m), "/sys/fs/cgroup", /* opts = */ NULL, p->runtime_scope);
+        return mount_private_apivfs("cgroup2", mount_entry_path(m), "/sys/fs/cgroup", /* opts= */ NULL, p->runtime_scope);
 }
 
 static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
@@ -1617,7 +1617,8 @@ static int mount_mqueuefs(const MountEntry *m) {
 static int mount_image(
                 MountEntry *m,
                 const char *root_directory,
-                const ImagePolicy *image_policy) {
+                const ImagePolicy *image_policy,
+                RuntimeScope runtime_scope) {
 
         _cleanup_(extension_release_data_done) ExtensionReleaseData rdata = {};
         ImageClass required_class = _IMAGE_CLASS_INVALID;
@@ -1652,6 +1653,7 @@ static int mount_image(
                         &rdata,
                         required_class,
                         &m->verity,
+                        runtime_scope,
                         /* ret_image= */ NULL);
         if (r == -ENOENT && m->ignore)
                 return 0;
@@ -1742,11 +1744,11 @@ static int mount_bpffs(const MountEntry *m, PidRef *pidref, int socket_fd, int e
         if (fs_fd < 0)
                 return log_debug_errno(errno, "Failed to fsopen: %m");
 
-        r = send_one_fd(socket_fd, fs_fd, /* flags = */ 0);
+        r = send_one_fd(socket_fd, fs_fd, /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to send bpffs fd to child: %m");
 
-        r = pidref_wait_for_terminate_and_check("(sd-bpffs)", pidref, /* flags = */ 0);
+        r = pidref_wait_for_terminate_and_check("(sd-bpffs)", pidref, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -1762,7 +1764,7 @@ static int mount_bpffs(const MountEntry *m, PidRef *pidref, int socket_fd, int e
 
         pidref_done(pidref);
 
-        _cleanup_close_ int mnt_fd = fsmount(fs_fd, /* flags = */ 0, /* mount_attrs = */ 0);
+        _cleanup_close_ int mnt_fd = fsmount(fs_fd, /* flags= */ 0, /* mount_attrs= */ 0);
         if (mnt_fd < 0)
                 return log_debug_errno(errno, "Failed to fsmount bpffs: %m");
 
@@ -1839,7 +1841,7 @@ static int apply_one_mount(
                         return 0;
                 }
 
-                log_debug_errno(r, "Failed to mount new bpffs instance, fallback to making %s read-only, ignoring: %m", mount_entry_path(m));
+                log_debug_errno(r, "Failed to mount new bpffs instance at %s, will make read-only, ignoring: %m", mount_entry_path(m));
                 m->mode = MOUNT_READ_ONLY;
                 m->ignore = true;
         }
@@ -1885,7 +1887,7 @@ static int apply_one_mount(
         case MOUNT_READ_WRITE_IMPLICIT:
         case MOUNT_EXEC:
         case MOUNT_NOEXEC:
-                r = path_is_mount_point_full(mount_entry_path(m), root_directory, /* flags = */ 0);
+                r = path_is_mount_point_full(mount_entry_path(m), root_directory, /* flags= */ 0);
                 if (r == -ENOENT && m->ignore)
                         return 0;
                 if (r < 0)
@@ -1951,7 +1953,7 @@ static int apply_one_mount(
                                 host_os_release_id_like,
                                 host_os_release_version_id,
                                 host_os_release_level,
-                                /* host_extension_scope = */ NULL, /* Leave empty, we need to accept both system and portable */
+                                /* host_extension_scope= */ NULL, /* Leave empty, we need to accept both system and portable */
                                 extension_release,
                                 class);
                 if (r < 0)
@@ -2038,10 +2040,10 @@ static int apply_one_mount(
                 return mount_mqueuefs(m);
 
         case MOUNT_IMAGE:
-                return mount_image(m, NULL, p->mount_image_policy);
+                return mount_image(m, NULL, p->mount_image_policy, p->runtime_scope);
 
         case MOUNT_EXTENSION_IMAGE:
-                return mount_image(m, root_directory, p->extension_image_policy);
+                return mount_image(m, root_directory, p->extension_image_policy, p->runtime_scope);
 
         case MOUNT_OVERLAY:
                 return mount_overlay(m);
@@ -2523,7 +2525,8 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 DISSECT_IMAGE_GROWFS |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
-                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
+                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
+                DISSECT_IMAGE_VERITY_SHARE;
         int r;
 
         assert(p);
@@ -2547,63 +2550,82 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
                 SET_FLAG(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE, p->verity && p->verity->data_path);
 
-                if (p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                        /* In system mode we mount directly */
+                /* First check if we have a verity device already open and with a fstype pinned by policy. If it
+                * cannot be found, then fallback to the slow path (full dissect). */
+                r = dissected_image_new_from_existing_verity(
+                                p->root_image,
+                                p->verity,
+                                p->root_image_options,
+                                p->root_image_policy,
+                                /* image_filter= */ NULL,
+                                p->runtime_scope,
+                                dissect_image_flags,
+                                &dissected_image);
+                if (r < 0 && !ERRNO_IS_NEG_DEVICE_ABSENT(r) && r != -ENOPKG)
+                        return r;
+                if (r >= 0)
+                        log_debug("Reusing pre-existing verity-protected root image %s", p->root_image);
+                else {
+                        if (p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                                /* In system mode we mount directly */
 
-                        r = loop_device_make_by_path(
-                                        p->root_image,
-                                        FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
-                                        /* sector_size= */ UINT32_MAX,
-                                        FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
-                                        LOCK_SH,
-                                        &loop_device);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to create loop device for root image: %m");
+                                r = loop_device_make_by_path(
+                                                p->root_image,
+                                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
+                                                /* sector_size= */ UINT32_MAX,
+                                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                                                LOCK_SH,
+                                                &loop_device);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to create loop device for root image: %m");
 
-                        r = dissect_loop_device(
-                                        loop_device,
-                                        p->verity,
-                                        p->root_image_options,
-                                        p->root_image_policy,
-                                        /* image_filter= */ NULL,
-                                        dissect_image_flags,
-                                        &dissected_image);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to dissect image: %m");
+                                r = dissect_loop_device(
+                                                loop_device,
+                                                p->verity,
+                                                p->root_image_options,
+                                                p->root_image_policy,
+                                                /* image_filter= */ NULL,
+                                                dissect_image_flags,
+                                                &dissected_image);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to dissect image: %m");
 
-                        r = dissected_image_load_verity_sig_partition(
-                                        dissected_image,
-                                        loop_device->fd,
-                                        p->verity);
-                        if (r < 0)
-                                return r;
+                                r = dissected_image_load_verity_sig_partition(
+                                                dissected_image,
+                                                loop_device->fd,
+                                                p->verity);
+                                if (r < 0)
+                                        return r;
 
-                        r = dissected_image_guess_verity_roothash(
-                                        dissected_image,
-                                        p->verity);
-                        if (r < 0)
-                                return r;
+                                r = dissected_image_guess_verity_roothash(
+                                                dissected_image,
+                                                p->verity);
+                                if (r < 0)
+                                        return r;
 
-                        r = dissected_image_decrypt(
-                                        dissected_image,
-                                        NULL,
-                                        p->verity,
-                                        dissect_image_flags);
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to decrypt dissected image: %m");
-                } else {
-                        userns_fd = namespace_open_by_type(NAMESPACE_USER);
-                        if (userns_fd < 0)
-                                return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
+                                r = dissected_image_decrypt(
+                                                dissected_image,
+                                                /* passphrase= */ NULL,
+                                                p->verity,
+                                                p->root_image_policy,
+                                                dissect_image_flags);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to decrypt dissected image: %m");
+                        } else {
+                                userns_fd = namespace_open_by_type(NAMESPACE_USER);
+                                if (userns_fd < 0)
+                                        return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
 
-                        r = mountfsd_mount_image(
-                                        p->root_image,
-                                        userns_fd,
-                                        p->root_image_policy,
-                                        dissect_image_flags,
-                                        &dissected_image);
-                        if (r < 0)
-                                return r;
+                                r = mountfsd_mount_image(
+                                                p->root_image,
+                                                userns_fd,
+                                                p->root_image_policy,
+                                                p->verity,
+                                                dissect_image_flags,
+                                                &dissected_image);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
@@ -2747,7 +2769,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (r < 0)
                 return r;
 
-        r = append_private_bpf(&ml, p->private_bpf, p->protect_kernel_tunables, /* ignore_protect = */ false, p);
+        r = append_private_bpf(&ml, p->private_bpf, p->protect_kernel_tunables, /* ignore_protect= */ false, p);
         if (r < 0)
                 return r;
 
@@ -2806,12 +2828,20 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return log_oom_debug();
 
                 *me = (MountEntry) {
-                        .path_const = "/run/credentials",
                         .mode = MOUNT_TMPFS,
                         .read_only = true,
                         .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST,
                         .flags = MS_NODEV|MS_STRICTATIME|MS_NOSUID|MS_NOEXEC,
                 };
+
+                if (p->runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                        me->path_const = "/run/credentials";
+                else {
+                        r = path_extract_directory(p->creds_path, &me->path_malloc);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract parent directory from '%s': %m",
+                                                       p->creds_path);
+                }
 
                 me = mount_list_extend(&ml);
                 if (!me)
@@ -2824,9 +2854,11 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .source_const = p->creds_path,
                         .ignore = true,
                 };
-        } else {
-                /* If our service has no credentials store configured, then make the whole credentials tree
-                 * inaccessible wholesale. */
+        }
+
+        if (!p->creds_path || p->runtime_scope != RUNTIME_SCOPE_SYSTEM) {
+                /* If our service has no credentials store configured, or we're running in user scope, then
+                 * make the system credentials tree inaccessible wholesale. */
 
                 MountEntry *me = mount_list_extend(&ml);
                 if (!me)
@@ -2943,7 +2975,18 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
                 return log_debug_errno(errno, "Failed to remount '/' as SLAVE: %m");
 
-        if (p->root_image) {
+        if (p->root_directory_fd >= 0) {
+
+                if (move_mount(p->root_directory_fd, "", AT_FDCWD, root, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                        return log_debug_errno(errno, "Failed to move detached mount to '%s': %m", root);
+
+                /* We just remounted / as slave, but that didn't affect the detached mount that we just
+                 * mounted, so remount that one as slave recursive as well now. */
+
+                if (mount(NULL, root, NULL, MS_SLAVE|MS_REC, NULL) < 0)
+                        return log_debug_errno(errno, "Failed to remount '%s' as SLAVE: %m", root);
+
+        } else if (p->root_image) {
                 /* A root image is specified, mount it to the right place */
                 r = dissected_image_mount(
                                 dissected_image,
@@ -2970,7 +3013,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         } else if (p->root_directory) {
 
                 /* A root directory is specified. Turn its directory into bind mount, if it isn't one yet. */
-                r = path_is_mount_point_full(root, /* root = */ NULL, AT_SYMLINK_FOLLOW);
+                r = path_is_mount_point_full(root, /* root= */ NULL, AT_SYMLINK_FOLLOW);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to detect that %s is a mount point or not: %m", root);
                 if (r == 0) {
@@ -2987,7 +3030,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         }
 
         /* Try to set up the new root directory before mounting anything else there. */
-        if (p->root_image || p->root_directory)
+        if (p->root_image || p->root_directory || p->root_directory_fd >= 0)
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         /* Now make the magic happen */
@@ -2996,7 +3039,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 return r;
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
-        r = mount_switch_root(root, /* mount_propagation_flag = */ 0);
+        r = mount_switch_root(root, /* mount_propagation_flag= */ 0);
         if (r == -EINVAL && p->root_directory) {
                 /* If we are using root_directory and we don't have privileges (ie: user manager in a user
                  * namespace) and the root_directory is already a mount point in the parent namespace,
@@ -3006,7 +3049,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 r = mount_nofollow_verbose(LOG_DEBUG, root, root, NULL, MS_BIND|MS_REC, NULL);
                 if (r < 0)
                         return r;
-                r = mount_switch_root(root, /* mount_propagation_flag = */ 0);
+                r = mount_switch_root(root, /* mount_propagation_flag= */ 0);
         }
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount root with MS_MOVE: %m");
@@ -3827,6 +3870,8 @@ int refresh_extensions_in_namespace(
         if (r > 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Target namespace is not separate, cannot reload extensions");
 
+        (void) dlopen_cryptsetup();
+
         extension_dir = path_join(p->private_namespace_dir, "unit-extensions");
         if (!extension_dir)
                 return log_oom_debug();
@@ -3866,7 +3911,7 @@ int refresh_extensions_in_namespace(
         if (r == 0) {
                 /* Child (host namespace) */
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-                _cleanup_(sigkill_waitp) pid_t grandchild_pid = 0;
+                _cleanup_(pidref_done_sigkill_wait) PidRef grandchild = PIDREF_NULL;
 
                  (void) mkdir_p_label(overlay_prefix, 0555);
 
@@ -3883,9 +3928,7 @@ int refresh_extensions_in_namespace(
                         _exit(EXIT_FAILURE);
                 }
 
-                r = safe_fork("(sd-ns-refresh-exts-grandchild)",
-                                FORK_LOG|FORK_DEATHSIG_SIGKILL,
-                                &grandchild_pid);
+                r = pidref_safe_fork("(sd-ns-refresh-exts-grandchild)", FORK_LOG|FORK_DEATHSIG_SIGKILL, &grandchild);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
                 if (r == 0) {
@@ -3919,11 +3962,14 @@ int refresh_extensions_in_namespace(
                                 _exit(EXIT_FAILURE);
                 }
 
-                r = wait_for_terminate_and_check("(sd-ns-refresh-exts-grandchild)", TAKE_PID(grandchild_pid), 0);
+                r = pidref_wait_for_terminate_and_check("(sd-ns-refresh-exts-grandchild)", &grandchild, 0);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to wait for target namespace process to finish: %m");
                         _exit(EXIT_FAILURE);
                 }
+
+                pidref_done(&grandchild);
+
                 if (r != EXIT_SUCCESS) {
                         log_debug("Target namespace fork did not succeed");
                         _exit(EXIT_FAILURE);
@@ -4038,7 +4084,7 @@ int bpf_delegate_from_string(const char *s, uint64_t *ret, uint64_t (*parser)(co
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&s, &word, ",", /* flags = */ 0);
+                r = extract_first_word(&s, &word, ",", /* flags= */ 0);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse delegate options \"%s\": %m", s);
                 if (r == 0)

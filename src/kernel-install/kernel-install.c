@@ -222,9 +222,9 @@ static int context_open_root(Context *c) {
         if (r > 0)
                 return 0;
 
-        c->rfd = open(empty_to_root(arg_root), O_CLOEXEC | O_DIRECTORY | O_PATH);
+        c->rfd = open(arg_root, O_CLOEXEC | O_DIRECTORY | O_PATH);
         if (c->rfd < 0)
-                return log_error_errno(errno, "Failed to open root directory '%s': %m", empty_to_root(arg_root));
+                return log_error_errno(errno, "Failed to open root directory '%s': %m", arg_root);
 
         return 0;
 }
@@ -336,7 +336,7 @@ static int context_set_path(Context *c, const char *s, const char *source, const
                 return 0;
 
         if (c->rfd >= 0) {
-                r = chaseat(c->rfd, s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd = */ NULL);
+                r = chaseat(c->rfd, s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to chase path %s for %s specified via %s, ignoring: %m",
                                                  s, name, source);
@@ -384,7 +384,7 @@ static int context_set_path_strv(Context *c, char* const* strv, const char *sour
                 char *p;
 
                 if (c->rfd >= 0) {
-                        r = chaseat(c->rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd = */ NULL);
+                        r = chaseat(c->rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd= */ NULL);
                         if (r < 0)
                                 return log_warning_errno(r, "Failed to chase path %s for %s specified via %s: %m",
                                                          *s, name, source);
@@ -567,12 +567,12 @@ static int context_acquire_xbootldr(Context *c) {
         assert(!c->boot_root);
 
         r = find_xbootldr_and_warn_at(
-                        /* rfd = */ c->rfd,
-                        /* path = */ arg_xbootldr_path,
+                        /* rfd= */ c->rfd,
+                        /* path= */ arg_xbootldr_path,
                         /* unprivileged_mode= */ -1,
-                        /* ret_path = */ &c->boot_root,
-                        /* ret_uuid = */ NULL,
-                        /* ret_devid = */ NULL);
+                        /* ret_path= */ &c->boot_root,
+                        /* ret_uuid= */ NULL,
+                        /* ret_devid= */ NULL);
         if (r == -ENOKEY) {
                 log_debug_errno(r, "Couldn't find an XBOOTLDR partition.");
                 return 0;
@@ -593,15 +593,15 @@ static int context_acquire_esp(Context *c) {
         assert(!c->boot_root);
 
         r = find_esp_and_warn_at(
-                        /* rfd = */ c->rfd,
-                        /* path = */ arg_esp_path,
+                        /* rfd= */ c->rfd,
+                        /* path= */ arg_esp_path,
                         /* unprivileged_mode= */ -1,
-                        /* ret_path = */ &c->boot_root,
-                        /* ret_part = */ NULL,
-                        /* ret_pstart = */ NULL,
-                        /* ret_psize = */ NULL,
-                        /* ret_uuid = */ NULL,
-                        /* ret_devid = */ NULL);
+                        /* ret_path= */ &c->boot_root,
+                        /* ret_part= */ NULL,
+                        /* ret_pstart= */ NULL,
+                        /* ret_psize= */ NULL,
+                        /* ret_uuid= */ NULL,
+                        /* ret_devid= */ NULL);
         if (r == -ENOKEY) {
                 log_debug_errno(r, "Couldn't find EFI system partition, ignoring.");
                 return 0;
@@ -636,7 +636,7 @@ static int context_ensure_boot_root(Context *c) {
 
         /* If all else fails, use /boot. */
         if (c->rfd >= 0) {
-                r = chaseat(c->rfd, "/boot", CHASE_AT_RESOLVE_IN_ROOT, &c->boot_root, /* ret_fd = */ NULL);
+                r = chaseat(c->rfd, "/boot", CHASE_AT_RESOLVE_IN_ROOT, &c->boot_root, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to chase '/boot/': %m");
         } else {
@@ -789,7 +789,7 @@ static int context_ensure_layout(Context *c) {
         if (!entry_token_path)
                 return log_oom();
 
-        r = is_dir_at(c->rfd, entry_token_path, /* follow = */ false);
+        r = is_dir_at(c->rfd, entry_token_path, /* follow= */ false);
         if (r < 0 && r != -ENOENT)
                 return log_error_errno(r, "Failed to check if '%s' is a directory: %m", entry_token_path);
         if (r > 0) {
@@ -810,7 +810,6 @@ static int context_ensure_layout(Context *c) {
 }
 
 static int context_set_up_staging_area(Context *c) {
-        static const char *template = "/tmp/kernel-install.staging.XXXXXX";
         int r;
 
         assert(c);
@@ -818,12 +817,19 @@ static int context_set_up_staging_area(Context *c) {
         if (c->staging_area)
                 return 0;
 
-        if (c->action == ACTION_INSPECT) {
+        const char *d;
+        r = var_tmp_dir(&d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine temporary directory location: %m");
+
+        _cleanup_free_ char *template = path_join(d, "kernel-install.staging.XXXXXX");
+        if (!template)
+                return log_oom();
+
+        if (c->action == ACTION_INSPECT)
                 /* This is only used for display. The directory will not be created. */
-                c->staging_area = strdup(template);
-                if (!c->staging_area)
-                        return log_oom();
-        } else {
+                c->staging_area = TAKE_PTR(template);
+        else {
                 r = mkdtemp_malloc(template, &c->staging_area);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create staging area: %m");
@@ -963,7 +969,7 @@ static int context_build_arguments(Context *c) {
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extend_strv(&a, c->initrds, /* filter_duplicates = */ false);
+                r = strv_extend_strv(&a, c->initrds, /* filter_duplicates= */ false);
                 if (r < 0)
                         return log_oom();
 
@@ -1050,10 +1056,10 @@ static int context_execute(Context *c) {
                 return r;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *x = strv_join_full(c->plugins, "", "\n  ", /* escape_separator = */ false);
+                _cleanup_free_ char *x = strv_join_full(c->plugins, "", "\n  ", /* escape_separator= */ false);
                 log_debug("Using plugins: %s", strna(x));
 
-                _cleanup_free_ char *y = strv_join_full(c->envp, "", "\n  ", /* escape_separator = */ false);
+                _cleanup_free_ char *y = strv_join_full(c->envp, "", "\n  ", /* escape_separator= */ false);
                 log_debug("Plugin environment: %s", strna(y));
 
                 _cleanup_free_ char *z = strv_join(strv_skip(c->argv, 1), " ");
@@ -1063,10 +1069,10 @@ static int context_execute(Context *c) {
         ret = execute_strv(
                         "plugins",
                         c->plugins,
-                        /* root = */ NULL,
+                        /* root= */ NULL,
                         USEC_INFINITY,
-                        /* callbacks = */ NULL,
-                        /* callback_args = */ NULL,
+                        /* callbacks= */ NULL,
+                        /* callback_args= */ NULL,
                         c->argv,
                         c->envp,
                         EXEC_DIR_SKIP_REMAINING);
@@ -1580,13 +1586,13 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                         break;
 
                 case ARG_ESP_PATH:
-                        r = parse_path_argument(optarg, /* suppress_root = */ false, &arg_esp_path);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_esp_path);
                         if (r < 0)
                                 return log_oom();
                         break;
 
                 case ARG_BOOT_PATH:
-                        r = parse_path_argument(optarg, /* suppress_root = */ false, &arg_xbootldr_path);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_xbootldr_path);
                         if (r < 0)
                                 return log_oom();
                         break;
@@ -1615,7 +1621,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
 
                 case ARG_JSON:
                         r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r < 0)
+                        if (r <= 0)
                                 return r;
                         break;
 

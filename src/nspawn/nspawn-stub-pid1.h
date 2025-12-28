@@ -3,6 +3,6 @@
 
 #include "sd-id128.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 
 int stub_pid1(sd_id128_t uuid);

@@ -67,6 +67,18 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   const char *foo(const char *input);
   ```
 
+- Casts should be written like this:
+
+  ```c
+  (const char*) s;
+  ```
+
+  instead of this:
+
+  ```c
+  (const char *)s;
+  ```
+
 - Single-line `if` blocks should not be enclosed in `{}`. Write this:
 
   ```c
@@ -250,9 +262,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
     inline functions that require the full definition of a struct into the
     implementation file so that only a forward declaration of the struct is
     required and not the full definition.
-  - `src/basic/forward.h` contains forward declarations for common types. If
-    possible, only include `forward.h` in header files which makes circular
-    header dependencies a non-issue.
+  - `src/basic/basic-forward.h` contains forward declarations for common types.
+    If possible, only include `basic-forward.h` in header files which makes
+    circular header dependencies a non-issue.
 
   Bad:
 
@@ -319,13 +331,21 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   incremental builds as much as possible.
 
   To avoid having to include other headers in header files, always include
-  `forward.h` in each header file and then add other required includes as
-  needed. `forward.h` already includes generic headers and contains forward
-  declarations for common types which should be sufficient for most header
-  files. For each extra include you add on top of `forward.h`, check if it can
-  be replaced by adding another forward declaration to `forward.h`. Depending on
-  the daemon, there might be a specific forward header to include (e.g.
-  `resolved-forward.h` for systemd-resolved header files).
+  the corresponding forward declaration header in each header file and then add
+  other required includes as needed. The forward declaration header already
+  includes generic headers and contains forward declarations for common types
+  which should be sufficient for most header files. For each extra include you
+  add on top of, check if it can be replaced by adding another forward
+  declaration to the forward declaration header. Depending on the daemon, there
+  might be a specific forward header to include (e.g. `resolved-forward.h` for
+  systemd-resolved header files).
+
+  For common code, there are three different forward declaration headers:
+
+  - `src/basic`: `basic-forward.h`
+  - `src/libsystemd`: `sd-forward.h`
+  - `src/libsystemd-network`: `sd-forward.h`
+  - `src/shared`: `shared-forward.h`
 
   Header files that extend other header files can include the original header
   file. For example, `iovec-util.h` includes `iovec-fundamental.h` and
@@ -352,7 +372,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   ```c
   // source.h
 
-  #include "forward.h"
+  #include "basic-forward.h"
 
   void my_function_that_logs(size_t sz);
 
@@ -575,8 +595,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   code. (With one exception: it is OK to log with DEBUG level from any code,
   with the exception of maybe inner loops).
 
-- In public API calls, you **must** validate all your input arguments for
-  programming error with `assert_return()` and return a sensible return
+- In libsystemd public API calls, you **must** validate all your input arguments
+  for programming error with `assert_return()` and return a sensible return
   code. In all other calls, it is recommended to check for programming errors
   with a more brutal `assert()`. We are more forgiving to public users than for
   ourselves! Note that `assert()` and `assert_return()` really only should be
@@ -974,5 +994,14 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   macro exists for your specific use case, please add a new assertion macro in a
   separate commit.
 
+- Use `ASSERT_OK_ERRNO()` and similar macros instead of `ASSERT_OK()` when
+  calling glibc APIs that return the error in `errno`.
+
 - When modifying existing tests, please convert the test to use the new assertion
   macros from `tests.h` if it is not already using those.
+
+## Integration Tests
+
+- Never use `grep -q` in a pipeline, use `grep >/dev/null` instead. The former
+  will generate `SIGPIPE` for the previous command in the pipeline when it finds
+  a match which will cause the test to fail unexpectedly.

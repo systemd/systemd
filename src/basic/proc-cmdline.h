@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 typedef enum ProcCmdlineFlags {
         PROC_CMDLINE_STRIP_RD_PREFIX    = 1 << 0, /* automatically strip "rd." prefix if it is set (and we are in the initrd, since otherwise we'd not consider it anyway) */
@@ -17,9 +17,9 @@ int proc_cmdline_filter_pid1_args(char **argv, char ***ret);
 int proc_cmdline(char **ret);
 int proc_cmdline_strv(char ***ret);
 
-int proc_cmdline_parse(const proc_cmdline_parse_t parse, void *userdata, ProcCmdlineFlags flags);
+int proc_cmdline_parse(proc_cmdline_parse_t parse, void *userdata, ProcCmdlineFlags flags);
 
-int proc_cmdline_get_key(const char *parameter, ProcCmdlineFlags flags, char **ret_value);
+int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_value);
 int proc_cmdline_get_bool(const char *key, ProcCmdlineFlags flags, bool *ret);
 
 int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...);

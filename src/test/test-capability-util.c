@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/prctl.h>
 #include <netinet/in.h>
 #include <pwd.h>
 #include <stdlib.h>
@@ -13,6 +12,7 @@
 #define TEST_CAPABILITY_C
 
 #include "alloc-util.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -84,18 +84,15 @@ static void fork_test(void (*test_func)(void)) {
 }
 
 static void show_capabilities(void) {
-        cap_t caps;
-        char *text;
+        _cleanup_free_ char *e = NULL, *p = NULL, *i = NULL;
+        CapabilityQuintet q;
 
-        caps = cap_get_proc();
-        assert_se(caps);
+        ASSERT_OK(capability_get(&q));
+        ASSERT_OK(capability_set_to_string(q.effective, &e));
+        ASSERT_OK(capability_set_to_string(q.permitted, &p));
+        ASSERT_OK(capability_set_to_string(q.inheritable, &i));
 
-        text = cap_to_text(caps, NULL);
-        assert_se(text);
-
-        log_info("Capabilities:%s", text);
-        cap_free(caps);
-        cap_free(text);
+        log_info("Capabilities:e=%s p=%s, i=%s", e, p, i);
 }
 
 static int setup_tests(bool *run_ambient) {
@@ -183,50 +180,18 @@ static void test_have_effective_cap(void) {
         assert_se(have_effective_cap(CAP_CHOWN) == 0);
 }
 
-static void test_update_inherited_set(void) {
-        cap_t caps;
-        uint64_t set = 0;
-        cap_flag_value_t fv;
-
-        caps = cap_get_proc();
-        assert_se(caps);
-
-        set = (UINT64_C(1) << CAP_CHOWN);
-
-        assert_se(!capability_update_inherited_set(caps, set));
-        assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert_se(fv == CAP_SET);
-
-        cap_free(caps);
-}
-
 static void test_apply_ambient_caps(void) {
-        cap_t caps;
-        uint64_t set = 0;
-        cap_flag_value_t fv;
+        ASSERT_OK_EQ_ERRNO(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0), 0);
 
-        assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 0);
+        ASSERT_OK(capability_ambient_set_apply(UINT64_C(1) << CAP_CHOWN, true));
+        ASSERT_OK_POSITIVE(have_inheritable_cap(CAP_CHOWN));
 
-        set = (UINT64_C(1) << CAP_CHOWN);
+        ASSERT_OK_EQ_ERRNO(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0), 1);
 
-        assert_se(!capability_ambient_set_apply(set, true));
+        ASSERT_OK(capability_ambient_set_apply(0, true));
+        ASSERT_OK_ZERO(have_inheritable_cap(CAP_CHOWN));
 
-        caps = cap_get_proc();
-        assert_se(caps);
-        assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert_se(fv == CAP_SET);
-        cap_free(caps);
-
-        assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 1);
-
-        assert_se(!capability_ambient_set_apply(0, true));
-        caps = cap_get_proc();
-        assert_se(caps);
-        assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert_se(fv == CAP_CLEAR);
-        cap_free(caps);
-
-        assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 0);
+        ASSERT_OK_EQ_ERRNO(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0), 0);
 }
 
 static void test_ensure_cap_64_bit(void) {
@@ -241,11 +206,9 @@ static void test_ensure_cap_64_bit(void) {
 
         ASSERT_OK(safe_atolu(content, &p));
 
-        /* If caps don't fit into 64-bit anymore, we have a problem, fail the test. */
-        assert_se(p <= 63);
-
-        /* Also check for the header definition */
-        assert_cc(CAP_LAST_CAP <= 63);
+        /* If caps don't fit into 64-bit anymore, we have a problem, fail the test. Moreover, we use
+         * UINT64_MAX as unset, hence it must be smaller than or equals to 62 (CAP_LIMIT). */
+        assert_se(p <= CAP_LIMIT);
 }
 
 static void test_capability_get_ambient(void) {
@@ -337,8 +300,6 @@ int main(int argc, char *argv[]) {
 
         if (!userns_has_single_user())
                 test_drop_privileges();
-
-        test_update_inherited_set();
 
         if (!userns_has_single_user())
                 fork_test(test_have_effective_cap);

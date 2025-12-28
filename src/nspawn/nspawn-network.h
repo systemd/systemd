@@ -3,7 +3,7 @@
 
 #include <linux/if.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 int test_network_interfaces_initialized(char **iface_pairs);
 int resolve_network_interface_names(char **iface_pairs);

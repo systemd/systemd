@@ -8,6 +8,7 @@
 #include "errno-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "in-addr-util.h"
 #include "local-addresses.h"
 #include "nss-util.h"
 #include "resolve-util.h"
@@ -116,7 +117,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                         r_tuple->next = r_tuple_prev;
                         r_tuple->name = r_name;
                         r_tuple->family = AF_INET6;
-                        memcpy(r_tuple->addr, LOCALADDRESS_IPV6, 16);
+                        memcpy(r_tuple->addr, LOCALADDRESS_IPV6, FAMILY_ADDRESS_SIZE(AF_INET6));
                         r_tuple->scopeid = 0;
 
                         idx += ALIGN(sizeof(struct gaih_addrtuple));
@@ -144,7 +145,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 r_tuple->name = r_name;
                 r_tuple->family = a->family;
                 r_tuple->scopeid = a->family == AF_INET6 && in6_addr_is_link_local(&a->address.in6) ? a->ifindex : 0;
-                memcpy(r_tuple->addr, &a->address, 16);
+                memcpy(r_tuple->addr, &a->address, FAMILY_ADDRESS_SIZE(a->family));
 
                 idx += ALIGN(sizeof(struct gaih_addrtuple));
                 r_tuple_prev = r_tuple;
@@ -263,7 +264,7 @@ static enum nss_status fill_in_hostent(
                 *(uint32_t*) r_addr = local_address_ipv4;
                 idx += ALIGN(alen);
         } else if (socket_ipv6_is_enabled()) {
-                memcpy(r_addr, LOCALADDRESS_IPV6, 16);
+                memcpy(r_addr, LOCALADDRESS_IPV6, FAMILY_ADDRESS_SIZE(AF_INET6));
                 idx += ALIGN(alen);
         }
 
@@ -463,7 +464,7 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
                 if (!socket_ipv6_is_enabled())
                         goto not_found;
 
-                if (memcmp(addr, LOCALADDRESS_IPV6, 16) == 0) {
+                if (memcmp(addr, LOCALADDRESS_IPV6, FAMILY_ADDRESS_SIZE(AF_INET6)) == 0) {
                         canonical = "localhost";
                         additional_from_hostname = true;
                         goto found;

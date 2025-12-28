@@ -1,171 +1,179 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
-#include <sys/stat.h>
+#include <sys/prctl.h>
 #include <unistd.h>
 
 #include "sd-event.h"
 
-#include "alloc-util.h"
 #include "capability-util.h"
+#include "copy.h"
 #include "dirent-util.h"
+#include "dissect-image.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "import-common.h"
+#include "libarchive-util.h"
 #include "log.h"
+#include "namespace-util.h"
+#include "nsresource.h"
 #include "os-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "selinux-util.h"
 #include "stat-util.h"
+#include "tar-util.h"
 #include "tmpfile-util.h"
 
-int import_fork_tar_x(const char *path, PidRef *ret) {
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
-        bool use_selinux;
+int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         int r;
 
-        assert(path);
-        assert(ret);
+        assert(tree_fd >= 0);
+        assert(ret_pid);
 
+        r = dlopen_libarchive();
+        if (r < 0)
+                return r;
+
+        TarFlags flags =
+                (userns_fd >= 0 ? TAR_SQUASH_UIDS_ABOVE_64K : 0) |
+                (mac_selinux_use() ? TAR_SELINUX : 0);
+
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
         (void) fcntl(pipefd[0], F_SETPIPE_SZ, IMPORT_BUFFER_SIZE);
 
-        use_selinux = mac_selinux_use();
-
         r = pidref_safe_fork_full(
-                        "(tar)",
-                        (int[]) { pipefd[0], -EBADF, STDERR_FILENO },
-                        NULL, 0,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
-                        &pid);
+                        "tar-x",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { tree_fd, pipefd[0], userns_fd }, userns_fd >= 0 ? 3 : 2,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG,
+                        ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
-                const char *cmdline[] = {
-                       "tar",
-                       "--ignore-zeros",
-                       "--numeric-owner",
-                       "-C", path,
-                       "-pxf",
-                       "-",
-                       "--xattrs",
-                       "--xattrs-include=*",
-                       use_selinux ? "--selinux" : "--no-selinux",
-                       NULL
-                };
-
-                uint64_t retain =
+                static const uint64_t retain =
                         (1ULL << CAP_CHOWN) |
                         (1ULL << CAP_FOWNER) |
                         (1ULL << CAP_FSETID) |
                         (1ULL << CAP_MKNOD) |
                         (1ULL << CAP_SETFCAP) |
-                        (1ULL << CAP_DAC_OVERRIDE);
+                        (1ULL << CAP_DAC_OVERRIDE) |
+                        (1ULL << CAP_DAC_READ_SEARCH);
 
                 /* Child */
 
+                if (userns_fd >= 0) {
+                        r = detach_mount_namespace_userns(userns_fd);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to join user namespace: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
                 if (unshare(CLONE_NEWNET) < 0)
-                        log_warning_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
+                        log_debug_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
 
                 r = capability_bounding_set_drop(retain, true);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to drop capabilities, ignoring: %m");
+                        log_debug_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                /* Try "gtar" before "tar". We only test things upstream with GNU tar. Some distros appear to
-                 * install a different implementation as "tar" (in particular some that do not support the
-                 * same command line switches), but then provide "gtar" as alias for the real thing, hence
-                 * let's prefer that. (Yes, it's a bad idea they do that, given they don't provide equivalent
-                 * command line support, but we are not here to argue, let's just expose the same
-                 * behaviour/implementation everywhere.) */
-                execvp("gtar", (char* const*) cmdline);
-                execvp("tar", (char* const*) cmdline);
+                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
+                        log_warning_errno(errno, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
 
-                log_error_errno(errno, "Failed to execute tar: %m");
-                _exit(EXIT_FAILURE);
+                if (tar_x(pipefd[0], tree_fd, flags) < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
         }
-
-        *ret = TAKE_PIDREF(pid);
 
         return TAKE_FD(pipefd[1]);
 }
 
-int import_fork_tar_c(const char *path, PidRef *ret) {
-        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-        bool use_selinux;
+int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
         int r;
 
-        assert(path);
-        assert(ret);
+        assert(tree_fd >= 0);
+        assert(ret_pid);
 
+        r = dlopen_libarchive();
+        if (r < 0)
+                return r;
+
+        TarFlags flags =
+                (userns_fd >= 0 ? TAR_SQUASH_UIDS_ABOVE_64K : 0) |
+                (mac_selinux_use() ? TAR_SELINUX : 0);
+
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
         (void) fcntl(pipefd[0], F_SETPIPE_SZ, IMPORT_BUFFER_SIZE);
 
-        use_selinux = mac_selinux_use();
-
         r = pidref_safe_fork_full(
-                        "(tar)",
-                        (int[]) { -EBADF, pipefd[1], STDERR_FILENO },
-                        NULL, 0,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
-                        &pid);
+                        "tar-c",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { tree_fd, pipefd[1], userns_fd }, userns_fd >= 0 ? 3 : 2,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG,
+                        ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
-                const char *cmdline[] = {
-                        "tar",
-                        "-C", path,
-                        "-c",
-                        "--xattrs",
-                        "--xattrs-include=*",
-                       use_selinux ? "--selinux" : "--no-selinux",
-                        ".",
-                        NULL
-                };
-
-                uint64_t retain = (1ULL << CAP_DAC_OVERRIDE);
+                static const uint64_t retain = (1ULL << CAP_DAC_OVERRIDE);
 
                 /* Child */
 
+                if (userns_fd >= 0) {
+                        r = detach_mount_namespace_userns(userns_fd);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to join user namespace: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
                 if (unshare(CLONE_NEWNET) < 0)
-                        log_error_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
+                        log_debug_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
 
                 r = capability_bounding_set_drop(retain, true);
                 if (r < 0)
-                        log_error_errno(r, "Failed to drop capabilities, ignoring: %m");
+                        log_debug_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                execvp("gtar", (char* const*) cmdline);
-                execvp("tar", (char* const*) cmdline);
+                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
+                        log_warning_errno(errno, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
 
-                log_error_errno(errno, "Failed to execute tar: %m");
-                _exit(EXIT_FAILURE);
+                if (tar_c(tree_fd, pipefd[1], /* filename= */ NULL, flags) < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
         }
-
-        *ret = TAKE_PIDREF(pid);
 
         return TAKE_FD(pipefd[0]);
 }
 
-int import_mangle_os_tree(const char *path) {
+int import_mangle_os_tree_fd(int tree_fd, int userns_fd, ImportFlags flags) {
         _cleanup_free_ char *child = NULL, *t = NULL, *joined = NULL;
         _cleanup_closedir_ DIR *d = NULL, *cd = NULL;
         struct dirent *dent;
         struct stat st;
         int r;
 
-        assert(path);
+        assert(tree_fd >= 0);
+
+        if (FLAGS_SET(flags, IMPORT_FOREIGN_UID) && userns_fd >= 0)
+                return import_mangle_os_tree_fd_foreign(tree_fd, userns_fd);
 
         /* Some tarballs contain a single top-level directory that contains the actual OS directory tree. Try to
          * recognize this, and move the tree one level up. */
 
-        r = path_is_os_tree(path);
+        _cleanup_free_ char *path = NULL;
+        r = fd_get_path(tree_fd, &path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine path of fd: %m");
+
+        r = fd_is_os_tree(tree_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether '%s' is an OS tree: %m", path);
         if (r > 0) {
@@ -175,9 +183,9 @@ int import_mangle_os_tree(const char *path) {
 
         log_debug("Directory tree '%s' is not recognizable as OS tree, checking whether to rearrange it.", path);
 
-        d = opendir(path);
+        d = xopendirat(tree_fd, /* path= */ NULL, /* flags= */ 0);
         if (!d)
-                return log_error_errno(r, "Failed to open directory '%s': %m", path);
+                return log_error_errno(errno, "Failed to open directory '%s': %m", path);
 
         errno = 0;
         dent = readdir_no_dot(d);
@@ -196,29 +204,29 @@ int import_mangle_os_tree(const char *path) {
         errno = 0;
         dent = readdir_no_dot(d);
         if (dent) {
-                if (errno != 0)
-                        return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
-
                 log_debug("Directory '%s' does not look like an OS tree, and has multiple children, leaving as it is.", path);
                 return 0;
+        } else if (errno != 0)
+                return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
+
+        _cleanup_close_ int child_fd = openat(dirfd(d), child, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW|O_NONBLOCK);
+        if (child_fd < 0) {
+                if (IN_SET(errno, ENOTDIR, ELOOP)) {
+                        log_debug_errno(errno, "Child '%s' of directory '%s' is not a directory, leaving things as they are.", child, path);
+                        return 0;
+                }
+
+                return log_debug_errno(errno, "Failed to open file '%s/%s': %m", path, child);
         }
 
-        if (fstatat(dirfd(d), child, &st, AT_SYMLINK_NOFOLLOW) < 0)
+        if (fstat(child_fd, &st) < 0)
                 return log_debug_errno(errno, "Failed to stat file '%s/%s': %m", path, child);
-        r = stat_verify_directory(&st);
-        if (r < 0) {
-                log_debug_errno(r, "Child '%s' of directory '%s' is not a directory, leaving things as they are.", child, path);
-                return 0;
-        }
 
         joined = path_join(path, child);
         if (!joined)
                 return log_oom();
-        r = path_is_os_tree(joined);
-        if (r == -ENOTDIR) {
-                log_debug("Directory '%s' does not look like an OS tree, and contains a single regular file only, leaving as it is.", path);
-                return 0;
-        }
+
+        r = fd_is_os_tree(child_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether '%s' is an OS tree: %m", joined);
         if (r == 0) {
@@ -235,7 +243,7 @@ int import_mangle_os_tree(const char *path) {
          *
          * Let's now rearrange things, moving everything in the inner directory one level up */
 
-        cd = xopendirat(dirfd(d), child, O_NOFOLLOW);
+        cd = take_fdopendir(&child_fd);
         if (!cd)
                 return log_error_errno(errno, "Can't open directory '%s': %m", joined);
 
@@ -243,7 +251,7 @@ int import_mangle_os_tree(const char *path) {
 
         /* Let's rename the child to an unguessable name so that we can be sure all files contained in it can be
          * safely moved up and won't collide with the name. */
-        r = tempfn_random(child, NULL, &t);
+        r = tempfn_random(child, /* extra= */ NULL, &t);
         if (r < 0)
                 return log_oom();
         r = rename_noreplace(dirfd(d), child, dirfd(d), t);
@@ -264,15 +272,68 @@ int import_mangle_os_tree(const char *path) {
 
         r = futimens(dirfd(d), (struct timespec[2]) { st.st_atim, st.st_mtim });
         if (r < 0)
-                log_debug_errno(r, "Failed to adjust top-level timestamps '%s', ignoring: %m", path);
+                log_debug_errno(errno, "Failed to adjust top-level timestamps '%s', ignoring: %m", path);
 
         r = fchmod_and_chown(dirfd(d), st.st_mode, st.st_uid, st.st_gid);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust top-level directory mode/ownership '%s': %m", path);
 
         log_info("Successfully rearranged OS tree.");
+        return 0;
+}
+
+int import_mangle_os_tree(const char *path, int userns_fd, ImportFlags flags) {
+        assert(path);
+
+        _cleanup_close_ int fd = open(path, O_DIRECTORY|O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
+
+        return import_mangle_os_tree_fd(fd, userns_fd, flags);
+}
+
+int import_mangle_os_tree_fd_foreign(
+                int tree_fd,
+                int userns_fd) {
+
+        int r;
+
+        assert(tree_fd >= 0);
+        assert(userns_fd >= 0);
+
+        r = safe_fork_full(
+                        "mangle-tree",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { userns_fd, tree_fd }, 2,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT,
+                        /* ret_pid= */ NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* child */
+
+                r = namespace_enter(
+                                /* pidns_fd= */ -EBADF,
+                                /* mntns_fd= */ -EBADF,
+                                /* netns_fd= */ -EBADF,
+                                userns_fd,
+                                /* root_fd= */ -EBADF);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to join user namespace: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = import_mangle_os_tree_fd(tree_fd, /* userns_fd= */ -EBADF, /* flags= */ 0);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to mangle OS tree in foreign UID mode: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
 
         return 0;
+
 }
 
 bool import_validate_local(const char *name, ImportFlags flags) {
@@ -306,5 +367,149 @@ int import_allocate_event_with_signals(sd_event **ret) {
         (void) sd_event_add_signal(event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, interrupt_signal_handler, NULL);
 
         *ret = TAKE_PTR(event);
+        return 0;
+}
+
+int import_make_foreign_userns(int *userns_fd) {
+        assert(userns_fd);
+
+        if (*userns_fd >= 0)
+                return 0;
+
+        *userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K); /* allocate 64K users */
+        if (*userns_fd < 0)
+                return log_error_errno(*userns_fd, "Failed to allocate transient user namespace: %m");
+
+        return 1;
+}
+
+int import_copy_foreign(
+                int source_fd,
+                int target_fd,
+                int *userns_fd) {
+
+        int r;
+
+        assert(source_fd >= 0);
+        assert(target_fd >= 0);
+        assert(userns_fd);
+
+        /* Copies dir referenced by source_fd into dir referenced by source_fd, moves to the specified userns
+         * for that (allocated if needed), which should be foreign UID range */
+
+        r = import_make_foreign_userns(userns_fd);
+        if (r < 0)
+                return r;
+
+        r = safe_fork_full(
+                        "copy-tree",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { *userns_fd, source_fd, target_fd }, 3,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT,
+                        /* ret_pid= */ NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                r = namespace_enter(
+                                /* pidns_fd= */ -EBADF,
+                                /* mntns_fd= */ -EBADF,
+                                /* netns_fd= */ -EBADF,
+                                *userns_fd,
+                                /* root_fd= */ -EBADF);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to join user namespace: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = copy_tree_at(
+                                source_fd, /* from= */ NULL,
+                                target_fd, /* to= */ NULL,
+                                /* override_uid= */ UID_INVALID,
+                                /* override_gid= */ GID_INVALID,
+                                COPY_REFLINK|COPY_HARDLINKS|COPY_MERGE_EMPTY|COPY_MERGE_APPLY_STAT|COPY_SAME_MOUNT|COPY_ALL_XATTRS,
+                                /* denylist= */ NULL,
+                                /* subvolumes= */ NULL);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to copy tree: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        return 0;
+}
+
+int import_remove_tree_foreign(const char *path, int *userns_fd) {
+        int r;
+
+        assert(path);
+        assert(userns_fd);
+
+        r = import_make_foreign_userns(userns_fd);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int tree_fd = -EBADF;
+        r = mountfsd_mount_directory(
+                        path,
+                        *userns_fd,
+                        DISSECT_IMAGE_FOREIGN_UID,
+                        &tree_fd);
+        if (r < 0)
+                return r;
+
+        r = safe_fork_full(
+                        "rm-tree",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { *userns_fd, tree_fd }, 2,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT,
+                        /* ret_pid= */ NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* child */
+
+                r = namespace_enter(
+                                /* pidns_fd= */ -EBADF,
+                                /* mntns_fd= */ -EBADF,
+                                /* netns_fd= */ -EBADF,
+                                *userns_fd,
+                                /* root_fd= */ -EBADF);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to join user namespace: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
+                if (dfd < 0) {
+                        log_error_errno(r, "Failed to reopen tree fd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = rm_rf_children(dfd, REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD, /* root_dev= */ NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to empty '%s' directory in foreign UID mode, ignoring: %m", path);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        return 0;
+}
+
+int import_remove_tree(const char *path, int *userns_fd, ImportFlags flags) {
+        int r;
+
+        assert(path);
+        assert(userns_fd);
+
+        /* Try the userns dance first, to remove foreign UID range owned trees */
+        if (FLAGS_SET(flags, IMPORT_FOREIGN_UID))
+                (void) import_remove_tree_foreign(path, userns_fd);
+
+        r = rm_rf(path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
+        if (r < 0)
+                return log_error_errno(r, "Failed to remove '%s': %m", path);
+
         return 0;
 }

@@ -3,7 +3,7 @@
 
 #include "sd-dhcp-client.h"
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "network-common.h"
 
 typedef enum DHCPState {

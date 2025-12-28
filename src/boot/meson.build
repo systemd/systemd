@@ -182,6 +182,11 @@ if get_option('mode') == 'developer' and get_option('debug')
         efi_c_args += '-DEFI_DEBUG'
 endif
 
+if get_option('libc') == 'musl'
+        # To make musl not define wchar_t as int, rather than short.
+        efi_c_args += '-D__DEFINED_wchar_t'
+endif
+
 efi_c_ld_args = [
         '-nostdlib',
         '-static-pie',
@@ -207,7 +212,7 @@ efi_c_ld_args = [
 ]
 
 linker_sanity_code = 'void a(void) {}; void _start(void) { a(); }'
-linker_sanity_args = ['-nostdlib', '-Wl,--fatal-warnings']
+linker_sanity_args = ['-nostdlib', '-Wl,--fatal-warnings', '-fno-stack-protector']
 
 # Check if libgcc is available and then use it. It is needed for gcc builds
 # and for ia32 builds with clang.

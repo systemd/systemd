@@ -463,7 +463,7 @@
 
         <para>If used with <command>predict</command> and <command>make-policy</command> this will override
         which PCRs to include in the prediction and policy. If unspecified this defaults to PCRs 0-5, 7,
-        11-15. Note that these commands will not include any PCRs in the prediction/policy (even if specified
+        11, 13-15. Note that these commands will not include any PCRs in the prediction/policy (even if specified
         explicitly) if there are measurements in the event log that do not match the current PCR value, or
         there are unrecognized measurements in the event log, or components define measurements not seen in
         the event log.</para>

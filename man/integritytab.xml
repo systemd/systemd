@@ -55,8 +55,8 @@
 
     <para>The third field if present contains an absolute filename path to a key file or a <literal>-</literal>
     to specify none.  When the filename is present, the "integrity-algorithm" defaults to <literal>hmac-sha256</literal>
-    with the key length derived from the number of bytes in the key file.  At this time the only supported integrity algorithm
-    when using key file is hmac-sha256.  The maximum size of the key file is 4096 bytes.
+    with the key length derived from the number of bytes in the key file.  At this time the only supported integrity algorithms
+    when using key file are hmac-sha256, hmac-sha512, phmac-sha256, and hmac-sha512.  The maximum size of the key file is 4096 bytes.
     </para>
 
      <para>The fourth field, if present, is a comma-delimited list of options or a <literal>-</literal> to specify none. The following options are
@@ -125,7 +125,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>integrity-algorithm=[crc32c|crc32|xxhash64|sha1|sha256|hmac-sha256]</option></term>
+        <term><option>integrity-algorithm=[crc32c|crc32|xxhash64|sha1|sha256|hmac-sha256|hmac-sha512|phmac-sha256|phmac-sha512]</option></term>
 
         <listitem><para>
         The algorithm used for integrity checking.  The default is crc32c. Must match option used during format.

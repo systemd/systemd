@@ -5,7 +5,6 @@
 
 #include "sd-bus.h"
 
-#include "bus-error.h"
 #include "log.h"
 #include "memory-util.h"
 #include "string-util.h"
@@ -27,14 +26,14 @@ static int _server(struct context *c) {
         bool quit = false;
         int r;
 
-        assert_se(sd_id128_randomize(&id) >= 0);
+        ASSERT_OK(sd_id128_randomize(&id));
 
-        assert_se(sd_bus_new(&bus) >= 0);
-        assert_se(sd_bus_set_fd(bus, c->fds[0], c->fds[0]) >= 0);
-        assert_se(sd_bus_set_server(bus, 1, id) >= 0);
-        assert_se(sd_bus_set_anonymous(bus, c->server_anonymous_auth) >= 0);
-        assert_se(sd_bus_negotiate_fds(bus, c->server_negotiate_unix_fds) >= 0);
-        assert_se(sd_bus_start(bus) >= 0);
+        ASSERT_OK(sd_bus_new(&bus));
+        ASSERT_OK(sd_bus_set_fd(bus, c->fds[0], c->fds[0]));
+        ASSERT_OK(sd_bus_set_server(bus, 1, id));
+        ASSERT_OK(sd_bus_set_anonymous(bus, c->server_anonymous_auth));
+        ASSERT_OK(sd_bus_negotiate_fds(bus, c->server_negotiate_unix_fds));
+        ASSERT_OK(sd_bus_start(bus));
 
         while (!quit) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
@@ -44,9 +43,7 @@ static int _server(struct context *c) {
                         return log_error_errno(r, "Failed to process requests: %m");
 
                 if (r == 0) {
-                        r = sd_bus_wait(bus, UINT64_MAX);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to wait: %m");
+                        ASSERT_OK(sd_bus_wait(bus, UINT64_MAX));
                         continue;
                 }
 
@@ -57,29 +54,21 @@ static int _server(struct context *c) {
 
                 if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "Exit")) {
 
-                        assert_se((sd_bus_can_send(bus, 'h') >= 1) ==
-                                  (c->server_negotiate_unix_fds && c->client_negotiate_unix_fds));
+                        ASSERT_EQ(sd_bus_can_send(bus, 'h') >= 1,
+                                  c->server_negotiate_unix_fds && c->client_negotiate_unix_fds);
 
-                        r = sd_bus_message_new_method_return(m, &reply);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to allocate return: %m");
+                        ASSERT_OK(sd_bus_message_new_method_return(m, &reply));
 
                         quit = true;
 
-                } else if (sd_bus_message_is_method_call(m, NULL, NULL)) {
-                        r = sd_bus_message_new_method_error(
+                } else if (sd_bus_message_is_method_call(m, NULL, NULL))
+                        ASSERT_OK(sd_bus_message_new_method_error(
                                         m,
                                         &reply,
-                                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to allocate return: %m");
-                }
+                                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method.")));
 
-                if (reply) {
-                        r = sd_bus_send(bus, reply, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to send reply: %m");
-                }
+                if (reply)
+                        ASSERT_OK(sd_bus_send(bus, reply, NULL));
         }
 
         return 0;
@@ -93,29 +82,22 @@ static int client(struct context *c) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
 
-        assert_se(sd_bus_new(&bus) >= 0);
-        assert_se(sd_bus_set_fd(bus, c->fds[1], c->fds[1]) >= 0);
-        assert_se(sd_bus_negotiate_fds(bus, c->client_negotiate_unix_fds) >= 0);
-        assert_se(sd_bus_set_anonymous(bus, c->client_anonymous_auth) >= 0);
-        assert_se(sd_bus_start(bus) >= 0);
+        ASSERT_OK(sd_bus_new(&bus));
+        ASSERT_OK(sd_bus_set_fd(bus, c->fds[1], c->fds[1]));
+        ASSERT_OK(sd_bus_negotiate_fds(bus, c->client_negotiate_unix_fds));
+        ASSERT_OK(sd_bus_set_anonymous(bus, c->client_anonymous_auth));
+        ASSERT_OK(sd_bus_start(bus));
 
-        r = sd_bus_message_new_method_call(
+        ASSERT_OK(sd_bus_message_new_method_call(
                         bus,
                         &m,
                         "org.freedesktop.systemd.test",
                         "/",
                         "org.freedesktop.systemd.test",
-                        "Exit");
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate method call: %m");
+                        "Exit"));
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
-
-        return 0;
+        return sd_bus_call(bus, m, 0, &error, &reply);
 }
 
 static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_fds,
@@ -128,7 +110,7 @@ static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_f
 
         zero(c);
 
-        assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, c.fds) >= 0);
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_STREAM, 0, c.fds));
 
         c.client_negotiate_unix_fds = client_negotiate_unix_fds;
         c.server_negotiate_unix_fds = server_negotiate_unix_fds;
@@ -155,30 +137,15 @@ static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_f
 }
 
 int main(int argc, char *argv[]) {
-        int r;
-
         test_setup_logging(LOG_DEBUG);
 
-        r = test_one(true, true, false, false);
-        assert_se(r >= 0);
-
-        r = test_one(true, false, false, false);
-        assert_se(r >= 0);
-
-        r = test_one(false, true, false, false);
-        assert_se(r >= 0);
-
-        r = test_one(false, false, false, false);
-        assert_se(r >= 0);
-
-        r = test_one(true, true, true, true);
-        assert_se(r >= 0);
-
-        r = test_one(true, true, false, true);
-        assert_se(r >= 0);
-
-        r = test_one(true, true, true, false);
-        assert_se(r == -EPERM);
+        ASSERT_OK(test_one(true, true, false, false));
+        ASSERT_OK(test_one(true, false, false, false));
+        ASSERT_OK(test_one(false, true, false, false));
+        ASSERT_OK(test_one(false, false, false, false));
+        ASSERT_OK(test_one(true, true, true, true));
+        ASSERT_OK(test_one(true, true, false, true));
+        ASSERT_ERROR(test_one(true, true, true, false), EPERM);
 
         return EXIT_SUCCESS;
 }

@@ -15,6 +15,7 @@
 #include "fs-util.h"
 #include "log.h"
 #include "mkdir.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
@@ -47,7 +48,7 @@ static int on_worker_exit(sd_event_source *s, const siginfo_t *si, void *userdat
         else if (si->si_code == CLD_DUMPED)
                 log_warning("Worker " PID_FMT " dumped core by signal %s, ignoring.", si->si_pid, signal_to_string(si->si_status));
         else
-                log_warning("Can't handle SIGCHLD of this type");
+                log_warning("Can't handle exit code of this type");
 
         (void) start_workers(m, /* explicit_request= */ false); /* Fill up workers again if we fell below the low watermark */
         return 0;
@@ -58,7 +59,7 @@ static int on_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, voi
 
         assert(s);
 
-        (void) start_workers(m, /* explicit_request=*/ true); /* Workers told us there's more work, let's add one more worker as long as we are below the high watermark */
+        (void) start_workers(m, /* explicit_request= */ true); /* Workers told us there's more work, let's add one more worker as long as we are below the high watermark */
         return 0;
 }
 
@@ -69,7 +70,7 @@ static int on_deferred_start_worker(sd_event_source *s, uint64_t usec, void *use
 
         m->deferred_start_worker_event_source = sd_event_source_unref(m->deferred_start_worker_event_source);
 
-        (void) start_workers(m, /* explicit_request=*/ false);
+        (void) start_workers(m, /* explicit_request= */ false);
         return 0;
 }
 
@@ -179,6 +180,15 @@ static int start_one_worker(Manager *m) {
                 if (r < 0) {
                         log_error_errno(r, "Failed to set $LISTEN_PID: %m");
                         _exit(EXIT_FAILURE);
+                }
+
+                uint64_t pidfdid;
+                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        r = setenvf("LISTEN_PIDFDID", true, "%" PRIu64, pidfdid);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to set $LISTEN_PIDFDID: %m");
+                                _exit(EXIT_FAILURE);
+                        }
                 }
 
                 if (setenv("LISTEN_FDS", "1", 1) < 0) {

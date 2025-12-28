@@ -130,7 +130,7 @@ static int from_xdg_user_dir(const char *field, char **buffer, const char **ret)
 
                 const char *s = startswith(p, "$HOME/");
                 if (s)
-                        return from_home_dir(/* envname = */ NULL, s, buffer, ret);
+                        return from_home_dir(/* envname= */ NULL, s, buffer, ret);
 
                 if (path_is_absolute(p)) {
                         char *c = strdup(p);
@@ -145,7 +145,7 @@ static int from_xdg_user_dir(const char *field, char **buffer, const char **ret)
 fallback:
         /* The desktop directory defaults to $HOME/Desktop, the others to $HOME */
         if (streq(field, "XDG_DESKTOP_DIR"))
-                return from_home_dir(/* envname = */ NULL, "Desktop", buffer, ret);
+                return from_home_dir(/* envname= */ NULL, "Desktop", buffer, ret);
 
 home:
         r = get_home_dir(buffer);
@@ -523,6 +523,9 @@ static int get_search(uint64_t type, char ***ret) {
         assert(ret);
 
         switch (type) {
+
+        case SD_PATH_SYSTEM_SEARCH_CONFIGURATION:
+                return strv_from_nulstr(ret, CONF_PATHS_NULSTR(""));
 
         case SD_PATH_SEARCH_BINARIES:
                 return search_from_environment(ret,

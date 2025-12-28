@@ -5,7 +5,7 @@
 #include <netinet/in.h>
 #include <net/ethernet.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* This is MAX_ADDR_LEN as defined in linux/netdevice.h, but net/if_arp.h
  * defines a macro of the same name with a much lower size. */

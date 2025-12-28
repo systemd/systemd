@@ -7,6 +7,6 @@
         Nathaniel Chen <nathaniel.chen@intel.com>
 ***/
 
-#include "forward.h"
+#include "core-forward.h"
 
 int mac_smack_setup(bool *loaded_policy);

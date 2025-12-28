@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 const char* errno_name_no_fallback(int id) _const_;
 int errno_from_name(const char *name) _pure_;

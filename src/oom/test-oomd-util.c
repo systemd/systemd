@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "oomd-util.h"
@@ -42,7 +43,7 @@ static int fork_and_sleep(unsigned sleep_min) {
         pid_t pid;
         int r;
 
-        ASSERT_OK(r = safe_fork("(test-oom-child)", /* flags = */ 0, &pid));
+        ASSERT_OK(r = safe_fork("(test-oom-child)", /* flags= */ 0, &pid));
         if (r == 0) {
                 usec_t timeout = usec_add(now(CLOCK_MONOTONIC), sleep_min * USEC_PER_MINUTE);
                 for (;;) {
@@ -97,7 +98,7 @@ TEST(oomd_cgroup_kill) {
                 bool empty = false;
                 for (size_t t = 0; t < 100; t++) {
                         usleep_safe(100 * USEC_PER_MSEC);
-                        ASSERT_OK(r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, subcgroup));
+                        ASSERT_OK(r = cg_is_empty(subcgroup));
                         if (r > 0) {
                                 empty = true;
                                 break;

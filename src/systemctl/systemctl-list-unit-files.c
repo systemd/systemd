@@ -180,7 +180,7 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
         unsigned c = 0;
         int r;
 
-        if (install_client_side()) {
+        if (install_client_side() != INSTALL_CLIENT_SIDE_NO) {
                 unsigned n_units;
 
                 r = unit_file_get_list(arg_runtime_scope, arg_root, arg_states, strv_skip(argv, 1), &h);

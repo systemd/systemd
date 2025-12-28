@@ -107,7 +107,7 @@ static int get_first_syspath_component(sd_device *dev, const char *prefix, char 
         if (!p)
                 return -EINVAL;
 
-        r = path_find_first_component(&p, /* accept_dot_dot = */ false, &q);
+        r = path_find_first_component(&p, /* accept_dot_dot= */ false, &q);
         if (r < 0)
                 return r;
 
@@ -692,7 +692,7 @@ static int names_vio(UdevEvent *event, const char *prefix) {
         /* get ibmveth/ibmvnic slot-based names. */
 
         /* check if our direct parent is a VIO device with no other bus in-between */
-        if (get_matching_parent(dev, STRV_MAKE("vio"), /* skip_virtio = */ false, NULL) < 0)
+        if (get_matching_parent(dev, STRV_MAKE("vio"), /* skip_virtio= */ false, NULL) < 0)
                 return 0;
 
         log_device_debug(dev, "Parent device is in the vio subsystem.");
@@ -739,7 +739,7 @@ static int names_platform(UdevEvent *event, const char *prefix) {
         /* get ACPI path names for ARM64 platform devices */
 
         /* check if our direct parent is a platform device with no other bus in-between */
-        if (get_matching_parent(dev, STRV_MAKE("platform"), /* skip_virtio = */ false, NULL) < 0)
+        if (get_matching_parent(dev, STRV_MAKE("platform"), /* skip_virtio= */ false, NULL) < 0)
                 return 0;
 
         log_device_debug(dev, "Parent device is in the platform subsystem.");
@@ -934,7 +934,7 @@ static int names_pci(UdevEvent *event, const char *prefix) {
         assert(prefix);
 
         /* check if our direct parent is a PCI device with no other bus in-between */
-        if (get_matching_parent(dev, STRV_MAKE("pci"), /* skip_virtio = */ true, &parent) < 0)
+        if (get_matching_parent(dev, STRV_MAKE("pci"), /* skip_virtio= */ true, &parent) < 0)
                 return 0;
 
         /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
@@ -950,7 +950,7 @@ static int names_pci(UdevEvent *event, const char *prefix) {
 }
 
 static int get_usb_specifier(sd_device *dev, char **ret) {
-        char *ports, *config, *interf, *s, *buf;
+        char *ports, *config, *interf, *buf;
         const char *sysname;
         int r;
 
@@ -962,26 +962,26 @@ static int get_usb_specifier(sd_device *dev, char **ret) {
                 return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
 
         /* get USB port number chain, configuration, interface */
-        s = strchr(sysname, '-');
+        const char *s = strchr(sysname, '-');
         if (!s)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "sysname \"%s\" does not have '-' in the expected place.", sysname);
 
         ports = strdupa_safe(s + 1);
-        s = strchr(ports, ':');
-        if (!s)
+        char *t = strchr(ports, ':');
+        if (!t)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "sysname \"%s\" does not have ':' in the expected place.", sysname);
 
-        *s = '\0';
-        config = s + 1;
-        s = strchr(config, '.');
-        if (!s)
+        *t = '\0';
+        config = t + 1;
+        t = strchr(config, '.');
+        if (!t)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "sysname \"%s\" does not have '.' in the expected place.", sysname);
 
-        *s = '\0';
-        interf = s + 1;
+        *t = '\0';
+        interf = t + 1;
 
         /* prefix every port number in the chain with "u" */
         string_replace_char(ports, '.', 'u');
@@ -1103,7 +1103,7 @@ static int names_ccw(UdevEvent *event, const char *prefix) {
 
         /* get path names for Linux on System z network devices */
 
-        if (get_matching_parent(dev, STRV_MAKE("ccwgroup", "ccw"), /* skip_virtio = */ true, &cdev) < 0)
+        if (get_matching_parent(dev, STRV_MAKE("ccwgroup", "ccw"), /* skip_virtio= */ true, &cdev) < 0)
                 return 0;
 
         log_device_debug(dev, "Device is CCW.");
@@ -1271,7 +1271,7 @@ static int names_xen(UdevEvent *event, const char *prefix) {
                 return 0;
 
         /* check if our direct parent is a Xen VIF device with no other bus in-between */
-        if (get_matching_parent(dev, STRV_MAKE("xen"), /* skip_virtio = */ false, NULL) < 0)
+        if (get_matching_parent(dev, STRV_MAKE("xen"), /* skip_virtio= */ false, NULL) < 0)
                 return 0;
 
         /* Use the vif-n name to extract "n" */
@@ -1307,7 +1307,7 @@ static int get_ifname_prefix(sd_device *dev, const char **ret) {
         if (r < 0)
                 return r;
 
-        /* handle only ARPHRD_ETHER, ARPHRD_SLIP and ARPHRD_INFINIBAND devices */
+        /* handle only ARPHRD_ETHER, ARPHRD_SLIP, ARPHRD_INFINIBAND, and ARPHDR_MCTP devices */
         switch (iftype) {
         case ARPHRD_ETHER: {
                 if (device_is_devtype(dev, "wlan") > 0)
@@ -1327,6 +1327,13 @@ static int get_ifname_prefix(sd_device *dev, const char **ret) {
 
         case ARPHRD_SLIP:
                 *ret = "sl";
+                return 0;
+
+        case ARPHRD_MCTP:
+                if (!naming_scheme_has(NAMING_MCTP))
+                        return -EOPNOTSUPP;
+
+                *ret = "mc";
                 return 0;
 
         default:

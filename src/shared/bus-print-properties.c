@@ -16,6 +16,14 @@
 #include "strv.h"
 #include "time-util.h"
 
+bool bus_property_is_timestamp(const char *name) {
+        assert(name);
+
+        /* Trust me, this naming convention is ironclad. Except for these three. Okay four. Well... */
+        return endswith(name, "Timestamp") ||
+                        STR_IN_SET(name, "NextElapseUSecRealtime", "LastTriggerUSec", "TimeUSec", "RTCTimeUSec");
+}
+
 int bus_print_property_value(const char *name, const char *expected_value, BusPrintPropertyFlags flags, const char *value) {
         assert(name);
 
@@ -104,12 +112,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                 if (r < 0)
                         return r;
 
-                /* Yes, heuristics! But we can change this check
-                 * should it turn out to not be sufficient */
-
-                if (endswith(name, "Timestamp") ||
-                    STR_IN_SET(name, "NextElapseUSecRealtime", "LastTriggerUSec", "TimeUSec", "RTCTimeUSec"))
-
+                if (bus_property_is_timestamp(name))
                         bus_print_property_value(name, expected_value, flags, FORMAT_TIMESTAMP(u));
 
                 /* Managed OOM pressure default implies "unset" and use the default set in oomd.conf. Without

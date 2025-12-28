@@ -74,6 +74,7 @@ systemd_networkd_extract_sources = files(
         'networkd-ntp.c',
         'networkd-queue.c',
         'networkd-radv.c',
+        'networkd-resolve-hook.c',
         'networkd-route.c',
         'networkd-route-metric.c',
         'networkd-route-nexthop.c',
@@ -197,7 +198,7 @@ executables += [
                 'name' : 'systemd-networkd',
                 'dbus' : true,
                 'conditions' : ['ENABLE_NETWORKD'],
-                'sources' : systemd_networkd_sources + systemd_networkd_extract_sources,
+                'sources' : systemd_networkd_sources,
                 'extract' : systemd_networkd_extract_sources,
                 'include_directories' : network_includes,
                 'link_with' : [
@@ -226,7 +227,7 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-network-generator',
-                'sources' : files('generator/network-generator.c', 'generator/network-generator-main.c'),
+                'sources' : files('generator/network-generator-main.c'),
                 'extract' : files('generator/network-generator.c'),
                 'link_with' : networkd_link_with,
         },

@@ -1,0 +1,5 @@
+Types: deb deb-src
+URIs: http://archive.ubuntu.com/ubuntu/
+Suites: noble-proposed
+Components: main universe
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg

@@ -223,11 +223,12 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    // try to take an exclusive and nonblocking BSD lock
+    // try to take an exclusive and nonblocking BSD lock (use O_WRONLY mode to ensure udev
+    // rescans the device once the lock is closed)
     __attribute__((cleanup(closep))) int fd =
         lock_whole_disk_from_devname(
             argv[1],
-            O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY,
+            O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY,
             LOCK_EX|LOCK_NB);
 
     if (fd < 0)

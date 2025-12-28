@@ -36,14 +36,18 @@ or via your distribution's package manager. Note that systemd regularly adopts
 newer mkosi features that are not in an official release yet so there's a good
 chance that your distribution's packaged version of mkosi will be too old.
 
+Make sure to read the "Unprivileged User Namespaces" section in the mkosi documentation
+(run `mkosi documentation` to view the mkosi docs) and apply any necessary instructions
+to make sure unprivileged user namespaces work on your system.
+
 Then, you can build, run and test systemd executables as follows:
 
 ```sh
-$ mkosi -f genkey                                  # Generate signing keys once.
+$ mkosi -f genkey                                            # Generate signing keys once.
 $ mkosi -f box -- meson setup -Dbpf-framework=disabled build # bpftool detection inside mkosi box is broken on Ubuntu Noble and older
 $ mkosi -f box -- meson compile -C build
 $ mkosi -f box -- build/systemctl --version
-$ mkosi -f box -- meson test -C build          # Run the unit tests
+$ mkosi -f box -- meson test -C build --print-errorlogs -q   # Run the unit tests
 ```
 
 To build and boot an OS image with the latest systemd installed:

@@ -7,11 +7,15 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+if ! check_nss_module mymachine; then
+    exit 0
+fi
+
 at_exit() {
     set +e
 
     machinectl kill --signal=KILL nss-mymachines-{noip,singleip,manyips}
-    mountpoint -q /var/lib/machines && timeout 30 sh -c "until umount /var/lib/machines; do sleep .5; done"
+    mountpoint -q /var/lib/machines && timeout 30 bash -c "until umount /var/lib/machines; do sleep .5; done"
     rm -f /run/systemd/nspawn/*.nspawn
 }
 
@@ -135,5 +139,13 @@ done
 # as well
 (! getent group -s mymachines foo 11)
 (! getent passwd -s mymachines foo 11)
+
+# Now check the machined's hook for resolved too
+run_and_grep "10\.1\.0\.2" resolvectl query nss-mymachines-singleip
+
+run_and_grep "fd00:dead:beef:cafe::2" resolvectl query nss-mymachines-manyips
+for i in {100..120}; do
+    run_and_grep "10\.2\.0\.$i" resolvectl query nss-mymachines-manyips
+done
 
 machinectl stop nss-mymachines-{noip,singleip,manyips}

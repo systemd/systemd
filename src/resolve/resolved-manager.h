@@ -4,7 +4,6 @@
 #include <sys/stat.h>
 
 #include "common-signal.h"
-#include "forward.h"
 #include "list.h"
 #include "resolve-util.h"
 #include "resolved-dns-browse-services.h"
@@ -124,7 +123,7 @@ typedef struct Manager {
         struct stat etc_hosts_stat;
         bool read_etc_hosts;
 
-        /* List of refused DNS Record Types*/
+        /* List of refused DNS Record Types */
         Set *refuse_record_types;
 
         OrderedSet *dns_extra_stub_listeners;
@@ -160,6 +159,9 @@ typedef struct Manager {
 
         /* Map varlink links to DnsServiceBrowser instances. */
         Hashmap *dns_service_browsers;
+
+        Hashmap *hooks;
+        struct stat hook_stat;
 } Manager;
 
 /* Manager */

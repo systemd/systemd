@@ -950,8 +950,6 @@ int log_format_iovec(
                 const char *format,
                 va_list ap) {
 
-        static const char nl = '\n';
-
         while (format && *n + 1 < iovec_len) {
                 va_list aq;
                 char *m;
@@ -975,7 +973,7 @@ int log_format_iovec(
 
                 iovec[(*n)++] = IOVEC_MAKE_STRING(m);
                 if (newline_separator)
-                        iovec[(*n)++] = IOVEC_MAKE((char *)&nl, 1);
+                        iovec[(*n)++] = IOVEC_MAKE_STRING("\n");
 
                 format = va_arg(ap, char *);
         }

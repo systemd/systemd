@@ -3,7 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef struct LogId {
         sd_id128_t id; /* boot ID or invocation ID */
@@ -106,7 +106,7 @@ static inline int journal_find_boot(
                 sd_id128_t *ret) {
 
         return journal_find_log_id(j, LOG_BOOT_ID,
-                                   /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
+                                   /* boot_id= */ SD_ID128_NULL, /* unit= */ NULL,
                                    id, offset, ret);
 }
 
@@ -128,7 +128,7 @@ static inline int journal_get_boots(
                 size_t *ret_n_ids) {
 
         return journal_get_log_ids(j, LOG_BOOT_ID,
-                                   /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
+                                   /* boot_id= */ SD_ID128_NULL, /* unit= */ NULL,
                                    advance_older, max_ids,
                                    ret_ids, ret_n_ids);
 }

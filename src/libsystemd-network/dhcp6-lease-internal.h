@@ -9,7 +9,7 @@
 
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
-#include "forward.h"
+#include "sd-forward.h"
 #include "time-util.h"
 
 struct sd_dhcp6_lease {

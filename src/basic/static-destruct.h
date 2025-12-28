@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 typedef void (*free_func_t)(void *p);
 

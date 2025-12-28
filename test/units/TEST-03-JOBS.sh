@@ -73,13 +73,13 @@ cat <<EOF >/run/systemd/system/wait2.service
 [Unit]
 Description=Wait for 2 seconds
 [Service]
-ExecStart=sh -ec 'sleep 2'
+ExecStart=bash -ec 'sleep 2'
 EOF
 cat <<EOF >/run/systemd/system/wait5fail.service
 [Unit]
 Description=Wait for 5 seconds and fail
 [Service]
-ExecStart=sh -ec 'sleep 5; false'
+ExecStart=bash -ec 'sleep 5; false'
 EOF
 
 # wait2 succeeds
@@ -122,6 +122,13 @@ done
 systemctl daemon-reload
 for i in {0..19}; do
     systemctl start "transaction-cycle$i.service"
+done
+
+IDS_FILE="/tmp/TEST-03-JOBS-CYCLE-IDS-$RANDOM"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}' | jq '.runtime.TransactionsWithOrderingCycle' >"$IDS_FILE"
+[[ "$(jq length "$IDS_FILE")" -ge 20 ]]
+for i in {0..19}; do
+    journalctl -b TRANSACTION_ID="$(jq -r ".[$i]" "$IDS_FILE")" --grep "cycle starting with"
 done
 
 # Test PropagatesStopTo= when restart (issue #26839)

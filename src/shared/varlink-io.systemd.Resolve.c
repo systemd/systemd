@@ -1,11 +1,52 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "resolve-util.h"
 #include "varlink-io.systemd.Resolve.h"
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                DNSProtocol,
+                SD_VARLINK_FIELD_COMMENT("DNS"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dns),
+                SD_VARLINK_FIELD_COMMENT("Multicast DNS"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(mdns),
+                SD_VARLINK_FIELD_COMMENT("LLMNR"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(llmnr));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                DNSOverTLSMode,
+                SD_VARLINK_FIELD_COMMENT("DNSOverTLS is disabled."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(no),
+                SD_VARLINK_FIELD_COMMENT("DNSOverTLS is enabled."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(yes),
+                SD_VARLINK_FIELD_COMMENT("Try to use DNSOverTLS, but disabled when the server does not support it."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(opportunistic));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                ResolveSupport,
+                SD_VARLINK_FIELD_COMMENT("The protocol is disabled."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(no),
+                SD_VARLINK_FIELD_COMMENT("The protocol is enabled."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(yes),
+                SD_VARLINK_FIELD_COMMENT("The protocol is used only for resolving."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(resolve));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                ResolvConfMode,
+                SD_VARLINK_FIELD_COMMENT("/etc/resolv.conf is a symbolic link to "PRIVATE_UPLINK_RESOLV_CONF"."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(uplink),
+                SD_VARLINK_FIELD_COMMENT("/etc/resolv.conf is a symbolic link to "PRIVATE_STUB_RESOLV_CONF"."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(stub),
+                SD_VARLINK_FIELD_COMMENT("/etc/resolv.conf is a symbolic link to "PRIVATE_STATIC_RESOLV_CONF"."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(static),
+                SD_VARLINK_FIELD_COMMENT("/etc/resolv.conf does not exist."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(missing),
+                SD_VARLINK_FIELD_COMMENT("/etc/resolv.conf is not managed by systemd-resolved."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(foreign));
 
 SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ResourceKey,
-                SD_VARLINK_FIELD_COMMENT("The RR class, almost always IN, i.e 0x01."),
-                SD_VARLINK_DEFINE_FIELD(class, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The RR class, almost always IN, i.e 0x01. If unspecified defaults to IN."),
+                SD_VARLINK_DEFINE_FIELD(class, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The RR types, one of A, AAAA, PTR, …"),
                 SD_VARLINK_DEFINE_FIELD(type, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("The domain name."),
@@ -170,6 +211,81 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(rr, ResourceRecord, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(raw, SD_VARLINK_STRING, 0));
 
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DNSServer,
+                SD_VARLINK_FIELD_COMMENT("IPv4 or IPv6 address of the server."),
+                SD_VARLINK_DEFINE_FIELD(address, SD_VARLINK_INT, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("IPv4 or IPv6 address of the server, formatted as a human-readable string."),
+                SD_VARLINK_DEFINE_FIELD(addressString, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Address family of the server, one of AF_INET or AF_INET6."),
+                SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Port number of the server."),
+                SD_VARLINK_DEFINE_FIELD(port, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Interface index for which this server is configured."),
+                SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Server Name Indication (SNI) of the server."),
+                SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Indicates if the DNS server is accessible or not."),
+                SD_VARLINK_DEFINE_FIELD(accessible, SD_VARLINK_BOOL, 0));
+
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SearchDomain,
+                SD_VARLINK_FIELD_COMMENT("Domain name."),
+                SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Indicates whether or not this is a routing-only domain."),
+                SD_VARLINK_DEFINE_FIELD(routeOnly, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Interface index for which this search domain is configured."),
+                SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DNSScope,
+                SD_VARLINK_FIELD_COMMENT("Protocol associated with this scope."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(protocol, DNSProtocol, 0),
+                SD_VARLINK_FIELD_COMMENT("Address family associated with this scope."),
+                SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Interface index associated with this scope."),
+                SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Interface name associated with this scope."),
+                SD_VARLINK_DEFINE_FIELD(ifname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("DNSSEC mode associated with this scope."),
+                SD_VARLINK_DEFINE_FIELD(dnssec, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("DNSOverTLS mode associated with this scope."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(dnsOverTLS, DNSOverTLSMode, SD_VARLINK_NULLABLE));
+
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DNSConfiguration,
+                SD_VARLINK_FIELD_COMMENT("Interface name, if any, associated with this configuration. Empty for global configuration."),
+                SD_VARLINK_DEFINE_FIELD(ifname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Interface index, if any, associated with this configuration. Empty for global configuration."),
+                SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Delegate name, if any, associated with this configuration. Empty for global or link configurations."),
+                SD_VARLINK_DEFINE_FIELD(delegate, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Indicates whether or not this link's DNS servers will be used for resolving domain names that do not match any link's configured domains."),
+                SD_VARLINK_DEFINE_FIELD(defaultRoute, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("DNS server currently selected to use for lookups."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(currentServer, DNSServer, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of configured DNS servers."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(servers, DNSServer, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of configured fallback DNS servers, set for global configuration only."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(fallbackServers, DNSServer, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of configured search domains."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(searchDomains, SearchDomain, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of configured DNSSEC negative trust anchors."),
+                SD_VARLINK_DEFINE_FIELD(negativeTrustAnchors, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("DNSSEC mode."),
+                SD_VARLINK_DEFINE_FIELD(dnssec, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("DNSOverTLS mode."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(dnsOverTLS, DNSOverTLSMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("LLMNR support."),
+                //SD_VARLINK_DEFINE_FIELD_BY_TYPE(llmnr, ResolveSupport, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(llmnr, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("mDNS support."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(mDNS, ResolveSupport, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("resolv.conf mode, set for global configuration only."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(resolvConfMode, ResolvConfMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of current DNS scopes."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(scopes, DNSScope, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD(
                 ResolveRecord,
                 SD_VARLINK_DEFINE_INPUT(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
@@ -193,6 +309,11 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_DEFINE_INPUT(flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("An array of service data containing information about discovered services."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(browserServiceData, ServiceData, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_METHOD(
+                DumpDNSConfiguration,
+                SD_VARLINK_FIELD_COMMENT("The current global and per-interface DNS configurations"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(configuration, DNSConfiguration, SD_VARLINK_ARRAY));
 
 static SD_VARLINK_DEFINE_ERROR(NoNameServers);
 static SD_VARLINK_DEFINE_ERROR(NoSuchResourceRecord);
@@ -236,6 +357,16 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_ResolveRecord,
                 SD_VARLINK_SYMBOL_COMMENT("Starts browsing for DNS-SD services of specified type."),
                 &vl_method_BrowseServices,
+                SD_VARLINK_SYMBOL_COMMENT("Current global and per-link DNS configurations."),
+                &vl_method_DumpDNSConfiguration,
+                SD_VARLINK_SYMBOL_COMMENT("The type of protocol."),
+                &vl_type_DNSProtocol,
+                SD_VARLINK_SYMBOL_COMMENT("The mode of DNSOverTLS."),
+                &vl_type_DNSOverTLSMode,
+                SD_VARLINK_SYMBOL_COMMENT("Whether the protocol is enabled."),
+                &vl_type_ResolveSupport,
+                SD_VARLINK_SYMBOL_COMMENT("The management mode of /etc/resolve.conf file."),
+                &vl_type_ResolvConfMode,
                 SD_VARLINK_SYMBOL_COMMENT("Encapsulates a resolved address."),
                 &vl_type_ResolvedAddress,
                 SD_VARLINK_SYMBOL_COMMENT("Encapsulates a resolved host name."),
@@ -254,6 +385,14 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_BrowseServiceUpdateFlag,
                 SD_VARLINK_SYMBOL_COMMENT("Encapsulates the service data obtained from browsing."),
                 &vl_type_ServiceData,
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates a DNS server address specification."),
+                &vl_type_DNSServer,
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates a search domain specification."),
+                &vl_type_SearchDomain,
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates a global or per-link DNS configuration, including configured DNS servers, search domains, and more."),
+                &vl_type_DNSConfiguration,
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates a DNS scope specification."),
+                &vl_type_DNSScope,
                 &vl_error_NoNameServers,
                 &vl_error_NoSuchResourceRecord,
                 &vl_error_QueryTimedOut,

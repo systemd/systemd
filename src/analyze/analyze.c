@@ -22,6 +22,7 @@
 #include "analyze-compare-versions.h"
 #include "analyze-condition.h"
 #include "analyze-critical-chain.h"
+#include "analyze-dlopen-metadata.h"
 #include "analyze-dot.h"
 #include "analyze-dump.h"
 #include "analyze-exit-status.h"
@@ -32,6 +33,7 @@
 #include "analyze-inspect-elf.h"
 #include "analyze-log-control.h"
 #include "analyze-malloc.h"
+#include "analyze-nvpcrs.h"
 #include "analyze-pcrs.h"
 #include "analyze-plot.h"
 #include "analyze-security.h"
@@ -253,9 +255,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "                             Run command on the namespace of the service\n"
                "\n%3$sExecutable Analysis:%4$s\n"
                "  inspect-elf FILE...        Parse and print ELF package metadata\n"
+               "  dlopen-metadata FILE       Parse and print ELF dlopen metadata\n"
                "\n%3$sTPM Operations:%4$s\n"
                "  has-tpm2                   Report whether TPM2 support is available\n"
                "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
+               "  nvpcrs [NVPCR...]          Show additional TPM2 PCRs stored in NV indexes\n"
                "  srk [>FILE]                Write TPM2 SRK (to FILE)\n"
                "\n%3$sOptions:%4$s\n"
                "     --recursive-errors=MODE Control which units are verified\n"
@@ -711,6 +715,10 @@ done:
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --offline= requires one or more units to perform a security review.");
 
+        if (arg_json_format_flags != SD_JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "dlopen-metadata", "plot", "fdstore", "pcrs", "nvpcrs", "architectures", "capability", "exit-status"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --json= is only supported for security, inspect-elf, dlopen-metadata, plot, fdstore, pcrs, nvpcrs, architectures, capability, exit-status right now.");
+
         if (arg_threshold != 100 && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --threshold= is only supported for security right now.");
@@ -798,11 +806,13 @@ static int run(int argc, char *argv[]) {
                 { "timespan",           2,        VERB_ANY, 0,  verb_timespan           },
                 { "security",           VERB_ANY, VERB_ANY, 0,  verb_security           },
                 { "inspect-elf",        2,        VERB_ANY, 0,  verb_elf_inspection     },
+                { "dlopen-metadata",    2,        2,        0,  verb_dlopen_metadata    },
                 { "malloc",             VERB_ANY, VERB_ANY, 0,  verb_malloc             },
                 { "fdstore",            2,        VERB_ANY, 0,  verb_fdstore            },
                 { "image-policy",       2,        2,        0,  verb_image_policy       },
                 { "has-tpm2",           VERB_ANY, 1,        0,  verb_has_tpm2           },
                 { "pcrs",               VERB_ANY, VERB_ANY, 0,  verb_pcrs               },
+                { "nvpcrs",             VERB_ANY, VERB_ANY, 0,  verb_nvpcrs             },
                 { "srk",                VERB_ANY, 1,        0,  verb_srk                },
                 { "architectures",      VERB_ANY, VERB_ANY, 0,  verb_architectures      },
                 { "smbios11",           VERB_ANY, 1,        0,  verb_smbios11           },

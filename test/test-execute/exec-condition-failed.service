@@ -6,7 +6,7 @@ Description=Test for exec condition that fails the unit
 Type=oneshot
 
 # exit 255 will fail the unit
-ExecCondition=/bin/sh -c 'exit 255'
+ExecCondition=bash -c 'exit 255'
 
 # This should not get run
-ExecStart=sh -c 'true'
+ExecStart=bash -c 'true'

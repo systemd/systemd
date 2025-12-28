@@ -4,7 +4,7 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum PolkitFlags {
         POLKIT_ALLOW_INTERACTIVE = 1 << 0, /* Allow interactive auth (typically not required, because can be derived from bus message/link automatically) */

@@ -17,6 +17,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
+#include "runtime-scope.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "unit-name.h"
@@ -200,7 +201,10 @@ static int parse_pull_expression(const char *v) {
         if (!GREEDY_REALLOC(arg_transfers, arg_n_transfers + 1))
                 return log_oom();
 
-        const char *image_root = runtime ? image_root_runtime_to_string(class) : image_root_to_string(class);
+        _cleanup_free_ char *image_root = NULL;
+        r = image_root_pick(RUNTIME_SCOPE_SYSTEM, class, runtime, &image_root);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pick image root: %m");
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
         r = sd_json_buildo(
@@ -220,7 +224,7 @@ static int parse_pull_expression(const char *v) {
                 .type = type,
                 .local = TAKE_PTR(local),
                 .remote = TAKE_PTR(remote),
-                .image_root = image_root,
+                .image_root = TAKE_PTR(image_root),
                 .json = TAKE_PTR(j),
                 .blockdev = blockdev,
         };
@@ -328,7 +332,7 @@ static int transfer_generate(const Transfer *t) {
                 return log_error_errno(r, "Failed to build import unit name from '%s': %m", local_path);
 
         _cleanup_fclose_ FILE *f = NULL;
-        r = generator_open_unit_file(arg_dest, /* source = */ NULL, service, &f);
+        r = generator_open_unit_file(arg_dest, /* source= */ NULL, service, &f);
         if (r < 0)
                 return r;
 

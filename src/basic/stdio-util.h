@@ -4,7 +4,7 @@
 #include <printf.h>
 #include <stdio.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 _printf_(3, 4)
 static inline char* snprintf_ok(char *buf, size_t len, const char *format, ...) {

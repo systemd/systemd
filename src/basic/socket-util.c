@@ -669,26 +669,6 @@ static const char* const netlink_family_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(netlink_family, int, INT_MAX);
 
-static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX] = {
-        [SOCKET_ADDRESS_DEFAULT] = "default",
-        [SOCKET_ADDRESS_BOTH] = "both",
-        [SOCKET_ADDRESS_IPV6_ONLY] = "ipv6-only"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
-
-SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *n) {
-        int r;
-
-        r = parse_boolean(n);
-        if (r > 0)
-                return SOCKET_ADDRESS_IPV6_ONLY;
-        if (r == 0)
-                return SOCKET_ADDRESS_BOTH;
-
-        return socket_address_bind_ipv6_only_from_string(n);
-}
-
 bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b) {
         assert(a);
         assert(b);
@@ -1283,12 +1263,10 @@ int flush_accept(int fd) {
                 int cfd;
 
                 r = fd_wait_for_event(fd, POLLIN, 0);
-                if (r < 0) {
-                        if (r == -EINTR)
-                                continue;
-
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
                         return r;
-                }
                 if (r == 0)
                         return 0;
 
@@ -1325,12 +1303,10 @@ ssize_t flush_mqueue(int fd) {
                 ssize_t l;
 
                 r = fd_wait_for_event(fd, POLLIN, /* timeout= */ 0);
-                if (r < 0) {
-                        if (r == -EINTR)
-                                continue;
-
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
                         return r;
-                }
                 if (r == 0)
                         return count;
 
@@ -1344,7 +1320,7 @@ ssize_t flush_mqueue(int fd) {
                                 return -ENOMEM;
                 }
 
-                l = mq_receive(fd, buf, attr.mq_msgsize, /* msg_prio = */ NULL);
+                l = mq_receive(fd, buf, attr.mq_msgsize, /* msg_prio= */ NULL);
                 if (l < 0) {
                         if (errno == EINTR)
                                 continue;
@@ -1869,7 +1845,7 @@ int vsock_parse_cid(const char *s, unsigned *ret) {
 int socket_address_parse_vsock(SocketAddress *ret_address, const char *s) {
         /* AF_VSOCK socket in vsock:cid:port notation */
         _cleanup_free_ char *n = NULL;
-        char *e, *cid_start;
+        const char *e, *cid_start;
         unsigned port, cid;
         int type, r;
 
@@ -1928,9 +1904,19 @@ int vsock_get_local_cid(unsigned *ret) {
                 return log_debug_errno(errno, "Failed to open %s: %m", "/dev/vsock");
 
         unsigned tmp;
-        if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, ret ?: &tmp) < 0)
+        if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, &tmp) < 0)
                 return log_debug_errno(errno, "Failed to query local AF_VSOCK CID: %m");
+        log_debug("Local AF_VSOCK CID: %u", tmp);
 
+        /* If ret == NULL, we're just want to check if AF_VSOCK is available, so accept
+         * any address. Otherwise, filter out special addresses that are cannot be used
+         * to identify _this_ machine from the outside. */
+        if (ret && IN_SET(tmp, VMADDR_CID_LOCAL, VMADDR_CID_HOST))
+                return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                       "IOCTL_VM_SOCKETS_GET_LOCAL_CID returned special value (%u), ignoring.", tmp);
+
+        if (ret)
+                *ret = tmp;
         return 0;
 }
 

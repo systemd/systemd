@@ -351,7 +351,7 @@ static int swap_load(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         /* Load a .swap file */
-        r = unit_load_fragment_and_dropin(u, /* fragment_required = */ !s->from_proc_swaps);
+        r = unit_load_fragment_and_dropin(u, /* fragment_required= */ !s->from_proc_swaps);
 
         /* Add in some extras, and do so either when we successfully loaded something or when /proc/swaps is
          * already active. */
@@ -508,7 +508,7 @@ static void swap_set_state(Swap *s, SwapState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", swap_state_to_string(old_state), swap_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 
         /* If there other units for the same device node have a job
            queued it might be worth checking again if it is runnable
@@ -668,17 +668,17 @@ static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {
 static void swap_enter_dead(Swap *s, SwapResult f) {
         assert(s);
 
-        if (s->result == SWAP_SUCCESS)
+        if (s->result == SWAP_SUCCESS || f == SWAP_FAILURE_START_LIMIT_HIT)
                 s->result = f;
 
         unit_log_result(UNIT(s), s->result == SWAP_SUCCESS, swap_result_to_string(s->result));
-        unit_warn_leftover_processes(UNIT(s), /* start = */ false);
+        unit_warn_leftover_processes(UNIT(s), /* start= */ false);
 
         swap_set_state(s, s->result != SWAP_SUCCESS ? SWAP_FAILED : SWAP_DEAD);
 
         s->exec_runtime = exec_runtime_destroy(s->exec_runtime);
 
-        unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir = */ true);
+        unit_destroy_runtime_data(UNIT(s), &s->exec_context, /* destroy_runtime_dir= */ true);
 
         unit_unref_uid_gid(UNIT(s), true);
 }
@@ -755,7 +755,7 @@ static void swap_enter_activating(Swap *s) {
 
         assert(s);
 
-        unit_warn_leftover_processes(UNIT(s), /* start = */ true);
+        unit_warn_leftover_processes(UNIT(s), /* start= */ true);
 
         s->control_command_id = SWAP_EXEC_ACTIVATE;
         s->control_command = s->exec_command + SWAP_EXEC_ACTIVATE;
@@ -864,19 +864,6 @@ static int swap_start(Unit *u) {
         int r;
 
         assert(s);
-
-        /* We cannot fulfill this request right now, try again later please! */
-        if (IN_SET(s->state,
-                   SWAP_DEACTIVATING,
-                   SWAP_DEACTIVATING_SIGTERM,
-                   SWAP_DEACTIVATING_SIGKILL,
-                   SWAP_CLEANING))
-                return -EAGAIN;
-
-        /* Already on it! */
-        if (s->state == SWAP_ACTIVATING)
-                return 0;
-
         assert(IN_SET(s->state, SWAP_DEAD, SWAP_FAILED));
 
         if (detect_container() > 0)
@@ -1147,7 +1134,7 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
 
                 device_found_node(m, d, DEVICE_FOUND_SWAP, DEVICE_FOUND_SWAP);
 
-                (void) swap_process_new(m, d, prio, set_flags);
+                swap_process_new(m, d, prio, set_flags);
         }
 
         return 0;
@@ -1521,9 +1508,13 @@ static int swap_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&s->exec_context, ret);
 }
 
-static int swap_can_start(Unit *u) {
+static int swap_test_startable(Unit *u) {
         Swap *s = ASSERT_PTR(SWAP(u));
         int r;
+
+        /* It is already being started. */
+        if (s->state == SWAP_ACTIVATING)
+                return false;
 
         r = unit_test_start_limit(u);
         if (r < 0) {
@@ -1531,7 +1522,7 @@ static int swap_can_start(Unit *u) {
                 return r;
         }
 
-        return 1;
+        return true;
 }
 
 int swap_get_priority(const Swap *s) {
@@ -1652,7 +1643,7 @@ const UnitVTable swap_vtable = {
                 },
         },
 
-        .can_start = swap_can_start,
+        .test_startable = swap_test_startable,
 
         .notify_plymouth = true,
 };

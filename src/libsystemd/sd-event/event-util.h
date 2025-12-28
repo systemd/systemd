@@ -3,7 +3,7 @@
 
 #include "sd-event.h"
 
-#include "forward.h"
+#include "sd-forward.h"
 
 extern const struct hash_ops event_source_hash_ops;
 

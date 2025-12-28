@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 typedef void (*hash_func_t)(const void *p, struct siphash *state);
 typedef int (*compare_func_t)(const void *a, const void *b);

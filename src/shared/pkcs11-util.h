@@ -12,7 +12,7 @@
 
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 bool pkcs11_uri_valid(const char *uri);
 
@@ -40,8 +40,8 @@ P11KitUri *uri_from_module_info(const CK_INFO *info);
 P11KitUri *uri_from_slot_info(const CK_SLOT_INFO *slot_info);
 P11KitUri *uri_from_token_info(const CK_TOKEN_INFO *token_info);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(P11KitUri*, sym_p11_kit_uri_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CK_FUNCTION_LIST**, sym_p11_kit_modules_finalize_and_release, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(P11KitUri*, sym_p11_kit_uri_free, p11_kit_uri_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(CK_FUNCTION_LIST**, sym_p11_kit_modules_finalize_and_release, p11_kit_modules_finalize_and_releasep, NULL);
 
 CK_RV pkcs11_get_slot_list_malloc(CK_FUNCTION_LIST *m, CK_SLOT_ID **ret_slotids, CK_ULONG *ret_n_slotids);
 
@@ -50,7 +50,18 @@ char* pkcs11_token_manufacturer_id(const CK_TOKEN_INFO *token_info);
 char* pkcs11_token_model(const CK_TOKEN_INFO *token_info);
 
 int pkcs11_token_login_by_pin(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, const CK_TOKEN_INFO *token_info, const char *token_label, const void *pin, size_t pin_size);
-int pkcs11_token_login(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_SLOT_ID slotid, const CK_TOKEN_INFO *token_info, const char *friendly_name, const char *icon_name, const char *key_name, const char *credential_name, usec_t until, AskPasswordFlags ask_password_flags, char **ret_used_pin);
+int pkcs11_token_login(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_SLOT_ID slotid,
+                const CK_TOKEN_INFO *token_info,
+                const char *friendly_name,
+                const char *ask_password_icon,
+                const char *ask_password_key,
+                const char *ask_password_credential,
+                usec_t until,
+                AskPasswordFlags ask_password_flags,
+                char **ret_used_pin);
 
 int pkcs11_token_find_related_object(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE prototype, CK_OBJECT_CLASS class, CK_OBJECT_HANDLE *ret_object);
 #if HAVE_OPENSSL

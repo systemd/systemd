@@ -22,7 +22,10 @@ External:
 
 * fedora: update policy to declare access mode and ownership of unit files to root:root 0644, and add an rpmlint check for it
 
-* zsh shell completion:
+* missing shell completions:
+  - systemd-hwdb
+
+* zsh shell completions:
   - <command> <verb> -<TAB> should complete options, but currently does not
   - systemctl add-wants,add-requires
   - systemctl reboot --boot-loader-entry=
@@ -62,6 +65,12 @@ Regularly:
 * link up selected blog stories from man pages and unit files Documentation= fields
 
 Janitorial Clean-ups:
+
+* machined: make remaining machine bus calls compatible with unpriv machined +
+  unpriv npsawn: GetAddresses(), GetSSHInfo(), GetOSRelease(), OpenPTY(),
+  OpenLogin(), OpenShell(), BindMount(), CopyFrom(), CopyTo(),
+  OpenRootDirectory(). Similar for images: GetHostname(), GetMachineID(),
+  GetMachineInfo(), GetOSRelease().
 
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
@@ -128,6 +137,36 @@ Deprecations and removals:
 
 Features:
 
+* systemd-repart: implement Integrity=data/meta and Integrity=inline for non-LUKS
+  case. Currently, only Integrity=inline combined with Encrypt= is implemented
+  and uses libcryptsetup features. Add support for plain dm-integrity setups when
+  integrity tags are stored by the device (inline), interleaved with data (data),
+  and on a separate device (meta).
+
+* homed/pam_systemd: allow authentication by ssh-agent, so that run0/polkit can
+  be allowed if caller comes with the right ssh-agent keys.
+
+* networkd/machined: implement reverse name lookups in the resolved hook
+
+* networkd's resolved hook: optionally map all lease IP addresses handed out to
+  the same hostname which is configured on the .network file. Optionally, even
+  derive this single name from the network interface name (i.e. probably
+  altname or so). This way, when spawning a VM the host could pick the hostname
+  for it and the client gets no say.
+
+* systemd-repart: add --ghost, that creates file systems, updates the kernel's
+  partition table but does *not* update partition table on disk. This way, we
+  have disk backed file systems that go effectively disappear on reboot. This
+  is useful when booting from a "live" usb stick that is writable, as it means
+  we do not have to place everything in memory. Moreover, we could then migrate
+  the file systems to disk later (using btrfs device replacement), if needed as
+  part of an installer logic.
+
+* add a concept of overlay directory stacks to image discovery, i.e. have a dir
+  with a name suffix of ".ovl" or so that contains DDIs and plain dirs (and
+  possible .v dirs) that are glued together on use via overlayfs. one special
+  subdir should be used as writable top layer.
+
 * journald: log pidfid as another field, i.e. _PIDFDID=
 
 * systemd-nspawn: something like --volatile= but that isn't volatile, but
@@ -135,6 +174,10 @@ Features:
   DDIs of some OS in your home dir, but combine its /usr/ with a locally
   maintained root fs in a regular dir to maintain local state. (idea: call it
   --mutable= and take dir or DDI and merge in)
+
+* measure all log-in attempts into a new nvpcr
+
+* measure all DDI activations into a new nvpcr
 
 * maybe rework systemd-modules-load to be a generator that just instantiates
   modprobe@.service a bunch of times
@@ -173,10 +216,6 @@ Features:
 * similar: add a plugin for factory reset logic that erases certain parts of
   the ESP, but leaves others in place.
 
-* systemd-repart: add --defer-partitions-factory-reset or so, as a flavour of
-  --defer-partitions= that picks all partitions that are marked for factory
-  reset. for an installer this is usually the partitions not to copy, too.
-
 * flush_fd() should probably try to be smart and stop reading once we know that
   all further queued data was enqueued after flush_fd() was originally
   called. For that, try SIOCINQ if fd refers to stream socket, and look at
@@ -189,6 +228,24 @@ Features:
   symlinks to confext images to enable for the unit.
 
 * nspawn: map foreign UID range through 1:1
+
+* a small tool that can do basic btrfs raid policy mgmt. i.e. gets started as
+  part of the initial transaction for some btrfs raid fs, waits for some time,
+  then puts message on screen (plymouth, console) that some devices apparently
+  are not showing up, then counts down, eventually set a flag somewhere, and
+  retriggers the fs is was invoked for, which causes the udev rules to rerun
+  that assemble the btrfs raid, but this time force degraded assembly.
+
+* systemd-repart: make useful to duplicate current OS onto a second disk, so
+  that we can sanely copy ESP contents, /usr/ images, and then set up btrfs
+  raid for the root fs to extend/mirror the existing install. This would be
+  very similar to the concept of live-install-through-btrfs-migration.
+
+* introduce /etc/boottab or so which lists block devices that bootctl +
+  kernel-install shall update the ESPs on (and register in EFI BootXYZ
+  variables), in addition to whatever is currently the booted /usr/.
+  systemd-sysupdate should also take it into consideration and update the
+  /usr/ images on all listed devices.
 
 * replace all uses of fopen_temporary() by fopen_tmpfile_linkable() +
   flink_tmpfile() and then get rid of fopen_temporary(). Benefit: use O_TMPFILE
@@ -206,12 +263,6 @@ Features:
   dispatching by that. Enable this on the native + syslog sockets in journald,
   so that we add correct ordering between the two. Use MSG_PEEK + SCM_TIMESTAMP
   for this.
-
-* maybe replace nss-machines with logic in networkd that registers records with
-  systemd-resolved, based on DHCP leases, so that we gain compat with VMs.
-  Implementation idea: encode in an ifaltname the intended local name to expose this
-  under and then parse that out and map it to the combined A/AAAA of all handed
-  out leases.
 
 * bsod: add target "bsod.target" or so, which invokes systemd-bsod.target and
   waits and then reboots. Then use OnFailure=bsod.target from various jobs that
@@ -456,17 +507,9 @@ Features:
 * allow dynamic modifications of ConcurrencyHardMax= and ConcurrencySoftMax=
   via DBus (and with that also by daemon-reload)
 
-* importd: introduce a per-user instance, that downloads into per-user DDI dirs
-
-* sysupdated: similar
+* sysupdated: introduce per-user version that can update per-user installed dDIs
 
 * portabled: similar
-
-* machined: implement a per-user instance, that manages per-user DDI dirs for
-  images. systemd-nspawn/systemd-vmspawn should probably register with both the
-  system and the user scoped machined instance. The former to get the machine
-  name registered as hostname, and the latter so that the image stuff is nicely
-  per-user managed.
 
 * resolved: make resolved process DNR DHCP info
 
@@ -477,14 +520,8 @@ Features:
 * start using STATX_SUBVOL in btrfs_is_subvol(). Also, make use of it
   generically, so that image discovery recognizes bcachefs subvols too.
 
-* "systemd-export tar" should reuse the libarchive export code from systemd-dissect
-  --archive.
-
-* "systemd-import tar" should be moved to libarchive
-
 * foreign uid:
-  - add support to export-fs, import-fs, import-tar, export-tar
-  - add tool for deleting foreign UID held container images
+  - add support to export-fs, import-fs
   - systemd-dissect should learn mappings, too, when doing mtree and such
 
 * format-table: introduce new cell type for strings with ansi sequences in
@@ -516,8 +553,8 @@ Features:
   be established on top of dm-crypt or dm-verity devices, or an allowlist of
   file systems (which should probably include vfat, for compat with the ESP)
 
-* $LISTEN_PID, $SYSTEMD_EXECPID env vars that the service manager sets should
-  be augmented with $LISTEN_PIDFDID, and $SYSTEMD_EXECPIDFD (and similar for
+* $SYSTEMD_EXECPID that the service manager sets should
+  be augmented with $SYSTEMD_EXECPIDFD (and similar for
   other env vars we might send).
 
 * port copy.c over to use LabelOps for all labelling.
@@ -537,10 +574,6 @@ Features:
 
 * The bind(AF_UNSPEC) construct (for resetting sockets to their initial state)
   should be blocked in many cases because it punches holes in many sandboxes.
-
-* find a nice way to opt-in into auto-masking SIGCHLD on first
-  sd_event_add_child(), and then get rid of many more explicit sigprocmask()
-  calls.
 
 * introduce new structure Tpm2CombinedPolicy, that combines the various TPm2
   policy bits into one structure, i.e. public key info, pcr masks, pcrlock
@@ -707,7 +740,6 @@ Features:
   from, tracing through overlayfs, DM, loopback block device.
 
 * importd/importctl
-  - port tar handling to libarchive
   - complete varlink interface
   - download images into .v/ dirs
 
@@ -749,6 +781,11 @@ Features:
 
 * credentials: add a flag to the scoped credentials that if set require PK
   reauthentication when unlocking a secret.
+
+* credentials: rework docs. The list in
+  https://systemd.io/CREDENTIALS/#well-known-credentials is very stale.
+  Document credentials in individual man pages, generate list as in
+  systemd.directives.
 
 * extend the smbios11 logic for passing credentials so that instead of passing
   the credential data literally it can also just reference an AF_VSOCK CID/port
@@ -809,8 +846,6 @@ Features:
   early on, but provide opt-out via kernel cmdline.
 
 * systemd-pcrextend:
-  - support measuring to nvindex with PCR update semantics ("fake PCRs")
-  - add api for "allocating" such an nvindex
   - once we have that start measuring every sysext we apply, every confext,
     every RootImage= we apply, every nspawn and so on. All in separate fake
     PCRs.
@@ -824,8 +859,6 @@ Features:
   - support for "real" networking via "-n" and --network-bridge=
   - translate SIGTERM to clean ACPI shutdown event
   - implement hotkeys ^]^]r and ^]^]p like nspawn
-
-* systemd-pcrmachine should probably also measure the SMBIOS system UUID.
 
 * storagetm:
   - add USB mass storage device logic, so that all local disks are also exposed
@@ -1231,10 +1264,6 @@ Features:
   parametrization, if needed. This matches our usual rule that admin config
   should win over vendor defaults.
 
-* write a "search path" spec, that documents the prefixes to search in
-  (i.e. the usual /etc/, /run/, /usr/lib/ dance, potentially /usr/etc/), how to
-  sort found entries, how masking works and overriding.
-
 * automatic boot assessment: add one more default success check that just waits
   for a bit after boot, and blesses the boot if the system stayed up that long.
 
@@ -1355,9 +1384,6 @@ Features:
 
 * chase(): take inspiration from path_extract_filename() and return
   O_DIRECTORY if input path contains trailing slash.
-
-* document in boot loader spec that symlinks in XBOOTLDR/ESP are not OK even if
-  non-VFAT fs is used.
 
 * measure credentials picked up from SMBIOS to some suitable PCR
 
@@ -1627,10 +1653,6 @@ Features:
   work for ECDSA keys since their signatures contain a random component, but
   will work for RSA and Ed25519 keys.
 
-* drop dependency on libcap, replace by direct syscalls based on
-  CapabilityQuintet we already have. (This likely allows us to drop libcap
-  dep in the base OS image)
-
 * userdbd: implement an additional varlink service socket that provides the
   host user db in restricted form, then allow this to be bind mounted into
   sandboxed environments that want the host database in minimal form. All
@@ -1657,10 +1679,6 @@ Features:
   key). That way, we nicely distinguish resources supplied by the OS vendor
   (i.e. sysext, root verity) from those inherently local (i.e. encryption key),
   which is useful if they shall be signed separately.
-
-* in uefi stub: query firmware regarding which PCR banks are being used, store
-  that in EFI var. then use this when enrolling TPM2 in cryptsetup to verify
-  that the selected PCRs actually are used by firmware.
 
 * rework recursive read-only remount to use new mount API
 
@@ -1756,9 +1774,6 @@ Features:
 * Figure out naming of verbs in systemd-analyze: we have (singular) capability,
   exit-status, but (plural) filesystems, architectures.
 
-* Add service setting to run a service within the specified VRF. i.e. do the
-  equivalent of "ip vrf exec".
-
 * special case some calls of chase() to use openat2() internally, so
   that the kernel does what we otherwise do.
 
@@ -1791,8 +1806,10 @@ Features:
   with matches, then activate app through that passing socket over
 
 * unify on openssl:
-  - figure out what to do about libmicrohttpd, which has a hard dependency on
-    gnutls
+  - figure out what to do about libmicrohttpd:
+    - 1.x is stable and has a hard dependency on gnutls
+    - 2.x is in development and has openssl support
+    - Worth testing against 2.x in our CI?
   - port fsprg over to openssl
 
 * add growvol and makevol options for /etc/crypttab, similar to
@@ -2132,7 +2149,6 @@ Features:
     names, so that for the container case we can establish the same name
     (maybe "host") for referencing the server, everywhere.
   - allow clients to request DNSSEC for a single lookup even if DNSSEC is off (?)
-  - hook up resolved with machined-based address resolution
 
 * refcounting in sd-resolve is borked
 
@@ -2248,7 +2264,6 @@ Features:
   - allow Type=simple with PIDFile=
     https://bugzilla.redhat.com/show_bug.cgi?id=723942
   - allow writing multiple conditions in unit files on one line
-  - introduce Type=pid-file
   - add a concept of RemainAfterExit= to scope units
   - Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
   - add verification of [Install] section to systemd-analyze verify
@@ -2286,8 +2301,10 @@ Features:
   ConditionConfigSearchPathNotEmpty= or different syntax? See the discussion starting at
   https://github.com/systemd/systemd/pull/15109#issuecomment-607740136.
 
-* BootLoaderSpec: Define a way how an installer can figure out whether a BLS
+* BootLoaderSpec: define a way how an installer can figure out whether a BLS
   compliant boot loader is installed.
+
+* BootLoaderSpec: document @saved pseudo-entry, update mention in BLI
 
 * think about requeuing jobs when daemon-reload is issued? use case:
   the initrd issues a reload after fstab from the host is accessible

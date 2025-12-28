@@ -52,6 +52,7 @@ local -a args=(
     '--machine=[Execute the operation on a local container]:machine:_sd_machines'
     {-h,--help}'[Show the help text and exit]'
     '--version[Print a short version string and exit]'
+    '--empower[Give privileges to selected or current user]'
 )
 
 _arguments -S $args '*:: :{_normal -p $service}'

@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "dns-packet.h"
 #include "in-addr-util.h"
 #include "list.h"
 #include "resolved-dns-browse-services.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-forward.h"
 
@@ -110,6 +110,9 @@ typedef struct DnsQuery {
         DnssdDiscoveredService *dnsservice_request;
         DnsServiceBrowser *service_browser_request;
 
+        /* Pending query to any installed hooks */
+        HookQuery *hook_query;
+
         /* Completion callback */
         void (*complete)(DnsQuery* q);
 
@@ -133,7 +136,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQueryCandidate*, dns_query_candidate_unref);
 
 void dns_query_candidate_notify(DnsQueryCandidate *c);
 
-int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question_utf8, DnsQuestion *question_idna, DnsPacket *question_bypass, int family, uint64_t flags);
+int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question_utf8, DnsQuestion *question_idna, DnsPacket *question_bypass, int ifindex, uint64_t flags);
 DnsQuery *dns_query_free(DnsQuery *q);
 
 int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for);

@@ -42,11 +42,12 @@ else
 
     apt-get update
     apt-get install -y gperf m4 gettext python3-pip \
-        libcap-dev libmount-dev \
+        libmount-dev \
         pkg-config wget python3-jinja2 zipmerge zstd
 
     if [[ "$ARCHITECTURE" == i386 ]]; then
-        apt-get install -y pkg-config:i386 libcap-dev:i386 libmount-dev:i386
+        apt-get install -y pkg-config:i386 libcrypt-dev:i386 libmount-dev:i386
+        export PKG_CONFIG=i686-linux-gnu-pkg-config
     fi
 
     pip3 install -r .github/workflows/requirements.txt --require-hashes

@@ -42,6 +42,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -194,8 +195,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --version                 Print version string\n"
                "     --no-pager                Do not pipe output into a pager\n"
                "     --no-legend               Do not print the column headers\n"
-               "     --json=pretty|short|off\n"
-               "                               Generate JSON output\n"
+               "     --json=pretty|short|off   Generate JSON output\n"
                "     --debugger=DEBUGGER       Use the given debugger\n"
                "  -A --debugger-arguments=ARGS Pass the given arguments to the debugger\n"
                "  -n INT                       Show maximum number of rows\n"
@@ -543,7 +543,7 @@ static int resolve_filename(const char *root, char **p) {
 static int print_list(FILE* file, sd_journal *j, Table *t) {
         _cleanup_free_ char
                 *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
-                *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
+                *sgnl = NULL, *exe = NULL, *comm = NULL,
                 *filename = NULL, *truncated = NULL, *coredump = NULL;
         const void *d;
         size_t l;
@@ -568,14 +568,16 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
                 RETRIEVE(d, l, "COREDUMP_SIGNAL", sgnl);
                 RETRIEVE(d, l, "COREDUMP_EXE", exe);
                 RETRIEVE(d, l, "COREDUMP_COMM", comm);
-                RETRIEVE(d, l, "COREDUMP_CMDLINE", cmdline);
                 RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
                 RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
                 RETRIEVE(d, l, "COREDUMP", coredump);
         }
 
-        if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline && !filename)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Empty coredump log entry");
+        if (!pid || !uid || !gid || !sgnl || !comm) {
+                log_warning("Found a coredump entry without mandatory fields (PID=%s, UID=%s, GID=%s, SIGNAL=%s, COMM=%s), ignoring.",
+                            strna(pid), strna(uid), strna(gid), strna(sgnl), strna(comm));
+                return 0;
+        }
 
         (void) parse_uid(uid, &uid_as_int);
         (void) parse_gid(gid, &gid_as_int);
@@ -614,7 +616,7 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
                         TABLE_SIGNAL, normal_coredump ? signal_as_int : 0,
                         TABLE_STRING, present,
                         TABLE_SET_COLOR, color,
-                        TABLE_STRING, exe ?: comm ?: cmdline,
+                        TABLE_STRING, exe ?: comm,
                         TABLE_SIZE, size);
         if (r < 0)
                 return table_log_add_error(r);
@@ -1176,7 +1178,6 @@ static int run_debug(int argc, char **argv, void *userdata) {
         bool unlink_path = false;
         const char *data, *fork_name;
         size_t len;
-        pid_t pid;
         int r;
 
         if (!arg_debugger) {
@@ -1270,7 +1271,11 @@ static int run_debug(int argc, char **argv, void *userdata) {
 
         fork_name = strjoina("(", debugger_call[0], ")");
 
-        r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_FLUSH_STDIO, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        fork_name,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_FLUSH_STDIO,
+                        &pidref);
         if (r < 0)
                 goto finish;
         if (r == 0) {
@@ -1280,7 +1285,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate_and_check(debugger_call[0], pid, WAIT_LOG_ABNORMAL);
+        r = pidref_wait_for_terminate_and_check(debugger_call[0], &pidref, WAIT_LOG_ABNORMAL);
 
 finish:
         (void) default_signals(SIGINT, SIGTERM);

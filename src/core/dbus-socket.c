@@ -30,7 +30,7 @@ static int property_get_listen(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Socket *s = SOCKET(userdata);
         int r;
@@ -158,7 +158,7 @@ static int bus_socket_set_transient_property(
                 const char *name,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         SocketExecCommand ci;
         Unit *u = UNIT(s);
@@ -171,169 +171,169 @@ static int bus_socket_set_transient_property(
         flags |= UNIT_PRIVATE;
 
         if (streq(name, "Accept"))
-                return bus_set_transient_bool(u, name, &s->accept, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->accept, message, flags, reterr_error);
 
         if (streq(name, "FlushPending"))
-                return bus_set_transient_bool(u, name, &s->flush_pending, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->flush_pending, message, flags, reterr_error);
 
         if (streq(name, "Writable"))
-                return bus_set_transient_bool(u, name, &s->writable, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->writable, message, flags, reterr_error);
 
         if (streq(name, "KeepAlive"))
-                return bus_set_transient_bool(u, name, &s->keep_alive, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->keep_alive, message, flags, reterr_error);
 
         if (streq(name, "NoDelay"))
-                return bus_set_transient_bool(u, name, &s->no_delay, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->no_delay, message, flags, reterr_error);
 
         if (streq(name, "FreeBind"))
-                return bus_set_transient_bool(u, name, &s->free_bind, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->free_bind, message, flags, reterr_error);
 
         if (streq(name, "Transparent"))
-                return bus_set_transient_bool(u, name, &s->transparent, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->transparent, message, flags, reterr_error);
 
         if (streq(name, "Broadcast"))
-                return bus_set_transient_bool(u, name, &s->broadcast, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->broadcast, message, flags, reterr_error);
 
         if (streq(name, "PassCredentials"))
-                return bus_set_transient_bool(u, name, &s->pass_cred, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->pass_cred, message, flags, reterr_error);
 
         if (streq(name, "PassPIDFD"))
-                return bus_set_transient_bool(u, name, &s->pass_pidfd, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->pass_pidfd, message, flags, reterr_error);
 
         if (streq(name, "PassSecurity"))
-                return bus_set_transient_bool(u, name, &s->pass_sec, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->pass_sec, message, flags, reterr_error);
 
         if (streq(name, "PassPacketInfo"))
-                return bus_set_transient_bool(u, name, &s->pass_pktinfo, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->pass_pktinfo, message, flags, reterr_error);
 
         if (streq(name, "AcceptFileDescriptors"))
-                return bus_set_transient_bool(u, name, &s->pass_rights, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->pass_rights, message, flags, reterr_error);
 
         if (streq(name, "Timestamping"))
-                return bus_set_transient_socket_timestamping(u, name, &s->timestamping, message, flags, error);
+                return bus_set_transient_socket_timestamping(u, name, &s->timestamping, message, flags, reterr_error);
 
         if (streq(name, "ReusePort"))
-                return bus_set_transient_bool(u, name, &s->reuse_port, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->reuse_port, message, flags, reterr_error);
 
         if (streq(name, "RemoveOnStop"))
-                return bus_set_transient_bool(u, name, &s->remove_on_stop, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->remove_on_stop, message, flags, reterr_error);
 
         if (streq(name, "SELinuxContextFromNet"))
-                return bus_set_transient_bool(u, name, &s->selinux_context_from_net, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->selinux_context_from_net, message, flags, reterr_error);
 
         if (streq(name, "Priority"))
-                return bus_set_transient_int(u, name, &s->priority, message, flags, error);
+                return bus_set_transient_int(u, name, &s->priority, message, flags, reterr_error);
 
         if (streq(name, "IPTTL"))
-                return bus_set_transient_int(u, name, &s->ip_ttl, message, flags, error);
+                return bus_set_transient_int(u, name, &s->ip_ttl, message, flags, reterr_error);
 
         if (streq(name, "Mark"))
-                return bus_set_transient_int(u, name, &s->mark, message, flags, error);
+                return bus_set_transient_int(u, name, &s->mark, message, flags, reterr_error);
 
         if (streq(name, "Backlog"))
-                return bus_set_transient_unsigned(u, name, &s->backlog, message, flags, error);
+                return bus_set_transient_unsigned(u, name, &s->backlog, message, flags, reterr_error);
 
         if (streq(name, "MaxConnections"))
-                return bus_set_transient_unsigned(u, name, &s->max_connections, message, flags, error);
+                return bus_set_transient_unsigned(u, name, &s->max_connections, message, flags, reterr_error);
 
         if (streq(name, "MaxConnectionsPerSource"))
-                return bus_set_transient_unsigned(u, name, &s->max_connections_per_source, message, flags, error);
+                return bus_set_transient_unsigned(u, name, &s->max_connections_per_source, message, flags, reterr_error);
 
         if (streq(name, "KeepAliveProbes"))
-                return bus_set_transient_unsigned(u, name, &s->keep_alive_cnt, message, flags, error);
+                return bus_set_transient_unsigned(u, name, &s->keep_alive_cnt, message, flags, reterr_error);
 
         if (streq(name, "TriggerLimitBurst"))
-                return bus_set_transient_unsigned(u, name, &s->trigger_limit.burst, message, flags, error);
+                return bus_set_transient_unsigned(u, name, &s->trigger_limit.burst, message, flags, reterr_error);
 
         if (streq(name, "PollLimitBurst"))
-                return bus_set_transient_unsigned(u, name, &s->poll_limit.burst, message, flags, error);
+                return bus_set_transient_unsigned(u, name, &s->poll_limit.burst, message, flags, reterr_error);
 
         if (streq(name, "SocketMode"))
-                return bus_set_transient_mode_t(u, name, &s->socket_mode, message, flags, error);
+                return bus_set_transient_mode_t(u, name, &s->socket_mode, message, flags, reterr_error);
 
         if (streq(name, "DirectoryMode"))
-                return bus_set_transient_mode_t(u, name, &s->directory_mode, message, flags, error);
+                return bus_set_transient_mode_t(u, name, &s->directory_mode, message, flags, reterr_error);
 
         if (streq(name, "MessageQueueMaxMessages"))
-                return bus_set_transient_message_queue(u, name, &s->mq_maxmsg, message, flags, error);
+                return bus_set_transient_message_queue(u, name, &s->mq_maxmsg, message, flags, reterr_error);
 
         if (streq(name, "MessageQueueMessageSize"))
-                return bus_set_transient_message_queue(u, name, &s->mq_msgsize, message, flags, error);
+                return bus_set_transient_message_queue(u, name, &s->mq_msgsize, message, flags, reterr_error);
 
         if (streq(name, "TimeoutUSec"))
-                return bus_set_transient_usec_fix_0(u, name, &s->timeout_usec, message, flags, error);
+                return bus_set_transient_usec_fix_0(u, name, &s->timeout_usec, message, flags, reterr_error);
 
         if (streq(name, "KeepAliveTimeUSec"))
-                return bus_set_transient_usec(u, name, &s->keep_alive_time, message, flags, error);
+                return bus_set_transient_usec(u, name, &s->keep_alive_time, message, flags, reterr_error);
 
         if (streq(name, "KeepAliveIntervalUSec"))
-                return bus_set_transient_usec(u, name, &s->keep_alive_interval, message, flags, error);
+                return bus_set_transient_usec(u, name, &s->keep_alive_interval, message, flags, reterr_error);
 
         if (streq(name, "DeferAcceptUSec"))
-                return bus_set_transient_usec(u, name, &s->defer_accept, message, flags, error);
+                return bus_set_transient_usec(u, name, &s->defer_accept, message, flags, reterr_error);
 
         if (streq(name, "TriggerLimitIntervalUSec"))
-                return bus_set_transient_usec(u, name, &s->trigger_limit.interval, message, flags, error);
+                return bus_set_transient_usec(u, name, &s->trigger_limit.interval, message, flags, reterr_error);
 
         if (streq(name, "PollLimitIntervalUSec"))
-                return bus_set_transient_usec(u, name, &s->poll_limit.interval, message, flags, error);
+                return bus_set_transient_usec(u, name, &s->poll_limit.interval, message, flags, reterr_error);
 
         if (streq(name, "DeferTrigger"))
-                return bus_set_transient_socket_defer_trigger(u, name, &s->defer_trigger, message, flags, error);
+                return bus_set_transient_socket_defer_trigger(u, name, &s->defer_trigger, message, flags, reterr_error);
 
         if (streq(name, "DeferTriggerMaxUSec"))
-                return bus_set_transient_usec_fix_0(u, name, &s->defer_trigger_max_usec, message, flags, error);
+                return bus_set_transient_usec_fix_0(u, name, &s->defer_trigger_max_usec, message, flags, reterr_error);
 
         if (streq(name, "SmackLabel"))
-                return bus_set_transient_string(u, name, &s->smack, message, flags, error);
+                return bus_set_transient_string(u, name, &s->smack, message, flags, reterr_error);
 
         if (streq(name, "SmackLabelIPin"))
-                return bus_set_transient_string(u, name, &s->smack_ip_in, message, flags, error);
+                return bus_set_transient_string(u, name, &s->smack_ip_in, message, flags, reterr_error);
 
         if (streq(name, "SmackLabelIPOut"))
-                return bus_set_transient_string(u, name, &s->smack_ip_out, message, flags, error);
+                return bus_set_transient_string(u, name, &s->smack_ip_out, message, flags, reterr_error);
 
         if (streq(name, "TCPCongestion"))
-                return bus_set_transient_string(u, name, &s->tcp_congestion, message, flags, error);
+                return bus_set_transient_string(u, name, &s->tcp_congestion, message, flags, reterr_error);
 
         if (streq(name, "FileDescriptorName"))
-                return bus_set_transient_fdname(u, name, &s->fdname, message, flags, error);
+                return bus_set_transient_fdname(u, name, &s->fdname, message, flags, reterr_error);
 
         if (streq(name, "SocketUser"))
-                return bus_set_transient_user_relaxed(u, name, &s->user, message, flags, error);
+                return bus_set_transient_user_relaxed(u, name, &s->user, message, flags, reterr_error);
 
         if (streq(name, "SocketGroup"))
-                return bus_set_transient_user_relaxed(u, name, &s->group, message, flags, error);
+                return bus_set_transient_user_relaxed(u, name, &s->group, message, flags, reterr_error);
 
         if (streq(name, "BindIPv6Only"))
-                return bus_set_transient_bind_ipv6_only(u, name, &s->bind_ipv6_only, message, flags, error);
+                return bus_set_transient_bind_ipv6_only(u, name, &s->bind_ipv6_only, message, flags, reterr_error);
 
         if (streq(name, "ReceiveBuffer"))
-                return bus_set_transient_size_t_check_truncation(u, name, &s->receive_buffer, message, flags, error);
+                return bus_set_transient_size_t_check_truncation(u, name, &s->receive_buffer, message, flags, reterr_error);
 
         if (streq(name, "SendBuffer"))
-                return bus_set_transient_size_t_check_truncation(u, name, &s->send_buffer, message, flags, error);
+                return bus_set_transient_size_t_check_truncation(u, name, &s->send_buffer, message, flags, reterr_error);
 
         if (streq(name, "PipeSize"))
-                return bus_set_transient_size_t_check_truncation(u, name, &s->pipe_size, message, flags, error);
+                return bus_set_transient_size_t_check_truncation(u, name, &s->pipe_size, message, flags, reterr_error);
 
         if (streq(name, "BindToDevice"))
-                return bus_set_transient_ifname(u, name, &s->bind_to_device, message, flags, error);
+                return bus_set_transient_ifname(u, name, &s->bind_to_device, message, flags, reterr_error);
 
         if (streq(name, "IPTOS"))
-                return bus_set_transient_ip_tos(u, name, &s->ip_tos, message, flags, error);
+                return bus_set_transient_ip_tos(u, name, &s->ip_tos, message, flags, reterr_error);
 
         if (streq(name, "SocketProtocol"))
-                return bus_set_transient_socket_protocol(u, name, &s->socket_protocol, message, flags, error);
+                return bus_set_transient_socket_protocol(u, name, &s->socket_protocol, message, flags, reterr_error);
 
         if (streq(name, "PassFileDescriptorsToExec"))
-                return bus_set_transient_bool(u, name, &s->pass_fds_to_exec, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->pass_fds_to_exec, message, flags, reterr_error);
 
         ci = socket_exec_command_from_string(name);
         if (ci >= 0)
                 return bus_set_transient_exec_command(u, name,
                                                       &s->exec_command[ci],
-                                                      message, flags, error);
+                                                      message, flags, reterr_error);
 
         if (streq(name, "Symlinks")) {
                 _cleanup_strv_free_ char **l = NULL;
@@ -344,7 +344,7 @@ static int bus_socket_set_transient_property(
 
                 STRV_FOREACH(p, l)
                         if (!path_is_absolute(*p))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Symlink path is not absolute: %s", *p);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Symlink path is not absolute: %s", *p);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
@@ -390,11 +390,11 @@ static int bus_socket_set_transient_property(
 
                         p->type = socket_port_type_from_string(t);
                         if (p->type < 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown Socket type: %s", t);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Unknown Socket type: %s", t);
 
                         if (p->type != SOCKET_SOCKET) {
                                 if (!path_is_absolute(a) || !path_is_valid(a))
-                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid socket path: %s", a);
+                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid socket path: %s", a);
 
                                 r = path_simplify_alloc(a, &p->path);
                                 if (r < 0)
@@ -403,19 +403,19 @@ static int bus_socket_set_transient_property(
                         } else if (streq(t, "Netlink")) {
                                 r = socket_address_parse_netlink(&p->address, a);
                                 if (r < 0)
-                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid netlink address: %s", a);
+                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid netlink address: %s", a);
 
                         } else {
                                 r = socket_address_parse(&p->address, a);
                                 if (r < 0)
-                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address: %s", a);
+                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address: %s", a);
 
                                 p->address.type = socket_address_type_from_string(t);
                                 if (p->address.type < 0)
-                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address type: %s", t);
+                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address type: %s", t);
 
                                 if (socket_address_family(&p->address) != AF_UNIX && p->address.type == SOCK_SEQPACKET)
-                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Address family not supported: %s", a);
+                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Address family not supported: %s", a);
                         }
 
                         empty = false;
@@ -448,7 +448,7 @@ int bus_socket_set_property(
                 const char *name,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Socket *s = SOCKET(u);
         int r;
@@ -461,22 +461,22 @@ int bus_socket_set_property(
         assert(name);
         assert(message);
 
-        r = bus_cgroup_set_property(u, &s->cgroup_context, name, message, flags, error);
+        r = bus_cgroup_set_property(u, &s->cgroup_context, name, message, flags, reterr_error);
         if (r != 0)
                 return r;
 
         if (u->transient && u->load_state == UNIT_STUB) {
                 /* This is a transient unit, let's load a little more */
 
-                r = bus_socket_set_transient_property(s, name, message, flags, error);
+                r = bus_socket_set_transient_property(s, name, message, flags, reterr_error);
                 if (r != 0)
                         return r;
 
-                r = bus_exec_context_set_transient_property(u, &s->exec_context, name, message, flags, error);
+                r = bus_exec_context_set_transient_property(u, &s->exec_context, name, message, flags, reterr_error);
                 if (r != 0)
                         return r;
 
-                r = bus_kill_context_set_transient_property(u, &s->kill_context, name, message, flags, error);
+                r = bus_kill_context_set_transient_property(u, &s->kill_context, name, message, flags, reterr_error);
                 if (r != 0)
                         return r;
         }

@@ -19,3 +19,4 @@ ListenStream=/run/systemd/io.systemd.BootControl
 FileDescriptorName=varlink
 SocketMode=0600
 Accept=yes
+MaxConnectionsPerSource=16

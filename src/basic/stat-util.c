@@ -108,6 +108,10 @@ int stat_verify_symlink(const struct stat *st) {
         return 0;
 }
 
+int fd_verify_symlink(int fd) {
+        return verify_stat_at(fd, /* path= */ NULL, /* follow= */ false, stat_verify_symlink, /* verify= */ true);
+}
+
 int is_symlink(const char *path) {
         assert(!isempty(path));
         return verify_stat_at(AT_FDCWD, path, false, stat_verify_symlink, false);

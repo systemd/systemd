@@ -478,7 +478,7 @@ static void path_set_state(Path *p, PathState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(p), "Changed %s -> %s", path_state_to_string(old_state), path_state_to_string(state));
 
-        unit_notify(UNIT(p), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(p), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 }
 
 static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify);
@@ -502,7 +502,7 @@ static int path_coldplug(Unit *u) {
 static void path_enter_dead(Path *p, PathResult f) {
         assert(p);
 
-        if (p->result == PATH_SUCCESS)
+        if (p->result == PATH_SUCCESS || IN_SET(f, PATH_FAILURE_START_LIMIT_HIT, PATH_FAILURE_UNIT_START_LIMIT_HIT))
                 p->result = f;
 
         unit_log_result(UNIT(p), p->result == PATH_SUCCESS, path_result_to_string(p->result));
@@ -816,7 +816,7 @@ static int path_trigger_notify_on_defer(sd_event_source *s, void *userdata) {
                 return 0;
         }
 
-        path_trigger_notify_impl(UNIT(p), trigger, /* on_defer = */ true);
+        path_trigger_notify_impl(UNIT(p), trigger, /* on_defer= */ true);
         return 0;
 }
 
@@ -857,7 +857,7 @@ static void path_trigger_notify_impl(Unit *u, Unit *other, bool on_defer) {
                 return;
 
         if (on_defer) {
-                path_enter_waiting(p, /* initial = */ false, /* from_trigger_notify = */ true);
+                path_enter_waiting(p, /* initial= */ false, /* from_trigger_notify= */ true);
                 return;
         }
 
@@ -886,7 +886,7 @@ static void path_trigger_notify_impl(Unit *u, Unit *other, bool on_defer) {
 }
 
 static void path_trigger_notify(Unit *u, Unit *other) {
-        path_trigger_notify_impl(u, other, /* on_defer = */ false);
+        path_trigger_notify_impl(u, other, /* on_defer= */ false);
 }
 
 static void path_reset_failed(Unit *u) {
@@ -898,7 +898,7 @@ static void path_reset_failed(Unit *u) {
         p->result = PATH_SUCCESS;
 }
 
-static int path_can_start(Unit *u) {
+static int path_test_startable(Unit *u) {
         Path *p = ASSERT_PTR(PATH(u));
         int r;
 
@@ -908,7 +908,7 @@ static int path_can_start(Unit *u) {
                 return r;
         }
 
-        return 1;
+        return true;
 }
 
 static void activation_details_path_done(ActivationDetails *details) {
@@ -1042,7 +1042,7 @@ const UnitVTable path_vtable = {
 
         .bus_set_property = bus_path_set_property,
 
-        .can_start = path_can_start,
+        .test_startable = path_test_startable,
 };
 
 const ActivationDetailsVTable activation_details_path_vtable = {

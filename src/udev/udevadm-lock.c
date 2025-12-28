@@ -184,7 +184,8 @@ static int lock_device(
         struct stat st;
         int r;
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        /* We open in O_WRONLY mode here, to trigger a rescan in udev once we are done */
+        fd = open(path, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
 

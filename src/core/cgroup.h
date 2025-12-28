@@ -185,6 +185,8 @@ typedef struct CGroupContext {
         LIST_HEAD(CGroupSocketBindItem, socket_bind_allow);
         LIST_HEAD(CGroupSocketBindItem, socket_bind_deny);
 
+        char *bind_network_interface;
+
         /* Common */
         CGroupTasksMax tasks_max;
 
@@ -322,6 +324,13 @@ typedef struct CGroupRuntime {
         struct bpf_link *restrict_ifaces_ingress_bpf_link;
         struct bpf_link *restrict_ifaces_egress_bpf_link;
 #endif
+
+#if BPF_FRAMEWORK
+        /* BPF link to BPF programs attached to cgroup/sock_create hooks and
+         * responsible for binding created sockets to a given VRF interface. */
+        struct bpf_link *bpf_bind_network_interface_link;
+#endif
+        int initial_bind_network_interface_link_fd;
 
         bool cgroup_members_mask_valid:1;
 

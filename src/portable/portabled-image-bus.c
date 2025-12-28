@@ -488,7 +488,7 @@ int bus_image_common_remove(
                 sd_bus_error *error) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
-        _cleanup_(sigkill_waitp) pid_t child = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         PortableState state;
         int r;
 
@@ -533,7 +533,7 @@ int bus_image_common_remove(
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        r = safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
+        r = pidref_safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
         if (r == 0) {
@@ -550,11 +550,11 @@ int bus_image_common_remove(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = operation_new(m, child, message, errno_pipe_fd[0], NULL);
+        r = operation_new(m, &child, message, errno_pipe_fd[0], NULL);
         if (r < 0)
                 return r;
 
-        child = 0;
+        /* We don't need to disarm child cleanup here because operation_new() takes over ownership internally. */
         errno_pipe_fd[0] = -EBADF;
 
         return 1;
@@ -865,7 +865,7 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Image, name), 0),
         SD_BUS_PROPERTY("Path", "s", NULL, offsetof(Image, path), 0),
         SD_BUS_PROPERTY("Type", "s", property_get_type,  offsetof(Image, type), 0),
-        SD_BUS_PROPERTY("ReadOnly", "b", bus_property_get_bool, offsetof(Image, read_only), 0),
+        SD_BUS_PROPERTY("ReadOnly", "b", bus_property_get_image_is_read_only, 0, 0),
         SD_BUS_PROPERTY("CreationTimestamp", "t", NULL, offsetof(Image, crtime), 0),
         SD_BUS_PROPERTY("ModificationTimestamp", "t", NULL, offsetof(Image, mtime), 0),
         SD_BUS_PROPERTY("Usage", "t", NULL, offsetof(Image, usage), 0),

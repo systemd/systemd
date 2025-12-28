@@ -63,10 +63,10 @@ int sd_dhcp_client_set_request_broadcast(
                 int broadcast);
 int sd_dhcp_client_set_ifindex(
                 sd_dhcp_client *client,
-                int interface_index);
+                int ifindex);
 int sd_dhcp_client_set_ifname(
                 sd_dhcp_client *client,
-                const char *interface_name);
+                const char *ifname);
 int sd_dhcp_client_get_ifname(sd_dhcp_client *client, const char **ret);
 int sd_dhcp_client_set_mac(
                 sd_dhcp_client *client,
@@ -104,8 +104,8 @@ __extension__ int sd_dhcp_client_set_iaid_duid_raw(
                 bool iaid_set,
                 uint32_t iaid,
                 uint16_t duid_type,
-                const uint8_t *duid,
-                size_t duid_len);
+                const uint8_t *duid_data,
+                size_t duid_data_len);
 __extension__ int sd_dhcp_client_set_rapid_commit(
                 sd_dhcp_client *client,
                 bool rapid_commit);
@@ -114,7 +114,7 @@ int sd_dhcp_client_set_mtu(
                 uint32_t mtu);
 int sd_dhcp_client_set_max_attempts(
                 sd_dhcp_client *client,
-                uint64_t attempt);
+                uint64_t max_attempts);
 int sd_dhcp_client_set_client_port(
                 sd_dhcp_client *client,
                 uint16_t port);
@@ -141,7 +141,7 @@ int sd_dhcp_client_set_service_type(
                 int type);
 int sd_dhcp_client_set_socket_priority(
                 sd_dhcp_client *client,
-                int so_priority);
+                int socket_priority);
 int sd_dhcp_client_set_fallback_lease_lifetime(
                 sd_dhcp_client *client,
                 uint64_t fallback_lease_lifetime);

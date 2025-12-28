@@ -6,6 +6,7 @@
 
 #include "assert-util.h"
 #include "log.h"
+#include "log-assert-critical.h"
 #include "nss-util.h"
 
 sd_json_dispatch_flags_t nss_json_dispatch_flags = SD_JSON_ALLOW_EXTENSIONS;

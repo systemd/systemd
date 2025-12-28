@@ -515,7 +515,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         };
 
         r = config_parse_many(
-                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname, /* root = */ NULL,
+                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname, /* root= */ NULL,
                         "Match\0"
                         "Link\0"
                         "SR-IOV\0"
@@ -600,7 +600,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 return log_warning_errno(r, "%s: Failed to store configuration into hashmap: %m", filename);
 
         TAKE_PTR(network);
-        log_syntax(/* unit = */ NULL, LOG_DEBUG, filename, /* config_line = */ 0, /* error = */ 0, "Successfully loaded.");
+        log_syntax(/* unit= */ NULL, LOG_DEBUG, filename, /* config_line= */ 0, /* error= */ 0, "Successfully loaded.");
         return 0;
 }
 
@@ -755,11 +755,13 @@ static Network *network_free(Network *network) {
         free(network->dhcp_server_boot_server_name);
         free(network->dhcp_server_boot_filename);
         free(network->dhcp_server_timezone);
+        free(network->dhcp_server_domain);
         free(network->dhcp_server_uplink_name);
         for (sd_dhcp_lease_server_type_t t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
                 free(network->dhcp_server_emit[t].addresses);
         ordered_hashmap_free(network->dhcp_server_send_options);
         ordered_hashmap_free(network->dhcp_server_send_vendor_options);
+        free(network->dhcp_server_local_lease_domain);
 
         /* DHCP client */
         free(network->dhcp_vendor_class_identifier);

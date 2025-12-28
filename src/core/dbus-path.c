@@ -19,7 +19,7 @@ static int property_get_paths(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Path *p = ASSERT_PTR(userdata);
         int r;
@@ -57,7 +57,7 @@ static int bus_path_set_transient_property(
                 const char *name,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Unit *u = UNIT(p);
         int r;
@@ -69,10 +69,10 @@ static int bus_path_set_transient_property(
         flags |= UNIT_PRIVATE;
 
         if (streq(name, "MakeDirectory"))
-                return bus_set_transient_bool(u, name, &p->make_directory, message, flags, error);
+                return bus_set_transient_bool(u, name, &p->make_directory, message, flags, reterr_error);
 
         if (streq(name, "DirectoryMode"))
-                return bus_set_transient_mode_t(u, name, &p->directory_mode, message, flags, error);
+                return bus_set_transient_mode_t(u, name, &p->directory_mode, message, flags, reterr_error);
 
         if (streq(name, "Paths")) {
                 const char *type_name, *path;
@@ -87,13 +87,13 @@ static int bus_path_set_transient_property(
 
                         t = path_type_from_string(type_name);
                         if (t < 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown path type: %s", type_name);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Unknown path type: %s", type_name);
 
                         if (isempty(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path in %s is empty", type_name);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Path in %s is empty", type_name);
 
                         if (!path_is_absolute(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path in %s is not absolute: %s", type_name, path);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Path in %s is not absolute: %s", type_name, path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 _cleanup_free_ char *k = NULL;
@@ -136,10 +136,10 @@ static int bus_path_set_transient_property(
         }
 
         if (streq(name, "TriggerLimitBurst"))
-                return bus_set_transient_unsigned(u, name, &p->trigger_limit.burst, message, flags, error);
+                return bus_set_transient_unsigned(u, name, &p->trigger_limit.burst, message, flags, reterr_error);
 
         if (streq(name, "TriggerLimitIntervalUSec"))
-                return bus_set_transient_usec(u, name, &p->trigger_limit.interval, message, flags, error);
+                return bus_set_transient_usec(u, name, &p->trigger_limit.interval, message, flags, reterr_error);
 
         return 0;
 }
@@ -148,8 +148,8 @@ int bus_path_set_property(
                 Unit *u,
                 const char *name,
                 sd_bus_message *message,
-                UnitWriteFlags mode,
-                sd_bus_error *error) {
+                UnitWriteFlags flags,
+                sd_bus_error *reterr_error) {
 
         Path *p = PATH(u);
 
@@ -158,7 +158,7 @@ int bus_path_set_property(
         assert(message);
 
         if (u->transient && u->load_state == UNIT_STUB)
-                return bus_path_set_transient_property(p, name, message, mode, error);
+                return bus_path_set_transient_property(p, name, message, flags, reterr_error);
 
         return 0;
 }

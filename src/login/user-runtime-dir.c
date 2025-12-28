@@ -348,10 +348,8 @@ static int run(int argc, char *argv[]) {
         if (streq(verb, "start")) {
                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
                 r = userdb_by_name(user, /* match= */ NULL, USERDB_PARSE_NUMERIC|USERDB_SUPPRESS_SHADOW, &ur);
-                if (r == -ESRCH)
-                        return log_error_errno(r, "User '%s' does not exist: %m", user);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve user '%s': %m", user);
+                        return log_error_errno(r, "Failed to resolve user '%s': %s", user, STRERROR_USER(r));
 
                 /* We do two things here: mount the per-user XDG_RUNTIME_DIR, and set up tmpfs quota on /tmp/
                  * and /dev/shm/. */

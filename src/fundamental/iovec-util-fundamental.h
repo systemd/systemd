@@ -5,7 +5,7 @@
 #include <sys/uio.h>
 #endif
 
-#include "assert-fundamental.h"
+#include "assert-fundamental.h"         /* IWYU pragma: keep */
 #include "macro-fundamental.h"
 
 #if SD_BOOT
@@ -31,6 +31,15 @@ static inline void iovec_done(struct iovec *iovec) {
         iovec->iov_len = 0;
 }
 
+static inline void iovec_done_many_and_free(struct iovec *iovec, size_t n) {
+        if (n > 0) {
+                assert(iovec);
+                FOREACH_ARRAY(j, iovec, n)
+                        iovec_done(j);
+        }
+        free(iovec);
+}
+
 static inline bool iovec_is_set(const struct iovec *iovec) {
         /* Checks if the iovec points to a non-empty chunk of memory */
         return iovec && iovec->iov_len > 0 && iovec->iov_base;
@@ -38,5 +47,5 @@ static inline bool iovec_is_set(const struct iovec *iovec) {
 
 static inline bool iovec_is_valid(const struct iovec *iovec) {
         /* Checks if the iovec is either NULL, empty or points to a valid bit of memory */
-        return !iovec || (iovec->iov_base || iovec->iov_len == 0);
+        return !iovec || iovec->iov_base || iovec->iov_len == 0;
 }

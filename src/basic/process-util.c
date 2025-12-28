@@ -22,6 +22,7 @@
 #include "argv-util.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
+#include "dlfcn-util.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -248,7 +249,7 @@ int pid_get_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, ch
 
                 /* Drop trailing NULs, otherwise strv_parse_nulstr() adds additional empty strings at the end.
                  * See also issue #21186. */
-                args = strv_parse_nulstr_full(t, k, /* drop_trailing_nuls = */ true);
+                args = strv_parse_nulstr_full(t, k, /* drop_trailing_nuls= */ true);
                 if (!args)
                         return -ENOMEM;
 
@@ -314,7 +315,7 @@ int pid_get_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) {
         if (r < 0)
                 return r;
 
-        args = strv_parse_nulstr_full(t, k, /* drop_trailing_nuls = */ true);
+        args = strv_parse_nulstr_full(t, k, /* drop_trailing_nuls= */ true);
         if (!args)
                 return -ENOMEM;
 
@@ -844,13 +845,9 @@ int get_process_umask(pid_t pid, mode_t *ret) {
         return parse_mode(m, ret);
 }
 
-int wait_for_terminate(pid_t pid, siginfo_t *ret) {
-        return pidref_wait_for_terminate(&PIDREF_MAKE_FROM_PID(pid), ret);
-}
-
 /*
  * Return values:
- * < 0 : wait_for_terminate() failed to get the state of the
+ * < 0 : pidref_wait_for_terminate() failed to get the state of the
  *       process, the process was terminated by a signal, or
  *       failed for an unknown reason.
  * >=0 : The process terminated normally, and its exit code is
@@ -905,115 +902,6 @@ int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFl
 
         log_full(prio, "%s failed due to unknown reason.", strna(name));
         return -EPROTO;
-}
-
-int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
-        return pidref_wait_for_terminate_and_check(name, &PIDREF_MAKE_FROM_PID(pid), flags);
-}
-
-/*
- * Return values:
- *
- * < 0 : wait_for_terminate_with_timeout() failed to get the state of the process, the process timed out, the process
- *       was terminated by a signal, or failed for an unknown reason.
- *
- * >=0 : The process terminated normally with no failures.
- *
- * Success is indicated by a return value of zero, a timeout is indicated by ETIMEDOUT, and all other child failure
- * states are indicated by error is indicated by a non-zero value.
- *
- * This call assumes SIGCHLD has been blocked already, in particular before the child to wait for has been forked off
- * to remain entirely race-free.
- */
-int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
-        sigset_t mask;
-        int r;
-        usec_t until;
-
-        assert_se(sigemptyset(&mask) == 0);
-        assert_se(sigaddset(&mask, SIGCHLD) == 0);
-
-        /* Drop into a sigtimewait-based timeout. Waiting for the
-         * pid to exit. */
-        until = usec_add(now(CLOCK_MONOTONIC), timeout);
-        for (;;) {
-                usec_t n;
-                siginfo_t status = {};
-
-                n = now(CLOCK_MONOTONIC);
-                if (n >= until)
-                        break;
-
-                r = RET_NERRNO(sigtimedwait(&mask, NULL, TIMESPEC_STORE(until - n)));
-                /* Assuming we woke due to the child exiting. */
-                if (waitid(P_PID, pid, &status, WEXITED|WNOHANG) == 0) {
-                        if (status.si_pid == pid) {
-                                /* This is the correct child. */
-                                if (status.si_code == CLD_EXITED)
-                                        return status.si_status == 0 ? 0 : -EPROTO;
-                                else
-                                        return -EPROTO;
-                        }
-                }
-                /* Not the child, check for errors and proceed appropriately */
-                if (r < 0) {
-                        switch (r) {
-                        case -EAGAIN:
-                                /* Timed out, child is likely hung. */
-                                return -ETIMEDOUT;
-                        case -EINTR:
-                                /* Received a different signal and should retry */
-                                continue;
-                        default:
-                                /* Return any unexpected errors */
-                                return r;
-                        }
-                }
-        }
-
-        return -EPROTO;
-}
-
-void sigkill_wait(pid_t pid) {
-        assert(pid > 1);
-
-        (void) kill(pid, SIGKILL);
-        (void) wait_for_terminate(pid, NULL);
-}
-
-void sigkill_waitp(pid_t *pid) {
-        PROTECT_ERRNO;
-
-        if (!pid)
-                return;
-        if (*pid <= 1)
-                return;
-
-        sigkill_wait(*pid);
-}
-
-void sigterm_wait(pid_t pid) {
-        assert(pid > 1);
-
-        (void) kill_and_sigcont(pid, SIGTERM);
-        (void) wait_for_terminate(pid, NULL);
-}
-
-void sigkill_nowait(pid_t pid) {
-        assert(pid > 1);
-
-        (void) kill(pid, SIGKILL);
-}
-
-void sigkill_nowaitp(pid_t *pid) {
-        PROTECT_ERRNO;
-
-        if (!pid)
-                return;
-        if (*pid <= 1)
-                return;
-
-        sigkill_nowait(*pid);
 }
 
 int kill_and_sigcont(pid_t pid, int sig) {
@@ -1342,7 +1230,9 @@ void valgrind_summary_hack(void) {
                         exit(EXIT_SUCCESS);
                 else {
                         log_info("Spawned valgrind helper as PID "PID_FMT".", pid);
-                        (void) wait_for_terminate(pid, NULL);
+                        _cleanup_(pidref_done) PidRef pidref = PIDREF_MAKE_FROM_PID(pid);
+                        (void) pidref_set_pid(&pidref, pid);
+                        (void) pidref_wait_for_terminate(&pidref, NULL);
                 }
         }
 #endif
@@ -1358,11 +1248,33 @@ bool nice_is_valid(int n) {
 }
 
 bool sched_policy_is_valid(int i) {
-        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR);
+        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR, SCHED_EXT);
 }
 
-bool sched_priority_is_valid(int i) {
-        return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
+bool sched_policy_supported(int policy) {
+        return sched_get_priority_min(policy) >= 0;
+}
+
+/* Wrappers around sched_get_priority_{min,max}() that gracefully handles missing SCHED_EXT support in the kernel */
+int sched_get_priority_min_safe(int policy) {
+        int r;
+
+        r = sched_get_priority_min(policy);
+        if (r >= 0)
+                return r;
+
+        /* Fallback priority */
+        return 0;
+}
+
+int sched_get_priority_max_safe(int policy) {
+        int r;
+
+        r = sched_get_priority_max(policy);
+        if (r >= 0)
+                return r;
+
+        return 0;
 }
 
 /* The cached PID, possible values:
@@ -1483,11 +1395,6 @@ pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata) {
         return pid;
 }
 
-static void restore_sigsetp(sigset_t **ssp) {
-        if (*ssp)
-                (void) sigprocmask(SIG_SETMASK, *ssp, NULL);
-}
-
 static int fork_flags_to_signal(ForkFlags flags) {
         return (flags & FORK_DEATHSIG_SIGTERM) ? SIGTERM :
                 (flags & FORK_DEATHSIG_SIGINT) ? SIGINT :
@@ -1504,7 +1411,7 @@ int pidref_safe_fork_full(
 
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
-        _unused_ _cleanup_(restore_sigsetp) sigset_t *saved_ssp = NULL;
+        _unused_ _cleanup_(block_signals_reset) sigset_t *saved_ssp = NULL;
         bool block_signals = false, block_all = false, intermediary = false;
         _cleanup_close_pair_ int pidref_transport_fds[2] = EBADF_PAIR;
         int prio, r;
@@ -1570,9 +1477,13 @@ int pidref_safe_fork_full(
                                 pidref_transport_fds[1] = safe_close(pidref_transport_fds[1]);
 
                                 if (pidref_transport_fds[0] >= 0) {
-                                        /* Wait for the intermediary child to exit so the caller can be certain the actual child
-                                         * process has been reparented by the time this function returns. */
-                                        r = wait_for_terminate_and_check(name, pid, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                                        /* Wait for the intermediary child to exit so the caller can be
+                                         * certain the actual child process has been reparented by the time
+                                         * this function returns. */
+                                        r = pidref_wait_for_terminate_and_check(
+                                                        name,
+                                                        &PIDREF_MAKE_FROM_PID(pid),
+                                                        FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
                                         if (r < 0)
                                                 return log_full_errno(prio, r, "Failed to wait for intermediary process: %m");
                                         if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
@@ -1648,7 +1559,10 @@ int pidref_safe_fork_full(
                                 (void) sigprocmask(SIG_SETMASK, &ss, NULL);
                         }
 
-                        r = wait_for_terminate_and_check(name, pid, (flags & FORK_LOG ? WAIT_LOG : 0));
+                        r = pidref_wait_for_terminate_and_check(
+                                        name,
+                                        &PIDREF_MAKE_FROM_PID(pid),
+                                        FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
                         if (r < 0)
                                 return r;
                         if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
@@ -1662,7 +1576,7 @@ int pidref_safe_fork_full(
                 }
 
                 if (ret_pid) {
-                        if (FLAGS_SET(flags, FORK_PID_ONLY))
+                        if (FLAGS_SET(flags, _FORK_PID_ONLY))
                                 *ret_pid = PIDREF_MAKE_FROM_PID(pid);
                         else {
                                 r = pidref_set_pid(ret_pid, pid);
@@ -1694,6 +1608,16 @@ int pidref_safe_fork_full(
                         log_full_errno(flags & FORK_LOG ? LOG_WARNING : LOG_DEBUG,
                                        r, "Failed to rename process, ignoring: %m");
         }
+
+        /* let's disable dlopen() in the child, as a paranoia safety precaution: children should not live for
+         * long and only do minimal work before exiting or exec()ing. Doing dlopen() is not either. If people
+         * want dlopen() they should do it before forking. This is a safety precaution in particular for
+         * cases where the child does namespace shenanigans: we should never end up loading a module from a
+         * foreign environment. Note that this has no effect on NSS! (i.e. it only has effect on uses of our
+         * dlopen_safe(), which we use comprehensively in our codebase, but glibc NSS doesn't bother, of
+         * course.) */
+        if (!FLAGS_SET(flags, FORK_ALLOW_DLOPEN))
+                block_dlopen();
 
         if (flags & (FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL))
                 if (prctl(PR_SET_PDEATHSIG, fork_flags_to_signal(flags)) < 0) {
@@ -1840,7 +1764,7 @@ int pidref_safe_fork_full(
                 freeze();
 
         if (ret_pid) {
-                if (FLAGS_SET(flags, FORK_PID_ONLY))
+                if (FLAGS_SET(flags, _FORK_PID_ONLY))
                         *ret_pid = PIDREF_MAKE_FROM_PID(getpid_cached());
                 else {
                         r = pidref_set_self(ret_pid);
@@ -1869,7 +1793,7 @@ int safe_fork_full(
          * a pidref to the caller. */
         assert(!FLAGS_SET(flags, FORK_DETACH) || !ret_pid);
 
-        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags|FORK_PID_ONLY, ret_pid ? &pidref : NULL);
+        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags|_FORK_PID_ONLY, ret_pid ? &pidref : NULL);
         if (r < 0 || !ret_pid)
                 return r;
 
@@ -1878,7 +1802,7 @@ int safe_fork_full(
         return r;
 }
 
-int namespace_fork(
+int namespace_fork_full(
                 const char *outer_name,
                 const char *inner_name,
                 int except_fds[],
@@ -1889,51 +1813,107 @@ int namespace_fork(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
-                pid_t *ret_pid) {
+                PidRef *ret) {
 
-        int r;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref_outer = PIDREF_NULL;
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        int r, prio = FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG;
 
         /* This is much like safe_fork(), but forks twice, and joins the specified namespaces in the middle
          * process. This ensures that we are fully a member of the destination namespace, with pidns an all, so that
-         * /proc/self/fd works correctly. */
+         * /proc/self/fd works correctly.
+         *
+         * TODO: once we can rely on PIDFD_INFO_EXIT, do not keep the middle process around and instead
+         * return the pidfd of the inner process for direct tracking. */
 
-        r = safe_fork_full(outer_name,
-                           NULL,
-                           except_fds, n_except_fds,
-                           (flags|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGKILL) & ~(FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE), ret_pid);
+        /* Insist on PDEATHSIG being enabled, as the pid returned is the one of the middle man, and otherwise
+         * killing of it won't be propagated to the inner child. */
+        assert((flags & (FORK_DEATHSIG_SIGKILL|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT)) != 0);
+        assert((flags & (FORK_DETACH|FORK_FREEZE)) == 0);
+        assert(!FLAGS_SET(flags, FORK_ALLOW_DLOPEN)); /* never allow loading shared library from another ns */
+
+        /* We want read() to block as a synchronization point */
+        assert_cc(sizeof(int) <= PIPE_BUF);
+        if (pipe2(errno_pipe_fd, O_CLOEXEC) < 0)
+                return log_full_errno(prio, errno, "Failed to create pipe: %m");
+
+        r = pidref_safe_fork_full(
+                        outer_name,
+                        /* stdio_fds = */ NULL, /* except_fds = */ NULL, /* n_except_fds = */ 0,
+                        (flags|FORK_DEATHSIG_SIGKILL) & ~(FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_NEW_NETNS|FORK_NEW_PIDNS|FORK_CLOSE_ALL_FDS|FORK_PACK_FDS|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE),
+                        &pidref_outer);
+        if (r == -EPROTO && FLAGS_SET(flags, FORK_WAIT)) {
+                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+                int k = read_errno(errno_pipe_fd[0]);
+                if (k < 0 && k != -EIO)
+                        return k;
+        }
         if (r < 0)
                 return r;
         if (r == 0) {
-                pid_t pid;
+                _cleanup_(pidref_done) PidRef pidref_inner = PIDREF_NULL;
 
                 /* Child */
 
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
                 r = namespace_enter(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd);
                 if (r < 0) {
-                        log_full_errno(FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG, r, "Failed to join namespace: %m");
-                        _exit(EXIT_FAILURE);
+                        log_full_errno(prio, r, "Failed to join namespace: %m");
+                        report_errno_and_exit(errno_pipe_fd[1], r);
                 }
 
                 /* We mask a few flags here that either make no sense for the grandchild, or that we don't have to do again */
-                r = safe_fork_full(inner_name,
-                                   NULL,
-                                   except_fds, n_except_fds,
-                                   flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO), &pid);
+                r = pidref_safe_fork_full(
+                                inner_name,
+                                NULL,
+                                except_fds, n_except_fds,
+                                flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_REARRANGE_STDIO|FORK_FLUSH_STDIO|FORK_STDOUT_TO_STDERR),
+                                &pidref_inner);
                 if (r < 0)
-                        _exit(EXIT_FAILURE);
+                        report_errno_and_exit(errno_pipe_fd[1], r);
                 if (r == 0) {
                         /* Child */
-                        if (ret_pid)
-                                *ret_pid = pid;
+
+                        if (!FLAGS_SET(flags, FORK_CLOSE_ALL_FDS)) {
+                                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+                                pidref_done(&pidref_outer);
+                        } else {
+                                errno_pipe_fd[1] = -EBADF;
+                                pidref_outer = PIDREF_NULL;
+                        }
+
+                        if (ret)
+                                *ret = TAKE_PIDREF(pidref_inner);
                         return 0;
                 }
 
-                r = wait_for_terminate_and_check(inner_name, pid, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                log_close();
+                log_set_open_when_needed(true);
+
+                (void) close_all_fds(&pidref_inner.fd, 1);
+
+                r = pidref_wait_for_terminate_and_check(
+                                inner_name,
+                                &pidref_inner,
+                                FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
                 _exit(r);
         }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        r = read_errno(errno_pipe_fd[0]);
+        if (r < 0)
+                return r; /* the child logs about failures on its own, no need to duplicate here */
+
+        if (ret)
+                *ret = TAKE_PIDREF(pidref_outer);
+        else
+                pidref_done(&pidref_outer); /* disarm sigkill_wait */
 
         return 1;
 }
@@ -2146,11 +2126,7 @@ int posix_spawn_wrapper(
         if (cgroup && have_clone_into_cgroup) {
                 _cleanup_free_ char *resolved_cgroup = NULL;
 
-                r = cg_get_path_and_check(
-                                SYSTEMD_CGROUP_CONTROLLER,
-                                cgroup,
-                                /* suffix= */ NULL,
-                                &resolved_cgroup);
+                r = cg_get_path(cgroup, /* suffix= */ NULL, &resolved_cgroup);
                 if (r < 0)
                         return r;
 
@@ -2303,9 +2279,10 @@ DEFINE_STRING_TABLE_LOOKUP(sigchld_code, int);
 static const char* const sched_policy_table[] = {
         [SCHED_OTHER] = "other",
         [SCHED_BATCH] = "batch",
-        [SCHED_IDLE] = "idle",
-        [SCHED_FIFO] = "fifo",
-        [SCHED_RR] = "rr",
+        [SCHED_IDLE]  = "idle",
+        [SCHED_FIFO]  = "fifo",
+        [SCHED_EXT]   = "ext",
+        [SCHED_RR]    = "rr",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);
@@ -2333,21 +2310,20 @@ int read_errno(int errno_fd) {
         /* The issue here is that it's impossible to distinguish between an error code returned by child and
          * IO error arose when reading it. So, the function logs errors and return EIO for the later case. */
 
-        ssize_t n = loop_read(errno_fd, &r, sizeof(r), /* do_poll = */ false);
+        ssize_t n = loop_read(errno_fd, &r, sizeof(r), /* do_poll= */ false);
         if (n < 0) {
                 log_debug_errno(n, "Failed to read errno: %m");
                 return -EIO;
         }
-        if (n == sizeof(r)) {
-                if (r == 0)
-                        return 0;
-                if (r < 0) /* child process reported an error, return it */
-                        return log_debug_errno(r, "Child process failed with errno: %m");
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received an errno, but it's a positive value.");
-        }
-        if (n != 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpected amount of bytes while reading errno.");
+        if (n == 0) /* the process exited without reporting an error, assuming success */
+                return 0;
+        if (n != sizeof(r))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpected amount of bytes (%zi) while reading errno.", n);
 
-        /* the process exited without reporting an error, assuming success */
-        return 0;
+        if (r == 0)
+                return 0;
+        if (r < 0) /* child process reported an error, return it */
+                return log_debug_errno(r, "Child process failed with errno: %m");
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received positive errno from child, refusing: %d", r);
 }

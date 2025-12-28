@@ -42,7 +42,7 @@ TEST(rsa_pkey_n_e) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         assert_se(rsa_pkey_from_n_e(n, n_len, &e, sizeof(e), &pkey) >= 0);
 
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new((EVP_PKEY*) pkey, NULL);
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pkey, NULL);
         assert_se(ctx);
         assert_se(EVP_PKEY_verify_init(ctx) == 1);
 
@@ -69,7 +69,7 @@ TEST(ecc_pkey_curve_x_y) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         assert_se(ecc_pkey_from_curve_x_y(curveid, x, x_len, y, y_len, &pkey) >= 0);
 
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new((EVP_PKEY*) pkey, NULL);
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pkey, NULL);
         assert_se(ctx);
         assert_se(EVP_PKEY_verify_init(ctx) == 1);
 

@@ -18,6 +18,12 @@ acpi:AANT*:
 acpi:AAVA*:
  ID_VENDOR_FROM_DATABASE=Aava Mobile Oy
 
+acpi:ACPI*:
+ ID_VENDOR_FROM_DATABASE=Intel Corporation
+
+acpi:AHCL*:
+ ID_VENDOR_FROM_DATABASE=Advantech Co., Ltd.
+
 acpi:AMDI*:
  ID_VENDOR_FROM_DATABASE=AMD
 
@@ -240,6 +246,9 @@ acpi:JUMP*:
 acpi:KIOX*:
  ID_VENDOR_FROM_DATABASE=Kionix, Inc.
 
+acpi:KOMF*:
+ ID_VENDOR_FROM_DATABASE=Kontron France
+
 acpi:LNRO*:
  ID_VENDOR_FROM_DATABASE=Linaro, Ltd.
 
@@ -305,6 +314,9 @@ acpi:PEGA*:
 
 acpi:PHYT*:
  ID_VENDOR_FROM_DATABASE=Phytium Technology Co. Ltd.
+
+acpi:PICO*:
+ ID_VENDOR_FROM_DATABASE=Picoheart (SG) Pte. Ltd.
 
 acpi:PIXA*:
  ID_VENDOR_FROM_DATABASE=PixArt imaging inc.
@@ -381,6 +393,9 @@ acpi:SWEM*:
 acpi:SYNA*:
  ID_VENDOR_FROM_DATABASE=Synaptics Inc
 
+acpi:SYNC*:
+ ID_VENDOR_FROM_DATABASE=SYNCS / Aviot Systems Pte Ltd
+
 acpi:TCAG*:
  ID_VENDOR_FROM_DATABASE=Teracue AG
 
@@ -395,6 +410,9 @@ acpi:UBLX*:
 
 acpi:UBOO*:
  ID_VENDOR_FROM_DATABASE=Das U-Boot
+
+acpi:UBTI*:
+ ID_VENDOR_FROM_DATABASE=Ubiquiti Inc.
 
 acpi:ULRV*:
  ID_VENDOR_FROM_DATABASE=UltraRISC Technology (Shanghai) Co., Ltd

@@ -51,8 +51,8 @@ DLSYM_PROTOTYPE(LZ4_decompress_safe) = NULL;
 DLSYM_PROTOTYPE(LZ4_decompress_safe_partial) = NULL;
 DLSYM_PROTOTYPE(LZ4_versionNumber) = NULL;
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(LZ4F_compressionContext_t, sym_LZ4F_freeCompressionContext, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(LZ4F_decompressionContext_t, sym_LZ4F_freeDecompressionContext, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(LZ4F_compressionContext_t, sym_LZ4F_freeCompressionContext, LZ4F_freeCompressionContextp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(LZ4F_decompressionContext_t, sym_LZ4F_freeDecompressionContext, LZ4F_freeDecompressionContextp, NULL);
 #endif
 
 #if HAVE_ZSTD
@@ -75,8 +75,8 @@ static DLSYM_PROTOTYPE(ZSTD_getErrorName) = NULL;
 static DLSYM_PROTOTYPE(ZSTD_getFrameContentSize) = NULL;
 static DLSYM_PROTOTYPE(ZSTD_isError) = NULL;
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ZSTD_CCtx*, sym_ZSTD_freeCCtx, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ZSTD_DCtx*, sym_ZSTD_freeDCtx, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(ZSTD_CCtx*, sym_ZSTD_freeCCtx, ZSTD_freeCCtxp, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(ZSTD_DCtx*, sym_ZSTD_freeDCtx, ZSTD_freeDCtxp, NULL);
 
 static int zstd_ret_to_errno(size_t ret) {
         switch (sym_ZSTD_getErrorCode(ret)) {
@@ -481,7 +481,7 @@ int decompress_blob_zstd(
         if (!(greedy_realloc(dst, MAX(sym_ZSTD_DStreamOutSize(), size), 1)))
                 return -ENOMEM;
 
-        _cleanup_(sym_ZSTD_freeDCtxp) ZSTD_DCtx *dctx = sym_ZSTD_createDCtx();
+        _cleanup_(ZSTD_freeDCtxp) ZSTD_DCtx *dctx = sym_ZSTD_createDCtx();
         if (!dctx)
                 return -ENOMEM;
 
@@ -701,7 +701,7 @@ int decompress_startswith_zstd(
         if (size < prefix_len + 1)
                 return 0; /* Decompressed text too short to match the prefix and extra */
 
-        _cleanup_(sym_ZSTD_freeDCtxp) ZSTD_DCtx *dctx = sym_ZSTD_createDCtx();
+        _cleanup_(ZSTD_freeDCtxp) ZSTD_DCtx *dctx = sym_ZSTD_createDCtx();
         if (!dctx)
                 return -ENOMEM;
 
@@ -858,7 +858,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
 
 #if HAVE_LZ4
         LZ4F_errorCode_t c;
-        _cleanup_(sym_LZ4F_freeCompressionContextp) LZ4F_compressionContext_t ctx = NULL;
+        _cleanup_(LZ4F_freeCompressionContextp) LZ4F_compressionContext_t ctx = NULL;
         _cleanup_free_ void *in_buff = NULL;
         _cleanup_free_ char *out_buff = NULL;
         size_t out_allocsize, n, offset = 0, frame_size;
@@ -1029,10 +1029,10 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 #endif
 }
 
-int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
+int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
 #if HAVE_LZ4
         size_t c;
-        _cleanup_(sym_LZ4F_freeDecompressionContextp) LZ4F_decompressionContext_t ctx = NULL;
+        _cleanup_(LZ4F_freeDecompressionContextp) LZ4F_decompressionContext_t ctx = NULL;
         _cleanup_free_ char *buf = NULL;
         char *src;
         struct stat st;
@@ -1047,7 +1047,7 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
         if (sym_LZ4F_isError(c))
                 return -ENOMEM;
 
-        if (fstat(in, &st) < 0)
+        if (fstat(fdf, &st) < 0)
                 return log_debug_errno(errno, "fstat() failed: %m");
 
         if (file_offset_beyond_memory_size(st.st_size))
@@ -1057,7 +1057,7 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
         if (!buf)
                 return -ENOMEM;
 
-        src = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, in, 0);
+        src = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fdf, 0);
         if (src == MAP_FAILED)
                 return -errno;
 
@@ -1080,7 +1080,7 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
                         goto cleanup;
                 }
 
-                r = loop_write(out, buf, produced);
+                r = loop_write(fdt, buf, produced);
                 if (r < 0)
                         goto cleanup;
         }
@@ -1106,7 +1106,7 @@ int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unc
         assert(fdt >= 0);
 
 #if HAVE_ZSTD
-        _cleanup_(sym_ZSTD_freeCCtxp) ZSTD_CCtx *cctx = NULL;
+        _cleanup_(ZSTD_freeCCtxp) ZSTD_CCtx *cctx = NULL;
         _cleanup_free_ void *in_buff = NULL, *out_buff = NULL;
         size_t in_allocsize, out_allocsize;
         size_t z;
@@ -1215,7 +1215,7 @@ int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
         assert(fdt >= 0);
 
 #if HAVE_ZSTD
-        _cleanup_(sym_ZSTD_freeDCtxp) ZSTD_DCtx *dctx = NULL;
+        _cleanup_(ZSTD_freeDCtxp) ZSTD_DCtx *dctx = NULL;
         _cleanup_free_ void *in_buff = NULL, *out_buff = NULL;
         size_t in_allocsize, out_allocsize;
         size_t last_result = 0;

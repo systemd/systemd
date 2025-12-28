@@ -8,6 +8,7 @@
 #include "format-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
@@ -125,7 +126,7 @@ int uid_range_add_str(UIDRange **range, const char *s) {
         if (r < 0)
                 return r;
 
-        return uid_range_add_internal(range, start, end - start + 1, /* coalesce = */ true);
+        return uid_range_add_internal(range, start, end - start + 1, /* coalesce= */ true);
 }
 
 int uid_range_next_lower(const UIDRange *range, uid_t *uid) {
@@ -274,7 +275,7 @@ int uid_range_load_userns(const char *path, UIDRangeUsernsMode mode, UIDRange **
                                 &range,
                                 IN_SET(mode, UID_RANGE_USERNS_INSIDE, GID_RANGE_USERNS_INSIDE) ? uid_base : uid_shift,
                                 uid_range,
-                                /* coalesce = */ false);
+                                /* coalesce= */ false);
                 if (r < 0)
                         return r;
         }
@@ -286,7 +287,7 @@ int uid_range_load_userns(const char *path, UIDRangeUsernsMode mode, UIDRange **
 }
 
 int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange **ret) {
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(userns_fd >= 0);
@@ -294,12 +295,12 @@ int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange
         assert(mode < _UID_RANGE_USERNS_MODE_MAX);
         assert(ret);
 
-        r = userns_enter_and_pin(userns_fd, &pid);
+        r = userns_enter_and_pin(userns_fd, &pidref);
         if (r < 0)
                 return r;
 
         const char *p = procfs_file_alloca(
-                        pid,
+                        pidref.pid,
                         IN_SET(mode, UID_RANGE_USERNS_INSIDE, UID_RANGE_USERNS_OUTSIDE) ? "uid_map" : "gid_map");
 
         return uid_range_load_userns(p, mode, ret);

@@ -220,6 +220,8 @@ typedef struct Network {
         struct in_addr dhcp_server_router;
         bool dhcp_server_emit_timezone;
         char *dhcp_server_timezone;
+        bool dhcp_server_emit_domain;
+        char *dhcp_server_domain;
         usec_t dhcp_server_default_lease_time_usec, dhcp_server_max_lease_time_usec;
         uint32_t dhcp_server_pool_offset;
         uint32_t dhcp_server_pool_size;
@@ -231,6 +233,7 @@ typedef struct Network {
         usec_t dhcp_server_ipv6_only_preferred_usec;
         bool dhcp_server_rapid_commit;
         DHCPServerPersistLeases dhcp_server_persist_leases;
+        char *dhcp_server_local_lease_domain;
 
         /* link-local addressing support */
         AddressFamily link_local;
@@ -438,7 +441,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_activation_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_link_group);
 CONFIG_PARSER_PROTOTYPE(config_parse_ignore_carrier_loss);
 
-const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* network_network_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 const char* keep_configuration_to_string(KeepConfiguration i) _const_;
 KeepConfiguration keep_configuration_from_string(const char *s) _pure_;

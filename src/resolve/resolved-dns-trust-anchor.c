@@ -5,7 +5,9 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "constants.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-rr.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -13,9 +15,7 @@
 #include "log.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
-#include "resolved-dns-answer.h"
 #include "resolved-dns-dnssec.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-trust-anchor.h"
 #include "set.h"
 #include "string-util.h"
@@ -502,7 +502,7 @@ static int dns_trust_anchor_dump(DnsTrustAnchor *d) {
         else {
                 _cleanup_free_ char **l = NULL, *j = NULL;
 
-                if (set_dump_sorted(d->negative_by_name, (void***) &l, /* ret_n = */ NULL) < 0)
+                if (set_dump_sorted(d->negative_by_name, (void***) &l, /* ret_n= */ NULL) < 0)
                         return log_oom();
 
                 j = strv_join(l, " ");

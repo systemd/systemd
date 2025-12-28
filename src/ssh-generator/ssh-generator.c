@@ -17,6 +17,7 @@
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "special.h"
+#include "ssh-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "virt.h"
@@ -85,7 +86,7 @@ static int make_sshd_template_unit(
         assert(sshd_binary);
         assert(generated_sshd_template_unit);
 
-        /* If the system has a suitable template already, symlink it to the name we want to reuse it */
+        /* If the system has a suitable template already, symlink it under the name we want to use */
         if (found_sshd_template_service)
                 return generator_add_symlink(
                                 dest,
@@ -96,10 +97,11 @@ static int make_sshd_template_unit(
         if (!*generated_sshd_template_unit) {
                 _cleanup_fclose_ FILE *f = NULL;
 
+                /* We use a generic name for the unit, since we'll use it for both AF_UNIX and AF_VSOCK  */
                 r = generator_open_unit_file_full(
                                 dest,
                                 /* source= */ NULL,
-                                "sshd-generated@.service", /* Give this generated unit a generic name, since we want to use it for both AF_UNIX and AF_VSOCK */
+                                "sshd-generated@.service",
                                 &f,
                                 generated_sshd_template_unit,
                                 /* ret_temp_path= */ NULL);
@@ -211,29 +213,15 @@ static int add_vsock_socket(
                 return 0;
         }
 
-        _cleanup_close_ int vsock_fd = socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0);
-        if (vsock_fd < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
-                        log_debug("Not creating AF_VSOCK ssh listener, since AF_VSOCK is not available.");
-                        return 0;
-                }
-
-                return log_error_errno(errno, "Unable to test if AF_VSOCK is available: %m");
-        }
-
-        vsock_fd = safe_close(vsock_fd);
+        r = vsock_open_or_warn(/* ret= */ NULL);
+        if (r <= 0)
+                return r;
 
         /* Determine the local CID so that we can log it to help users to connect to this VM */
         unsigned local_cid;
-        r = vsock_get_local_cid(&local_cid);
-        if (r < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(r)) {
-                        log_debug("Not creating AF_VSOCK ssh listener, since /dev/vsock is not available (even though AF_VSOCK is).");
-                        return 0;
-                }
-
-                return log_error_errno(r, "Failed to query local AF_VSOCK CID: %m");
-        }
+        r = vsock_get_local_cid_or_warn(&local_cid);
+        if (r <= 0)
+                return r;
 
         r = make_sshd_template_unit(
                         dest,

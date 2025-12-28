@@ -210,12 +210,12 @@ static int print_device_chain(sd_device *device) {
                "and the attributes from one single parent device.\n"
                "\n");
 
-        r = print_all_attributes(device, /* is_parent = */ false);
+        r = print_all_attributes(device, /* is_parent= */ false);
         if (r < 0)
                 return r;
 
         for (child = device; sd_device_get_parent(child, &parent) >= 0; child = parent) {
-                r = print_all_attributes(parent, /* is_parent = */ true);
+                r = print_all_attributes(parent, /* is_parent= */ true);
                 if (r < 0)
                         return r;
         }
@@ -313,12 +313,12 @@ static int print_device_chain_in_json(sd_device *device) {
 
         arg_json_format_flags |=SD_JSON_FORMAT_SEQ;
 
-        r = print_all_attributes_in_json(device, /* is_parent = */ false);
+        r = print_all_attributes_in_json(device, /* is_parent= */ false);
         if (r < 0)
                 return r;
 
         for (child = device; sd_device_get_parent(child, &parent) >= 0; child = parent) {
-                r = print_all_attributes_in_json(parent, /* is_parent = */ true);
+                r = print_all_attributes_in_json(parent, /* is_parent= */ true);
                 if (r < 0)
                         return r;
         }
@@ -1302,7 +1302,7 @@ int info_main(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(p, arg_devices) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
 
-                r = find_device(*p, /* prefix = */ NULL, &device);
+                r = find_device(*p, /* prefix= */ NULL, &device);
                 if (r < 0) {
                         if (r == -EINVAL)
                                 log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys/, device ID, or a unit name: %m", *p);

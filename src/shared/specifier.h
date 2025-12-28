@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef int (*SpecifierCallback)(char specifier, const void *data, const char *root, const void *userdata, char **ret);
 

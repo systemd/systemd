@@ -473,7 +473,18 @@ int fd_setcrtime(int fd, usec_t usec) {
                 usec = now(CLOCK_REALTIME);
 
         le = htole64((uint64_t) usec);
-        return xsetxattr_full(fd, /* path = */ NULL, AT_EMPTY_PATH,
+        return xsetxattr_full(fd, /* path= */ NULL, AT_EMPTY_PATH,
                               "user.crtime_usec", (const char*) &le, sizeof(le),
-                              /* xattr_flags = */ 0);
+                              /* xattr_flags= */ 0);
+}
+
+bool xattr_is_acl(const char *name) {
+        return STR_IN_SET(
+                        ASSERT_PTR(name),
+                        "system.posix_acl_access",
+                        "system.posix_acl_default");
+}
+
+bool xattr_is_selinux(const char *name) {
+        return streq(ASSERT_PTR(name), "security.selinux");
 }

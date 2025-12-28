@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 #define UNIT_NAME_MAX 256
 
@@ -67,7 +67,7 @@ static inline int unit_name_mangle(const char *name, UnitNameMangle flags, char 
 }
 
 int slice_build_parent_slice(const char *slice, char **ret);
-int slice_build_subslice(const char *slice, const char *name, char **subslice);
+int slice_build_subslice(const char *slice, const char *name, char **ret);
 bool slice_name_is_valid(const char *name);
 
 bool unit_name_prefix_equal(const char *a, const char *b);

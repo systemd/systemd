@@ -1,38 +1,69 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/prctl.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <sys/prctl.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "capability-list.h"
 #include "capability-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "logarithm.h"
 #include "parse-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "user-util.h"
 
-int have_effective_cap(int value) {
-        _cleanup_cap_free_ cap_t cap = NULL;
-        cap_flag_value_t fv = CAP_CLEAR; /* To avoid false-positive use-of-uninitialized-value error reported
-                                          * by fuzzers. */
+int capability_get(CapabilityQuintet *ret) {
+        assert(ret);
 
-        cap = cap_get_proc();
-        if (!cap)
+        struct __user_cap_header_struct hdr = {
+                .version = _LINUX_CAPABILITY_VERSION_3,
+                .pid = getpid_cached(),
+        };
+
+        assert_cc(_LINUX_CAPABILITY_U32S_3 == 2);
+        struct __user_cap_data_struct data[_LINUX_CAPABILITY_U32S_3];
+        if (syscall(SYS_capget, &hdr, data) < 0)
                 return -errno;
 
-        if (cap_get_flag(cap, value, CAP_EFFECTIVE, &fv) < 0)
-                return -errno;
+        *ret = (CapabilityQuintet) {
+                .effective = (uint64_t) data[0].effective | ((uint64_t) data[1].effective << 32),
+                .bounding = UINT64_MAX,
+                .inheritable = (uint64_t) data[0].inheritable | ((uint64_t) data[1].inheritable << 32),
+                .permitted = (uint64_t) data[0].permitted | ((uint64_t) data[1].permitted << 32),
+                .ambient = UINT64_MAX,
+        };
+        return 0;
+}
 
-        return fv == CAP_SET;
+static int capability_apply(const CapabilityQuintet *q) {
+        assert(q);
+
+        struct __user_cap_header_struct hdr = {
+                .version = _LINUX_CAPABILITY_VERSION_3,
+                .pid = getpid_cached(),
+        };
+
+        struct __user_cap_data_struct data[_LINUX_CAPABILITY_U32S_3] = {
+                {
+                        .effective = (uint32_t) (q->effective & UINT32_MAX),
+                        .inheritable = (uint32_t) (q->inheritable & UINT32_MAX),
+                        .permitted = (uint32_t) (q->permitted & UINT32_MAX),
+                },
+                {
+                        .effective = (uint32_t) (q->effective >> 32),
+                        .inheritable = (uint32_t) (q->inheritable >> 32),
+                        .permitted = (uint32_t) (q->permitted >> 32),
+                },
+        };
+        return RET_NERRNO(syscall(SYS_capset, &hdr, data));
 }
 
 unsigned cap_last_cap(void) {
@@ -89,25 +120,33 @@ unsigned cap_last_cap(void) {
         return c;
 }
 
-int capability_update_inherited_set(cap_t caps, uint64_t set) {
-        /* Add capabilities in the set to the inherited caps, drops capabilities not in the set.
-         * Do not apply them yet. */
+int have_effective_cap(unsigned cap) {
+        CapabilityQuintet q;
+        int r;
 
-        for (unsigned i = 0; i <= cap_last_cap(); i++) {
-                cap_flag_value_t flag = set & (UINT64_C(1) << i) ? CAP_SET : CAP_CLEAR;
-                cap_value_t v;
+        assert(cap <= CAP_LIMIT);
 
-                v = (cap_value_t) i;
+        r = capability_get(&q);
+        if (r < 0)
+                return r;
 
-                if (cap_set_flag(caps, CAP_INHERITABLE, 1, &v, flag) < 0)
-                        return -errno;
-        }
+        return BIT_SET(q.effective, cap);
+}
 
-        return 0;
+int have_inheritable_cap(unsigned cap) {
+        CapabilityQuintet q;
+        int r;
+
+        assert(cap <= CAP_LIMIT);
+
+        r = capability_get(&q);
+        if (r < 0)
+                return r;
+
+        return BIT_SET(q.inheritable, cap);
 }
 
 int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
-        _cleanup_cap_free_ cap_t caps = NULL;
         int r;
 
         /* Remove capabilities requested in ambient set, but not in the bounding set */
@@ -125,19 +164,20 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
         /* Add the capabilities to the ambient set (an possibly also the inheritable set) */
 
         if (also_inherit) {
-                caps = cap_get_proc();
-                if (!caps)
-                        return -errno;
+                CapabilityQuintet q;
 
-                r = capability_update_inherited_set(caps, set);
+                r = capability_get(&q);
                 if (r < 0)
-                        return -errno;
+                        return r;
 
-                if (cap_set_proc(caps) < 0)
-                        return -errno;
+                q.inheritable = set;
+
+                r = capability_apply(&q);
+                if (r < 0)
+                        return r;
         }
 
-        for (unsigned i = 0; i <= cap_last_cap(); i++) {
+        for (unsigned i = 0; i <= cap_last_cap(); i++)
                 if (BIT_SET(set, i)) {
                         /* Add the capability to the ambient set. */
                         if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i, 0, 0) < 0)
@@ -151,107 +191,85 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
                                 if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_LOWER, i, 0, 0) < 0)
                                         return -errno;
                 }
-        }
 
         return 0;
 }
 
-int capability_gain_cap_setpcap(cap_t *ret_before_caps) {
-        _cleanup_cap_free_ cap_t caps = NULL;
-        cap_flag_value_t fv;
-        caps = cap_get_proc();
-        if (!caps)
-                return -errno;
-
-        if (cap_get_flag(caps, CAP_SETPCAP, CAP_EFFECTIVE, &fv) < 0)
-                return -errno;
-
-        if (fv != CAP_SET) {
-                _cleanup_cap_free_ cap_t temp_cap = NULL;
-                static const cap_value_t v = CAP_SETPCAP;
-
-                temp_cap = cap_dup(caps);
-                if (!temp_cap)
-                        return -errno;
-
-                if (cap_set_flag(temp_cap, CAP_EFFECTIVE, 1, &v, CAP_SET) < 0)
-                        return -errno;
-
-                if (cap_set_proc(temp_cap) < 0)
-                        log_debug_errno(errno, "Can't acquire effective CAP_SETPCAP bit, ignoring: %m");
-
-                /* If we didn't manage to acquire the CAP_SETPCAP bit, we continue anyway, after all this just means
-                 * we'll fail later, when we actually intend to drop some capabilities or try to set securebits. */
-        }
-        if (ret_before_caps)
-                /* Return the capabilities as they have been before setting CAP_SETPCAP */
-                *ret_before_caps = TAKE_PTR(caps);
-
-        return 0;
-}
-
-int capability_bounding_set_drop(uint64_t keep, bool right_now) {
-        _cleanup_cap_free_ cap_t before_cap = NULL, after_cap = NULL;
+int capability_gain_cap_setpcap(void) {
+        CapabilityQuintet q;
         int r;
 
-        /* If we are run as PID 1 we will lack CAP_SETPCAP by default
-         * in the effective set (yes, the kernel drops that when
-         * executing init!), so get it back temporarily so that we can
-         * call PR_CAPBSET_DROP. */
-
-        r = capability_gain_cap_setpcap(&before_cap);
+        r = capability_get(&q);
         if (r < 0)
                 return r;
 
-        after_cap = cap_dup(before_cap);
-        if (!after_cap)
-                return -errno;
+        if (BIT_SET(q.effective, CAP_SETPCAP))
+                return 1; /* We already have capability. */
+
+        SET_BIT(q.effective, CAP_SETPCAP);
+
+        r = capability_apply(&q);
+        if (r < 0) {
+                /* If we didn't manage to acquire the CAP_SETPCAP bit, we continue anyway, after all this
+                 * just means we'll fail later, when we actually intend to drop some capabilities or try to
+                 * set securebits. */
+                log_debug_errno(r, "Can't acquire effective CAP_SETPCAP bit, ignoring: %m");
+                return 0;
+        }
+
+        return 1; /* acquired */
+}
+
+int capability_bounding_set_drop(uint64_t keep, bool right_now) {
+        int k, r;
+
+        /* If we are run as PID 1 we will lack CAP_SETPCAP by default in the effective set (yes, the kernel
+         * drops that when executing init!), so get it back temporarily so that we can call PR_CAPBSET_DROP. */
+
+        CapabilityQuintet q;
+        r = capability_get(&q);
+        if (r < 0)
+                return r;
+        CapabilityQuintet saved = q;
+
+        r = capability_gain_cap_setpcap();
+        if (r < 0)
+                return r;
 
         for (unsigned i = 0; i <= cap_last_cap(); i++) {
-                cap_value_t v;
-
-                if ((keep & (UINT64_C(1) << i)))
+                if (BIT_SET(keep, i))
                         continue;
 
                 /* Drop it from the bounding set */
                 if (prctl(PR_CAPBSET_DROP, i) < 0) {
                         r = -errno;
 
-                        /* If dropping the capability failed, let's see if we didn't have it in the first place. If so,
-                         * continue anyway, as dropping a capability we didn't have in the first place doesn't really
-                         * matter anyway. */
+                        /* If dropping the capability failed, let's see if we didn't have it in the first
+                         * place. If so, continue anyway, as dropping a capability we didn't have in the
+                         * first place doesn't really matter anyway. */
                         if (prctl(PR_CAPBSET_READ, i) != 0)
                                 goto finish;
                 }
-                v = (cap_value_t) i;
 
-                /* Also drop it from the inheritable set, so
-                 * that anything we exec() loses the
-                 * capability for good. */
-                if (cap_set_flag(after_cap, CAP_INHERITABLE, 1, &v, CAP_CLEAR) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                /* Also drop it from the inheritable set, so that anything we exec() loses the capability for
+                 * good. */
+                CLEAR_BIT(q.inheritable, i);
 
-                /* If we shall apply this right now drop it
-                 * also from our own capability sets. */
+                /* If we shall apply this right now drop it also from our own capability sets. */
                 if (right_now) {
-                        if (cap_set_flag(after_cap, CAP_PERMITTED, 1, &v, CAP_CLEAR) < 0 ||
-                            cap_set_flag(after_cap, CAP_EFFECTIVE, 1, &v, CAP_CLEAR) < 0) {
-                                r = -errno;
-                                goto finish;
-                        }
+                        CLEAR_BIT(q.effective, i);
+                        CLEAR_BIT(q.permitted, i);
                 }
         }
 
         r = 0;
 
 finish:
-        if (cap_set_proc(after_cap) < 0) {
+        k = capability_apply(&q);
+        if (k < 0)
                 /* If there are no actual changes anyway then let's ignore this error. */
-                if (cap_compare(before_cap, after_cap) != 0)
-                        r = -errno;
-        }
+                if (!capability_quintet_equal(&q, &saved))
+                        return k;
 
         return r;
 }
@@ -307,7 +325,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         if (setresgid(gid, gid, gid) < 0)
                 return log_error_errno(errno, "Failed to change group ID: %m");
 
-        r = maybe_setgroups(0, NULL);
+        r = maybe_setgroups(/* size= */ 0, /* list= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to drop auxiliary groups list: %m");
 
@@ -325,64 +343,54 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
 
         /* Drop all caps from the bounding set (as well as the inheritable/permitted/effective sets), except
          * the ones we want to keep */
-        r = capability_bounding_set_drop(keep_capabilities, true);
+        r = capability_bounding_set_drop(keep_capabilities, /* right_now= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to drop capabilities: %m");
 
         /* Now upgrade the permitted caps we still kept to effective caps */
         if (keep_capabilities != 0) {
-                cap_value_t bits[log2u64(keep_capabilities) + 1];
-                _cleanup_cap_free_ cap_t d = NULL;
-                unsigned i, j = 0;
+                CapabilityQuintet q = {
+                        .effective = keep_capabilities,
+                        .permitted = keep_capabilities,
+                };
 
-                d = cap_init();
-                if (!d)
-                        return log_oom();
-
-                for (i = 0; i < ELEMENTSOF(bits); i++)
-                        if (keep_capabilities & (1ULL << i))
-                                bits[j++] = i;
-
-                /* use enough bits */
-                assert(i == 64 || (keep_capabilities >> i) == 0);
-                /* don't use too many bits */
-                assert(keep_capabilities & (UINT64_C(1) << (i - 1)));
-
-                if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
-                    cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0)
-                        return log_error_errno(errno, "Failed to enable capabilities bits: %m");
-
-                if (cap_set_proc(d) < 0)
-                        return log_error_errno(errno, "Failed to increase capabilities: %m");
+                r = capability_apply(&q);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to increase capabilities: %m");
         }
 
         return 0;
 }
 
-static int change_capability(cap_value_t cv, cap_flag_value_t flag) {
-        _cleanup_cap_free_ cap_t tmp_cap = NULL;
+static int change_capability(unsigned cap, bool b) {
+        CapabilityQuintet q;
+        int r;
 
-        tmp_cap = cap_get_proc();
-        if (!tmp_cap)
-                return -errno;
+        assert(cap <= CAP_LIMIT);
 
-        if ((cap_set_flag(tmp_cap, CAP_INHERITABLE, 1, &cv, flag) < 0) ||
-            (cap_set_flag(tmp_cap, CAP_PERMITTED, 1, &cv, flag) < 0) ||
-            (cap_set_flag(tmp_cap, CAP_EFFECTIVE, 1, &cv, flag) < 0))
-                return -errno;
+        r = capability_get(&q);
+        if (r < 0)
+                return r;
 
-        if (cap_set_proc(tmp_cap) < 0)
-                return -errno;
+        if (b) {
+                SET_BIT(q.effective, cap);
+                SET_BIT(q.permitted, cap);
+                SET_BIT(q.inheritable, cap);
+        } else {
+                CLEAR_BIT(q.effective, cap);
+                CLEAR_BIT(q.permitted, cap);
+                CLEAR_BIT(q.inheritable, cap);
+        }
 
-        return 0;
+        return capability_apply(&q);
 }
 
-int drop_capability(cap_value_t cv) {
-        return change_capability(cv, CAP_CLEAR);
+int drop_capability(unsigned cap) {
+        return change_capability(cap, false);
 }
 
-int keep_capability(cap_value_t cv) {
-        return change_capability(cv, CAP_SET);
+int keep_capability(unsigned cap) {
+        return change_capability(cap, true);
 }
 
 bool capability_quintet_mangle(CapabilityQuintet *q) {
@@ -414,161 +422,73 @@ bool capability_quintet_mangle(CapabilityQuintet *q) {
 }
 
 int capability_quintet_enforce(const CapabilityQuintet *q) {
-        _cleanup_cap_free_ cap_t c = NULL, modified = NULL;
+        CapabilityQuintet c;
+        bool modified = false;
         int r;
 
+        if (q->ambient != CAP_MASK_UNSET ||
+            q->inheritable != CAP_MASK_UNSET ||
+            q->permitted != CAP_MASK_UNSET ||
+            q->effective != CAP_MASK_UNSET) {
+                r = capability_get(&c);
+                if (r < 0)
+                        return r;
+        }
+
         if (q->ambient != CAP_MASK_UNSET) {
-                bool changed = false;
-
-                c = cap_get_proc();
-                if (!c)
-                        return -errno;
-
                 /* In order to raise the ambient caps set we first need to raise the matching
                  * inheritable + permitted cap */
-                for (unsigned i = 0; i <= cap_last_cap(); i++) {
-                        uint64_t m = UINT64_C(1) << i;
-                        cap_value_t cv = (cap_value_t) i;
-                        cap_flag_value_t old_value_inheritable, old_value_permitted;
+                if (!FLAGS_SET(c.permitted, q->ambient) ||
+                    !FLAGS_SET(c.inheritable, q->ambient)) {
 
-                        if ((q->ambient & m) == 0)
-                                continue;
+                        c.permitted |= q->ambient;
+                        c.inheritable |= q->ambient;
 
-                        if (cap_get_flag(c, cv, CAP_INHERITABLE, &old_value_inheritable) < 0)
-                                return -errno;
-                        if (cap_get_flag(c, cv, CAP_PERMITTED, &old_value_permitted) < 0)
-                                return -errno;
-
-                        if (old_value_inheritable == CAP_SET && old_value_permitted == CAP_SET)
-                                continue;
-
-                        if (cap_set_flag(c, CAP_INHERITABLE, 1, &cv, CAP_SET) < 0)
-                                return -errno;
-                        if (cap_set_flag(c, CAP_PERMITTED, 1, &cv, CAP_SET) < 0)
-                                return -errno;
-
-                        changed = true;
+                        r = capability_apply(&c);
+                        if (r < 0)
+                                return r;
                 }
 
-                if (changed)
-                        if (cap_set_proc(c) < 0)
-                                return -errno;
-
-                r = capability_ambient_set_apply(q->ambient, false);
+                r = capability_ambient_set_apply(q->ambient, /* also_inherit= */ false);
                 if (r < 0)
                         return r;
         }
 
         if (q->inheritable != CAP_MASK_UNSET || q->permitted != CAP_MASK_UNSET || q->effective != CAP_MASK_UNSET) {
-                bool changed = false;
+                if (!FLAGS_SET(c.effective, q->effective) ||
+                    !FLAGS_SET(c.permitted, q->permitted) ||
+                    !FLAGS_SET(c.inheritable, q->inheritable)) {
 
-                if (!c) {
-                        c = cap_get_proc();
-                        if (!c)
-                                return -errno;
-                }
-
-                for (unsigned i = 0; i <= cap_last_cap(); i++) {
-                        uint64_t m = UINT64_C(1) << i;
-                        cap_value_t cv = (cap_value_t) i;
-
-                        if (q->inheritable != CAP_MASK_UNSET) {
-                                cap_flag_value_t old_value, new_value;
-
-                                if (cap_get_flag(c, cv, CAP_INHERITABLE, &old_value) < 0) {
-                                        if (errno == EINVAL) /* If the kernel knows more caps than this
-                                                              * version of libcap, then this will return
-                                                              * EINVAL. In that case, simply ignore it,
-                                                              * pretend it doesn't exist. */
-                                                continue;
-
-                                        return -errno;
-                                }
-
-                                new_value = (q->inheritable & m) ? CAP_SET : CAP_CLEAR;
-
-                                if (old_value != new_value) {
-                                        changed = true;
-
-                                        if (cap_set_flag(c, CAP_INHERITABLE, 1, &cv, new_value) < 0)
-                                                return -errno;
-                                }
-                        }
-
-                        if (q->permitted != CAP_MASK_UNSET) {
-                                cap_flag_value_t old_value, new_value;
-
-                                if (cap_get_flag(c, cv, CAP_PERMITTED, &old_value) < 0) {
-                                        if (errno == EINVAL)
-                                                continue;
-
-                                        return -errno;
-                                }
-
-                                new_value = (q->permitted & m) ? CAP_SET : CAP_CLEAR;
-
-                                if (old_value != new_value) {
-                                        changed = true;
-
-                                        if (cap_set_flag(c, CAP_PERMITTED, 1, &cv, new_value) < 0)
-                                                return -errno;
-                                }
-                        }
-
-                        if (q->effective != CAP_MASK_UNSET) {
-                                cap_flag_value_t old_value, new_value;
-
-                                if (cap_get_flag(c, cv, CAP_EFFECTIVE, &old_value) < 0) {
-                                        if (errno == EINVAL)
-                                                continue;
-
-                                        return -errno;
-                                }
-
-                                new_value = (q->effective & m) ? CAP_SET : CAP_CLEAR;
-
-                                if (old_value != new_value) {
-                                        changed = true;
-
-                                        if (cap_set_flag(c, CAP_EFFECTIVE, 1, &cv, new_value) < 0)
-                                                return -errno;
-                                }
-                        }
-                }
-
-                if (changed) {
-                        /* In order to change the bounding caps, we need to keep CAP_SETPCAP for a bit
-                         * longer. Let's add it to our list hence for now. */
-                        if (q->bounding != CAP_MASK_UNSET) {
-                                cap_value_t cv = CAP_SETPCAP;
-
-                                modified = cap_dup(c);
-                                if (!modified)
-                                        return -ENOMEM;
-
-                                if (cap_set_flag(modified, CAP_PERMITTED, 1, &cv, CAP_SET) < 0)
-                                        return -errno;
-                                if (cap_set_flag(modified, CAP_EFFECTIVE, 1, &cv, CAP_SET) < 0)
-                                        return -errno;
-
-                                if (cap_compare(modified, c) == 0) {
-                                        /* No change? then drop this nonsense again */
-                                        cap_free(modified);
-                                        modified = NULL;
-                                }
-                        }
+                        c.effective |= q->effective;
+                        c.permitted |= q->permitted;
+                        c.inheritable |= q->inheritable;
 
                         /* Now, let's enforce the caps for the first time. Note that this is where we acquire
                          * caps in any of the sets we currently don't have. We have to do this before
                          * dropping the bounding caps below, since at that point we can never acquire new
-                         * caps in inherited/permitted/effective anymore, but only lose them. */
-                        if (cap_set_proc(modified ?: c) < 0)
-                                return -errno;
+                         * caps in inherited/permitted/effective anymore, but only lose them.
+                         *
+                         * In order to change the bounding caps, we need to keep CAP_SETPCAP for a bit
+                         * longer. Let's add it to our list hence for now. */
+                        if (q->bounding != CAP_MASK_UNSET &&
+                            (!BIT_SET(c.effective, CAP_SETPCAP) || !BIT_SET(c.permitted, CAP_SETPCAP))) {
+                                CapabilityQuintet tmp = c;
+
+                                SET_BIT(c.effective, CAP_SETPCAP);
+                                SET_BIT(c.permitted, CAP_SETPCAP);
+
+                                modified = true;
+
+                                r = capability_apply(&tmp);
+                        } else
+                                r = capability_apply(&c);
+                        if (r < 0)
+                                return r;
                 }
         }
 
         if (q->bounding != CAP_MASK_UNSET) {
-                r = capability_bounding_set_drop(q->bounding, false);
+                r = capability_bounding_set_drop(q->bounding, /* right_now= */ false);
                 if (r < 0)
                         return r;
         }
@@ -577,9 +497,11 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
          * we have already set only in the CAP_SETPCAP bit, which we needed for dropping the bounding
          * bits. This call only undoes bits and doesn't acquire any which means the bounding caps don't
          * matter. */
-        if (modified)
-                if (cap_set_proc(c) < 0)
-                        return -errno;
+        if (modified) {
+                r = capability_apply(&c);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }

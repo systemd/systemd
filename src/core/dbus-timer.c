@@ -19,7 +19,7 @@ static int property_get_monotonic_timers(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Timer *t = ASSERT_PTR(userdata);
         int r;
@@ -56,7 +56,7 @@ static int property_get_calendar_timers(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Timer *t = ASSERT_PTR(userdata);
         int r;
@@ -93,7 +93,7 @@ static int property_get_next_elapse_monotonic(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Timer *t = ASSERT_PTR(userdata);
 
@@ -131,7 +131,7 @@ static int timer_add_one_monotonic_spec(
                 TimerBase base,
                 UnitWriteFlags flags,
                 usec_t usec,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                 TimerValue *v;
@@ -162,14 +162,14 @@ static int timer_add_one_calendar_spec(
                 TimerBase base,
                 UnitWriteFlags flags,
                 const char *str,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
         int r;
 
         r = calendar_spec_from_string(str, &c);
         if (r == -EINVAL)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid calendar spec");
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid calendar spec");
         if (r < 0)
                 return r;
 
@@ -197,7 +197,7 @@ static int bus_timer_set_transient_property(
                 const char *name,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Unit *u = UNIT(t);
         int r;
@@ -209,39 +209,39 @@ static int bus_timer_set_transient_property(
         flags |= UNIT_PRIVATE;
 
         if (streq(name, "AccuracyUSec"))
-                return bus_set_transient_usec(u, name, &t->accuracy_usec, message, flags, error);
+                return bus_set_transient_usec(u, name, &t->accuracy_usec, message, flags, reterr_error);
 
         if (streq(name, "AccuracySec")) {
                 log_notice("Client is using obsolete AccuracySec= transient property, please use AccuracyUSec= instead.");
-                return bus_set_transient_usec(u, "AccuracyUSec", &t->accuracy_usec, message, flags, error);
+                return bus_set_transient_usec(u, "AccuracyUSec", &t->accuracy_usec, message, flags, reterr_error);
         }
 
         if (streq(name, "RandomizedDelayUSec"))
-                return bus_set_transient_usec(u, name, &t->random_delay_usec, message, flags, error);
+                return bus_set_transient_usec(u, name, &t->random_delay_usec, message, flags, reterr_error);
 
         if (streq(name, "RandomizedOffsetUSec"))
-                return bus_set_transient_usec(u, name, &t->random_offset_usec, message, flags, error);
+                return bus_set_transient_usec(u, name, &t->random_offset_usec, message, flags, reterr_error);
 
         if (streq(name, "FixedRandomDelay"))
-                return bus_set_transient_bool(u, name, &t->fixed_random_delay, message, flags, error);
+                return bus_set_transient_bool(u, name, &t->fixed_random_delay, message, flags, reterr_error);
 
         if (streq(name, "WakeSystem"))
-                return bus_set_transient_bool(u, name, &t->wake_system, message, flags, error);
+                return bus_set_transient_bool(u, name, &t->wake_system, message, flags, reterr_error);
 
         if (streq(name, "Persistent"))
-                return bus_set_transient_bool(u, name, &t->persistent, message, flags, error);
+                return bus_set_transient_bool(u, name, &t->persistent, message, flags, reterr_error);
 
         if (streq(name, "RemainAfterElapse"))
-                return bus_set_transient_bool(u, name, &t->remain_after_elapse, message, flags, error);
+                return bus_set_transient_bool(u, name, &t->remain_after_elapse, message, flags, reterr_error);
 
         if (streq(name, "OnTimezoneChange"))
-                return bus_set_transient_bool(u, name, &t->on_timezone_change, message, flags, error);
+                return bus_set_transient_bool(u, name, &t->on_timezone_change, message, flags, reterr_error);
 
         if (streq(name, "OnClockChange"))
-                return bus_set_transient_bool(u, name, &t->on_clock_change, message, flags, error);
+                return bus_set_transient_bool(u, name, &t->on_clock_change, message, flags, reterr_error);
 
         if (streq(name, "DeferReactivation"))
-                return bus_set_transient_bool(u, name, &t->defer_reactivation, message, flags, error);
+                return bus_set_transient_bool(u, name, &t->defer_reactivation, message, flags, reterr_error);
 
         if (streq(name, "TimersMonotonic")) {
                 const char *base_name;
@@ -257,10 +257,10 @@ static int bus_timer_set_transient_property(
 
                         b = timer_base_from_string(base_name);
                         if (b < 0 || b == TIMER_CALENDAR)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                                          "Invalid timer base: %s", base_name);
 
-                        r = timer_add_one_monotonic_spec(t, name, b, flags, usec, error);
+                        r = timer_add_one_monotonic_spec(t, name, b, flags, usec, reterr_error);
                         if (r < 0)
                                 return r;
 
@@ -293,10 +293,10 @@ static int bus_timer_set_transient_property(
 
                         b = timer_base_from_string(base_name);
                         if (b != TIMER_CALENDAR)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                                          "Invalid timer base: %s", base_name);
 
-                        r = timer_add_one_calendar_spec(t, name, b, flags, str, error);
+                        r = timer_add_one_calendar_spec(t, name, b, flags, str, reterr_error);
                         if (r < 0)
                                 return r;
 
@@ -330,13 +330,13 @@ static int bus_timer_set_transient_property(
 
                 b = timer_base_from_string(name);
                 if (b < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown timer base %s", name);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Unknown timer base %s", name);
 
                 r = sd_bus_message_read(message, "t", &usec);
                 if (r < 0)
                         return r;
 
-                return timer_add_one_monotonic_spec(t, name, b, flags, usec, error);
+                return timer_add_one_monotonic_spec(t, name, b, flags, usec, reterr_error);
 
         } else if (streq(name, "OnCalendar")) {
 
@@ -348,7 +348,7 @@ static int bus_timer_set_transient_property(
                 if (r < 0)
                         return r;
 
-                return timer_add_one_calendar_spec(t, name, TIMER_CALENDAR, flags, str, error);
+                return timer_add_one_calendar_spec(t, name, TIMER_CALENDAR, flags, str, reterr_error);
         }
 
         return 0;
@@ -358,8 +358,8 @@ int bus_timer_set_property(
                 Unit *u,
                 const char *name,
                 sd_bus_message *message,
-                UnitWriteFlags mode,
-                sd_bus_error *error) {
+                UnitWriteFlags flags,
+                sd_bus_error *reterr_error) {
 
         Timer *t = TIMER(u);
 
@@ -368,7 +368,7 @@ int bus_timer_set_property(
         assert(message);
 
         if (u->transient && u->load_state == UNIT_STUB)
-                return bus_timer_set_transient_property(t, name, message, mode, error);
+                return bus_timer_set_transient_property(t, name, message, flags, reterr_error);
 
         return 0;
 }

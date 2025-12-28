@@ -103,7 +103,7 @@ test_basic() {
     systemctl "$@" status TEST-55-OOMD-workload.slice
 
     # Verify systemd-oomd is monitoring the expected units.
-    timeout 1m bash -xec "until oomctl | grep -q -F 'Path: $cgroup_path'; do sleep 1; done"
+    timeout 1m bash -xec "until oomctl | grep -F 'Path: $cgroup_path' >/dev/null; do sleep 1; done"
     assert_in 'Memory Pressure Limit: 20.00%' \
               "$(oomctl | tac | sed -e '/Memory Pressure Monitored CGroups:/q' | tac | grep -A8 "Path: $cgroup_path")"
 
@@ -301,6 +301,7 @@ testcase_reload() {
 testcase_kernel_oom() {
     cat >/tmp/script.sh <<"EOF"
 #!/usr/bin/env bash
+set -x
 choom --adjust '+1000' -- bash -c 'echo f >/proc/sysrq-trigger && exec sleep infinity'
 choom --adjust '+1000' -p $$
 echo f >/proc/sysrq-trigger
@@ -324,12 +325,22 @@ EOF
 
     cat >/tmp/script.sh <<"EOF"
 #!/usr/bin/env bash
+set -x
 echo '+memory' >/sys/fs/cgroup/system.slice/oom-kill.service/cgroup.subtree_control
 mkdir /sys/fs/cgroup/system.slice/oom-kill.service/sub
 echo 1 >/sys/fs/cgroup/system.slice/oom-kill.service/sub/memory.oom.group
-echo $$ >/sys/fs/cgroup/system.slice/oom-kill.service/sub/cgroup.procs
-choom --adjust '+1000' -p $$
-echo f >/proc/sysrq-trigger
+
+# Start a child process in the subcgroup that will trigger OOM and be killed but keep the main process
+# outside the subcgroup to avoid a race condition where the kernel SIGKILLs the main process before systemd
+# can process the OOM notification. With the main process still alive, systemd should have time to receive
+# the OOM event and enter the 'oom-kill' state before the service exits.
+(
+    echo $BASHPID >/sys/fs/cgroup/system.slice/oom-kill.service/sub/cgroup.procs
+    choom --adjust '+1000' -p $BASHPID
+    echo f >/proc/sysrq-trigger
+    exec sleep infinity
+) &
+wait $! || :
 exec sleep infinity
 EOF
     chmod +x /tmp/script.sh

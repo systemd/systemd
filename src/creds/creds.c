@@ -72,7 +72,7 @@ static bool arg_pretty = false;
 static bool arg_quiet = false;
 static bool arg_varlink = false;
 static uid_t arg_uid = UID_INVALID;
-static bool arg_allow_null = false;
+static CredentialFlags arg_credential_flags = 0;
 static bool arg_ask_password = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
@@ -99,7 +99,7 @@ typedef enum CredKeyType {
         CRED_KEY_TYPE_HOST_TPM2_PUBLIC,
         CRED_KEY_TYPE_TPM2_PUBLIC_HOST,
         CRED_KEY_TYPE_NULL,
-        CRED_KEY_TYPE_ABSENT,
+        CRED_KEY_TYPE_TPM2_ABSENT,
         _CRED_KEY_TYPE_MAX,
         _CRED_KEY_TYPE_INVALID = -EINVAL,
 } CredKeyType;
@@ -115,7 +115,7 @@ static const char* cred_key_type_table[_CRED_KEY_TYPE_MAX] = {
         [CRED_KEY_TYPE_HOST_TPM2_PUBLIC] = "host+tpm2-with-public-key",
         [CRED_KEY_TYPE_TPM2_PUBLIC_HOST] = "tpm2-with-public-key+host",
         [CRED_KEY_TYPE_NULL]             = "null",
-        [CRED_KEY_TYPE_ABSENT]           = "tpm2-absent",
+        [CRED_KEY_TYPE_TPM2_ABSENT]      = "tpm2-absent",  /* legacy alias */
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(cred_key_type, CredKeyType);
@@ -131,7 +131,7 @@ static sd_id128_t cred_key_id[_CRED_KEY_TYPE_MAX] = {
         [CRED_KEY_TYPE_HOST_TPM2_PUBLIC] = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
         [CRED_KEY_TYPE_TPM2_PUBLIC_HOST] = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
         [CRED_KEY_TYPE_NULL]             = CRED_AES256_GCM_BY_NULL,
-        [CRED_KEY_TYPE_ABSENT]           = CRED_AES256_GCM_BY_NULL,
+        [CRED_KEY_TYPE_TPM2_ABSENT]      = CRED_AES256_GCM_BY_NULL,
 };
 
 static int open_credential_directory(
@@ -148,17 +148,14 @@ static int open_credential_directory(
         if (arg_system)
                 /* PID 1 ensures that system credentials are always accessible under the same fixed path. It
                  * will create symlinks if necessary to guarantee that. */
-                p = encrypted ?
-                        ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY :
-                        SYSTEM_CREDENTIALS_DIRECTORY;
-        else {
+                r = (encrypted ? get_encrypted_system_credentials_dir : get_system_credentials_dir)(&p);
+        else
                 /* Otherwise take the dirs from the env vars we got passed */
                 r = (encrypted ? get_encrypted_credentials_dir : get_credentials_dir)(&p);
-                if (r == -ENXIO) /* No environment variable? */
-                        goto not_found;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get credentials directory: %m");
-        }
+        if (r == -ENXIO) /* No environment variable? */
+                goto not_found;
+        if (r < 0)
+                return log_error_errno(r, "Failed to get credentials directory: %m");
 
         d = opendir(p);
         if (!d) {
@@ -526,7 +523,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                                                 timestamp,
                                                 uid_is_valid(arg_uid) ? arg_uid : getuid(),
                                                 &IOVEC_MAKE(data, size),
-                                                CREDENTIAL_ANY_SCOPE,
+                                                arg_credential_flags | CREDENTIAL_ANY_SCOPE,
                                                 &plaintext);
                         else
                                 r = decrypt_credential_and_warn(
@@ -536,7 +533,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                                                 arg_tpm2_signature,
                                                 uid_is_valid(arg_uid) ? arg_uid : getuid(),
                                                 &IOVEC_MAKE(data, size),
-                                                CREDENTIAL_ANY_SCOPE,
+                                                arg_credential_flags | CREDENTIAL_ANY_SCOPE,
                                                 &plaintext);
                         if (r < 0)
                                 return r;
@@ -608,7 +605,7 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
                                 arg_not_after,
                                 arg_uid,
                                 &plaintext,
-                                arg_ask_password ? CREDENTIAL_IPC_ALLOW_INTERACTIVE : 0,
+                                arg_credential_flags,
                                 &output);
         } else
                 r = encrypt_credential_and_warn(
@@ -622,7 +619,7 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
                                 arg_tpm2_public_key_pcr_mask,
                                 arg_uid,
                                 &plaintext,
-                                /* flags= */ 0,
+                                arg_credential_flags,
                                 &output);
         if (r < 0)
                 return r;
@@ -713,7 +710,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
                                 timestamp,
                                 arg_uid,
                                 &input,
-                                arg_ask_password ? CREDENTIAL_IPC_ALLOW_INTERACTIVE : 0,
+                                arg_credential_flags,
                                 &plaintext);
         } else
                 r = decrypt_credential_and_warn(
@@ -723,7 +720,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
                                 arg_tpm2_signature,
                                 arg_uid,
                                 &input,
-                                arg_allow_null ? CREDENTIAL_ALLOW_NULL : 0,
+                                arg_credential_flags,
                                 &plaintext);
         if (r < 0)
                 return r;
@@ -815,7 +812,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "                          Specify signature for public key PCR policy\n"
                "     --user               Select user-scoped credential encryption\n"
                "     --uid=UID            Select user for scoped credentials\n"
-               "     --allow-null         Allow decrypting credentials with empty key\n"
+               "     --allow-null         Allow decrypting credentials with null key\n"
+               "     --refuse-null        Refuse decrypting credentials with null key\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -849,6 +847,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USER,
                 ARG_UID,
                 ARG_ALLOW_NULL,
+                ARG_REFUSE_NULL,
                 ARG_NO_ASK_PASSWORD,
         };
 
@@ -875,6 +874,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "user",                 no_argument,       NULL, ARG_USER                 },
                 { "uid",                  required_argument, NULL, ARG_UID                  },
                 { "allow-null",           no_argument,       NULL, ARG_ALLOW_NULL           },
+                { "refuse-null",          no_argument,       NULL, ARG_REFUSE_NULL          },
                 { "no-ask-password",      no_argument,       NULL, ARG_NO_ASK_PASSWORD      },
                 {}
         };
@@ -955,7 +955,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "help")) {
                                 if (arg_legend)
                                         puts("Supported key types:");
-
                                 return DUMP_STRING_TABLE(cred_key_type, CredKeyType, _CRED_KEY_TYPE_MAX);
                         }
 
@@ -975,7 +974,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'T':
-                        arg_with_key = CRED_AES256_GCM_BY_TPM2_HMAC;
+                        arg_with_key = _CRED_AUTO_TPM2;
                         break;
 
                 case ARG_TPM2_DEVICE:
@@ -1063,12 +1062,19 @@ static int parse_argv(int argc, char *argv[]) {
                                                 /* ret_shell= */ NULL,
                                                 /* flags= */ 0);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to resolve user '%s': %m", optarg);
+                                        return log_error_errno(r, "Failed to resolve user '%s': %s",
+                                                               optarg, STRERROR_USER(r));
                         }
                         break;
 
                 case ARG_ALLOW_NULL:
-                        arg_allow_null = true;
+                        arg_credential_flags &= ~CREDENTIAL_REFUSE_NULL;
+                        arg_credential_flags |= CREDENTIAL_ALLOW_NULL;
+                        break;
+
+                case ARG_REFUSE_NULL:
+                        arg_credential_flags |= CREDENTIAL_REFUSE_NULL;
+                        arg_credential_flags &= ~CREDENTIAL_ALLOW_NULL;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -1086,6 +1092,8 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
         }
+
+        SET_FLAG(arg_credential_flags, CREDENTIAL_IPC_ALLOW_INTERACTIVE, arg_ask_password);
 
         if (uid_is_valid(arg_uid)) {
                 /* If a UID is specified, then switch to scoped credentials */
@@ -1167,6 +1175,7 @@ typedef struct MethodEncryptParameters {
         uint64_t timestamp;
         uint64_t not_after;
         CredentialScope scope;
+        sd_id128_t with_key;
         uid_t uid;
 } MethodEncryptParameters;
 
@@ -1220,6 +1229,71 @@ static int settle_scope(
         return 0;
 }
 
+static char normalize_separator(char c) {
+        if (IN_SET(c, '-', '+', '_'))
+                return '_';
+
+        return c;
+}
+
+static bool enum_name_equal(const char *x, const char *y) {
+        if (x == y)
+                return true;
+        if (!x || !y)
+                return false;
+
+        for (;; x++, y++) {
+                char a = normalize_separator(*x), b = normalize_separator(*y);
+                if (a != b)
+                        return false;
+                if (a == 0)
+                        return true;
+        }
+}
+
+static CredKeyType cred_key_type_from_string_harder(const char *s) {
+        if (!s)
+                return _CRED_KEY_TYPE_INVALID;
+
+        CredKeyType t = cred_key_type_from_string(s);
+        if (t >= 0)
+                return t;
+
+        /* Varlink doesn't like dashes and plusses in enum names. Try to match when considering them equal to underscores */
+        for (t = 0; t < _CRED_KEY_TYPE_MAX; t++)
+                if (enum_name_equal(cred_key_type_table[t], s))
+                        return t;
+
+        return _CRED_KEY_TYPE_INVALID;
+}
+
+static int dispatch_credential_key_type(
+                const char *name,
+                sd_json_variant *variant,
+                sd_json_dispatch_flags_t flags,
+                void *userdata) {
+
+        sd_id128_t *id = ASSERT_PTR(userdata);
+
+        if (sd_json_variant_is_null(variant)) {
+                *id = SD_ID128_NULL;
+                return 0;
+        }
+
+        const char *s = sd_json_variant_string(variant);
+        if (isempty(s)) {
+                *id = SD_ID128_NULL;
+                return 0;
+        }
+
+        CredKeyType t = cred_key_type_from_string_harder(s);
+        if (t < 0)
+                return json_log(variant, flags, t, "JSON field '%s' is not a valid key type.", strna(name));
+
+        *id = cred_key_id[t];
+        return 0;
+}
+
 static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
@@ -1229,6 +1303,7 @@ static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                 { "timestamp", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodEncryptParameters, timestamp), 0 },
                 { "notAfter",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodEncryptParameters, not_after), 0 },
                 { "scope",     SD_JSON_VARIANT_STRING,        dispatch_credential_scope,     offsetof(MethodEncryptParameters, scope),     0 },
+                { "withKey",   SD_JSON_VARIANT_STRING,        dispatch_credential_key_type,  offsetof(MethodEncryptParameters, with_key),  SD_JSON_NULLABLE },
                 { "uid",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(MethodEncryptParameters, uid),       0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
@@ -1289,7 +1364,7 @@ static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
         }
 
         r = encrypt_credential_and_warn(
-                        p.scope == CREDENTIAL_USER ? _CRED_AUTO_SCOPED : _CRED_AUTO,
+                        sd_id128_is_null(p.with_key) ? (p.scope == CREDENTIAL_USER ? _CRED_AUTO_SCOPED : _CRED_AUTO) : p.with_key,
                         p.name,
                         p.timestamp,
                         p.not_after,
@@ -1324,6 +1399,7 @@ typedef struct MethodDecryptParameters {
         uint64_t timestamp;
         CredentialScope scope;
         uid_t uid;
+        int allow_null;
 } MethodDecryptParameters;
 
 static void method_decrypt_parameters_done(MethodDecryptParameters *p) {
@@ -1335,11 +1411,12 @@ static void method_decrypt_parameters_done(MethodDecryptParameters *p) {
 static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodDecryptParameters, name),      0                 },
-                { "blob",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,  offsetof(MethodDecryptParameters, blob),      SD_JSON_MANDATORY },
-                { "timestamp", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodDecryptParameters, timestamp), 0                 },
-                { "scope",     SD_JSON_VARIANT_STRING,        dispatch_credential_scope,     offsetof(MethodDecryptParameters, scope),     0                 },
-                { "uid",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(MethodDecryptParameters, uid),       0                 },
+                { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodDecryptParameters, name),       0                 },
+                { "blob",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,  offsetof(MethodDecryptParameters, blob),       SD_JSON_MANDATORY },
+                { "timestamp", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodDecryptParameters, timestamp),  0                 },
+                { "scope",     SD_JSON_VARIANT_STRING,        dispatch_credential_scope,     offsetof(MethodDecryptParameters, scope),      0                 },
+                { "uid",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(MethodDecryptParameters, uid),        0                 },
+                { "allowNull", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,     offsetof(MethodDecryptParameters, allow_null), SD_JSON_NULLABLE  },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -1347,6 +1424,7 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                 .timestamp = UINT64_MAX,
                 .scope = _CREDENTIAL_SCOPE_INVALID,
                 .uid = UID_INVALID,
+                .allow_null = -1,
         };
         bool timestamp_fresh, any_scope_after_polkit = false;
         _cleanup_(iovec_done_erase) struct iovec output = {};
@@ -1372,6 +1450,11 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
         r = settle_scope(link, &p.scope, &p.uid, &cflags, &any_scope_after_polkit);
         if (r < 0)
                 return r;
+
+        if (p.allow_null > 0)
+                cflags |= CREDENTIAL_ALLOW_NULL;
+        else if (p.allow_null == 0)
+                cflags |= CREDENTIAL_REFUSE_NULL;
 
         r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)

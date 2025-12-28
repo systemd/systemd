@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 struct siphash {
         uint64_t v0;

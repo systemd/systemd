@@ -198,9 +198,14 @@ def get_zboot_kernel(f: IO[bytes]) -> bytes:
     elif comp_type.startswith(b'xzkern'):
         raise NotImplementedError('xzkern decompression not implemented')
     elif comp_type.startswith(b'zstd'):
-        zstd = try_import('zstandard')
-        data = f.read(size)
-        return cast(bytes, zstd.ZstdDecompressor().stream_reader(data).read())
+        try:
+            zstd = try_import('compression.zstd')
+            data = f.read(size)
+            return cast(bytes, zstd.zstd.ZstdDecompressor().decompress(data))
+        except ValueError:
+            zstd = try_import('zstandard')
+            data = f.read(size)
+            return cast(bytes, zstd.ZstdDecompressor().stream_reader(data).read())
 
     raise NotImplementedError(f'unknown compressed type: {comp_type!r}')
 
@@ -230,8 +235,12 @@ def maybe_decompress(filename: Union[str, Path]) -> bytes:
         return cast(bytes, gzip.open(f).read())
 
     if start.startswith(b'\x28\xb5\x2f\xfd'):
-        zstd = try_import('zstandard')
-        return cast(bytes, zstd.ZstdDecompressor().stream_reader(f.read()).read())
+        try:
+            zstd = try_import('compression.zstd')
+            return cast(bytes, zstd.zstd.ZstdDecompressor().decompress(f.read()))
+        except ValueError:
+            zstd = try_import('zstandard')
+            return cast(bytes, zstd.ZstdDecompressor().stream_reader(f.read()).read())
 
     if start.startswith(b'\x02\x21\x4c\x18'):
         lz4 = try_import('lz4.frame', 'lz4')
@@ -1355,7 +1364,7 @@ def make_uki(opts: UkifyConfig) -> None:
     pcrpkey: Union[bytes, Path, None] = opts.pcrpkey
     if pcrpkey is None:
         keyutil_tool = find_tool('systemd-keyutil', '/usr/lib/systemd/systemd-keyutil')
-        cmd = [keyutil_tool, 'public']
+        cmd = [keyutil_tool, 'extract-public']
 
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             # If we're using an engine or provider, the public key will be an X.509 certificate.

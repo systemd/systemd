@@ -64,8 +64,7 @@ journal_fuzz_template = fuzz_template + {
 executables += [
         libexec_template + {
                 'name' : 'systemd-journald',
-                'sources' : systemd_journald_sources + systemd_journald_extract_sources,
-                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
+                'sources' : systemd_journald_sources,
                 'extract' : systemd_journald_extract_sources,
                 'dependencies' : [
                         liblz4_cflags,
@@ -153,10 +152,12 @@ executables += [
         },
 ]
 
-if install_sysconfdir_samples
-        install_data('journald.conf',
-                     install_dir : pkgconfigfiledir)
-endif
+custom_target(
+        input : 'journald.conf.in',
+        output: 'journald.conf',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : install_sysconfdir_samples,
+        install_dir : pkgconfigfiledir)
 
 if get_option('create-log-dirs')
         install_emptydir('/var/log/journal',

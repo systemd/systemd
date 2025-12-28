@@ -237,10 +237,20 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
 
         assert(path);
 
+        /* First try to send SIG0 recursively to ensure all child cgroups can be killed. */
+        if (recurse)
+                r = cg_kill_recursive(path, /* sig= */ 0, CGROUP_IGNORE_SELF,
+                                      /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
+        else
+                r = cg_kill(path, /* sig= */ 0, CGROUP_IGNORE_SELF,
+                            /* killed_pids= */ NULL, /* log_kill= */ NULL, /* userdata= */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send SIG0 to processes in cgroup '%s': %m", path);
+
         if (dry_run) {
                 _cleanup_free_ char *cg_path = NULL;
 
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &cg_path);
+                r = cg_get_path(path, /* suffix= */ NULL, &cg_path);
                 if (r < 0)
                         return r;
 
@@ -418,7 +428,7 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         is_root = empty_or_root(path);
         ctx->preference = MANAGED_OOM_PREFERENCE_NONE;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, "memory.pressure", &p);
+        r = cg_get_path(path, "memory.pressure", &p);
         if (r < 0)
                 return log_debug_errno(r, "Error getting cgroup memory pressure path from %s: %m", path);
 
@@ -431,19 +441,19 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
                 if (r < 0)
                         return log_debug_errno(r, "Error getting memory used from procfs: %m");
         } else {
-                r = cg_get_attribute_as_uint64(SYSTEMD_CGROUP_CONTROLLER, path, "memory.current", &ctx->current_memory_usage);
+                r = cg_get_attribute_as_uint64(path, "memory.current", &ctx->current_memory_usage);
                 if (r < 0)
                         return log_debug_errno(r, "Error getting memory.current from %s: %m", path);
 
-                r = cg_get_attribute_as_uint64(SYSTEMD_CGROUP_CONTROLLER, path, "memory.min", &ctx->memory_min);
+                r = cg_get_attribute_as_uint64(path, "memory.min", &ctx->memory_min);
                 if (r < 0)
                         return log_debug_errno(r, "Error getting memory.min from %s: %m", path);
 
-                r = cg_get_attribute_as_uint64(SYSTEMD_CGROUP_CONTROLLER, path, "memory.low", &ctx->memory_low);
+                r = cg_get_attribute_as_uint64(path, "memory.low", &ctx->memory_low);
                 if (r < 0)
                         return log_debug_errno(r, "Error getting memory.low from %s: %m", path);
 
-                r = cg_get_attribute_as_uint64(SYSTEMD_CGROUP_CONTROLLER, path, "memory.swap.current", &ctx->swap_usage);
+                r = cg_get_attribute_as_uint64(path, "memory.swap.current", &ctx->swap_usage);
                 if (r == -ENODATA)
                         /* The kernel can be compiled without support for memory.swap.* files,
                          * or it can be disabled with boot param 'swapaccount=0' */
@@ -451,7 +461,7 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
                 else if (r < 0)
                         return log_debug_errno(r, "Error getting memory.swap.current from %s: %m", path);
 
-                r = cg_get_keyed_attribute(SYSTEMD_CGROUP_CONTROLLER, path, "memory.stat", STRV_MAKE("pgscan"), &val);
+                r = cg_get_keyed_attribute(path, "memory.stat", STRV_MAKE("pgscan"), &val);
                 if (r < 0)
                         return log_debug_errno(r, "Error getting pgscan from memory.stat under %s: %m", path);
 

@@ -202,7 +202,7 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
          *         /foo/bar/.#<extra>waldoXXXXXX
          */
 
-        return tempfn_build(p, extra, "XXXXXX", /* child = */ false, ret);
+        return tempfn_build(p, extra, "XXXXXX", /* child= */ false, ret);
 }
 
 int tempfn_random(const char *p, const char *extra, char **ret) {
@@ -222,7 +222,7 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
         if (asprintf(&s, "%016" PRIx64, random_u64()) < 0)
                 return -ENOMEM;
 
-        return tempfn_build(p, extra, s, /* child = */ false, ret);
+        return tempfn_build(p, extra, s, /* child= */ false, ret);
 }
 
 int tempfn_random_child(const char *p, const char *extra, char **ret) {
@@ -246,7 +246,7 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
         if (asprintf(&s, "%016" PRIx64, random_u64()) < 0)
                 return -ENOMEM;
 
-        return tempfn_build(p, extra, s, /* child = */ true, ret);
+        return tempfn_build(p, extra, s, /* child= */ true, ret);
 }
 
 int open_tmpfile_unlinkable(const char *directory, int flags) {
@@ -447,7 +447,9 @@ void cleanup_tmpfile_data_done(struct cleanup_tmpfile_data *d) {
             !*d->filename)
                 return;
 
-        (void) unlinkat(*d->dir_fd, *d->filename, 0);
+        PROTECT_ERRNO;
+
+        (void) unlinkat(*d->dir_fd, *d->filename, /* flags= */ 0);
         d->dir_fd = NULL;
         d->filename = NULL;
 }

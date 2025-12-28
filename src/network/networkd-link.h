@@ -4,7 +4,6 @@
 #include <linux/nl80211.h>
 
 #include "ether-addr-util.h"
-#include "forward.h"
 #include "network-util.h"
 #include "networkd-bridge-vlan.h"
 #include "networkd-forward.h"
@@ -226,7 +225,7 @@ void link_enter_failed(Link *link);
 void link_set_state(Link *link, LinkState state);
 void link_check_ready(Link *link);
 
-void link_update_operstate(Link *link, bool also_update_bond_master);
+void link_update_operstate(Link *link, bool also_update_master);
 
 bool link_has_carrier(Link *link);
 bool link_multicast_enabled(Link *link);
@@ -258,3 +257,5 @@ const char* kernel_operstate_to_string(int t) _const_;
 
 void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *ret);
 AddressFamily link_required_family_for_online(Link *link);
+
+bool link_has_local_lease_domain(Link *link);

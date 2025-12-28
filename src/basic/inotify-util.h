@@ -4,7 +4,7 @@
 #include <sys/inotify.h>        /* IWYU pragma: export */
 #include <syslog.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 #define INOTIFY_EVENT_MAX (offsetof(struct inotify_event, name) + NAME_MAX + 1)
 

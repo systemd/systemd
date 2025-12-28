@@ -3,7 +3,7 @@
 
 #include <string.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 #define NULSTR_FOREACH(i, l)                                    \
         for (typeof(*(l)) *(i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
@@ -34,5 +34,5 @@ static inline int strv_from_nulstr(char ***ret, const char *nulstr) {
         return 0;
 }
 
-int strv_make_nulstr(char * const *l, char **p, size_t *n);
+int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size);
 int set_make_nulstr(Set *s, char **ret, size_t *ret_size);

@@ -4,8 +4,8 @@
 #include "efi.h"
 
 /* PE flags in the Characteristics attribute of the optional header indicating executable code */
-#define PE_CODE 0x00000020
-#define PE_EXECUTE 0x20000000
+#define PE_CODE 0x00000020U
+#define PE_EXECUTE 0x20000000U
 
 /* This is the actual PE format of the section header */
 typedef struct PeSectionHeader {

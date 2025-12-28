@@ -5,7 +5,7 @@
   Copyright © 2016 Djalal Harouni
 ***/
 
-#include "forward.h"
+#include "core-forward.h"
 #include "list.h"
 #include "runtime-scope.h"
 
@@ -128,6 +128,7 @@ typedef struct MountImage {
 typedef struct NamespaceParameters {
         RuntimeScope runtime_scope;
 
+        int root_directory_fd;
         const char *root_directory;
         const char *root_image;
         const MountOptions *root_image_options;

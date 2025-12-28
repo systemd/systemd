@@ -369,7 +369,7 @@ int manager_varlink_init(Manager *m, int fd) {
         else
                 r = sd_varlink_server_listen_fd(s, fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to varlink socket '/run/systemd/io.systemd.Login': %m");
 
         TAKE_FD(fd_close);
 

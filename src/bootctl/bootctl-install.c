@@ -377,7 +377,7 @@ static int update_efi_boot_binaries(
                 if (!dest_path)
                         return log_oom();
 
-                r = copy_file_with_version_check(source_path, dest_path, /* force = */ false);
+                r = copy_file_with_version_check(source_path, dest_path, /* force= */ false);
                 if (IN_SET(r, -ESTALE, -ESRCH))
                         continue;
                 RET_GATHER(ret, r);
@@ -607,7 +607,7 @@ static int efi_timestamp(EFI_TIME *ret) {
         if (r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SOURCE_DATE_EPOCH, ignoring: %m");
 
-        r = localtime_or_gmtime_usec(epoch != UINT64_MAX ? epoch : now(CLOCK_REALTIME), /*utc=*/ true, &tm);
+        r = localtime_or_gmtime_usec(epoch != UINT64_MAX ? epoch : now(CLOCK_REALTIME), /* utc= */ true, &tm);
         if (r < 0)
                 return log_error_errno(r, "Failed to convert timestamp to calendar time: %m");
 
@@ -623,11 +623,12 @@ static int efi_timestamp(EFI_TIME *ret) {
 
         return 0;
 }
-#endif
 
 static int install_secure_boot_auto_enroll(const char *esp, X509 *certificate, EVP_PKEY *private_key) {
-#if HAVE_OPENSSL
         int r;
+
+        if (!arg_secure_boot_auto_enroll)
+                return 0;
 
         _cleanup_free_ uint8_t *dercert = NULL;
         int dercertsz;
@@ -699,7 +700,7 @@ static int install_secure_boot_auto_enroll(const char *esp, X509 *certificate, E
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write signature list to bio");
 
                 _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
-                p7 = PKCS7_sign(certificate, private_key, /*certs=*/ NULL, bio, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY|PKCS7_NOSMIMECAP);
+                p7 = PKCS7_sign(certificate, private_key, /* certs= */ NULL, bio, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY|PKCS7_NOSMIMECAP);
                 if (!p7)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
                                                ERR_error_string(ERR_get_error(), NULL));
@@ -752,10 +753,8 @@ static int install_secure_boot_auto_enroll(const char *esp, X509 *certificate, E
         }
 
         return 0;
-#else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot set up secure boot auto-enrollment.");
-#endif
 }
+#endif
 
 static bool same_entry(uint16_t id, sd_id128_t uuid, const char *path) {
         _cleanup_free_ char *opath = NULL;
@@ -963,14 +962,17 @@ static int are_we_installed(const char *esp_path) {
         return r == 0;
 }
 
+#if HAVE_OPENSSL
 static int load_secure_boot_auto_enroll(
                 X509 **ret_certificate,
-                EVP_PKEY **ret_private_key) {
+                EVP_PKEY **ret_private_key,
+                OpenSSLAskPasswordUI **ret_ui) {
 
         int r;
 
         assert(ret_certificate);
         assert(ret_private_key);
+        assert(ret_ui);
 
         if (!arg_secure_boot_auto_enroll) {
                 *ret_certificate = NULL;
@@ -979,7 +981,7 @@ static int load_secure_boot_auto_enroll(
         }
 
         if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
                 if (r < 0)
                         return r;
         }
@@ -999,7 +1001,6 @@ static int load_secure_boot_auto_enroll(
                         return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
         }
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
         r = openssl_load_private_key(
                         arg_private_key_source_type,
                         arg_private_key_source,
@@ -1012,16 +1013,16 @@ static int load_secure_boot_auto_enroll(
                                 .until = USEC_INFINITY,
                                 .hup_fd = -EBADF,
                         },
-                        &private_key,
-                        /* ret_user_interface= */ NULL);
+                        ret_private_key,
+                        ret_ui);
         if (r < 0)
                 return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
 
         *ret_certificate = TAKE_PTR(certificate);
-        *ret_private_key = TAKE_PTR(private_key);
 
         return 0;
 }
+#endif
 
 int verb_install(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
@@ -1037,11 +1038,14 @@ int verb_install(int argc, char *argv[], void *userdata) {
         /* Support graceful mode only for updates, unless forcibly enabled in chroot environments */
         graceful = arg_graceful() == ARG_GRACEFUL_FORCE || (!install && arg_graceful() != ARG_GRACEFUL_NO);
 
+#if HAVE_OPENSSL
+        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
         _cleanup_(X509_freep) X509 *certificate = NULL;
-        r = load_secure_boot_auto_enroll(&certificate, &private_key);
+        r = load_secure_boot_auto_enroll(&certificate, &private_key, &ui);
         if (r < 0)
                 return r;
+#endif
 
         r = acquire_esp(/* unprivileged_mode= */ false, graceful, &part, &pstart, &psize, &uuid, NULL);
         if (graceful && r == -ENOKEY)
@@ -1101,17 +1105,15 @@ int verb_install(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
 
-                        if (arg_install_random_seed) {
-                                r = install_random_seed(arg_esp_path);
-                                if (r < 0)
-                                        return r;
-                        }
+                        r = install_random_seed(arg_esp_path);
+                        if (r < 0)
+                                return r;
 
-                        if (arg_secure_boot_auto_enroll) {
-                                r = install_secure_boot_auto_enroll(arg_esp_path, certificate, private_key);
-                                if (r < 0)
-                                        return r;
-                        }
+#if HAVE_OPENSSL
+                        r = install_secure_boot_auto_enroll(arg_esp_path, certificate, private_key);
+                        if (r < 0)
+                                return r;
+#endif
                 }
 
                 r = install_loader_specification(arg_dollar_boot_path());

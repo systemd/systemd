@@ -10,7 +10,7 @@
 
 #include "bpf-compat.h" /* IWYU pragma: export */
 #include "dlfcn-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 extern DLSYM_PROTOTYPE(bpf_link__destroy);
 extern DLSYM_PROTOTYPE(bpf_link__fd);

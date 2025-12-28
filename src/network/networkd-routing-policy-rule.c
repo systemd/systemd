@@ -331,7 +331,7 @@ static int routing_policy_rule_compare_func_full(const RoutingPolicyRule *a, con
 }
 
 static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
-        return routing_policy_rule_compare_func_full(a, b, /* all = */ true);
+        return routing_policy_rule_compare_func_full(a, b, /* all= */ true);
 }
 
 static bool routing_policy_rule_equal(const RoutingPolicyRule *a, const RoutingPolicyRule *b, int family, uint32_t priority) {
@@ -348,7 +348,7 @@ static bool routing_policy_rule_equal(const RoutingPolicyRule *a, const RoutingP
         if (b->priority_set && b->priority != priority)
                 return false;
 
-        return routing_policy_rule_compare_func_full(a, b, /* all = */ false) == 0;
+        return routing_policy_rule_compare_func_full(a, b, /* all= */ false) == 0;
 }
 
 static bool routing_policy_rule_can_update(const RoutingPolicyRule *existing, const RoutingPolicyRule *requesting) {
@@ -538,7 +538,7 @@ static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, const c
                 return;
 
         (void) network_config_state_to_string_alloc(rule->state, &state);
-        (void) manager_get_route_table_to_string(m, rule->table, /* append_num = */ true, &table);
+        (void) manager_get_route_table_to_string(m, rule->table, /* append_num= */ true, &table);
 
         log_link_debug(link,
                        "%s %s routing policy rule (%s): priority: %"PRIu32", %s -> %s, iif: %s, oif: %s, table: %s",
@@ -878,10 +878,10 @@ static int routing_policy_rule_is_ready_to_configure(const RoutingPolicyRule *ru
          * shows [detached] for such rules, that may confuse users. Let's postpone to configure if one of
          * IIF/OIF does not exist. */
 
-        if (rule->iif && !link_is_ready_to_configure_by_name(link->manager, rule->iif, /* allow_unmanaged = */ true))
+        if (rule->iif && !link_is_ready_to_configure_by_name(link->manager, rule->iif, /* allow_unmanaged= */ true))
                 return false;
 
-        if (rule->oif && !link_is_ready_to_configure_by_name(link->manager, rule->oif, /* allow_unmanaged = */ true))
+        if (rule->oif && !link_is_ready_to_configure_by_name(link->manager, rule->oif, /* allow_unmanaged= */ true))
                 return false;
 
         return true;
@@ -1464,7 +1464,7 @@ static int config_parse_routing_policy_rule_port_range(
 
         assert(rvalue);
 
-        r = parse_ip_port_range(rvalue, &p->start, &p->end, /* allow_zero = */ false);
+        r = parse_ip_port_range(rvalue, &p->start, &p->end, /* allow_zero= */ false);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse routing policy rule port range '%s'", rvalue);
                 return 0;

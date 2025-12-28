@@ -28,7 +28,6 @@
 #include "extract-word.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "fstab-util.h"
 #include "hexdecoct.h"
 #include "json-util.h"
 #include "libfido2-util.h"
@@ -36,7 +35,6 @@
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
-#include "mount-util.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -123,6 +121,7 @@ static char *arg_tpm2_pcrlock = NULL;
 static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
 static unsigned arg_tpm2_measure_pcr = UINT_MAX; /* This and the following field is about measuring the unlocked volume key to the local TPM */
 static char **arg_tpm2_measure_banks = NULL;
+static char *arg_tpm2_measure_keyslot_nvpcr = NULL;
 static char *arg_link_keyring = NULL;
 static char *arg_link_key_type = NULL;
 static char *arg_link_key_description = NULL;
@@ -138,6 +137,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_fido2_rp_id, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_measure_banks, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_measure_keyslot_nvpcr, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_keyring, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_key_type, freep);
@@ -554,6 +554,21 @@ static int parse_one_option(const char *option) {
 #else
                 log_error("Build lacks OpenSSL support, cannot measure to PCR banks, ignoring: %s", option);
 #endif
+
+        } else if ((val = startswith(option, "tpm2-measure-keyslot-nvpcr="))) {
+
+                if (isempty(val)) {
+                        arg_tpm2_measure_keyslot_nvpcr = mfree(arg_tpm2_measure_keyslot_nvpcr);
+                        return 0;
+                }
+
+                if (!tpm2_nvpcr_name_is_valid(val)) {
+                        log_warning("Invalid NvPCR name, ignoring: %s", option);
+                        return 0;
+                }
+
+                if (free_and_strdup(&arg_tpm2_measure_keyslot_nvpcr, val) < 0)
+                        return log_oom();
 
         } else if ((val = startswith(option, "try-empty-password="))) {
 
@@ -1012,7 +1027,7 @@ static int measure_volume_key(
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_debug("Kernel stub did not measure kernel image into the expected PCR, skipping userspace measurement, too.");
+                log_debug("Kernel stub did not measure kernel image into the expected PCR, skipping userspace volume key measurement, too.");
                 return 0;
         }
 
@@ -1047,7 +1062,7 @@ static int measure_volume_key(
         if (!s)
                 return log_oom();
 
-        r = tpm2_extend_bytes(c, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, s, SIZE_MAX, volume_key, volume_key_size, TPM2_EVENT_VOLUME_KEY, s);
+        r = tpm2_pcr_extend_bytes(c, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, &IOVEC_MAKE_STRING(s), &IOVEC_MAKE(volume_key, volume_key_size), TPM2_EVENT_VOLUME_KEY, s);
         if (r < 0)
                 return log_error_errno(r, "Could not extend PCR: %m");
 
@@ -1060,7 +1075,80 @@ static int measure_volume_key(
 
         return 0;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring.");
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring volume key.");
+#endif
+}
+
+static int measure_keyslot(
+                struct crypt_device *cd,
+                const char *name,
+                const char *mechanism,
+                int keyslot) {
+
+        int r;
+
+        assert(cd);
+        assert(name);
+
+        if (!arg_tpm2_measure_keyslot_nvpcr) {
+                log_debug("Not measuring unlock keyslot, deactivated.");
+                return 0;
+        }
+
+        r = efi_measured_uki(LOG_WARNING);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_debug("Kernel stub did not measure kernel image into the expected PCR, skipping userspace key slot measurement, too.");
+                return 0;
+        }
+
+#if HAVE_TPM2
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *escaped = NULL;
+        escaped = xescape(name, ":"); /* avoid ambiguity around ":" once we join things below */
+        if (!escaped)
+                return log_oom();
+
+        _cleanup_free_ char *k = NULL;
+        if (keyslot >= 0 && asprintf(&k, "%i", keyslot) < 0)
+                return log_oom();
+
+        _cleanup_free_ char *s = NULL;
+        s = strjoin("cryptsetup-keyslot:", escaped, ":", strempty(crypt_get_uuid(cd)), ":", strempty(mechanism), ":", strempty(k));
+        if (!s)
+                return log_oom();
+
+        r = tpm2_nvpcr_extend_bytes(c, /* session= */ NULL, arg_tpm2_measure_keyslot_nvpcr, &IOVEC_MAKE_STRING(s), /* secret= */ NULL, TPM2_EVENT_KEYSLOT, s);
+        if (r == -ENETDOWN) {
+                /* NvPCR is not initialized yet. Do so now. */
+                _cleanup_(iovec_done_erase) struct iovec anchor_secret = {};
+                r = tpm2_nvpcr_acquire_anchor_secret(&anchor_secret, /* sync_secondary= */ false);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_nvpcr_initialize(c, /* session= */ NULL, arg_tpm2_measure_keyslot_nvpcr, &anchor_secret);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extend NvPCR index '%s' with anchor secret: %m", name);
+
+                r = tpm2_nvpcr_extend_bytes(c, /* session= */ NULL, arg_tpm2_measure_keyslot_nvpcr, &IOVEC_MAKE_STRING(s), /* secret= */ NULL, TPM2_EVENT_KEYSLOT, s);
+        }
+        if (r < 0)
+                return log_error_errno(r, "Could not extend NvPCR: %m");
+
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_MESSAGE_TPM_NVPCR_EXTEND_STR,
+                   LOG_MESSAGE("Successfully extended NvPCR index '%s' with '%s'.", arg_tpm2_measure_keyslot_nvpcr, s),
+                   "MEASURING=%s", s,
+                   "NVPCR=%s", arg_tpm2_measure_keyslot_nvpcr);
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring keyslot.");
 #endif
 }
 
@@ -1074,6 +1162,8 @@ static int log_external_activation(int r, const char *volume) {
 static int measured_crypt_activate_by_volume_key(
                 struct crypt_device *cd,
                 const char *name,
+                const char *mechanism,
+                int keyslot,
                 const void *volume_key,
                 size_t volume_key_size,
                 uint32_t flags) {
@@ -1091,18 +1181,19 @@ static int measured_crypt_activate_by_volume_key(
         if (r < 0)
                 return r;
 
-        if (volume_key_size == 0) {
+        if (volume_key_size > 0)
+                (void) measure_volume_key(cd, name, volume_key, volume_key_size); /* OK if fails */
+        else
                 log_debug("Not measuring volume key, none specified.");
-                return r;
-        }
 
-        (void) measure_volume_key(cd, name, volume_key, volume_key_size); /* OK if fails */
+        (void) measure_keyslot(cd, name, mechanism, keyslot); /* ditto */
         return r;
 }
 
 static int measured_crypt_activate_by_passphrase(
                 struct crypt_device *cd,
                 const char *name,
+                const char *mechanism,
                 int keyslot,
                 const char *passphrase,
                 size_t passphrase_size,
@@ -1136,17 +1227,21 @@ static int measured_crypt_activate_by_passphrase(
         if (!vk)
                 return -ENOMEM;
 
-        r = crypt_volume_key_get(cd, keyslot, vk, &vks, passphrase, passphrase_size);
-        if (r < 0)
-                return r;
+        keyslot = crypt_volume_key_get(cd, keyslot, vk, &vks, passphrase, passphrase_size);
+        if (keyslot < 0)
+                return keyslot;
 
-        return measured_crypt_activate_by_volume_key(cd, name, vk, vks, flags);
+        return measured_crypt_activate_by_volume_key(cd, name, mechanism, keyslot, vk, vks, flags);
 
 shortcut:
-        r = crypt_activate_by_passphrase(cd, name, keyslot, passphrase, passphrase_size, flags);
-        if (r == -EEXIST) /* volume is already active */
-                return log_external_activation(r, name);
-        return r;
+        keyslot = crypt_activate_by_passphrase(cd, name, keyslot, passphrase, passphrase_size, flags);
+        if (keyslot == -EEXIST) /* volume is already active */
+                return log_external_activation(keyslot, name);
+        if (keyslot < 0)
+                return keyslot;
+
+        (void) measure_keyslot(cd, name, mechanism, keyslot);
+        return keyslot;
 }
 
 static int attach_tcrypt(
@@ -1226,7 +1321,14 @@ static int attach_tcrypt(
                 return log_error_errno(r, "Failed to load tcrypt superblock on device %s: %m", crypt_get_device_name(cd));
         }
 
-        r = measured_crypt_activate_by_volume_key(cd, name, NULL, 0, flags);
+        r = measured_crypt_activate_by_volume_key(
+                        cd,
+                        name,
+                        /* mechanism= */ NULL,
+                        /* keyslot= */ -1,
+                        /* volume_key= */ NULL,
+                        /* volume_key_size= */ 0,
+                        flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to activate tcrypt device %s: %m", crypt_get_device_name(cd));
 
@@ -1351,6 +1453,8 @@ static bool use_token_plugins(void) {
          * plugins, if measurement has been requested. */
         if (arg_tpm2_measure_pcr != UINT_MAX)
                 return false;
+        if (arg_tpm2_measure_keyslot_nvpcr)
+                return false;
 #endif
 
         /* Disable tokens if we're in FIDO2 mode with manual parameters. */
@@ -1412,7 +1516,7 @@ static int crypt_activate_by_token_pin_ask_password(
         _cleanup_strv_free_erase_ char **pins = NULL;
         int r;
 
-        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin=*/ NULL, /* pin_size= */ 0, userdata, activation_flags);
+        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin= */ NULL, /* pin_size= */ 0, userdata, activation_flags);
         if (r > 0) /* returns unlocked keyslot id on success */
                 return 0;
         if (r == -EEXIST) /* volume is already active */
@@ -1586,7 +1690,14 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
         }
 
         if (pass_volume_key)
-                r = measured_crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
+                r = measured_crypt_activate_by_volume_key(
+                                cd,
+                                name,
+                                "fido2",
+                                /* keyslot= */ -1,
+                                decrypted_key,
+                                decrypted_key_size,
+                                flags);
         else {
                 _cleanup_(erase_and_freep) char *base64_encoded = NULL;
                 ssize_t base64_encoded_size;
@@ -1597,7 +1708,14 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                 if (base64_encoded_size < 0)
                         return log_oom();
 
-                r = measured_crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, base64_encoded_size, flags);
+                r = measured_crypt_activate_by_passphrase(
+                                cd,
+                                name,
+                                "fido2",
+                                keyslot,
+                                base64_encoded,
+                                base64_encoded_size,
+                                flags);
         }
         if (r == -EPERM) {
                 log_error_errno(r, "Failed to activate with FIDO2 decrypted key. (Key incorrect?)");
@@ -1743,7 +1861,14 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
         assert(decrypted_key);
 
         if (pass_volume_key)
-                r = measured_crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
+                r = measured_crypt_activate_by_volume_key(
+                                cd,
+                                name,
+                                "pkcs11",
+                                /* keyslot= */ -1,
+                                decrypted_key,
+                                decrypted_key_size,
+                                flags);
         else {
                 _cleanup_(erase_and_freep) char *base64_encoded = NULL;
                 ssize_t base64_encoded_size;
@@ -1760,7 +1885,14 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                 if (base64_encoded_size < 0)
                         return log_oom();
 
-                r = measured_crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, base64_encoded_size, flags);
+                r = measured_crypt_activate_by_passphrase(
+                                cd,
+                                name,
+                                "pkcs11",
+                                keyslot,
+                                base64_encoded,
+                                base64_encoded_size,
+                                flags);
         }
         if (r == -EPERM) {
                 log_error_errno(r, "Failed to activate with PKCS#11 decrypted key. (Key incorrect?)");
@@ -2048,7 +2180,14 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
         }
 
         if (pass_volume_key)
-                r = measured_crypt_activate_by_volume_key(cd, name, decrypted_key.iov_base, decrypted_key.iov_len, flags);
+                r = measured_crypt_activate_by_volume_key(
+                                cd,
+                                name,
+                                "tpm2",
+                                /* keyslot= */ -1,
+                                decrypted_key.iov_base,
+                                decrypted_key.iov_len,
+                                flags);
         else {
                 _cleanup_(erase_and_freep) char *base64_encoded = NULL;
                 ssize_t base64_encoded_size;
@@ -2059,7 +2198,14 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 if (base64_encoded_size < 0)
                         return log_oom();
 
-                r = measured_crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, base64_encoded_size, flags);
+                r = measured_crypt_activate_by_passphrase(
+                                cd,
+                                name,
+                                "tpm2",
+                                keyslot,
+                                base64_encoded,
+                                base64_encoded_size,
+                                flags);
         }
         if (r == -EPERM) {
                 log_error_errno(r, "Failed to activate with TPM2 decrypted key. (Key incorrect?)");
@@ -2085,9 +2231,9 @@ static int attach_luks_or_plain_or_bitlk_by_key_data(
         assert(key_data);
 
         if (pass_volume_key)
-                r = measured_crypt_activate_by_volume_key(cd, name, key_data->iov_base, key_data->iov_len, flags);
+                r = measured_crypt_activate_by_volume_key(cd, name, /* mechanism= */ NULL, /* keyslot= */ -1, key_data->iov_base, key_data->iov_len, flags);
         else
-                r = measured_crypt_activate_by_passphrase(cd, name, arg_key_slot, key_data->iov_base, key_data->iov_len, flags);
+                r = measured_crypt_activate_by_passphrase(cd, name, /* mechanism= */ NULL, arg_key_slot, key_data->iov_base, key_data->iov_len, flags);
         if (r == -EPERM) {
                 log_error_errno(r, "Failed to activate. (Key incorrect?)");
                 return -EAGAIN; /* Log actual error, but return EAGAIN */
@@ -2138,9 +2284,9 @@ static int attach_luks_or_plain_or_bitlk_by_key_file(
                 return log_error_errno(r, "Failed to read key file '%s': %m", key_file);
 
         if (pass_volume_key)
-                r = measured_crypt_activate_by_volume_key(cd, name, kfdata, kfsize, flags);
+                r = measured_crypt_activate_by_volume_key(cd, name, /* mechanism= */ NULL, /* keyslot= */ -1, kfdata, kfsize, flags);
         else
-                r = measured_crypt_activate_by_passphrase(cd, name, arg_key_slot, kfdata, kfsize, flags);
+                r = measured_crypt_activate_by_passphrase(cd, name, /* mechanism= */ NULL, arg_key_slot, kfdata, kfsize, flags);
         if (r == -EPERM) {
                 log_error_errno(r, "Failed to activate with key file '%s'. (Key data incorrect?)", key_file);
                 return -EAGAIN; /* Log actual error, but return EAGAIN */
@@ -2166,9 +2312,9 @@ static int attach_luks_or_plain_or_bitlk_by_passphrase(
         r = -EINVAL;
         STRV_FOREACH(p, passwords) {
                 if (pass_volume_key)
-                        r = measured_crypt_activate_by_volume_key(cd, name, *p, arg_key_size, flags);
+                        r = measured_crypt_activate_by_volume_key(cd, name, /* mechanism= */ NULL, /* keyslot= */ -1, *p, arg_key_size, flags);
                 else
-                        r = measured_crypt_activate_by_passphrase(cd, name, arg_key_slot, *p, strlen(*p), flags);
+                        r = measured_crypt_activate_by_passphrase(cd, name, /* mechanism= */ NULL, arg_key_slot, *p, strlen(*p), flags);
                 if (r >= 0)
                         break;
         }

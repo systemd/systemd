@@ -217,7 +217,7 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
                 _cleanup_free_ struct local_address *addresses = NULL;
                 int n;
 
-                n = local_addresses(/* rtnl = */ NULL, /* ifindex = */ 0, AF_UNSPEC, &addresses);
+                n = local_addresses(/* context= */ NULL, /* ifindex= */ 0, AF_UNSPEC, &addresses);
                 if (n < 0)
                         return log_debug_errno(n, "Failed to get local addresses: %m");
 
@@ -226,23 +226,23 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
         }
 
         case MACHINE_CONTAINER: {
+                _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
                 _cleanup_close_ int netns_fd = -EBADF;
-                pid_t child;
                 int r;
 
-                r = pidref_in_same_namespace(/* pid1 = */ NULL, &machine->leader, NAMESPACE_NET);
+                r = pidref_in_same_namespace(/* pid1= */ NULL, &machine->leader, NAMESPACE_NET);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to check if container has private network: %m");
                 if (r > 0)
                         return -ENONET;
 
                 r = pidref_namespace_open(&machine->leader,
-                                          /* ret_pidns_fd = */ NULL,
-                                          /* ret_mntns_fd = */ NULL,
+                                          /* ret_pidns_fd= */ NULL,
+                                          /* ret_mntns_fd= */ NULL,
                                           &netns_fd,
-                                          /* ret_userns_fd = */ NULL,
-                                          /* ret_root_fd = */ NULL);
+                                          /* ret_userns_fd= */ NULL,
+                                          /* ret_root_fd= */ NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open namespace: %m");
 
@@ -251,14 +251,12 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
 
                 r = namespace_fork("(sd-addrns)",
                                    "(sd-addr)",
-                                   /* except_fds = */ NULL,
-                                   /* n_except_fds = */ 0,
                                    FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
-                                   /* pidns_fd = */ -EBADF,
-                                   /* mntns_fd = */ -EBADF,
+                                   /* pidns_fd= */ -EBADF,
+                                   /* mntns_fd= */ -EBADF,
                                    netns_fd,
-                                   /* userns_fd = */ -EBADF,
-                                   /* root_fd = */ -EBADF,
+                                   /* userns_fd= */ -EBADF,
+                                   /* root_fd= */ -EBADF,
                                    &child);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to fork(): %m");
@@ -267,7 +265,7 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
 
                         pair[0] = safe_close(pair[0]);
 
-                        int n = local_addresses(/* rtnl = */ NULL, /* ifindex = */ 0, AF_UNSPEC, &addresses);
+                        int n = local_addresses(/* context= */ NULL, /* ifindex= */ 0, AF_UNSPEC, &addresses);
                         if (n < 0) {
                                 log_debug_errno(n, "Failed to get local addresses: %m");
                                 _exit(EXIT_FAILURE);
@@ -280,8 +278,6 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
                                         _exit(EXIT_FAILURE);
                                 }
                         }
-
-                        pair[1] = safe_close(pair[1]);
 
                         _exit(EXIT_SUCCESS);
                 }
@@ -313,7 +309,7 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
                                 return log_debug_errno(r, "Failed to add local address: %m");
                 }
 
-                r = wait_for_terminate_and_check("(sd-addrns)", child, /* flags = */ 0);
+                r = pidref_wait_for_terminate_and_check("(sd-addrns)", &child, /* flags= */ 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to wait for child: %m");
                 if (r != EXIT_SUCCESS)
@@ -340,7 +336,7 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
         switch (machine->class) {
 
         case MACHINE_HOST:
-                r = load_os_release_pairs(/* root = */ NULL, &l);
+                r = load_os_release_pairs(/* root= */ NULL, &l);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to load OS release information: %m");
 
@@ -348,15 +344,15 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
 
         case MACHINE_CONTAINER: {
                 _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
+                _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
                 _cleanup_fclose_ FILE *f = NULL;
-                pid_t child;
 
                 r = pidref_namespace_open(&machine->leader,
                                           &pidns_fd,
                                           &mntns_fd,
-                                          /* ret_netns_fd = */ NULL,
-                                          /* ret_userns_fd = */ NULL,
+                                          /* ret_netns_fd= */ NULL,
+                                          /* ret_userns_fd= */ NULL,
                                           &root_fd);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open namespace: %m");
@@ -366,13 +362,11 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
 
                 r = namespace_fork("(sd-osrelns)",
                                    "(sd-osrel)",
-                                   /* except_fds = */ NULL,
-                                   /* n_except_fds = */ 0,
                                    FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
                                    pidns_fd,
                                    mntns_fd,
-                                   /* netns_fd = */ -EBADF,
-                                   /* userns_fd = */ -EBADF,
+                                   /* netns_fd= */ -EBADF,
+                                   /* userns_fd= */ -EBADF,
                                    root_fd,
                                    &child);
                 if (r < 0)
@@ -382,7 +376,7 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
 
                         pair[0] = safe_close(pair[0]);
 
-                        r = open_os_release(/* root = */ NULL, /* ret_path = */ NULL, &fd);
+                        r = open_os_release(/* root= */ NULL, /* ret_path= */ NULL, &fd);
                         if (r == -ENOENT)
                                 _exit(EXIT_NOT_FOUND);
                         if (r < 0) {
@@ -390,7 +384,7 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                                 _exit(EXIT_FAILURE);
                         }
 
-                        r = copy_bytes(fd, pair[1], UINT64_MAX, /* copy_flags = */ 0);
+                        r = copy_bytes(fd, pair[1], UINT64_MAX, /* copy_flags= */ 0);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to write to fd: %m");
                                 _exit(EXIT_FAILURE);
@@ -409,7 +403,7 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to load OS release information: %m");
 
-                r = wait_for_terminate_and_check("(sd-osrelns)", child, /* flags = */ 0);
+                r = pidref_wait_for_terminate_and_check("(sd-osrelns)", &child, /* flags= */ 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to wait for child: %m");
                 if (r == EXIT_NOT_FOUND)

@@ -92,6 +92,8 @@ int manager_serialize(
 
         _cleanup_(manager_reloading_stopp) _unused_ Manager *reloading = manager_reloading_start(m);
 
+        (void) serialize_item_format(f, "last-transaction-id", "%" PRIu64, m->last_transaction_id);
+
         (void) serialize_item_format(f, "current-job-id", "%" PRIu32, m->current_job_id);
         (void) serialize_item_format(f, "n-installed-jobs", "%u", m->n_installed_jobs);
         (void) serialize_item_format(f, "n-failed-jobs", "%u", m->n_failed_jobs);
@@ -196,18 +198,16 @@ static int manager_deserialize_one_unit(Manager *m, const char *name, FILE *f, F
         int r;
 
         r = manager_load_unit(m, name, NULL, NULL, &u);
-        if (r < 0) {
-                if (r == -ENOMEM)
-                        return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
                 return log_notice_errno(r, "Failed to load unit \"%s\", skipping deserialization: %m", name);
-        }
 
         r = unit_deserialize_state(u, f, fds);
-        if (r < 0) {
-                if (r == -ENOMEM)
-                        return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
                 return log_notice_errno(r, "Failed to deserialize unit \"%s\", skipping: %m", name);
-        }
 
         return 0;
 }
@@ -283,7 +283,7 @@ static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         bool deserialize_varlink_sockets = false;
-        int r = 0;
+        int r;
 
         assert(m);
         assert(f);
@@ -325,7 +325,15 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 if (r == 0) /* eof or end marker */
                         break;
 
-                if ((val = startswith(l, "current-job-id="))) {
+                if ((val = startswith(l, "last-transaction-id="))) {
+                        uint64_t id;
+
+                        if (safe_atou64(val, &id) < 0)
+                                log_notice("Failed to parse last transaction id value '%s', ignoring.", val);
+                        else
+                                m->last_transaction_id = MAX(m->last_transaction_id, id);
+
+                } else if ((val = startswith(l, "current-job-id="))) {
                         uint32_t id;
 
                         if (safe_atou32(val, &id) < 0)
@@ -350,22 +358,18 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 m->n_failed_jobs += n;
 
                 } else if ((val = startswith(l, "taint-logged="))) {
-                        int b;
-
-                        b = parse_boolean(val);
-                        if (b < 0)
+                        r = parse_boolean(val);
+                        if (r < 0)
                                 log_notice("Failed to parse taint-logged flag '%s', ignoring.", val);
                         else
-                                m->taint_logged = m->taint_logged || b;
+                                m->taint_logged = m->taint_logged || r;
 
                 } else if ((val = startswith(l, "service-watchdogs="))) {
-                        int b;
-
-                        b = parse_boolean(val);
-                        if (b < 0)
+                        r = parse_boolean(val);
+                        if (r < 0)
                                 log_notice("Failed to parse service-watchdogs flag '%s', ignoring.", val);
                         else
-                                m->service_watchdogs = b;
+                                m->service_watchdogs = r;
 
                 } else if ((val = startswith(l, "show-status-overridden="))) {
                         ShowStatus s;

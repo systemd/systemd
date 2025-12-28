@@ -78,18 +78,18 @@ int cg_trim(const char *path, bool delete_root) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(path, /* suffix= */ NULL, &fs);
         if (r < 0)
                 return r;
 
         r = recurse_dir_at(
                         AT_FDCWD,
                         fs,
-                        /* statx_mask = */ 0,
-                        /* n_depth_max = */ UINT_MAX,
+                        /* statx_mask= */ 0,
+                        /* n_depth_max= */ UINT_MAX,
                         RECURSE_DIR_ENSURE_TYPE,
                         trim_cb,
-                        /* userdata = */ NULL);
+                        /* userdata= */ NULL);
         if (r == -ENOENT) /* non-existing is the ultimate trimming, hence no error */
                 r = 0;
         else if (r < 0)
@@ -115,7 +115,7 @@ int cg_create(const char *path) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        r = cg_get_path_and_check(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(path, /* suffix= */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -140,7 +140,7 @@ int cg_attach(const char *path, pid_t pid) {
         assert(path);
         assert(pid >= 0);
 
-        r = cg_get_path_and_check(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.procs", &fs);
+        r = cg_get_path(path, "cgroup.procs", &fs);
         if (r < 0)
                 return r;
 
@@ -216,7 +216,7 @@ int cg_set_access(
                 return 0;
 
         /* Configure access to the cgroup itself */
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(path, /* suffix= */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -289,7 +289,7 @@ int cg_set_access_recursive(
         if (!uid_is_valid(uid) && !gid_is_valid(gid))
                 return 0;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(path, /* suffix= */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -334,7 +334,7 @@ int cg_migrate(
 
                 done = true;
 
-                r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, from, &f);
+                r = cg_enumerate_processes(from, &f);
                 if (r < 0)
                         return RET_GATHER(ret, r);
 
@@ -363,7 +363,7 @@ int cg_migrate(
 
                         done = false;
 
-                        r = set_ensure_put(&s, /* hash_ops = */ NULL, PID_TO_PTR(pid));
+                        r = set_ensure_put(&s, /* hash_ops= */ NULL, PID_TO_PTR(pid));
                         if (r < 0)
                                 return RET_GATHER(ret, r);
                 }
@@ -396,7 +396,7 @@ int cg_enable(
                 return 0;
         }
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, p, "cgroup.subtree_control", &fs);
+        r = cg_get_path(p, "cgroup.subtree_control", &fs);
         if (r < 0)
                 return r;
 

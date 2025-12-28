@@ -137,7 +137,7 @@
 
     <listitem>
       <para>Path to the Extended Boot Loader partition, as defined in the
-      <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>.
+      <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>.
       If not specified, <filename>/boot/</filename> is checked. It is recommended to mount the Extended Boot
       Loader partition to <filename>/boot/</filename>, if possible.</para>
     </listitem>

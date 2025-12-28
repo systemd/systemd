@@ -37,7 +37,7 @@ _run0() {
         --machine --unit --property --description --slice -u --user -g --group --nice -D --chdir
         --setenv --background
     )
-    local OPTS="${opts_with_values[*]} -h --help -V --version --no-ask-password --slice-inherit"
+    local OPTS="${opts_with_values[*]} -h --help -V --version --no-ask-password --slice-inherit --empower"
 
     local i
     for (( i=1; i <= COMP_CWORD; i++ )); do

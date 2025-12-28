@@ -28,6 +28,16 @@ units = [
           'conditions' : ['ENABLE_MACHINED'],
           'symlinks' : ['sockets.target.wants/'],
         },
+        {
+          'file' : 'systemd-importd.service.in',
+          'conditions' : ['ENABLE_IMPORTD'],
+          'symlinks' : ['dbus-org.freedesktop.import1.service'],
+        },
+        {
+          'file' : 'systemd-importd.socket',
+          'conditions' : ['ENABLE_IMPORTD'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
         { 'file' : 'paths.target' },
         { 'file' : 'printer.target' },
         { 'file' : 'session.slice' },

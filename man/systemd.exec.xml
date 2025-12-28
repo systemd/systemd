@@ -174,9 +174,9 @@
         or loopback file instead of a directory. The device node or file system image file needs to contain a
         file system without a partition table, or a file system within an MBR/MS-DOS or GPT partition table
         with only a single Linux-compatible partition, or a set of file systems within a GPT partition table
-        that follows the
-        <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">
-          Discoverable Partitions Specification</ulink>.</para>
+        that follows the <ulink
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2
+        Discoverable Partitions Specification</ulink>.</para>
 
         <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
         <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is
@@ -201,7 +201,7 @@
 
         <xi:include href="vpick.xml" xpointer="image"/>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
@@ -275,7 +275,7 @@
         image. There's currently no option to configure the root hash for the <filename>/usr/</filename> file
         system via the unit file directly.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
@@ -298,7 +298,7 @@
         configure the root hash signature for the <filename>/usr/</filename> via the unit file
         directly.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
@@ -319,7 +319,7 @@
         <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">
           Discoverable Partitions Specification</ulink>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
@@ -523,7 +523,7 @@
         <varname>PrivateDevices=</varname> below, as it may change the setting of
         <varname>DevicePolicy=</varname>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
@@ -590,7 +590,7 @@
 
         <xi:include href="vpick.xml" xpointer="image"/>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
@@ -1326,7 +1326,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>CPUSchedulingPolicy=</varname></term>
 
         <listitem><para>Sets the CPU scheduling policy for executed processes. Takes one of <option>other</option>,
-        <option>batch</option>, <option>idle</option>, <option>fifo</option> or <option>rr</option>. See
+        <option>batch</option>, <option>idle</option>, <option>fifo</option>, <option>rr</option> or <option>ext</option>. See
         <citerefentry project='man-pages'><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -2024,6 +2024,20 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         services.</para>
 
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UserNamespacePath=</varname></term>
+
+        <listitem><para>Takes an absolute file system path referring to a Linux user namespace
+        pseudo-file (i.e. a file like <filename>/proc/$PID/ns/user</filename> or a bind mount or symlink to
+        one). When set the invoked processes are added to the user namespace referenced by that path. The
+        path has to point to a valid namespace file at the moment the processes are forked off. If this
+        option is used <varname>PrivateUsers=</varname> has no effect.</para>
+
+        <para>This option is only available for system services.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3181,10 +3195,11 @@ SystemCallErrorNumber=EPERM</programlisting>
         ignored; both the backslash and the following character are preserved verbatim. Leading and trailing
         whitespace outside of the double quotes is discarded.</para>
 
-        <para>The argument passed should be an absolute filename or wildcard expression, optionally prefixed with
-        <literal>-</literal>, which indicates that if the file does not exist, it will not be read and no error or
-        warning message is logged. This option may be specified more than once in which case all specified files are
-        read. If the empty string is assigned to this option, the list of file to read is reset, all prior assignments
+        <para>The argument passed should be an absolute filename or wildcard expression. If the file does not
+        exist, cannot be read, or contains invalid content, the service will fail to start. To make the file
+        optional, prefix the path with <literal>-</literal>, which causes all errors related to the file to be
+        silently ignored. This option may be specified more than once in which case all specified files are read.
+        If the empty string is assigned to this option, the list of files to read is reset, all prior assignments
         have no effect.</para>
 
         <para>The files listed with this directive will be read shortly before the process is executed (more
@@ -4207,6 +4222,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varlistentry>
           <term><varname>$LISTEN_FDS</varname></term>
           <term><varname>$LISTEN_PID</varname></term>
+          <term><varname>$LISTEN_PIDFDID</varname></term>
           <term><varname>$LISTEN_FDNAMES</varname></term>
 
           <listitem><para>Information about file descriptors passed to a
@@ -4351,7 +4367,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
                 </row>
                 <row>
                   <entry><literal>exec-condition</literal></entry>
-                  <entry>Service did not run because <varname>ExecCondition=</varname> failed.</entry>
+                  <entry>Service did not run because <varname>ExecCondition=</varname> failed (that is its command exited with an exit status of 1 through 254 (inclusive)).</entry>
                 </row>
                 <row>
                   <entry><literal>oom-kill</literal></entry>

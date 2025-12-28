@@ -1067,7 +1067,6 @@ node /org/freedesktop/login1/user/_1000 {
       readonly b IdleHint = ...;
       readonly t IdleSinceHint = ...;
       readonly t IdleSinceHintMonotonic = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b Linger = ...;
   };
   interface org.freedesktop.DBus.Peer { ... };

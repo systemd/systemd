@@ -1,0 +1,93 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_varlink_is_connected" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_varlink_is_connected</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_varlink_is_connected</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_varlink_is_connected</refname>
+    <refname>sd_varlink_is_idle</refname>
+
+    <refpurpose>Query if a Varlink connection object is currently connected or idle</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_is_connected</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_is_idle</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_varlink_is_connected()</function> checks whether the specified Varlink connection
+    object is currently connected or whether it has been fully disconnected already.</para>
+
+    <para><function>sd_varlink_is_idle()</function> checks whether the specified Varlink connection object is
+    currently connected but idle, i.e. may accept a method call for enqueuing (if client side of a Varlink
+    connection) or is waiting for more incoming method calls to arrive (if server side of a Varlink
+    connection).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>If the connection is currently connected <function>sd_varlink_is_connected()</function> returns a
+    positive non-zero value. If disconnected it returns 0. If the connection currently is idle
+    <function>sd_varlink_is_idle()</function> returns a positive non-zero integer. If not, returns 0. On
+    failure, both functions return a negative <varname>errno</varname> error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The specified Varlink connection is invalid.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_varlink_is_connected()</function> was added in version 259.</para>
+    <para><function>sd_varlink_is_idle()</function> was added in version 257.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

@@ -90,7 +90,6 @@ foreach dirname : [
         'TEST-73-LOCALE',
         'TEST-74-AUX-UTILS',
         'TEST-75-RESOLVED',
-        'TEST-76-SYSCTL',
         'TEST-78-SIGQUEUE',
         'TEST-79-MEMPRESS',
         'TEST-80-NOTIFYACCESS',

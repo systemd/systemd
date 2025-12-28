@@ -54,7 +54,7 @@ EOF
     # Verify mount succeeds
     systemctl daemon-reload
     systemctl start "$unit"
-    systemctl --no-pager show -p SubState --value "$unit" | grep -q mounted
+    systemctl --no-pager show -p SubState --value "$unit" | grep mounted >/dev/null
 
     # Verify mount fails with different credential file content
     echo bar >"$credfile"
@@ -408,7 +408,7 @@ systemd-run -p "ImportCredentialEx=test.creds.first" \
 cmp /tmp/ts54-concat <(echo -n aaa)
 
 # Now test encrypted credentials (only supported when built with OpenSSL though)
-if systemctl --version | grep -q -- +OPENSSL ; then
+if systemctl --version | grep -- +OPENSSL  >/dev/null; then
     echo -n $RANDOM >/tmp/test-54-plaintext
     systemd-creds encrypt --name=test-54 /tmp/test-54-plaintext /tmp/test-54-ciphertext
     systemd-creds decrypt --name=test-54 /tmp/test-54-ciphertext | cmp /tmp/test-54-plaintext
@@ -446,6 +446,13 @@ systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
             --service-type=oneshot --wait --pipe \
             true | cmp /etc/os-release
 
+# https://github.com/systemd/systemd/issues/35788
+systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
+            -p 'ExecCondition=systemd-creds cat os' \
+            --unit=test-54-exec-condition.service \
+            --service-type=oneshot --wait --pipe \
+            true | cmp /etc/os-release
+
 # https://github.com/systemd/systemd/pull/24734#issuecomment-1925440546
 # Also ExecStartPre= should be able to update creds
 dd if=/dev/urandom of=/tmp/cred-huge bs=600K count=1
@@ -477,18 +484,38 @@ if ! systemd-detect-virt -q -c ; then
     grep -q /injected /proc/self/mountinfo
 
     # Make sure the getty generator processed the credentials properly
-    systemctl -P Wants show getty.target | grep -q container-getty@idontexist.service
+    systemctl -P Wants show getty.target | grep container-getty@idontexist.service >/dev/null
 fi
 
 # Decrypt/encrypt via varlink
 
-echo '{"data":"Zm9vYmFyCg=="}' > /tmp/vlcredsdata
+DATA="Zm9vYmFyCg=="
+echo "{\"data\":\"$DATA\"}" >/tmp/vlcredsdata
 
 varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "$(cat /tmp/vlcredsdata)" | \
-    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt > /tmp/vlcredsdata2
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt >/tmp/vlcredsdata2
+
+cmp /tmp/vlcredsdata /tmp/vlcredsdata2
+rm /tmp/vlcredsdata2
+
+# Pick a key type explicitly
+varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "{\"data\":\"$DATA\",\"withKey\":\"host\"}" | \
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt >/tmp/vlcredsdata2
+
+cmp /tmp/vlcredsdata /tmp/vlcredsdata2
+rm /tmp/vlcredsdata2
+
+varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "{\"data\":\"$DATA\",\"withKey\":\"null\"}" | \
+    jq '.["allowNull"] = true' |
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt >/tmp/vlcredsdata2
 
 cmp /tmp/vlcredsdata /tmp/vlcredsdata2
 rm /tmp/vlcredsdata /tmp/vlcredsdata2
+
+# Ensure allowNull works
+(! varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "{\"data\":\"$DATA\",\"withKey\":\"null\"}" | \
+    jq '.["allowNull"] = false' |
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt )
 
 clean_usertest() {
     rm -f /tmp/usertest.data /tmp/usertest.data /tmp/brummbaer.data
@@ -526,5 +553,22 @@ dd if=/dev/urandom of=/tmp/brummbaer.data bs=4096 count=1
 run0 -u testuser --pipe mkdir -p /home/testuser/.config/credstore.encrypted
 run0 -u testuser --pipe systemd-creds encrypt --user --name=brummbaer - /home/testuser/.config/credstore.encrypted/brummbaer < /tmp/brummbaer.data
 run0 -u testuser --pipe systemd-run --user --pipe -p ImportCredential=brummbaer systemd-creds cat brummbaer | cmp /tmp/brummbaer.data
+
+# https://github.com/systemd/systemd/pull/40108
+run0 -u testuser --pipe systemd-run --user --wait -p ImportCredential=brummbaer -p ExecStartPre='ls -l $CREDENTIALS_DIRECTORY' bash -c 'systemd-creds cat brummbaer | cmp /tmp/brummbaer.data'
+
+# https://github.com/systemd/systemd/pull/39651
+TESTUSER_CRED_DIR="/run/user/$(id -u testuser)/credentials"
+
+PID="$(systemd-notify --fork -- systemd-run -M testuser@ --user --wait --unit=brummbaer.service -p LoadCredential=brummbaer sleep infinity)"
+[[ -d "$TESTUSER_CRED_DIR/brummbaer.service" ]]
+[[ -f "$TESTUSER_CRED_DIR/brummbaer.service/brummbaer" ]]
+
+systemd-run -M testuser@ --user --wait -p PrivateMounts=yes -p ImportCredential=brummbaer \
+    bash -xec "[[ ! -d '$TESTUSER_CRED_DIR/brummbaer.service' ]] && [[ \$(stat -c %a /run/credentials) -eq 0 ]]"
+systemd-run -M testuser@ --user --wait -p ImportCredential=brummbaer \
+    test -d "$TESTUSER_CRED_DIR/brummbaer.service"
+
+kill "$PID"
 
 touch /testok

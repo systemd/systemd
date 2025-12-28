@@ -2,7 +2,7 @@
  * Copyright © 2019 VMware, Inc. */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "qdisc.h"
 
 typedef struct FairQueueingControlledDelay {

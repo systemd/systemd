@@ -96,9 +96,11 @@ char* cpu_set_to_mask_string(const CPUSet *c) {
         for (size_t i = c->allocated * 8; i > 0; ) {
                 uint32_t m = 0;
 
-                for (int j = (i % 32 ?: 32) - 1; j >= 0; j--)
-                        if (CPU_ISSET_S(--i, c->allocated, c->set))
+                for (int j = (i % 32 ?: 32) - 1; j >= 0; j--) {
+                        --i;
+                        if (CPU_ISSET_S(i, c->allocated, c->set))
                                 SET_BIT(m, j);
+                }
 
                 if (!found_nonzero) {
                         if (m == 0)
@@ -307,16 +309,16 @@ int parse_cpu_set(const char *s, CPUSet *ret) {
         assert(ret);
 
         r = config_parse_cpu_set(
-                        /* unit = */ NULL,
-                        /* filename = */ NULL,
-                        /* line = */ 0,
-                        /* section = */ NULL,
-                        /* section_line = */ 0,
-                        /* lvalue = */ NULL,
-                        /* ltype = */ 1,
-                        /* rvalue = */ s,
-                        /* data = */ &c,
-                        /* userdata = */ NULL);
+                        /* unit= */ NULL,
+                        /* filename= */ NULL,
+                        /* line= */ 0,
+                        /* section= */ NULL,
+                        /* section_line= */ 0,
+                        /* lvalue= */ NULL,
+                        /* ltype= */ 1,
+                        /* rvalue= */ s,
+                        /* data= */ &c,
+                        /* userdata= */ NULL);
         if (r < 0)
                 return r;
 

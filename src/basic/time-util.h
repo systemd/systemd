@@ -3,7 +3,7 @@
 
 #include <time.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 #define PRI_NSEC PRIu64
 #define PRI_USEC PRIu64
@@ -125,11 +125,11 @@ char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) _warn_unus
 
 _warn_unused_result_
 static inline char* format_timestamp_relative(char *buf, size_t l, usec_t t) {
-        return format_timestamp_relative_full(buf, l, t, CLOCK_REALTIME, /* implicit_left = */ false);
+        return format_timestamp_relative_full(buf, l, t, CLOCK_REALTIME, /* implicit_left= */ false);
 }
 _warn_unused_result_
 static inline char* format_timestamp_relative_monotonic(char *buf, size_t l, usec_t t) {
-        return format_timestamp_relative_full(buf, l, t, CLOCK_MONOTONIC, /* implicit_left = */ false);
+        return format_timestamp_relative_full(buf, l, t, CLOCK_MONOTONIC, /* implicit_left= */ false);
 }
 
 _warn_unused_result_
@@ -149,6 +149,7 @@ static inline char* format_timestamp(char *buf, size_t l, usec_t t) {
 #define FORMAT_TIMESTAMP_STYLE(t, style) \
         format_timestamp_style((char[FORMAT_TIMESTAMP_MAX]){}, FORMAT_TIMESTAMP_MAX, t, style)
 
+const char* get_tzname(bool dst);
 int parse_gmtoff(const char *t, long *ret);
 int parse_timestamp(const char *t, usec_t *ret);
 
@@ -212,19 +213,7 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
         return usec_sub_unsigned(timestamp, (usec_t) delta);
 }
 
-static inline int usleep_safe(usec_t usec) {
-        /* usleep() takes useconds_t that is (typically?) uint32_t. Also, usleep() may only support the
-         * range [0, 1000000]. See usleep(3). Let's override usleep() with clock_nanosleep().
-         *
-         * ⚠️ Note we are not using plain nanosleep() here, since that operates on CLOCK_REALTIME, not
-         *    CLOCK_MONOTONIC! */
-
-        if (usec == 0)
-                return 0;
-
-        /* `clock_nanosleep()` does not use `errno`, but returns positive error codes. */
-        return -clock_nanosleep(CLOCK_MONOTONIC, 0, TIMESPEC_STORE(usec), NULL);
-}
+int usleep_safe(usec_t usec);
 
 /* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit
  * year territory. However, since we want to stay away from this in all timezones we take one day off. */

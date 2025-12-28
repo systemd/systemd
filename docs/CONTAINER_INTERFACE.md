@@ -86,6 +86,12 @@ manager, please consider supporting the following interfaces.
    confuse systemd and the admin, but also prevent your implementation from
    being "stackable".
 
+8. The mount hierarchy of the container should be mounted `MS_SHARED` before
+   invoking `systemd` as PID 1. Things will break at various places if this is
+   not done. Note that of course it's OK if the mounts are first marked
+   `MS_PRIVATE`/`MS_SLAVE` (to disconnect propagation at least partially) as
+   long as they are remounted `MS_SHARED` before `systemd` is invoked.
+
 ## Environment Variables
 
 1. To allow systemd (and other programs) to identify that it is executed within

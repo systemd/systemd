@@ -93,7 +93,7 @@
 
     <orderedlist>
       <listitem><para>OS disk images containing a GPT partition table envelope, with partitions marked
-      according to the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
+      according to the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions
       Specification</ulink>.</para></listitem>
 
       <listitem><para>OS disk images containing just a plain file-system without an enveloping partition
@@ -144,7 +144,7 @@
         <listitem><para>Mount the specified OS image to the specified directory. This will dissect the image,
         determine the OS root file system — as well as possibly other partitions — and mount them to the
         specified directory. If the OS image contains multiple partitions marked with the <ulink
-        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions Specification</ulink>
         multiple nested mounts are established. This command expects two arguments: a path to an image file
         and a path to a directory where to mount the image.</para>
 
@@ -421,7 +421,7 @@
         <option>--mount</option> or <option>--copy-to</option>) the file systems contained in the OS image
         are automatically grown to their partition sizes, if bit 59 in the GPT partition flags is set for
         partition types that are defined by the <ulink
-        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>. This
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions Specification</ulink>. This
         behavior may be switched off using <option>--growfs=no</option>. File systems are grown automatically
         on access if all of the following conditions are met:</para>
         <orderedlist>
@@ -492,7 +492,7 @@
         <option>--verity-data=</option> specifies a path to a file with the Verity data to use for the OS
         image, in case it is stored in a detached file. It is recommended to embed the Verity data directly
         in the image, using the Verity mechanisms in the <ulink
-        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>.
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions Specification</ulink>.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
@@ -651,7 +651,7 @@
       <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
-      <member><ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink></member>
+      <member><ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions Specification</ulink></member>
       <member><citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>fdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>

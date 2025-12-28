@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum CopyFlags {
         COPY_REFLINK                      = 1 << 0,  /* Try to reflink */
@@ -33,6 +33,7 @@ typedef enum CopyFlags {
          */
         COPY_NOCOW_AFTER                  = 1 << 20,
         COPY_PRESERVE_FS_VERITY           = 1 << 21, /* Preserve fs-verity when copying. */
+        COPY_MERGE_APPLY_STAT             = 1 << 22, /* When we reuse an existing directory inode, apply source ownership/mode/xattrs/timestamps */
 } CopyFlags;
 
 typedef enum DenyType {
@@ -46,15 +47,15 @@ typedef enum DenyType {
 typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, uint64_t bytes_per_second, void *userdata);
 typedef int (*copy_progress_path_t)(const char *path, const struct stat *st, void *userdata);
 
-int copy_file_fd_at_full(int dir_fdf, const char *from, int to, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
-static inline int copy_file_fd_at(int dir_fdf, const char *from, int to, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata) {
-        return copy_file_fd_at_full(dir_fdf, from, to, copy_flags, progress, userdata);
+int copy_file_fd_at_full(int dir_fdf, const char *from, int fdt, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
+static inline int copy_file_fd_at(int dir_fdf, const char *from, int fdt, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata) {
+        return copy_file_fd_at_full(dir_fdf, from, fdt, copy_flags, progress, userdata);
 }
-static inline int copy_file_fd_full(const char *from, int to, CopyFlags copy_flags) {
-        return copy_file_fd_at_full(AT_FDCWD, from, to, copy_flags, NULL, NULL);
+static inline int copy_file_fd_full(const char *from, int fdt, CopyFlags copy_flags) {
+        return copy_file_fd_at_full(AT_FDCWD, from, fdt, copy_flags, NULL, NULL);
 }
-static inline int copy_file_fd(const char *from, int to, CopyFlags copy_flags) {
-        return copy_file_fd_at(AT_FDCWD, from, to, copy_flags, NULL, NULL);
+static inline int copy_file_fd(const char *from, int fdt, CopyFlags copy_flags) {
+        return copy_file_fd_at(AT_FDCWD, from, fdt, copy_flags, NULL, NULL);
 }
 
 int copy_file_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to, int open_flags, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
@@ -79,11 +80,11 @@ static inline int copy_file_atomic(const char *from, const char *to, mode_t mode
         return copy_file_atomic_full(from, to, mode, 0, 0, copy_flags, NULL, NULL);
 }
 
-int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Set *subvolumes, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
-static inline int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Set *subvolumes) {
+int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Hashmap *subvolumes, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
+static inline int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Hashmap *subvolumes) {
         return copy_tree_at_full(fdf, from, fdt, to, override_uid, override_gid, copy_flags, denylist, subvolumes, NULL, NULL, NULL);
 }
-static inline int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Set *subvolumes) {
+static inline int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Hashmap *subvolumes) {
         return copy_tree_at_full(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags, denylist, subvolumes, NULL, NULL, NULL);
 }
 

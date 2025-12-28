@@ -29,6 +29,7 @@
 #include "operation.h"
 #include "path-lookup.h"
 #include "service-util.h"
+#include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
@@ -109,6 +110,8 @@ static Manager* manager_unref(Manager *m) {
         hashmap_free(m->polkit_registry);
 
         manager_varlink_done(m);
+
+        m->query_filter_subscriptions = set_free(m->query_filter_subscriptions);
 
         sd_bus_flush_close_unref(m->api_bus);
         sd_bus_flush_close_unref(m->system_bus);
@@ -362,8 +365,6 @@ static int run(int argc, char *argv[]) {
          * make sure this check stays in. */
         if (scope == RUNTIME_SCOPE_SYSTEM)
                 (void) mkdir_label("/run/systemd/machines", 0755);
-
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGCHLD) >= 0);
 
         r = manager_new(scope, &m);
         if (r < 0)

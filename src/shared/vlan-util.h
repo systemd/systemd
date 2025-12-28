@@ -2,7 +2,7 @@
 #pragma once
 
 #include "conf-parser-forward.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 #define VLANID_MAX 4094
 #define VLANID_INVALID UINT16_MAX

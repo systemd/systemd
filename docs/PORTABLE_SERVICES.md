@@ -162,7 +162,7 @@ Specifically, the following requirements are made for an image that can be attac
    an image with a partition table understood by the Linux kernel with only a
    single partition defined, or alternatively, a GPT partition table with a set
    of properly marked partitions following the
-   [Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification).
+   [UAPI.2 Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification).
 
 3. The image must at least contain one matching unit file, with the right name
    prefix and suffix (see above).

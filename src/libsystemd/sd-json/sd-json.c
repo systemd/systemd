@@ -1277,7 +1277,7 @@ mismatch:
         return 0;
 }
 
-_public_ sd_json_variant *sd_json_variant_by_index(sd_json_variant *v, size_t idx) {
+_public_ sd_json_variant *sd_json_variant_by_index(sd_json_variant *v, size_t index) {
         if (!v)
                 return NULL;
         if (v == JSON_VARIANT_MAGIC_EMPTY_ARRAY ||
@@ -1288,11 +1288,11 @@ _public_ sd_json_variant *sd_json_variant_by_index(sd_json_variant *v, size_t id
         if (!IN_SET(v->type, SD_JSON_VARIANT_ARRAY, SD_JSON_VARIANT_OBJECT))
                 goto mismatch;
         if (v->is_reference)
-                return sd_json_variant_by_index(v->reference, idx);
-        if (idx >= v->n_elements)
+                return sd_json_variant_by_index(v->reference, index);
+        if (index >= v->n_elements)
                 return NULL;
 
-        return json_variant_conservative_formalize(v + 1 + idx);
+        return json_variant_conservative_formalize(v + 1 + index);
 
 mismatch:
         log_debug("Element in non-array/non-object JSON variant requested by index, returning NULL.");
@@ -2079,22 +2079,22 @@ _public_ int sd_json_variant_set_field_uuid(sd_json_variant **v, const char *fie
         return sd_json_variant_set_field_string(v, field, SD_ID128_TO_UUID_STRING(value));
 }
 
-_public_ int sd_json_variant_set_field_integer(sd_json_variant **v, const char *field, int64_t i) {
+_public_ int sd_json_variant_set_field_integer(sd_json_variant **v, const char *field, int64_t value) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
-        r = sd_json_variant_new_integer(&m, i);
+        r = sd_json_variant_new_integer(&m, value);
         if (r < 0)
                 return r;
 
         return sd_json_variant_set_field(v, field, m);
 }
 
-_public_ int sd_json_variant_set_field_unsigned(sd_json_variant **v, const char *field, uint64_t u) {
+_public_ int sd_json_variant_set_field_unsigned(sd_json_variant **v, const char *field, uint64_t value) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
-        r = sd_json_variant_new_unsigned(&m, u);
+        r = sd_json_variant_new_unsigned(&m, value);
         if (r < 0)
                 return r;
 
@@ -3379,7 +3379,7 @@ finish:
 }
 
 _public_ int sd_json_parse_with_source(
-                const char *input,
+                const char *string,
                 const char *source,
                 sd_json_parse_flags_t flags,
                 sd_json_variant **ret,
@@ -3388,7 +3388,7 @@ _public_ int sd_json_parse_with_source(
 
         _cleanup_(json_source_unrefp) JsonSource *s = NULL;
 
-        if (isempty(input))
+        if (isempty(string))
                 return -ENODATA;
 
         if (source) {
@@ -3397,7 +3397,7 @@ _public_ int sd_json_parse_with_source(
                         return -ENOMEM;
         }
 
-        return json_parse_internal(&input, s, flags, ret, reterr_line, reterr_column, false);
+        return json_parse_internal(&string, s, flags, ret, reterr_line, reterr_column, false);
 }
 
 _public_ int sd_json_parse_with_source_continue(
@@ -3453,10 +3453,8 @@ _public_ int sd_json_parse_file_at(
 
         if (f)
                 r = read_full_stream(f, &text, NULL);
-        else if (path)
-                r = read_full_file_full(dir_fd, path, UINT64_MAX, SIZE_MAX, 0, NULL, &text, NULL);
         else
-                return -EINVAL;
+                r = read_full_file_full(dir_fd, path, UINT64_MAX, SIZE_MAX, 0, NULL, &text, NULL);
         if (r < 0)
                 return r;
 
@@ -3474,13 +3472,26 @@ _public_ int sd_json_parse_file(
         return sd_json_parse_file_at(f, AT_FDCWD, path, flags, ret, reterr_line, reterr_column);
 }
 
-static char *underscorify(char *p) {
-        assert(p);
+char *json_underscorify(char *p) {
+        if (!p)
+                return NULL;
 
         /* Replaces "-", "+" by "_", to deal with the usual enum naming rules we have. */
 
         for (char *q = p; *q; q++)
                 *q = IN_SET(*q, '_', '-', '+') ? '_' : *q;
+
+        return p;
+}
+
+char *json_dashify(char *p) {
+        if (!p)
+                return NULL;
+
+        /* Replaces "-", "+" by "-", to (somewhat) undo what json_underscorify() does */
+
+        for (char *q = p; *q; q++)
+                *q = IN_SET(*q, '_', '-', '+') ? '-' : *q;
 
         return p;
 }
@@ -3538,7 +3549,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                                 goto finish;
                                         }
 
-                                        p = underscorify(c);
+                                        p = json_underscorify(c);
                                 }
 
                                 r = sd_json_variant_new_string(&add, p);
@@ -4137,8 +4148,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (dual_timestamp_is_set(ts)) {
                                         r = sd_json_buildo(
                                                         &add,
-                                                        SD_JSON_BUILD_PAIR("realtime", SD_JSON_BUILD_UNSIGNED(ts->realtime)),
-                                                        SD_JSON_BUILD_PAIR("monotonic", SD_JSON_BUILD_UNSIGNED(ts->monotonic)));
+                                                        SD_JSON_BUILD_PAIR_UNSIGNED("realtime", ts->realtime),
+                                                        SD_JSON_BUILD_PAIR_UNSIGNED("monotonic", ts->monotonic));
                                         if (r < 0)
                                                 goto finish;
                                 } else
@@ -4445,7 +4456,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4475,7 +4486,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4503,7 +4514,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4530,7 +4541,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4567,7 +4578,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4593,7 +4604,33 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 add_more = sd_json_variant_ref(v);
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
+                case _JSON_BUILD_PAIR_VARIANT_NON_EMPTY: {
+                        sd_json_variant *v;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        v = va_arg(ap, sd_json_variant *);
+
+                        if (v && !sd_json_variant_is_blank_object(v) && current->n_suppress == 0) {
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                add_more = sd_json_variant_ref(v);
+                        }
+
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4623,7 +4660,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4651,7 +4688,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4679,7 +4716,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4709,7 +4746,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4737,7 +4774,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4765,7 +4802,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4795,7 +4832,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4825,7 +4862,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4887,7 +4924,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 }
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4923,7 +4960,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4951,7 +4988,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
                         }
 
-                        n_subtract = 2; /* we generated two item */
+                        n_subtract = 2; /* we generated two items */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -5266,6 +5303,11 @@ _public_ int sd_json_dispatch_stdbool(const char *name, sd_json_variant *variant
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
 
+        if (sd_json_variant_is_null(variant)) {
+                *b = false;
+                return 0;
+        }
+
         if (!sd_json_variant_is_boolean(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a boolean.", strna(name));
 
@@ -5278,6 +5320,11 @@ _public_ int sd_json_dispatch_intbool(const char *name, sd_json_variant *variant
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *b = false;
+                return 0;
+        }
 
         if (!sd_json_variant_is_boolean(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a boolean.", strna(name));
@@ -5310,6 +5357,11 @@ _public_ int sd_json_dispatch_int64(const char *name, sd_json_variant *variant, 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
 
+        if (sd_json_variant_is_null(variant)) {
+                *i = -1;
+                return 0;
+        }
+
         /* Also accept numbers formatted as string, to increase compatibility with less capable JSON
          * implementations that cannot do 64bit integers. */
         if (sd_json_variant_is_string(variant) && safe_atoi64(sd_json_variant_string(variant), i) >= 0)
@@ -5327,6 +5379,11 @@ _public_ int sd_json_dispatch_uint64(const char *name, sd_json_variant *variant,
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *u = UINT64_MAX;
+                return 0;
+        }
 
         /* Since 64bit values (in particular unsigned ones) in JSON are problematic, let's also accept them
          * formatted as strings. If this is not desired make sure to set the .type field in
@@ -5351,6 +5408,11 @@ _public_ int sd_json_dispatch_uint32(const char *name, sd_json_variant *variant,
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
 
+        if (sd_json_variant_is_null(variant)) {
+                *u = UINT32_MAX;
+                return 0;
+        }
+
         r = sd_json_dispatch_uint64(name, variant, flags, &u64);
         if (r < 0)
                 return r;
@@ -5372,6 +5434,11 @@ _public_ int sd_json_dispatch_int32(const char *name, sd_json_variant *variant, 
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *i = -1;
+                return 0;
+        }
 
         r = sd_json_dispatch_int64(name, variant, flags, &i64);
         if (r < 0)
@@ -5395,6 +5462,11 @@ _public_ int sd_json_dispatch_int16(const char *name, sd_json_variant *variant, 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
 
+        if (sd_json_variant_is_null(variant)) {
+                *i = -1;
+                return 0;
+        }
+
         r = sd_json_dispatch_int64(name, variant, flags, &i64);
         if (r < 0)
                 return r;
@@ -5413,6 +5485,11 @@ _public_ int sd_json_dispatch_uint16(const char *name, sd_json_variant *variant,
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *u = UINT16_MAX;
+                return 0;
+        }
 
         r = sd_json_dispatch_uint64(name, variant, flags, &u64);
         if (r < 0)
@@ -5433,6 +5510,11 @@ _public_ int sd_json_dispatch_int8(const char *name, sd_json_variant *variant, s
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
 
+        if (sd_json_variant_is_null(variant)) {
+                *i = -1;
+                return 0;
+        }
+
         r = sd_json_dispatch_int64(name, variant, flags, &i64);
         if (r < 0)
                 return r;
@@ -5452,6 +5534,11 @@ _public_ int sd_json_dispatch_uint8(const char *name, sd_json_variant *variant, 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
 
+        if (sd_json_variant_is_null(variant)) {
+                *u = UINT8_MAX;
+                return 0;
+        }
+
         r = sd_json_dispatch_uint64(name, variant, flags, &u64);
         if (r < 0)
                 return r;
@@ -5468,6 +5555,11 @@ _public_ int sd_json_dispatch_double(const char *name, sd_json_variant *variant,
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *d = NAN;
+                return 0;
+        }
 
         /* Note, this will take care of parsing NaN, -Infinity, Infinity for us */
         if (sd_json_variant_is_string(variant) && safe_atod(sd_json_variant_string(variant), d) >= 0)
@@ -5487,6 +5579,11 @@ _public_ int sd_json_dispatch_string(const char *name, sd_json_variant *variant,
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *s = mfree(*s);
+                return 0;
+        }
 
         r = sd_json_dispatch_const_string(name, variant, flags, &n);
         if (r < 0)
@@ -5590,7 +5687,8 @@ _public_ int sd_json_dispatch_variant_noref(const char *name, sd_json_variant *v
 
 _public_ int sd_json_dispatch_uid_gid(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         uid_t *uid = userdata;
-        uint64_t k;
+        uint32_t k;
+        int r;
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
@@ -5607,11 +5705,10 @@ _public_ int sd_json_dispatch_uid_gid(const char *name, sd_json_variant *variant
                 return 0;
         }
 
-        if (!sd_json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
-
-        k = sd_json_variant_unsigned(variant);
-        if (k > UINT32_MAX || !uid_is_valid(k))
+        r = sd_json_dispatch_uint32(name, variant, flags, &k);
+        if (r < 0)
+                return r;
+        if (!uid_is_valid(k))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid UID/GID.", strna(name));
 
         *uid = k;
@@ -5652,12 +5749,18 @@ _public_ int sd_json_dispatch_signal(const char *name, sd_json_variant *variant,
         }
 
         int k;
-        r = sd_json_dispatch_int(name, variant, flags, &k);
-        if (r < 0)
-                return r;
+        if (sd_json_variant_is_string(variant)) {
+                k = signal_from_string(sd_json_variant_string(variant));
+                if (k < 0)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid signal.", strna(name));
+        } else {
+                r = sd_json_dispatch_int(name, variant, flags, &k);
+                if (r < 0)
+                        return r;
 
-        if (!SIGNAL_VALID(k))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid signal.", strna(name));
+                if (!SIGNAL_VALID(k))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid signal.", strna(name));
+        }
 
         *signo = k;
         return 0;

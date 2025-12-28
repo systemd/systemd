@@ -25,6 +25,24 @@ executables += [
         generator_template + {
                 'name' : 'systemd-tpm2-generator',
                 'sources' : files('tpm2-generator.c'),
+                'conditions' : [
+                        'ENABLE_BOOTLOADER',
+                        'HAVE_OPENSSL',
+                        'HAVE_TPM2',
+                ],
         },
 
 ]
+
+if conf.get('ENABLE_BOOTLOADER') == 1 and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_TPM2') == 1
+        nvpcrs = [ 'cryptsetup',
+                   'hardware' ]
+        foreach n : nvpcrs
+                custom_target(
+                        input : 'nvpcr/' + n + '.nvpcr.in',
+                        output : n + '.nvpcr',
+                        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+                        install : true,
+                        install_dir : prefixdir / 'lib/nvpcr')
+        endforeach
+endif

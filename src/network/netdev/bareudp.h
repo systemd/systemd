@@ -2,7 +2,7 @@
  * Copyright © 2020 VMware, Inc. */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "netdev.h"
 
 typedef enum BareUDPProtocol {
@@ -26,6 +26,6 @@ DEFINE_NETDEV_CAST(BAREUDP, BareUDP);
 extern const NetDevVTable bare_udp_vtable;
 
 const char* bare_udp_protocol_to_string(BareUDPProtocol d) _const_;
-BareUDPProtocol bare_udp_protocol_from_string(const char *d) _pure_;
+BareUDPProtocol bare_udp_protocol_from_string(const char *s) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_bare_udp_iftype);

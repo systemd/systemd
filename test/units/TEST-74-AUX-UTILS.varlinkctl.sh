@@ -175,8 +175,8 @@ varlinkctl introspect /run/systemd/io.systemd.Hostname io.systemd.Hostname
 varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}'
 
 # Validate that --exec results in the very same values
-varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq > /tmp/describe1.json
-varlinkctl --exec call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' -- jq > /tmp/describe2.json
+varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq >/tmp/describe1.json
+varlinkctl --exec call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' -- jq >/tmp/describe2.json
 cmp /tmp/describe1.json /tmp/describe2.json
 rm /tmp/describe1.json /tmp/describe2.json
 
@@ -184,17 +184,31 @@ rm /tmp/describe1.json /tmp/describe2.json
 varlinkctl info /run/systemd/io.systemd.Manager
 varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Manager
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}'
+# This will disconnect and fail, as the manager reexec and drops connections
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reexecute '{}' ||:
+
+# test io.systemd.Network
+varlinkctl info /run/systemd/netif/io.systemd.Network
+varlinkctl introspect /run/systemd/netif/io.systemd.Network io.systemd.Network
+varlinkctl call /run/systemd/netif/io.systemd.Network io.systemd.Network.Describe '{}'
 
 # test io.systemd.Unit
 varlinkctl info /run/systemd/io.systemd.Manager
 varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Unit
 varlinkctl --more call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "multi-user.target"}'
-varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"pid": {"pid": 0}}'
-(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' |& grep -q "called without 'more' flag")
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"pid": {"pid": 1}}'
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' |& grep "called without 'more' flag" >/dev/null)
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "init.scope", "pid": {"pid": 1}}'
 (! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": ""}')
 (! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "non-existent.service"}')
 (! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"pid": {"pid": -1}}' )
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "multi-user.target", "pid": {"pid": 1}}')
+
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"cgroup": "/init.scope"}'
+invocation_id="$(systemctl show -P InvocationID systemd-journald.service)"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"invocationID\": \"$invocation_id\"}"
 
 # test io.systemd.Manager in user manager
 testuser_uid=$(id -u testuser)

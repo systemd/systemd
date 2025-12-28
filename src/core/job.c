@@ -406,13 +406,13 @@ void job_dump(Job *j, FILE *f, const char *prefix) {
  * be merged with C either.
  */
 static const JobType job_merging_table[] = {
-/* What \ With       *  JOB_START         JOB_VERIFY_ACTIVE  JOB_STOP JOB_RELOAD */
+/* What \ With       *  JOB_START            JOB_VERIFY_ACTIVE JOB_STOP JOB_RELOAD */
 /*********************************************************************************/
-/*JOB_START          */
-/*JOB_VERIFY_ACTIVE  */ JOB_START,
-/*JOB_STOP           */ -1,                  -1,
-/*JOB_RELOAD         */ JOB_RELOAD_OR_START, JOB_RELOAD,          -1,
-/*JOB_RESTART        */ JOB_RESTART,         JOB_RESTART,         -1, JOB_RESTART,
+/* JOB_START         */
+/* JOB_VERIFY_ACTIVE */ JOB_START,
+/* JOB_STOP          */ -1,                  -1,
+/* JOB_RELOAD        */ JOB_RELOAD_OR_START, JOB_RELOAD,       -1,
+/* JOB_RESTART       */ JOB_RESTART,         JOB_RESTART,      -1,      JOB_RESTART,
 };
 
 JobType job_type_lookup_merge(JobType a, JobType b) {
@@ -436,13 +436,11 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) {
         switch (a) {
 
         case JOB_START:
-                return IN_SET(b, UNIT_ACTIVE, UNIT_RELOADING, UNIT_REFRESHING);
+        case JOB_VERIFY_ACTIVE:
+                return UNIT_IS_ACTIVE_OR_RELOADING(b);
 
         case JOB_STOP:
-                return IN_SET(b, UNIT_INACTIVE, UNIT_FAILED);
-
-        case JOB_VERIFY_ACTIVE:
-                return IN_SET(b, UNIT_ACTIVE, UNIT_RELOADING, UNIT_REFRESHING);
+                return UNIT_IS_INACTIVE_OR_FAILED(b);
 
         case JOB_RELOAD:
                 /* Reload jobs are never considered redundant/duplicate. Refer to jobs_may_late_merge() for

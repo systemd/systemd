@@ -12,6 +12,7 @@
 #include "lldp-rx-internal.h"
 #include "network-util.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-varlink.h"
@@ -20,13 +21,32 @@
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
+static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(parameters);
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = manager_build_json(m, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON data: %m");
+
+        return sd_varlink_reply(link, v);
+}
+
 static int vl_method_get_states(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -47,7 +67,7 @@ static int vl_method_get_namespace_id(sd_varlink *link, sd_json_variant *paramet
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -259,9 +279,9 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
         return sd_varlink_reply(vlink, NULL);
 }
 
-int manager_connect_varlink(Manager *m, int fd) {
+int manager_varlink_init(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        _unused_ _cleanup_close_ int fd_close = fd;
+        _unused_ _cleanup_close_ int fd_close = fd; /* take possession */
         int r;
 
         assert(m);
@@ -288,6 +308,7 @@ int manager_connect_varlink(Manager *m, int fd) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
+                        "io.systemd.Network.Describe",             vl_method_describe,
                         "io.systemd.Network.GetStates",            vl_method_get_states,
                         "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
                         "io.systemd.Network.GetLLDPNeighbors",     vl_method_get_lldp_neighbors,
@@ -303,7 +324,7 @@ int manager_connect_varlink(Manager *m, int fd) {
         else
                 r = sd_varlink_server_listen_fd(s, fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to varlink socket '/run/systemd/netif/io.systemd.Network': %m");
 
         TAKE_FD(fd_close);
 
@@ -313,10 +334,4 @@ int manager_connect_varlink(Manager *m, int fd) {
 
         m->varlink_server = TAKE_PTR(s);
         return 0;
-}
-
-void manager_varlink_done(Manager *m) {
-        assert(m);
-
-        m->varlink_server = sd_varlink_server_unref(m->varlink_server);
 }

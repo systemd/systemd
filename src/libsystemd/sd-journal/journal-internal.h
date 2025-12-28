@@ -3,7 +3,7 @@
 
 #include "journal-file.h"
 #include "list.h"
-#include "forward.h"
+#include "sd-forward.h"
 #include "time-util.h"
 
 #define JOURNAL_FILES_MAX 7168u

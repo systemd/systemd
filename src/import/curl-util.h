@@ -3,7 +3,7 @@
 
 #include <curl/curl.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef struct CurlGlue CurlGlue;
 

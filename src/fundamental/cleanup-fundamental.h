@@ -34,13 +34,16 @@
         DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(type, func, func##p, empty)
 
 /* When func() doesn't return the appropriate type, and is also a macro, set variable to empty afterwards. */
-#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(type, func, empty)       \
-        static inline void func##p(type *p) {                           \
+#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO_RENAME(type, macro, name, empty) \
+        static inline void name(type *p) {                              \
                 if (*p != (empty)) {                                    \
-                        func(*p);                                       \
+                        macro(*p);                                      \
                         *p = (empty);                                   \
                 }                                                       \
         }
+
+#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(type, macro, empty)      \
+        DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO_RENAME(type, macro, macro##p, empty)
 
 typedef void (*free_array_func_t)(void *p, size_t n);
 

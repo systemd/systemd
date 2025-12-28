@@ -19,6 +19,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "stat-util.h"
@@ -140,7 +141,6 @@ static int notify_override_unchanged(const char *f) {
 
 static int found_override(const char *top, const char *bottom) {
         _cleanup_free_ char *dest = NULL;
-        pid_t pid;
         int r;
 
         assert(top);
@@ -165,7 +165,11 @@ static int found_override(const char *top, const char *bottom) {
 
         fflush(stdout);
 
-        r = safe_fork("(diff)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(diff)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG,
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -175,7 +179,7 @@ static int found_override(const char *top, const char *bottom) {
                 _exit(EXIT_FAILURE);
         }
 
-        (void) wait_for_terminate_and_check("diff", pid, WAIT_LOG_ABNORMAL);
+        (void) pidref_wait_for_terminate_and_check("diff", &pidref, WAIT_LOG_ABNORMAL);
         putchar('\n');
 
         return r;
@@ -259,12 +263,12 @@ static int enumerate_dir_d(
                         continue;
 
                 log_debug("Adding at top: %s %s %s/%s", *file, glyph(GLYPH_ARROW_RIGHT), path, *file);
-                r = path_put(top, path, *file, /* override = */ false);
+                r = path_put(top, path, *file, /* override= */ false);
                 if (r < 0)
                         return r;
 
                 log_debug("Adding at bottom: %s %s %s/%s", *file, glyph(GLYPH_ARROW_RIGHT), path, *file);
-                r = path_put(bottom, path, *file, /* override = */ true);
+                r = path_put(bottom, path, *file, /* override= */ true);
                 if (r < 0)
                         return r;
 
@@ -285,7 +289,7 @@ static int enumerate_dir_d(
 
                 log_debug("Adding to drops: %s %s %s %s %s/%s",
                           unit, glyph(GLYPH_ARROW_RIGHT), *file, glyph(GLYPH_ARROW_RIGHT), path, *file);
-                r = path_put(&h, path, *file, /* override = */ false);
+                r = path_put(&h, path, *file, /* override= */ false);
                 if (r < 0)
                         return r;
         }
@@ -352,12 +356,12 @@ static int enumerate_dir(
 
         STRV_FOREACH(t, files) {
                 log_debug("Adding at top: %s %s %s/%s", *t, glyph(GLYPH_ARROW_RIGHT), path, *t);
-                r = path_put(top, path, *t, /* override = */ false);
+                r = path_put(top, path, *t, /* override= */ false);
                 if (r < 0)
                         return r;
 
                 log_debug("Adding at bottom: %s %s %s/%s", *t, glyph(GLYPH_ARROW_RIGHT), path, *t);
-                r = path_put(bottom, path, *t, /* override = */ true);
+                r = path_put(bottom, path, *t, /* override= */ true);
                 if (r < 0)
                         return r;
         }

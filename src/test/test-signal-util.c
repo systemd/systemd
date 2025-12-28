@@ -13,8 +13,9 @@ TEST(rt_signals) {
         info(SIGRTMIN);
         info(SIGRTMAX);
 
-        /* We use signals SIGRTMIN+0 to SIGRTMIN+30 unconditionally */
-        assert_se(SIGRTMAX - SIGRTMIN >= 30);
+        /* We use signals SIGRTMIN+0 to SIGRTMIN+29 unconditionally. SIGRTMIN+30 can be used only when
+         * built with glibc. */
+        assert_se(SIGRTMAX - SIGRTMIN >= 29);
 }
 
 static void test_signal_to_string_one(int val) {

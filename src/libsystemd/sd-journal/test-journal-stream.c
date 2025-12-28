@@ -10,7 +10,6 @@
 #include "iovec-util.h"
 #include "journal-file-util.h"
 #include "journal-internal.h"
-#include "log.h"
 #include "parse-util.h"
 #include "rm-rf.h"
 #include "tests.h"

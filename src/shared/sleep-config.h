@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum SleepOperation {
         SLEEP_SUSPEND,
@@ -39,7 +39,7 @@ typedef struct SleepConfig {
 SleepConfig* sleep_config_free(SleepConfig *sc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(SleepConfig*, sleep_config_free);
 
-int parse_sleep_config(SleepConfig **sleep_config);
+int parse_sleep_config(SleepConfig **ret);
 
 bool sleep_needs_mem_sleep(const SleepConfig *sc, SleepOperation operation) _pure_;
 

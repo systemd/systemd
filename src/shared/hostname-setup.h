@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum HostnameSource {
         HOSTNAME_STATIC,     /* from /etc/hostname */
@@ -56,3 +56,5 @@ static inline char* gethostname_short_malloc(void) {
 
         return s;
 }
+
+int pidref_gethostname_full(PidRef *pidref, GetHostnameFlags flags, char **ret);

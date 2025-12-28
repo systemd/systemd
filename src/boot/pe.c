@@ -9,7 +9,7 @@
 
 #define DOS_FILE_MAGIC "MZ"
 #define PE_FILE_MAGIC  "PE\0\0"
-#define IMAGE_DLLCHARACTERISTICS_NX_COMPAT 0x0100
+#define IMAGE_DLLCHARACTERISTICS_NX_COMPAT 0x0100U
 
 #if defined(__i386__)
 #  define TARGET_MACHINE_TYPE 0x014CU
@@ -367,8 +367,8 @@ static void pe_locate_sections(
                                   n_section_table,
                                   section_names,
                                   validate_base,
-                                  /* device_table = */ NULL,
-                                  /* device = */ NULL,
+                                  /* device_table= */ NULL,
+                                  /* device= */ NULL,
                                   sections);
 
         /* It doesn't make sense not to provide validate_base here */
@@ -387,8 +387,8 @@ static void pe_locate_sections(
                                 n_section_table,
                                 hwid_section_names,
                                 validate_base,
-                                /* device_table = */ NULL,
-                                /* device = */ NULL,
+                                /* device_table= */ NULL,
+                                /* device= */ NULL,
                                 hwids_section);
 
                 if (PE_SECTION_VECTOR_IS_SET(hwids_section)) {

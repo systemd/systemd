@@ -4,19 +4,17 @@ set -eux
 set -o pipefail
 
 # shellcheck source=test/units/util.sh
- . "$(dirname "$0")"/util.sh
+. "$(dirname "$0")"/util.sh
 
 # Make sure the binary name fits into 15 characters
 CORE_TEST_BIN="/tmp/test-dump"
-CORE_STACKTRACE_TEST_BIN="/tmp/test-stacktrace-dump"
-MAKE_STACKTRACE_DUMP="/tmp/make-stacktrace-dump"
 CORE_TEST_UNPRIV_BIN="/tmp/test-usr-dump"
 MAKE_DUMP_SCRIPT="/tmp/make-dump"
 # Unset $PAGER so we don't have to use --no-pager everywhere
 export PAGER=
 
 at_exit() {
-    rm -fv -- "$CORE_TEST_BIN" "$CORE_TEST_UNPRIV_BIN" "$MAKE_DUMP_SCRIPT" "$MAKE_STACKTRACE_DUMP"
+    rm -fv -- "$CORE_TEST_BIN" "$CORE_TEST_UNPRIV_BIN" "$MAKE_DUMP_SCRIPT"
 }
 
 (! systemd-detect-virt -cq)
@@ -32,8 +30,8 @@ sysctl kernel.core_pattern | grep systemd-coredump
 
 # Prepare "fake" binaries for coredumps, so we can properly exercise
 # the matching stuff too
-cp -vf /bin/sleep "${CORE_TEST_BIN:?}"
-cp -vf /bin/sleep "${CORE_TEST_UNPRIV_BIN:?}"
+cp -vf /usr/lib/systemd/tests/unit-tests/manual/test-sleep "${CORE_TEST_BIN:?}"
+cp -vf /usr/lib/systemd/tests/unit-tests/manual/test-sleep "${CORE_TEST_UNPRIV_BIN:?}"
 # Simple script that spawns given "fake" binary and then kills it with
 # given signal
 cat >"${MAKE_DUMP_SCRIPT:?}" <<\EOF
@@ -164,7 +162,7 @@ rm -f /tmp/core.{output,redirected}
 
 # Unprivileged stuff
 # Related issue: https://github.com/systemd/systemd/issues/26912
-UNPRIV_CMD=(systemd-run --user --wait --pipe -M "testuser@.host" --)
+UNPRIV_CMD=(systemd-run --user --wait --pipe -M "testuser@.host" -E SYSTEMD_PAGER --)
 # Trigger a couple of coredumps as an unprivileged user
 "${UNPRIV_CMD[@]}" "$MAKE_DUMP_SCRIPT" "$CORE_TEST_UNPRIV_BIN" "SIGTRAP"
 "${UNPRIV_CMD[@]}" "$MAKE_DUMP_SCRIPT" "$CORE_TEST_UNPRIV_BIN" "SIGABRT"
@@ -251,30 +249,70 @@ systemd-run -t --property CoredumpFilter=default ls /tmp
 (! coredumpctl debug --debugger=/bin/true --debugger-arguments='"')
 
 # Test for EnterNamespace= feature
-if pkgconf --atleast-version 0.192 libdw ; then
-    # dwfl_set_sysroot() is supported only in libdw-0.192 or newer.
-    cat >"$MAKE_STACKTRACE_DUMP" <<END
-#!/usr/bin/env bash
-mount -t tmpfs tmpfs /tmp
-gcc -xc -O0 -g -o $CORE_STACKTRACE_TEST_BIN - <<EOF
-void baz(void) { int *x = 0; *x = 42; }
-void bar(void) { baz(); }
-void foo(void) { bar(); }
-int main(void) { foo(); return 0;}
+#
+# dwfl_set_sysroot() is supported only in libdw-0.192 or newer.
+#
+# FIXME: drop the objdump call once https://github.com/systemd/systemd/pull/39268#issuecomment-3390745718 is
+#        addressed
+if pkgconf --atleast-version 0.192 libdw &&
+    objdump -h -j .gnu_debugdata -j .debug_info /usr/lib/systemd/tests/unit-tests/manual/test-coredump-stacktrace; then
+    MAKE_STACKTRACE_DUMP="/tmp/make-stacktrace-dump"
+
+    # Simple script that mounts tmpfs on /tmp/ and copies the crashing test binary there, which in
+    # combination with `unshare --mount` ensures the "outside" systemd-coredump process won't be able to
+    # access the crashed binary (and hence won't be able to symbolize its stacktrace) unless
+    # EnterNamespace=yes is used
+    cat >"$MAKE_STACKTRACE_DUMP" <<\EOF
+#!/usr/bin/bash -eux
+
+TARGET="/tmp/${1:?}"
+EC=0
+
+# "Unhide" debuginfo in the namespace (see the comment below)
+test -d /usr/lib/debug/ && umount /usr/lib/debug/
+
+mount -t tmpfs tmpfs /tmp/
+cp /usr/lib/systemd/tests/unit-tests/manual/test-coredump-stacktrace "$TARGET"
+
+$TARGET || EC=$?
+if [[ $EC -ne 139 ]]; then
+    echo >&2 "$TARGET didn't crash, this shouldn't happen"
+    exit 1
+fi
+
+exit 0
 EOF
-$CORE_STACKTRACE_TEST_BIN
-END
     chmod +x "$MAKE_STACKTRACE_DUMP"
+
+    # Since the test-coredump-stacktrace binary is built together with rest of the systemd its debug symbols
+    # might be part of debuginfo packages (if supported & built), and libdw will then use them to symbolize
+    # the stacktrace even if it doesn't have access to the original crashing binary. Let's make the test
+    # simpler and just "hide" the debuginfo data, so libdw is forced to access the target namespace to get
+    # the necessary symbols
+    test -d /usr/lib/debug/ && mount -t tmpfs tmpfs /usr/lib/debug/
 
     mkdir -p /run/systemd/coredump.conf.d/
     printf '[Coredump]\nEnterNamespace=no' >/run/systemd/coredump.conf.d/99-enter-namespace.conf
 
-    unshare --pid --fork --mount-proc --mount --uts --ipc --net bash -c "$MAKE_STACKTRACE_DUMP" || :
-    timeout 30 bash -c "until coredumpctl -1 info $CORE_STACKTRACE_TEST_BIN | grep -zvqE 'baz.*bar.*foo'; do sleep .2; done"
+    unshare --pid --fork --mount-proc --mount --uts --ipc --net "$MAKE_STACKTRACE_DUMP" "test-stacktrace-not-symbolized"
+    timeout 30 bash -c "until coredumpctl list -q --no-legend /tmp/test-stacktrace-not-symbolized; do sleep .2; done"
+    coredumpctl info /tmp/test-stacktrace-not-symbolized | tee /tmp/not-symbolized.log
+    (! grep -E "#[0-9]+ .* main " /tmp/not-symbolized.log)
+    (! grep -E "#[0-9]+ .* foo " /tmp/not-symbolized.log)
+    (! grep -E "#[0-9]+ .* bar " /tmp/not-symbolized.log)
+    (! grep -E "#[0-9]+ .* baz " /tmp/not-symbolized.log)
 
     printf '[Coredump]\nEnterNamespace=yes' >/run/systemd/coredump.conf.d/99-enter-namespace.conf
-    unshare --pid --fork --mount-proc --mount --uts --ipc --net bash -c "$MAKE_STACKTRACE_DUMP" || :
-    timeout 30 bash -c "until coredumpctl -1 info $CORE_STACKTRACE_TEST_BIN | grep -zqE 'baz.*bar.*foo'; do sleep .2; done"
+    unshare --pid --fork --mount-proc --mount --uts --ipc --net "$MAKE_STACKTRACE_DUMP" "test-stacktrace-symbolized"
+    timeout 30 bash -c "until coredumpctl list -q --no-legend /tmp/test-stacktrace-symbolized; do sleep .2; done"
+    coredumpctl info /tmp/test-stacktrace-symbolized | tee /tmp/symbolized.log
+    grep -E "#[0-9]+ .* main " /tmp/symbolized.log
+    grep -E "#[0-9]+ .* foo " /tmp/symbolized.log
+    grep -E "#[0-9]+ .* bar " /tmp/symbolized.log
+    grep -E "#[0-9]+ .* baz " /tmp/symbolized.log
+
+    test -d /usr/lib/debug/ && umount /usr/lib/debug/
+    rm -f "$MAKE_STACKTRACE_DUMP" /run/systemd/coredump.conf.d/99-enter-namespace.conf /tmp/{not-,}symbolized.log
 else
     echo "libdw doesn't not support setting sysroot, skipping EnterNamespace= test"
 fi

@@ -336,13 +336,12 @@ static int hash_file(int fd, EVP_MD_CTX *md_ctx, uint64_t offset, uint64_t size)
 static int section_offset_cmp(const IMAGE_SECTION_HEADER *a, const IMAGE_SECTION_HEADER *b) {
         return CMP(ASSERT_PTR(a)->PointerToRawData, ASSERT_PTR(b)->PointerToRawData);
 }
-#endif
 
 int pe_hash(int fd,
             const EVP_MD *md,
             void **ret_hash,
             size_t *ret_hash_size) {
-#if HAVE_OPENSSL
+
         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *mdctx = NULL;
         _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
         _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
@@ -449,9 +448,6 @@ int pe_hash(int fd,
         *ret_hash_size = hash_size;
 
         return 0;
-#else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot calculate PE hash.");
-#endif
 }
 
 int pe_checksum(int fd, uint32_t *ret) {
@@ -503,7 +499,6 @@ int pe_checksum(int fd, uint32_t *ret) {
         return 0;
 }
 
-#if HAVE_OPENSSL
 typedef void* SectionHashArray[_UNIFIED_SECTION_MAX];
 
 static void section_hash_array_done(SectionHashArray *array) {
@@ -512,13 +507,12 @@ static void section_hash_array_done(SectionHashArray *array) {
         for (size_t i = 0; i < _UNIFIED_SECTION_MAX; i++)
                 free((*array)[i]);
 }
-#endif
 
 int uki_hash(int fd,
              const EVP_MD *md,
              void* ret_hashes[static _UNIFIED_SECTION_MAX],
              size_t *ret_hash_size) {
-#if HAVE_OPENSSL
+
         _cleanup_(section_hash_array_done) SectionHashArray hashes = {};
         _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
         _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
@@ -605,7 +599,5 @@ int uki_hash(int fd,
         *ret_hash_size = (unsigned) hsz;
 
         return 0;
-#else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot calculate UKI hash.");
-#endif
 }
+#endif

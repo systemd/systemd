@@ -445,8 +445,8 @@ def main() -> None:
     summary = Summary.get(args)
 
     # Keep list in sync with TEST-06-SELINUX.sh
-    if args.name == 'TEST-06-SELINUX' and summary.distribution not in ('fedora', 'centos'):
-        print('Skipping TEST-06-SELINUX, only enabled for Fedora/CentOS', file=sys.stderr)
+    if args.name == 'TEST-06-SELINUX' and summary.distribution not in ('centos', 'fedora', 'opensuse'):
+        print('Skipping TEST-06-SELINUX, only enabled for CentOS/Fedora/openSUSE', file=sys.stderr)
         exit(77)
 
     if shell and not sys.stdin.isatty():
@@ -584,7 +584,6 @@ def main() -> None:
         ),
         '--credential', f'systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}',
         '--runtime-network=none',
-        '--runtime-scratch=no',
         *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
         *args.mkosi_args,
         '--firmware', firmware,
@@ -623,6 +622,10 @@ def main() -> None:
         if args.vm and result.returncode == 247 and args.exit_code != 247:
             if journal_file:
                 journal_file.unlink(missing_ok=True)
+            print(
+                f'Test {args.name} failed due to QEMU crash (error 247), retrying...',
+                file=sys.stderr,
+            )
             result = subprocess.run(cmd)
             if args.vm and result.returncode == 247 and args.exit_code != 247:
                 print(
@@ -630,6 +633,10 @@ def main() -> None:
                     file=sys.stderr,
                 )
                 exit(77)
+            print(
+                f'Test {args.name} worked on re-run after QEMU crash (error 247)',
+                file=sys.stderr,
+            )
     except KeyboardInterrupt:
         result = subprocess.CompletedProcess(args=cmd, returncode=-signal.SIGINT)
 

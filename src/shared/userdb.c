@@ -701,8 +701,8 @@ static int synthetic_root_user_build(UserRecord **ret) {
         return user_record_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("userName", JSON_BUILD_CONST_STRING("root")),
-                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(0)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(0)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("uid", 0),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", 0),
                         SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/root")),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic")));
 }
@@ -711,10 +711,10 @@ static int synthetic_nobody_user_build(UserRecord **ret) {
         return user_record_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("userName", JSON_BUILD_CONST_STRING(NOBODY_USER_NAME)),
-                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(UID_NOBODY)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("uid", UID_NOBODY),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", GID_NOBODY),
                         SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
-                        SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("locked", true),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic")));
 }
 
@@ -736,12 +736,12 @@ static int synthetic_foreign_user_build(uid_t foreign_uid, UserRecord **ret) {
 
         return user_record_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(un)),
-                        SD_JSON_BUILD_PAIR("realName", SD_JSON_BUILD_STRING(rn)),
-                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(FOREIGN_UID_BASE + foreign_uid)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(FOREIGN_UID_BASE + foreign_uid)),
+                        SD_JSON_BUILD_PAIR_STRING("userName", un),
+                        SD_JSON_BUILD_PAIR_STRING("realName", rn),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("uid", FOREIGN_UID_BASE + foreign_uid),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", FOREIGN_UID_BASE + foreign_uid),
                         SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
-                        SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("locked", true),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("foreign")));
 }
 
@@ -799,27 +799,29 @@ nomatch:
         return 0;
 }
 
-static int query_append_disposition_mask(sd_json_variant **query, uint64_t mask) {
+static int query_append_common(sd_json_variant **query, const UserDBMatch *match) {
         int r;
+        _cleanup_strv_free_ char **dispositions = NULL;
 
         assert(query);
 
-        if (FLAGS_SET(mask, USER_DISPOSITION_MASK_ALL))
-                return 0;
+        uint64_t mask = match->disposition_mask;
+        if (FLAGS_SET(mask, USER_DISPOSITION_MASK_ALL)) {
+                for (UserDisposition d = 0; d < _USER_DISPOSITION_MAX; d++) {
+                        if (!BIT_SET(mask, d))
+                                continue;
 
-        _cleanup_strv_free_ char **dispositions = NULL;
-        for (UserDisposition d = 0; d < _USER_DISPOSITION_MAX; d++) {
-                if (!BITS_SET(mask, d))
-                        continue;
-
-                r = strv_extend(&dispositions, user_disposition_to_string(d));
-                if (r < 0)
-                        return r;
+                        r = strv_extend(&dispositions, user_disposition_to_string(d));
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return sd_json_variant_merge_objectbo(
                         query,
-                        SD_JSON_BUILD_PAIR_STRV("dispositionMask", dispositions));
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(match->fuzzy_names), "fuzzyNames", SD_JSON_BUILD_STRV(match->fuzzy_names)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(match->uuid), "uuid", SD_JSON_BUILD_UUID(match->uuid)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(dispositions), "dispositionMask", SD_JSON_BUILD_STRV(dispositions)));
 }
 
 static int query_append_uid_match(sd_json_variant **query, const UserDBMatch *match) {
@@ -832,13 +834,12 @@ static int query_append_uid_match(sd_json_variant **query, const UserDBMatch *ma
 
         r = sd_json_variant_merge_objectbo(
                         query,
-                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(match->fuzzy_names), "fuzzyNames", SD_JSON_BUILD_STRV(match->fuzzy_names)),
                         SD_JSON_BUILD_PAIR_CONDITION(match->uid_min > 0, "uidMin", SD_JSON_BUILD_UNSIGNED(match->uid_min)),
                         SD_JSON_BUILD_PAIR_CONDITION(match->uid_max < UID_INVALID-1, "uidMax", SD_JSON_BUILD_UNSIGNED(match->uid_max)));
         if (r < 0)
                 return r;
 
-        return query_append_disposition_mask(query, match->disposition_mask);
+        return query_append_common(query, match);
 }
 
 static int userdb_by_name_fallbacks(
@@ -915,7 +916,7 @@ int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return -EINVAL;
 
-        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(name)));
+        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR_STRING("userName", name));
         if (r < 0)
                 return r;
 
@@ -931,7 +932,7 @@ int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags
         r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", /* more= */ false, query, flags);
         if (r >= 0) {
                 r = userdb_process(iterator, &ur, /* ret_group_record= */ NULL, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
-                if (r == -ENOEXEC) /* found a user matching UID or name, but not filter. In this case the
+                if (r == -ENOEXEC) /* Found a user matching UID or name, but not filter. In this case the
                                     * fallback paths below are pointless */
                         return r;
         }
@@ -1005,7 +1006,7 @@ int userdb_by_uid(uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRe
         if (!uid_is_valid(uid))
                 return -EINVAL;
 
-        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)));
+        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR_UNSIGNED("uid", uid));
         if (r < 0)
                 return r;
 
@@ -1227,7 +1228,7 @@ static int synthetic_root_group_build(GroupRecord **ret) {
         return group_record_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("groupName", JSON_BUILD_CONST_STRING("root")),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(0)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", 0),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic")));
 }
 
@@ -1235,7 +1236,7 @@ static int synthetic_nobody_group_build(GroupRecord **ret) {
         return group_record_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("groupName", JSON_BUILD_CONST_STRING(NOBODY_GROUP_NAME)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", GID_NOBODY),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic")));
 }
 
@@ -1257,9 +1258,9 @@ static int synthetic_foreign_group_build(gid_t foreign_gid, GroupRecord **ret) {
 
         return group_record_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(gn)),
-                        SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(d)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(FOREIGN_UID_BASE + foreign_gid)),
+                        SD_JSON_BUILD_PAIR_STRING("groupName", gn),
+                        SD_JSON_BUILD_PAIR_STRING("description", d),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", FOREIGN_UID_BASE + foreign_gid),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("foreign")));
 }
 
@@ -1298,13 +1299,13 @@ static int query_append_gid_match(sd_json_variant **query, const UserDBMatch *ma
 
         r = sd_json_variant_merge_objectbo(
                         query,
-                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(match->fuzzy_names), "fuzzyNames", SD_JSON_BUILD_STRV(match->fuzzy_names)),
                         SD_JSON_BUILD_PAIR_CONDITION(match->gid_min > 0, "gidMin", SD_JSON_BUILD_UNSIGNED(match->gid_min)),
                         SD_JSON_BUILD_PAIR_CONDITION(match->gid_max < GID_INVALID-1, "gidMax", SD_JSON_BUILD_UNSIGNED(match->gid_max)));
+
         if (r < 0)
                 return r;
 
-        return query_append_disposition_mask(query, match->disposition_mask);
+        return query_append_common(query, match);
 }
 
 static int groupdb_by_name_fallbacks(
@@ -1371,7 +1372,7 @@ int groupdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flag
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return -EINVAL;
 
-        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(name)));
+        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR_STRING("groupName", name));
         if (r < 0)
                 return r;
 
@@ -1457,7 +1458,7 @@ int groupdb_by_gid(gid_t gid, const UserDBMatch *match, UserDBFlags flags, Group
         if (!gid_is_valid(gid))
                 return -EINVAL;
 
-        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)));
+        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR_UNSIGNED("gid", gid));
         if (r < 0)
                 return r;
 
@@ -1685,7 +1686,7 @@ int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **r
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return -EINVAL;
 
-        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(name)));
+        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR_STRING("userName", name));
         if (r < 0)
                 return r;
 
@@ -1730,7 +1731,7 @@ int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return -EINVAL;
 
-        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(name)));
+        r = sd_json_buildo(&query, SD_JSON_BUILD_PAIR_STRING("groupName", name));
         if (r < 0)
                 return r;
 
@@ -1976,21 +1977,22 @@ int membershipdb_by_group_strv(const char *name, UserDBFlags flags, char ***ret)
 }
 
 int userdb_block_nss_systemd(int b) {
-        _cleanup_(dlclosep) void *dl = NULL;
-        int (*call)(bool b);
+        int r;
 
         /* Note that we might be called from libnss_systemd.so.2 itself, but that should be fine, really. */
 
-        dl = dlopen(LIBDIR "/libnss_systemd.so.2", RTLD_NOW|RTLD_NODELETE);
-        if (!dl) {
+        _cleanup_(dlclosep) void *dl = NULL;
+        const char *dle;
+        r = dlopen_safe(LIBDIR "/libnss_systemd.so.2", &dl, &dle);
+        if (r < 0) {
                 /* If the file isn't installed, don't complain loudly */
-                log_debug("Failed to dlopen(libnss_systemd.so.2), ignoring: %s", dlerror());
+                log_debug_errno(r, "Failed to dlopen(libnss_systemd.so.2), ignoring: %s", dle ?: STRERROR(r));
                 return 0;
         }
 
         log_debug("Loaded '%s' via dlopen()", LIBDIR "/libnss_systemd.so.2");
 
-        call = dlsym(dl, "_nss_systemd_block");
+        int (*call)(bool b) = dlsym(dl, "_nss_systemd_block");
         if (!call)
                 /* If the file is installed but lacks the symbol we expect, things are weird, let's complain */
                 return log_debug_errno(SYNTHETIC_ERRNO(ELIBBAD),

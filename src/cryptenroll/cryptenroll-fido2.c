@@ -160,9 +160,9 @@ int enroll_fido2(
                                 SD_JSON_BUILD_PAIR("fido2-credential", SD_JSON_BUILD_BASE64(cid, cid_size)),
                                 SD_JSON_BUILD_PAIR("fido2-salt", JSON_BUILD_IOVEC_BASE64(&salt)),
                                 SD_JSON_BUILD_PAIR("fido2-rp", JSON_BUILD_CONST_STRING("io.systemd.cryptsetup")),
-                                SD_JSON_BUILD_PAIR("fido2-clientPin-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_PIN))),
-                                SD_JSON_BUILD_PAIR("fido2-up-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UP))),
-                                SD_JSON_BUILD_PAIR("fido2-uv-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UV))));
+                                SD_JSON_BUILD_PAIR_BOOLEAN("fido2-clientPin-required", FLAGS_SET(lock_with, FIDO2ENROLL_PIN)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("fido2-up-required", FLAGS_SET(lock_with, FIDO2ENROLL_UP)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("fido2-uv-required", FLAGS_SET(lock_with, FIDO2ENROLL_UV)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to prepare FIDO2 JSON token object: %m");
 

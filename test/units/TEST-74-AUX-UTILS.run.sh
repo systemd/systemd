@@ -81,6 +81,11 @@ systemd-run --wait --pipe --user --machine=testuser@ \
 systemd-run --wait --pipe --user --machine=testuser@ \
             bash -xec '[[ "$PWD" == /home/testuser && -n "$INVOCATION_ID" ]]'
 
+# https://github.com/systemd/systemd/issues/39038
+systemd-run --wait --machine=testuser@ --user -p User=testuser true
+systemd-run --wait --machine=testuser@ --user -p Group=testuser true
+(! systemd-run --wait --machine=testuser@ --user -p Group=testuser -p SupplementaryGroups=root true)
+
 # PrivateTmp=yes implies PrivateUsers=yes for user manager, so skip this if we
 # don't have unprivileged user namespaces.
 if [[ "$(sysctl -ne kernel.apparmor_restrict_unprivileged_userns)" -ne 1 ]]; then
@@ -297,6 +302,14 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
     # Validate when we invoke run0 without a tty, that depending on --pty it either allocates a tty or not
     assert_neq "$(run0 --pty tty < /dev/null)" "not a tty"
     assert_eq "$(run0 --pipe tty < /dev/null)" "not a tty"
+
+    # Validate that --empower gives all capabilities to a non-root user.
+    caps="$(run0 -u testuser --empower systemd-analyze capability --mask "$(grep CapEff /proc/self/status | cut -d':' -f2)" --json=pretty | jq -r length)"
+    assert_neq "$caps" "0"
+
+    run0 -u testuser --empower touch /run/empower
+    assert_eq "$(stat -c "%U" /run/empower)" testuser
+    rm /run/empower
 fi
 
 # Tests whether intermediate disconnects corrupt us (modified testcase from https://github.com/systemd/systemd/issues/27204)

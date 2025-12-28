@@ -490,18 +490,18 @@ static int run(int argc, char **argv) {
                 /* Testing with several syscalls filtered, and check if the nss modules gracefully handle failures in
                  * masked syscalls. See issue #38582. */
 
-                ASSERT_OK(r = safe_fork("(with-seccomp)", FORK_LOG | FORK_WAIT, /* ret_pid = */ NULL));
+                ASSERT_OK(r = safe_fork("(with-seccomp)", FORK_LOG | FORK_WAIT, /* ret_pid= */ NULL));
                 if (r == 0) {
                         _cleanup_hashmap_free_ Hashmap *filter = NULL;
                         ASSERT_NOT_NULL(filter = hashmap_new(NULL));
                         FOREACH_STRING(s, "uname", "olduname", "oldolduname", "sigprocmask", "rt_sigprocmask", "osf_sigprocmask")
-                                ASSERT_OK(seccomp_filter_set_add_by_name(filter, /* add = */ true, s));
-                        ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, filter, SCMP_ACT_ERRNO(ENOSYS), /* log_missing = */ true));
+                                ASSERT_OK(seccomp_filter_set_add_by_name(filter, /* add= */ true, s));
+                        ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, filter, SCMP_ACT_ERRNO(ENOSYS), /* log_missing= */ true));
 
                         /* To make assert_return() and friends not call abort(), even built as developer mode. */
-                        ASSERT_OK_ERRNO(setenv("SYSTEMD_ASSERT_RETURN_IS_CRITICAL", "0", /* overwrite = */ true));
+                        ASSERT_OK_ERRNO(setenv("SYSTEMD_ASSERT_RETURN_IS_CRITICAL", "0", /* overwrite= */ true));
                         /* Let's also make nss modules output debugging logs. */
-                        ASSERT_OK_ERRNO(setenv("SYSTEMD_LOG_LEVEL", "debug", /* overwrite = */ true));
+                        ASSERT_OK_ERRNO(setenv("SYSTEMD_LOG_LEVEL", "debug", /* overwrite= */ true));
 
                         STRV_FOREACH(module, modules)
                                 ASSERT_OK(test_one_module(dir, *module, names, addresses, n_addresses));

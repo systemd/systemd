@@ -18,6 +18,7 @@ ADDITIONAL_DEPS=(
     libtss2-dev
     libxkbcommon-dev
     libzstd-dev
+    linux-tools-generic
     python3-libevdev
     python3-pip
     python3-pyelftools
@@ -74,6 +75,12 @@ for phase in "${PHASES[@]}"; do
             capsh --drop=all -- -c "stat $PWD/meson.build"
             ;;
         RUN|RUN_GCC|RUN_CLANG|RUN_CLANG_RELEASE)
+            # TODO: drop after we switch to ubuntu 26.04
+            bpftool_dir=$(dirname "$(find /usr/lib/linux-tools/ /usr/lib/linux-tools-* -name 'bpftool' -perm /u=x 2>/dev/null | sort -r | head -n1)")
+            if [ -n "$bpftool_dir" ]; then
+                export PATH="$bpftool_dir:$PATH"
+            fi
+
             if [[ "$phase" =~ ^RUN_CLANG ]]; then
                 export CC=clang
                 export CXX=clang++
@@ -102,9 +109,15 @@ for phase in "${PHASES[@]}"; do
             run_meson -Dnobody-group=nogroup --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
             ninja -C build -v
             # Ensure setting a timezone (like the reproducible build tests do) does not break time/date unit tests
-            TZ=GMT+12 meson test "${MESON_TEST_ARGS[@]}" -C build --print-errorlogs
+            TZ=GMT+12 meson test "${MESON_TEST_ARGS[@]}" -C build --print-errorlogs --no-stdsplit --quiet
             ;;
         RUN_ASAN_UBSAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN_NO_DEPS)
+            # TODO: drop after we switch to ubuntu 26.04
+            bpftool_dir=$(dirname "$(find /usr/lib/linux-tools/ /usr/lib/linux-tools-* -name 'bpftool' -perm /u=x 2>/dev/null | sort -r | head -n1)")
+            if [ -n "$bpftool_dir" ]; then
+                export PATH="$bpftool_dir:$PATH"
+            fi
+
             MESON_ARGS=(--optimization=1)
 
             if [[ "$phase" =~ ^RUN_CLANG_ASAN_UBSAN ]]; then
@@ -138,7 +151,7 @@ for phase in "${PHASES[@]}"; do
             # during debugging, wonderful), so let's at least keep a workaround
             # here to make the builds stable for the time being.
             (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
-            meson test --timeout-multiplier=3 -C build --print-errorlogs
+            meson test --timeout-multiplier=3 -C build --print-errorlogs --no-stdsplit --quiet
             ;;
         CLEANUP)
             info "Cleanup phase"

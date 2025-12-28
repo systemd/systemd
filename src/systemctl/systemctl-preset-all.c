@@ -19,7 +19,7 @@ int verb_preset_all(int argc, char *argv[], void *userdata) {
         if (should_bypass("SYSTEMD_PRESET"))
                 return 0;
 
-        if (install_client_side()) {
+        if (install_client_side() != INSTALL_CLIENT_SIDE_NO) {
                 InstallChange *changes = NULL;
                 size_t n_changes = 0;
 

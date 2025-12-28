@@ -12,6 +12,7 @@
 #include "chase.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "cryptsetup-util.h"
 #include "data-fd-util.h"
 #include "dirent-util.h"
 #include "discover-image.h"
@@ -28,19 +29,20 @@
 #include "glyph-util.h"
 #include "install.h"
 #include "iovec-util.h"
+#include "libmount-util.h"
 #include "log-context.h"
 #include "log.h"
 #include "loop-util.h"
 #include "mkdir.h"
 #include "os-util.h"
 #include "path-lookup.h"
+#include "pidref.h"
 #include "portable.h"
 #include "portable-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "set.h"
-#include "signal-util.h"
 #include "socket-util.h"
 #include "sort-util.h"
 #include "string-table.h"
@@ -398,7 +400,7 @@ static int portable_extract_by_path(
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
                 _cleanup_(rmdir_and_freep) char *tmpdir = NULL;
                 _cleanup_close_pair_ int seq[2] = EBADF_PAIR;
-                _cleanup_(sigkill_waitp) pid_t child = 0;
+                _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
                 DissectImageFlags flags =
                         DISSECT_IMAGE_READ_ONLY |
                         DISSECT_IMAGE_GENERIC_ROOT |
@@ -418,7 +420,9 @@ static int portable_extract_by_path(
                 /* We now have a loopback block device, let's fork off a child in its own mount namespace, mount it
                  * there, and extract the metadata we need. The metadata is sent from the child back to us. */
 
-                BLOCK_SIGNALS(SIGCHLD);
+                /* Load some libraries before we fork workers off that want to use them */
+                (void) dlopen_cryptsetup();
+                (void) dlopen_libmount();
 
                 r = mkdtemp_malloc("/tmp/inspect-XXXXXX", &tmpdir);
                 if (r < 0)
@@ -448,7 +452,7 @@ static int portable_extract_by_path(
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, seq) < 0)
                         return log_debug_errno(errno, "Failed to allocated SOCK_SEQPACKET socket: %m");
 
-                r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_LOG, &child);
+                r = pidref_safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_LOG, &child);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -534,10 +538,11 @@ static int portable_extract_by_path(
                                 assert_not_reached();
                 }
 
-                r = wait_for_terminate_and_check("(sd-dissect)", child, 0);
+                r = pidref_wait_for_terminate_and_check("(sd-dissect)", &child, 0);
                 if (r < 0)
                         return r;
-                child = 0;
+
+                pidref_done(&child);
         }
 
         if (!os_release)
@@ -734,7 +739,7 @@ static int extract_image_and_extensions(
 
                 e = strv_env_pairs_get(extension_release, "PORTABLE_PREFIXES");
                 if (e) {
-                        r = strv_split_and_extend(&valid_prefixes, e, WHITESPACE, /* filter_duplicates = */ true);
+                        r = strv_split_and_extend(&valid_prefixes, e, WHITESPACE, /* filter_duplicates= */ true);
                         if (r < 0)
                                 return r;
                 }

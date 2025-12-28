@@ -20,3 +20,4 @@ ListenStream=/run/systemd/io.systemd.Repart
 FileDescriptorName=varlink
 SocketMode=0600
 Accept=yes
+MaxConnectionsPerSource=16

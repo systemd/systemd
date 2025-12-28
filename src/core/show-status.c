@@ -22,16 +22,16 @@ static const char* const show_status_table[_SHOW_STATUS_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(show_status, ShowStatus, SHOW_STATUS_YES);
 
-int parse_show_status(const char *v, ShowStatus *ret) {
-        ShowStatus s;
+int parse_show_status(const char *s, ShowStatus *ret) {
+        ShowStatus status;
 
         assert(ret);
 
-        s = show_status_from_string(v);
-        if (s < 0 || s == SHOW_STATUS_TEMPORARY)
+        status = show_status_from_string(s);
+        if (status < 0 || status == SHOW_STATUS_TEMPORARY)
                 return -EINVAL;
 
-        *ret = s;
+        *ret = status;
         return 0;
 }
 

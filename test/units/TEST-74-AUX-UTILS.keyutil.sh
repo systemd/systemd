@@ -37,32 +37,39 @@ testcase_validate() {
     /usr/lib/systemd/systemd-keyutil validate --certificate /tmp/test.crt --private-key /tmp/test.key
 }
 
-testcase_public() {
-    PUBLIC="$(/usr/lib/systemd/systemd-keyutil public --certificate /tmp/test.crt)"
+testcase_extract_public() {
+    PUBLIC="$(/usr/lib/systemd/systemd-keyutil extract-public --certificate /tmp/test.crt)"
     assert_eq "$PUBLIC" "$(openssl x509 -in /tmp/test.crt -pubkey -noout)"
 
-    PUBLIC="$(/usr/lib/systemd/systemd-keyutil public --private-key /tmp/test.key)"
+    PUBLIC="$(/usr/lib/systemd/systemd-keyutil extract-public --private-key /tmp/test.key)"
     assert_eq "$PUBLIC" "$(openssl x509 -in /tmp/test.crt -pubkey -noout)"
 
-    (! /usr/lib/systemd/systemd-keyutil public)
+    (! /usr/lib/systemd/systemd-keyutil extract-public)
+}
+
+testcase_extract_certificate() {
+    CERT="$(/usr/lib/systemd/systemd-keyutil extract-certificate --certificate /tmp/test.crt)"
+    assert_eq "$CERT" "$(cat /tmp/test.crt)"
+
+    (! /usr/lib/systemd/systemd-keyutil extract-certificate)
 }
 
 verify_pkcs7() {
     # Verify using internal certificate
-    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify > /dev/null
+    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify >/dev/null
     # Verify using external (original) certificate
-    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify -certfile /tmp/test.crt -nointern > /dev/null
+    openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify -certfile /tmp/test.crt -nointern >/dev/null
 }
 
 verify_pkcs7_fail() {
     # Verify using internal certificate
-    (! openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify > /dev/null)
+    (! openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify >/dev/null)
     # Verify using external (original) certificate
-    (! openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify -certfile /tmp/test.crt -nointern > /dev/null)
+    (! openssl smime -verify -binary -inform der -in /tmp/payload.p7s -content /tmp/payload -noverify -certfile /tmp/test.crt -nointern >/dev/null)
 }
 
 testcase_pkcs7() {
-    echo -n "test" > /tmp/payload
+    echo -n "test" >/tmp/payload
 
     for hashalg in sha256 sha384 sha512; do
         # shellcheck disable=SC2086
