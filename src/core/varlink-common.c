@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cpu-set-util.h"
+#include "execute.h"
 #include "json-util.h"
 #include "rlimit-util.h"
+#include "strv.h"
 #include "varlink-common.h"
 
 int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -79,4 +81,27 @@ int cpuset_build_json(sd_json_variant **ret, const char *name, void *userdata) {
 empty:
         *ret = NULL;
         return 0;
+}
+
+int exec_command_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        ExecCommand *cmd = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **flags = NULL;
+        int r;
+
+        assert(ret);
+
+        if (isempty(cmd->path)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        r = exec_command_flags_to_strv(cmd->flags, &flags);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert exec command flags to strv: %m");
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("path", cmd->path),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("arguments", cmd->argv),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("flags", flags));
 }

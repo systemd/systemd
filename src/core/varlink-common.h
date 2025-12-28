@@ -6,3 +6,4 @@
 int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata);
 int rlimit_table_build_json(sd_json_variant **ret, const char *name, void *userdata);
 int cpuset_build_json(sd_json_variant **ret, const char *name, void *userdata);
+int exec_command_build_json(sd_json_variant **ret, const char *name, void *userdata);

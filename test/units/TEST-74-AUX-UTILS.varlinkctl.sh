@@ -209,6 +209,18 @@ varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"cgroup": "/init.scope"}'
 invocation_id="$(systemctl show -P InvocationID systemd-journald.service)"
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"invocationID\": \"$invocation_id\"}"
+# test for KillContext
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"pid": {"pid": 0}}' | jq -e '.context.Kill'
+# test for AutomountContext/Runtime
+automount_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "automount") .context.ID' | grep -v null | tail -n 1)
+test -n "$automount_id"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\": \"$automount_id\"}" | jq -e '.context.Automount'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\": \"$automount_id\"}" | jq -e '.runtime.Automount'
+# test for MountContext/Runtime
+mount_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "mount") .context.ID' | grep -v null | tail -n 1)
+test -n "$mount_id"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\": \"$mount_id\"}" | jq -e '.context.Mount'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\": \"$mount_id\"}" | jq -e '.runtime.Mount'
 
 # test io.systemd.Manager in user manager
 testuser_uid=$(id -u testuser)
