@@ -17,6 +17,7 @@
 #include "fs-util.h"
 #include "network-internal.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-dhcp4.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-bus.h"
@@ -946,11 +947,28 @@ static int link_save(Link *link) {
         print_link_hashmap(f, "CARRIER_BOUND_BY=", link->bound_by_links);
 
         if (link->dhcp_lease) {
-                r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
+                r = dhcp_lease_save(link->dhcp_lease, AT_FDCWD, link->lease_file);
                 if (r < 0)
                         return r;
 
                 fprintf(f, "DHCP_LEASE=%s\n", link->lease_file);
+
+                if (is_dhcp_client_persist_leases(link)) {
+                        _cleanup_free_ char *persistent_path = NULL;
+                        int dir_fd;
+
+                        r = link_get_dhcp_client_lease_path(link, &dir_fd, &persistent_path);
+
+                        if (r == -EBUSY) {
+                                /* not ready */
+                        } else if (r < 0) {
+                                log_link_debug_errno(link, r, "Failed to get persistent lease path: %m");
+                        } else if (r > 0) {
+                                r = dhcp_lease_save(link->dhcp_lease, dir_fd, persistent_path);
+                                if (r < 0)
+                                        log_link_warning_errno(link, r, "Failed to save persistent DHCP lease: %m");
+                        }
+                }
         } else
                 (void) unlink(link->lease_file);
 

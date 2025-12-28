@@ -6,6 +6,7 @@
 #include "dhcp-duid-internal.h"
 #include "in-addr-util.h"
 #include "networkd-forward.h"
+#include "time-util.h"
 
 /* Special values for *_uplink_index. */
 #define UPLINK_INDEX_AUTO  0 /* uplink will be selected automatically */
@@ -17,6 +18,12 @@
 #define IPV6RA_ROUTE_METRIC_MEDIUM 1024
 #define IPV6RA_ROUTE_METRIC_LOW    2048
 #define DHCP6PD_ROUTE_METRIC 256
+
+#define DEFAULT_EXPIRED_LEASE_LIFETIME_USEC (120 * USEC_PER_SEC)
+#define MIN_EXPIRED_LEASE_LIFETIME_USEC (120 * USEC_PER_SEC) /* Don't want to go any lower than this */
+#define MAX_EXPIRED_LEASE_LIFETIME_USEC (240 * USEC_PER_SEC) /* Anymore than 5m defeats the purpose of this */
+#define DEFAULT_EXPIRED_LEASE_FUZZ_PERCENT 0 /* No Fuzzing, default behaviour */
+#define MAX_EXPIRED_LEASE_FUZZ_PERCENT 50 /* 50% maximum */
 
 typedef enum DHCPOptionDataType {
         DHCP_OPTION_DATA_UINT8,

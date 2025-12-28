@@ -29,6 +29,7 @@
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "qdisc.h"
 #include "radv-internal.h"
 #include "set.h"
@@ -375,6 +376,10 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .promiscuous = -1,
 
                 .keep_configuration = manager->keep_configuration,
+
+                .dhcp_client_persist_leases = manager->dhcp_client_persist_leases,
+                .expired_lease_extension_lifetime = DEFAULT_EXPIRED_LEASE_LIFETIME_USEC,
+                .expired_lease_extension_fuzz = DEFAULT_EXPIRED_LEASE_FUZZ_PERCENT,
 
                 .use_domains = _USE_DOMAINS_INVALID,
 
@@ -1133,6 +1138,95 @@ int config_parse_keep_configuration(
         return 0;
 }
 
+int config_parse_dhcp_client_persist_leases(
+                        const char *unit,
+                        const char *filename,
+                        unsigned line,
+                        const char *section,
+                        unsigned section_line,
+                        const char *lvalue,
+                        int ltype,
+                        const char *rvalue,
+                        void *data,
+                        void *userdata) {
+
+        DHCPClientPersistLeases t, *k = ASSERT_PTR(data);
+        Network *network = ASSERT_PTR(userdata);
+
+        if (isempty(rvalue)) {
+                *k = ASSERT_PTR(network->manager)->dhcp_client_persist_leases;
+                return 0;
+        }
+
+        t = dhcp_client_persist_leases_from_string(rvalue);
+        if (t < 0)
+                return log_syntax_parse_error(unit, filename, line, t, lvalue, rvalue);
+
+        *k = t;
+        return 0;
+}
+
+int config_parse_expired_lease_extension_options(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        usec_t usec;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                if (streq(lvalue, "ExpiredLeaseExtensionLifetime"))
+                        /* use default value */
+                        network->expired_lease_extension_lifetime = DEFAULT_EXPIRED_LEASE_LIFETIME_USEC;
+                else
+                        network->expired_lease_extension_fuzz = DEFAULT_EXPIRED_LEASE_FUZZ_PERCENT;
+                return 0;
+        }
+
+        if (streq(lvalue, "ExpiredLeaseExtensionLifetime")) {
+                r = parse_sec(rvalue, &usec);
+                if (r < 0) {
+                        return log_syntax(unit, LOG_WARNING, filename, line, r,
+                                       "Failed to parse [%s] %s=, ignoring assignment: %s", section, lvalue, rvalue);
+                }
+
+                if ((usec < MIN_EXPIRED_LEASE_LIFETIME_USEC || usec > MAX_EXPIRED_LEASE_LIFETIME_USEC) && !network_test_mode_enabled()) {
+                         return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                        "Extension lifetime value out of range, ignoring assignment: %s", rvalue);
+                }
+
+                network->expired_lease_extension_lifetime = usec;
+        } else if (streq(lvalue, "ExpiredLeaseExtensionFuzz")) {
+                r = parse_percent(rvalue);
+                if (r < 0) {
+                        return log_syntax(unit, LOG_WARNING, filename, line, r,
+                                       "Failed to parse [%s] %s=, ignoring assignment: %s", section, lvalue, rvalue);
+                }
+
+                if (r > MAX_EXPIRED_LEASE_FUZZ_PERCENT) {
+                         return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                        "Extension value value out of range, ignoring assignment: %s", rvalue);
+                }
+
+                network->expired_lease_extension_fuzz = r;
+        }
+        return 0;
+}
+
 DEFINE_CONFIG_PARSE_ENUM(config_parse_required_family_for_online, link_required_address_family, AddressFamily);
 
 static const char* const keep_configuration_table[_KEEP_CONFIGURATION_MAX] = {
@@ -1156,3 +1250,11 @@ static const char* const activation_policy_table[_ACTIVATION_POLICY_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_activation_policy, activation_policy, ActivationPolicy);
+
+static const char* const dhcp_client_persist_leases_table[_DHCP_CLIENT_PERSIST_LEASES_MAX] = {
+        [DHCP_CLIENT_PERSIST_LEASES_NO]              = "no",
+        [DHCP_CLIENT_PERSIST_LEASES_YES]             = "yes",
+        [DHCP_CLIENT_PERSIST_LEASES_EXPIRED]         = "yes-with-expired",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(dhcp_client_persist_leases, DHCPClientPersistLeases);
