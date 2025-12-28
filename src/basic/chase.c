@@ -128,6 +128,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         unsigned max_follow = CHASE_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
         bool exists = true, append_trail_slash = false;
         struct stat st; /* stat obtained from fd */
+        bool need_absolute = false; /* allocate early to avoid compiler warnings around goto */
         const char *todo;
         int r;
 
@@ -220,6 +221,33 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
 
         _cleanup_close_ int _dir_fd = -EBADF;
         if (dir_fd == XAT_FDROOT) {
+
+                /* Shortcut the common case where no root dir is specified, and no special flags are given to
+                 * a regular open() */
+                if (!ret_path &&
+                    (flags & (CHASE_STEP|CHASE_NO_AUTOFS|CHASE_NONEXISTENT|CHASE_SAFE|CHASE_WARN|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
+                        _cleanup_free_ char *slash_path = NULL;
+
+                        if (!path_is_absolute(path)) {
+                                slash_path = strjoin("/", path);
+                                if (!slash_path)
+                                        return -ENOMEM;
+                        }
+
+                        /* We use open_tree() rather than regular open() here, because it gives us direct
+                         * control over automount behaviour, and otherwise is equivalent to open() with
+                         * O_PATH */
+                        fd = open_tree(-EBADF, slash_path ?: path, OPEN_TREE_CLOEXEC|(FLAGS_SET(flags, CHASE_TRIGGER_AUTOFS) ? 0 : AT_NO_AUTOMOUNT));
+                        if (fd < 0)
+                                return -errno;
+
+                        if (fstat(fd, &st) < 0)
+                                return -errno;
+
+                        exists = true;
+                        goto success;
+                }
+
                 _dir_fd = open("/", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
                 if (_dir_fd < 0)
                         return -errno;
@@ -259,7 +287,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         if (r < 0)
                 return r;
 
-        bool need_absolute = r;
+        need_absolute = r;
         if (need_absolute) {
                 done = strdup("/");
                 if (!done)
@@ -522,6 +550,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 close_and_replace(fd, child);
         }
 
+success:
         if (exists) {
                 if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY)) {
                         r = stat_verify_directory(&st);
