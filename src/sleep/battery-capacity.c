@@ -351,8 +351,8 @@ int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
                 total_suspend_interval = usec_add(total_suspend_interval, suspend_interval);
         }
         /* Previous discharge rate is stored in per hour basis converted to usec.
-         * Subtract 30 minutes from the result to keep a buffer of 30 minutes before battery gets critical */
-        total_suspend_interval = usec_sub_unsigned(total_suspend_interval, 30 * USEC_PER_MINUTE);
+         * Subtract a buffer to wake before battery gets critical: the larger of 5% or 30 minutes */
+        total_suspend_interval = usec_sub_unsigned(total_suspend_interval, MAX(total_suspend_interval / 20, 30 * USEC_PER_MINUTE));
         if (total_suspend_interval == 0)
                 return -ENOENT;
 
