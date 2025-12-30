@@ -56,6 +56,7 @@ static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
 static ImagePolicy *arg_image_policy = NULL;
 static ImageFilter *arg_image_filter = NULL;
+static bool arg_interactive_cryptsetup_recovery = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
@@ -75,7 +76,8 @@ static int add_cryptsetup(
                 char **ret_device) {
 
 #if HAVE_LIBCRYPTSETUP
-        _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL, *options = NULL;
+        _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL, *options = NULL, *escaped_path = NULL,
+                        *failure_target = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -102,6 +104,10 @@ static int add_cryptsetup(
         if (r < 0)
                 return r;
 
+        r = unit_name_path_escape(what, &escaped_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to escape path: %m");
+
         fprintf(f,
                 "Before=umount.target cryptsetup.target\n"
                 "Conflicts=umount.target\n"
@@ -112,6 +118,19 @@ static int add_cryptsetup(
         if (!FLAGS_SET(flags, MOUNT_RW)) {
                 options = strdup("read-only");
                 if (!options)
+                        return log_oom();
+        }
+
+        if (!arg_interactive_cryptsetup_recovery) {
+                r = unit_name_build("decryption-failure", escaped_path, ".target", &failure_target);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate failure target unit name: %m");
+
+                fprintf(f,
+                        "OnFailure=%s\n",
+                        failure_target);
+
+                if (!strextend_with_separator(&options, ",", "headless.recovery"))
                         return log_oom();
         }
 
@@ -1323,6 +1342,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 if (!strextend_with_separator(&arg_usr_options, ",", value))
                         return log_oom();
+
+        } else if (streq(key, "mount.crypt.interactive_recovery")) {
+
+                r = value ? parse_boolean(value) : 1;
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse mount.crypt.interactive_recovery switch \"%s\", ignoring: %m", value);
+                else
+                        arg_interactive_cryptsetup_recovery = r;
 
         } else if (streq(key, "rw") && !value)
                 arg_root_rw = true;
