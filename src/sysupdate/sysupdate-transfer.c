@@ -740,6 +740,48 @@ static void transfer_remove_temporary(Transfer *t) {
         }
 }
 
+static int transfer_instance_vacuum(
+                Transfer *t,
+                Instance *instance) {
+        int r;
+
+        assert(t);
+        assert(instance);
+
+        switch (t->target.type) {
+
+        case RESOURCE_REGULAR_FILE:
+        case RESOURCE_DIRECTORY:
+        case RESOURCE_SUBVOLUME:
+                r = rm_rf(instance->path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to make room, deleting '%s' failed: %m", instance->path);
+
+                (void) rmdir_parents(instance->path, t->target.path);
+
+                break;
+
+        case RESOURCE_PARTITION: {
+                PartitionInfo pinfo = instance->partition_info;
+
+                /* label "_empty" means "no contents" for our purposes */
+                pinfo.label = (char*) "_empty";
+
+                r = patch_partition(t->target.path, &pinfo, PARTITION_LABEL);
+                if (r < 0)
+                        return r;
+
+                t->target.n_empty++;
+                break;
+        }
+
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
 int transfer_vacuum(
                 Transfer *t,
                 uint64_t space,
@@ -840,36 +882,9 @@ int transfer_vacuum(
                          oldest->path,
                          resource_type_to_string(oldest->resource->type));
 
-                switch (t->target.type) {
-
-                case RESOURCE_REGULAR_FILE:
-                case RESOURCE_DIRECTORY:
-                case RESOURCE_SUBVOLUME:
-                        r = rm_rf(oldest->path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
-                        if (r < 0 && r != -ENOENT)
-                                return log_error_errno(r, "Failed to make room, deleting '%s' failed: %m", oldest->path);
-
-                        (void) rmdir_parents(oldest->path, t->target.path);
-
-                        break;
-
-                case RESOURCE_PARTITION: {
-                        PartitionInfo pinfo = oldest->partition_info;
-
-                        /* label "_empty" means "no contents" for our purposes */
-                        pinfo.label = (char*) "_empty";
-
-                        r = patch_partition(t->target.path, &pinfo, PARTITION_LABEL);
-                        if (r < 0)
-                                return r;
-
-                        t->target.n_empty++;
-                        break;
-                }
-
-                default:
-                        assert_not_reached();
-                }
+                r = transfer_instance_vacuum(t, oldest);
+                if (r < 0)
+                        return 0;
 
                 instance_free(oldest);
                 memmove(t->target.instances + p, t->target.instances + p + 1, (t->target.n_instances - p - 1) * sizeof(Instance*));
