@@ -987,6 +987,7 @@ units = [
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
           'symlinks' : ['sysinit.target.wants/'],
         },
+        { 'file' : 'decryption-failure@.target' }
 ]
 
 # For the udev/hwdb aliases
