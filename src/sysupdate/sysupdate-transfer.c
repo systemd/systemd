@@ -798,7 +798,45 @@ int transfer_vacuum(
 
         transfer_remove_temporary(t);
 
-        /* First, calculate how many instances to keep, based on the instance limit — but keep at least one */
+        /* First, remove any partial or pending instances (unless protected) */
+        for (size_t i = 0; i < t->target.n_instances;) {
+                Instance *instance = t->target.instances[i];
+
+                assert(instance);
+
+                if (!instance->is_pending && !instance->is_partial) {
+                        i++;
+                        continue;
+                }
+
+                /* If this is listed among the protected versions, then let's not remove it */
+                if (strv_contains(t->protected_versions, instance->metadata.version) ||
+                    (extra_protected_version && streq(extra_protected_version, instance->metadata.version))) {
+                        log_debug("Version '%s' is pending/partial but protected, not removing.", instance->metadata.version);
+                        i++;
+                        continue;
+                }
+
+                assert(instance->resource);
+
+                log_info("%s Removing old %s '%s' (%s).",
+                         glyph(GLYPH_RECYCLING),
+                         instance->is_partial ? "partial" : "pending",
+                         instance->path,
+                         resource_type_to_string(instance->resource->type));
+
+                r = transfer_instance_vacuum(t, instance);
+                if (r < 0)
+                        return 0;
+
+                instance_free(instance);
+                memmove(t->target.instances + i, t->target.instances + i + 1, (t->target.n_instances - i - 1) * sizeof(Instance*));
+                t->target.n_instances--;
+
+                count++;
+        }
+
+        /* Second, calculate how many instances to keep, based on the instance limit — but keep at least one */
 
         instances_max = arg_instances_max != UINT64_MAX ? arg_instances_max : t->instances_max;
         assert(instances_max >= 1);
