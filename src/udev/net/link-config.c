@@ -277,6 +277,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 .eee_tx_lpi_enabled = -1,
                 .eee_tx_lpi_timer_usec = USEC_INFINITY,
                 .irq_affinity_policy = _IRQ_AFFINITY_POLICY_INVALID,
+                .irq_affinity_numa = IRQ_AFFINITY_NUMA_UNSET,
         };
 
         FOREACH_ELEMENT(feature, config->features)
@@ -946,6 +947,59 @@ static int link_apply_sr_iov_config(Link *link) {
         return 0;
 }
 
+/* Get the local NUMA node for a network device from sysfs.
+ * Returns -ENOENT if numa_node file doesn't exist or shows -1 (no NUMA). */
+static int link_get_device_numa_node(Link *link, int *ret) {
+        _cleanup_free_ char *numa_node_path = NULL, *content = NULL;
+        const char *syspath;
+        int r, node;
+
+        assert(link);
+        assert(link->event);
+        assert(link->event->dev);
+        assert(ret);
+
+        r = sd_device_get_syspath(link->event->dev, &syspath);
+        if (r < 0)
+                return r;
+
+        numa_node_path = path_join(syspath, "device/numa_node");
+        if (!numa_node_path)
+                return -ENOMEM;
+
+        r = read_one_line_file(numa_node_path, &content);
+        if (r < 0)
+                return r;
+
+        r = safe_atoi(content, &node);
+        if (r < 0)
+                return r;
+
+        /* -1 means no NUMA node (non-NUMA system or device not associated with a node) */
+        if (node < 0)
+                return -ENOENT;
+
+        *ret = node;
+        return 0;
+}
+
+/* Get the CPUs belonging to a specific NUMA node */
+static int numa_node_get_cpus(int node, CPUSet *ret) {
+        char path[STRLEN("/sys/devices/system/node/node/cpulist") + DECIMAL_STR_MAX(int) + 1];
+        _cleanup_free_ char *cpulist = NULL;
+        int r;
+
+        assert(ret);
+
+        xsprintf(path, "/sys/devices/system/node/node%d/cpulist", node);
+
+        r = read_one_line_file(path, &cpulist);
+        if (r < 0)
+                return r;
+
+        return parse_cpu_set(cpulist, ret);
+}
+
 /* CPU topology information for IRQ affinity spread algorithm. */
 typedef struct CPUTopology {
         unsigned cpu;
@@ -1537,6 +1591,7 @@ static int link_apply_irq_affinity(Link *link) {
         _cleanup_free_ char *msi_irqs_path = NULL;
         _cleanup_(cpu_set_done) CPUSet effective_cpus = {};
         const char *syspath;
+        int numa_node = -1;
         int r;
 
         assert(link);
@@ -1559,11 +1614,80 @@ static int link_apply_irq_affinity(Link *link) {
         if (!msi_irqs_path)
                 return log_oom();
 
+        /* Compute effective CPU set from IRQAffinity= and IRQAffinityNUMA= */
+        if (link->config->irq_affinity_numa != IRQ_AFFINITY_NUMA_UNSET) {
+                _cleanup_(cpu_set_done) CPUSet numa_cpus = {};
+
+                /* Resolve "local" to the actual NUMA node */
+                if (link->config->irq_affinity_numa == IRQ_AFFINITY_NUMA_LOCAL) {
+                        r = link_get_device_numa_node(link, &numa_node);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r,
+                                        "Failed to determine local NUMA node for device, skipping IRQ affinity configuration.");
+                                return 0;
+                        }
+                        log_link_debug(link, "Device is on NUMA node %d.", numa_node);
+                } else
+                        numa_node = link->config->irq_affinity_numa;
+
+                /* Get CPUs for the NUMA node */
+                r = numa_node_get_cpus(numa_node, &numa_cpus);
+                if (r < 0) {
+                        log_link_warning_errno(link, r,
+                                "Failed to get CPUs for NUMA node %d, skipping IRQ affinity configuration.", numa_node);
+                        return 0;
+                }
+
+                /* If IRQAffinity= is also specified, compute intersection */
+                if (link->config->irq_affinity_cpus.set) {
+                        /* Compute intersection of IRQAffinity= and NUMA CPUs */
+                        size_t max_allocated = MAX(numa_cpus.allocated, link->config->irq_affinity_cpus.allocated);
+
+                        r = cpu_set_realloc(&effective_cpus, max_allocated * 8);
+                        if (r < 0)
+                                return log_oom();
+
+                        for (size_t i = 0; i < max_allocated * 8; i++) {
+                                bool in_numa = i < numa_cpus.allocated * 8 &&
+                                               CPU_ISSET_S(i, numa_cpus.allocated, numa_cpus.set);
+                                bool in_affinity = i < link->config->irq_affinity_cpus.allocated * 8 &&
+                                                   CPU_ISSET_S(i, link->config->irq_affinity_cpus.allocated, link->config->irq_affinity_cpus.set);
+
+                                if (in_numa && in_affinity) {
+                                        r = cpu_set_add(&effective_cpus, i);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
+                        }
+
+                        /* Check if intersection is empty */
+                        if (!effective_cpus.set || CPU_COUNT_S(effective_cpus.allocated, effective_cpus.set) == 0) {
+                                log_link_error(link,
+                                        "IRQAffinity= and IRQAffinityNUMA= intersection is empty, skipping IRQ affinity configuration.");
+                                return 0;
+                        }
+
+                        log_link_debug(link, "Using intersection of IRQAffinity= and NUMA node %d CPUs.", numa_node);
+                } else {
+                        /* Only NUMA filtering, use NUMA CPUs directly */
+                        effective_cpus = TAKE_STRUCT(numa_cpus);
+                        log_link_debug(link, "Using CPUs from NUMA node %d.", numa_node);
+                }
+        } else if (link->config->irq_affinity_cpus.set) {
+                /* Only IRQAffinity= specified, copy it */
+                r = cpu_set_add_set(&effective_cpus, &link->config->irq_affinity_cpus);
+                if (r < 0)
+                        return log_oom();
+        }
+        /* else: no filtering, effective_cpus remains empty (meaning use all CPUs) */
+
         switch (link->config->irq_affinity_policy) {
         case IRQ_AFFINITY_POLICY_SINGLE:
-                return link_apply_irq_affinity_single(link, msi_irqs_path, &link->config->irq_affinity_cpus);
+                return link_apply_irq_affinity_single(link, msi_irqs_path,
+                        effective_cpus.set ? &effective_cpus : NULL);
         case IRQ_AFFINITY_POLICY_SPREAD:
-                return link_apply_irq_affinity_spread(link, msi_irqs_path, &link->config->irq_affinity_cpus);
+                return link_apply_irq_affinity_spread(link, msi_irqs_path,
+                        effective_cpus.set ? &effective_cpus : NULL);
         default:
                 assert_not_reached();
         }
@@ -2053,6 +2177,54 @@ DEFINE_CONFIG_PARSE_ENUMV(config_parse_name_policy, name_policy, NamePolicy,
 
 DEFINE_CONFIG_PARSE_ENUMV(config_parse_alternative_names_policy, alternative_names_policy, NamePolicy,
                           _NAMEPOLICY_INVALID);
+
+int config_parse_irq_affinity_numa(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *numa = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *numa = IRQ_AFFINITY_NUMA_UNSET;
+                return 0;
+        }
+
+        if (streq(rvalue, "local")) {
+                *numa = IRQ_AFFINITY_NUMA_LOCAL;
+                return 0;
+        }
+
+        /* Parse as NUMA node number */
+        r = safe_atoi(rvalue, numa);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                *numa = IRQ_AFFINITY_NUMA_UNSET;
+                return 0;
+        }
+
+        if (*numa < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid NUMA node number %d, ignoring assignment: %s", *numa, rvalue);
+                *numa = IRQ_AFFINITY_NUMA_UNSET;
+                return 0;
+        }
+
+        return 0;
+}
 
 static const char* const irq_affinity_policy_table[_IRQ_AFFINITY_POLICY_MAX] = {
         [IRQ_AFFINITY_POLICY_SINGLE] = "single",
