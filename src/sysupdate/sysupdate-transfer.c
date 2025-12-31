@@ -1164,27 +1164,18 @@ static int run_callout(
         return sd_event_loop(event);
 }
 
-int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, void *userdata) {
-        _cleanup_free_ char *formatted_pattern = NULL, *digest = NULL;
+/* Build the filenames and paths which is normally done by transfer_acquire_instance(), but for partial
+ * and pending instances which are about to be installed (in which case, transfer_acquire_instance() is
+ * skipped). */
+static int transfer_compute_temporary_paths(Transfer *t, Instance *i) {
+        _cleanup_free_ char *formatted_pattern = NULL;
         _cleanup_free_ char *formatted_partial_pattern = NULL;
         _cleanup_free_ char *formatted_pending_pattern = NULL;
-        char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
-        const char *where = NULL;
         InstanceMetadata f;
-        Instance *existing;
         int r;
 
         assert(t);
         assert(i);
-        assert(i->resource == &t->source);
-        assert(cb);
-
-        /* Does this instance already exist in the target? Then we don't need to acquire anything */
-        existing = resource_find_instance(&t->target, i->metadata.version);
-        if (existing) {
-                log_info("No need to acquire '%s', already installed.", i->path);
-                return 0;
-        }
 
         assert(!t->final_path);
         assert(!t->temporary_partial_path);
@@ -1208,10 +1199,6 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
                 if (!t->final_path)
                         return log_oom();
 
-                r = mkdir_parents(t->final_path, 0755);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot create target directory: %m");
-
                 if (!strprepend(&formatted_partial_pattern, ".sysupdate.partial.", formatted_pattern))
                         return log_oom();
 
@@ -1225,8 +1212,6 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
                 t->temporary_pending_path = path_join(t->target.path, formatted_pending_pattern);
                 if (!t->temporary_pending_path)
                         return log_oom();
-
-                where = t->final_path;
         }
 
         if (t->target.type == RESOURCE_PARTITION) {
@@ -1255,7 +1240,47 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Formatted pattern is not suitable as GPT partition label, refusing: %s", formatted_pending_pattern);
 
                 free_and_replace(t->temporary_pending_partition_label, formatted_pending_pattern);
+        }
 
+        return 0;
+}
+
+int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, void *userdata) {
+        _cleanup_free_ char *digest = NULL;
+        char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
+        const char *where = NULL;
+        InstanceMetadata f;
+        Instance *existing;
+        int r;
+
+        assert(t);
+        assert(i);
+        assert(i->resource == &t->source);
+        assert(cb);
+
+        /* Does this instance already exist in the target? Then we don't need to acquire anything */
+        existing = resource_find_instance(&t->target, i->metadata.version);
+        if (existing && (existing->is_partial || existing->is_pending)) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to acquire '%s', instance is already partial or pending in the target", i->path);
+        } else if (existing) {
+                log_info("No need to acquire '%s', already installed.", i->path);
+                return 0;
+        }
+
+        /* Compute up the temporary paths */
+        r = transfer_compute_temporary_paths(t, i);
+        if (r < 0)
+                return r;
+
+        if (RESOURCE_IS_FILESYSTEM(t->target.type)) {
+                r = mkdir_parents(t->final_path, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot create target directory: %m");
+
+                where = t->final_path;
+        }
+
+        if (t->target.type == RESOURCE_PARTITION) {
                 r = find_suitable_partition(
                                 t->target.path,
                                 i->metadata.size,
