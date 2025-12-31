@@ -411,6 +411,12 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
 
                         if (strv_contains(t->protected_versions, cursor))
                                 extra_flags |= UPDATE_PROTECTED;
+
+                        if (match && match->is_partial)
+                                extra_flags |= UPDATE_PARTIAL;
+
+                        if (match && match->is_pending)
+                                extra_flags |= UPDATE_PENDING;
                 }
 
                 r = free_and_strdup_warn(&boundary, cursor);
@@ -448,7 +454,7 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
 
                         /* If this is the newest installed version, that is incomplete and just became marked
                          * as available, and if there is no other candidate available, we promote this to be
-                         * the candidate. */
+                         * the candidate. Ignore partial or pending status on the update set. */
                         if (FLAGS_SET(u->flags, UPDATE_NEWEST|UPDATE_INSTALLED|UPDATE_INCOMPLETE|UPDATE_AVAILABLE) &&
                             !c->candidate && !FLAGS_SET(u->flags, UPDATE_OBSOLETE))
                                 c->candidate = u;
@@ -484,7 +490,8 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                 if ((us->flags & (UPDATE_NEWEST|UPDATE_INSTALLED)) == (UPDATE_NEWEST|UPDATE_INSTALLED))
                         c->newest_installed = us;
 
-                /* Remember which is the newest non-obsolete, available (and not installed) version, which we declare the "candidate" */
+                /* Remember which is the newest non-obsolete, available (and not installed) version, which we declare the "candidate".
+                 * It may be partial or pending. */
                 if ((us->flags & (UPDATE_NEWEST|UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE)) == (UPDATE_NEWEST|UPDATE_AVAILABLE))
                         c->candidate = us;
         }
@@ -1009,7 +1016,15 @@ static int context_acquire(
 
         if (FLAGS_SET(us->flags, UPDATE_INCOMPLETE))
                 log_info("Selected update '%s' is already installed, but incomplete. Repairing.", us->version);
-        else if (FLAGS_SET(us->flags, UPDATE_INSTALLED)) {
+        else if (FLAGS_SET(us->flags, UPDATE_PARTIAL)) {
+                log_info("Selected update '%s' is already acquired and partially installed. Vacuum it to try installing again.", us->version);
+
+                return 0;
+        } else if (FLAGS_SET(us->flags, UPDATE_PENDING)) {
+                log_info("Selected update '%s' is already acquired and pending installation.", us->version);
+
+                return 0;
+        } else if (FLAGS_SET(us->flags, UPDATE_INSTALLED)) {
                 log_info("Selected update '%s' is already installed. Skipping update.", us->version);
 
                 return 0;
@@ -1073,6 +1088,70 @@ static int context_acquire(
         return 1;
 }
 
+/* Check to see if we have an update set acquired and pending installation. */
+static int context_process_partial_and_pending(
+                Context *c,
+                const char *version) {
+
+        UpdateSet *us = NULL;
+        int r;
+
+        assert(c);
+
+        if (version) {
+                us = context_update_set_by_version(c, version);
+                if (!us)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Update '%s' not found.", version);
+        } else {
+                if (!c->candidate) {
+                        log_info("No update needed.");
+
+                        return 0;
+                }
+
+                us = c->candidate;
+        }
+
+        if (FLAGS_SET(us->flags, UPDATE_INCOMPLETE))
+                log_info("Selected update '%s' is already installed, but incomplete. Repairing.", us->version);
+        else if ((us->flags & (UPDATE_PARTIAL|UPDATE_PENDING|UPDATE_INSTALLED)) == UPDATE_INSTALLED) {
+                log_info("Selected update '%s' is already installed. Skipping update.", us->version);
+
+                return 0;
+        }
+
+        if (FLAGS_SET(us->flags, UPDATE_PARTIAL))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is only partially downloaded, refusing.", us->version);
+        if (!FLAGS_SET(us->flags, UPDATE_PENDING))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is not pending installation, refusing.", us->version);
+
+        if (FLAGS_SET(us->flags, UPDATE_OBSOLETE))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected update '%s' is obsolete, refusing.", us->version);
+
+        if (!FLAGS_SET(us->flags, UPDATE_NEWEST))
+                log_notice("Selected update '%s' is not the newest, proceeding anyway.", us->version);
+        if (c->newest_installed && strverscmp_improved(c->newest_installed->version, us->version) > 0)
+                log_notice("Selected update '%s' is older than newest installed version, proceeding anyway.", us->version);
+
+        log_info("Selected update '%s' for install.", us->version);
+
+        /* There should now be one instance picked for each transfer, and the order is the same */
+        assert(us->n_instances == c->n_transfers);
+
+        for (size_t i = 0; i < c->n_transfers; i++) {
+                Instance *inst = us->instances[i];
+                Transfer *t = c->transfers[i];
+
+                assert(inst);
+
+                r = transfer_process_partial_and_pending_instance(t, inst);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
+}
+
 static int context_install(
                 Context *c,
                 const char *version,
@@ -1104,7 +1183,8 @@ static int context_install(
                 Instance *inst = us->instances[i];
                 Transfer *t = c->transfers[i];
 
-                if (inst->resource == &t->target)
+                if (inst->resource == &t->target &&
+                    !inst->is_pending)
                         continue;
 
                 r = transfer_install_instance(t, inst, arg_root);
@@ -1434,7 +1514,12 @@ static int verb_vacuum(int argc, char **argv, void *userdata) {
         return context_vacuum(context, 0, NULL);
 }
 
-static int verb_update(int argc, char **argv, void *userdata) {
+typedef enum {
+        UPDATE_ACTION_ACQUIRE = 1 << 0,
+        UPDATE_ACTION_INSTALL = 1 << 1,
+} UpdateActionFlags;
+
+static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flags) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
@@ -1468,11 +1553,14 @@ static int verb_update(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = context_acquire(context, version);
+        if (action_flags & UPDATE_ACTION_ACQUIRE)
+                r = context_acquire(context, version);
+        else
+                r = context_process_partial_and_pending(context, version);
         if (r < 0)
                 return r;  /* error */
 
-        if (r > 0)  /* update needed */
+        if (action_flags & UPDATE_ACTION_INSTALL && r > 0)  /* update needed */
                 r = context_install(context, version, &applied);
         if (r < 0)
                 return r;
@@ -1496,6 +1584,10 @@ static int verb_update(int argc, char **argv, void *userdata) {
         }
 
         return 0;
+}
+
+static int verb_update(int argc, char **argv, void *userdata) {
+        return verb_update_impl(argc, argv, UPDATE_ACTION_ACQUIRE | UPDATE_ACTION_INSTALL);
 }
 
 static int verb_pending_or_reboot(int argc, char **argv, void *userdata) {

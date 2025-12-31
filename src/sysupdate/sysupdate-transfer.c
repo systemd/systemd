@@ -1564,6 +1564,16 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
         return 0;
 }
 
+int transfer_process_partial_and_pending_instance(Transfer *t, Instance *i) {
+        assert(t);
+        assert(i);
+        assert(i->resource == &t->target);
+
+        /* All we need to do is compute the temporary paths. We don’t need to do any of the other work in
+         * transfer_acquire_instance(). */
+        return transfer_compute_temporary_paths(t, i);
+}
+
 int transfer_install_instance(
                 Transfer *t,
                 Instance *i,
