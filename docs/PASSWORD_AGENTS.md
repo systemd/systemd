@@ -100,4 +100,4 @@ now available, with the same protocol as the system-wide
 counterpart. Unprivileged, per-directory agents should watch this directory in
 parallel to the system-wide one. Unprivileged queriers (i.e. clients to these
 agents) should pick the per-user directory to place their password request
-files in.
+files in. If the directory does not exist, agents may create it.
