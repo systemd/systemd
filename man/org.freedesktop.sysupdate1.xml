@@ -496,7 +496,8 @@ node /org/freedesktop/sysupdate1/job/_1 {
 
       <para>The <varname>Type</varname> property exposes the type of operation (one of:
       <literal>list</literal>, <literal>describe</literal>, <literal>check-new</literal>,
-      <literal>update</literal>, <literal>vacuum</literal>, or <literal>describe-feature</literal>).</para>
+      <literal>update</literal>, <literal>acquire</literal>, <literal>install</literal>,
+      <literal>vacuum</literal>, or <literal>describe-feature</literal>).</para>
 
       <para>The <varname>Offline</varname> property exposes whether the job is permitted to access
       the network or not.</para>
