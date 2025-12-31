@@ -42,6 +42,7 @@ It is easy to write additional agents. The basic algorithm to follow looks like 
   there's no need to show the data of this field but if you want to you may)
 * `Echo=` specifies whether the input should be obscured. If this field is missing or is `Echo=0`, the input should not be shown as-is.
 * `Silent=` specifies whether the input should have any indication. If this field is `Silent=1`, nothing should be printed for any input.
+* `AcceptCached=` specifies whether a cached password is acceptable or not. If this field is missing or is `AcceptCached=0`, the password should not be provided from a cache.
 * The socket to send the response to is configured via `Socket=` in the `[Ask]` section. It is a `AF_UNIX`/`SOCK_DGRAM` socket in the file system.
 * Ignore files where the time specified in the `NotAfter=` field in the `[Ask]` section is in the past.
   The time is specified in usecs, and refers to the `CLOCK_MONOTONIC` clock. If `NotAfter=` is `0`, no such check should take place.
