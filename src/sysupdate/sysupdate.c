@@ -1600,7 +1600,16 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
 }
 
 static int verb_update(int argc, char **argv, void *userdata) {
-        return verb_update_impl(argc, argv, UPDATE_ACTION_ACQUIRE | UPDATE_ACTION_INSTALL);
+        UpdateActionFlags flags = UPDATE_ACTION_INSTALL;
+
+        if (!arg_offline)
+                flags |= UPDATE_ACTION_ACQUIRE;
+
+        return verb_update_impl(argc, argv, flags);
+}
+
+static int verb_acquire(int argc, char **argv, void *userdata) {
+        return verb_update_impl(argc, argv, UPDATE_ACTION_ACQUIRE);
 }
 
 static int verb_pending_or_reboot(int argc, char **argv, void *userdata) {
@@ -1782,6 +1791,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "  features [FEATURE]      Show optional features\n"
                "  check-new               Check if there's a new version available\n"
                "  update [VERSION]        Install new version now\n"
+               "  acquire [VERSION]       Acquire (download) new version now\n"
                "  vacuum                  Make room, by deleting old versions\n"
                "  pending                 Report whether a newer version is installed than\n"
                "                          currently booted\n"
@@ -1995,6 +2005,7 @@ static int sysupdate_main(int argc, char *argv[]) {
                 { "features",   VERB_ANY, 2, 0,            verb_features          },
                 { "check-new",  VERB_ANY, 1, 0,            verb_check_new         },
                 { "update",     VERB_ANY, 2, 0,            verb_update            },
+                { "acquire",    VERB_ANY, 2, 0,            verb_acquire           },
                 { "vacuum",     VERB_ANY, 1, 0,            verb_vacuum            },
                 { "reboot",     1,        1, 0,            verb_pending_or_reboot },
                 { "pending",    1,        1, 0,            verb_pending_or_reboot },
