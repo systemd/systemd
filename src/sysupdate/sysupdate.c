@@ -595,13 +595,14 @@ static int context_show_version(Context *c, const char *version) {
         if (!sd_json_format_enabled(arg_json_format_flags))
                 printf("%s%s%s Version: %s\n"
                        "    State: %s%s%s\n"
-                       "Installed: %s%s\n"
+                       "Installed: %s%s%s%s\n"
                        "Available: %s%s\n"
                        "Protected: %s%s%s\n"
                        " Obsolete: %s%s%s\n\n",
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_glyph(us->flags), ansi_normal(), us->version,
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_string(us->flags), ansi_normal(),
                        yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
+                       FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PENDING) ? " (pending)" : "", FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PARTIAL) ? " (partial)" : "",
                        yes_no(us->flags & UPDATE_AVAILABLE), (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST)) == (UPDATE_AVAILABLE|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
                        us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
@@ -794,7 +795,7 @@ static int context_show_version(Context *c, const char *version) {
         if (!sd_json_format_enabled(arg_json_format_flags)) {
                 printf("%s%s%s Version: %s\n"
                        "    State: %s%s%s\n"
-                       "Installed: %s%s%s%s%s\n"
+                       "Installed: %s%s%s%s%s%s%s\n"
                        "Available: %s%s\n"
                        "Protected: %s%s%s\n"
                        " Obsolete: %s%s%s\n",
@@ -802,6 +803,7 @@ static int context_show_version(Context *c, const char *version) {
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_string(us->flags), ansi_normal(),
                        yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INCOMPLETE) ? ansi_highlight_yellow() : "", FLAGS_SET(us->flags, UPDATE_INCOMPLETE) ? " (incomplete)" : "", ansi_normal(),
+                       FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PENDING) ? " (pending)" : "", FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PARTIAL) ? " (partial)" : "",
                        yes_no(us->flags & UPDATE_AVAILABLE), (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST)) == (UPDATE_AVAILABLE|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
                        us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
@@ -827,6 +829,8 @@ static int context_show_version(Context *c, const char *version) {
                                           SD_JSON_BUILD_PAIR_BOOLEAN("newest", FLAGS_SET(us->flags, UPDATE_NEWEST)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("available", FLAGS_SET(us->flags, UPDATE_AVAILABLE)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("installed", FLAGS_SET(us->flags, UPDATE_INSTALLED)),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("partial", FLAGS_SET(us->flags, UPDATE_PARTIAL)),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("pending", FLAGS_SET(us->flags, UPDATE_PENDING)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", FLAGS_SET(us->flags, UPDATE_INCOMPLETE)),
@@ -1193,13 +1197,16 @@ static int verb_list(int argc, char **argv, void *userdata) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
                 _cleanup_strv_free_ char **versions = NULL;
                 const char *current = NULL;
+                bool current_is_pending = false;
 
                 FOREACH_ARRAY(update_set, context->update_sets, context->n_update_sets) {
                         UpdateSet *us = *update_set;
 
                         if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
-                            FLAGS_SET(us->flags, UPDATE_NEWEST))
+                            FLAGS_SET(us->flags, UPDATE_NEWEST)) {
                                 current = us->version;
+                                current_is_pending = FLAGS_SET(us->flags, UPDATE_PENDING);
+                        }
 
                         r = strv_extend(&versions, us->version);
                         if (r < 0)
@@ -1217,7 +1224,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
                                         return log_oom();
                         }
 
-                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("current", current),
+                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING(current_is_pending ? "current+pending" : "current", current),
                                           SD_JSON_BUILD_PAIR_STRV("all", versions),
                                           SD_JSON_BUILD_PAIR_STRV("appstreamUrls", appstream_urls));
                 if (r < 0)
