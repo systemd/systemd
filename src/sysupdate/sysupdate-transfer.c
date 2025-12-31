@@ -1637,6 +1637,42 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
         return 0;
 }
 
+int transfer_process_partial_and_pending_instance(Transfer *t, Instance *i) {
+        InstanceMetadata f;
+        Instance *existing;
+        int r;
+
+        assert(t);
+        assert(i);
+
+        log_debug("transfer_process_partial_and_pending_instance %s", i->path);
+
+        /* Does this instance already exist in the target but isn’t pending? */
+        existing = resource_find_instance(&t->target, i->metadata.version);
+        if (existing && !existing->is_pending)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to acquire '%s', instance is already in the target but is not pending.", i->path);
+
+        /* All we need to do is compute the temporary paths. We don’t need to do any of the other work in
+         * transfer_acquire_instance(). */
+        r = transfer_compute_temporary_paths(t, i, &f);
+        if (r < 0)
+                return r;
+
+        /* This is the analogue of find_suitable_partition(), but since finding the suitable partition has
+         * already happened in the acquire phase, the target should already have that information and it
+         * should already have been claimed as `PND#`. */
+        if (t->target.type == RESOURCE_PARTITION) {
+                assert(i->resource == &t->target);
+                assert(i->is_pending);
+
+                r = partition_info_copy(&t->partition_info, &i->partition_info);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int transfer_install_instance(
                 Transfer *t,
                 Instance *i,
