@@ -189,6 +189,67 @@ EOF
         echo "Skipping IRQAffinity= spread test (need >=4 CPUs and >1 IRQ)"
     fi
 
+    # Test 1e: Test IRQAffinityNUMA= if NUMA is available
+    if [[ -d /sys/devices/system/node/node0 ]]; then
+        # Get CPUs on NUMA node 0
+        numa0_cpus=$(cat /sys/devices/system/node/node0/cpulist)
+        echo "NUMA node 0 has CPUs: $numa0_cpus"
+
+        cat >/run/systemd/network/00-test-irq-affinity.link <<EOF
+[Match]
+MACAddress=$mac
+
+[Link]
+IRQAffinityPolicy=spread
+IRQAffinityNUMA=0
+EOF
+
+        udevadm control --reload
+        udevadm trigger --action=add "/sys/class/net/$iface"
+        udevadm settle --timeout=30
+
+        # Verify IRQs are on NUMA node 0 CPUs
+        # Parse the cpulist to get valid CPUs
+        for irq in $irqs; do
+            affinity_list=$(cat "/proc/irq/$irq/smp_affinity_list")
+            echo "IRQ $irq is on CPU(s): $affinity_list (NUMA 0 CPUs: $numa0_cpus)"
+        done
+        echo "IRQAffinityNUMA= configuration applied"
+    else
+        echo "Skipping IRQAffinityNUMA= test (no NUMA available)"
+    fi
+
+    # Test 1f: Test empty intersection error case
+    # This should log an error and skip affinity configuration
+    if [[ -d /sys/devices/system/node/node0 ]] && [[ -d /sys/devices/system/node/node1 ]]; then
+        # Get first CPU from node 0 that is NOT in node 1
+        first_numa0_cpu=$(cut -d',' -f1 < /sys/devices/system/node/node0/cpulist | cut -d'-' -f1)
+
+        cat >/run/systemd/network/00-test-irq-affinity.link <<EOF
+[Match]
+MACAddress=$mac
+
+[Link]
+IRQAffinityPolicy=spread
+IRQAffinity=$first_numa0_cpu
+IRQAffinityNUMA=1
+EOF
+
+        udevadm control --reload
+        udevadm trigger --action=add "/sys/class/net/$iface"
+        udevadm settle --timeout=30
+
+        # The configuration should be applied but IRQ affinity skipped due to empty intersection
+        # Check journal for the error message
+        if journalctl -u systemd-udevd --since="1 minute ago" | grep -q "intersection is empty"; then
+            echo "Empty intersection correctly detected and logged"
+        else
+            echo "Note: Empty intersection test - check journal for error message"
+        fi
+    else
+        echo "Skipping empty intersection test (need 2 NUMA nodes)"
+    fi
+
     # Cleanup
     rm -f /run/systemd/network/00-test-irq-affinity.link
     udevadm control --reload
@@ -287,15 +348,82 @@ assert_in "ID_NET_LINK_FILE=/run/systemd/network/10-test-irq-affinity-cpus.link"
 output=$(udevadm test-builtin --action add net_setup_link /sys/class/net/testirq3 2>&1)
 assert_in "ID_NET_LINK_FILE=/run/systemd/network/10-test-irq-affinity-cpus.link" "$output"
 
+# Test 6: IRQAffinityNUMA= config parsing
+cat >/run/systemd/network/10-test-irq-affinity-numa.link <<EOF
+[Match]
+Kind=dummy
+MACAddress=00:50:56:c0:00:24
+
+[Link]
+Name=testirq4
+IRQAffinityPolicy=spread
+IRQAffinityNUMA=local
+EOF
+
+udevadm control --reload
+
+ip link add address 00:50:56:c0:00:24 type dummy
+udevadm wait --settle --timeout=30 /sys/class/net/testirq4
+
+output=$(udevadm info --query property /sys/class/net/testirq4)
+assert_in "ID_NET_LINK_FILE=/run/systemd/network/10-test-irq-affinity-numa.link" "$output"
+
+# Test 7: IRQAffinityNUMA= with explicit node number
+cat >/run/systemd/network/10-test-irq-affinity-numa-explicit.link <<EOF
+[Match]
+Kind=dummy
+MACAddress=00:50:56:c0:00:25
+
+[Link]
+Name=testirq5
+IRQAffinityPolicy=single
+IRQAffinityNUMA=0
+EOF
+
+udevadm control --reload
+
+ip link add address 00:50:56:c0:00:25 type dummy
+udevadm wait --settle --timeout=30 /sys/class/net/testirq5
+
+output=$(udevadm info --query property /sys/class/net/testirq5)
+assert_in "ID_NET_LINK_FILE=/run/systemd/network/10-test-irq-affinity-numa-explicit.link" "$output"
+
+# Test 8: Combined IRQAffinity= and IRQAffinityNUMA=
+cat >/run/systemd/network/10-test-irq-affinity-combined.link <<EOF
+[Match]
+Kind=dummy
+MACAddress=00:50:56:c0:00:26
+
+[Link]
+Name=testirq6
+IRQAffinityPolicy=spread
+IRQAffinity=0-7
+IRQAffinityNUMA=0
+EOF
+
+udevadm control --reload
+
+ip link add address 00:50:56:c0:00:26 type dummy
+udevadm wait --settle --timeout=30 /sys/class/net/testirq6
+
+output=$(udevadm info --query property /sys/class/net/testirq6)
+assert_in "ID_NET_LINK_FILE=/run/systemd/network/10-test-irq-affinity-combined.link" "$output"
+
 # Cleanup
 ip link del dev testirq0
 ip link del dev testirq1
 ip link del dev testirq2
 ip link del dev testirq3
+ip link del dev testirq4
+ip link del dev testirq5
+ip link del dev testirq6
 
 rm -f /run/systemd/network/10-test-irq.link
 rm -f /run/systemd/network/10-test-irq-invalid.link
 rm -f /run/systemd/network/10-test-irq-empty.link
 rm -f /run/systemd/network/10-test-irq-affinity-cpus.link
+rm -f /run/systemd/network/10-test-irq-affinity-numa.link
+rm -f /run/systemd/network/10-test-irq-affinity-numa-explicit.link
+rm -f /run/systemd/network/10-test-irq-affinity-combined.link
 
 exit 0

@@ -208,6 +208,22 @@ int numa_get_node_from_cpu(unsigned cpu, unsigned *ret) {
         return 0;
 }
 
+int numa_node_get_cpus(int node, CPUSet *ret) {
+        char path[STRLEN("/sys/devices/system/node/node/cpulist") + DECIMAL_STR_MAX(int) + 1];
+        _cleanup_free_ char *cpulist = NULL;
+        int r;
+
+        assert(ret);
+
+        xsprintf(path, "/sys/devices/system/node/node%d/cpulist", node);
+
+        r = read_one_line_file(path, &cpulist);
+        if (r < 0)
+                return r;
+
+        return parse_cpu_set(cpulist, ret);
+}
+
 int numa_mask_add_all(CPUSet *mask) {
         int m;
 
