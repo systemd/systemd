@@ -39,13 +39,17 @@ typedef struct Transfer {
         int growfs;
 
         /* If we create a new file/dir/subvol in the fs, the temporary and final path we create it under, as well as the read-only flag for it */
-        char *temporary_path;
+        char *temporary_partial_path;
+        char *temporary_pending_path;
         char *final_path;
         int install_read_only;
 
         /* If we write to a partition in a partition table, the metrics of it */
         PartitionInfo partition_info;
         PartitionChange partition_change;
+        char *final_partition_label;
+        char *temporary_partial_partition_label;
+        char *temporary_pending_partition_label;
 
         Context *context;
 } Transfer;
