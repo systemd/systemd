@@ -41,6 +41,7 @@ It is easy to write additional agents. The basic algorithm to follow looks like 
   (Before asking your question use `kill(PID, 0)` and ignore the file if this returns `ESRCH`;
   there's no need to show the data of this field but if you want to you may)
 * `Echo=` specifies whether the input should be obscured. If this field is missing or is `Echo=0`, the input should not be shown as-is.
+* `Silent=` specifies whether the input should have any indication. If this field is `Silent=1`, nothing should be printed for any input.
 * The socket to send the response to is configured via `Socket=` in the `[Ask]` section. It is a `AF_UNIX`/`SOCK_DGRAM` socket in the file system.
 * Ignore files where the time specified in the `NotAfter=` field in the `[Ask]` section is in the past.
   The time is specified in usecs, and refers to the `CLOCK_MONOTONIC` clock. If `NotAfter=` is `0`, no such check should take place.
