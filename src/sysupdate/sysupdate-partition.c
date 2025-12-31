@@ -16,6 +16,33 @@ void partition_info_destroy(PartitionInfo *p) {
         p->device = mfree(p->device);
 }
 
+int partition_info_copy(PartitionInfo *dest, const PartitionInfo *src) {
+        int r;
+
+        assert(dest);
+        assert(src);
+
+        r = free_and_strdup_warn(&dest->label, src->label);
+        if (r < 0)
+                return r;
+
+        r = free_and_strdup_warn(&dest->device, src->device);
+        if (r < 0)
+                return r;
+
+        dest->partno = src->partno;
+        dest->start = src->start;
+        dest->size = src->size;
+        dest->flags = src->flags;
+        dest->type = src->type;
+        dest->uuid = src->uuid;
+        dest->no_auto = src->no_auto;
+        dest->read_only = src->read_only;
+        dest->growfs = src->growfs;
+
+        return 0;
+}
+
 int read_partition_info(
                 struct fdisk_context *c,
                 struct fdisk_table *t,
