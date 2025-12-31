@@ -36,6 +36,7 @@ typedef struct PartitionInfo {
         }
 
 void partition_info_destroy(PartitionInfo *p);
+int partition_info_copy(PartitionInfo *dest, const PartitionInfo *src);
 
 int read_partition_info(struct fdisk_context *c, struct fdisk_table *t, size_t i, PartitionInfo *ret);
 

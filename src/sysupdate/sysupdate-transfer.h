@@ -67,5 +67,6 @@ int transfer_resolve_paths(Transfer *t, const char *root, const char *node);
 int transfer_vacuum(Transfer *t, uint64_t space, const char *extra_protected_version);
 
 int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, void *userdata);
+int transfer_process_partial_and_pending_instance(Transfer *t, Instance *i);
 
 int transfer_install_instance(Transfer *t, Instance *i, const char *root);
