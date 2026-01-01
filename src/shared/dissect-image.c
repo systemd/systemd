@@ -408,7 +408,7 @@ struct luks_header_incomplete {
                 be64_t hdr_len;
 };
 
-/* 'integrity' information from LUKS JSON header. Currenly, only 'type' is extracted/checked. */
+/* 'integrity' information from LUKS JSON header. Currently, only 'type' is extracted/checked. */
 struct luks_integrity_data {
         char *type;
 };
@@ -423,7 +423,7 @@ static int integrity_information(const char *name, sd_json_variant *v, sd_json_d
 }
 
 /* cryptsetup needs a loop device to work with a partition which has offset/size but
- * dissect may be running unpriviliged. Implement a minimal custom LUKS header parser
+ * dissect may be running unprivileged. Implement a minimal custom LUKS header parser
  * checking integrity protection information. */
 static int partition_is_luks2_integrity(int part_fd, uint64_t offset, uint64_t size) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
