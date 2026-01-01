@@ -237,11 +237,6 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
                 return 0;
         }
 
-        r = sd_event_source_set_child_pidfd_own(s, true);
-        if (r < 0)
-                return r;
-        TAKE_PIDREF(pidref);
-
         r = set_ensure_put(&manager->synthesize_change_child_event_sources, &event_source_hash_ops, s);
         if (r < 0)
                 return r;

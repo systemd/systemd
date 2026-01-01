@@ -551,7 +551,7 @@ static int job_start(Job *j) {
         r = sd_event_source_set_child_process_own(j->child, true);
         if (r < 0)
                 return log_error_errno(r, "Event loop failed to take ownership of child process: %m");
-        TAKE_PIDREF(pid);
+        pidref_done(&pid); /* disarm sigkill_wait */
 
         j->stdout_fd = TAKE_FD(stdout_fd);
 
