@@ -53,7 +53,6 @@ LINKS=(
     security
     selinux
     sys/acl.h
-    sys/capability.h
     tss2
     xen
     xkbcommon
