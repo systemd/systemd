@@ -6,7 +6,7 @@
 # E.g.
 #   tools/setup-musl-build.sh build-musl -Dbuildtype=debugoptimized && ninja -C build-musl
 
-set -eu
+set -eux
 
 BUILD_DIR="${1:?}"
 shift
@@ -63,6 +63,7 @@ LINKS=(
     zstd_errors.h
 )
 
+rm -rf "${SETUP_DIR}"
 for t in "${LINKS[@]}"; do
     [[ -e /usr/include/"$t" ]]
     link="${SETUP_DIR}/usr/include/${t}"
@@ -82,4 +83,4 @@ env \
     CXX=musl-gcc \
     CFLAGS="$CFLAGS" \
     CXXFLAGS="$CFLAGS" \
-    meson setup -Ddbus-interfaces-dir=no -Dlibc=musl "${BUILD_DIR}" "${@}"
+    meson setup --reconfigure -Ddbus-interfaces-dir=no -Dlibc=musl "${BUILD_DIR}" "${@}"
