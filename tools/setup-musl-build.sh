@@ -6,7 +6,7 @@
 # E.g.
 #   tools/setup-musl-build.sh build-musl -Dbuildtype=debugoptimized && ninja -C build-musl
 
-set -eu
+set -eux
 
 BUILD_DIR="${1:?}"
 shift
