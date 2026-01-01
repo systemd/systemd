@@ -140,8 +140,8 @@ static int skip_ok_port_res(int fd, const char *path, const char *port) {
                                        because poll() returns readable as long as there is any data in the socket buffer for
                                        unix sockets, not respecting SO_RCVLOWAT.
 
-                                  XXX: We could have used SO_PEEK_OFF to continously peek more data without changing the socket
-                                       receive buffer, but this fucntion breaks since Linux 4.3 due to a kernel bug, which is fixed
+                                  XXX: We could have used SO_PEEK_OFF to continuously peek more data without changing the socket
+                                       receive buffer, but this function breaks since Linux 4.3 due to a kernel bug, which is fixed
                                        in Linux 6.18 commit 7bf3a476ce43 ("af_unix: Read sk_peek_offset() again after sleeping in
                                        unix_stream_read_generic()."). It is also not possible to detect whether the kernel is
                                        affected by this bug at runtime.
