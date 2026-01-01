@@ -1010,6 +1010,14 @@ static SD_VARLINK_DEFINE_ERROR(
                 NoSuchUnit,
                 SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_ERROR(
+                OnlyByDependency,
+                SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_ERROR(
+                BusShuttingDown,
+                SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
                 SD_VARLINK_SUPPORTS_MORE,
@@ -1026,11 +1034,18 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Runtime information of the unit"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                EnqueueMarkedJobs,
+                SD_VARLINK_FIELD_COMMENT("IDs of enqueued jobs"),
+                SD_VARLINK_DEFINE_OUTPUT(JobIDs, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Unit,
                 "io.systemd.Unit",
                 SD_VARLINK_SYMBOL_COMMENT("List units"),
                 &vl_method_List,
+                SD_VARLINK_SYMBOL_COMMENT("Enqueue all marked jobs"),
+                &vl_method_EnqueueMarkedJobs,
                 &vl_type_RateLimit,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's conditions"),
                 &vl_type_Condition,
@@ -1090,4 +1105,8 @@ SD_VARLINK_DEFINE_INTERFACE(
 
                 /* Errors */
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
-                &vl_error_NoSuchUnit);
+                &vl_error_NoSuchUnit,
+                SD_VARLINK_SYMBOL_COMMENT("Unit operation may be requested by dependency only"),
+                &vl_error_OnlyByDependency,
+                SD_VARLINK_SYMBOL_COMMENT("Operation refused, the bus is shutting down"),
+                &vl_error_BusShuttingDown);
