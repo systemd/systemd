@@ -788,6 +788,18 @@
         taken when the unit and hence the PAM session terminates. This process is named <literal>(sd-pam)</literal> and
         is an immediate child process of the unit's main process.</para>
 
+        <para>Note that the process named <literal>(sd-pam)</literal> described previously will drop
+        privileges in order to be notified when the main (unprivileged) process will exit.  However this
+        breaks PAM modules (such as <literal>pam_mount</literal>, <literal>pam_ecryptfs</literal>, and
+        <literal>pam_fscrypt</literal>) that need to do privileged tasks to clean up the session, such as
+        unmounting directories.</para>
+
+        <para>Note that <literal>(sd-pam)</literal> process also suffers from another shortcoming which makes
+        the closing of the PAM session unreliable and not performed in most cases. That is due to the fact
+        that <literal>(sd-pam)</literal> process is killed some time after the service terminates. The
+        consequences are similar to the ones described previously and resources that might be allocated by
+        some PAM modules won't be released.
+
         <para>Note that when this option is used for a unit it is very likely (depending on PAM configuration) that the
         main unit process will be migrated to its own session scope unit when it is activated. This process will hence
         be associated with two units: the unit it was originally started from (and for which
