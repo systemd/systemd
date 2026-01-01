@@ -234,6 +234,24 @@ SPDX-License-Identifier: LGPL-2.1-or-later
                   const char *input);
   ```
 
+- When passing `NULL` or another value meaning "unset" to a function, use a comment
+  to indicate the argument name to make it more clear where we're passing an "unset"
+  value.
+
+  Bad:
+
+  ```c
+  myfunction(NULL, NULL, NULL);
+  ```
+
+  Good:
+
+  ```c
+  myfunction(/* a= */ NULL, /* b= */ NULL, /* c= */ NULL);
+  ```
+
+  This guidance should be applied tree-wide, including in test files.
+
 - Please do not introduce new circular dependencies between header files.
   Effectively this means that if a.h includes b.h, then b.h cannot include a.h,
   directly or transitively via another header. Circular header dependencies can
