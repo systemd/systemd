@@ -104,9 +104,9 @@ int sd_journal_get_seqnum(sd_journal *j, uint64_t *ret_seqnum, sd_id128_t *ret_s
 int sd_journal_set_data_threshold(sd_journal *j, size_t sz);
 int sd_journal_get_data_threshold(sd_journal *j, size_t *sz);
 
-int sd_journal_get_data(sd_journal *j, const char *field, const void **data, size_t *length);
-int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t *length);
-int sd_journal_enumerate_available_data(sd_journal *j, const void **data, size_t *length);
+int sd_journal_get_data(sd_journal *j, const char *field, const void **ret_data, size_t *ret_size);
+int sd_journal_enumerate_data(sd_journal *j, const void **ret_data, size_t *ret_size);
+int sd_journal_enumerate_available_data(sd_journal *j, const void **ret_data, size_t *ret_size);
 void sd_journal_restart_data(sd_journal *j);
 
 int sd_journal_add_match(sd_journal *j, const void *data, size_t size);
@@ -120,20 +120,20 @@ int sd_journal_seek_monotonic_usec(sd_journal *j, sd_id128_t boot_id, uint64_t u
 int sd_journal_seek_realtime_usec(sd_journal *j, uint64_t usec);
 int sd_journal_seek_cursor(sd_journal *j, const char *cursor);
 
-int sd_journal_get_cursor(sd_journal *j, char **ret_cursor);
+int sd_journal_get_cursor(sd_journal *j, char **ret);
 int sd_journal_test_cursor(sd_journal *j, const char *cursor);
 
 int sd_journal_get_cutoff_realtime_usec(sd_journal *j, uint64_t *from, uint64_t *to);
-int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, const sd_id128_t boot_id, uint64_t *from, uint64_t *to);
+int sd_journal_get_cutoff_monotonic_usec(sd_journal *j, sd_id128_t boot_id, uint64_t *from, uint64_t *to);
 
 int sd_journal_get_usage(sd_journal *j, uint64_t *ret_bytes);
 
 int sd_journal_query_unique(sd_journal *j, const char *field);
-int sd_journal_enumerate_unique(sd_journal *j, const void **data, size_t *length);
-int sd_journal_enumerate_available_unique(sd_journal *j, const void **data, size_t *length);
+int sd_journal_enumerate_unique(sd_journal *j, const void **ret_data, size_t *ret_size);
+int sd_journal_enumerate_available_unique(sd_journal *j, const void **ret_data, size_t *ret_size);
 void sd_journal_restart_unique(sd_journal *j);
 
-int sd_journal_enumerate_fields(sd_journal *j, const char **field);
+int sd_journal_enumerate_fields(sd_journal *j, const char **ret);
 void sd_journal_restart_fields(sd_journal *j);
 
 int sd_journal_get_fd(sd_journal *j);
