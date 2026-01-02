@@ -63,7 +63,7 @@ static void test_rename_process_one(const char *p, int ret) {
 
         log_info("/* %s(%s) */", __func__, p);
 
-        r = ASSERT_OK(safe_fork("(rename)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret_pid= */ NULL));
+        r = ASSERT_OK(pidref_safe_fork("(rename)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
 
         if (r == 0) {
                 /* child */
@@ -80,7 +80,7 @@ TEST(rename_process_invalid) {
 TEST(rename_process_multi) {
         int r;
 
-        r = ASSERT_OK(safe_fork("(rename)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret_pid= */ NULL));
+        r = ASSERT_OK(pidref_safe_fork("(rename)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
 
         if (r == 0) {
                 /* child */
