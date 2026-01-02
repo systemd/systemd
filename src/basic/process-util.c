@@ -1407,7 +1407,7 @@ int pidref_safe_fork_full(
                 int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
-                PidRef *ret_pid) {
+                PidRef *ret) {
 
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
@@ -1421,7 +1421,7 @@ int pidref_safe_fork_full(
                (flags & (FORK_WAIT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL)) == 0);
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere
-         * forking. If provided, ret_pid is initialized in both the parent and the child process, both times
+         * forking. If provided, ret is initialized in both the parent and the child process, both times
          * referencing the child process. Returns == 0 in the child and > 0 in the parent. */
 
         prio = flags & FORK_LOG ? LOG_ERR : LOG_DEBUG;
@@ -1465,7 +1465,7 @@ int pidref_safe_fork_full(
                 if (!r) {
                         /* Not a reaper process, hence do a double fork() so we are reparented to one */
 
-                        if (ret_pid && socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pidref_transport_fds) < 0)
+                        if (ret && socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pidref_transport_fds) < 0)
                                 return log_full_errno(prio, errno, "Failed to allocate pidref socket: %m");
 
                         pid = fork();
@@ -1499,7 +1499,7 @@ int pidref_safe_fork_full(
                                         if (n < 0)
                                                 return log_full_errno(prio, n, "Failed to receive child pidref: %m");
 
-                                        *ret_pid = (PidRef) { .pid = pid, .fd = pidfd };
+                                        *ret = (PidRef) { .pid = pid, .fd = pidfd };
                                 }
 
                                 return 1; /* return in the parent */
@@ -1569,20 +1569,16 @@ int pidref_safe_fork_full(
                                 return -EPROTO;
 
                         /* If we are in the parent and successfully waited, then the process doesn't exist anymore. */
-                        if (ret_pid)
-                                *ret_pid = PIDREF_NULL;
+                        if (ret)
+                                *ret = PIDREF_NULL;
 
                         return 1;
                 }
 
-                if (ret_pid) {
-                        if (FLAGS_SET(flags, _FORK_PID_ONLY))
-                                *ret_pid = PIDREF_MAKE_FROM_PID(pid);
-                        else {
-                                r = pidref_set_pid(ret_pid, pid);
-                                if (r < 0) /* Let's not fail for this, no matter what, the process exists after all, and that's key */
-                                        *ret_pid = PIDREF_MAKE_FROM_PID(pid);
-                        }
+                if (ret) {
+                        r = pidref_set_pid(ret, pid);
+                        if (r < 0) /* Let's not fail for this, no matter what, the process exists after all, and that's key */
+                                *ret = PIDREF_MAKE_FROM_PID(pid);
                 }
 
                 return 1;
@@ -1763,43 +1759,15 @@ int pidref_safe_fork_full(
         if (FLAGS_SET(flags, FORK_FREEZE))
                 freeze();
 
-        if (ret_pid) {
-                if (FLAGS_SET(flags, _FORK_PID_ONLY))
-                        *ret_pid = PIDREF_MAKE_FROM_PID(getpid_cached());
-                else {
-                        r = pidref_set_self(ret_pid);
-                        if (r < 0) {
-                                log_full_errno(prio, r, "Failed to acquire PID reference on ourselves: %m");
-                                _exit(EXIT_FAILURE);
-                        }
+        if (ret) {
+                r = pidref_set_self(ret);
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to acquire PID reference on ourselves: %m");
+                        _exit(EXIT_FAILURE);
                 }
         }
 
         return 0;
-}
-
-int safe_fork_full(
-                const char *name,
-                const int stdio_fds[3],
-                int except_fds[],
-                size_t n_except_fds,
-                ForkFlags flags,
-                pid_t *ret_pid) {
-
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        int r;
-
-        /* Getting the detached child process pid without pidfd is racy, so don't allow it if not returning
-         * a pidref to the caller. */
-        assert(!FLAGS_SET(flags, FORK_DETACH) || !ret_pid);
-
-        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags|_FORK_PID_ONLY, ret_pid ? &pidref : NULL);
-        if (r < 0 || !ret_pid)
-                return r;
-
-        *ret_pid = pidref.pid;
-
-        return r;
 }
 
 int namespace_fork_full(

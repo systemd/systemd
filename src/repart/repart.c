@@ -6719,7 +6719,10 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
 
         (void) dlopen_libmount();
 
-        r = safe_fork("(sd-copy)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
+        r = pidref_safe_fork(
+                        "(sd-copy)",
+                        FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
