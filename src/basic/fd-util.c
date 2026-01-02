@@ -1106,14 +1106,6 @@ int path_is_root_at(int dir_fd, const char *path) {
         if (root_fd < 0)
                 return -errno;
 
-        /* Even if the root directory has the same inode as our fd, the fd may not point to the root
-         * directory "/", and we also need to check that the mount ids are the same. Otherwise, a construct
-         * like the following could be used to trick us:
-         *
-         * $ mkdir /tmp/x
-         * $ mount --bind / /tmp/x
-         */
-
         return fds_are_same_mount(dir_fd, root_fd);
 }
 
@@ -1123,13 +1115,23 @@ int fds_are_same_mount(int fd1, int fd2) {
         assert(fd1 >= 0);
         assert(fd2 >= 0);
 
-        if (statx(fd1, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx1) < 0)
+        if (statx(fd1, "", AT_EMPTY_PATH, STATX_MNT_ID, &sx1) < 0)
                 return -errno;
 
-        if (statx(fd2, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx2) < 0)
+        if (statx(fd2, "", AT_EMPTY_PATH, STATX_MNT_ID, &sx2) < 0)
                 return -errno;
 
-        return statx_inode_same(&sx1, &sx2) && statx_mount_same(&sx1, &sx2);
+        /* The attribute is supported since kernel v5.10. */
+        assert(FLAGS_SET(sx1.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT));
+        assert(FLAGS_SET(sx2.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT));
+
+        if (!FLAGS_SET(sx1.stx_attributes, STATX_ATTR_MOUNT_ROOT))
+                return false;
+
+        if (!FLAGS_SET(sx2.stx_attributes, STATX_ATTR_MOUNT_ROOT))
+                return false;
+
+        return statx_mount_same(&sx1, &sx2);
 }
 
 char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
