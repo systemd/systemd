@@ -2325,13 +2325,20 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>MultiPathRoute=<replaceable>address</replaceable>[@<replaceable>name</replaceable>] [<replaceable>weight</replaceable>]</varname></term>
+        <term><varname>MultiPathRoute=</varname></term>
         <listitem>
           <para>Configures multipath route. Multipath routing is the technique of using multiple
-          alternative paths through a network. Takes gateway address. Optionally, takes a network
-          interface name or index separated with <literal>@</literal>, and a weight in 1..256 for this
-          multipath route separated with whitespace. This setting can be specified multiple times. If
-          an empty string is assigned, then the all previous assignments are cleared.</para>
+          alternative paths through a network. Takes a gateway address and/or a network interface
+          name or index (prefixed with <literal>@</literal>). At least one of these must be specified.
+          Optionally, a weight in 1..256 can be specified, separated with whitespace. This setting
+          can be specified multiple times. If an empty string is assigned, then all previous
+          assignments are cleared.</para>
+
+          <para>Examples:</para>
+          <programlisting>MultiPathRoute=10.0.0.1@eth0 20
+MultiPathRoute=192.168.1.1 50
+MultiPathRoute=@wg0 15
+MultiPathRoute=2001:db8::1@eth0</programlisting>
 
           <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>

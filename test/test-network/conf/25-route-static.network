@@ -115,3 +115,8 @@ Peer=1.1.8.104/31
 
 [Route]
 Gateway=1.1.8.104
+
+[Route]
+Destination=192.168.20.0/24
+MultiPathRoute=@test1 15
+MultiPathRoute=@dummy98 25

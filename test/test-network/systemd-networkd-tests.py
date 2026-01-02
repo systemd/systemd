@@ -4392,6 +4392,13 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('via 2001:1234:5:8fff:ff:ff:ff:ff dev dummy98', output)
         self.assertIn('via 2001:1234:5:9fff:ff:ff:ff:ff dev dummy98', output)
 
+        print('### ip route show 192.168.20.0/24')
+        output = check_output('ip route show 192.168.20.0/24')
+        print(output)
+        self.assertIn('192.168.20.0/24 proto static', output)
+        self.assertIn('nexthop dev test1 weight 15', output)
+        self.assertIn('nexthop dev dummy98 weight 25', output)
+
         check_json(networkctl_json())
 
     def _check_unreachable_routes_removed(self):
