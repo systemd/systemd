@@ -26,13 +26,13 @@ static void sfdisk(const char *sfdisk_path, LoopDevice *loop, const char *defini
         _cleanup_close_ int memfd = memfd_new_and_seal("sfdisk", definition, SIZE_MAX);
         ASSERT_OK(memfd);
 
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "(sfdisk)",
                         (int[]) { memfd, STDOUT_FILENO, STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
                         FORK_CLOSE_ALL_FDS|FORK_RESET_SIGNALS|FORK_REARRANGE_STDIO|FORK_LOG|FORK_WAIT,
-                        /* ret_pid= */ NULL);
+                        /* ret= */ NULL);
         if (r == 0) {
                 /* child */
                 execl(sfdisk_path, "fdisk", "--no-tell-kernel", "--no-reread", loop->node, NULL);
