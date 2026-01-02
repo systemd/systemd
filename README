@@ -201,7 +201,7 @@ REQUIREMENTS:
           CONFIG_PSI
           CONFIG_MEMCG
 
-        glibc >= 2.31
+        glibc >= 2.34
         libxcrypt >= 4.4.0 (optional)
         libmount >= 2.30 (from util-linux)
                 (util-linux *must* be built without --enable-libmount-support-mtab)
