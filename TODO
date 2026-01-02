@@ -137,6 +137,10 @@ Deprecations and removals:
 
 Features:
 
+* systemd-sysext: add "exec" command or so that is a bit like "refresh" but
+  runs it in a new namespace and then just executes the selected binary within
+  it. Could be useful to run one-off binaries inside a sysext as a CLI tool.
+
 * systemd-repart: implement Integrity=data/meta and Integrity=inline for non-LUKS
   case. Currently, only Integrity=inline combined with Encrypt= is implemented
   and uses libcryptsetup features. Add support for plain dm-integrity setups when
