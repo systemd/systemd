@@ -252,10 +252,9 @@ int close_all_fds_frugal(const int except[], size_t n_except) {
 
         assert(except || n_except == 0);
 
-        /* This is the inner fallback core of close_all_fds(). This never calls malloc() or opendir() or so
-         * and hence is safe to be called in signal handler context. Most users should call close_all_fds(),
-         * but when we assume we are called from signal handler context, then use this simpler call
-         * instead. */
+        /* This is the inner fallback core of close_all_fds(). This never calls malloc() or so and hence is
+         * safe to be called in signal handler context. Most users should call close_all_fds(), but when we
+         * assume we are called from signal handler context, then use this simpler call instead. */
 
         max_fd = get_max_fd();
         if (max_fd < 0)
@@ -275,42 +274,6 @@ int close_all_fds_frugal(const int except[], size_t n_except) {
 
                 q = close_nointr(fd);
                 if (q != -EBADF)
-                        RET_GATHER(r, q);
-        }
-
-        return r;
-}
-
-int close_all_fds_by_proc(const int except[], size_t n_except) {
-        _cleanup_closedir_ DIR *d = NULL;
-        int r = 0;
-
-        d = opendir("/proc/self/fd");
-        if (!d)
-                return close_all_fds_frugal(except, n_except); /* ultimate fallback if /proc/ is not available */
-
-        FOREACH_DIRENT(de, d, return -errno) {
-                int fd = -EBADF, q;
-
-                if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
-                        continue;
-
-                fd = parse_fd(de->d_name);
-                if (fd < 0)
-                        /* Let's better ignore this, just in case */
-                        continue;
-
-                if (fd < 3)
-                        continue;
-
-                if (fd == dirfd(d))
-                        continue;
-
-                if (fd_in_set(fd, except, n_except))
-                        continue;
-
-                q = close_nointr(fd);
-                if (q != -EBADF) /* Valgrind has its own FD and doesn't want to have it closed */
                         RET_GATHER(r, q);
         }
 
@@ -398,7 +361,7 @@ int close_all_fds(const int except[], size_t n_except) {
                 sorted = newa(int, n_sorted);
 
         if (!sorted) /* Fallback on OOM. */
-                return close_all_fds_by_proc(except, n_except);
+                return close_all_fds_frugal(except, n_except);
 
         memcpy(sorted, except, n_except * sizeof(int));
 

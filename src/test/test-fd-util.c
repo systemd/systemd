@@ -350,12 +350,6 @@ TEST(close_all_fds) {
                 _exit(EXIT_SUCCESS);
         }
 
-        ASSERT_OK(r = safe_fork("(caf-proc)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
-        if (r == 0) {
-                test_close_all_fds_inner(close_all_fds_by_proc);
-                _exit(EXIT_SUCCESS);
-        }
-
         ASSERT_OK(r = safe_fork("(caf-frugal)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
                 test_close_all_fds_inner(close_all_fds_frugal);
