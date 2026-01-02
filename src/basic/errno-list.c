@@ -24,7 +24,7 @@ int errno_from_name(const char *name) {
         return sc->id;
 }
 
-#if HAVE_STRERRORNAME_NP
+#ifdef __GLIBC__
 const char* errno_name_no_fallback(int id) {
         if (id == 0) /* To stay in line with our implementation below.  */
                 return NULL;

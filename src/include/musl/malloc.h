@@ -1,27 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include_next <malloc.h>
+
 #include <errno.h>
 #include <stdio.h>
 
-/* struct mallinfo2 will be defined and struct mallinfo is converted to struct mallinfo2 in
- * override/malloc.h. Hence, here we define struct mallinfo. */
-
-struct mallinfo {
-        int arena;    /* non-mmapped space allocated from system */
-        int ordblks;  /* number of free chunks */
-        int smblks;   /* number of fastbin blocks */
-        int hblks;    /* number of mmapped regions */
-        int hblkhd;   /* space in mmapped regions */
-        int usmblks;  /* always 0, preserved for backwards compatibility */
-        int fsmblks;  /* space available in freed fastbin blocks */
-        int uordblks; /* total allocated space */
-        int fordblks; /* total free space */
-        int keepcost; /* top-most, releasable (via malloc_trim) space */
+struct mallinfo2 {
+        size_t arena;    /* non-mmapped space allocated from system */
+        size_t ordblks;  /* number of free chunks */
+        size_t smblks;   /* number of fastbin blocks */
+        size_t hblks;    /* number of mmapped regions */
+        size_t hblkhd;   /* space in mmapped regions */
+        size_t usmblks;  /* always 0, preserved for backwards compatibility */
+        size_t fsmblks;  /* space available in freed fastbin blocks */
+        size_t uordblks; /* total allocated space */
+        size_t fordblks; /* total free space */
+        size_t keepcost; /* top-most, releasable (via malloc_trim) space */
 };
 
-static inline struct mallinfo mallinfo(void) {
-        return (struct mallinfo) {};
+static inline struct mallinfo2 mallinfo2(void) {
+        return (struct mallinfo2) {};
 }
 
 static inline int malloc_info(int options, FILE *stream) {
@@ -35,5 +34,3 @@ static inline int malloc_info(int options, FILE *stream) {
 static inline int malloc_trim(size_t pad) {
         return 0;
 }
-
-#include_next <malloc.h>
