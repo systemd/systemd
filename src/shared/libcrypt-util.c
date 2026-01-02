@@ -1,144 +1,159 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <crypt.h>
-#include <stdlib.h>
+#if HAVE_LIBCRYPT
+#  include <crypt.h>
+#endif
 
 #include "alloc-util.h"
+#include "dlfcn-util.h"
 #include "errno-util.h"
 #include "libcrypt-util.h"
 #include "log.h"
-#include "random-util.h"        /* IWYU pragma: keep */
 #include "string-util.h"
 #include "strv.h"
 
-int make_salt(char **ret) {
+#if HAVE_LIBCRYPT
+static void *libcrypt_dl = NULL;
 
-#if HAVE_CRYPT_GENSALT_RA
+static DLSYM_PROTOTYPE(crypt_gensalt_ra) = NULL;
+static DLSYM_PROTOTYPE(crypt_preferred_method) = NULL;
+static DLSYM_PROTOTYPE(crypt_ra) = NULL;
+
+int dlopen_libcrypt(void) {
+#ifdef __GLIBC__
+        static int cached = 0;
+        int r;
+
+        if (libcrypt_dl)
+                return 0; /* Already loaded */
+
+        if (cached < 0)
+                return cached; /* Already tried, and failed. */
+
+        /* Several distributions like Debian/Ubuntu and OpenSUSE provide libxcrypt as libcrypt.so.1,
+         * while others like Fedora/CentOS and Arch provide it as libcrypt.so.2. */
+        ELF_NOTE_DLOPEN("crypt",
+                        "Support for hashing passwords",
+                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        "libcrypt.so.2", "libcrypt.so.1");
+
+        _cleanup_(dlclosep) void *dl = NULL;
+        r = dlopen_safe("libcrypt.so.2", &dl, /* reterr_dlerror= */ NULL);
+        if (r < 0) {
+                const char *dle = NULL;
+                r = dlopen_safe("libcrypt.so.1", &dl, &dle);
+                if (r < 0) {
+                        log_debug_errno(r, "libcrypt.so.2/libcrypt.so.1 is not available: %s", dle ?: STRERROR(r));
+                        return (cached = -EOPNOTSUPP); /* turn into recognizable error */
+                }
+                log_debug("Loaded 'libcrypt.so.1' via dlopen()");
+        } else
+                log_debug("Loaded 'libcrypt.so.2' via dlopen()");
+
+        r = dlsym_many_or_warn(
+                        dl, LOG_DEBUG,
+                        DLSYM_ARG(crypt_gensalt_ra),
+                        DLSYM_ARG(crypt_preferred_method),
+                        DLSYM_ARG(crypt_ra));
+        if (r < 0)
+                return (cached = r);
+
+        libcrypt_dl = TAKE_PTR(dl);
+#else
+        libcrypt_dl = NULL;
+        sym_crypt_gensalt_ra = missing_crypt_gensalt_ra;
+        sym_crypt_preferred_method = missing_crypt_preferred_method;
+        sym_crypt_ra = missing_crypt_ra;
+#endif
+        return 0;
+}
+
+int make_salt(char **ret) {
         const char *e;
         char *salt;
+        int r;
 
-        /* If we have crypt_gensalt_ra() we default to the "preferred method" (i.e. usually yescrypt).
-         * crypt_gensalt_ra() is usually provided by libxcrypt. */
+        assert(ret);
+
+        r = dlopen_libcrypt();
+        if (r < 0)
+                return r;
 
         e = secure_getenv("SYSTEMD_CRYPT_PREFIX");
         if (!e)
-#if HAVE_CRYPT_PREFERRED_METHOD
-                e = crypt_preferred_method();
-#else
-                e = "$6$";
-#endif
+                e = sym_crypt_preferred_method();
 
         log_debug("Generating salt for hash prefix: %s", e);
 
-        salt = crypt_gensalt_ra(e, 0, NULL, 0);
+        salt = sym_crypt_gensalt_ra(e, 0, NULL, 0);
         if (!salt)
                 return -errno;
 
         *ret = salt;
         return 0;
-#else
-        /* If crypt_gensalt_ra() is not available, we use SHA512 and generate the salt on our own. */
-
-        static const char table[] =
-                "abcdefghijklmnopqrstuvwxyz"
-                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                "0123456789"
-                "./";
-
-        uint8_t raw[16];
-        char *salt, *j;
-        size_t i;
-        int r;
-
-        /* This is a bit like crypt_gensalt_ra(), but doesn't require libcrypt, and doesn't do anything but
-         * SHA512, i.e. is legacy-free and minimizes our deps. */
-
-        assert_cc(sizeof(table) == 64U + 1U);
-
-        log_debug("Generating fallback salt for hash prefix: $6$");
-
-        /* Insist on the best randomness by setting RANDOM_BLOCK, this is about keeping passwords secret after all. */
-        r = crypto_random_bytes(raw, sizeof(raw));
-        if (r < 0)
-                return r;
-
-        salt = new(char, 3+sizeof(raw)+1+1);
-        if (!salt)
-                return -ENOMEM;
-
-        /* We only bother with SHA512 hashed passwords, the rest is legacy, and we don't do legacy. */
-        j = stpcpy(salt, "$6$");
-        for (i = 0; i < sizeof(raw); i++)
-                j[i] = table[raw[i] & 63];
-        j[i++] = '$';
-        j[i] = 0;
-
-        *ret = salt;
-        return 0;
-#endif
 }
 
-#if HAVE_CRYPT_RA
-#  define CRYPT_RA_NAME "crypt_ra"
-#else
-#  define CRYPT_RA_NAME "crypt_r"
-
-/* Provide a poor man's fallback that uses a fixed size buffer. */
-
-static char* systemd_crypt_ra(const char *phrase, const char *setting, void **data, int *size) {
-        assert(data);
-        assert(size);
-
-        /* We allocate the buffer because crypt(3) says: struct crypt_data may be quite large (32kB in this
-         * implementation of libcrypt; over 128kB in some other implementations). This is large enough that
-         * it may be unwise to allocate it on the stack. */
-
-        if (!*data) {
-                *data = new0(struct crypt_data, 1);
-                if (!*data) {
-                        errno = ENOMEM;
-                        return NULL;
-                }
-
-                *size = (int) (sizeof(struct crypt_data));
-        }
-
-        char *t = crypt_r(phrase, setting, *data);
-        if (!t)
-                return NULL;
-
-        /* crypt_r may return a pointer to an invalid hashed password on error. Our callers expect NULL on
-         * error, so let's just return that. */
-        if (t[0] == '*')
-                return NULL;
-
-        return t;
-}
-
-#define crypt_ra systemd_crypt_ra
-
-#endif
-
-int hash_password_full(const char *password, void **cd_data, int *cd_size, char **ret) {
+int hash_password(const char *password, char **ret) {
         _cleanup_free_ char *salt = NULL;
-        _cleanup_(erase_and_freep) void *_cd_data = NULL;
+        _cleanup_(erase_and_freep) void *cd_data = NULL;
         const char *p;
-        int r, _cd_size = 0;
+        int r, cd_size = 0;
 
-        assert(!!cd_data == !!cd_size);
+        assert(password);
+        assert(ret);
 
         r = make_salt(&salt);
         if (r < 0)
                 return log_debug_errno(r, "Failed to generate salt: %m");
 
         errno = 0;
-        p = crypt_ra(password, salt, cd_data ?: &_cd_data, cd_size ?: &_cd_size);
+        p = sym_crypt_ra(password, salt, &cd_data, &cd_size);
         if (!p)
-                return log_debug_errno(errno_or_else(SYNTHETIC_ERRNO(EINVAL)),
-                                       CRYPT_RA_NAME "() failed: %m");
+                return log_debug_errno(errno_or_else(SYNTHETIC_ERRNO(EINVAL)), "crypt_ra() failed: %m");
 
         return strdup_to(ret, p);
 }
+
+int test_password_one(const char *hashed_password, const char *password) {
+        _cleanup_(erase_and_freep) void *cd_data = NULL;
+        int r, cd_size = 0;
+        const char *k;
+
+        assert(hashed_password);
+        assert(password);
+
+        r = dlopen_libcrypt();
+        if (r < 0)
+                return r;
+
+        errno = 0;
+        k = sym_crypt_ra(password, hashed_password, &cd_data, &cd_size);
+        if (!k) {
+                if (errno == ENOMEM)
+                        return -ENOMEM;
+                /* Unknown or unavailable hashing method or string too short */
+                return 0;
+        }
+
+        return streq(k, hashed_password);
+}
+
+int test_password_many(char **hashed_password, const char *password) {
+        int r;
+
+        assert(password);
+
+        STRV_FOREACH(hpw, hashed_password) {
+                r = test_password_one(*hpw, password);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return true;
+        }
+
+        return false;
+}
+#endif
 
 bool looks_like_hashed_password(const char *s) {
         /* Returns false if the specified string is certainly not a hashed UNIX password. crypt(5) lists
@@ -154,35 +169,4 @@ bool looks_like_hashed_password(const char *s) {
         s += strspn(s, "!"); /* Skip (possibly duplicated) locking prefix */
 
         return !STR_IN_SET(s, "x", "*");
-}
-
-int test_password_one(const char *hashed_password, const char *password) {
-        _cleanup_(erase_and_freep) void *cd_data = NULL;
-        int cd_size = 0;
-        const char *k;
-
-        errno = 0;
-        k = crypt_ra(password, hashed_password, &cd_data, &cd_size);
-        if (!k) {
-                if (errno == ENOMEM)
-                        return -ENOMEM;
-                /* Unknown or unavailable hashing method or string too short */
-                return 0;
-        }
-
-        return streq(k, hashed_password);
-}
-
-int test_password_many(char **hashed_password, const char *password) {
-        int r;
-
-        STRV_FOREACH(hpw, hashed_password) {
-                r = test_password_one(*hpw, password);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        return true;
-        }
-
-        return false;
 }
