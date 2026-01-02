@@ -283,14 +283,21 @@ TEST(is_mount_point_at) {
         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
 
-        /* Not allowed, since "/" is a path, not a plain filename */
-        assert_se(is_mount_point_at(fd, "/", 0) == -EINVAL);
-        assert_se(is_mount_point_at(fd, "..", 0) == -EINVAL);
-        assert_se(is_mount_point_at(fd, "../", 0) == -EINVAL);
-        assert_se(is_mount_point_at(fd, "/proc", 0) == -EINVAL);
-        assert_se(is_mount_point_at(fd, "/proc/", 0) == -EINVAL);
-        assert_se(is_mount_point_at(fd, "proc/sys", 0) == -EINVAL);
-        assert_se(is_mount_point_at(fd, "proc/sys/", 0) == -EINVAL);
+        ASSERT_OK_POSITIVE(is_mount_point_at(fd, "/", /* flags= */ 0));
+        ASSERT_OK_POSITIVE(is_mount_point_at(fd, "..", /* flags= */ 0));
+        ASSERT_OK_POSITIVE(is_mount_point_at(fd, "../", /* flags= */ 0));
+        r = ASSERT_OK(proc_mounted());
+        if (r > 0) {
+                ASSERT_OK_POSITIVE(is_mount_point_at(fd, "/proc", /* flags= */ 0));
+                ASSERT_OK_POSITIVE(is_mount_point_at(fd, "/proc/", /* flags= */ 0));
+                ASSERT_OK_ZERO(is_mount_point_at(fd, "proc/sys", /* flags= */ 0));
+                ASSERT_OK_ZERO(is_mount_point_at(fd, "proc/sys/", /* flags= */ 0));
+        } else {
+                ASSERT_OK_ZERO(is_mount_point_at(fd, "/proc", /* flags= */ 0));
+                ASSERT_OK_ZERO(is_mount_point_at(fd, "/proc/", /* flags= */ 0));
+                ASSERT_ERROR(is_mount_point_at(fd, "proc/sys", /* flags= */ 0), ENOENT);
+                ASSERT_ERROR(is_mount_point_at(fd, "proc/sys/", /* flags= */ 0), ENOENT);
+        }
 
         /* This one definitely is a mount point */
         assert_se(is_mount_point_at(fd, "proc", 0) > 0);
