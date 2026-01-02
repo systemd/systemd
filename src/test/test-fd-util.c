@@ -11,6 +11,7 @@
 #include "memfd-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -346,12 +347,6 @@ TEST(close_all_fds) {
         ASSERT_OK(r = safe_fork("(caf-nomalloc)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
                 test_close_all_fds_inner(close_all_fds_without_malloc);
-                _exit(EXIT_SUCCESS);
-        }
-
-        ASSERT_OK(r = safe_fork("(caf-proc)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
-        if (r == 0) {
-                test_close_all_fds_inner(close_all_fds_by_proc);
                 _exit(EXIT_SUCCESS);
         }
 
@@ -745,21 +740,51 @@ TEST(path_is_root_at) {
 }
 
 TEST(fds_are_same_mount) {
-        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF, fd3 = -EBADF, fd4 = -EBADF;
+        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF, fd3 = -EBADF, fd4 = -EBADF, fd5 = -EBADF, fd6 = -EBADF;
+        int r;
 
         fd1 = open("/sys", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
         fd2 = open("/proc", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
         fd3 = open("/proc", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
         fd4 = open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        fd5 = open("/usr/lib", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        fd6 = open("/usr/lib", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
 
         if (fd1 < 0 || fd2 < 0 || fd3 < 0 || fd4 < 0)
                 return (void) log_tests_skipped_errno(errno, "Failed to open /sys or /proc or /");
 
-        if (fds_are_same_mount(fd1, fd4) > 0 && fds_are_same_mount(fd2, fd4) > 0)
-                return (void) log_tests_skipped("Cannot test fds_are_same_mount() as /sys and /proc are not mounted");
+        r = ASSERT_OK(is_mount_point_at(fd1, /* path= */ NULL, /* flags= */ 0));
+        ASSERT_OK_EQ(fds_are_same_mount(fd1, fd1), r);
 
-        assert_se(fds_are_same_mount(fd1, fd2) == 0);
-        assert_se(fds_are_same_mount(fd2, fd3) > 0);
+        r = ASSERT_OK(is_mount_point_at(fd2, /* path= */ NULL, /* flags= */ 0));
+        ASSERT_OK_EQ(fds_are_same_mount(fd2, fd2), r);
+        ASSERT_OK_EQ(fds_are_same_mount(fd2, fd3), r);
+        ASSERT_OK_EQ(fds_are_same_mount(fd3, fd3), r);
+
+        ASSERT_OK_POSITIVE(fds_are_same_mount(fd4, fd4));
+
+        ASSERT_OK_ZERO(fds_are_same_mount(fd1, fd2));
+        ASSERT_OK_ZERO(fds_are_same_mount(fd1, fd3));
+        ASSERT_OK_ZERO(fds_are_same_mount(fd1, fd4));
+        ASSERT_OK_ZERO(fds_are_same_mount(fd2, fd4));
+        ASSERT_OK_ZERO(fds_are_same_mount(fd3, fd4));
+
+        if (fd5 >= 0) {
+                r = ASSERT_OK(is_mount_point_at(fd5, /* path= */ NULL, /* flags= */ 0));
+                ASSERT_OK_EQ(fds_are_same_mount(fd5, fd5), r);
+                ASSERT_OK_EQ(fds_are_same_mount(fd5, fd6), r);
+                ASSERT_OK_EQ(fds_are_same_mount(fd6, fd6), r);
+
+                ASSERT_OK_ZERO(fds_are_same_mount(fd1, fd5));
+                ASSERT_OK_ZERO(fds_are_same_mount(fd2, fd5));
+                ASSERT_OK_ZERO(fds_are_same_mount(fd3, fd5));
+                ASSERT_OK_ZERO(fds_are_same_mount(fd4, fd5));
+
+                ASSERT_OK_ZERO(fds_are_same_mount(fd1, fd6));
+                ASSERT_OK_ZERO(fds_are_same_mount(fd2, fd6));
+                ASSERT_OK_ZERO(fds_are_same_mount(fd3, fd6));
+                ASSERT_OK_ZERO(fds_are_same_mount(fd4, fd6));
+        }
 }
 
 TEST(fd_get_path) {
