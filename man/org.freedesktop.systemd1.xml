@@ -12664,8 +12664,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
-      <para><varname>OOMKills</varname>, and
-      <varname>UserNamespacePath</varname>, and
+      <para><varname>UserNamespacePath</varname>,
+      <varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
       <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
     </refsect2>
