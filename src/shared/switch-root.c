@@ -54,7 +54,7 @@ int switch_root(const char *new_root,
         if (new_root_fd < 0)
                 return log_error_errno(errno, "Failed to open target directory '%s': %m", new_root);
 
-        r = fds_are_same_mount(old_root_fd, new_root_fd);
+        r = fds_are_same_mount(old_root_fd, new_root_fd); /* checks if referenced inodes and mounts match */
         if (r < 0)
                 return log_error_errno(r, "Failed to check if old and new root directory/mount are the same: %m");
         if (r > 0) {
@@ -186,18 +186,23 @@ int switch_root(const char *new_root,
 
                 if (chdir(".") < 0)
                         return log_error_errno(errno, "Failed to change directory: %m");
-        }
 
-        if (istmp > 0) {
-                struct stat rb;
+                /* Now empty the old root superblock */
+                if (istmp > 0) {
+                        struct stat rb;
 
-                if (fstat(old_root_fd, &rb) < 0)
-                        return log_error_errno(errno, "Failed to stat old root directory: %m");
+                        if (fstat(old_root_fd, &rb) < 0)
+                                return log_error_errno(errno, "Failed to stat old root directory: %m");
 
-                /* Note: the below won't operate on non-memory file systems (i.e. only on tmpfs, ramfs), and
-                 * it will stop at mount boundaries */
-                (void) rm_rf_children(TAKE_FD(old_root_fd), 0, &rb); /* takes possession of the dir fd, even on failure */
-        }
+                        /* Note: the below won't operate on non-memory file systems (i.e. only on tmpfs, ramfs), and
+                         * it will stop at mount boundaries */
+                        (void) rm_rf_children(TAKE_FD(old_root_fd), 0, &rb); /* takes possession of the dir fd, even on failure */
+                }
+        } else
+                /* NB: we don't bother with emptying the old root superblock here, under the assumption the
+                 * pivot_root() + umount() sufficiently detached from the superblock to the point we don't
+                 * need to empty it anymore */
+                log_debug("Pivoting root worked.");
 
         return 0;
 }
