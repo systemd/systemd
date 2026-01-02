@@ -220,7 +220,7 @@ TEST(protect_kernel_logs) {
         }
         ASSERT_OK(r);
 
-        r = ASSERT_OK(safe_fork("(protect)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret_pid= */ NULL));
+        r = ASSERT_OK(pidref_safe_fork("(protect)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
 
         if (r == 0) {
                 _cleanup_close_ int fd = -EBADF;

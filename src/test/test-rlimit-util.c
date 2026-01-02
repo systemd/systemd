@@ -155,7 +155,10 @@ TEST(pid_getrlimit) {
                 assert_se(getrlimit(resource, &direct) >= 0);
 
                 /* We fork off a child so that getrlimit() doesn't work anymore */
-                r = safe_fork("(getrlimit)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT, /* ret_pid= */ NULL);
+                r = pidref_safe_fork(
+                                "(getrlimit)",
+                                FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT,
+                                /* ret= */ NULL);
                 assert_se(r >= 0);
 
                 if (r == 0) {

@@ -1155,12 +1155,12 @@ static int unprivileged_remove(Image *i) {
         if (r < 0)
                 return r;
         /* Fork off child that moves into userns and does the copying */
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "rm-tree",
                         /* stdio_fds= */ NULL,
                         (int[]) { userns_fd, tree_fd, }, 2,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_REOPEN_LOG,
-                        /* ret_pid= */ NULL);
+                        /* ret= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Process that was supposed to remove tree failed: %m");
         if (r == 0) {
@@ -1508,12 +1508,12 @@ static int unpriviled_clone(Image *i, const char *new_path) {
                 return r;
 
         /* Fork off child that moves into userns and does the copying */
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "clone-tree",
                         /* stdio_fds= */ NULL,
                         (int[]) { userns_fd, tree_fd, target_fd }, 3,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_REOPEN_LOG,
-                        /* ret_pid= */ NULL);
+                        /* ret= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Process that was supposed to clone tree failed: %m");
         if (r == 0) {

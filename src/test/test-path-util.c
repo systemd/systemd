@@ -475,7 +475,10 @@ static void test_find_executable_exec_one(const char *path) {
         if (path_is_absolute(path))
                 ASSERT_STREQ(t, path);
 
-        r = ASSERT_OK(safe_fork("(find-exec)", FORK_LOG|FORK_DEATHSIG_SIGKILL|FORK_WAIT, /* ret_pid= */ NULL));
+        r = ASSERT_OK(pidref_safe_fork(
+                        "(find-exec)",
+                        FORK_LOG|FORK_DEATHSIG_SIGKILL|FORK_WAIT,
+                        /* ret= */ NULL));
 
         if (r == 0) {
                 r = fexecve_or_execve(fd, t, STRV_MAKE(t, "--version"), STRV_MAKE(NULL));
