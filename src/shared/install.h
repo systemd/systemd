@@ -9,6 +9,7 @@ typedef enum UnitFilePresetMode {
         UNIT_FILE_PRESET_FULL,
         UNIT_FILE_PRESET_ENABLE_ONLY,
         UNIT_FILE_PRESET_DISABLE_ONLY,
+        UNIT_FILE_PRESET_MASK_ONLY,
         _UNIT_FILE_PRESET_MODE_MAX,
         _UNIT_FILE_PRESET_MODE_INVALID = -EINVAL,
 } UnitFilePresetMode;
@@ -218,6 +219,7 @@ typedef enum PresetAction {
         PRESET_UNKNOWN,
         PRESET_ENABLE,
         PRESET_DISABLE,
+        PRESET_MASK,
         PRESET_IGNORE,
         _PRESET_ACTION_MAX,
         _PRESET_ACTION_INVALID = -EINVAL,

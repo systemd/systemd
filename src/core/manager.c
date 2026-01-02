@@ -1926,6 +1926,9 @@ static void manager_preset_all(Manager *m) {
 
         assert(m);
 
+        if (symlink("/dev/null", "/run/systemd/preset-mask") < 0 && errno != EEXIST)
+                log_error_errno(errno, "Failed to symlink /run/systemd/preset-mask to /dev/null: %m");
+
         if (m->first_boot <= 0)
                 return;
 
