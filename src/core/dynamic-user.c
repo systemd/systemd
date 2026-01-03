@@ -232,8 +232,6 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 xsprintf(lock_path, "/run/systemd/dynamic-uid/" UID_FMT, candidate);
 
                 for (;;) {
-                        struct stat st;
-
                         lock_fd = open(lock_path, O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY, 0600);
                         if (lock_fd < 0)
                                 return -errno;
@@ -246,10 +244,11 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                                 return -errno;
                         }
 
-                        if (fstat(lock_fd, &st) < 0)
-                                return -errno;
-                        if (st.st_nlink > 0)
+                        r = fd_verify_linked(lock_fd);
+                        if (r >= 0)
                                 break;
+                        if (r != -EIDRM)
+                                return r;
 
                         /* Oh, bummer, we got the lock, but the file was unlinked between the time we opened it and
                          * got the lock. Close it, and try again. */
