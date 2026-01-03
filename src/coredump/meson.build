@@ -13,6 +13,7 @@ systemd_coredump_sources = files(
         'coredump-receive.c',
         'coredump-register.c',
         'coredump-send.c',
+        'coredump-socket.c',
         'coredump-submit.c',
 )
 systemd_coredump_extract_sources = files(

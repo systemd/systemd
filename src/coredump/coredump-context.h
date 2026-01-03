@@ -61,6 +61,7 @@ struct CoredumpContext {
         bool got_pidfd;    /* META_ARGV_PIDFD */
         bool same_pidns;
         bool forwarded;
+        bool requested;
         int input_fd;
         int mount_tree_fd;
         struct iovec_wrapper iovw;
