@@ -11,11 +11,13 @@ systemd_coredump_sources = files(
         'coredump-container.c',
         'coredump-context.c',
         'coredump-kernel-helper.c',
+        'coredump-manager.c',
         'coredump-receive.c',
         'coredump-register.c',
         'coredump-send.c',
         'coredump-socket.c',
         'coredump-submit.c',
+        'coredump-worker.c',
 )
 systemd_coredump_extract_sources = files(
         'coredump-vacuum.c',
