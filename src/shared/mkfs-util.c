@@ -679,6 +679,8 @@ int make_filesystem(
                         fork_flags |= FORK_NEW_MOUNTNS;
         }
 
+        log_info("Formatting %s as %s", node, fstype);
+
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *j = NULL;
 
