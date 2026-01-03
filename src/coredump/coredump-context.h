@@ -82,3 +82,4 @@ bool coredump_context_is_journald(CoredumpContext *context);
 int coredump_context_build_iovw(CoredumpContext *context);
 int coredump_context_parse_iovw(CoredumpContext *context);
 int coredump_context_parse_from_argv(CoredumpContext *context, int argc, char **argv);
+int coredump_context_parse_from_peer(CoredumpContext *context);
