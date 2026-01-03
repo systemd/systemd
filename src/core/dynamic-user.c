@@ -240,7 +240,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
 
                         r = flock(lock_fd, LOCK_EX|LOCK_NB); /* Try to get a BSD file lock on the UID lock file */
                         if (r < 0) {
-                                if (IN_SET(errno, EBUSY, EAGAIN))
+                                if (errno == EAGAIN)
                                         goto next; /* already in use */
 
                                 return -errno;
