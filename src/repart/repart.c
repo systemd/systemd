@@ -2730,7 +2730,7 @@ static MakeFileSystemFlags partition_mkfs_flags(const Partition *p) {
         if (arg_discard)
                 flags |= MKFS_DISCARD;
 
-        if (streq(p->format, "erofs") && !DEBUG_LOGGING)
+        if (streq(p->format, "erofs") && !DEBUG_LOGGING && !isatty_safe(STDERR_FILENO))
                 flags |= MKFS_QUIET;
 
         FOREACH_ARRAY(cf, p->copy_files, p->n_copy_files)
