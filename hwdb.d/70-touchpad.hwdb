@@ -53,6 +53,12 @@ touchpad:usb:v044ep1221:*
  ID_INPUT_TOUCHPAD_INTEGRATION=external
 
 ###########################################################
+# Lenovo IdeaPad Duet3 10IGL5 (82AT)
+###########################################################
+touchpad:bluetooth:v17efp60fa:*
+ ID_INPUT_TOUCHPAD_INTEGRATION=internal
+
+###########################################################
 # Logitech
 ###########################################################
 touchpad:usb:v046d*
