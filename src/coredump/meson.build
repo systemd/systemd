@@ -8,6 +8,7 @@ systemd_coredump_sources = files(
         'coredump.c',
         'coredump-backtrace.c',
         'coredump-config.c',
+        'coredump-container.c',
         'coredump-context.c',
         'coredump-kernel-helper.c',
         'coredump-receive.c',
