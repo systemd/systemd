@@ -736,11 +736,20 @@ int dynamic_user_lookup_name(Manager *m, const char *name, uid_t *ret) {
         if (!d)
                 return -ESRCH;
 
-        r = dynamic_user_current(d, ret);
+        uid_t uid;
+        r = dynamic_user_current(d, &uid);
         if (r == -EAGAIN) /* not realized yet? */
                 return -ESRCH;
+        if (r < 0)
+                return r;
 
-        return r;
+        if (!uid_is_dynamic(uid))
+                return -ESRCH;
+
+        if (ret)
+                *ret = uid;
+
+        return 0;
 }
 
 int dynamic_creds_make(Manager *m, const char *user, const char *group, DynamicCreds **ret) {

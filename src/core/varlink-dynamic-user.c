@@ -7,6 +7,7 @@
 #include "json-util.h"
 #include "manager.h"
 #include "string-util.h"
+#include "uid-classification.h"
 #include "user-util.h"
 #include "varlink-dynamic-user.h"
 
@@ -90,6 +91,9 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
                                 continue;
                         if (r < 0)
                                 return r;
+
+                        if (!uid_is_dynamic(uid))
+                                continue;
 
                         if (!user_match_lookup_parameters(&p, d->name, uid))
                                 continue;
@@ -198,6 +202,9 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
                                 continue;
                         if (r < 0)
                                 return r;
+
+                        if (!gid_is_dynamic((gid_t) uid))
+                                continue;
 
                         if (!group_match_lookup_parameters(&p, d->name, (gid_t) uid))
                                 continue;

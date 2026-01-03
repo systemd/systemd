@@ -59,3 +59,13 @@ if [[ ! -v ASAN_OPTIONS ]]; then
     assert_rc 2 systemd-run -q -t --property SystemCallFilter=~open_tree getent group definitelynotarealgroup
     systemctl start systemd-userdbd.socket systemd-userdbd.service
 fi
+
+# For issue 40228
+UNIT="sleep$RANDOM"
+DISK_GID=$(userdbctl -j group disk | jq .gid)
+systemd-run -p DynamicUser=yes -p Group=disk -u "$UNIT" sleep infinity
+userdbctl group disk | grep -F 'io.systemd.NameServiceSwitch' >/dev/null
+userdbctl group "$DISK_GID" | grep -F 'io.systemd.NameServiceSwitch' >/dev/null
+(! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByName "s" disk)
+(! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByUID "u" "$DISK_GID")
+systemctl stop "$UNIT"
