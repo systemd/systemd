@@ -11,6 +11,7 @@ systemd_coredump_sources = files(
         'coredump-context.c',
         'coredump-kernel-helper.c',
         'coredump-receive.c',
+        'coredump-register.c',
         'coredump-send.c',
         'coredump-submit.c',
 )
