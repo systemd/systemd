@@ -196,6 +196,7 @@ shared_sources = files(
         'varlink-idl-common.c',
         'varlink-io.systemd.AskPassword.c',
         'varlink-io.systemd.BootControl.c',
+        'varlink-io.systemd.Coredump.Register.c',
         'varlink-io.systemd.Credentials.c',
         'varlink-io.systemd.FactoryReset.c',
         'varlink-io.systemd.Hostname.c',
