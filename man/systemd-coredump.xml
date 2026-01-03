@@ -20,14 +20,24 @@
     <refname>systemd-coredump</refname>
     <refname>systemd-coredump.socket</refname>
     <refname>systemd-coredump@.service</refname>
+    <refname>systemd-coredump-container.socket</refname>
+    <refname>systemd-coredump-container@.service</refname>
+    <refname>systemd-coredump-register.socket</refname>
+    <refname>systemd-coredump-register@.service</refname>
+    <refname>systemd-coredumpd.service</refname>
     <refpurpose>Acquire, save and process core dumps</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>/usr/lib/systemd/systemd-coredump</filename></para>
     <para><filename>/usr/lib/systemd/systemd-coredump</filename> <option>--backtrace</option></para>
-    <para><filename>systemd-coredump@.service</filename></para>
     <para><filename>systemd-coredump.socket</filename></para>
+    <para><filename>systemd-coredump@.service</filename></para>
+    <para><filename>systemd-coredump-container.socket</filename></para>
+    <para><filename>systemd-coredump-container@.service</filename></para>
+    <para><filename>systemd-coredump-register.socket</filename></para>
+    <para><filename>systemd-coredump-register@.service</filename></para>
+    <para><filename>systemd-coredumpd.service</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -66,8 +76,19 @@
     <refsect2>
       <title>Invocation of <command>systemd-coredump</command></title>
 
-      <para>The <command>systemd-coredump</command> executable does the actual work. It is invoked twice:
-      once as the handler by the kernel, and the second time in the
+      <para>The <command>systemd-coredump</command> executable does the actual work. When the kernel is newer
+      then v6.19, <filename>systemd-coredumpd.service</filename> creates a unix socket, and
+      requests <filename>systemd-coredump-register@.service</filename> to write the path to the socket into
+      <filename>/proc/sys/kernel/core_pattern</filename>. When a process crashes, the kernel connects the
+      socket, and send the core of the process through the socket. Then,
+      <filename>systemd-coredumpd.service</filename> transfers the core to the corresponding container if the
+      crashed process is in a container environment, otherwise saves the core in the local storage and writes
+      information about the crashed process to journal. In container, when a core is transfered from the
+      host, <filename>systemd-coredump-client@.service</filename> is triggered, which saves the transfered
+      core into the container storage.</para>
+
+      <para>When the kernel is older than v6.19, the executable <command>systemd-coredump</command> is
+      invoked twice: once as the handler by the kernel, and the second time in the
       <filename>systemd-coredump@.service</filename> to actually write the data to the journal and process
       and save the core file.</para>
 
