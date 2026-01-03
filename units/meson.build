@@ -313,6 +313,15 @@ units = [
           'conditions' : ['ENABLE_COREDUMP'],
         },
         {
+          'file' : 'systemd-coredump-container.socket',
+          'conditions' : ['ENABLE_COREDUMP'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-coredump-container@.service.in',
+          'conditions' : ['ENABLE_COREDUMP'],
+        },
+        {
           'file' : 'systemd-coredump-register.socket',
           'conditions' : ['ENABLE_COREDUMP'],
           'symlinks' : ['sockets.target.wants/'],
