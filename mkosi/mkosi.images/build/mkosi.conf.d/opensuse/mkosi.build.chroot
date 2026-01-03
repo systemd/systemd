@@ -26,6 +26,7 @@ while read -r filelist; do
         -e 's/\.gz$//; /systemd-cgroups-agent/d; s/import-pubring.gpg/import-pubring.pgp/' \
         -e '/(initctl|runlevel|telinit)/ d' \
         -e 's/systemd-quotacheck.service.8/systemd-quotacheck@.service.8/' \
+        -e '/systemd-sysv-generator/d' \
         "$filelist" >"/tmp/$(basename "$filelist")"
     mount --bind "/tmp/$(basename "$filelist")" "$filelist"
 done < <(find "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}" -name "files.*")
