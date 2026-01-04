@@ -271,7 +271,12 @@ if conf.get('HAVE_LIBMOUNT') == 1
         shared_sources += files('libmount-util.c')
 endif
 
+if conf.get('HAVE_LIBCURL') == 1
+        shared_sources += files('curl-util.c')
+endif
+
 generate_ip_protocol_list = files('generate-ip-protocol-list.sh')
+
 ip_protocol_list_txt = custom_target(
         input : [generate_ip_protocol_list, ipproto_sources],
         output : 'ip-protocol-list.txt',
@@ -390,6 +395,11 @@ libshared_deps = [threads,
                   libxz_cflags,
                   libzstd_cflags,
                   tpm2_cflags]
+
+# Is this correct?
+if conf.get('HAVE_LIBCURL') == 1
+        libshared_deps += [libcurl]
+endif
 
 libshared_sym_path = meson.current_source_dir() / 'libshared.sym'
 libshared_build_dir = meson.current_build_dir()
