@@ -35,6 +35,6 @@ int vsock_get_local_cid_or_warn(unsigned *ret) {
                 return 0;
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to query local AF_VSOCK CID: %m");
+                return log_error_errno(r, "Failed to query host's AF_VSOCK CID: %m");
         return 1;
 }
