@@ -47,7 +47,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_dw, HAVE_ELFUTILS);
         ASSERT_DLOPEN(dlopen_elf, HAVE_ELFUTILS);
         ASSERT_DLOPEN(dlopen_gcrypt, HAVE_GCRYPT);
-        ASSERT_DLOPEN(dlopen_idn, HAVE_LIBIDN2 || HAVE_LIBIDN);
+        ASSERT_DLOPEN(dlopen_idn, HAVE_LIBIDN2);
         ASSERT_DLOPEN(dlopen_libacl, HAVE_ACL);
         ASSERT_DLOPEN(dlopen_libapparmor, HAVE_APPARMOR);
         ASSERT_DLOPEN(dlopen_libarchive, HAVE_LIBARCHIVE);
