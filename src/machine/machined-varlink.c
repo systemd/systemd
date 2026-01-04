@@ -627,7 +627,7 @@ static int list_image_one_and_maybe_read_metadata(Manager *m, sd_varlink *link, 
         assert(image);
 
         if (should_acquire_metadata(am) && !image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_container, m->runtime_scope);
+                r = image_read_metadata(image, /* root= */ NULL, &image_policy_container, m->runtime_scope);
                 if (r < 0 && am != ACQUIRE_METADATA_GRACEFUL)
                         return log_debug_errno(r, "Failed to read image metadata: %m");
                 if (r < 0)

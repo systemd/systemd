@@ -71,7 +71,7 @@ int image_get_pool_usage(RuntimeScope scope, ImageClass class, uint64_t *ret);
 int image_get_pool_limit(RuntimeScope scope, ImageClass class, uint64_t *ret);
 int image_setup_pool(RuntimeScope scope, ImageClass class, bool use_btrfs_subvol, bool use_btrfs_quota);
 
-int image_read_metadata(Image *i, const ImagePolicy *image_policy, RuntimeScope scope);
+int image_read_metadata(Image *i, const char *root, const ImagePolicy *image_policy, RuntimeScope scope);
 
 bool image_in_search_path(RuntimeScope scope, ImageClass class, const char *root, const char *image);
 
