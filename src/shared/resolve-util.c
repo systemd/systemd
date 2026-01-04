@@ -8,6 +8,7 @@
 DEFINE_CONFIG_PARSE_ENUM(config_parse_resolve_support, resolve_support, ResolveSupport);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dnssec_mode, dnssec_mode, DnssecMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_over_tls_mode, dns_over_tls_mode, DnsOverTlsMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_over_https_mode, dns_over_https_mode, DnsOverHttpsMode);
 
 static const char* const resolve_support_table[_RESOLVE_SUPPORT_MAX] = {
         [RESOLVE_SUPPORT_NO] = "no",
@@ -29,6 +30,12 @@ static const char* const dns_over_tls_mode_table[_DNS_OVER_TLS_MODE_MAX] = {
         [DNS_OVER_TLS_YES] = "yes",
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_over_tls_mode, DnsOverTlsMode, DNS_OVER_TLS_YES);
+
+static const char* const dns_over_https_mode_table[_DNS_OVER_HTTPS_MODE_MAX] = {
+        [DNS_OVER_HTTPS_NO] = "no",
+        [DNS_OVER_HTTPS_YES] = "yes",
+};
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_over_https_mode, DnsOverHttpsMode, DNS_OVER_HTTPS_YES);
 
 bool dns_server_address_valid(int family, const union in_addr_union *sa) {
 

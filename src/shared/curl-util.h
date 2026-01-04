@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#if ENABLE_DNS_OVER_HTTPS
+
 #include <curl/curl.h>
 
 #include "shared-forward.h"
@@ -16,6 +18,7 @@ typedef struct CurlGlue {
 
         void (*on_finished)(CurlGlue *g, CURL *curl, CURLcode code);
         void *userdata;
+        struct curl_slist *resolve_rules;;
 } CurlGlue;
 
 int curl_glue_new(CurlGlue **glue, sd_event *event);
@@ -34,3 +37,5 @@ int curl_parse_http_time(const char *t, usec_t *ret);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURL*, curl_easy_cleanup, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURLM*, curl_multi_cleanup, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct curl_slist*, curl_slist_free_all, NULL);
+
+#endif /* ENABLE_DNS_OVER_HTTPS */

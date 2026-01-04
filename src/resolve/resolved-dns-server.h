@@ -23,8 +23,10 @@ typedef enum DnsServerFeatureLevel {
         DNS_SERVER_FEATURE_LEVEL_UDP,
         DNS_SERVER_FEATURE_LEVEL_EDNS0,
         DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN,
+        DNS_SERVER_FEATURE_LEVEL_HTTPS_PLAIN,
         DNS_SERVER_FEATURE_LEVEL_DO,
         DNS_SERVER_FEATURE_LEVEL_TLS_DO,
+        DNS_SERVER_FEATURE_LEVEL_HTTPS_DO,
         _DNS_SERVER_FEATURE_LEVEL_MAX,
         _DNS_SERVER_FEATURE_LEVEL_INVALID = -EINVAL,
 } DnsServerFeatureLevel;
@@ -34,6 +36,7 @@ typedef enum DnsServerFeatureLevel {
 #define DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
 #define DNS_SERVER_FEATURE_LEVEL_IS_TLS(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN, DNS_SERVER_FEATURE_LEVEL_TLS_DO)
 #define DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_DO)
+#define DNS_SERVER_FEATURE_LEVEL_IS_HTTPS(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_HTTPS_PLAIN, DNS_SERVER_FEATURE_LEVEL_HTTPS_DO)
 #define DNS_SERVER_FEATURE_LEVEL_IS_UDP(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_UDP, DNS_SERVER_FEATURE_LEVEL_EDNS0, DNS_SERVER_FEATURE_LEVEL_DO)
 
 DECLARE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);
@@ -158,6 +161,7 @@ void manager_next_dns_server(Manager *m, DnsServer *if_current);
 
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s);
 DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s);
+DnsOverHttpsMode dns_server_get_dns_over_https_mode(DnsServer *s);
 
 size_t dns_server_get_mtu(DnsServer *s);
 

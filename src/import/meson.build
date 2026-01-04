@@ -35,7 +35,6 @@ executables += [
                         'pull-tar.c',
                         'pull-job.c',
                         'pull-common.c',
-                        'curl-util.c',
                 ),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps + [
