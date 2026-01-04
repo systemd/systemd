@@ -11,6 +11,6 @@ ExecStart=@command@
 ExecStartPost=/usr/lib/systemd/tests/testdata/units/post.sh
 Type=oneshot
 MemoryAccounting=@memory-accounting@
-Environment=SYSTEMD_PAGER= @env@
+Environment=SYSTEMD_PAGER= SYSTEMD_NSS_LOG_LEVEL=info @env@
 UnsetEnvironment=JOURNAL_STREAM
 @service@

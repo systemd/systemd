@@ -454,16 +454,18 @@ static int bus_image_method_detach(
                         flags |= PORTABLE_RUNTIME;
         }
 
-        r = bus_verify_polkit_async(
-                        message,
-                        "org.freedesktop.portable1.attach-images",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = bus_verify_polkit_async(
+                                message,
+                                "org.freedesktop.portable1.attach-images",
+                                /* details= */ NULL,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         r = portable_detach(
                         m->runtime_scope,
@@ -1015,7 +1017,7 @@ int bus_image_acquire(
 
         /* Acquires an 'Image' object if not acquired yet, and enforces necessary authentication while doing so. */
 
-        if (mode == BUS_IMAGE_AUTHENTICATE_ALL) {
+        if (mode == BUS_IMAGE_AUTHENTICATE_ALL && m->runtime_scope != RUNTIME_SCOPE_USER) {
                 r = bus_verify_polkit_async(
                                 message,
                                 polkit_action,
@@ -1066,7 +1068,7 @@ int bus_image_acquire(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Image path '%s' is not normalized.", name_or_path);
 
-                if (mode == BUS_IMAGE_AUTHENTICATE_BY_PATH) {
+                if (mode == BUS_IMAGE_AUTHENTICATE_BY_PATH && m->runtime_scope != RUNTIME_SCOPE_USER) {
                         r = bus_verify_polkit_async(
                                         message,
                                         polkit_action,

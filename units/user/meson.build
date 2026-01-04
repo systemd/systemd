@@ -38,6 +38,11 @@ units = [
           'conditions' : ['ENABLE_IMPORTD'],
           'symlinks' : ['sockets.target.wants/'],
         },
+        {
+          'file' : 'systemd-portabled.service.in',
+          'conditions' : ['ENABLE_PORTABLED'],
+          'symlinks' : ['dbus-org.freedesktop.portable1.service'],
+        },
         { 'file' : 'paths.target' },
         { 'file' : 'printer.target' },
         { 'file' : 'session.slice' },
