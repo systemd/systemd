@@ -90,9 +90,9 @@ static uint64_t system_battery_identifier_hash(sd_device *dev) {
         return siphash24_finalize(&state);
 }
 
-/* Return success if battery percentage discharge rate per hour is in the range 1–199 */
+/* Return success if battery discharge rate per hour (in centipercent, i.e. 1% = 100) is in the range 1–19999 */
 static bool battery_discharge_rate_is_valid(int battery_discharge_rate) {
-        return battery_discharge_rate > 0 && battery_discharge_rate < 200;
+        return battery_discharge_rate > 0 && battery_discharge_rate < 20000;
 }
 
 /* Battery percentage discharge rate per hour is read from specific file. It is stored along with system
@@ -163,8 +163,9 @@ static int put_battery_discharge_rate(int estimated_battery_discharge_rate, uint
 
         if (!battery_discharge_rate_is_valid(estimated_battery_discharge_rate))
                 return log_debug_errno(SYNTHETIC_ERRNO(ERANGE),
-                                        "Invalid battery discharge rate %d%% per hour.",
-                                        estimated_battery_discharge_rate);
+                                        "Invalid battery discharge rate %d.%02d%% per hour.",
+                                        estimated_battery_discharge_rate / 100,
+                                        estimated_battery_discharge_rate % 100);
 
         r = write_string_filef(
                         DISCHARGE_RATE_FILEPATH,
@@ -175,7 +176,10 @@ static int put_battery_discharge_rate(int estimated_battery_discharge_rate, uint
         if (r < 0)
                 return log_debug_errno(r, "Failed to update %s: %m", DISCHARGE_RATE_FILEPATH);
 
-        log_debug("Estimated discharge rate %d%% per hour successfully saved to %s", estimated_battery_discharge_rate, DISCHARGE_RATE_FILEPATH);
+        log_debug("Estimated discharge rate %d.%02d%% per hour successfully saved to %s",
+                  estimated_battery_discharge_rate / 100,
+                  estimated_battery_discharge_rate % 100,
+                  DISCHARGE_RATE_FILEPATH);
 
         return 0;
 }
@@ -290,7 +294,7 @@ int estimate_battery_discharge_rate_per_hour(
                                  battery_last_capacity - battery_current_capacity,
                                  FORMAT_TIMESPAN(after_timestamp - before_timestamp, USEC_PER_SEC));
 
-                battery_discharge_rate = (battery_last_capacity - battery_current_capacity) * USEC_PER_HOUR / (after_timestamp - before_timestamp);
+                battery_discharge_rate = (battery_last_capacity - battery_current_capacity) * 100 * USEC_PER_HOUR / (after_timestamp - before_timestamp);
                 r = put_battery_discharge_rate(battery_discharge_rate, system_hash_id, trunc);
                 if (r < 0)
                         log_device_warning_errno(dev, r, "Failed to update battery discharge rate, ignoring: %m");
@@ -338,17 +342,17 @@ int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
                 if (previous_discharge_rate == 0)
                         continue;
 
-                if (battery_last_capacity * 2 <= previous_discharge_rate) {
+                if (battery_last_capacity * 200 <= previous_discharge_rate) {
                         log_device_debug(dev, "Current battery capacity percentage too low compared to discharge rate");
                         continue;
                 }
-                suspend_interval = battery_last_capacity * USEC_PER_HOUR / previous_discharge_rate;
+                suspend_interval = battery_last_capacity * 100 * USEC_PER_HOUR / previous_discharge_rate;
 
                 total_suspend_interval = usec_add(total_suspend_interval, suspend_interval);
         }
         /* Previous discharge rate is stored in per hour basis converted to usec.
-         * Subtract 30 minutes from the result to keep a buffer of 30 minutes before battery gets critical */
-        total_suspend_interval = usec_sub_unsigned(total_suspend_interval, 30 * USEC_PER_MINUTE);
+         * Subtract a buffer to wake before battery gets critical: the larger of 5% or 30 minutes */
+        total_suspend_interval = usec_sub_unsigned(total_suspend_interval, MAX(total_suspend_interval / 20, 30 * USEC_PER_MINUTE));
         if (total_suspend_interval == 0)
                 return -ENOENT;
 
