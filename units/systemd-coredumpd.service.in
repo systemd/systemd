@@ -1,0 +1,49 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Listen Kernel Core Dump Socket
+Documentation=man:systemd-coredump(8)
+DefaultDependencies=no
+After=systemd-coredump-register.socket systemd-journald.socket systemd-sysctl.service
+Requires=systemd-coredump-register.socket systemd-journald.socket
+Before=shutdown.target
+Conflicts=shutdown.target
+ConditionVirtualization=!container
+
+[Service]
+Type=notify-reload
+ExecStart={{LIBEXECDIR}}/systemd-coredump --manager
+FileDescriptorStoreMax=512
+FileDescriptorStorePreserve=yes
+IPAddressDeny=any
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+Nice=9
+NoNewPrivileges=yes
+OOMScoreAdjust=-1000
+PrivateDevices=yes
+PrivateNetwork=yes
+PrivateTmp=disconnected
+ProtectControlGroups=yes
+ProtectHome=read-only
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+Restart=on-failure
+RestartSec=0
+RestrictAddressFamilies=AF_UNIX
+RestrictRealtime=yes
+StateDirectory=systemd/coredump
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service @mount
+{{SERVICE_WATCHDOG}}
