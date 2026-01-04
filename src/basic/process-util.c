@@ -880,23 +880,23 @@ int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFl
         siginfo_t status;
         r = pidref_wait_for_terminate(pidref, &status);
         if (r < 0)
-                return log_full_errno(prio, r, "Failed to wait for %s: %m", strna(name));
+                return log_full_errno(prio, r, "Failed to wait for '%s': %m", strna(name));
 
         if (status.si_code == CLD_EXITED) {
                 if (status.si_status != EXIT_SUCCESS)
                         log_full(flags & WAIT_LOG_NON_ZERO_EXIT_STATUS ? LOG_ERR : LOG_DEBUG,
-                                 "%s failed with exit status %i.", strna(name), status.si_status);
+                                 "'%s' failed with exit status %i.", strna(name), status.si_status);
                 else
-                        log_debug("%s succeeded.", name);
+                        log_debug("'%s' succeeded.", name);
 
                 return status.si_status;
 
         } else if (IN_SET(status.si_code, CLD_KILLED, CLD_DUMPED))
                 return log_full_errno(prio, SYNTHETIC_ERRNO(EPROTO),
-                                      "%s terminated by signal %s.", strna(name), signal_to_string(status.si_status));
+                                      "'%s' terminated by signal %s.", strna(name), signal_to_string(status.si_status));
 
         return log_full_errno(prio, SYNTHETIC_ERRNO(EPROTO),
-                              "%s failed due to unknown reason.", strna(name));
+                              "'%s' failed due to unknown reason.", strna(name));
 }
 
 int kill_and_sigcont(pid_t pid, int sig) {

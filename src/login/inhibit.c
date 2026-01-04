@@ -368,11 +368,11 @@ static int run(int argc, char *argv[]) {
                         /* Child */
                         execvp(arguments[0], arguments);
                         log_open();
-                        log_error_errno(errno, "Failed to execute %s: %m", argv[optind]);
+                        log_error_errno(errno, "Failed to execute '%s': %m", arguments[0]);
                         _exit(EXIT_FAILURE);
                 }
 
-                return pidref_wait_for_terminate_and_check(argv[optind], &pidref, WAIT_LOG);
+                return pidref_wait_for_terminate_and_check(argv[optind], &pidref, WAIT_LOG_ABNORMAL);
         }
 }
 
