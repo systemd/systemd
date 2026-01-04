@@ -225,6 +225,8 @@ TEST(calendar_spec_next) {
         test_next("Sun *-*-* 01:00:00 Europe/Dublin", "IST", 1616412478000000, 1617494400000000);
         /* Europe/Dublin TZ that moves DST backwards */
         test_next("hourly", "IST-1GMT-0,M10.5.0/1,M3.5.0/1", 1743292800000000, 1743296400000000);
+        /* Check when the year changes, see issue #40260 */
+        test_next("*-*-1/11 23:00:00 UTC", "", 1763938800000000, 1764630000000000);
 }
 
 TEST(calendar_spec_from_string) {
