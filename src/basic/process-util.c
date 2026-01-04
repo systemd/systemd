@@ -389,11 +389,6 @@ int container_get_leader(const char *machine, pid_t *pid) {
 }
 
 int pid_is_kernel_thread(pid_t pid) {
-        _cleanup_free_ char *line = NULL;
-        unsigned long long flags;
-        size_t l, i;
-        const char *p;
-        char *q;
         int r;
 
         if (IN_SET(pid, 0, 1) || pid == getpid_cached()) /* pid 1, and we ourselves certainly aren't a kernel thread */
@@ -401,7 +396,8 @@ int pid_is_kernel_thread(pid_t pid) {
         if (!pid_is_valid(pid))
                 return -EINVAL;
 
-        p = procfs_file_alloca(pid, "stat");
+        const char *p = procfs_file_alloca(pid, "stat");
+        _cleanup_free_ char *line = NULL;
         r = read_one_line_file(p, &line);
         if (r == -ENOENT)
                 return -ESRCH;
@@ -409,14 +405,14 @@ int pid_is_kernel_thread(pid_t pid) {
                 return r;
 
         /* Skip past the comm field */
-        q = strrchr(line, ')');
+        char *q = strrchr(line, ')');
         if (!q)
                 return -EINVAL;
         q++;
 
         /* Skip 6 fields to reach the flags field */
-        for (i = 0; i < 6; i++) {
-                l = strspn(q, WHITESPACE);
+        for (size_t i = 0; i < 6; i++) {
+                size_t l = strspn(q, WHITESPACE);
                 if (l < 1)
                         return -EINVAL;
                 q += l;
@@ -428,7 +424,7 @@ int pid_is_kernel_thread(pid_t pid) {
         }
 
         /* Skip preceding whitespace */
-        l = strspn(q, WHITESPACE);
+        size_t l = strspn(q, WHITESPACE);
         if (l < 1)
                 return -EINVAL;
         q += l;
@@ -439,6 +435,7 @@ int pid_is_kernel_thread(pid_t pid) {
                 return -EINVAL;
         q[l] = 0;
 
+        unsigned long long flags;
         r = safe_atollu(q, &flags);
         if (r < 0)
                 return r;
