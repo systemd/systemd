@@ -1,5 +1,12 @@
 systemd System and Service Manager
 
+CHANGES WITH 260 in spe:
+
+        Feature Removals and Incompatible Changes:
+
+        * Meson options '-Dintegration-tests=' and '-Dcryptolib=' (deprecated
+          in v258) have been removed.
+
 CHANGES WITH 259:
 
         Announcements of Future Feature Removals and Incompatible Changes:
