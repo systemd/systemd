@@ -438,7 +438,7 @@ option('idn', type : 'boolean',
        description : 'use IDN when printing hostnames')
 option('libidn2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libidn2 support')
-option('libidn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+option('libidn', type : 'feature', deprecated : true,
        description : 'libidn support')
 option('libiptc', type : 'feature', deprecated : true,
        description : 'libiptc support')

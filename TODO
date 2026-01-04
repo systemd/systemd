@@ -563,8 +563,6 @@ Features:
 
 * port copy.c over to use LabelOps for all labelling.
 
-* get rid of compat with libidn.so.11 (retain only for libidn.so.12)
-
 * get rid of compat with libbpf.so.0 (retainly only for libbpf.so.1)
 
 * define a generic "report" varlink interface, which services can implement to
