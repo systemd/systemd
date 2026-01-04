@@ -248,6 +248,7 @@ static int run(int argc, char *argv[]) {
                                       .suffix = STRV_MAKE(arg_filter_suffix),
                                       .type_mask = arg_filter_type_mask,
                               },
+                              /* n_filters= */ 1,
                               arg_flags,
                               &result);
                 if (r < 0)
