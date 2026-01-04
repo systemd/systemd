@@ -5463,17 +5463,14 @@ int exec_invoke(
                         .sched_flags = context->cpu_sched_reset_on_fork ? SCHED_FLAG_RESET_ON_FORK : 0,
                 };
 
-                r = sched_setattr(/* pid= */ 0, &attr, /* flags= */ 0);
-                if (r < 0) {
-                        if (errno != EINVAL || sched_policy_supported(attr.sched_policy)) {
-                                *exit_status = EXIT_SETSCHEDULER;
-                                return log_error_errno(errno, "Failed to set up CPU scheduling: %m");
-                        }
-
+                r = RET_NERRNO(sched_setattr(/* pid= */ 0, &attr, /* flags= */ 0));
+                if (r == -EINVAL && !sched_policy_supported(context->cpu_sched_policy)) {
                         _cleanup_free_ char *s = NULL;
                         (void) sched_policy_to_string_alloc(context->cpu_sched_policy, &s);
-
-                        log_warning_errno(errno, "CPU scheduling policy %s is not supported, proceeding without.", strna(s));
+                        log_warning_errno(r, "CPU scheduling policy %s is not supported, proceeding without.", strna(s));
+                } else if (r < 0) {
+                        *exit_status = EXIT_SETSCHEDULER;
+                        return log_error_errno(r, "Failed to set up CPU scheduling: %m");
                 }
         }
 
