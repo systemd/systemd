@@ -90,7 +90,7 @@
     socket passing (i.e. sockets passed in via standard input and output, using
     <varname>StandardInput=socket</varname> in the service file).</para>
 
-    <para>All network sockets allocated through <filename>.socket</filename> units are allocated in the host's network
+    <para>By default, network sockets allocated through <filename>.socket</filename> units are allocated in the host's network
     namespace (see <citerefentry
     project='man-pages'><refentrytitle>network_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>). This
     does not mean however that the service activated by a configured socket unit has to be part of the host's network
@@ -101,6 +101,11 @@
     the host's network namespace is only permitted through the activation sockets passed in while all sockets allocated
     from the service code itself will be associated with the service's own namespace, and thus possibly subject to a
     restrictive configuration.</para>
+
+    <para>Alternatively, it is possible to run a <filename>.socket</filename> unit in another network namespace
+    by setting <option>PrivateNetwork=yes</option> in combination with <varname>JoinsNamespaceOf=</varname>, see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details.</para>
   </refsect1>
 
   <refsect1>
