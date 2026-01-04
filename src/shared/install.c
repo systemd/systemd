@@ -1966,6 +1966,7 @@ int unit_file_verify_alias(
 
 static int install_info_symlink_alias(
                 RuntimeScope scope,
+                UnitFileFlags file_flags,
                 InstallInfo *info,
                 const LookupPaths *lp,
                 const char *config_path,
@@ -2020,6 +2021,10 @@ static int install_info_symlink_alias(
                 broken = r == 0; /* symlink target does not exist? */
 
                 r = create_symlink(lp, alias_target ?: info->path, alias_path, force || broken, changes, n_changes);
+                if (r == -EEXIST && FLAGS_SET(file_flags, UNIT_FILE_IGNORE_AUXILIARY_FAILURE))
+                        /* We cannot realize the alias because a conflicting alias exists.
+                         * Do not propagate this as error. */
+                        continue;
                 if (r != 0 && ret >= 0)
                         ret = r;
         }
@@ -2184,7 +2189,7 @@ static int install_info_apply(
                  * because they might would pointing to a non-existent or wrong unit. */
                 return r;
 
-        r = install_info_symlink_alias(scope, info, lp, config_path, force, changes, n_changes);
+        r = install_info_symlink_alias(scope, file_flags, info, lp, config_path, force, changes, n_changes);
 
         q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->wanted_by, ".wants/", changes, n_changes);
         if (q != 0 && r >= 0)
