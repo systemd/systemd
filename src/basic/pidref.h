@@ -92,7 +92,10 @@ int pidref_dup(const PidRef *pidref, PidRef **ret);
 
 int pidref_new_from_pid(pid_t pid, PidRef **ret);
 
-int pidref_kill(const PidRef *pidref, int sig);
+int pidref_kill_full(const PidRef *pidref, int sig, const siginfo_t *si);
+static inline int pidref_kill(const PidRef *pidref, int sig) {
+        return pidref_kill_full(pidref, sig, NULL);
+}
 int pidref_kill_and_sigcont(const PidRef *pidref, int sig);
 int pidref_sigqueue(const PidRef *pidref, int sig, int value);
 
