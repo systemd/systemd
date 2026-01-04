@@ -894,14 +894,12 @@ int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFl
 
                 return status.si_status;
 
-        } else if (IN_SET(status.si_code, CLD_KILLED, CLD_DUMPED)) {
+        } else if (IN_SET(status.si_code, CLD_KILLED, CLD_DUMPED))
+                return log_full_errno(prio, SYNTHETIC_ERRNO(EPROTO),
+                                      "%s terminated by signal %s.", strna(name), signal_to_string(status.si_status));
 
-                log_full(prio, "%s terminated by signal %s.", strna(name), signal_to_string(status.si_status));
-                return -EPROTO;
-        }
-
-        log_full(prio, "%s failed due to unknown reason.", strna(name));
-        return -EPROTO;
+        return log_full_errno(prio, SYNTHETIC_ERRNO(EPROTO),
+                              "%s failed due to unknown reason.", strna(name));
 }
 
 int kill_and_sigcont(pid_t pid, int sig) {
