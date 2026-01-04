@@ -92,7 +92,6 @@ shared_sources = files(
         'hostname-setup.c',
         'hwdb-util.c',
         'id128-print.c',
-        'idn-util.c',
         'ima-util.c',
         'image-policy.c',
         'import-util.c',
@@ -271,6 +270,10 @@ if conf.get('HAVE_LIBMOUNT') == 1
         shared_sources += files('libmount-util.c')
 endif
 
+if conf.get('HAVE_LIBIDN2') == 1
+        shared_sources += files('idn-util.c')
+endif
+
 generate_ip_protocol_list = files('generate-ip-protocol-list.sh')
 ip_protocol_list_txt = custom_target(
         input : [generate_ip_protocol_list, ipproto_sources],
@@ -374,7 +377,7 @@ libshared_deps = [threads,
                   libelf_cflags,
                   libfido2_cflags,
                   libgcrypt_cflags,
-                  libidn_cflags,
+                  libidn2_cflags,
                   libkmod_cflags,
                   libmount_cflags,
                   libopenssl,
