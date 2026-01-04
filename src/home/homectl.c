@@ -3144,7 +3144,7 @@ static int parse_home_directory_field(sd_json_variant **identity, const char *fi
         assert(field);
 
         if (!isempty(arg)) {
-                r = parse_path_argument(arg, false, &hd);
+                r = parse_path_argument(arg, /* suppress_root= */ false, &hd);
                 if (r < 0)
                         return r;
 
@@ -3180,7 +3180,7 @@ static int parse_path_field(sd_json_variant **identity, const char *field, const
         assert(field);
 
         if (!isempty(arg)) {
-                r = parse_path_argument(arg, false, &v);
+                r = parse_path_argument(arg, /* suppress_root= */ false, &v);
                 if (r < 0)
                         return r;
         }
@@ -4844,7 +4844,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 eq = strrchr(optarg, '=');
                                 if (!eq) { /* --blob=/some/path replaces the blob dir */
-                                        r = parse_path_argument(optarg, false, &arg_blob_dir);
+                                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_blob_dir);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to parse path %s: %m", optarg);
                                         break;
@@ -4860,7 +4860,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (!suitable_blob_filename(filename))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid blob filename: %s", filename);
 
-                                r = parse_path_argument(eq + 1, false, &path);
+                                r = parse_path_argument(eq + 1, /* suppress_root= */ false, &path);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse path %s: %m", eq + 1);
                         } else {
@@ -4874,7 +4874,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (!filename)
                                         return log_oom();
 
-                                r = parse_path_argument(optarg, false, &path);
+                                r = parse_path_argument(optarg, /* suppress_root= */ false, &path);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse path %s: %m", optarg);
                         }
