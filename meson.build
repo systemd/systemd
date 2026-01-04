@@ -1290,18 +1290,10 @@ libcurl = dependency('libcurl',
 conf.set10('HAVE_LIBCURL', libcurl.found())
 conf.set10('CURL_NO_OLDIES', conf.get('BUILD_MODE_DEVELOPER') == 1)
 
-feature = get_option('libidn2').disable_auto_if(get_option('libidn').enabled())
-libidn = dependency('libidn2',
-                    required : feature)
-have = libidn.found()
-if not have
-        # libidn is used for both libidn and libidn2 objects
-        libidn = dependency('libidn',
-                            required : get_option('libidn'))
-endif
-libidn_cflags = libidn.partial_dependency(includes: true, compile_args: true)
-conf.set10('HAVE_LIBIDN', not have and libidn.found())
-conf.set10('HAVE_LIBIDN2', have)
+libidn2 = dependency('libidn2',
+                     required : get_option('libidn2'))
+libidn2_cflags = libidn2.partial_dependency(includes: true, compile_args: true)
+conf.set10('HAVE_LIBIDN2', libidn2.found())
 
 libqrencode = dependency('libqrencode',
                          version : '>= 3',
@@ -3118,7 +3110,6 @@ foreach tuple : [
         ['libcurl'],
         ['libfdisk'],
         ['libfido2'],
-        ['libidn'],
         ['libidn2'],
         ['microhttpd'],
         ['openssl'],
