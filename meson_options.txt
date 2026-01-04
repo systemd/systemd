@@ -485,6 +485,8 @@ option('libarchive', type : 'feature',
        description : 'libarchive support')
 option('libmount', type : 'feature',
        description : 'libmount support')
+option('libucontext', type : 'feature',
+       description : 'libucontext support')
 
 option('bootloader', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'sd-boot/stub and userspace tools')

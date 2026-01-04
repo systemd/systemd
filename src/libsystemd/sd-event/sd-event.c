@@ -10,6 +10,7 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-future.h"
 #include "sd-id128.h"
 #include "sd-messages.h"
 
@@ -4852,6 +4853,9 @@ static void event_log_delays(sd_event *e) {
 
 _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         int r;
+
+        if (sd_fiber_is_running())
+                return sd_event_run_suspend(e, timeout);
 
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
