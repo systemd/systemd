@@ -2833,6 +2833,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly as ExtraFileDescriptorNames = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i ReloadSignal = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as RefreshOnReload = ['...', ...];
       readonly t ExecMainStartTimestamp = ...;
       readonly t ExecMainStartTimestampMonotonic = ...;
       readonly t ExecMainExitTimestamp = ...;
@@ -3538,6 +3540,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property ReloadSignal is not documented!-->
 
+    <!--property RefreshOnReload is not documented!-->
+
     <!--property ExecCondition is not documented!-->
 
     <!--property ExecConditionEx is not documented!-->
@@ -4187,6 +4191,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ExtraFileDescriptorNames"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ReloadSignal"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RefreshOnReload"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecMainStartTimestamp"/>
 
@@ -12598,7 +12604,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMKills</varname>,
       <varname>ExecReloadPost</varname>, and
       <varname>ExecReloadPostEx</varname> were added in version 259.</para>
-      <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
+      <para><varname>BindNetworkInterface</varname> and
+      <varname>RefreshOnReload</varname> were added in version 260.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
