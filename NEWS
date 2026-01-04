@@ -7,6 +7,10 @@ CHANGES WITH 260 in spe:
         * Meson options '-Dintegration-tests=' and '-Dcryptolib=' (deprecated
           in v258) have been removed.
 
+        * Support for libidn has been removed. IDN functionality now requires
+          libidn2. The corresponding meson option '-Dlibidn=' is deprecated
+          too and will be dropped in a future release.
+
 CHANGES WITH 259:
 
         Announcements of Future Feature Removals and Incompatible Changes:
