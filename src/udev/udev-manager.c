@@ -1506,7 +1506,7 @@ int manager_main(Manager *manager) {
         /* We will start processing events in the loop below. Before starting processing, let's remove the
          * event serialization fd from the fdstore, to avoid retrieving the serialized events again in future
          * invocations. Otherwise, the serialized events may be processed multiple times. */
-        (void) notify_remove_fd_warn("event-serialization");
+        (void) notify_remove_fd("event-serialization");
 
         r = sd_event_loop(manager->event);
         if (r < 0)
