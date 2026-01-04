@@ -12,11 +12,6 @@
 
 int resolve_system_hostname(char **full_hostname, char **first_label) {
         _cleanup_free_ char *h = NULL, *n = NULL;
-#if HAVE_LIBIDN2
-        _cleanup_free_ char *utf8 = NULL;
-#elif HAVE_LIBIDN
-        int k;
-#endif
         char label[DNS_LABEL_MAX+1];
         const char *p, *decoded;
         int r;
@@ -38,15 +33,10 @@ int resolve_system_hostname(char **full_hostname, char **first_label) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Couldn't find a single label in hostname.");
 
-#if HAVE_LIBIDN || HAVE_LIBIDN2
-        r = dlopen_idn();
-        if (r < 0) {
-                log_debug_errno(r, "Failed to initialize IDN support, ignoring: %m");
-                decoded = label; /* no decoding */
-        } else
-#endif
-        {
 #if HAVE_LIBIDN2
+        _cleanup_free_ char *utf8 = NULL;
+
+        if (dlopen_idn() >= 0) {
                 r = sym_idn2_to_unicode_8z8z(label, &utf8, 0);
                 if (r != IDN2_OK)
                         return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),
@@ -55,21 +45,9 @@ int resolve_system_hostname(char **full_hostname, char **first_label) {
 
                 r = strlen(utf8);
                 decoded = utf8;
-#elif HAVE_LIBIDN
-                k = dns_label_undo_idna(label, r, label, sizeof label);
-                if (k < 0)
-                        return log_debug_errno(k, "Failed to undo IDNA: %m");
-                if (k > 0)
-                        r = k;
-
-                if (!utf8_is_valid(label))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "System hostname is not UTF-8 clean.");
-                decoded = label;
-#else
-                decoded = label; /* no decoding */
+        } else
 #endif
-        }
+                decoded = label; /* no decoding */
 
         r = dns_label_escape_new(decoded, r, &n);
         if (r < 0)

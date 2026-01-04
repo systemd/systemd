@@ -68,6 +68,7 @@ endif
 
 resolve_common_template = {
         'dependencies' : [
+                libidn2_cflags,
                 libopenssl,
                 libm,
                 threads,
@@ -91,9 +92,6 @@ executables += [
                         'resolvconf-compat.c',
                         'resolvectl.c',
                 ),
-                'dependencies' : resolve_common_template['dependencies'] + [
-                        libidn,
-                ],
                 'objects' : ['systemd-resolved'],
         },
         resolve_test_template + {
