@@ -240,7 +240,7 @@ REQUIREMENTS:
         libqrencode >= 3 (optional)
         libmicrohttpd >= 0.9.33 (optional)
         libcurl >= 7.32.0 (optional)
-        libidn2 or libidn (optional)
+        libidn2 (optional)
         gnutls >= 3.1.4 (optional)
         openssl >= 3.0.0 (optional, required to support DNS-over-TLS)
         p11-kit >= 0.23.3 (optional)

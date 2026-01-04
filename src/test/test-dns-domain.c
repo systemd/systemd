@@ -788,7 +788,7 @@ static void test_dns_name_apply_idna_one(const char *s, int expected, const char
 }
 
 TEST(dns_name_apply_idna) {
-        const int ret = HAVE_LIBIDN2 | HAVE_LIBIDN;
+        const int ret = HAVE_LIBIDN2;
 
         /* IDNA2008 forbids names with hyphens in third and fourth positions
          * (https://tools.ietf.org/html/rfc5891#section-4.2.3.1).
@@ -798,7 +798,6 @@ TEST(dns_name_apply_idna) {
          * labels. If registrars follow IDNA2008 we'll just be performing a
          * useless lookup.
          */
-        const int ret2 = HAVE_LIBIDN;
 
         test_dns_name_apply_idna_one("", ret, "");
         test_dns_name_apply_idna_one("foo", ret, "foo");
@@ -811,14 +810,13 @@ TEST(dns_name_apply_idna) {
         test_dns_name_apply_idna_one("föö.bär.", ret, "xn--f-1gaa.xn--br-via");
         test_dns_name_apply_idna_one("xn--f-1gaa.xn--br-via", ret, "xn--f-1gaa.xn--br-via");
 
-        test_dns_name_apply_idna_one("_443._tcp.fedoraproject.org", ret2,
+        test_dns_name_apply_idna_one("_443._tcp.fedoraproject.org", 0,
                                      "_443._tcp.fedoraproject.org");
-        test_dns_name_apply_idna_one("_443", ret2, "_443");
-        test_dns_name_apply_idna_one("gateway", ret, "gateway");
-        test_dns_name_apply_idna_one("_gateway", ret2, "_gateway");
+        test_dns_name_apply_idna_one("_443", 0, "_443");
+        test_dns_name_apply_idna_one("gateway", 0, "gateway");
+        test_dns_name_apply_idna_one("_gateway", 0, "_gateway");
 
-        test_dns_name_apply_idna_one("r3---sn-ab5l6ne7.googlevideo.com", ret2,
-                                     ret2 ? "r3---sn-ab5l6ne7.googlevideo.com" : "");
+        test_dns_name_apply_idna_one("r3---sn-ab5l6ne7.googlevideo.com", 0, "");
 }
 
 TEST(dns_name_is_valid_or_address) {
