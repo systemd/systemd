@@ -10,6 +10,7 @@
 
 #include "sd-bus.h"
 #include "sd-event.h"
+#include "sd-future.h"
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -33,7 +34,6 @@
 #include "glyph-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
-#include "io-util.h"
 #include "log.h"
 #include "log-context.h"
 #include "memory-util.h"
@@ -2387,11 +2387,19 @@ _public_ int sd_bus_call(
                 sd_bus_error *reterr_error,
                 sd_bus_message **ret_reply) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = sd_bus_message_ref(_m);
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         usec_t timeout;
         uint64_t cookie;
         size_t i;
         int r;
+
+        /* If the current fiber and the bus share their event loop, we can use sd_bus_call_suspend()
+         * instead which does an async method call. This allows multiple invocations of sd_bus_call() to
+         * happen across multiple fibers at once. */
+        if (sd_fiber_is_running() && bus->event == sd_fiber_get_event())
+                return sd_bus_call_suspend(bus, _m, usec, reterr_error, ret_reply);
+
+        m = sd_bus_message_ref(_m);
 
         bus_assert_return(m, -EINVAL, reterr_error);
         bus_assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL, reterr_error);
@@ -3368,7 +3376,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
         if (timeout_usec != UINT64_MAX && (m == USEC_INFINITY || timeout_usec < m))
                 m = timeout_usec;
 
-        r = ppoll_usec(p, n, m);
+        r = sd_fiber_ppoll(p, n, m);
         if (r <= 0)
                 return r;
 
