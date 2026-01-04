@@ -637,10 +637,12 @@ bool fdname_is_valid(const char *s) {
 int fd_get_path(int fd, char **ret) {
         int r;
 
-        assert(fd >= 0 || fd == AT_FDCWD);
+        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
 
         if (fd == AT_FDCWD)
                 return safe_getcwd(ret);
+        if (fd == XAT_FDROOT)
+                return strdup_to(ret, "/");
 
         r = readlink_malloc(FORMAT_PROC_FD_PATH(fd), ret);
         if (r == -ENOENT)
@@ -835,7 +837,7 @@ finish:
 }
 
 int fd_reopen(int fd, int flags) {
-        assert(fd >= 0 || fd == AT_FDCWD);
+        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
         assert(!FLAGS_SET(flags, O_CREAT));
 
         /* Reopens the specified fd with new flags. This is useful for convert an O_PATH fd into a regular one, or to
@@ -846,6 +848,8 @@ int fd_reopen(int fd, int flags) {
          * This implicitly resets the file read index to 0.
          *
          * If AT_FDCWD is specified as file descriptor gets an fd to the current cwd.
+         *
+         * If XAT_FDROOT is specified as fd get and fd to the root directory.
          *
          * If the specified file descriptor refers to a symlink via O_PATH, then this function cannot be used
          * to follow that symlink. Because we cannot have non-O_PATH fds to symlinks reopening it without
@@ -859,6 +863,9 @@ int fd_reopen(int fd, int flags) {
                  * the only reason we add it here is so that the O_DIRECTORY special case (see below) behaves
                  * the same way as the non-O_DIRECTORY case. */
                 return -ELOOP;
+
+        if (fd == XAT_FDROOT)
+                return RET_NERRNO(open("/", flags | O_DIRECTORY));
 
         if (FLAGS_SET(flags, O_DIRECTORY) || fd == AT_FDCWD)
                 /* If we shall reopen the fd as directory we can just go via "." and thus bypass the whole
@@ -1090,19 +1097,36 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
         return 0;
 }
 
+static bool is_literal_root(const char *p) {
+        if (!p)
+                return false;
+
+        /* Check if string consists of only '/', and at least one */
+        size_t n = strspn(p, "/");
+        return n >= 1 && p[n] == 0;
+}
+
 int path_is_root_at(int dir_fd, const char *path) {
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+
+        if (dir_fd == XAT_FDROOT && isempty(path))
+                return true;
+
+        if (IN_SET(dir_fd, XAT_FDROOT, AT_FDCWD) && is_literal_root(path))
+                return true;
 
         _cleanup_close_ int fd = -EBADF;
         if (!isempty(path)) {
-                fd = openat(dir_fd, path, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                fd = xopenat(dir_fd, path, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                if (fd == -ENOTDIR)
+                        return false; /* the root dir must be a dir */
                 if (fd < 0)
-                        return errno == ENOTDIR ? false : -errno;
+                        return fd;
 
                 dir_fd = fd;
         }
 
-        _cleanup_close_ int root_fd = openat(AT_FDCWD, "/", O_PATH|O_DIRECTORY|O_CLOEXEC);
+        _cleanup_close_ int root_fd = open("/", O_PATH|O_DIRECTORY|O_CLOEXEC);
         if (root_fd < 0)
                 return -errno;
 
@@ -1121,13 +1145,26 @@ int fds_are_same_mount(int fd1, int fd2) {
         struct statx sx1 = {}, sx2 = {}; /* explicitly initialize the struct to make msan silent. */
         int r;
 
-        assert(fd1 >= 0);
-        assert(fd2 >= 0);
+        assert(fd1 >= 0 || IN_SET(fd1, AT_FDCWD, XAT_FDROOT));
+        assert(fd2 >= 0 || IN_SET(fd2, AT_FDCWD, XAT_FDROOT));
 
-        if (statx(fd1, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx1) < 0)
+        const char *fn1;
+        if (fd1 == XAT_FDROOT) {
+                fd1 = AT_FDCWD;
+                fn1 = "/";
+        } else
+                fn1 = "";
+
+        if (statx(fd1, fn1, AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx1) < 0)
                 return -errno;
 
-        if (statx(fd2, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx2) < 0)
+        const char *fn2;
+        if (fd2 == XAT_FDROOT) {
+                fd2 = AT_FDCWD;
+                fn2 = "/";
+        } else
+                fn2 = "";
+        if (statx(fd2, fn2, AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx2) < 0)
                 return -errno;
 
         /* First, compare inode. If these are different, the fd does not point to the root directory "/". */
@@ -1141,7 +1178,7 @@ int fds_are_same_mount(int fd1, int fd2) {
         if (!FLAGS_SET(sx1.stx_mask, STATX_MNT_ID)) {
                 int mntid;
 
-                r = path_get_mnt_id_at_fallback(fd1, "", &mntid);
+                r = path_get_mnt_id_at_fallback(fd1, fn1, &mntid);
                 if (r < 0)
                         return r;
                 assert(mntid >= 0);
@@ -1153,7 +1190,7 @@ int fds_are_same_mount(int fd1, int fd2) {
         if (!FLAGS_SET(sx2.stx_mask, STATX_MNT_ID)) {
                 int mntid;
 
-                r = path_get_mnt_id_at_fallback(fd2, "", &mntid);
+                r = path_get_mnt_id_at_fallback(fd2, fn2, &mntid);
                 if (r < 0)
                         return r;
                 assert(mntid >= 0);
