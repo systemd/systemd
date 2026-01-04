@@ -1194,9 +1194,10 @@ static int tm_within_bounds(struct tm *tm, bool utc) {
          * other sub time units are already reset in find_next().
          */
         int cmp;
-        if ((cmp = CMP(t.tm_year, tm->tm_year)) != 0)
+        if ((cmp = CMP(t.tm_year, tm->tm_year)) != 0) {
                 t.tm_mon = 0;
-        else if ((cmp = CMP(t.tm_mon, tm->tm_mon)) != 0)
+                t.tm_mday = 1;
+        } else if ((cmp = CMP(t.tm_mon, tm->tm_mon)) != 0)
                 t.tm_mday = 1;
         else if ((cmp = CMP(t.tm_mday, tm->tm_mday)) != 0)
                 t.tm_hour = 0;
