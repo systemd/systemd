@@ -2,6 +2,7 @@
 #pragma once
 
 #include <grp.h>
+#include <gshadow.h>
 #include <netdb.h>
 #include <nss.h>
 #include <pwd.h>
@@ -289,5 +290,11 @@ typedef enum nss_status (*_nss_getgrnam_r_t)(
 typedef enum nss_status (*_nss_getgrgid_r_t)(
                 gid_t gid,
                 struct group *gr,
+                char *buffer, size_t buflen,
+                int *errnop);
+
+typedef enum nss_status (*_nss_getsgnam_r_t)(
+                const char *name,
+                struct sgrp *sg,
                 char *buffer, size_t buflen,
                 int *errnop);
