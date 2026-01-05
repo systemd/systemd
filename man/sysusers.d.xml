@@ -119,13 +119,15 @@ r     -        500-900
           bearing the same name unless the ID field specifies it. The account will be
           created disabled, so that logins are not allowed.</para>
 
+          <xi:include href="version-info.xml" xpointer="v215"/>
+
           <para>Type <varname>u</varname> may be suffixed with an exclamation mark (<literal>u!</literal>) to
           create a fully locked account. This is recommended, since logins should typically not be allowed
           for system users. With or without the exclamation mark an invalid password is set. For
           <literal>u!</literal>, the account is also locked, which makes a difference for non-password forms
           of authentication, such as SSH or similar.</para>
 
-          <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
 
         <varlistentry>
