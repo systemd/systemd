@@ -1167,12 +1167,11 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);
 
         if (c->root_image_options) {
+                _cleanup_free_ char *opts_str = NULL;
+
                 fprintf(f, "%sRootImageOptions:", prefix);
-                LIST_FOREACH(mount_options, o, c->root_image_options)
-                        if (!isempty(o->options))
-                                fprintf(f, " %s:%s",
-                                        partition_designator_to_string(o->partition_designator),
-                                        o->options);
+                if (mount_options_to_string(c->root_image_options, &opts_str) >= 0 && !isempty(opts_str))
+                        fprintf(f, " %s", opts_str);
                 fprintf(f, "\n");
         }
 
@@ -1580,10 +1579,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         mount->ignore_enoent ? "-": "",
                         mount->source,
                         mount->destination);
-                LIST_FOREACH(mount_options, o, mount->mount_options)
-                        fprintf(f, ":%s:%s",
-                                partition_designator_to_string(o->partition_designator),
-                                strempty(o->options));
+                if (mount->mount_options) {
+                        _cleanup_free_ char *opts = NULL;
+
+                        if (mount_options_to_string(mount->mount_options, &opts) >= 0 && !isempty(opts))
+                                fprintf(f, " %s", opts);
+                }
                 fprintf(f, "\n");
         }
 
@@ -1591,10 +1592,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sExtensionImages: %s%s", prefix,
                         mount->ignore_enoent ? "-": "",
                         mount->source);
-                LIST_FOREACH(mount_options, o, mount->mount_options)
-                        fprintf(f, ":%s:%s",
-                                partition_designator_to_string(o->partition_designator),
-                                strempty(o->options));
+                if (mount->mount_options) {
+                        _cleanup_free_ char *opts = NULL;
+
+                        if (mount_options_to_string(mount->mount_options, &opts) >= 0 && !isempty(opts))
+                                fprintf(f, " %s", opts);
+                }
                 fprintf(f, "\n");
         }
 
