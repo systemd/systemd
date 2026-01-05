@@ -355,20 +355,18 @@ int decompress_blob_xz(
         assert(dst_size);
 
 #if HAVE_XZ
-        _cleanup_(lzma_end_wrapper) lzma_stream s = LZMA_STREAM_INIT;
-        lzma_ret ret;
-        size_t space;
         int r;
 
         r = dlopen_lzma();
         if (r < 0)
                 return r;
 
-        ret = sym_lzma_stream_decoder(&s, UINT64_MAX, 0);
+        _cleanup_(lzma_end_wrapper) lzma_stream s = LZMA_STREAM_INIT;
+        lzma_ret ret = sym_lzma_stream_decoder(&s, UINT64_MAX, 0);
         if (ret != LZMA_OK)
                 return -ENOMEM;
 
-        space = MIN(src_size * 2, dst_max ?: SIZE_MAX);
+        size_t space = MIN(src_size * 2, dst_max ?: SIZE_MAX);
         if (!greedy_realloc(dst, space, 1))
                 return -ENOMEM;
 
