@@ -616,6 +616,7 @@
         <term><filename>/proc/cmdline</filename></term>
         <listitem>
           <para>Specifies the kernel command line to use. The first of the files that is found will be used.
+          When running in a container, <filename>/proc/cmdline</filename> is ignored.
           <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the search path; see below for
           details.</para>
 
