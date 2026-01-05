@@ -349,20 +349,18 @@ int decompress_blob_xz(
         assert(dst_size);
 
 #if HAVE_XZ
-        _cleanup_(lzma_end_wrapper) lzma_stream s = LZMA_STREAM_INIT;
-        lzma_ret ret;
-        size_t space;
         int r;
 
         r = dlopen_lzma();
         if (r < 0)
                 return r;
 
-        ret = sym_lzma_stream_decoder(&s, UINT64_MAX, 0);
+        _cleanup_(lzma_end_wrapper) lzma_stream s = LZMA_STREAM_INIT;
+        lzma_ret ret = sym_lzma_stream_decoder(&s, UINT64_MAX, 0);
         if (ret != LZMA_OK)
                 return -ENOMEM;
 
-        space = MIN(src_size * 2, dst_max ?: SIZE_MAX);
+        size_t space = MIN(src_size * 2, dst_max ?: SIZE_MAX);
         if (!greedy_realloc(dst, space, 1))
                 return -ENOMEM;
 
@@ -544,23 +542,21 @@ int decompress_startswith_xz(
         assert(prefix);
 
 #if HAVE_XZ
-        _cleanup_(lzma_end_wrapper) lzma_stream s = LZMA_STREAM_INIT;
-        size_t allocated;
-        lzma_ret ret;
         int r;
 
         r = dlopen_lzma();
         if (r < 0)
                 return r;
 
-        ret = sym_lzma_stream_decoder(&s, UINT64_MAX, 0);
+        _cleanup_(lzma_end_wrapper) lzma_stream s = LZMA_STREAM_INIT;
+        lzma_ret ret = sym_lzma_stream_decoder(&s, UINT64_MAX, 0);
         if (ret != LZMA_OK)
                 return -EBADMSG;
 
         if (!(greedy_realloc(buffer, ALIGN_8(prefix_len + 1), 1)))
                 return -ENOMEM;
 
-        allocated = MALLOC_SIZEOF_SAFE(*buffer);
+        size_t allocated = MALLOC_SIZEOF_SAFE(*buffer);
 
         s.next_in = src;
         s.avail_in = src_size;
@@ -766,22 +762,21 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncom
         assert(fdt >= 0);
 
 #if HAVE_XZ
-        _cleanup_(lzma_end_wrapper) lzma_stream s = LZMA_STREAM_INIT;
-        lzma_ret ret;
-        uint8_t buf[BUFSIZ], out[BUFSIZ];
-        lzma_action action = LZMA_RUN;
         int r;
 
         r = dlopen_lzma();
         if (r < 0)
                 return r;
 
-        ret = sym_lzma_easy_encoder(&s, LZMA_PRESET_DEFAULT, LZMA_CHECK_CRC64);
+        _cleanup_(lzma_end_wrapper) lzma_stream s = LZMA_STREAM_INIT;
+        lzma_ret ret = sym_lzma_easy_encoder(&s, LZMA_PRESET_DEFAULT, LZMA_CHECK_CRC64);
         if (ret != LZMA_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Failed to initialize XZ encoder: code %u",
                                        ret);
 
+        uint8_t buf[BUFSIZ], out[BUFSIZ];
+        lzma_action action = LZMA_RUN;
         for (;;) {
                 if (s.avail_in == 0 && action == LZMA_RUN) {
                         size_t m = sizeof(buf);
@@ -946,23 +941,21 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
         assert(fdt >= 0);
 
 #if HAVE_XZ
-        _cleanup_(lzma_end_wrapper) lzma_stream s = LZMA_STREAM_INIT;
-        lzma_ret ret;
-
-        uint8_t buf[BUFSIZ], out[BUFSIZ];
-        lzma_action action = LZMA_RUN;
         int r;
 
         r = dlopen_lzma();
         if (r < 0)
                 return r;
 
-        ret = sym_lzma_stream_decoder(&s, UINT64_MAX, 0);
+        _cleanup_(lzma_end_wrapper) lzma_stream s = LZMA_STREAM_INIT;
+        lzma_ret ret = sym_lzma_stream_decoder(&s, UINT64_MAX, 0);
         if (ret != LZMA_OK)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOMEM),
                                        "Failed to initialize XZ decoder: code %u",
                                        ret);
 
+        uint8_t buf[BUFSIZ], out[BUFSIZ];
+        lzma_action action = LZMA_RUN;
         for (;;) {
                 if (s.avail_in == 0 && action == LZMA_RUN) {
                         ssize_t n;
