@@ -84,9 +84,12 @@ static int resource_load_from_directory_recursive(
         for (;;) {
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
                 _cleanup_free_ char *joined = NULL, *rel_joined = NULL;
+                _cleanup_free_ char *rel_joined_for_matching = NULL;
                 Instance *instance;
                 struct dirent *de;
+                const char *de_d_name_stripped;
                 struct stat st;
+                bool is_partial = false, is_pending = false;
 
                 errno = 0;
                 de = readdir_no_dot(d);
@@ -126,11 +129,27 @@ static int resource_load_from_directory_recursive(
                 if (!(S_ISDIR(st.st_mode) && S_ISREG(m)) && ((st.st_mode & S_IFMT) != m))
                         continue;
 
+                if (startswith(de->d_name, ".sysupdate.partial.")) {
+                        de_d_name_stripped = de->d_name + strlen(".sysupdate.partial.");
+                        is_partial = true;
+                } else if (startswith(de->d_name, ".sysupdate.pending.")) {
+                        de_d_name_stripped = de->d_name + strlen(".sysupdate.pending.");
+                        is_pending = true;
+                } else {
+                        de_d_name_stripped = de->d_name;
+                }
+
                 rel_joined = path_join(relpath, de->d_name);
                 if (!rel_joined)
                         return log_oom();
 
-                r = pattern_match_many(rr->patterns, rel_joined, &extracted_fields);
+                /* Match against the filename with any `.sysupdate.partial.` (etc.) prefix stripped, so the
+                 * user’s patterns still apply. But don’t use the stripped version in any paths or recursion. */
+                rel_joined_for_matching = path_join(relpath, de_d_name_stripped);
+                if (!rel_joined_for_matching)
+                        return log_oom();
+
+                r = pattern_match_many(rr->patterns, rel_joined_for_matching, &extracted_fields);
                 if (r == PATTERN_MATCH_RETRY) {
                         _cleanup_closedir_ DIR *subdir = NULL;
 
@@ -166,6 +185,9 @@ static int resource_load_from_directory_recursive(
 
                 if (instance->metadata.mode == MODE_INVALID)
                         instance->metadata.mode = st.st_mode & 0775; /* mask out world-writability and suid and stuff, for safety */
+
+                instance->is_partial = is_partial;
+                instance->is_pending = is_pending;
         }
 
         return 0;
@@ -217,6 +239,8 @@ static int resource_load_from_blockdev(Resource *rr) {
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
                 _cleanup_(partition_info_destroy) PartitionInfo pinfo = PARTITION_INFO_NULL;
                 Instance *instance;
+                const char *pinfo_label_stripped;
+                bool is_partial = false, is_pending = false;
 
                 r = read_partition_info(c, t, i, &pinfo);
                 if (r < 0)
@@ -234,7 +258,19 @@ static int resource_load_from_blockdev(Resource *rr) {
                         continue;
                 }
 
-                r = pattern_match_many(rr->patterns, pinfo.label, &extracted_fields);
+                /* Match the label with any partial/pending prefix removed so the user’s existing patterns
+                 * match regardless of the instance’s state. */
+                if (startswith(pinfo.label, "_partial_")) {
+                        pinfo_label_stripped = pinfo.label + strlen("_partial_");
+                        is_partial = true;
+                } else if (startswith(pinfo.label, "_pending_")) {
+                        pinfo_label_stripped = pinfo.label + strlen("_pending_");
+                        is_pending = true;
+                } else {
+                        pinfo_label_stripped = pinfo.label;
+                }
+
+                r = pattern_match_many(rr->patterns, pinfo_label_stripped, &extracted_fields);
                 if (r < 0)
                         return log_error_errno(r, "Failed to match pattern: %m");
                 if (IN_SET(r, PATTERN_MATCH_NO, PATTERN_MATCH_RETRY))
@@ -260,6 +296,9 @@ static int resource_load_from_blockdev(Resource *rr) {
 
                 if (instance->metadata.read_only < 0)
                         instance->metadata.read_only = instance->partition_info.read_only;
+
+                instance->is_partial = is_partial;
+                instance->is_pending = is_pending;
         }
 
         return 0;
@@ -456,6 +495,11 @@ static int resource_load_from_web(
                                 memcpy(instance->metadata.sha256sum, h, hlen);
                                 instance->metadata.sha256sum_set = true;
                         }
+
+                        /* Web resources can only be a source, not a target, so
+                         * can never be partial or pending. */
+                        instance->is_partial = false;
+                        instance->is_pending = false;
                 }
 
                 left -= (e - p) + 1;
