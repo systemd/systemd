@@ -45,22 +45,21 @@ int switch_root(const char *new_root,
 
         assert(new_root);
 
-        /* Check if we shall remove the contents of the old root */
-        old_root_fd = open("/", O_DIRECTORY|O_CLOEXEC);
-        if (old_root_fd < 0)
-                return log_error_errno(errno, "Failed to open root directory: %m");
-
         new_root_fd = open(new_root, O_PATH|O_DIRECTORY|O_CLOEXEC);
         if (new_root_fd < 0)
                 return log_error_errno(errno, "Failed to open target directory '%s': %m", new_root);
 
-        r = fds_are_same_mount(old_root_fd, new_root_fd); /* checks if referenced inodes and mounts match */
+        r = dir_fd_is_root(new_root_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if old and new root directory/mount are the same: %m");
         if (r > 0) {
                 log_debug("Skipping switch root, as old and new root directories/mounts are the same.");
                 return 0;
         }
+
+        old_root_fd = open("/", O_DIRECTORY|O_CLOEXEC);
+        if (old_root_fd < 0)
+                return log_error_errno(errno, "Failed to open root directory: %m");
 
         /* Make the new root directory a mount point if it isn't */
         r = fd_make_mount_point(new_root_fd);
