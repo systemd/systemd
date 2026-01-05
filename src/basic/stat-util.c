@@ -463,8 +463,13 @@ bool statx_inode_same(const struct statx *a, const struct statx *b) {
 
         /* Same as stat_inode_same() but for struct statx */
 
-        return statx_is_set(a) && statx_is_set(b) &&
-                FLAGS_SET(a->stx_mask, STATX_TYPE|STATX_INO) && FLAGS_SET(b->stx_mask, STATX_TYPE|STATX_INO) &&
+        if (!statx_is_set(a) || !statx_is_set(b))
+                return false;
+
+        assert(FLAGS_SET(a->stx_mask, STATX_TYPE|STATX_INO));
+        assert(FLAGS_SET(b->stx_mask, STATX_TYPE|STATX_INO));
+
+        return
                 ((a->stx_mode ^ b->stx_mode) & S_IFMT) == 0 &&
                 a->stx_dev_major == b->stx_dev_major &&
                 a->stx_dev_minor == b->stx_dev_minor &&
