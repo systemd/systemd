@@ -1090,42 +1090,14 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
 }
 
 int path_is_root_at(int dir_fd, const char *path) {
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-
-        _cleanup_close_ int fd = -EBADF;
-        if (!isempty(path)) {
-                fd = openat(dir_fd, path, O_PATH|O_DIRECTORY|O_CLOEXEC);
-                if (fd < 0)
-                        return errno == ENOTDIR ? false : -errno;
-
-                dir_fd = fd;
-        }
-
-        _cleanup_close_ int root_fd = openat(AT_FDCWD, "/", O_PATH|O_DIRECTORY|O_CLOEXEC);
-        if (root_fd < 0)
-                return -errno;
-
-        /* Even if the root directory has the same inode as our fd, the fd may not point to the root
-         * directory "/", and we also need to check that the mount ids are the same. Otherwise, a construct
-         * like the following could be used to trick us:
-         *
-         * $ mkdir /tmp/x
-         * $ mount --bind / /tmp/x
-         */
-
-        return fds_are_same_mount(dir_fd, root_fd);
-}
-
-int fds_are_same_mount(int fd1, int fd2) {
         struct statx sx1 = {}, sx2 = {}; /* explicitly initialize the struct to make msan silent. */
 
-        assert(fd1 >= 0);
-        assert(fd2 >= 0);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        if (statx(fd1, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx1) < 0)
+        if (statx(dir_fd, strempty(path), AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx1) < 0)
                 return -errno;
 
-        if (statx(fd2, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx2) < 0)
+        if (statx(AT_FDCWD, "/", /* flags= */ 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx2) < 0)
                 return -errno;
 
         return statx_inode_same(&sx1, &sx2) && statx_mount_same(&sx1, &sx2);
