@@ -61,7 +61,7 @@ openssl req -x509 -nodes -newkey rsa:2048 -sha256 -days 7 \
 chown -R systemd-journal-remote /run/systemd/journal-remote-tls
 
 # Configure journal-upload to upload journals to journal-remote without client certificates
-mkdir -p /run/systemd/journal-{remote,upload}.conf.d
+mkdir -pZ /run/systemd/journal-{remote,upload}.conf.d
 cat >/run/systemd/journal-remote.conf.d/99-test.conf <<EOF
 [Remote]
 SplitMode=host
