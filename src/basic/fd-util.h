@@ -112,7 +112,6 @@ int get_max_fd(void);
 
 int close_all_fds(const int except[], size_t n_except);
 int close_all_fds_without_malloc(const int except[], size_t n_except);
-int close_all_fds_by_proc(const int except[], size_t n_except);
 int close_all_fds_frugal(const int except[], size_t n_except);
 
 int pack_fds(int fds[], size_t n);
@@ -172,8 +171,6 @@ static inline int dir_fd_is_root(int dir_fd) {
 static inline int dir_fd_is_root_or_cwd(int dir_fd) {
         return dir_fd == AT_FDCWD ? true : path_is_root_at(dir_fd, NULL);
 }
-
-int fds_are_same_mount(int fd1, int fd2);
 
 /* The maximum length a buffer for a /proc/self/fd/<fd> path needs */
 #define PROC_FD_PATH_MAX \
