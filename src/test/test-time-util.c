@@ -433,11 +433,13 @@ static void test_format_timestamp_impl(usec_t x) {
         if (x_sec == y_sec && streq(xx, yy))
                 return; /* Yay! */
 
-        /* When the timezone is built with rearguard being enabled (e.g. old Ubuntu and RHEL), the following
-         * timezone may provide time shifted 1 hour from the original. See
-         * https://github.com/systemd/systemd/issues/28472 and https://github.com/systemd/systemd/pull/35471 */
+        /* When the timezone is built with rearguard being enabled (e.g. old Ubuntu and RHEL), the timezone
+         * Africa/Windhoek may provide time shifted 1 hour from the original. See
+         * https://github.com/systemd/systemd/issues/28472 and https://github.com/systemd/systemd/pull/35471.
+         * Also, the same may happen on MSK timezone (e.g. Europe/Volgograd or Europe/Kirov). */
         bool ignore =
-                streq_ptr(getenv("TZ"), "Africa/Windhoek") &&
+                (streq_ptr(getenv("TZ"), "Africa/Windhoek") ||
+                 streq_ptr(get_tzname(/* dst= */ false), "MSK")) &&
                 (x_sec > y_sec ? x_sec - y_sec : y_sec - x_sec) == 3600;
 
         log_full(ignore ? LOG_WARNING : LOG_ERR,
@@ -458,6 +460,9 @@ static void test_format_timestamp_loop(void) {
         /* Two cases which trigger https://github.com/systemd/systemd/issues/28472 */
         test_format_timestamp_impl(1504938962980066);
         test_format_timestamp_impl(1509482094632752);
+
+        /* With tzdata-2025c, the timestamp (randomly?) fails on MSK time zone (e.g. Europe/Volgograd). */
+        test_format_timestamp_impl(1414277092997572);
 
         for (unsigned i = 0; i < TRIAL; i++) {
                 usec_t x;
