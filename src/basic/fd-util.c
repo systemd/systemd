@@ -1090,22 +1090,20 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
 }
 
 int path_is_root_at(int dir_fd, const char *path) {
+        struct statx sx1 = {}, sx2 = {}; /* explicitly initialize the struct to make msan silent. */
+
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        _cleanup_close_ int fd = -EBADF;
-        if (!isempty(path)) {
-                fd = openat(dir_fd, path, O_PATH|O_DIRECTORY|O_CLOEXEC);
-                if (fd < 0)
-                        return errno == ENOTDIR ? false : -errno;
-
-                dir_fd = fd;
-        }
-
-        _cleanup_close_ int root_fd = openat(AT_FDCWD, "/", O_PATH|O_DIRECTORY|O_CLOEXEC);
-        if (root_fd < 0)
+        if (statx(dir_fd, strempty(path), AT_EMPTY_PATH, STATX_MNT_ID, &sx1) < 0)
                 return -errno;
 
-        /* Even if the root directory has the same inode as our fd, the fd may not point to the root
+        if (statx(AT_FDCWD, "/", /* flags= */ 0, STATX_MNT_ID, &sx2) < 0)
+                return -errno;
+
+        if (!statx_inode_same(&sx1, &sx2))
+                return false;
+
+        /* Even if the root directory has the same inode as our dir_fd+path, it may not point to the root
          * directory "/", and we also need to check that the mount ids are the same. Otherwise, a construct
          * like the following could be used to trick us:
          *
@@ -1113,7 +1111,16 @@ int path_is_root_at(int dir_fd, const char *path) {
          * $ mount --bind / /tmp/x
          */
 
-        return fds_are_same_mount(dir_fd, root_fd);
+        /* The attribute is supported since kernel v5.10. */
+        assert(FLAGS_SET(sx1.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT));
+        assert(FLAGS_SET(sx2.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT));
+
+        if (FLAGS_SET(sx1.stx_attributes, STATX_ATTR_MOUNT_ROOT))
+                return statx_mount_same(&sx1, &sx2);
+
+        /* If the specified dir_fd+path is not a mount point, but its inode is same as the root directory,
+         * then we should be running on a chroot environment. */
+        return true;
 }
 
 int fds_are_same_mount(int fd1, int fd2) {
@@ -1122,13 +1129,23 @@ int fds_are_same_mount(int fd1, int fd2) {
         assert(fd1 >= 0);
         assert(fd2 >= 0);
 
-        if (statx(fd1, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx1) < 0)
+        if (statx(fd1, "", AT_EMPTY_PATH, STATX_MNT_ID, &sx1) < 0)
                 return -errno;
 
-        if (statx(fd2, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx2) < 0)
+        if (statx(fd2, "", AT_EMPTY_PATH, STATX_MNT_ID, &sx2) < 0)
                 return -errno;
 
-        return statx_inode_same(&sx1, &sx2) && statx_mount_same(&sx1, &sx2);
+        /* The attribute is supported since kernel v5.10. */
+        assert(FLAGS_SET(sx1.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT));
+        assert(FLAGS_SET(sx2.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT));
+
+        if (!FLAGS_SET(sx1.stx_attributes, STATX_ATTR_MOUNT_ROOT))
+                return false;
+
+        if (!FLAGS_SET(sx2.stx_attributes, STATX_ATTR_MOUNT_ROOT))
+                return false;
+
+        return statx_mount_same(&sx1, &sx2);
 }
 
 char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
