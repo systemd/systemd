@@ -4048,7 +4048,7 @@ CHANGES WITH 255:
         * A new component "systemd-storagetm" has been added, which exposes all
           local block devices as NVMe-TCP devices, fully automatically. It's
           hooked into a new target unit storage-target-mode.target that is
-          suppsoed to be booted into via
+          supposed to be booted into via
           rd.systemd.unit=storage-target-mode.target on the kernel command
           line. This is intended to be used for installers and debugging to
           quickly get access to the local disk. It's inspired by MacOS "target
