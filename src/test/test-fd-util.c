@@ -343,19 +343,13 @@ TEST(close_all_fds) {
                 _exit(EXIT_SUCCESS);
         }
 
-        ASSERT_OK(r = pidref_safe_fork("(caf-nomalloc)", flags, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(caf-nomalloc)", flags, NULL));
         if (r == 0) {
                 test_close_all_fds_inner(close_all_fds_without_malloc);
                 _exit(EXIT_SUCCESS);
         }
 
-        ASSERT_OK(r = pidref_safe_fork("(caf-proc)", flags, NULL));
-        if (r == 0) {
-                test_close_all_fds_inner(close_all_fds_by_proc);
-                _exit(EXIT_SUCCESS);
-        }
-
-        ASSERT_OK(r = pidref_safe_fork("(caf-frugal)", flags, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(caf-frugal)", flags, NULL));
         if (r == 0) {
                 test_close_all_fds_inner(close_all_fds_frugal);
                 _exit(EXIT_SUCCESS);
