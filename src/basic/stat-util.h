@@ -117,3 +117,6 @@ static inline bool inode_type_can_hardlink(mode_t m) {
          * type). */
         return IN_SET(m & S_IFMT, S_IFSOCK, S_IFLNK, S_IFREG, S_IFBLK, S_IFCHR, S_IFIFO);
 }
+
+int statx_warn_mount_root(const struct statx *sx, int log_level);
+int statx_warn_mount_id(const struct statx *sx, int log_level);
