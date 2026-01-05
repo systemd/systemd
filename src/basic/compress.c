@@ -108,7 +108,8 @@ static DLSYM_PROTOTYPE(lzma_lzma_preset) = NULL;
  *       |         ^~~~~~~~~
  */
 static inline void lzma_end_wrapper(lzma_stream *ls) {
-        sym_lzma_end(ls);
+        if (*ls != LZMA_STREAM_INIT)
+                sym_lzma_end(ls);
 }
 #endif
 
