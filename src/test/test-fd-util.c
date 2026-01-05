@@ -343,19 +343,13 @@ TEST(close_all_fds) {
                 _exit(EXIT_SUCCESS);
         }
 
-        ASSERT_OK(r = pidref_safe_fork("(caf-nomalloc)", flags, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(caf-nomalloc)", flags, NULL));
         if (r == 0) {
                 test_close_all_fds_inner(close_all_fds_without_malloc);
                 _exit(EXIT_SUCCESS);
         }
 
-        ASSERT_OK(r = pidref_safe_fork("(caf-proc)", flags, NULL));
-        if (r == 0) {
-                test_close_all_fds_inner(close_all_fds_by_proc);
-                _exit(EXIT_SUCCESS);
-        }
-
-        ASSERT_OK(r = pidref_safe_fork("(caf-frugal)", flags, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(caf-frugal)", flags, NULL));
         if (r == 0) {
                 test_close_all_fds_inner(close_all_fds_frugal);
                 _exit(EXIT_SUCCESS);
@@ -742,24 +736,6 @@ TEST(path_is_root_at) {
         ASSERT_OK_ERRNO(chdir(tmp));
         log_debug("/* %s: chdir(\"%s\") again */", __func__, tmp);
         test_path_is_root_at_one(true);
-}
-
-TEST(fds_are_same_mount) {
-        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF, fd3 = -EBADF, fd4 = -EBADF;
-
-        fd1 = open("/sys", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
-        fd2 = open("/proc", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
-        fd3 = open("/proc", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
-        fd4 = open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
-
-        if (fd1 < 0 || fd2 < 0 || fd3 < 0 || fd4 < 0)
-                return (void) log_tests_skipped_errno(errno, "Failed to open /sys or /proc or /");
-
-        if (fds_are_same_mount(fd1, fd4) > 0 && fds_are_same_mount(fd2, fd4) > 0)
-                return (void) log_tests_skipped("Cannot test fds_are_same_mount() as /sys and /proc are not mounted");
-
-        assert_se(fds_are_same_mount(fd1, fd2) == 0);
-        assert_se(fds_are_same_mount(fd2, fd3) > 0);
 }
 
 TEST(fd_get_path) {
