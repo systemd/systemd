@@ -163,29 +163,6 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mn
         return safe_atoi(p, ret_mnt_id);
 }
 
-static bool filename_possibly_with_slash_suffix(const char *s) {
-        const char *slash, *copied;
-
-        /* Checks whether the specified string is either file name, or a filename with a suffix of
-         * slashes. But nothing else.
-         *
-         * this is OK: foo, bar, foo/, bar/, foo//, bar///
-         * this is not OK: "", "/", "/foo", "foo/bar", ".", ".." … */
-
-        slash = strchr(s, '/');
-        if (!slash)
-                return filename_is_valid(s);
-
-        if (slash - s > PATH_MAX) /* We want to allocate on the stack below, hence do a size check first */
-                return false;
-
-        if (slash[strspn(slash, "/")] != 0) /* Check that the suffix consist only of one or more slashes */
-                return false;
-
-        copied = strndupa_safe(s, slash - s);
-        return filename_is_valid(copied);
-}
-
 bool file_handle_equal(const struct file_handle *a, const struct file_handle *b) {
         if (a == b)
                 return true;
@@ -197,37 +174,30 @@ bool file_handle_equal(const struct file_handle *a, const struct file_handle *b)
         return memcmp_nn(a->f_handle, a->handle_bytes, b->f_handle, b->handle_bytes) == 0;
 }
 
-int is_mount_point_at(int fd, const char *filename, int flags) {
+int is_mount_point_at(int dir_fd, const char *path, int flags) {
         int r;
 
-        assert(fd >= 0 || fd == AT_FDCWD);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert((flags & ~AT_SYMLINK_FOLLOW) == 0);
 
-        if (isempty(filename)) {
-                if (fd == AT_FDCWD)
-                        filename = ".";
-                else {
-                        /* If the file name is empty we'll see if the specified 'fd' is a mount point.
-                         * That's only supported by statx(), or if the inode specified via 'fd' refers to a
-                         * directory. Otherwise, we'll have to fail (ENOTDIR), because we have no kernel API
-                         * to query the information we need. */
-                        flags |= AT_EMPTY_PATH;
-                        filename = "";
-                }
+        if (path_equal(path, "/"))
+                return true;
 
-        } else if (!STR_IN_SET(filename, ".", "./")) {
-                /* Insist that the specified filename is actually a filename, and not a path, i.e. some inode
-                 * further up or down the tree then immediately below the specified directory fd. */
-                if (!filename_possibly_with_slash_suffix(filename))
-                        return -EINVAL;
+        if (isempty(path)) {
+                if (dir_fd == AT_FDCWD)
+                        path = ".";
+                else {
+                        flags |= AT_EMPTY_PATH;
+                        path = "";
+                }
         }
 
         struct statx sx = {}; /* explicitly initialize the struct to make msan silent. */
-        if (statx(fd, filename,
+        if (statx(dir_fd, path,
                   at_flags_normalize_nofollow(flags) |
                   AT_NO_AUTOMOUNT |            /* don't trigger automounts – mounts are a local concept, hence no need to trigger automounts to determine STATX_ATTR_MOUNT_ROOT */
                   AT_STATX_DONT_SYNC,          /* don't go to the network for this – for similar reasons */
-                  STATX_TYPE,
+                  STATX_TYPE|STATX_INO,
                   &sx) < 0)
                 return -errno;
 
@@ -235,30 +205,37 @@ int is_mount_point_at(int fd, const char *filename, int flags) {
         if (r < 0)
                 return r;
 
-        return FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
+        if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT))
+                return true;
+
+        /* When running on chroot environment, the root may not be a mount point, but we unconditionally
+         * return true when the input is "/" in the above, but the shortcut may not work e.g. when the path
+         * is relative. */
+        struct statx sx2 = {}; /* explicitly initialize the struct to make msan silent. */
+        if (statx(AT_FDCWD, "/", AT_STATX_DONT_SYNC, STATX_TYPE|STATX_INO, &sx2) < 0)
+                return -errno;
+
+        return statx_inode_same(&sx, &sx2);
 }
 
 /* flags can be AT_SYMLINK_FOLLOW or 0 */
 int path_is_mount_point_full(const char *path, const char *root, int flags) {
-        _cleanup_close_ int dfd = -EBADF;
-        _cleanup_free_ char *fn = NULL;
+        _cleanup_close_ int dir_fd = -EBADF;
+        int r;
 
         assert(path);
         assert((flags & ~AT_SYMLINK_FOLLOW) == 0);
 
-        if (path_equal(path, "/"))
-                return 1;
+        if (empty_or_root(root))
+                return is_mount_point_at(AT_FDCWD, path, flags);
 
-        /* we need to resolve symlinks manually, we can't just rely on is_mount_point_at() to do that for us;
-         * if we have a structure like /bin -> /usr/bin/ and /usr is a mount point, then the parent that we
-         * look at needs to be /usr, not /. */
-        dfd = chase_and_open_parent(path, root,
-                                    CHASE_TRAIL_SLASH|(FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : CHASE_NOFOLLOW),
-                                    &fn);
-        if (dfd < 0)
-                return dfd;
+        r = chase(path, root,
+                  FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : CHASE_NOFOLLOW,
+                  /* ret_path= */ NULL, &dir_fd);
+        if (r < 0)
+                return r;
 
-        return is_mount_point_at(dfd, fn, flags);
+        return is_mount_point_at(dir_fd, /* path= */ NULL, flags);
 }
 
 int path_get_mnt_id_at_fallback(int dir_fd, const char *path, int *ret) {

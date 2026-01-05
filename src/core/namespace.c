@@ -3467,7 +3467,7 @@ static int is_extension_overlay(const char *path, int fd) {
                 fd = dfd;
         }
 
-        r = is_mount_point_at(fd, /* filename= */ NULL, /* flags= */ 0);
+        r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Unable to determine whether '%s' is a mount point: %m", path);
         if (r == 0)
