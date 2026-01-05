@@ -298,6 +298,12 @@ static int run_editor_child(const EditFileContext *context) {
 
                 execvp(args[0], (char* const*) args);
 
+                if (errno == ENOTDIR) {
+                        log_debug_errno(errno,
+                                        "Failed to execute '%s': a path component is not a directory, skipping...",
+                                        name);
+                        continue;
+                }
                 /* We do not fail if the editor doesn't exist because we want to try each one of them
                  * before failing. */
                 if (errno != ENOENT)
