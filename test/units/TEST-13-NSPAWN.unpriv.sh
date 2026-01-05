@@ -13,6 +13,7 @@ if ! can_do_rootless_nspawn; then
 fi
 
 at_exit() {
+    rm -rf /home/testuser/.local/state/machines/.tar-file* ||:
     rm -rf /home/testuser/.local/state/machines/zurps ||:
     machinectl terminate zurps ||:
     rm -f /etc/polkit-1/rules.d/registermachinetest.rules
