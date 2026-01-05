@@ -2119,15 +2119,14 @@ int posix_spawn_wrapper(
         if (ERRNO_IS_NOT_SUPPORTED(r) && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP) && cg_is_threaded(cgroup) > 0)
                 return -EUCLEAN; /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode,
                                     turn that into something recognizable */
-        if ((ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || r == E2BIG) &&
+        if ((ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r)) &&
             FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP)) {
                 /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but
                  * need to disable POSIX_SPAWN_SETCGROUP, which is what redirects to clone3().
-                 * Note that we might get E2BIG here since some kernels (e.g. 5.4) support clone3()
-                 * but not CLONE_INTO_CGROUP. */
-
-                /* CLONE_INTO_CGROUP definitely won't work, hence remember the fact so that we don't
-                 * retry every time. */
+                 * CLONE_INTO_CGROUP definitely won't work, hence remember the fact so that we don't
+                 * retry every time.
+                 * Note, CLONE_INTO_CGROUP is supported since kernel v5.7, but some architectures still
+                 * do not support clone3(). Hence, we need to keep the fallback logic for a while. */
                 have_clone_into_cgroup = false;
 
                 flags &= ~POSIX_SPAWN_SETCGROUP;
