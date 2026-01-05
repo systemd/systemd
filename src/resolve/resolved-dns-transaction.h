@@ -1,11 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#if ENABLE_DNS_OVER_HTTPS
+#include <curl/curl.h>
+#endif
+
+#include "sd-event.h"
+#include "in-addr-util.h"
+
 #include "list.h"
 #include "resolved-def.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-server.h"
 #include "resolved-forward.h"
+#include "curl-util.h"
+
 
 typedef enum DnsTransactionState {
         DNS_TRANSACTION_NULL,
@@ -84,7 +93,15 @@ typedef struct DnsTransaction {
 
         /* TCP connection logic, if we need it */
         DnsStream *stream;
-
+#if ENABLE_DNS_OVER_HTTPS
+        /* HTTPS connection logic, if we need it */
+        CurlGlue *glue;
+        CURL *curl;
+        char *url;
+        uint8_t *payload;
+        size_t payload_size;
+        bool valid_dns_message;
+#endif
         /* The active server */
         DnsServer *server;
 
@@ -181,3 +198,9 @@ static inline uint64_t dns_transaction_source_to_query_flags(DnsTransactionSourc
 DECLARE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
 
 DECLARE_STRING_TABLE_LOOKUP(dns_transaction_source, DnsTransactionSource);
+
+const char* dns_transaction_source_to_string(DnsTransactionSource p) _const_;
+DnsTransactionSource dns_transaction_source_from_string(const char *s) _pure_;
+
+/* Maximum URL length for HTTP GET request, see RFC ... */
+#define MAX_URL_LENGTH 2048U
