@@ -722,7 +722,7 @@
         <listitem><para>Show a list of candidate block devices this command may operate on. Specifically,
         this enumerates block devices currently present that contain a LUKS superblock, and shows their
         device node paths along with any of their symlinks. The devices must implement the
-        <option>hmac-secret</option> extension to be useable.</para>
+        <option>hmac-secret</option> extension to be usable.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
