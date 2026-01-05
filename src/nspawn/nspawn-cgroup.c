@@ -147,7 +147,7 @@ int mount_cgroups(const char *dest, bool accept_existing) {
         if (r < 0)
                 return log_error_errno(r, "Failed to chase %s/sys/fs/cgroup: %m", strempty(dest));
 
-        r = is_mount_point_at(fd, /* filename= */ NULL, /* flags= */ 0);
+        r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if %s is mounted already: %m", p);
         if (r > 0) {
