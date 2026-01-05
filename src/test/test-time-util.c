@@ -459,6 +459,9 @@ static void test_format_timestamp_loop(void) {
         test_format_timestamp_impl(1504938962980066);
         test_format_timestamp_impl(1509482094632752);
 
+        /* On i386 with tzdata 2025c, it fails on Europe/Volgograd */
+        test_format_timestamp_impl(1414277092997572);
+
         for (unsigned i = 0; i < TRIAL; i++) {
                 usec_t x;
 
