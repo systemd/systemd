@@ -156,7 +156,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         if (strcaseeq(scheme, "FILE") && result == CURLE_FILE_COULDNT_READ_FILE && j->on_not_found) {
                 _cleanup_free_ char *new_url = NULL;
 
-                /* This resource wasn't found, but the implementor wants to maybe let us know a new URL, query for it. */
+                /* This resource wasn't found, but the implementer wants to maybe let us know a new URL, query for it. */
                 r = j->on_not_found(j, &new_url);
                 if (r < 0)
                         goto finish;
@@ -197,7 +197,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                         if (status == 404 && j->on_not_found) {
                                 _cleanup_free_ char *new_url = NULL;
 
-                                /* This resource wasn't found, but the implementor wants to maybe let us know a new URL, query for it. */
+                                /* This resource wasn't found, but the implementer wants to maybe let us know a new URL, query for it. */
                                 r = j->on_not_found(j, &new_url);
                                 if (r < 0)
                                         goto finish;
