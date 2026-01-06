@@ -276,6 +276,7 @@ Unit=
 UpheldBy=
 Upholds=
 User=
+UserNamespacePath=
 WakeSystem=
 WantedBy=
 Wants=
