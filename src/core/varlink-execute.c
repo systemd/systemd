@@ -54,7 +54,7 @@ static int json_append_mount_options(sd_json_variant **v, MountOptions *options)
                 return 0;
 
         for (PartitionDesignator j = 0; j < _PARTITION_DESIGNATOR_MAX; j++) {
-                if (!options->options[j])
+                if (isempty(options->options[j]))
                         continue;
 
                 r = sd_json_variant_append_arraybo(
