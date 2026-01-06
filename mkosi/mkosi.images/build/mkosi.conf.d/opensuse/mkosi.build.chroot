@@ -27,6 +27,7 @@ while read -r filelist; do
         -e '/(initctl|runlevel|telinit)/ d' \
         -e 's/systemd-quotacheck.service.8/systemd-quotacheck@.service.8/' \
         -e '/systemd-sysv-generator/d' \
+        -e '/rc-local/d' \
         "$filelist" >"/tmp/$(basename "$filelist")"
     mount --bind "/tmp/$(basename "$filelist")" "$filelist"
 done < <(find "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}" -name "files.*")
