@@ -111,6 +111,9 @@ typedef struct ExecSharedRuntime {
 
         /* Like netns_storage_socket, but the file descriptor is referring to the IPC namespace. */
         int ipcns_storage_socket[2];
+
+        /* Like netns_storage_socket, but the file descriptor is referring to the user namespace. */
+        int userns_storage_socket[2];
 } ExecSharedRuntime;
 
 typedef struct ExecRuntime {
@@ -352,6 +355,7 @@ typedef struct ExecContext {
         bool address_families_allow_list:1;
         Set *address_families;
 
+        char *user_namespace_path;
         char *network_namespace_path;
         char *ipc_namespace_path;
 
