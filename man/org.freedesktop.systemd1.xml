@@ -3392,6 +3392,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -4002,6 +4004,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property BPFDelegateAttachments is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
+
+    <!--property UserNamespacePath is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
 
@@ -4738,6 +4742,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateAttachments"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UserNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
@@ -5631,6 +5637,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -6261,6 +6269,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property BPFDelegateAttachments is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
+
+    <!--property UserNamespacePath is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
 
@@ -6978,6 +6988,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="UserNamespacePath"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPCNamespacePath"/>
@@ -7694,6 +7706,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -8246,6 +8260,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property BPFDelegateAttachments is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
+
+    <!--property UserNamespacePath is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
 
@@ -8870,6 +8886,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateAttachments"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UserNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
@@ -9720,6 +9738,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MemoryKSM = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserNamespacePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -10254,6 +10274,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property BPFDelegateAttachments is not documented!-->
 
     <!--property MemoryKSM is not documented!-->
+
+    <!--property UserNamespacePath is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
 
@@ -10860,6 +10882,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="BPFDelegateAttachments"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UserNamespacePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
