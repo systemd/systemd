@@ -159,6 +159,7 @@ sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT200TA:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Asus Transformer Mini T101HA & T103HAF
+# Matrix tested working in monitor-sensor (06 gen 2026), corrects accel values and not just display output.
 sensor:modalias:platform:HID-SENSOR-200073*:dmi:*svn*ASUSTeK*:pnT101HA:*
 sensor:modalias:platform:HID-SENSOR-200073*:dmi:*svn*ASUSTeK*:pnT103HAF:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, -1
