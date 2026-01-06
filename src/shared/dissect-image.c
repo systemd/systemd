@@ -4934,6 +4934,7 @@ int verity_dissect_and_mount(
                         r = mountfsd_mount_image(
                                         src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
                                         userns_fd,
+                                        options,
                                         image_policy,
                                         verity,
                                         dissect_image_flags,
@@ -5100,6 +5101,7 @@ static void mount_image_reply_parameters_done(MountImageReplyParameters *p) {
 int mountfsd_mount_image_fd(
                 int image_fd,
                 int userns_fd,
+                const MountOptions *options,
                 const ImagePolicy *image_policy,
                 const VeritySettings *verity,
                 DissectImageFlags flags,
@@ -5171,6 +5173,19 @@ int mountfsd_mount_image_fd(
                         return log_error_errno(r, "Failed to push verity data fd into varlink connection: %m");
         }
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *mount_options = NULL;
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                const char *o = mount_options_from_designator(options, i);
+                if (!o)
+                        continue;
+
+                r = sd_json_variant_merge_objectbo(
+                                &mount_options,
+                                SD_JSON_BUILD_PAIR_STRING(partition_designator_to_string(i), o));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build mount options array: %m");
+        }
+
         sd_json_variant *reply = NULL;
         r = varlink_callbo_and_log(
                         vl,
@@ -5182,6 +5197,7 @@ int mountfsd_mount_image_fd(
                         SD_JSON_BUILD_PAIR_BOOLEAN("readOnly", FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("growFileSystems", FLAGS_SET(flags, DISSECT_IMAGE_GROWFS)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!ps, "imagePolicy", SD_JSON_BUILD_STRING(ps)),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("mountOptions", mount_options),
                         SD_JSON_BUILD_PAIR_BOOLEAN("veritySharing", FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)),
                         SD_JSON_BUILD_PAIR_CONDITION(verity_data_fd >= 0, "verityDataFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd >= 0 ? 2 : 1)),
                         SD_JSON_BUILD_PAIR_CONDITION(verity && iovec_is_set(&verity->root_hash), "verityRootHash", JSON_BUILD_IOVEC_HEX(&verity->root_hash)),
@@ -5274,6 +5290,7 @@ int mountfsd_mount_image_fd(
 int mountfsd_mount_image(
                 const char *path,
                 int userns_fd,
+                const MountOptions *options,
                 const ImagePolicy *image_policy,
                 const VeritySettings *verity,
                 DissectImageFlags flags,
@@ -5289,7 +5306,7 @@ int mountfsd_mount_image(
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
 
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
-        r = mountfsd_mount_image_fd(image_fd, userns_fd, image_policy, verity, flags, &di);
+        r = mountfsd_mount_image_fd(image_fd, userns_fd, options, image_policy, verity, flags, &di);
         if (r < 0)
                 return r;
 

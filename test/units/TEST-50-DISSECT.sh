@@ -25,6 +25,7 @@ at_exit() {
     done < <(find "${IMAGE_DIR}" -mindepth 1 -maxdepth 1 -type d)
 
     rm -rf "$IMAGE_DIR"
+    rm -rf /etc/polkit-1/rules.d/mountoptions.rules
 
     rm -f /etc/polkit-1/rules.d/sysext-unpriv.rules
 
