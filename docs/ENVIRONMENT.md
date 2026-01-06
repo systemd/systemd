@@ -138,8 +138,6 @@ All tools:
 * `$SYSTEMCTL_INSTALL_CLIENT_SIDE=1` — if set, enable or disable unit files on
   the client side, instead of asking PID 1 to do this.
 
-* `$SYSTEMCTL_SKIP_SYSV=1` — if set, do not call SysV compatibility hooks.
-
 * `$SYSTEMCTL_SKIP_AUTO_KEXEC=1` — if set, do not automatically kexec instead of
   reboot when a new kernel has been loaded.
 
