@@ -310,50 +310,6 @@ int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_p
         return 0;
 }
 
-static int write_credential(
-                int dfd,
-                const char *id,
-                const void *data,
-                size_t size,
-                uid_t uid,
-                gid_t gid,
-                bool ownership_ok) {
-
-        _cleanup_close_ int fd = -EBADF;
-        int r;
-
-        assert(dfd >= 0);
-        assert(id);
-        assert(data || size == 0);
-
-        fd = openat(dfd, id, O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0600);
-        if (fd < 0)
-                return -errno;
-
-        r = loop_write(fd, data, size);
-        if (r < 0)
-                return r;
-
-        r = RET_NERRNO(fchmod(fd, 0400)); /* Take away "w" bit */
-        if (r < 0)
-                return r;
-
-        if (uid_is_valid(uid) && uid != getuid()) {
-                r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
-                /* Ideally we use ACLs, since we can neatly express what we want to express:
-                 * the user gets read access and nothing else. But if the backing fs can't
-                 * support that (e.g. ramfs), then we can use file ownership instead. But that's
-                 * only safe if we can then re-mount the whole thing read-only, so that the user
-                 * can no longer chmod() the file to gain write access. */
-                if ((ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r)) && ownership_ok)
-                        r = RET_NERRNO(fchown(fd, uid, gid));
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
 typedef enum CredentialSearchPath {
         CREDENTIAL_SEARCH_PATH_TRUSTED,
         CREDENTIAL_SEARCH_PATH_ENCRYPTED,
@@ -429,6 +385,50 @@ struct load_cred_args {
 
         uint64_t left;
 };
+
+static int write_credential(
+                int dfd,
+                const char *id,
+                const void *data,
+                size_t size,
+                uid_t uid,
+                gid_t gid,
+                bool ownership_ok) {
+
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(dfd >= 0);
+        assert(id);
+        assert(data || size == 0);
+
+        fd = openat(dfd, id, O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0600);
+        if (fd < 0)
+                return -errno;
+
+        r = loop_write(fd, data, size);
+        if (r < 0)
+                return r;
+
+        r = RET_NERRNO(fchmod(fd, 0400)); /* Take away "w" bit */
+        if (r < 0)
+                return r;
+
+        if (uid_is_valid(uid) && uid != getuid()) {
+                r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
+                /* Ideally we use ACLs, since we can neatly express what we want to express:
+                 * the user gets read access and nothing else. But if the backing fs can't
+                 * support that (e.g. ramfs), then we can use file ownership instead. But that's
+                 * only safe if we can then re-mount the whole thing read-only, so that the user
+                 * can no longer chmod() the file to gain write access. */
+                if ((ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r)) && ownership_ok)
+                        r = RET_NERRNO(fchown(fd, uid, gid));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
 
 static int maybe_decrypt_and_write_credential(
                 struct load_cred_args *args,
