@@ -45,7 +45,7 @@ option('sysvinit-path', type : 'string', value : '/etc/init.d', deprecated : tru
        description : 'This option is deprecated and will be removed in a future release')
 option('sysvrcnd-path', type : 'string', value : '/etc/rc.d', deprecated : true,
        description : 'This option is deprecated and will be removed in a future release')
-option('rc-local', type : 'string', value : '/etc/rc.local',
+option('rc-local', type : 'string', value : '/etc/rc.local', deprecated : true,
        description : 'path to SysV rc.local script')
 option('initrd', type : 'boolean',
        description : 'install services for use when running systemd in initrd')

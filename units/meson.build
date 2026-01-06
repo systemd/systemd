@@ -175,10 +175,6 @@ units = [
           'conditions' : ['ENABLE_QUOTACHECK'],
         },
         {
-          'file' : 'rc-local.service.in',
-          'conditions' : ['HAVE_SYSV_RC_LOCAL'],
-        },
-        {
           'file' : 'reboot.target',
           'symlinks' : ['ctrl-alt-del.target'],
         },
