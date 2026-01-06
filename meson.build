@@ -3181,7 +3181,6 @@ foreach tuple : [
         ['man pages',              want_man],
         ['html pages',             want_html],
         ['man page indices',       want_man and have_lxml],
-        ['SysV compat'],
         ['compat-mutable-uid-boundaries'],
         ['utmp'],
         ['ldconfig'],
