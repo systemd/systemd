@@ -865,6 +865,9 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         SD_JSON_BUILD_PAIR_CALLBACK("IOSchedulingClass", ioprio_class_build_json, c),
                         SD_JSON_BUILD_PAIR_INTEGER("IOSchedulingPriority", ioprio_prio_data(exec_context_get_effective_ioprio(c))),
 
+                        JSON_BUILD_PAIR_TRISTATE_NON_NULL("MemoryKSM", c->memory_ksm),
+                        SD_JSON_BUILD_PAIR_STRING("MemoryTHP", memory_thp_to_string(c->memory_thp)),
+
                         /* Sandboxing */
                         SD_JSON_BUILD_PAIR_STRING("ProtectSystem", protect_system_to_string(c->protect_system)),
                         SD_JSON_BUILD_PAIR_STRING("ProtectHome", protect_home_to_string(c->protect_home)),
@@ -888,7 +891,6 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("NetworkNamespacePath", c->network_namespace_path),
                         JSON_BUILD_PAIR_YES_NO("PrivateIPC", c->private_ipc),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("IPCNamespacePath", c->ipc_namespace_path),
-                        JSON_BUILD_PAIR_TRISTATE_NON_NULL("MemoryKSM", c->memory_ksm),
                         SD_JSON_BUILD_PAIR_STRING("PrivatePIDs", private_pids_to_string(c->private_pids)),
                         SD_JSON_BUILD_PAIR_STRING("PrivateUsers", private_users_to_string(c->private_users)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("UserNamespacePath", c->user_namespace_path),
@@ -914,7 +916,6 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         SD_JSON_BUILD_PAIR_BOOLEAN("RemoveIPC", c->remove_ipc),
                         JSON_BUILD_PAIR_TRISTATE_NON_NULL("PrivateMounts", c->private_mounts),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("MountFlags", mount_propagation_flag_to_string(c->mount_propagation_flag)),
-                        SD_JSON_BUILD_PAIR_STRING("MemoryTHP", memory_thp_to_string(c->memory_thp)),
 
                         /* System Call Filtering */
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("SystemCallFilter", syscall_filter_build_json, c),

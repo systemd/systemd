@@ -4039,15 +4039,6 @@ DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_map_type, uint64_t);
 DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_prog_type, uint64_t);
 DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_attach_type, uint64_t);
 
-static const char* const memory_thp_table[_MEMORY_THP_MAX] = {
-        [MEMORY_THP_INHERIT] = "inherit",
-        [MEMORY_THP_DISABLE] = "disable",
-        [MEMORY_THP_MADVISE] = "madvise",
-        [MEMORY_THP_SYSTEM]  = "system",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(memory_thp, MemoryTHP);
-
 char* bpf_delegate_to_string(uint64_t u, const char * (*parser)(uint64_t) _const_ ) {
         assert(parser);
 
