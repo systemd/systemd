@@ -796,7 +796,7 @@ static int property_get_root_hash_sig(
 
 static int bus_append_mount_options(
                 sd_bus_message *reply,
-                MountOptions *options) {
+                const MountOptions *options) {
 
         int r;
 
