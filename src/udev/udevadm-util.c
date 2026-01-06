@@ -305,7 +305,7 @@ static int search_rules_file(const char *s, const char *root, ConfFile ***files,
 
         CLEANUP_ARRAY(f, n, conf_file_free_many);
 
-        r = conf_files_list_strv_full(".rules", root, CONF_FILES_REGULAR, (const char* const*) STRV_MAKE_CONST(s), &f, &n);
+        r = conf_files_list_strv_full(".rules", root, CONF_FILES_REGULAR | CONF_FILES_WARN, (const char* const*) STRV_MAKE_CONST(s), &f, &n);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate rules files in '%s%s': %m", empty_to_root(root), skip_leading_slash(s));
 
@@ -328,7 +328,7 @@ int search_rules_files(char * const *a, const char *root, ConfFile ***ret_files,
         assert(ret_n_files);
 
         if (strv_isempty(a)) {
-                r = conf_files_list_strv_full(".rules", root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
+                r = conf_files_list_strv_full(".rules", root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
                                               (const char* const*) CONF_PATHS_STRV("udev/rules.d"), &files, &n_files);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enumerate rules files: %m");

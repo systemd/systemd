@@ -78,7 +78,7 @@ int verb_nvpcrs(int argc, char *argv[], void *userdata) {
                                 &l,
                                 ".nvpcr",
                                 /* root= */ NULL,
-                                CONF_FILES_REGULAR|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED|CONF_FILES_TRUNCATE_SUFFIX,
+                                CONF_FILES_REGULAR|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED|CONF_FILES_TRUNCATE_SUFFIX|CONF_FILES_WARN,
                                 CONF_PATHS_NULSTR("nvpcr"));
                 if (r < 0)
                         return log_error_errno(r, "Failed to find .nvpcr files: %m");
