@@ -2494,6 +2494,7 @@ static const BusProperty execute_properties[] = {
         { "LogRateLimitBurst",                     bus_append_safe_atou                          },
         { "TTYRows",                               bus_append_safe_atou                          },
         { "TTYColumns",                            bus_append_safe_atou                          },
+        { "MemoryTHP",                             bus_append_string                             },
         { "MountFlags",                            bus_append_mount_propagation_flag_from_string },
         { "Environment",                           bus_append_strv_cunescape                     },
         { "UnsetEnvironment",                      bus_append_strv_cunescape                     },
