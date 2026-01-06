@@ -453,7 +453,9 @@ int catalog_update(const char *database, const char *root, const char* const *di
 
         CLEANUP_ARRAY(files, n_files, conf_file_free_many);
 
-        r = conf_files_list_strv_full(".catalog", root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, dirs, &files, &n_files);
+        r = conf_files_list_strv_full(".catalog", root,
+                                      CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
+                                      dirs, &files, &n_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to get catalog files: %m");
 

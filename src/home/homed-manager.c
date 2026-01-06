@@ -1521,7 +1521,7 @@ static int manager_load_public_keys(Manager *m) {
                         &files,
                         ".public",
                         NULL,
-                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
                         KEY_PATHS_NULSTR);
         if (r < 0)
                 return log_error_errno(r, "Failed to assemble list of public key directories: %m");
