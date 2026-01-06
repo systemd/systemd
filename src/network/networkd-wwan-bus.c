@@ -63,9 +63,9 @@
 #include "string-util.h"
 #include "strv.h"
 
-#define RECONNECT_TIMEOUT_SEC   30
+#define RECONNECT_TIMEOUT_USEC  (30 * USEC_PER_SEC)
 
-static const char * const MODEM_STATE_FAILED_STR[__MM_MODEM_STATE_FAILED_REASON_MAX] = {
+static const char * const modem_state_failed_reason_str[__MM_MODEM_STATE_FAILED_REASON_MAX] = {
         [MM_MODEM_STATE_FAILED_REASON_NONE]                  = "No error",
         [MM_MODEM_STATE_FAILED_REASON_UNKNOWN]               = "Unknown error",
         [MM_MODEM_STATE_FAILED_REASON_SIM_MISSING]           = "SIM is required, but missing",
@@ -296,11 +296,10 @@ static int map_properties(
         return bus_message_map_all_properties(m, map, BUS_MAP_STRDUP, error, userdata);
 }
 
-static int bus_message_check_properties(
+static int bus_message_contains_properties(
                 sd_bus_message *m,
                 const struct bus_properties_map *map,
-                sd_bus_error *error,
-                unsigned *ret_found_cnt) {
+                sd_bus_error *error) {
 
         unsigned found_cnt;
         int r;
@@ -345,8 +344,7 @@ static int bus_message_check_properties(
         if (r < 0)
                 return bus_log_parse_error_debug(r);
 
-        *ret_found_cnt = found_cnt;
-        return 0;
+        return found_cnt;
 }
 
 static int bearer_get_all_handler(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
@@ -362,7 +360,6 @@ static int bearer_get_all_handler(sd_bus_message *message, void *userdata, sd_bu
         Bearer *b = ASSERT_PTR(userdata);
         const sd_bus_error *e;
         int r;
-        unsigned found_cnt;
 
         assert(message);
 
@@ -386,10 +383,14 @@ static int bearer_get_all_handler(sd_bus_message *message, void *userdata, sd_bu
         }
 
         /* skip name: string "org.freedesktop.ModemManager1.Bearer" */
-        sd_bus_message_skip(message, "s");
-        r = bus_message_check_properties(message, map, ret_error, &found_cnt);
+        r = sd_bus_message_skip(message, "s");
         if (r < 0)
-                return log_warning_errno(r, "Failed to count properties of bearer \"%s\": %s",
+                return log_warning_errno(r, "Failed while parsing properties of bearer \"%s\": %s",
+                                         b->path, bus_error_message(ret_error, r));
+
+        r = bus_message_contains_properties(message, map, ret_error);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to check properties of bearer \"%s\": %s",
                                          b->path, bus_error_message(ret_error, r));
 
         /*
@@ -397,14 +398,17 @@ static int bearer_get_all_handler(sd_bus_message *message, void *userdata, sd_bu
          * and do not involve link state change, e.g. we do not want to bearer_update_link on Rx/Tx counters
          * change. So, see if this callback was called with the changes we want to track.
          */
-        if (found_cnt == 0)
+        if (r == 0)
                 return 0;
 
         r = sd_bus_message_rewind(message, true);
         if (r < 0)
                 return log_warning_errno(r, "Failed to rewind properties of bearer \"%s\"", b->path);
         /* skip name: string "org.freedesktop.ModemManager1.Bearer" */
-        sd_bus_message_skip(message, "s");
+        r = sd_bus_message_skip(message, "s");
+        if (r < 0)
+                return log_warning_errno(r, "Failed while parsing properties of bearer \"%s\": %s",
+                                         b->path, bus_error_message(ret_error, r));
 
         r = bus_message_map_all_properties(message, map, BUS_MAP_BOOLEAN_AS_BOOL, ret_error, b);
         if (r < 0)
@@ -433,14 +437,15 @@ static int bearer_initialize(Bearer *b) {
 
         b->slot_getall = sd_bus_slot_unref(b->slot_getall);
 
-        r = sd_bus_call_method_async(b->modem->manager->bus,
-                                     &b->slot_getall,
-                                     "org.freedesktop.ModemManager1",
-                                     b->path,
-                                     "org.freedesktop.DBus.Properties",
-                                     "GetAll",
-                                     bearer_get_all_handler,
-                                     b, "s", "org.freedesktop.ModemManager1.Bearer");
+        r = sd_bus_call_method_async(
+                        b->modem->manager->bus,
+                        &b->slot_getall,
+                        "org.freedesktop.ModemManager1",
+                        b->path,
+                        "org.freedesktop.DBus.Properties",
+                        "GetAll",
+                        bearer_get_all_handler,
+                        b, "s", "org.freedesktop.ModemManager1.Bearer");
         if (r < 0)
                 return log_warning_errno(r, "Could not get properties of bearer \"%s\": %m", b->path);
 
@@ -642,6 +647,8 @@ static void modem_simple_connect(Modem *modem) {
         Link *link;
         int r;
 
+        assert(modem);
+
         /* Already have simple connect in progress? */
         if (modem->slot_connect)
                 return;
@@ -672,13 +679,14 @@ static void modem_simple_connect(Modem *modem) {
 
         log_info("ModemManager: starting simple connect on %s %s interface %s",
                  modem->manufacturer, modem->model, modem->port_name);
-        r = bus_call_method_async_props(modem->manager->bus,
-                                        &modem->slot_connect,
-                                        "org.freedesktop.ModemManager1",
-                                        modem->path,
-                                        "org.freedesktop.ModemManager1.Modem.Simple",
-                                        "Connect",
-                                        modem_connect_handler, modem, link);
+        r = bus_call_method_async_props(
+                        modem->manager->bus,
+                        &modem->slot_connect,
+                        "org.freedesktop.ModemManager1",
+                        modem->path,
+                        "org.freedesktop.ModemManager1.Modem.Simple",
+                        "Connect",
+                        modem_connect_handler, modem, link);
         /*
          * If we failed to (re)start the connection now then rely on the priodic
          * timer and wait when it retries the connection attempt.
@@ -691,13 +699,16 @@ static void modem_simple_connect(Modem *modem) {
 static void modem_simple_disconnect(Modem *modem) {
         int r;
 
-        r = sd_bus_call_method_async(modem->manager->bus,
-                                     NULL,
-                                     "org.freedesktop.ModemManager1",
-                                     modem->path,
-                                     "org.freedesktop.ModemManager1.Modem.Simple",
-                                     "Disconnect",
-                                     NULL, NULL, "o", "/");
+        assert(modem);
+
+        r = sd_bus_call_method_async(
+                        modem->manager->bus,
+                        NULL,
+                        "org.freedesktop.ModemManager1",
+                        modem->path,
+                        "org.freedesktop.ModemManager1.Modem.Simple",
+                        "Disconnect",
+                        NULL, NULL, "o", "/");
         if (r < 0)
                 log_warning_errno(r, "Could not disconnect modem %s %s: %m",
                                   modem->manufacturer, modem->model);
@@ -712,7 +723,6 @@ static int on_periodic_timer(sd_event_source *s, uint64_t usec, void *userdata) 
         int r;
 
         assert(s);
-        assert(manager);
 
         e = sd_event_source_get_event(s);
 
@@ -726,10 +736,10 @@ static int on_periodic_timer(sd_event_source *s, uint64_t usec, void *userdata) 
                  */
                 if (modem->reconnect_state == MODEM_RECONNECT_WAITING) {
                     if (modem->state == MM_MODEM_STATE_LOCKED)
-                        /* If SIM is locked do not try to make it worse with applying wrong configuration again. */
-                        continue;
-                    else if (modem->state_fail_reason == MM_MODEM_STATE_FAILED_REASON_NONE)
-                        modem->reconnect_state = MODEM_RECONNECT_SCHEDULED;
+                            /* If SIM is locked do not try to make it worse with applying wrong configuration again. */
+                            continue;
+                    if (modem->state_fail_reason == MM_MODEM_STATE_FAILED_REASON_NONE)
+                            modem->reconnect_state = MODEM_RECONNECT_SCHEDULED;
                 }
                 modem_simple_connect(modem);
         }
@@ -743,7 +753,7 @@ static int on_periodic_timer(sd_event_source *s, uint64_t usec, void *userdata) 
 
 static int reset_timer(Manager *m, sd_event *e, sd_event_source **s) {
         return event_reset_time_relative(e, s, CLOCK_MONOTONIC,
-                                         RECONNECT_TIMEOUT_SEC * USEC_PER_SEC, 0,
+                                         RECONNECT_TIMEOUT_USEC, 0,
                                          on_periodic_timer, m, 0,
                                          "modem-periodic-timer-event-source", false);
 }
@@ -753,6 +763,7 @@ static int setup_periodic_timer(Manager *m, sd_event *event) {
         int r;
 
         assert(event);
+        assert(m);
 
         r = reset_timer(m, event, &s);
         if (r < 0)
@@ -765,7 +776,9 @@ int link_modem_reconfigure(Link *link) {
         Modem *modem;
         int r;
 
-        if (link_get_modem(link, &modem) == 0) {
+        assert(link);
+
+        if (link_get_modem(link, &modem) >= 0) {
                 modem_simple_disconnect(modem);
                 /* .network has changed: start (re)connect if failed before. */
                 if ((modem->reconnect_state == MODEM_RECONNECT_WAITING) &&
@@ -787,6 +800,8 @@ static int modem_on_state_change(
                 MMModemState old_state,
                 MMModemStateFailedReason old_fail_reason) {
 
+        assert(modem);
+
         if (IN_SET(modem->state, MM_MODEM_STATE_CONNECTING, MM_MODEM_STATE_CONNECTED))
                 /*
                  * Connection is ok or reconnect is already in progress: either initiataed by us or an
@@ -803,7 +818,7 @@ static int modem_on_state_change(
                         log_error("ModemManager: cannot schedule reconnect for %s %s, modem is in failed state: %s",
                                   modem->manufacturer, modem->model,
                                   modem->state_fail_reason < __MM_MODEM_STATE_FAILED_REASON_MAX ?
-                                  MODEM_STATE_FAILED_STR[modem->state_fail_reason] :
+                                  modem_state_failed_reason_str[modem->state_fail_reason] :
                                   "unknown reason");
 
                         /* Do not try to reconnect until modem has recovered. */
@@ -901,13 +916,13 @@ static int modem_map_ports(
         if (r < 0)
                 return bus_log_parse_error_debug(r);
 
-        while ((r = sd_bus_message_read(m, "(su)", &port_name, &port_type)) > 0) {
+        while ((r = sd_bus_message_read(m, "(su)", &port_name, &port_type)) > 0)
                 if (port_type == MM_MODEM_PORT_TYPE_NET) {
-                        free(modem->port_name);
-                        modem->port_name = strdup(port_name);
+                        r = free_and_strdup_warn(&modem->port_name, port_name);
+                        if (r < 0)
+                                return r;
                         break;
                 }
-        }
 
         r = sd_bus_message_exit_container(m);
         if (r < 0)
@@ -931,19 +946,22 @@ static int modem_properties_changed_signal(
                 {}
         };
         Modem *modem = ASSERT_PTR(userdata);
-        unsigned found_cnt;
         MMModemState old_state;
         MMModemStateFailedReason old_fail_reason;
         int r;
 
         /* skip name: string "org.freedesktop.ModemManager1.Modem" */
-        sd_bus_message_skip(message, "s");
-        r = bus_message_check_properties(message, map, ret_error, &found_cnt);
+        r = sd_bus_message_skip(message, "s");
         if (r < 0)
-                return log_warning_errno(r, "Failed to count changed properties of modem %s: %s",
+                return log_warning_errno(r, "Failed while parsing properties of modem %s: %s",
                                          modem->path, bus_error_message(ret_error, r));
 
-        if (!found_cnt)
+        r = bus_message_contains_properties(message, map, ret_error);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to check changed properties of modem %s: %s",
+                                         modem->path, bus_error_message(ret_error, r));
+
+        if (r == 0)
                 return 0;
 
         r = sd_bus_message_rewind(message, true);
@@ -953,7 +971,10 @@ static int modem_properties_changed_signal(
         old_fail_reason = modem->state_fail_reason;
 
         /* skip name: string "org.freedesktop.ModemManager1.Bearer" */
-        sd_bus_message_skip(message, "s");
+        r = sd_bus_message_skip(message, "s");
+        if (r < 0)
+                return log_warning_errno(r, "Failed while parsing properties of modem %s: %s",
+                                         modem->path, bus_error_message(ret_error, r));
 
         r = bus_message_map_all_properties(message, map,
                                            BUS_MAP_BOOLEAN_AS_BOOL | BUS_MAP_STRDUP,
@@ -1117,13 +1138,14 @@ static int enumerate_modems(Manager *manager) {
         assert(manager);
         assert(sd_bus_is_ready(manager->bus) > 0);
 
-        r = sd_bus_call_method_async(manager->bus,
-                                     NULL,
-                                     "org.freedesktop.ModemManager1",
-                                     "/org/freedesktop/ModemManager1",
-                                     "org.freedesktop.DBus.ObjectManager",
-                                     "GetManagedObjects",
-                                     enumerate_modems_handler, manager, NULL);
+        r = sd_bus_call_method_async(
+                        manager->bus,
+                        NULL,
+                        "org.freedesktop.ModemManager1",
+                        "/org/freedesktop/ModemManager1",
+                        "org.freedesktop.DBus.ObjectManager",
+                        "GetManagedObjects",
+                        enumerate_modems_handler, manager, NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not get managed objects: %m");
 
@@ -1132,6 +1154,7 @@ static int enumerate_modems(Manager *manager) {
 
 static int interface_add_remove_signal(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *manager = ASSERT_PTR(userdata);
+        int r;
 
         assert(manager);
         assert(message);
@@ -1142,7 +1165,6 @@ static int interface_add_remove_signal(sd_bus_message *message, void *userdata, 
                 log_info("ModemManager: modem(s) added");
         else {
                 const char *path;
-                int r;
 
                 r = sd_bus_message_read_basic(message, 'o', &path);
                 if (r < 0)
@@ -1195,30 +1217,33 @@ int manager_match_mm_signals(Manager *manager) {
         assert(manager);
         assert(manager->bus);
 
-        r = sd_bus_match_signal_async(manager->bus, NULL,
-                                      "org.freedesktop.DBus",
-                                      "/org/freedesktop/DBus",
-                                      "org.freedesktop.DBus",
-                                      "NameOwnerChanged",
-                                      name_owner_changed_signal, NULL, manager);
+        r = sd_bus_match_signal_async(
+                        manager->bus, NULL,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "NameOwnerChanged",
+                        name_owner_changed_signal, NULL, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to request signal for NameOwnerChanged");
 
-        r = sd_bus_match_signal_async(manager->bus, NULL,
-                                      "org.freedesktop.ModemManager1",
-                                      "/org/freedesktop/ModemManager1",
-                                      "org.freedesktop.DBus.ObjectManager",
-                                      "InterfacesAdded",
-                                      interface_add_remove_signal, NULL, manager);
+        r = sd_bus_match_signal_async(
+                        manager->bus, NULL,
+                        "org.freedesktop.ModemManager1",
+                        "/org/freedesktop/ModemManager1",
+                        "org.freedesktop.DBus.ObjectManager",
+                        "InterfacesAdded",
+                        interface_add_remove_signal, NULL, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to request signal for IntefaceAdded");
 
-        r = sd_bus_match_signal_async(manager->bus, NULL,
-                                      "org.freedesktop.ModemManager1",
-                                      "/org/freedesktop/ModemManager1",
-                                      "org.freedesktop.DBus.ObjectManager",
-                                      "InterfacesRemoved",
-                                      interface_add_remove_signal, NULL, manager);
+        r = sd_bus_match_signal_async(
+                        manager->bus, NULL,
+                        "org.freedesktop.ModemManager1",
+                        "/org/freedesktop/ModemManager1",
+                        "org.freedesktop.DBus.ObjectManager",
+                        "InterfacesRemoved",
+                        interface_add_remove_signal, NULL, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to request signal for IntefaceRemoved");
 
@@ -1277,12 +1302,13 @@ int manager_notify_mm_bus_connected(Manager *m) {
 
         m->slot_mm = sd_bus_slot_unref(m->slot_mm);
 
-        r = sd_bus_call_method_async(m->bus, &m->slot_mm,
-                                     "org.freedesktop.DBus",
-                                     "/org/freedesktop/DBus",
-                                     "org.freedesktop.DBus",
-                                     "ListNames",
-                                     list_names_handler, m, NULL, NULL);
+        r = sd_bus_call_method_async(
+                        m->bus, &m->slot_mm,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "ListNames",
+                        list_names_handler, m, NULL, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Could not LsitNames: %m");
 

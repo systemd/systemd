@@ -738,6 +738,7 @@ Manager* manager_free(Manager *m) {
 
         set_free(m->rules);
 
+        sd_bus_slot_unref(m->slot_mm);
         hashmap_free(m->modems_by_path);
 
         sd_netlink_unref(m->rtnl);
@@ -761,7 +762,6 @@ Manager* manager_free(Manager *m) {
         m->varlink_resolve_hook_server = sd_varlink_server_unref(m->varlink_resolve_hook_server);
         m->query_filter_subscriptions = set_free(m->query_filter_subscriptions);
         hashmap_free(m->polkit_registry);
-        sd_bus_slot_unref(m->slot_mm);
         sd_bus_flush_close_unref(m->bus);
 
         free(m->dynamic_timezone);

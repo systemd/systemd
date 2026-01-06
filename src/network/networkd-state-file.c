@@ -97,7 +97,6 @@ static int ordered_set_put_in6_addrv(
 }
 
 static int link_put_dns(Link *link, OrderedSet **s) {
-        Bearer *b = NULL;
         int r;
 
         assert(link);
@@ -111,7 +110,9 @@ static int link_put_dns(Link *link, OrderedSet **s) {
         if (r < 0)
                 return r;
 
-        if (link_get_bearer(link, &b) == 0) {
+        Bearer *b;
+
+        if (link_get_bearer(link, &b) >= 0) {
                 r = ordered_set_put_dns_servers(s, link->ifindex, b->dns, b->n_dns);
                 if (r < 0)
                         return r;
@@ -806,12 +807,12 @@ static int link_save(Link *link) {
                 if (link->n_dns != UINT_MAX)
                         link_save_dns(link, f, link->dns, link->n_dns, NULL);
                 else {
-                        Bearer *b = NULL;
-
                         space = false;
                         link_save_dns(link, f, link->network->dns, link->network->n_dns, &space);
 
-                        if (link_get_bearer(link, &b) == 0)
+                        Bearer *b;
+
+                        if (link_get_bearer(link, &b) >= 0)
                                 link_save_dns(link, f, b->dns, b->n_dns, &space);
 
                         /* DNR resolvers are not required to provide Do53 service, however resolved doesn't

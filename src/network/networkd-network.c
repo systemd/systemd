@@ -549,6 +549,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "LLDP\0"
                         "TrafficControlQueueingDiscipline\0"
                         "CAN\0"
+                        "ModemManager\0"
                         "QDisc\0"
                         "BFIFO\0"
                         "CAKE\0"
@@ -575,8 +576,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "StochasticFairBlue\0"
                         "StochasticFairnessQueueing\0"
                         "TokenBucketFilter\0"
-                        "TrivialLinkEqualizer\0"
-                        "ModemManager\0",
+                        "TrivialLinkEqualizer\0",
                         config_item_perf_lookup, network_network_gperf_lookup,
                         CONFIG_PARSE_WARN,
                         network,

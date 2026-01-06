@@ -6474,7 +6474,7 @@ IPv6AcceptRA=no
             <listitem><para>An Access Point Name (APN) is the name of a gateway between a mobile network
             (GSM, GPRS, 3G, 4G and 5G) and another computer network. Required in 3GPP.</para>
 
-            <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -6482,21 +6482,21 @@ IPv6AcceptRA=no
             <listitem><para>Authentication method to use. Takes one of "none", "pap", "chap", "mschap", "mschapv2" or "eap".
             Optional in 3GPP.</para>
 
-            <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>user</option></term>
             <listitem><para>User name (if any) required by the network. Optional in 3GPP.</para>
 
-            <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>password</option></term>
             <listitem><para>Password (if any) required by the network. Optional in 3GPP.</para>
 
-            <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -6504,7 +6504,7 @@ IPv6AcceptRA=no
             <listitem><para>Addressing type. Takes one of "none", "ipv4", "ipv6", "ipv4v6" or "any".
             Optional in 3GPP and CDMA.</para>
 
-            <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -6512,21 +6512,21 @@ IPv6AcceptRA=no
             <listitem><para>A boolean. When true, connection is allowed during roaming. When false,
             connection is not allowed during roaming. Optional in 3GPP.</para>
 
-            <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>pin</option></term>
             <listitem><para>SIM-PIN unlock code.</para>
 
-            <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>operator-id</option></term>
             <listitem><para>ETSI MCC-MNC of a network to force registration.</para>
 
-            <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
           </varlistentry>
 
         </listitem>
@@ -6537,9 +6537,9 @@ IPv6AcceptRA=no
         <listitem>
           <para>Set the routing metric for routes specified by the mobile network (including the prefix route
           added for the specified prefix). Takes an unsigned integer in the range 0…4294967295.
-          When unset or set to 0, the kernel's default value is used.</para>
+          When unset or set to 0, the kernel's default value will be used.</para>
 
-          <xi:include href="version-info.xml" xpointer="v259"/>
+          <xi:include href="version-info.xml" xpointer="v260"/>
         </listitem>
       </varlistentry>
 
@@ -6548,7 +6548,7 @@ IPv6AcceptRA=no
         <listitem>
           <para>When true (the default), the router address will be configured as the default gateway.</para>
 
-          <xi:include href="version-info.xml" xpointer="v259"/>
+          <xi:include href="version-info.xml" xpointer="v260"/>
         </listitem>
       </varlistentry>
 

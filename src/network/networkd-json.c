@@ -521,7 +521,6 @@ static int dns_append_json_one(Link *link, const struct in_addr_full *a, Network
 
 static int dns_append_json(Link *link, sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-        Bearer *b = NULL;
         int r;
 
         assert(link);
@@ -543,9 +542,11 @@ static int dns_append_json(Link *link, sd_json_variant **v) {
                                 return r;
                 }
 
-                if (link_get_bearer(link, &b) == 0)
-                        for (unsigned i = 0; i < b->n_dns; i++) {
-                                r = dns_append_json_one(link, b->dns[i], NETWORK_CONFIG_SOURCE_MODEM_MANAGER, NULL, &array);
+                Bearer *b;
+
+                if (link_get_bearer(link, &b) >= 0)
+                        FOREACH_ARRAY(dns, b->dns, b->n_dns) {
+                                r = dns_append_json_one(link, *dns, NETWORK_CONFIG_SOURCE_MODEM_MANAGER, NULL, &array);
                                 if (r < 0)
                                         return r;
                         }
