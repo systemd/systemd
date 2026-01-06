@@ -11,6 +11,12 @@ CHANGES WITH 260 in spe:
           libidn2. The corresponding meson option '-Dlibidn=' is deprecated
           too and will be dropped in a future release.
 
+        * The parsing of RootImageOptions= and the mount image parameters of
+          ExtensionImages= and MountImages= has been changed so that the last
+          duplicated definition for a given partition wins and is applied,
+          rather than the first, to keep these options coherent with other
+          unit settings.
+
 CHANGES WITH 259:
 
         Announcements of Future Feature Removals and Incompatible Changes:
