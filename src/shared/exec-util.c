@@ -323,7 +323,7 @@ int execute_directories(
                         &paths,
                         /* suffix= */ NULL,
                         /* root= */ NULL,
-                        CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                        CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
                         directories);
         if (r < 0)
                 return log_error_errno(r, "%s: failed to enumerate executables: %m", name);

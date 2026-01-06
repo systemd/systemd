@@ -610,7 +610,9 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
 
         CLEANUP_ARRAY(files, n_files, conf_file_free_many);
 
-        r = conf_files_list_strv_full(".hwdb", root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, conf_file_dirs, &files, &n_files);
+        r = conf_files_list_strv_full(".hwdb", root,
+                                      CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
+                                      conf_file_dirs, &files, &n_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate hwdb files: %m");
 

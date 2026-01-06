@@ -112,7 +112,7 @@ static inline int config_parse_standard_file_with_dropins(
 int config_get_stats_by_path(
                 const char *suffix,
                 const char *root,
-                unsigned flags,
+                ConfFilesFlags flags,
                 const char* const* dirs,
                 bool check_dropins,
                 Hashmap **ret);
