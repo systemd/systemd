@@ -608,9 +608,9 @@ TEST(indirect) {
 TEST(preset_and_list) {
         InstallChange *changes = NULL;
         size_t n_changes = 0, i;
-        const char *p, *q;
+        const char *p, *q, *s;
         UnitFileState state;
-        bool got_yes = false, got_no = false;
+        bool got_yes = false, got_no = false, got_mask = false;
         UnitFileList *fl;
         _cleanup_hashmap_free_ Hashmap *h = NULL;
 
@@ -618,6 +618,7 @@ TEST(preset_and_list) {
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) == -ENOENT);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) == -ENOENT);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) == -ENOENT);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) == -ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/preset-yes.service");
@@ -630,6 +631,11 @@ TEST(preset_and_list) {
                                     "[Install]\n"
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
+        p = strjoina(root, "/usr/lib/systemd/system/preset-mask.service");
+        assert_se(write_string_file(p,
+                                    "[Install]\n"
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+
         p = strjoina(root, "/usr/lib/systemd/system/preset-ignore.service");
         assert_se(write_string_file(p,
                                     "[Install]\n"
@@ -638,11 +644,13 @@ TEST(preset_and_list) {
         p = strjoina(root, "/usr/lib/systemd/system-preset/test.preset");
         assert_se(write_string_file(p,
                                     "enable *-yes.*\n"
+                                    "mask *-mask.*\n"
                                     "ignore *-ignore.*\n"
                                     "disable *\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-yes.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
@@ -656,6 +664,7 @@ TEST(preset_and_list) {
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-yes.service"), &changes, &n_changes) >= 0);
@@ -668,6 +677,7 @@ TEST(preset_and_list) {
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-no.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
@@ -677,6 +687,33 @@ TEST(preset_and_list) {
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+
+        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-mask.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_STREQ(changes[0].source, "/run/systemd/preset-mask");
+        p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/preset-mask.service");
+        ASSERT_STREQ(changes[0].path, p);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_MASKED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+
+        assert_se(unit_file_unmask(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-mask.service"), &changes, &n_changes) >= 0);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_STREQ(changes[0].path, p);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
@@ -688,8 +725,10 @@ TEST(preset_and_list) {
         for (i = 0; i < n_changes; i++) {
 
                 if (changes[i].type == INSTALL_CHANGE_SYMLINK) {
-                        ASSERT_STREQ(changes[i].source, "/usr/lib/systemd/system/preset-yes.service");
-                        ASSERT_STREQ(changes[i].path, p);
+                        if (streq(changes[i].source, "/usr/lib/systemd/system/preset-yes.service"))
+                                ASSERT_STREQ(changes[i].path, p);
+                        else if (streq(changes[i].source, "/usr/lib/systemd/system/preset-mask.service"))
+                                ASSERT_STREQ(changes[i].path, "/run/systemd/preset-mask");
                 } else
                         assert_se(changes[i].type == INSTALL_CHANGE_UNLINK);
         }
@@ -699,12 +738,14 @@ TEST(preset_and_list) {
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_MASKED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         ASSERT_OK(unit_file_get_list(RUNTIME_SCOPE_SYSTEM, root, NULL, NULL, &h));
 
         p = strjoina(root, "/usr/lib/systemd/system/preset-yes.service");
         q = strjoina(root, "/usr/lib/systemd/system/preset-no.service");
+        s = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/preset-mask.service");
 
         HASHMAP_FOREACH(fl, h) {
                 _cleanup_free_ char *unit_filename = NULL;
@@ -719,15 +760,89 @@ TEST(preset_and_list) {
                 } else if (streq(fl->path, q)) {
                         got_no = true;
                         assert_se(fl->state == UNIT_FILE_DISABLED);
+                } else if (streq(fl->path, s)) {
+                        got_mask = true;
+                        assert_se(fl->state == UNIT_FILE_MASKED);
                 } else
                         assert_se(IN_SET(fl->state, UNIT_FILE_DISABLED, UNIT_FILE_STATIC, UNIT_FILE_INDIRECT, UNIT_FILE_ALIAS));
         }
 
-        assert_se(got_yes && got_no);
+        assert_se(got_yes && got_no && got_mask);
 
         assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-ignore.service"), &changes, &n_changes) >= 0);
         assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-ignore.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+
+        /* Enabling a masked unit should fail. */
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-mask.service"), &changes, &n_changes) == -ERFKILL);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        /* Disabling a masked unit must succeed but be a NOP. */
+        assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-mask.service"), &changes, &n_changes) >= 0);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == INSTALL_CHANGE_IS_MASKED);
+        ASSERT_STREQ(changes[0].path, s);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_MASKED);
+
+        /* Reverting a masked unit via preset must succeed but be a NOP. */
+        assert_se(unit_file_revert(RUNTIME_SCOPE_SYSTEM, root, STRV_MAKE("preset-mask.service"), &changes, &n_changes) >= 0);
+        assert_se(n_changes == 0);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_MASKED);
+
+        /* Manually unmasking a masked unit via preset should work. */
+        assert_se(unit_file_unmask(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-mask.service"), &changes, &n_changes) >= 0);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        ASSERT_STREQ(changes[0].path, s);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+
+        /* A preset can change from "mask" to "enable", so it's allowed in this case. */
+        assert_se(write_string_file(p, "mask *-mask.*\n", WRITE_STRING_FILE_TRUNCATE) >= 0);
+        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-mask.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_MASKED);
+
+        p = strjoina(root, "/usr/lib/systemd/system-preset/test.preset");
+        assert_se(write_string_file(p, "enable *-mask.*\n", WRITE_STRING_FILE_TRUNCATE) >= 0);
+        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-mask.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == INSTALL_CHANGE_SYMLINK);
+        ASSERT_STREQ(changes[0].source, "/usr/lib/systemd/system/preset-mask.service");
+        q = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/preset-mask.service");
+        ASSERT_STREQ(changes[0].path, q);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+
+        /* A preset can change from "mask" to "disable", so it's allowed in this case. */
+        assert_se(write_string_file(p, "mask *-mask.*\n", WRITE_STRING_FILE_TRUNCATE) >= 0);
+        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-mask.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_MASKED);
+
+        assert_se(write_string_file(p, "disable *-mask.*\n", WRITE_STRING_FILE_TRUNCATE) >= 0);
+        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-mask.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(n_changes == 1);
+        assert_se(changes[0].type == INSTALL_CHANGE_UNLINK);
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
+
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-mask.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 }
 
 TEST(revert) {

@@ -86,6 +86,7 @@ static const char* preset_action_to_color(PresetAction action, bool underline) {
         case PRESET_ENABLE:
                 return underline ? ansi_highlight_green_underline() : ansi_highlight_green();
         case PRESET_DISABLE:
+        case PRESET_MASK:
                 return underline ? ansi_highlight_red_underline() : ansi_highlight_red();
         case PRESET_IGNORE:
                 return underline ? ansi_highlight_yellow_underline() : ansi_highlight_yellow();
