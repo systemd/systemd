@@ -2135,6 +2135,41 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MemoryTHP=</varname></term>
+
+        <listitem><para>Transparent Hugepages (THPs) is a Linux kernel feature that manages memory
+        using larger pages (2MB on x86, compared to the default 4KB). The main goal is to improve memory management
+        efficiency and system performance, especially for memory-intensive applications.
+        However, it can cause drawbacks in some scenarios, such as memory regression and latency spikes.
+        THP policy is governed for the entire system via <filename>/sys/kernel/mm/transparent_hugepage/enabled</filename>.
+        However, it can be overridden for individual workloads via
+        <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+        <varname>MemoryTHP=</varname> may be used to disable THPs at process invocation time to stop providing
+        THPs for workloads where the drawbacks outweigh the advantages.
+        When <varname>MemoryTHP=</varname> is set to <literal>inherit</literal> or not set at all, systemd
+        inherits THP settings from the process that starts it and no
+        <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        <constant>PR_SET_THP_DISABLE</constant> call is made.
+        When set to <literal>disable</literal>, <varname>MemoryTHP=</varname> disables THPs completely for the process,
+        irrespecitive of global THP controls.
+        When set to <literal>madvise</literal>, <varname>MemoryTHP=</varname> disables THPs for the process except when
+        specifically requested via <citerefentry><refentrytitle>madvise</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        by the process with <constant>MADV_HUGEPAGE</constant> or <constant>MADV_COLLAPSE</constant>.
+        When set to <literal>system</literal>, <varname>MemoryTHP=</varname> resets the THP policy to system wide policy.
+        This can be used when the process that starts systemd has already disabled THPs via
+        <constant>PR_SET_THP_DISABLE</constant>, and we want to restore the system default THP setting at
+        process invokation time. For details, see
+        <ulink url="https://docs.kernel.org/admin-guide/mm/transhuge.html">Transparent Hugepage Support</ulink>
+        in the kernel documentation.</para>
+        <para>Note that this functionality might not be available, for example if THP is disabled in the
+        kernel, or the kernel does not support controlling THP at the process level through
+        <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PrivatePIDs=</varname></term>
 
         <listitem><para>Takes a boolean argument. Defaults to false. If enabled, sets up a new PID namespace
