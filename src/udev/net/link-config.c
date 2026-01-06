@@ -342,7 +342,7 @@ int link_config_load(LinkConfigContext *ctx) {
 
         link_configs_free(ctx);
 
-        r = conf_files_list_strv(&files, ".link", NULL, 0, NETWORK_DIRS);
+        r = conf_files_list_strv(&files, ".link", /* root= */ NULL, CONF_FILES_WARN, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "failed to enumerate link files: %m");
 

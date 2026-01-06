@@ -211,7 +211,7 @@ int manager_load_delegates(Manager *m) {
 
         assert(m);
 
-        r = conf_files_list_strv(&files, ".dns-delegate", /* root= */ NULL, /* flags= */ 0, DNS_DELEGATE_SEARCH_DIRS);
+        r = conf_files_list_strv(&files, ".dns-delegate", /* root= */ NULL, CONF_FILES_WARN, DNS_DELEGATE_SEARCH_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate .dns-delegate files: %m");
 

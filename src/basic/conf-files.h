@@ -14,6 +14,7 @@ typedef enum ConfFilesFlags {
         CONF_FILES_FILTER_MASKED_BY_EMPTY   = 1 << 5, /* implement masking by empty file */
         CONF_FILES_FILTER_MASKED            = CONF_FILES_FILTER_MASKED_BY_SYMLINK | CONF_FILES_FILTER_MASKED_BY_EMPTY,
         CONF_FILES_TRUNCATE_SUFFIX          = 1 << 6, /* truncate specified suffix from return filename or path */
+        CONF_FILES_WARN                     = 1 << 7, /* warn on some errors */
 } ConfFilesFlags;
 
 typedef struct ConfFile {
@@ -56,6 +57,7 @@ int conf_files_list_dropins(
                 char ***ret,
                 const char *dropin_dirname,
                 const char *root,
+                ConfFilesFlags flags,
                 const char * const *dirs);
 
 typedef int parse_line_t(
