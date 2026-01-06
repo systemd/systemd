@@ -320,6 +320,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAYANEO:pnKUN:pvr*
 # multi-scancode sequence. The specific preceding codes
 # depend on the model, but the final scancode is always the
 # same.
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnAYA NEO:*
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnAYADEVICE:*
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnAYANEO:*
  KEYBOARD_KEY_66=f15                                    # LC (All models)
  KEYBOARD_KEY_67=f16                                    # RC (All models)
