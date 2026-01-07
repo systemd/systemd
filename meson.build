@@ -2496,7 +2496,7 @@ foreach dict : executables
         foreach key, val : dict
                 if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'objects', 'sources', 'extract',
-                           'include_directories', 'build_by_default']
+                           'include_directories', 'build_by_default', 'install']
                         continue
                 endif
 
@@ -2539,6 +2539,12 @@ foreach dict : executables
         build_by_default = dict.get('build_by_default',
                                     have_standalone_binaries or not is_standalone)
 
+        if not is_standalone
+                install = dict.get('install', true)
+        else
+                install = have_standalone_binaries
+        endif
+
         exe = executable(
                 name,
                 sources : exe_sources,
@@ -2546,6 +2552,7 @@ foreach dict : executables
                 implicit_include_directories : false,
                 include_directories : include_directories,
                 build_by_default: build_by_default,
+                install: install,
         )
 
         executables_by_name += { name : exe }
