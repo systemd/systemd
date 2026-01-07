@@ -128,6 +128,7 @@ Link.CoalescePacketRateSampleIntervalSec,  config_parse_coalesce_sec,           
 Link.ReceivePacketSteeringCPUMask,         config_parse_rps_cpu_mask,             0,                             offsetof(LinkConfig, rps_cpu_mask)
 /* IRQ affinity settings */
 Link.IRQAffinityPolicy,                    config_parse_irq_affinity_policy,      0,                             offsetof(LinkConfig, irq_affinity_policy)
+Link.IRQAffinity,                          config_parse_cpu_set,                  0,                             offsetof(LinkConfig, irq_affinity_cpus)
 /* SR-IOV settings */
 Link.SR-IOVVirtualFunctions,               config_parse_sr_iov_num_vfs,           0,                             offsetof(LinkConfig, sr_iov_num_vfs)
 SR-IOV.VirtualFunction,                    config_parse_sr_iov_uint32,            0,                             offsetof(LinkConfig, sr_iov_by_section)
