@@ -91,6 +91,24 @@ typedef enum PrivatePIDs {
         _PRIVATE_PIDS_INVALID = -EINVAL,
 } PrivatePIDs;
 
+typedef enum MemoryTHP {
+        /*
+         * Inherit default from process that starts systemd, i.e. do not make
+         * any PR_SET_THP_DISABLE call.
+         */
+        MEMORY_THP_INHERIT,
+        MEMORY_THP_DISABLE, /* Disable THPs completely for the prcess */
+        MEMORY_THP_MADVISE, /* Disable THPs for the process except when madvised */
+        /*
+         * Use system default THP setting. this can be used when the process that
+         * starts systemd has already disabled THPs via PR_SET_THP_DISABLE, and we
+         * want to restore the system default THP setting at process invokation time.
+         */
+        MEMORY_THP_SYSTEM,
+        _MEMORY_THP_MAX,
+        _MEMORY_THP_INVALID = -EINVAL,
+} MemoryTHP;
+
 typedef struct BindMount {
         char *source;
         char *destination;
@@ -240,6 +258,9 @@ PrivateBPF private_bpf_from_string(const char *s) _pure_;
 
 const char* bpf_delegate_cmd_to_string(uint64_t u) _const_;
 uint64_t bpf_delegate_cmd_from_string(const char *s) _pure_;
+
+const char* memory_thp_to_string(MemoryTHP i) _const_;
+MemoryTHP memory_thp_from_string(const char *s) _pure_;
 
 const char* bpf_delegate_map_type_to_string(uint64_t u) _const_;
 uint64_t bpf_delegate_map_type_from_string(const char *s) _pure_;
