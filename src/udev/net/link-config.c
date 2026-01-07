@@ -83,6 +83,7 @@ static LinkConfig* link_config_free(LinkConfig *config) {
         free(config->wol_password_file);
         erase_and_free(config->wol_password);
         cpu_set_done(&config->rps_cpu_mask);
+        cpu_set_done(&config->irq_affinity_cpus);
 
         ordered_hashmap_free(config->sr_iov_by_section);
 
@@ -1418,12 +1419,12 @@ static int set_irq_affinity(Link *link, const char *irq, unsigned cpu) {
         return 0;
 }
 
-static int link_apply_irq_affinity_spread(Link *link, const char *msi_irqs_path) {
+static int link_apply_irq_affinity_spread(Link *link, const char *msi_irqs_path, const CPUSet *allowed_cpus) {
         _cleanup_closedir_ DIR *dir = NULL;
-        _cleanup_free_ CPUTopology *topology = NULL;
+        _cleanup_free_ CPUTopology *topology = NULL, *filtered_topology = NULL;
         _cleanup_free_ char **irqs = NULL;
         _cleanup_free_ unsigned *spread_cpus = NULL;
-        size_t topology_count = 0, irq_count = 0, spread_count = 0;
+        size_t topology_count = 0, filtered_count = 0, irq_count = 0, spread_count = 0;
         int r;
 
         dir = opendir(msi_irqs_path);
@@ -1452,10 +1453,31 @@ static int link_apply_irq_affinity_spread(Link *link, const char *msi_irqs_path)
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to discover CPU topology: %m");
 
-        log_link_debug(link, "Discovered %zu CPUs, spreading %zu IRQs.", topology_count, irq_count);
+        /* Filter topology by allowed CPUs if specified */
+        if (allowed_cpus && allowed_cpus->set) {
+                filtered_topology = new(CPUTopology, topology_count);
+                if (!filtered_topology)
+                        return log_oom();
+
+                for (size_t i = 0; i < topology_count; i++)
+                        if (CPU_ISSET_S(topology[i].cpu, allowed_cpus->allocated, allowed_cpus->set))
+                                filtered_topology[filtered_count++] = topology[i];
+
+                if (filtered_count == 0) {
+                        log_link_warning(link, "IRQAffinity= filter excludes all CPUs, skipping spread.");
+                        return 0;
+                }
+
+                log_link_debug(link, "Filtered to %zu CPUs (from %zu) based on IRQAffinity=.", filtered_count, topology_count);
+        } else {
+                filtered_topology = TAKE_PTR(topology);
+                filtered_count = topology_count;
+        }
+
+        log_link_debug(link, "Spreading %zu IRQs across %zu CPUs.", irq_count, filtered_count);
 
         /* Select CPUs using maximum distance algorithm */
-        r = select_spread_cpus(topology, topology_count, irq_count, &spread_cpus, &spread_count);
+        r = select_spread_cpus(filtered_topology, filtered_count, irq_count, &spread_cpus, &spread_count);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to select spread CPUs: %m");
 
@@ -1466,14 +1488,32 @@ static int link_apply_irq_affinity_spread(Link *link, const char *msi_irqs_path)
         }
 
         log_link_info(link, "Applied IRQ affinity policy 'spread' across %zu CPUs for %zu IRQs.",
-                      MIN(topology_count, irq_count), irq_count);
+                      MIN(filtered_count, irq_count), irq_count);
 
         return 0;
 }
 
-static int link_apply_irq_affinity_single(Link *link, const char *msi_irqs_path) {
+static int link_apply_irq_affinity_single(Link *link, const char *msi_irqs_path, const CPUSet *allowed_cpus) {
         _cleanup_closedir_ DIR *dir = NULL;
+        unsigned target_cpu = 0;
         int r;
+
+        /* If IRQAffinity= is specified, use the first allowed CPU instead of CPU 0 */
+        if (allowed_cpus && allowed_cpus->set) {
+                bool found = false;
+
+                for (unsigned cpu = 0; cpu < allowed_cpus->allocated * 8; cpu++)
+                        if (CPU_ISSET_S(cpu, allowed_cpus->allocated, allowed_cpus->set)) {
+                                target_cpu = cpu;
+                                found = true;
+                                break;
+                        }
+
+                if (!found) {
+                        log_link_warning(link, "IRQAffinity= filter excludes all CPUs, skipping single.");
+                        return 0;
+                }
+        }
 
         r = device_opendir(link->event->dev, "device/msi_irqs", &dir);
         if (r < 0 && errno == ENOENT) {
@@ -1484,13 +1524,12 @@ static int link_apply_irq_affinity_single(Link *link, const char *msi_irqs_path)
                 return log_link_error_errno(link, errno, "Failed to open %s: %m", msi_irqs_path);
 
         FOREACH_DIRENT(de, dir, return log_link_error_errno(link, errno, "Failed to read directory %s: %m", msi_irqs_path)) {
-                r = set_irq_affinity(link, de->d_name, 0);
+                r = set_irq_affinity(link, de->d_name, target_cpu);
                 if (r < 0)
                         continue; /* Non-fatal, try next IRQ */
         }
 
-        log_link_info(link, "Applied IRQ affinity policy 'single' (pinning to CPU 0).");
-
+        log_link_info(link, "Applied IRQ affinity policy 'single' (pinning to CPU %u).", target_cpu);
         return 0;
 }
 
@@ -1522,9 +1561,9 @@ static int link_apply_irq_affinity(Link *link) {
 
         switch (link->config->irq_affinity_policy) {
         case IRQ_AFFINITY_POLICY_SINGLE:
-                return link_apply_irq_affinity_single(link, msi_irqs_path);
+                return link_apply_irq_affinity_single(link, msi_irqs_path, &link->config->irq_affinity_cpus);
         case IRQ_AFFINITY_POLICY_SPREAD:
-                return link_apply_irq_affinity_spread(link, msi_irqs_path);
+                return link_apply_irq_affinity_spread(link, msi_irqs_path, &link->config->irq_affinity_cpus);
         default:
                 assert_not_reached();
         }
