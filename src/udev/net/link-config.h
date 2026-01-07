@@ -22,6 +22,12 @@ typedef enum MACAddressPolicy {
         _MAC_ADDRESS_POLICY_INVALID = -EINVAL,
 } MACAddressPolicy;
 
+typedef enum IRQAffinityPolicy {
+        IRQ_AFFINITY_POLICY_SINGLE,
+        _IRQ_AFFINITY_POLICY_MAX,
+        _IRQ_AFFINITY_POLICY_INVALID = -EINVAL,
+} IRQAffinityPolicy;
+
 typedef struct Link {
         UdevEvent *event;
         LinkConfig *config;
@@ -113,6 +119,9 @@ struct LinkConfig {
         /* Rx RPS CPU mask */
         CPUSet rps_cpu_mask;
 
+        /* IRQ affinity */
+        IRQAffinityPolicy irq_affinity_policy;
+
         /* SR-IOV */
         uint32_t sr_iov_num_vfs;
         OrderedHashmap *sr_iov_by_section;
@@ -150,3 +159,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_mac_address_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_name_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_alternative_names_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_rps_cpu_mask);
+CONFIG_PARSER_PROTOTYPE(config_parse_irq_affinity_policy);
+
+const char* irq_affinity_policy_to_string(IRQAffinityPolicy p) _const_;
+IRQAffinityPolicy irq_affinity_policy_from_string(const char *s) _pure_;
