@@ -226,8 +226,8 @@
 
       <listitem><para>Takes a boolean argument. When true, <command>systemd</command> and related utilities
       will use colors in their output, otherwise the output will be monochrome. Additionally, the variable can
-      take one of the following special values: <literal>16</literal>, <literal>256</literal> to restrict the use
-      of colors to the base 16 or 256 ANSI colors, respectively. This can be specified to override the automatic
+      take one of the following special values: <literal>auto-16</literal>, <literal>16</literal>, <literal>256</literal> to restrict the use
+      of colors to the base 16 or 256 ANSI colors. The latter options will override the automatic
       decision based on <varname>$TERM</varname> and what the console is connected to.</para></listitem>
     </varlistentry>
 

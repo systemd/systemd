@@ -336,6 +336,8 @@ TEST(get_color_mode) {
         test_get_color_mode_with_env("SYSTEMD_COLORS", "yes",   COLOR_24BIT);
         test_get_color_mode_with_env("SYSTEMD_COLORS", "24bit", COLOR_24BIT);
 
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-16", terminal_is_dumb() ? COLOR_OFF : COLOR_16);
+
         ASSERT_OK_ERRNO(setenv("NO_COLOR", "1", true));
         test_get_color_mode_with_env("SYSTEMD_COLORS", "42",      COLOR_OFF);
         test_get_color_mode_with_env("SYSTEMD_COLORS", "invalid", COLOR_OFF);

@@ -5,10 +5,11 @@
 
 /* Limits the use of ANSI colors to a subset. */
 typedef enum ColorMode {
-        COLOR_OFF,   /* No colors, monochrome output. */
-        COLOR_16,    /* Only the base 16 colors. */
-        COLOR_256,   /* Only 256 colors. */
-        COLOR_24BIT, /* For truecolor or 24bit color support, no restriction. */
+        COLOR_OFF,     /* No colors, monochrome output. */
+        COLOR_16,      /* Only the base 16 colors. */
+        COLOR_256,     /* Only 256 colors. */
+        COLOR_24BIT,   /* For truecolor or 24bit color support, no restriction. */
+        COLOR_AUTO_16, /* At most the base 16 colors. */
         _COLOR_MODE_MAX,
         _COLOR_MODE_INVALID = -EINVAL,
 } ColorMode;
