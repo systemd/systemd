@@ -70,7 +70,9 @@ unsigned cap_last_cap(void) {
         static atomic_int saved = INT_MAX;
         int r, c;
 
-        c = saved;
+        /* Suppress a false positive from GCC 16:
+         * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=123475 */
+        c = atomic_load(saved);
         if (c != INT_MAX)
                 return c;
 
