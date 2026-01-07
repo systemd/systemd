@@ -56,7 +56,7 @@ if iface=$(find_interface_with_msi_irqs); then
     irqs=$(get_interface_irqs "$iface")
     echo "Interface $iface has IRQs: $irqs"
 
-    # Create a link file to apply IRQ affinity policy
+    # Test 1a: test single policy
     mkdir -p /run/systemd/network/
     cat > /run/systemd/network/00-test-irq-affinity.link <<EOF
 [Match]
@@ -86,6 +86,47 @@ EOF
             exit 1
         fi
     done
+
+    # Test 1b: test spread policy on the same interface
+    cat >/run/systemd/network/00-test-irq-affinity.link <<EOF
+[Match]
+MACAddress=$mac
+
+[Link]
+IRQAffinityPolicy=spread
+EOF
+
+    udevadm control --reload
+    udevadm trigger --action=add "/sys/class/net/$iface"
+    udevadm settle --timeout=30
+
+    # Get the number of online CPUs
+    n_cpus=$(nproc)
+    irq_count=$(echo "$irqs" | wc -w)
+
+    echo "System has $n_cpus CPUs, interface has $irq_count IRQs"
+
+    # Verify IRQs are spread (not all on CPU 0)
+    # With spread policy, if we have more than 1 CPU and more than 1 IRQ,
+    # at least some IRQs should be on different CPUs
+    if [[ "$n_cpus" -gt 1 ]] && [[ "$irq_count" -gt 1 ]]; then
+        cpu_set=()
+        for irq in $irqs; do
+            affinity=$(cat "/proc/irq/$irq/smp_affinity_list")
+            echo "IRQ $irq is on CPU(s): $affinity"
+            cpu_set+=("$affinity")
+        done
+
+        # Check that we have at least 2 different CPU assignments
+        unique_cpus=$(printf '%s\n' "${cpu_set[@]}" | sort -u | wc -l)
+        if [[ "$unique_cpus" -lt 2 ]]; then
+            echo "ERROR: spread policy should distribute IRQs across CPUs, but all are on same CPU"
+            exit 1
+        fi
+        echo "IRQ affinity policy 'spread' successfully distributed IRQs across $unique_cpus CPUs"
+    else
+        echo "Skipping spread verification (need >1 CPU and >1 IRQ)"
+    fi
 
     # Cleanup
     rm -f /run/systemd/network/00-test-irq-affinity.link
