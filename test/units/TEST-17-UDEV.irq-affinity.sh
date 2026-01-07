@@ -128,6 +128,69 @@ EOF
         echo "Skipping spread verification (need >1 CPU and >1 IRQ)"
     fi
 
+    # Test 1c: Test IRQAffinity= CPU filtering with single policy
+    # Pin to CPU 1 instead of default CPU 0
+    cat >/run/systemd/network/00-test-irq-affinity.link <<EOF
+[Match]
+MACAddress=$mac
+
+[Link]
+IRQAffinityPolicy=single
+IRQAffinity=1
+EOF
+
+    udevadm control --reload
+    udevadm trigger --action=add "/sys/class/net/$iface"
+    udevadm settle --timeout=30
+
+    if [[ "$n_cpus" -gt 1 ]]; then
+        for irq in $irqs; do
+            echo "Checking IRQ $irq affinity with IRQAffinity=1..."
+            if check_irq_affinity "$irq" "2"; then
+                echo "IRQ $irq correctly pinned to CPU 1"
+            else
+                actual=$(cat "/proc/irq/$irq/smp_affinity")
+                echo "IRQ $irq affinity is '$actual', expected '2' (CPU 1)"
+                exit 1
+            fi
+        done
+        echo "IRQAffinity= filtering with single policy works correctly"
+    else
+        echo "Skipping IRQAffinity= test (need >1 CPU)"
+    fi
+
+    # Test 1d: Test IRQAffinity= with spread policy (restrict to subset of CPUs)
+    if [[ "$n_cpus" -ge 4 ]] && [[ "$irq_count" -gt 1 ]]; then
+        cat >/run/systemd/network/00-test-irq-affinity.link <<EOF
+[Match]
+MACAddress=$mac
+
+[Link]
+IRQAffinityPolicy=spread
+IRQAffinity=0-1
+EOF
+
+        udevadm control --reload
+        udevadm trigger --action=add "/sys/class/net/$iface"
+        udevadm settle --timeout=30
+
+        # Verify all IRQs are on CPU 0 or 1 only
+        for irq in $irqs; do
+            affinity_list=$(cat "/proc/irq/$irq/smp_affinity_list")
+            echo "IRQ $irq is on CPU(s): $affinity_list"
+            # Check that affinity is 0 or 1 (not higher CPUs)
+            if [[ "$affinity_list" =~ ^[01]$ ]]; then
+                echo "IRQ $irq correctly restricted to CPUs 0-1"
+            else
+                echo "ERROR: IRQ $irq is on CPU $affinity_list, expected 0 or 1"
+                exit 1
+            fi
+        done
+        echo "IRQAffinity= filtering with spread policy works correctly"
+    else
+        echo "Skipping IRQAffinity= spread test (need >=4 CPUs and >1 IRQ)"
+    fi
+
     # Cleanup
     rm -f /run/systemd/network/00-test-irq-affinity.link
     udevadm control --reload
@@ -202,14 +265,40 @@ udevadm wait --settle --timeout=30 /sys/class/net/testirq2
 output=$(udevadm info --query property /sys/class/net/testirq2)
 assert_in "ID_NET_LINK_FILE=/run/systemd/network/10-test-irq-empty.link" "$output"
 
+# Test 5: IRQAffinity= config parsing
+cat >/run/systemd/network/10-test-irq-affinity-cpus.link <<EOF
+[Match]
+Kind=dummy
+MACAddress=00:50:56:c0:00:23
+
+[Link]
+Name=testirq3
+IRQAffinityPolicy=spread
+IRQAffinity=0-3,8-11
+EOF
+
+udevadm control --reload
+
+ip link add address 00:50:56:c0:00:23 type dummy
+udevadm wait --settle --timeout=30 /sys/class/net/testirq3
+
+output=$(udevadm info --query property /sys/class/net/testirq3)
+assert_in "ID_NET_LINK_FILE=/run/systemd/network/10-test-irq-affinity-cpus.link" "$output"
+
+# Test that udevadm test-builtin parses the IRQAffinity= config correctly
+output=$(udevadm test-builtin --action add net_setup_link /sys/class/net/testirq3 2>&1)
+assert_in "ID_NET_LINK_FILE=/run/systemd/network/10-test-irq-affinity-cpus.link" "$output"
+
 # Cleanup
 ip link del dev testirq0
 ip link del dev testirq1
 ip link del dev testirq2
+ip link del dev testirq3
 
 rm -f /run/systemd/network/10-test-irq.link
 rm -f /run/systemd/network/10-test-irq-invalid.link
 rm -f /run/systemd/network/10-test-irq-empty.link
+rm -f /run/systemd/network/10-test-irq-affinity-cpus.link
 udevadm control --reload --log-level=info
 
 exit 0
