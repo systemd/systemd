@@ -40,6 +40,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "networkd-radv.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
+#include "networkd-wwan.h"
 #include "qdisc.h"
 #include "socket-util.h"
 #include "tclass.h"
@@ -492,6 +493,9 @@ CAN.ClassicDataLengthCode,                       config_parse_can_control_mode, 
 CAN.Termination,                                 config_parse_can_termination,                   0,                                      0
 IPoIB.Mode,                                      config_parse_ipoib_mode,                        0,                                      offsetof(Network, ipoib_mode)
 IPoIB.IgnoreUserspaceMulticastGroups,            config_parse_tristate,                          0,                                      offsetof(Network, ipoib_umcast)
+ModemManager.SimpleConnectProperties,            config_parse_strv,                              0,                                      offsetof(Network, mm_simple_connect_props)
+ModemManager.RouteMetric,                        config_parse_mm_route_metric,                   0,                                      0
+ModemManager.UseGateway,                         config_parse_tristate,                          0,                                      offsetof(Network, mm_use_gateway)
 QDisc.Parent,                                    config_parse_qdisc_parent,                      _QDISC_KIND_INVALID,                    0
 QDisc.Handle,                                    config_parse_qdisc_handle,                      _QDISC_KIND_INVALID,                    0
 BFIFO.Parent,                                    config_parse_qdisc_parent,                      QDISC_KIND_BFIFO,                       0
