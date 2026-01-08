@@ -45,7 +45,7 @@ typedef enum WakeupType {
 typedef struct inode_data InodeData;
 typedef struct inotify_data InotifyData;
 
-struct sd_event_source {
+typedef struct sd_event_source {
         WakeupType wakeup;
 
         unsigned n_ref;
@@ -146,7 +146,7 @@ struct sd_event_source {
                         LIST_FIELDS(sd_event_source, write_list);
                 } memory_pressure;
         };
-};
+} sd_event_source;
 
 struct clock_data {
         WakeupType wakeup;
