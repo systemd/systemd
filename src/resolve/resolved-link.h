@@ -52,6 +52,7 @@ typedef struct Link {
         ResolveSupport llmnr_support;
         ResolveSupport mdns_support;
         DnsOverTlsMode dns_over_tls_mode;
+        DnsServerPolicy dns_server_policy;
         DnssecMode dnssec_mode;
         Set *dnssec_negative_trust_anchors;
 
@@ -102,6 +103,8 @@ ResolveSupport link_get_llmnr_support(Link *link);
 ResolveSupport link_get_mdns_support(Link *link);
 
 bool link_get_default_route(Link *l);
+
+DnsServerPolicy link_get_dns_server_policy(Link *l);
 
 int link_save_user(Link *l);
 int link_load_user(Link *l);
