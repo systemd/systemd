@@ -161,7 +161,7 @@
         <term><varname>systemd.volatile=</varname></term>
         <listitem>
           <para>This parameter controls whether the system shall boot up in volatile mode. Takes a boolean argument, or
-          the special values <literal>state</literal> or <literal>overlay</literal>. If false (the default), normal boot
+          the special values <literal>state</literal> or <literal>overlay-root</literal>. If false (the default), normal boot
           mode is selected, the root directory and <filename>/var/</filename> are mounted as specified on the kernel
           command line or <filename>/etc/fstab</filename>, or otherwise configured. If true, full state-less boot mode
           is selected. In this case, the root directory is mounted as volatile memory file system (<literal>tmpfs</literal>),
@@ -172,7 +172,7 @@
           setting is set to <literal>state</literal> the root file system is mounted read-only, however
           <filename>/var/</filename> is mounted as a volatile memory file system (<literal>tmpfs</literal>), so that the
           system boots up with the normal configuration applied, but all state reset at boot and lost at shutdown. If
-          this setting is set to <literal>overlay</literal> the root file system is set up as
+          this setting is set to <literal>overlay-root</literal> the root file system is set up as
           <literal>overlayfs</literal> mount combining the read-only root directory with a writable
           <literal>tmpfs</literal>, so that no modifications are made to disk, but the file system may be modified
           nonetheless with all changes being lost at reboot. For details, see

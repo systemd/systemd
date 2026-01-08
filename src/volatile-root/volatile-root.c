@@ -154,7 +154,7 @@ static int run(int argc, char *argv[]) {
                                                "Directory cannot be the root directory.");
         }
 
-        if (!IN_SET(m, VOLATILE_YES, VOLATILE_OVERLAY))
+        if (!IN_SET(m, VOLATILE_YES, VOLATILE_OVERLAY_ROOT))
                 return 0;
 
         r = path_is_mount_point_full(root, /* root= */ NULL, AT_SYMLINK_FOLLOW);
@@ -192,7 +192,7 @@ static int run(int argc, char *argv[]) {
         if (m == VOLATILE_YES)
                 return make_volatile(root);
         else {
-                assert(m == VOLATILE_OVERLAY);
+                assert(m == VOLATILE_OVERLAY_ROOT);
                 return make_overlay(root);
         }
 }
