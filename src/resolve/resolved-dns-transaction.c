@@ -485,7 +485,14 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
 
         /* Pick a DNS server and a feature level for it. */
 
-        server = dns_scope_get_dns_server(t->scope);
+        /* For "ordered" policy, always start new transactions with the first server.
+         * This matches traditional resolv.conf behavior where we try servers in order. */
+        if (t->n_picked_servers == 0 &&
+            dns_scope_get_dns_server_policy(t->scope) == DNS_SERVER_POLICY_ORDERED)
+                server = dns_scope_get_first_dns_server(t->scope);
+        else
+                server = dns_scope_get_dns_server(t->scope);
+
         if (!server)
                 return -ESRCH;
 

@@ -52,6 +52,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
                 .mdns_support = RESOLVE_SUPPORT_YES,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
+                .dns_server_policy = _DNS_SERVER_POLICY_INVALID,
                 .operstate = IF_OPER_UNKNOWN,
         };
 
@@ -79,6 +80,7 @@ void link_flush_settings(Link *l) {
         l->mdns_support = RESOLVE_SUPPORT_YES;
         l->dnssec_mode = _DNSSEC_MODE_INVALID;
         l->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
+        l->dns_server_policy = _DNS_SERVER_POLICY_INVALID;
 
         dns_server_unlink_all(l->dns_servers);
         dns_search_domain_unlink_all(l->search_domains);
@@ -426,6 +428,28 @@ static int link_update_dns_over_tls_mode(Link *l) {
         return 0;
 }
 
+static int link_update_dns_server_policy(Link *l) {
+        _cleanup_free_ char *b = NULL;
+        int r;
+
+        assert(l);
+
+        l->dns_server_policy = _DNS_SERVER_POLICY_INVALID;
+
+        r = sd_network_link_get_dns_server_policy(l->ifindex, &b);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        r = dns_server_policy_from_string(b);
+        if (r < 0)
+                return r;
+
+        l->dns_server_policy = r;
+        return 0;
+}
+
 void link_set_dnssec_mode(Link *l, DnssecMode mode) {
 
         assert(l);
@@ -631,6 +655,10 @@ static void link_read_settings(Link *l) {
         r = link_update_dns_over_tls_mode(l);
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read DNS-over-TLS mode for the interface, ignoring: %m");
+
+        r = link_update_dns_server_policy(l);
+        if (r < 0)
+                log_link_warning_errno(l, r, "Failed to read DNS server policy for the interface, ignoring: %m");
 
         r = link_update_dnssec_mode(l);
         if (r < 0)

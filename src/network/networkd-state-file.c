@@ -918,6 +918,14 @@ static int link_save(Link *link) {
 
                 /************************************************************/
 
+                DnsServerPolicy dns_server_policy =
+                        link->dns_server_policy != _DNS_SERVER_POLICY_INVALID ? link->dns_server_policy :
+                        link->network->dns_server_policy;
+                if (dns_server_policy != _DNS_SERVER_POLICY_INVALID)
+                        fprintf(f, "DNS_SERVER_POLICY=%s\n", dns_server_policy_to_string(dns_server_policy));
+
+                /************************************************************/
+
                 DnssecMode dnssec_mode =
                         link->dnssec_mode != _DNSSEC_MODE_INVALID ? link->dnssec_mode :
                         link->network->dnssec_mode;

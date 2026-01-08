@@ -164,6 +164,13 @@ int sd_network_link_get_mdns(int ifindex, char **ret);
  */
 int sd_network_link_get_dns_over_tls(int ifindex, char **ret);
 
+/* Indicates which DNS server selection policy should be used for the link
+ * Possible levels of support: pick-best, ordered
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link
+ */
+int sd_network_link_get_dns_server_policy(int ifindex, char **ret);
+
 /* Indicates whether or not DNSSEC should be enabled for the link
  * Possible levels of support: yes, no, allow-downgrade
  * Possible return codes:
