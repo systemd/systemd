@@ -408,6 +408,31 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DNSServerPolicy=</varname></term>
+        <listitem><para>Controls how DNS servers are selected when making queries. Takes one of
+        <literal>pick-best</literal> or <literal>ordered</literal>.</para>
+
+        <para>When set to <literal>pick-best</literal> (the default),
+        <command>systemd-resolved</command> remembers which DNS servers successfully respond and prefers
+        them for subsequent queries. Servers that time out or fail are deprioritized. This optimizes for
+        performance but may cause issues in split-DNS environments where the primary internal DNS server
+        should always be tried first.</para>
+
+        <para>When set to <literal>ordered</literal>, DNS servers are always tried in the order they are
+        configured. Each new query starts with the first server in the list, falling back to subsequent
+        servers only if the previous ones fail or time out. This matches traditional
+        <filename>resolv.conf</filename> behavior and is useful for corporate networks with internal DNS
+        servers that should always be tried first, with public DNS servers as fallback.</para>
+
+        <para>Note that in <literal>ordered</literal> mode, when the primary server is unavailable, each
+        query will incur the timeout delay before falling back. This trades latency for reliability in
+        split-DNS configurations.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

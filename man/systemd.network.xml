@@ -607,6 +607,26 @@ Table=1234</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DNSServerPolicy=</varname></term>
+        <listitem>
+          <para>Takes <literal>pick-best</literal> or <literal>ordered</literal>. Controls how DNS servers
+          are selected when making queries. When set to <literal>pick-best</literal>,
+          <command>systemd-resolved</command> remembers which servers respond successfully and prefers
+          them. When set to <literal>ordered</literal>, servers are always tried in configured order,
+          matching traditional <filename>resolv.conf</filename> behavior. This is useful for split-DNS
+          environments where internal DNS should always be tried first. This option defines a per-interface
+          setting for
+          <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
+          global <varname>DNSServerPolicy=</varname> option. Defaults to unset, and the global setting will
+          be used. This setting is read by
+          <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          </para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DNSSEC=</varname></term>
         <listitem>
           <para>Takes a boolean or <literal>allow-downgrade</literal>. When true, enables

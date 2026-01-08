@@ -63,10 +63,25 @@ typedef enum DnsOverTlsMode {
         _DNS_OVER_TLS_MODE_INVALID = -EINVAL,
 } DnsOverTlsMode;
 
+typedef enum DnsServerPolicy {
+        /* Remember which servers work and prefer them. This is the
+         * default, existing behavior. */
+        DNS_SERVER_POLICY_PICK_BEST,
+
+        /* Always try servers in configured order, like traditional
+         * resolv.conf behavior. Each new transaction starts with the
+         * first server, falling back to others if needed. */
+        DNS_SERVER_POLICY_ORDERED,
+
+        _DNS_SERVER_POLICY_MAX,
+        _DNS_SERVER_POLICY_INVALID = -EINVAL,
+} DnsServerPolicy;
+
 CONFIG_PARSER_PROTOTYPE(config_parse_resolve_support);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_over_tls_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_cache_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_dns_server_policy);
 
 DECLARE_STRING_TABLE_LOOKUP(resolve_support, ResolveSupport);
 
@@ -77,6 +92,8 @@ DECLARE_STRING_TABLE_LOOKUP(dns_over_tls_mode, DnsOverTlsMode);
 bool dns_server_address_valid(int family, const union in_addr_union *sa);
 
 DECLARE_STRING_TABLE_LOOKUP(dns_cache_mode, DnsCacheMode);
+
+DECLARE_STRING_TABLE_LOOKUP(dns_server_policy, DnsServerPolicy);
 
 /* A resolv.conf file containing the DNS server and domain data we learnt from uplink, i.e. the full uplink data */
 #define PRIVATE_UPLINK_RESOLV_CONF "/run/systemd/resolve/resolv.conf"
