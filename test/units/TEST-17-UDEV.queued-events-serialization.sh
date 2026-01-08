@@ -24,7 +24,7 @@ ACTION=="add", RUN+="/usr/bin/bash -c ':> /tmp/marker'", RUN+="/usr/bin/sleep 10
 LABEL="end"
 EOF
 
-udevadm control --reload --log-level=debug
+udevadm control --reload
 
 udevadm settle --timeout 30
 rm -f /tmp/marker
