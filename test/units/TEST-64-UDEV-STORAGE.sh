@@ -1348,7 +1348,6 @@ testcase_mdadm_lvm() {
 }
 
 udevadm settle
-udevadm control --log-level debug
 lsblk -a
 
 echo "Check if all symlinks under /dev/disk/ are valid (pre-test)"
@@ -1367,8 +1366,6 @@ udevadm settle --timeout=60
 
 echo "Check if all symlinks under /dev/disk/ are valid (post-test)"
 helper_check_device_symlinks
-
-udevadm control --log-level info
 
 systemctl status systemd-udevd
 
