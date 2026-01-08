@@ -116,8 +116,6 @@ else
     exit 1
 fi
 
-udevadm control --log-level=debug
-
 IMAGE_DIR="$(mktemp -d --tmpdir="" TEST-50-IMAGES.XXX)"
 chmod go+rx "$IMAGE_DIR"
 cp -v /usr/share/minimal* "$IMAGE_DIR/"

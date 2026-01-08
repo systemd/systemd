@@ -22,10 +22,6 @@ export SYSTEMD_UTF8=0
 
 seed=750b6cd5c4ae4012a15e7be3c29e6a47
 
-if ! systemd-detect-virt --quiet --container; then
-    udevadm control --log-level debug
-fi
-
 esp_guid=C12A7328-F81F-11D2-BA4B-00A0C93EC93B
 xbootldr_guid=BC13C2FF-59E6-4262-A352-B275FD6F7172
 
