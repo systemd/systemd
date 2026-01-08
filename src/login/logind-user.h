@@ -82,6 +82,7 @@ int user_kill(User *u, int signo);
 int user_check_linger_file(const User *u);
 void user_elect_display(User *u);
 void user_update_last_session_timer(User *u);
+void user_flush_job(User *u);
 
 DECLARE_STRING_TABLE_LOOKUP(user_state, UserState);
 
