@@ -31,6 +31,7 @@
 #include "dirent-util.h"
 #include "dissect-image.h"
 #include "efivars.h"
+#include "efi-loader.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -9975,6 +9976,34 @@ static int find_root(Context *context) {
          * here. */
         r = readlink_malloc("/run/systemd/volatile-root", &device);
         if (r == -ENOENT) { /* volatile-root not found */
+                /* In case we are in the initrd, then see if we can find the actual device via the booted
+                 * ESP, since the root directory of the initrd is not what we want */
+                if (in_initrd()) {
+                        sd_id128_t loader_partition_uuid = SD_ID128_NULL;
+
+                        r = efi_loader_get_device_part_uuid(&loader_partition_uuid);
+                        if (r < 0 && r != -ENOENT && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                                return log_error_errno(r, "Failed to determine EFI loader partition UUID: %m");
+                        if (r >= 0) {
+                                _cleanup_free_ char *esp = path_join("/dev/disk/by-partuuid/", SD_ID128_TO_UUID_STRING(loader_partition_uuid));
+                                if (!esp)
+                                        return log_oom();
+
+                                r = chase(esp, /* root= */ NULL, /* flags= */ 0, &device, /* ret_fd= */ NULL);
+                                if (r < 0 && r != -ENOENT)
+                                        return log_error_errno(r, "Failed to read /dev/disk/by-label/ESP: %m");
+                                else if (r >= 0) {
+                                        r = acquire_root_devno(device, NULL, O_RDONLY|O_CLOEXEC, &context->node, &context->backing_fd);
+                                        if (r == -EUCLEAN)
+                                                return btrfs_log_dev_root(LOG_ERR, r, device);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to open file or determine backing device of %s: %m", device);
+
+                                        return 0;
+                                }
+                        }
+                }
+
                 /* Let's search for the root device. We look for two cases here: first in /, and then in /usr. The
                 * latter we check for cases where / is a tmpfs and only /usr is an actual persistent block device
                 * (think: volatile setups) */
