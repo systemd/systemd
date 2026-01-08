@@ -1813,7 +1813,7 @@ static const char *timezone_from_path(const char *path) {
 }
 
 static bool etc_writable(void) {
-        return !arg_read_only || IN_SET(arg_volatile_mode, VOLATILE_YES, VOLATILE_OVERLAY);
+        return !arg_read_only || IN_SET(arg_volatile_mode, VOLATILE_YES, VOLATILE_OVERLAY_ROOT);
 }
 
 static int setup_timezone(const char *dest) {

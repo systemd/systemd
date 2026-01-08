@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "proc-cmdline.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "volatile-util.h"
 
 int query_volatile_mode(VolatileMode *ret) {
@@ -35,7 +36,17 @@ static const char* const volatile_mode_table[_VOLATILE_MODE_MAX] = {
         [VOLATILE_NO] = "no",
         [VOLATILE_YES] = "yes",
         [VOLATILE_STATE] = "state",
-        [VOLATILE_OVERLAY] = "overlay",
+        [VOLATILE_OVERLAY_ROOT] = "overlay-root",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(volatile_mode, VolatileMode, VOLATILE_YES);
+const char* volatile_mode_to_string(VolatileMode i) {
+        return string_table_lookup_to_string(volatile_mode_table, ELEMENTSOF(volatile_mode_table), i);
+}
+
+VolatileMode volatile_mode_from_string(const char *s) {
+        /* Handle backward compatibility: "overlay" maps to VOLATILE_OVERLAY_ROOT */
+        if (streq_ptr(s, "overlay"))
+                return VOLATILE_OVERLAY_ROOT;
+
+        return (VolatileMode) string_table_lookup_from_string_with_boolean(volatile_mode_table, ELEMENTSOF(volatile_mode_table), s, VOLATILE_YES);
+}

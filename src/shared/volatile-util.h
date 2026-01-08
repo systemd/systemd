@@ -7,7 +7,7 @@ typedef enum VolatileMode {
         VOLATILE_NO,
         VOLATILE_YES,
         VOLATILE_STATE,
-        VOLATILE_OVERLAY,
+        VOLATILE_OVERLAY_ROOT,
         _VOLATILE_MODE_MAX,
         _VOLATILE_MODE_INVALID = -EINVAL,
 } VolatileMode;
