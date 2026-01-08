@@ -467,6 +467,12 @@ if cc.get_id() == 'gcc'
         possible_common_cc_flags += '-Wno-unused-result'
 endif
 
+# Disable -Wno-stringop-overflow with gcc, see
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=123477
+if cc.get_id() == 'gcc'
+        possible_common_cc_flags += '-Wno-stringop-overflow'
+endif
+
 # --as-needed and --no-undefined are provided by meson by default,
 # run 'meson configure' to see what is enabled
 possible_link_flags = [
