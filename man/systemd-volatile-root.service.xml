@@ -28,19 +28,30 @@
 
   <refsect1>
     <title>Description</title>
+    <para><filename>systemd-volatile-root.service</filename> is a service that works on /sysroot directory.
+    This service runs only in the initrd, before the system transitions to the host's root directory.</para>
 
-    <para><filename>systemd-volatile-root.service</filename> is a service that replaces the root directory with a
-    volatile memory file system (<literal>tmpfs</literal>), mounting the original (non-volatile)
-    <filename>/usr/</filename> inside it read-only. This way, vendor data from <filename>/usr/</filename> is available as
-    usual, but all configuration data in <filename>/etc/</filename>, all state data in <filename>/var/</filename> and all
-    other resources stored directly under the root directory are reset on boot and lost at shutdown, enabling fully
-    stateless systems.</para>
+    <para> It is influenced by the <literal>systemd.volatile</literal> kernel command line parameter.</para>
 
-    <para>This service is only enabled if full volatile mode is selected, for example by specifying
-    <literal>systemd.volatile=yes</literal> on the kernel command line. This service runs only in the initrd,
-    before the system transitions to the host's root directory. Note that this service is not used if
-    <literal>systemd.volatile=state</literal> is used, as in that mode the root directory is non-volatile.
-    </para>
+    <para> If <literal>systemd.volatile=yes</literal> is specified, the service will replace the root
+    directory with a volatile memory file system (<literal>tmpfs</literal>), mounting the original
+    (non-volatile) <filename>/usr/</filename> inside it read-only. This way, vendor data from
+    <filename>/usr/</filename> is available as usual, but all configuration data in <filename>/etc/</filename>,
+    all state data in <filename>/var/</filename> and all other resources stored directly under the root
+    directory are reset on boot and lost at shutdown, enabling fully stateless systems.</para>
+
+    <para>If <literal>systemd.volatile=overlay-root</literal> is specified, the service will overlay the root
+    directory with an <literal>overlayfs</literal> file system, using the original <filename>/sysroot</filename> as
+    lower layer and a writable <literal>tmpfs</literal> as upper layer.
+    In addition, the original <filename>/usr/</filename> is mounted inside as read-only.
+    All files in the original file system are available, but any changes made directly under the root directory are lost on shutdown, while <filename>/usr/</filename> cannot be modified.</para>
+
+    <para>If <literal>systemd.volatile=overlay-usr</literal> is specified, the service will replace the
+    <filename>/usr/</filename> directory with an <literal>overlayfs</literal> file system,
+    using the original <filename>/usr/</filename> as lower layer and a writable <literal>tmpfs</literal> as upper layer.
+    This way, vendor data from <filename>/usr/</filename> is available as usual, but all new modifications made
+    under the <filename>/usr/</filename> directory are lost at shutdown.</para>
+
   </refsect1>
 
   <refsect1>
@@ -51,5 +62,4 @@
       <member><citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
-
 </refentry>
