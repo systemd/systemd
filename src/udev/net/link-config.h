@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <limits.h>
+
 #include "sd-device.h"
 
 #include "cpu-set-util.h"
@@ -21,6 +23,17 @@ typedef enum MACAddressPolicy {
         _MAC_ADDRESS_POLICY_MAX,
         _MAC_ADDRESS_POLICY_INVALID = -EINVAL,
 } MACAddressPolicy;
+
+typedef enum IRQAffinityPolicy {
+        IRQ_AFFINITY_POLICY_SINGLE,
+        IRQ_AFFINITY_POLICY_SPREAD,
+        _IRQ_AFFINITY_POLICY_MAX,
+        _IRQ_AFFINITY_POLICY_INVALID = -EINVAL,
+} IRQAffinityPolicy;
+
+/* Special values for IRQAffinityNUMA= */
+#define IRQ_AFFINITY_NUMA_UNSET   INT_MIN
+#define IRQ_AFFINITY_NUMA_LOCAL   (-1)
 
 typedef struct Link {
         UdevEvent *event;
@@ -113,6 +126,11 @@ struct LinkConfig {
         /* Rx RPS CPU mask */
         CPUSet rps_cpu_mask;
 
+        /* IRQ affinity */
+        IRQAffinityPolicy irq_affinity_policy;
+        CPUSet irq_affinity_cpus;
+        int irq_affinity_numa;
+
         /* SR-IOV */
         uint32_t sr_iov_num_vfs;
         OrderedHashmap *sr_iov_by_section;
@@ -150,3 +168,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_mac_address_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_name_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_alternative_names_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_rps_cpu_mask);
+CONFIG_PARSER_PROTOTYPE(config_parse_irq_affinity_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_irq_affinity_numa);
+
+const char* irq_affinity_policy_to_string(IRQAffinityPolicy p) _const_;
+IRQAffinityPolicy irq_affinity_policy_from_string(const char *s) _pure_;
