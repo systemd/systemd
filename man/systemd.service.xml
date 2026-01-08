@@ -579,7 +579,7 @@
 
       <varlistentry>
         <term><varname>RestartSteps=</varname></term>
-        <listitem><para>Configures the number of steps to take to increase the interval
+        <listitem><para>Configures the number of exponential steps to take to increase the interval
         of auto-restarts from <varname>RestartSec=</varname> to <varname>RestartMaxDelaySec=</varname>.
         Takes a positive integer or 0 to disable it. Defaults to 0.</para>
 
