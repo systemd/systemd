@@ -2157,7 +2157,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         When set to <literal>system</literal>, <varname>MemoryTHP=</varname> resets the THP policy to system wide policy.
         This can be used when the process that starts systemd has already disabled THPs via
         <constant>PR_SET_THP_DISABLE</constant>, and we want to restore the system default THP setting at
-        process invokation time. For details, see
+        process invocation time. For details, see
         <ulink url="https://docs.kernel.org/admin-guide/mm/transhuge.html">Transparent Hugepage Support</ulink>
         in the kernel documentation.</para>
         <para>Note that this functionality might not be available, for example if THP is disabled in the

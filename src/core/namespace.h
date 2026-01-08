@@ -96,12 +96,12 @@ typedef enum MemoryTHP {
          * any PR_SET_THP_DISABLE call.
          */
         MEMORY_THP_INHERIT,
-        MEMORY_THP_DISABLE, /* Disable THPs completely for the prcess */
+        MEMORY_THP_DISABLE, /* Disable THPs completely for the process */
         MEMORY_THP_MADVISE, /* Disable THPs for the process except when madvised */
         /*
          * Use system default THP setting. this can be used when the process that
          * starts systemd has already disabled THPs via PR_SET_THP_DISABLE, and we
-         * want to restore the system default THP setting at process invokation time.
+         * want to restore the system default THP setting at process invocation time.
          */
         MEMORY_THP_SYSTEM,
         _MEMORY_THP_MAX,
