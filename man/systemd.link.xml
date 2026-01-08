@@ -1016,6 +1016,62 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>IRQAffinityPolicy=</varname></term>
+        <listitem>
+          <para>Specifies the IRQ distribution strategy for network interface MSI/MSI-X interrupts. Takes one
+          of <literal>spread</literal> or <literal>single</literal>. When set to <literal>spread</literal>,
+          queue IRQs are distributed across CPUs using a topology-aware maximum distance algorithm that
+          prefers CPUs on different NUMA nodes, then different physical cores, then different hyperthreads.
+          When set to <literal>single</literal>, all IRQs are pinned to a single CPU (CPU 0 by default, or
+          the first CPU in the set specified by <varname>IRQAffinity=</varname>). When there are more IRQs
+          than available CPUs, queues wrap around using round-robin assignment. When unset, no affinity
+          management is performed. Setting this to an empty string explicitly disables affinity management.</para>
+
+          <para>This option only applies to devices with MSI/MSI-X interrupts discoverable via
+          <filename>/sys/class/net/<replaceable>iface</replaceable>/device/msi_irqs/</filename>. Virtual
+          devices (veth, tap) and legacy INTx devices are skipped with a notice logged.</para>
+
+          <para>Note that if <citerefentry><refentrytitle>irqbalance</refentrytitle><manvolnum>1</manvolnum>
+          </citerefentry> or similar IRQ management daemons are running, they may override the configured
+          affinity. Consider disabling such daemons or configuring them to exclude managed interfaces.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>IRQAffinity=</varname></term>
+        <listitem>
+          <para>Filters the set of CPUs eligible for IRQ placement. Takes a list of CPU indices or ranges
+          separated by either whitespace or commas (e.g., <literal>0-3</literal>, <literal>0,2,4,6</literal>,
+          <literal>0-3,8-11</literal>). This option works in conjunction with
+          <varname>IRQAffinityPolicy=</varname> and <varname>IRQAffinityNUMA=</varname> to constrain which
+          CPUs receive network IRQs. When specified with <literal>spread</literal> policy, only the listed
+          CPUs are considered for IRQ distribution. When specified with <literal>single</literal> policy,
+          IRQs are pinned to the first CPU in the allowed set instead of CPU 0. Has no effect if
+          <varname>IRQAffinityPolicy=</varname> is not set.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>IRQAffinityNUMA=</varname></term>
+        <listitem>
+          <para>Filters CPUs to those belonging to the specified NUMA node. Takes either
+          <literal>local</literal> or an explicit NUMA node number (0, 1, 2, ...). When set to
+          <literal>local</literal>, the NUMA node local to the NIC's PCIe slot is used (determined from
+          <filename>/sys/class/net/<replaceable>iface</replaceable>/device/numa_node</filename>). If the
+          device's NUMA node cannot be determined (e.g., non-NUMA system), a warning is logged and IRQ
+          affinity configuration is skipped.</para>
+
+          <para>When both <varname>IRQAffinity=</varname> and <varname>IRQAffinityNUMA=</varname> are
+          specified, their intersection is used. If the intersection results in an empty set, an error is
+          logged and no affinity is applied. Has no effect if <varname>IRQAffinityPolicy=</varname> is not
+          set.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>ReceiveVLANCTAGHardwareAcceleration=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, receive VLAN CTAG hardware acceleration is enabled.
