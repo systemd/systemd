@@ -1485,14 +1485,12 @@ EOF
 testcase_dns_server_policy() {
     # Test that DNSServerPolicy is displayed in resolvectl status
 
-    # Cleanup
+    # Cleanup - follows same pattern as other tests in this file
     # shellcheck disable=SC2317
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-dns-server-policy.conf
         rm -f /run/systemd/network/10-dns0.network.d/dns-server-policy.conf
-        systemctl reload systemd-resolved.service
         networkctl reload
-        sleep 1
     }
 
     trap cleanup RETURN
@@ -1530,10 +1528,9 @@ EOF
     grep -qE "DNS Server Policy:.*adaptive" "$RUN_OUT"
 
     # Cleanup config files before restart_resolved to avoid issues.
-    # Must match the cleanup trap function above.
+    # Other tests follow this same pattern: remove config, then restart.
     rm -f /run/systemd/resolved.conf.d/90-dns-server-policy.conf
     rm -f /run/systemd/network/10-dns0.network.d/dns-server-policy.conf
-    systemctl reload systemd-resolved.service
     networkctl reload
     sleep 1
 
