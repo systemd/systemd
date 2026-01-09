@@ -1529,9 +1529,11 @@ EOF
     # Link should show adaptive (override)
     grep -qE "DNS Server Policy:.*adaptive" "$RUN_OUT"
 
-    # Cleanup config files before restart_resolved to avoid issues
+    # Cleanup config files before restart_resolved to avoid issues.
+    # Must match the cleanup trap function above.
     rm -f /run/systemd/resolved.conf.d/90-dns-server-policy.conf
     rm -f /run/systemd/network/10-dns0.network.d/dns-server-policy.conf
+    systemctl reload systemd-resolved.service
     networkctl reload
     sleep 1
 
