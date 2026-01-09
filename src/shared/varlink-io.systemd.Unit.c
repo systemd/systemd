@@ -1025,6 +1025,8 @@ static SD_VARLINK_DEFINE_ERROR(
 
 static SD_VARLINK_DEFINE_ERROR(OnlyByDependency);
 static SD_VARLINK_DEFINE_ERROR(DBusShuttingDown);
+static SD_VARLINK_DEFINE_ERROR(UnitMasked);
+static SD_VARLINK_DEFINE_ERROR(UnitError);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Unit,
@@ -1091,6 +1093,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 /* Errors */
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
                 &vl_error_NoSuchUnit,
+                SD_VARLINK_SYMBOL_COMMENT("The unit is masked"),
+                &vl_error_UnitMasked,
+                SD_VARLINK_SYMBOL_COMMENT("Unit is in a fatal error state"),
+                &vl_error_UnitError,
                 SD_VARLINK_SYMBOL_COMMENT("Job for the unit may only be enqueued by dependencies"),
                 &vl_error_OnlyByDependency,
                 SD_VARLINK_SYMBOL_COMMENT("A unit that requires D-Bus cannot be started as D-Bus is shutting down"),
