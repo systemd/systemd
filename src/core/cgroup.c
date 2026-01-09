@@ -1325,7 +1325,7 @@ static void cgroup_apply_firewall(Unit *u) {
         (void) bpf_firewall_install(u);
 }
 
-void unit_modify_nft_set(Unit *u, bool add) {
+static void unit_modify_nft_set(Unit *u, bool add) {
         int r;
 
         assert(u);
