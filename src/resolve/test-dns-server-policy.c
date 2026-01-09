@@ -4,7 +4,6 @@
 
 #include "sd-event.h"
 
-#include "dns-domain.h"
 #include "dns-rr.h"
 #include "resolve-util.h"
 #include "resolved-dns-scope.h"
