@@ -406,9 +406,18 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
         assert(ret_unit);
 
         if (p->name) {
-                unit = manager_get_unit(manager, p->name);
-                if (!unit)
-                        return varlink_error_no_such_unit(link, "name");
+                r = manager_load_unit(manager, p->name, /* path= */ NULL, /* e= */ NULL, &unit);
+                if (r < 0)
+                        return r;
+
+                /* manager_load_unit() will create an object regardless of whether the unit actually exists, so
+                 * check the state and refuse if it's not in a good state. */
+                if (IN_SET(unit->load_state, UNIT_NOT_FOUND, UNIT_STUB, UNIT_MERGED))
+                        return sd_varlink_error(link, "io.systemd.Unit.NoSuchUnit", NULL);
+                if (IN_SET(unit->load_state, UNIT_BAD_SETTING, UNIT_ERROR))
+                        return sd_varlink_error(link, "io.systemd.Unit.UnitError", NULL);
+                if (unit->load_state == UNIT_MASKED)
+                        return sd_varlink_error(link, "io.systemd.Unit.UnitMasked", NULL);
         }
 
         if (pidref_is_set_or_automatic(&p->pidref)) {
