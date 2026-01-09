@@ -2269,6 +2269,11 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
                         tr->anchor_job,
                         mode == JOB_IGNORE_DEPENDENCIES ? TRANSACTION_IGNORE_ORDER : 0);
 
+        /* Only activate the transaction if it contains jobs other than NOP anchor.
+         * Short-circuiting here avoids unnecessary processing, such as emitting D-Bus signals. */
+        if (hashmap_size(tr->jobs) <= 1)
+                return 0;
+
         r = transaction_activate(tr, m, mode, NULL, e);
         if (r < 0)
                 return r;
