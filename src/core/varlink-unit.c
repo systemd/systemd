@@ -412,9 +412,9 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
         assert(ret_unit);
 
         if (p->name) {
-                unit = manager_get_unit(manager, p->name);
-                if (!unit)
-                        return varlink_error_no_such_unit(link, "name");
+                r = manager_load_unit(manager, p->name, /* path= */ NULL, /* e= */ NULL, &unit);
+                if (r < 0)
+                        return r;
         }
 
         if (pidref_is_set_or_automatic(&p->pidref)) {
