@@ -66,6 +66,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Host name of the remote host"),
                 SD_VARLINK_DEFINE_INPUT(RemoteHost, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The identifier string of the session of the user."),
+                SD_VARLINK_DEFINE_INPUT(RemoteAccess, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true this session has additional remote access powers"),
                 SD_VARLINK_DEFINE_OUTPUT(Id, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The runtime path ($XDG_RUNTIME_DIR) of the user."),
                 SD_VARLINK_DEFINE_OUTPUT(RuntimePath, SD_VARLINK_STRING, 0),

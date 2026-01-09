@@ -57,6 +57,7 @@ int manager_create_session(
                 bool remote,
                 const char *remote_user,
                 const char *remote_host,
+                bool remote_access,
                 Session **ret_session);
 
 extern const BusObjectImplementation manager_object;
