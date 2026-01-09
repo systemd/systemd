@@ -671,6 +671,8 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
                 unit->markers = p.markers | (unit->markers & ~p.markers_mask);
                 if (BIT_SET(unit->markers, UNIT_MARKER_NEEDS_RESTART) && BIT_SET(unit->markers, UNIT_MARKER_NEEDS_STOP))
                         CLEAR_BIT(unit->markers, UNIT_MARKER_NEEDS_STOP);
+                if (BIT_SET(unit->markers, UNIT_MARKER_NEEDS_START) && BIT_SET(unit->markers, UNIT_MARKER_NEEDS_STOP))
+                        CLEAR_BIT(unit->markers, UNIT_MARKER_NEEDS_START);
                 if (BIT_SET(unit->markers, UNIT_MARKER_NEEDS_RELOAD) && BIT_SET(unit->markers, UNIT_MARKER_NEEDS_STOP))
                         CLEAR_BIT(unit->markers, UNIT_MARKER_NEEDS_RELOAD);
         }

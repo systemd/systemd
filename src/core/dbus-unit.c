@@ -2153,6 +2153,8 @@ static int bus_unit_set_live_property(
 
                         if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART) && BIT_SET(u->markers, UNIT_MARKER_NEEDS_STOP))
                                 CLEAR_BIT(u->markers, UNIT_MARKER_NEEDS_STOP);
+                        if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_START) && BIT_SET(u->markers, UNIT_MARKER_NEEDS_STOP))
+                                CLEAR_BIT(u->markers, UNIT_MARKER_NEEDS_START);
                         if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_RELOAD) && BIT_SET(u->markers, UNIT_MARKER_NEEDS_STOP))
                                 CLEAR_BIT(u->markers, UNIT_MARKER_NEEDS_RELOAD);
                 }
