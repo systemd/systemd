@@ -51,3 +51,11 @@ static const char* const dns_cache_mode_table[_DNS_CACHE_MODE_MAX] = {
         [DNS_CACHE_MODE_NO_NEGATIVE] = "no-negative",
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_cache_mode, DnsCacheMode, DNS_CACHE_MODE_YES);
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_server_policy, dns_server_policy, DnsServerPolicy);
+
+static const char* const dns_server_policy_table[_DNS_SERVER_POLICY_MAX] = {
+        [DNS_SERVER_POLICY_ADAPTIVE] = "adaptive",
+        [DNS_SERVER_POLICY_SEQUENTIAL] = "sequential",
+};
+DEFINE_STRING_TABLE_LOOKUP(dns_server_policy, DnsServerPolicy);
