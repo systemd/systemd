@@ -156,6 +156,7 @@ static const char* const unit_marker_table[_UNIT_MARKER_MAX] = {
         [UNIT_MARKER_NEEDS_RELOAD]  = "needs-reload",
         [UNIT_MARKER_NEEDS_RESTART] = "needs-restart",
         [UNIT_MARKER_NEEDS_STOP]    = "needs-stop",
+        [UNIT_MARKER_NEEDS_START]   = "needs-start",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_marker, UnitMarker);

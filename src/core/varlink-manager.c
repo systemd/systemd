@@ -353,6 +353,8 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
                         continue;
                 if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_STOP))
                         job = JOB_STOP;
+                else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_START))
+                        job = JOB_START;
                 else
                         job = JOB_TRY_RESTART;
 
