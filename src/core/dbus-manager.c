@@ -2142,6 +2142,9 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
                 } else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_STOP)) {
                         flags = 0;
                         job = JOB_STOP;
+                } else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_START)) {
+                        flags = 0;
+                        job = JOB_START;
                 } else
                         continue;
 

@@ -383,6 +383,18 @@ systemctl show -P Markers "$UNIT_NAME" | grep -v needs-reload
 systemctl reload-or-restart --marked
 (! systemctl show -P Markers "$UNIT_NAME" | grep needs-stop)
 (! systemctl is-active "$UNIT_NAME")
+systemctl set-property "$UNIT_NAME" "Markers=needs-start"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-start
+systemctl show -P Markers "$UNIT_NAME" | grep -v needs-stop
+systemctl reload-or-restart --marked
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-start)
+systemctl is-active "$UNIT_NAME"
+systemctl set-property "$UNIT_NAME" "Markers=needs-start needs-stop"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-stop
+systemctl show -P Markers "$UNIT_NAME" | grep -v needs-start
+systemctl reload-or-restart --marked
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-stop)
+(! systemctl is-active "$UNIT_NAME")
 
 # again, but with varlinkctl instead
 systemctl restart "$UNIT_NAME"
@@ -396,6 +408,20 @@ systemctl is-active "$UNIT_NAME"
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-stop\", \"needs-reload\"]}}"
 systemctl show -P Markers "$UNIT_NAME" | grep needs-stop
 systemctl show -P Markers "$UNIT_NAME" | grep -v needs-reload
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.EnqueueMarkedJobs '{}'
+timeout 30 bash -c "until systemctl list-jobs $UNIT_NAME | grep \"No jobs\" 2>/dev/null; do sleep 1; done"
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-stop)
+(! systemctl is-active "$UNIT_NAME")
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-start\"]}}"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-start
+systemctl show -P Markers "$UNIT_NAME" | grep -v needs-stop
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.EnqueueMarkedJobs '{}'
+timeout 30 bash -c "until systemctl list-jobs $UNIT_NAME | grep \"No jobs\" 2>/dev/null; do sleep 1; done"
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-start)
+systemctl is-active "$UNIT_NAME"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-stop\", \"needs-start\"]}}"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-stop
+systemctl show -P Markers "$UNIT_NAME" | grep -v needs-start
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.EnqueueMarkedJobs '{}'
 timeout 30 bash -c "until systemctl list-jobs $UNIT_NAME | grep \"No jobs\" 2>/dev/null; do sleep 1; done"
 (! systemctl show -P Markers "$UNIT_NAME" | grep needs-stop)
