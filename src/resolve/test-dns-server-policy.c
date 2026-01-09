@@ -321,6 +321,7 @@ TEST(sequential_policy_transactions_independent) {
 
 TEST(sequential_policy_server_removed_during_iteration) {
         _cleanup_(policy_test_env_teardown) PolicyTestEnv env = {};
+        _cleanup_(dns_server_unrefp) DnsServer *server2_ref = NULL;
         DnsServer *server3 = NULL;
         union in_addr_union server3_addr = { .in.s_addr = htobe32(0x0a000003) }; /* 10.0.0.3 */
 
@@ -343,9 +344,14 @@ TEST(sequential_policy_server_removed_during_iteration) {
          * The implementation checks server->linked before using it,
          * falling back to first server if the tracked server was unlinked. */
 
+        /* Take a reference before unlinking so we can safely check the linked flag.
+         * dns_server_unlink() calls dns_server_unref() which would free the server
+         * if there are no other references. */
+        server2_ref = dns_server_ref(env.server2);
+
         /* Remove server2 from the link */
         dns_server_unlink(env.server2);
-        ASSERT_FALSE(env.server2->linked);
+        ASSERT_FALSE(server2_ref->linked);
 
         /* After removal, list should be: server1 -> server3 */
         ASSERT_PTR_EQ(env.link->dns_servers, env.server1);
