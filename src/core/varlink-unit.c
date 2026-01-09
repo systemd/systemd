@@ -361,6 +361,40 @@ static int lookup_unit_by_pidref(sd_varlink *link, Manager *manager, PidRef *pid
         return 0;
 }
 
+static int load_unit_and_check(sd_varlink *link, Manager *manager, const char *name, Unit **ret_unit) {
+        Unit *unit;
+        int r;
+
+        assert(link);
+        assert(manager);
+        assert(name);
+        assert(ret_unit);
+
+        r = manager_load_unit(manager, name, /* path= */ NULL, /* e= */ NULL, &unit);
+        if (r < 0)
+                return r;
+
+        /* manager_load_unit() will create an object regardless of whether the unit actually exists, so
+         * check the state and refuse if it's not in a good state. */
+        if (IN_SET(unit->load_state, UNIT_NOT_FOUND, UNIT_STUB, UNIT_MERGED))
+                return sd_varlink_error(link, "io.systemd.Unit.NoSuchUnit", NULL);
+        if (unit->load_state == UNIT_BAD_SETTING)
+                return sd_varlink_error(link, "io.systemd.Unit.UnitError", NULL);
+        if (unit->load_state == UNIT_ERROR)
+                return sd_varlink_errorbo(
+                        link,
+                        SD_VARLINK_ERROR_SYSTEM,
+                        SD_JSON_BUILD_PAIR_STRING("origin", "linux"),
+                        SD_JSON_BUILD_PAIR_INTEGER("errno", unit->load_error),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("errnoName", "io.systemd.Unit.UnitError"));
+        if (unit->load_state == UNIT_MASKED)
+                return sd_varlink_error(link, "io.systemd.Unit.UnitMasked", NULL);
+        assert(UNIT_IS_LOAD_COMPLETE(unit->load_state));
+
+        *ret_unit = unit;
+        return 0;
+}
+
 typedef struct UnitLookupParameters {
         const char *name, *cgroup;
         PidRef pidref;
@@ -400,9 +434,9 @@ static int lookup_unit_by_parameters(
         assert(ret);
 
         if (p->name) {
-                unit = manager_get_unit(manager, p->name);
-                if (!unit)
-                        return varlink_error_no_such_unit(link, "name");
+                r = load_unit_and_check(link, manager, p->name, &unit);
+                if (r < 0)
+                        return r;
         }
 
         if (pidref_is_set_or_automatic(&p->pidref)) {
