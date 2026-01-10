@@ -1645,7 +1645,10 @@ static int add_any_file(
 
                         /* So we tracked a file under this name, but it has a different inode/device. In that
                          * case, it got replaced (probably due to rotation?), let's drop it hence from our
-                         * list. */
+                         * list. First, invalidate all mmap windows for this file to prevent use-after-free
+                         * or stale data access from remaining memory mappings. */
+                        if (f->cache_fd)
+                                mmap_cache_fd_invalidate(f->cache_fd);
                         remove_file_real(j, f);
                         f = NULL;
                 }
