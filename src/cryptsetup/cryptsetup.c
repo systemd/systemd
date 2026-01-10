@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -2580,9 +2579,6 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
 
         log_debug("%s %s ← %s type=%s cipher=%s", __func__,
                   volume, source, strempty(arg_type), strempty(arg_cipher));
-
-        /* A delicious drop of snake oil */
-        (void) mlockall(MCL_FUTURE);
 
         if (key_file && arg_keyfile_erase)
                 destroy_key_file = key_file; /* let's get this baby erased when we leave */
