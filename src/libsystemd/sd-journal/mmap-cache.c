@@ -565,3 +565,15 @@ MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f) {
         assert(f);
         return ASSERT_PTR(f->cache);
 }
+
+void mmap_cache_fd_invalidate(MMapFileDescriptor *f) {
+        if (!f)
+                return;
+
+        /* Invalidate all windows for this file descriptor. This is useful when a file has been rotated/replaced
+         * and we want to ensure no further access to the old file's memory mappings. This prevents use-after-free
+         * or stale data access after journal file rotation. */
+
+        LIST_FOREACH(windows, w, f->windows)
+                window_invalidate(w);
+}
