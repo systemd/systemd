@@ -2582,7 +2582,7 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                   volume, source, strempty(arg_type), strempty(arg_cipher));
 
         /* A delicious drop of snake oil */
-        (void) mlockall(MCL_FUTURE);
+        (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
 
         if (key_file && arg_keyfile_erase)
                 destroy_key_file = key_file; /* let's get this baby erased when we leave */
