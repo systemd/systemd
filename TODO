@@ -137,6 +137,9 @@ Deprecations and removals:
 
 Features:
 
+* portable services: attach not only unit files to host, but also simple
+  binaries to a tmpfs path in $PATH.
+
 * systemd-sysext: add "exec" command or so that is a bit like "refresh" but
   runs it in a new namespace and then just executes the selected binary within
   it. Could be useful to run one-off binaries inside a sysext as a CLI tool.
