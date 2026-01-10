@@ -850,7 +850,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         /* A delicious drop of snake oil */
-        (void) mlockall(MCL_FUTURE);
+        (void) mlockall(MCL_FUTURE|MCL_ONFAULT);
 
         cryptsetup_enable_logging(NULL);
 
