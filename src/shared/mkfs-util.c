@@ -421,12 +421,19 @@ int make_filesystem(
 
         /* When changing this conditional, also adjust the log statement below. */
         if (STR_IN_SET(fstype, "ext2", "ext3", "ext4")) {
+                const char *ext_e_opts;
+
+                /* Set hash_seed to the same value as the filesystem UUID for reproducibility */
+                ext_e_opts = strjoina(FLAGS_SET(flags, MKFS_DISCARD) ? "discard" : "nodiscard",
+                                       ",lazy_itable_init=1,hash_seed=",
+                                       vol_id);
+
                 argv = strv_new(mkfs,
                                 "-L", label,
                                 "-U", vol_id,
                                 "-I", "256",
                                 "-m", "0",
-                                "-E", FLAGS_SET(flags, MKFS_DISCARD) ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
+                                "-E", ext_e_opts,
                                 "-b", "4096",
                                 "-T", "default");
                 if (!argv)
