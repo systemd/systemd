@@ -2443,6 +2443,12 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                                        "1 1 " UID_FMT "\n", (uid_t) (UINT32_MAX - 1));
                 if (r < 0)
                         return -ENOMEM;
+        } else if (private_users == PRIVATE_USERS_ROOTIDMAP) {
+                r = asprintf(&uid_map,
+                             "0 " UID_FMT " 1\n",    /* Map 0 → $OUID */
+                             ouid);
+                if (r < 0)
+                        return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETUID. */
         } else if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid)) {
                 r = asprintf(&uid_map,
@@ -2466,6 +2472,12 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         } else if (private_users == PRIVATE_USERS_FULL) {
                 r = asprintf(&gid_map, "0 0 1\n"
                                        "1 1 " GID_FMT "\n", (gid_t) (UINT32_MAX - 1));
+                if (r < 0)
+                        return -ENOMEM;
+        } else if (private_users == PRIVATE_USERS_ROOTIDMAP) {
+                r = asprintf(&gid_map,
+                             "0 " GID_FMT " 1\n",    /* Map 0 -> $OGID */
+                             ogid);
                 if (r < 0)
                         return -ENOMEM;
         /* Can only set up multiple mappings with CAP_SETGID. */
