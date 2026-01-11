@@ -79,6 +79,9 @@
         <para>If set to <literal>@saved</literal> the chosen entry will be saved as an EFI variable
         on every boot and automatically selected the next time the boot loader starts.</para>
 
+        <para>When preceded by "^", then the boot loader will not boot matching entries that have been
+        marked as bad by boot assessment.</para>
+
         <table>
           <title>Automatically detected entries will use the following names:</title>
 

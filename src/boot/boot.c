@@ -27,6 +27,7 @@
 #include "shim.h"
 #include "smbios.h"
 #include "strv-fundamental.h"
+#include "string-util-fundamental.h"
 #include "sysfail.h"
 #include "ticks.h"
 #include "tpm2-pcr.h"
@@ -1722,8 +1723,11 @@ static size_t config_find_entry(Config *config, const char16_t *pattern) {
         if (!pattern)
                 return IDX_INVALID;
 
+        const bool check_assessment = strneq16(pattern, u"^", 1);
+        const char16_t *p = check_assessment ? pattern + 1 : pattern;
+
         for (size_t i = 0; i < config->n_entries; i++)
-                if (efi_fnmatch(pattern, config->entries[i]->id))
+                if (efi_fnmatch(p, config->entries[i]->id) && (!check_assessment || config->entries[i]->tries_left != 0))
                         return i;
 
         return IDX_INVALID;
