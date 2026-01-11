@@ -101,7 +101,8 @@ Some EFI variables control the loader or exported the loaders state to the start
 
 | EFI Variables |
 |---------------|------------------------|-------------------------------|
-| LoaderEntryDefault | entry identifier to select as default at bootup  | non-volatile |
+| LoaderEntryDefault | entry identifier to select as default at bootup, ignoring boot assessment | non-volatile |
+| LoaderEntryPreferred | entry identifier to select as default at bootup, respecting boot assessment | non-volatile |
 | LoaderEntrySysFail | sysfail entry identifier | non-volatile |
 | LoaderSysFailReason | system failure reason | volatile |
 | LoaderConfigTimeout | timeout in seconds to show the menu | non-volatile |

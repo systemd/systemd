@@ -465,6 +465,7 @@ void boot_config_free(BootConfig *config) {
         free(config->default_pattern);
 
         free(config->entry_oneshot);
+        free(config->entry_preferred);
         free(config->entry_default);
         free(config->entry_selected);
         free(config->entry_sysfail);
@@ -1390,6 +1391,15 @@ static int boot_entries_select_default(const BootConfig *config) {
                 }
         }
 
+        if (config->entry_preferred) {
+                i = boot_config_find(config, config->entry_preferred);
+                if (i >= 0) {
+                        log_debug("Found default: id \"%s\" is matched by LoaderEntryPreferred",
+                                  config->entries[i].id);
+                        return i;
+                }
+        }
+
         if (config->entry_default) {
                 i = boot_config_find(config, config->entry_default);
                 if (i >= 0) {
@@ -1437,6 +1447,12 @@ static int boot_load_efi_entry_pointers(BootConfig *config, bool skip_efivars) {
                 return log_oom();
         if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
                 log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\", ignoring: %m");
+
+        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntryPreferred"), &config->entry_preferred);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryPreferred\", ignoring: %m");
 
         r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"), &config->entry_default);
         if (r == -ENOMEM)

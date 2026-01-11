@@ -691,6 +691,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "unlink",              2,        2,        0,            verb_list                },
                 { "cleanup",             VERB_ANY, 1,        0,            verb_list                },
                 { "set-default",         2,        2,        0,            verb_set_efivar          },
+                { "set-preferred",       2,        2,        0,            verb_set_efivar          },
                 { "set-oneshot",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout-oneshot", 2,        2,        0,            verb_set_efivar          },

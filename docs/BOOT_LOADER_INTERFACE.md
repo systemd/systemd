@@ -61,8 +61,14 @@ Variables will be listed below using the Linux efivarfs naming,
   The list should be in the order the entries are shown on screen during boot.
   See below regarding the recommended vocabulary for boot loader entry identifiers.
 
+* The EFI variable `LoaderEntryPreferred-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
+  contains the preferred boot loader entry to use.
+  This takes boot assessment into account.
+  It contains a NUL-terminated boot loader entry identifier.
+
 * The EFI variable `LoaderEntryDefault-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains the default boot loader entry to use.
+  This ignores boot assessment.
   It contains a NUL-terminated boot loader entry identifier.
 
 * The EFI variable `LoaderEntrySysFail-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
@@ -83,10 +89,10 @@ Variables will be listed below using the Linux efivarfs naming,
   contains the default boot loader entry to use for a single following boot.
   It is set by the OS
   in order to request booting into a specific menu entry on the following boot.
-  When set overrides `LoaderEntryDefault`.
+  When set overrides `LoaderEntryPreferred` and `LoaderEntryDefault`.
   It is removed automatically after being read by the boot loader,
   to ensure it only takes effect a single time.
-  This value is formatted the same way as `LoaderEntryDefault`.
+  This value is formatted the same way as `LoaderEntryDefault` and `LoaderEntryPreferred`.
 
 * The EFI variable `LoaderEntrySelected-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains the boot loader entry identifier that was booted.
@@ -126,6 +132,7 @@ Variables will be listed below using the Linux efivarfs naming,
                 [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification).
   * `1 << 18` → The boot loader reports active TPM2 PCR banks in the
                 EFI variable `LoaderTpm2ActivePcrBanks-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
+  * `1 << 19` → The boot loader honours `LoaderEntryPreferred` when set.
 
 * The EFI variable `LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains binary random data,
@@ -168,7 +175,8 @@ variables.
 While boot loader entries may be named relatively freely,
 it's highly recommended to follow these rules when picking identifiers for the entries,
 so that programs (and users) can derive basic context and meaning from the identifiers
-as passed in `LoaderEntries`, `LoaderEntryDefault`, `LoaderEntryOneShot`, `LoaderEntrySelected`,
+as passed in `LoaderEntries`, `LoaderEntryPreferred`, `LoaderEntryDefault`,
+`LoaderEntryOneShot`, `LoaderEntrySelected`,
 and possibly show nicely localized names for them in UIs.
 
 1. When boot loader entries are defined through the
