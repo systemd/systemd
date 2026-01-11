@@ -132,13 +132,17 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>set-preferred</option> <replaceable>ID</replaceable></term>
         <term><option>set-default</option> <replaceable>ID</replaceable></term>
         <term><option>set-oneshot</option> <replaceable>ID</replaceable></term>
         <term><option>set-sysfail</option> <replaceable>ID</replaceable></term>
 
         <listitem><para>Sets the default boot loader entry. Takes a single boot loader entry ID string or a glob
         pattern as argument. The <option>set-oneshot</option> command will set the default entry only for the next boot,
-        the <option>set-default</option> will set it persistently for all future boots. The <option>set-sysfail</option> command
+        <option>set-default</option> will set it persistently for all future boots,
+        <option>set-preferred</option> is like <option>set-default</option>,
+        but is aware of boot assessment and will skip boot entries that have their tries-left counter set to zero.
+        The <option>set-sysfail</option> command
         will set the boot loader entry to be used in case of a system failure. System failure (SysFail) boot entries can
         optionally modify the automatic selection order in the event of a failure, such as a boot firmware update failure with
         the failure status recorded in the EFI system table.</para>
