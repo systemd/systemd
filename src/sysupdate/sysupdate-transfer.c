@@ -1685,6 +1685,8 @@ int transfer_install_instance(
         assert(i->resource);
         assert(i->is_pending || t == container_of(i->resource, Transfer, source));
 
+        log_debug("transfer_install_instance %s %s %s %d", i->path, t->temporary_pending_path, t->final_partition_label, t->partition_change);
+
         if (t->temporary_pending_path) {
                 assert(RESOURCE_IS_FILESYSTEM(t->target.type));
                 assert(t->final_path);
