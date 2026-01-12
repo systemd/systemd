@@ -1289,9 +1289,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         /* Combine the initrds into one */
         _cleanup_pages_ Pages initrd_pages = {};
-        struct iovec final_initrd;
+        struct iovec final_initrd = {};
         if (n_all_initrds > 1) {
-                /* There will always be a base initrd, if this counter is higher, we need to combine them */
+                /* If there is more then 1 initrd we need to combine them */
                 err = combine_initrds(all_initrds, n_all_initrds, &initrd_pages, &final_initrd.iov_len);
                 if (err != EFI_SUCCESS)
                         return err;
@@ -1300,7 +1300,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
                 /* Given these might be large let's free them explicitly before we pass control to Linux */
                 initrds_free(&initrds);
-        } else
+        } else if (n_all_initrds == 1)
                 final_initrd = all_initrds[0];
 
         struct iovec kernel = IOVEC_MAKE(
