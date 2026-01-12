@@ -10719,14 +10719,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = context_fstab(context);
-        if (r < 0)
-                return r;
-
-        r = context_crypttab(context);
-        if (r < 0)
-                return r;
-
         r = context_update_verity_size(context);
         if (r < 0)
                 return r;
@@ -10779,6 +10771,14 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = context_split(context);
+        if (r < 0)
+                return r;
+
+        r = context_fstab(context);
+        if (r < 0)
+                return r;
+
+        r = context_crypttab(context);
         if (r < 0)
                 return r;
 
