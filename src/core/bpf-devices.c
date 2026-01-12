@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
-#include <linux/bpf.h>
 #include <linux/bpf_insn.h>
 #include <sys/stat.h>
 
 #include "alloc-util.h"
+#include "missing_bpf.h"
 #include "bpf-devices.h"
 #include "bpf-program.h"
 #include "cgroup.h"
