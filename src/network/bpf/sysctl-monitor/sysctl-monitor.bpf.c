@@ -2,6 +2,7 @@
 
 #include "vmlinux.h"
 
+#include <errno.h>
 #include <bpf/bpf_helpers.h>
 
 #include "sysctl-write-event.h"
@@ -95,7 +96,7 @@ int sysctl_monitor(struct bpf_sysctl *ctx) {
 
         /* Only monitor /proc/sys/net/ */
         r = bpf_sysctl_get_name(ctx, we.path, sizeof(we.path), 0);
-        if (r < 0) {
+        if (r < 0 && r != -EINVAL) { /* -EINVAL: the process is already vanished */
                 we.errorcode = r;
                 goto send_event;
         }
