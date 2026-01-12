@@ -1899,6 +1899,46 @@ testcase_luks2_integrity() {
     _test_luks2_integrity "hmac-sha512"
 }
 
+testcase_ext_reproducibility() {
+    local defs imgs
+
+    # Online mode mounts the filesystem which updates inode timestamps non-deterministically
+    if [[ "$OFFLINE" != "yes" ]]; then
+        echo "Skipping ext reproducibility test in online mode."
+        return 0
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+Format=ext4
+EOF
+
+    # Build the image twice with the same seed and verify they are identical
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=50M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "$imgs/test1.img"
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=50M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "$imgs/test2.img"
+
+    cmp "$imgs/test1.img" "$imgs/test2.img"
+}
+
 OFFLINE="yes"
 run_testcases
 
