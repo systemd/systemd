@@ -1049,7 +1049,7 @@ bpf_compiler = get_option('bpf-compiler')
 libbpf = dependency('libbpf',
                     required : bpf_framework,
                     version : bpf_compiler == 'gcc' ? '>= 1.4.0' : '>= 0.1.0')
-libbpf_cflags = libbpf.partial_dependency(includes: true, compile_args: true)
+libbpf_cflags = libbpf.partial_dependency(compile_args: false)
 conf.set10('HAVE_LIBBPF', libbpf.found())
 
 if not libbpf.found()
