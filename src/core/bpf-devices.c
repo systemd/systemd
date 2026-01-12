@@ -5,6 +5,17 @@
 #include <linux/bpf_insn.h>
 #include <sys/stat.h>
 
+/* Defined in linux/filter.h, but might be missing from some libbpf versions */
+#ifndef BPF_JMP_A
+#define BPF_JMP_A(OFF)                                          \
+        ((struct bpf_insn) {                                    \
+                .code  = BPF_JMP | BPF_JA,                      \
+                .dst_reg = 0,                                   \
+                .src_reg = 0,                                   \
+                .off   = OFF,                                   \
+                .imm   = 0 })
+#endif
+
 #include "alloc-util.h"
 #include "bpf-devices.h"
 #include "bpf-program.h"
