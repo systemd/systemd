@@ -176,7 +176,12 @@ int machine_save(Machine *m) {
                         return log_oom();
         }
 
-        r = mkdir_safe_label(m->manager->state_dir, 0755, 0, 0, MKDIR_WARN_MODE);
+        r = mkdir_safe_label(
+                        m->manager->state_dir,
+                        0755,
+                        UID_INVALID,
+                        GID_INVALID,
+                        MKDIR_WARN_MODE|MKDIR_IGNORE_EXISTING);
         if (r < 0)
                 return log_error_errno(r, "Failed to create '%s': %m", m->manager->state_dir);
 
