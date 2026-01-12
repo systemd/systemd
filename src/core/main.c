@@ -2805,7 +2805,7 @@ static void determine_default_oom_score_adjust(void) {
                 return (void) log_warning_errno(r, "Failed to determine current OOM score adjustment value, ignoring: %m");
 
         assert_cc(100 <= OOM_SCORE_ADJ_MAX);
-        b = a >= OOM_SCORE_ADJ_MAX - 100 ? OOM_SCORE_ADJ_MAX : a + 100;
+        b = saturate_add(a, 100, OOM_SCORE_ADJ_MAX);
 
         if (a == b)
                 return;
