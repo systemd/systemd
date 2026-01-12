@@ -5,7 +5,6 @@
 #include <sys/stat.h>
 
 #include "alloc-util.h"
-#include "missing_bpf.h"
 #include "bpf-devices.h"
 #include "bpf-program.h"
 #include "cgroup.h"
@@ -13,6 +12,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "missing_bpf.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
