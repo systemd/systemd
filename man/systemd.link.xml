@@ -943,8 +943,8 @@
           <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
-       <varlistentry>
-      <term><varname>TCP6SegmentationOffload=</varname></term>
+      <varlistentry>
+        <term><varname>TCP6SegmentationOffload=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, TCP6 Segmentation Offload (tx-tcp6-segmentation) is enabled.
           When unset, the kernel's default will be used.</para>
