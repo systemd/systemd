@@ -112,6 +112,146 @@ static int conf_file_prefix_root(ConfFile *c, const char *root) {
         return 0;
 }
 
+static bool conf_files_need_stat(ConfFilesFlags flags) {
+        return (flags & (CONF_FILES_FILTER_MASKED | CONF_FILES_REGULAR | CONF_FILES_DIRECTORY | CONF_FILES_EXECUTABLE)) != 0;
+}
+
+static ChaseFlags conf_files_chase_flags(ConfFilesFlags flags) {
+        ChaseFlags chase_flags = CHASE_AT_RESOLVE_IN_ROOT;
+
+        if (!conf_files_need_stat(flags) || FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK))
+                /* Even if no verification is requested, let's unconditionally call chaseat(),
+                 * to drop unsafe symlinks. */
+                chase_flags |= CHASE_NONEXISTENT;
+
+        return chase_flags;
+}
+
+static int conf_file_chase_and_verify(
+                int rfd,
+                const char *root,          /* for logging, can be NULL */
+                const char *original_path, /* for logging */
+                const char *path,
+                const char *name,
+                Set **masked,              /* optional */
+                ConfFilesFlags flags,
+                char **ret_path,
+                int *ret_fd,
+                struct stat *ret_stat) {
+
+        _cleanup_free_ char *resolved_path = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        struct stat st = {};
+        int r;
+
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(original_path);
+        assert(path);
+        assert(name);
+
+        root = empty_to_root(root);
+
+        r = chaseat(rfd, path, conf_files_chase_flags(flags), &resolved_path, &fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to chase '%s%s': %m",
+                                       root, skip_leading_slash(original_path));
+        if (r == 0) {
+                if (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK)) {
+                        /* If the path points to /dev/null in a image or so, then the device node may not exist. */
+                        if (path_equal(skip_leading_slash(resolved_path), "dev/null")) {
+                                if (masked) {
+                                        /* Mark this one as masked */
+                                        r = set_put_strdup(masked, name);
+                                        if (r < 0)
+                                                return log_oom_debug();
+                                }
+
+                                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                                       "File '%s%s' is a mask (symlink to /dev/null).",
+                                                       root, skip_leading_slash(original_path));
+                        }
+                }
+
+                if (conf_files_need_stat(flags))
+                        /* If we need to have stat, skip the entry. */
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to chase '%s%s': %m",
+                                               root, skip_leading_slash(original_path));
+        }
+
+        /* Even if we do not need stat, let's take stat now. The caller may use the info later. */
+        if (fd >= 0 && fstat(fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat '%s%s': %m",
+                                       root, skip_leading_slash(original_path));
+
+        /* Is this a masking entry? */
+        if (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK) && stat_may_be_dev_null(&st)) {
+                if (masked) {
+                        /* Mark this one as masked */
+                        r = set_put_strdup(masked, name);
+                        if (r < 0)
+                                return log_oom_debug();
+                }
+
+                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                       "File '%s%s' is a mask (symlink to /dev/null).",
+                                       root, skip_leading_slash(original_path));
+        }
+
+        if (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_EMPTY) && stat_is_empty(&st)) {
+                if (masked) {
+                        /* Mark this one as masked */
+                        r = set_put_strdup(masked, name);
+                        if (r < 0)
+                                return log_oom_debug();
+                }
+
+                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                       "File '%s%s' is a mask (an empty file).",
+                                       root, skip_leading_slash(original_path));
+        }
+
+        if (FLAGS_SET(flags, CONF_FILES_REGULAR|CONF_FILES_DIRECTORY)) {
+                if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADFD),
+                                               "File '%s%s' is neither a regular file or directory.",
+                                               root, skip_leading_slash(original_path));
+        } else {
+                /* Is this node a regular file? */
+                if (FLAGS_SET(flags, CONF_FILES_REGULAR)) {
+                        r = stat_verify_regular(&st);
+                        if (r < 0)
+                                return log_debug_errno(r, "File '%s%s' is not a regular file: %m",
+                                                       root, skip_leading_slash(original_path));
+                }
+
+                /* Is this node a directory? */
+                if (FLAGS_SET(flags, CONF_FILES_DIRECTORY)) {
+                        r = stat_verify_directory(&st);
+                        if (r < 0)
+                                return log_debug_errno(r, "File '%s%s' is not a directory: %m",
+                                                       root, skip_leading_slash(original_path));
+                }
+        }
+
+        /* Does this node have the executable bit set?
+         * As requested: check if the file is marked executable. Note that we don't check access(X_OK) here,
+         * as we care about whether the file is marked executable at all, and not whether it is executable
+         * for us, because if so, such errors are stuff we should log about. */
+        if (FLAGS_SET(flags, CONF_FILES_EXECUTABLE) && (st.st_mode & 0111) == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOEXEC),
+                                       "File '%s%s' is not marked executable.",
+                                       root, skip_leading_slash(original_path));
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(resolved_path);
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
+        if (ret_stat)
+                *ret_stat = st;
+
+        return 0;
+}
+
 int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile **ret) {
         int r;
 
@@ -261,100 +401,22 @@ static int files_add(
 
                 _cleanup_free_ char *resolved_path = NULL;
                 _cleanup_close_ int fd = -EBADF;
-                bool need_stat = (flags & (CONF_FILES_FILTER_MASKED | CONF_FILES_REGULAR | CONF_FILES_DIRECTORY | CONF_FILES_EXECUTABLE)) != 0;
-                ChaseFlags chase_flags = CHASE_AT_RESOLVE_IN_ROOT;
-
-                if (!need_stat || FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK))
-                        /* Even if no verification is requested, let's unconditionally call chaseat(),
-                         * to drop unsafe symlinks. */
-                        chase_flags |= CHASE_NONEXISTENT;
-
-                r = chaseat(rfd, p, chase_flags, &resolved_path, &fd);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to chase '%s/%s', ignoring: %m",
-                                        root, skip_leading_slash(original_path));
+                struct stat st;
+                r = conf_file_chase_and_verify(
+                                rfd,
+                                root,
+                                original_path,
+                                p,
+                                de->d_name,
+                                masked,
+                                flags,
+                                &resolved_path,
+                                &fd,
+                                &st);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0)
                         continue;
-                }
-                if (r == 0) {
-                        if (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK)) {
-
-                                /* If the path points to /dev/null in a image or so, then the device node may not exist. */
-                                if (path_equal(skip_leading_slash(resolved_path), "dev/null")) {
-                                        /* Mark this one as masked */
-                                        r = set_put_strdup(masked, de->d_name);
-                                        if (r < 0)
-                                                return log_oom_debug();
-
-                                        log_debug("File '%s/%s' is a mask (symlink to /dev/null).",
-                                                  root, skip_leading_slash(original_path));
-                                        continue;
-                                }
-                        }
-
-                        if (need_stat) {
-                                /* If we need to have stat, skip the entry. */
-                                log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to chase '%s/%s', ignoring.",
-                                                root, skip_leading_slash(original_path));
-                                continue;
-                        }
-                }
-
-                /* Even if we do not need stat, let's take stat now. The caller may use the info later. */
-                struct stat st = {};
-                if (fd >= 0 && fstat(fd, &st) < 0) {
-                        log_debug_errno(errno, "Failed to stat '%s/%s', ignoring: %m",
-                                        root, skip_leading_slash(original_path));
-                        continue;
-                }
-
-                /* Is this a masking entry? */
-                if (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK) && stat_may_be_dev_null(&st)) {
-                        /* Mark this one as masked */
-                        r = set_put_strdup(masked, de->d_name);
-                        if (r < 0)
-                                return log_oom_debug();
-
-                        log_debug("File '%s/%s' is a mask (symlink to /dev/null).", root, skip_leading_slash(original_path));
-                        continue;
-                }
-
-                if (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_EMPTY) && stat_is_empty(&st)) {
-                        /* Mark this one as masked */
-                        r = set_put_strdup(masked, de->d_name);
-                        if (r < 0)
-                                return log_oom_debug();
-
-                        log_debug("File '%s/%s' is a mask (an empty file).", root, skip_leading_slash(original_path));
-                        continue;
-                }
-
-                if (FLAGS_SET(flags, CONF_FILES_REGULAR|CONF_FILES_DIRECTORY)) {
-                        if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)) {
-                                log_debug("Ignoring '%s/%s', as it is neither a regular file or directory.", root, skip_leading_slash(original_path));
-                                continue;
-                        }
-                } else {
-                        /* Is this node a regular file? */
-                        if (FLAGS_SET(flags, CONF_FILES_REGULAR) && !S_ISREG(st.st_mode)) {
-                                log_debug("Ignoring '%s/%s', as it is not a regular file.", root, skip_leading_slash(original_path));
-                                continue;
-                        }
-
-                        /* Is this node a directory? */
-                        if (FLAGS_SET(flags, CONF_FILES_DIRECTORY) && !S_ISDIR(st.st_mode)) {
-                                log_debug("Ignoring '%s/%s', as it is not a directory.", root, skip_leading_slash(original_path));
-                                continue;
-                        }
-                }
-
-                /* Does this node have the executable bit set?
-                 * As requested: check if the file is marked executable. Note that we don't check access(X_OK)
-                 * here, as we care about whether the file is marked executable at all, and not whether it is
-                 * executable for us, because if so, such errors are stuff we should log about. */
-                if (FLAGS_SET(flags, CONF_FILES_EXECUTABLE) && (st.st_mode & 0111) == 0) {
-                        log_debug("Ignoring '%s/%s', as it is not marked executable.", root, skip_leading_slash(original_path));
-                        continue;
-                }
 
                 _cleanup_(conf_file_freep) ConfFile *c = new(ConfFile, 1);
                 if (!c)
