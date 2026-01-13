@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 
-#include "chase.h"
 #include "conf-files.h"
 #include "fd-util.h"
 #include "fuzz.h"
@@ -29,7 +28,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(rules = udev_rules_new(RESOLVE_NAME_EARLY));
 
         _cleanup_(conf_file_freep) ConfFile *c = NULL;
-        ASSERT_OK(conf_file_new(filename, /* root = */ NULL, CHASE_MUST_BE_REGULAR, &c));
+        ASSERT_OK(conf_file_new(filename, /* root= */ NULL, CONF_FILES_REGULAR, &c));
 
         r = udev_rules_parse_file(rules, c, /* extra_checks = */ false, /* ret = */ NULL);
         log_info_errno(r, "Parsing %s: %m", filename);

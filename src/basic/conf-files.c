@@ -252,7 +252,7 @@ static int conf_file_chase_and_verify(
         return 0;
 }
 
-int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile **ret) {
+int conf_file_new_at(const char *path, int rfd, ConfFilesFlags flags, ConfFile **ret) {
         int r;
 
         assert(path);
@@ -285,10 +285,8 @@ int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile
                 return log_debug_errno(r, "Failed to extract directory from '%s': %m", path);
         if (r >= 0) {
                 r = chaseat(rfd, dirpath,
-                            CHASE_AT_RESOLVE_IN_ROOT |
-                            CHASE_MUST_BE_DIRECTORY |
-                            (FLAGS_SET(chase_flags, CHASE_NONEXISTENT) ? CHASE_NONEXISTENT : 0),
-                            &resolved_dirpath, /* ret_fd = */ NULL);
+                            CHASE_MUST_BE_DIRECTORY | conf_files_chase_flags(flags),
+                            &resolved_dirpath, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(dirpath));
         }
@@ -297,22 +295,28 @@ int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile
         if (!c->result)
                 return log_oom_debug();
 
-        r = chaseat(rfd, c->result, CHASE_AT_RESOLVE_IN_ROOT | chase_flags, &c->resolved_path, &c->fd);
+        r = conf_file_chase_and_verify(
+                        rfd,
+                        root,
+                        c->original_path,
+                        c->result,
+                        c->name,
+                        /* masked= */ NULL,
+                        flags,
+                        &c->resolved_path,
+                        &c->fd,
+                        &c->st);
         if (r < 0)
-                return log_debug_errno(r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(c->original_path));
-
-        if (c->fd >= 0 && fstat(c->fd, &c->st) < 0)
-                return log_debug_errno(r, "Failed to stat '%s%s': %m", empty_to_root(root), skip_leading_slash(c->resolved_path));
+                return r;
 
         *ret = TAKE_PTR(c);
         return 0;
 }
 
-int conf_file_new(const char *path, const char *root, ChaseFlags chase_flags, ConfFile **ret) {
+int conf_file_new(const char *path, const char *root, ConfFilesFlags flags, ConfFile **ret) {
         int r;
 
         assert(path);
-        assert((chase_flags & (CHASE_PREFIX_ROOT | CHASE_STEP)) == 0);
         assert(ret);
 
         _cleanup_free_ char *root_abs = NULL;
@@ -331,7 +335,7 @@ int conf_file_new(const char *path, const char *root, ChaseFlags chase_flags, Co
         }
 
         _cleanup_(conf_file_freep) ConfFile *c = NULL;
-        r = conf_file_new_at(path, rfd, chase_flags, &c);
+        r = conf_file_new_at(path, rfd, flags, &c);
         if (r < 0)
                 return r;
 
@@ -598,7 +602,7 @@ static int conf_files_list_impl(
         root = empty_to_root(root);
 
         if (replacement) {
-                r = conf_file_new_at(replacement, rfd, CHASE_NONEXISTENT, &c);
+                r = conf_file_new_at(replacement, rfd, /* flags= */ 0, &c);
                 if (r < 0)
                         return r;
         }
