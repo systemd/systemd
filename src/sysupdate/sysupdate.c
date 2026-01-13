@@ -136,7 +136,9 @@ static int read_definitions(
         assert(dirs);
         assert(suffix);
 
-        r = conf_files_list_strv_full(suffix, arg_root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs, &files, &n_files);
+        r = conf_files_list_strv_full(suffix, arg_root,
+                                      CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
+                                      dirs, &files, &n_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate sysupdate.d/*%s definitions: %m", suffix);
 
@@ -209,7 +211,7 @@ static int context_read_definitions(Context *c, const char* node, bool requires_
         CLEANUP_ARRAY(files, n_files, conf_file_free_many);
 
         r = conf_files_list_strv_full(".feature", arg_root,
-                                      CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                      CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
                                       (const char**) dirs, &files, &n_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate sysupdate.d/*.feature definitions: %m");
@@ -1558,7 +1560,8 @@ static int verb_components(int argc, char **argv, void *userdata) {
 
         CLEANUP_ARRAY(directories, n_directories, conf_file_free_many);
 
-        r = conf_files_list_strv_full(".d", arg_root, CONF_FILES_DIRECTORY, (const char * const *) CONF_PATHS_STRV(""), &directories, &n_directories);
+        r = conf_files_list_strv_full(".d", arg_root, CONF_FILES_DIRECTORY|CONF_FILES_WARN,
+                                      (const char * const *) CONF_PATHS_STRV(""), &directories, &n_directories);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate directories: %m");
 

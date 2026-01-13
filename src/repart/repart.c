@@ -3375,7 +3375,7 @@ static int context_read_definitions(Context *context) {
                         &files,
                         ".conf",
                         context->definitions ? NULL : arg_root,
-                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
                         dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate *.conf files: %m");

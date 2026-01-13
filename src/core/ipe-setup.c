@@ -36,7 +36,7 @@ int ipe_setup(void) {
                         &policies,
                         ".p7b",
                         /* root= */ NULL,
-                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
                         CONF_PATHS_NULSTR("ipe"));
         if (r < 0)
                 return log_error_errno(r, "Failed to assemble list of IPE policies: %m");
