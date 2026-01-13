@@ -118,8 +118,7 @@ assert_1 --resolve-names=now
 assert_1 ./nosuchfile
 # Failed to parse rules file ./nosuchfile: No such file or directory
 assert_1 ./nosuchfile /dev/null
-# '/dev/null' is neither a regular file nor a directory: File descriptor in bad state
-assert_1 /dev/null
+assert_0 /dev/null
 
 rules_dir='etc/udev/rules.d'
 mkdir -p "${rules_dir}"

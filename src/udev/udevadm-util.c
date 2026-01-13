@@ -248,7 +248,11 @@ static int search_rules_file_in_conf_dirs(const char *s, const char *root, ConfF
                         return log_oom();
 
                 _cleanup_(conf_file_freep) ConfFile *c = NULL;
-                r = conf_file_new(path, root, CONF_FILES_REGULAR, &c);
+                r = conf_file_new(path, root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, &c);
+                if (r == -ERFKILL) {
+                        log_warning_errno(r, "File '%s%s' is a mask, ignoring.", empty_to_root(root), skip_leading_slash(path));
+                        return 1; /* Found masked file. */
+                }
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -278,7 +282,11 @@ static int search_rules_file(const char *s, const char *root, ConfFile ***files,
 
         /* If not found, or if it is a path, then chase it. */
         _cleanup_(conf_file_freep) ConfFile *c = NULL;
-        r = conf_file_new(s, root, CONF_FILES_REGULAR, &c);
+        r = conf_file_new(s, root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, &c);
+        if (r == -ERFKILL) {
+                log_warning_errno(r, "File '%s%s' is a mask, ignoring.", empty_to_root(root), skip_leading_slash(s));
+                return 0; /* Found masked file. */
+        }
         if (r >= 0) {
                 if (!GREEDY_REALLOC_APPEND(*files, *n_files, &c, 1))
                         return log_oom();
