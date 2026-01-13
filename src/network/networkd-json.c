@@ -253,17 +253,13 @@ int nexthops_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
 
 static int route_append_json(Route *route, bool serializing, sd_json_variant **array) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_free_ char *dst_str = NULL, *src_str = NULL;
+        _cleanup_free_ char *src_str = NULL;
         int r;
 
         assert(route);
         assert(array);
 
-        r = in_addr_to_string(route->family, &route->dst, &dst_str);
-        if (r < 0)
-                return r;
-
-        if (route->src_prefixlen > 0) {
+        if (route->src_prefixlen > 0 && in_addr_is_set(route->family, &route->src)) {
                 r = in_addr_to_string(route->family, &route->src, &src_str);
                 if (r < 0)
                         return r;
@@ -272,8 +268,7 @@ static int route_append_json(Route *route, bool serializing, sd_json_variant **a
         r = sd_json_buildo(
                         &v,
                         SD_JSON_BUILD_PAIR_INTEGER("Family", route->family),
-                        JSON_BUILD_PAIR_IN_ADDR("Destination", &route->dst, route->family),
-                        SD_JSON_BUILD_PAIR_STRING("DestinationString", dst_str),
+                        JSON_BUILD_PAIR_IN_ADDR_WITH_STRING("Destination", &route->dst, route->family),
                         SD_JSON_BUILD_PAIR_UNSIGNED("DestinationPrefixLength", route->dst_prefixlen),
                         JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL("Gateway", &route->nexthop.gw, route->nexthop.family),
                         SD_JSON_BUILD_PAIR_CONDITION(route->src_prefixlen > 0,

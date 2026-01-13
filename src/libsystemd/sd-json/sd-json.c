@@ -4741,7 +4741,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_array_bytes(&add_more, a->bytes, FAMILY_ADDRESS_SIZE(f));
+                                r = sd_json_variant_new_array_bytes(&add_more, a->bytes, FAMILY_ADDRESS_SIZE_SAFE(f));
                                 if (r < 0)
                                         goto finish;
                         }
@@ -4901,6 +4901,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         const char *n;
                         int f;
                         _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
+                        const char *addr_str_ptr = "";
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *string_key = NULL, *string_value = NULL;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
@@ -4912,10 +4913,14 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         a = va_arg(ap, const union in_addr_union *);
                         f = va_arg(ap, int);
 
-                        if (a && in_addr_is_set(f, a) && current->n_suppress == 0) {
-                                r = in_addr_to_string(f, a, &addr_str);
-                                if (r < 0)
-                                        goto finish;
+                        if (current->n_suppress == 0) {
+                                if (a && in_addr_is_set(f, a)) {
+                                        r = in_addr_to_string(f, a, &addr_str);
+                                        if (r < 0)
+                                                goto finish;
+
+                                        addr_str_ptr = addr_str;
+                                }
 
                                 /* Create string key name using asprintf to avoid stack allocation in loop */
                                 r = asprintf(&string_key_name, "%sString", n);
@@ -4928,7 +4933,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
 
                                 /* Add binary format value */
-                                r = sd_json_variant_new_array_bytes(&add_more, a->bytes, FAMILY_ADDRESS_SIZE(f));
+                                r = sd_json_variant_new_array_bytes(&add_more, a->bytes, FAMILY_ADDRESS_SIZE_SAFE(f));
                                 if (r < 0)
                                         goto finish;
 
@@ -4937,7 +4942,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_string(&string_value, addr_str);
+                                r = sd_json_variant_new_string(&string_value, addr_str_ptr);
                                 if (r < 0)
                                         goto finish;
 
@@ -4951,7 +4956,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 current->elements[current->n_elements++] = TAKE_PTR(string_value);
                         }
 
-                        n_subtract = 2; /* we generated two items from the main pair (binary key and value) */
+                        n_subtract = 4; /* we generated two pairs (binary and string) */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4961,6 +4966,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         const struct in6_addr *a;
                         const char *n;
                         _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
+                        const char *addr_str_ptr = "";
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *string_key = NULL, *string_value = NULL;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
@@ -4971,10 +4977,14 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         n = va_arg(ap, const char *);
                         a = va_arg(ap, const struct in6_addr *);
 
-                        if (a && in6_addr_is_set(a) && current->n_suppress == 0) {
-                                r = in6_addr_to_string(a, &addr_str);
-                                if (r < 0)
-                                        goto finish;
+                        if (current->n_suppress == 0) {
+                                if (a && in6_addr_is_set(a)) {
+                                        r = in6_addr_to_string(a, &addr_str);
+                                        if (r < 0)
+                                                goto finish;
+
+                                        addr_str_ptr = addr_str;
+                                }
 
                                 /* Create string key name using asprintf to avoid stack allocation in loop */
                                 r = asprintf(&string_key_name, "%sString", n);
@@ -4993,7 +5003,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_string(&string_value, addr_str);
+                                r = sd_json_variant_new_string(&string_value, addr_str_ptr);
                                 if (r < 0)
                                         goto finish;
 
@@ -5007,7 +5017,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 current->elements[current->n_elements++] = TAKE_PTR(string_value);
                         }
 
-                        n_subtract = 2; /* we generated two items from the main pair (binary key and value) */
+                        n_subtract = 4; /* we generated two pairs (binary and string) */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -5017,6 +5027,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         const struct in_addr *a;
                         const char *n;
                         _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
+                        const char *addr_str_ptr = "";
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *string_key = NULL, *string_value = NULL;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
@@ -5027,11 +5038,15 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         n = va_arg(ap, const char *);
                         a = va_arg(ap, const struct in_addr *);
 
-                        if (a && !in4_addr_is_null(a) && current->n_suppress == 0) {
-                                union in_addr_union addr_union = { .in = *a };
-                                r = in_addr_to_string(AF_INET, &addr_union, &addr_str);
-                                if (r < 0)
-                                        goto finish;
+                        if (current->n_suppress == 0) {
+                                if (a && !in4_addr_is_null(a)) {
+                                        union in_addr_union addr_union = { .in = *a };
+                                        r = in_addr_to_string(AF_INET, &addr_union, &addr_str);
+                                        if (r < 0)
+                                                goto finish;
+
+                                        addr_str_ptr = addr_str;
+                                }
 
                                 /* Create string key name using asprintf to avoid stack allocation in loop */
                                 r = asprintf(&string_key_name, "%sString", n);
@@ -5050,7 +5065,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_string(&string_value, addr_str);
+                                r = sd_json_variant_new_string(&string_value, addr_str_ptr);
                                 if (r < 0)
                                         goto finish;
 
@@ -5064,7 +5079,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 current->elements[current->n_elements++] = TAKE_PTR(string_value);
                         }
 
-                        n_subtract = 2; /* we generated two items from the main pair (binary key and value) */
+                        n_subtract = 4; /* we generated two pairs (binary and string) */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -5075,6 +5090,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         const char *n;
                         int f;
                         _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
+                        const char *addr_str_ptr = "";
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *string_key = NULL, *string_value = NULL;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
@@ -5091,6 +5107,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
+                                addr_str_ptr = addr_str;
+
                                 /* Create string key name using asprintf to avoid stack allocation in loop */
                                 r = asprintf(&string_key_name, "%sString", n);
                                 if (r < 0)
@@ -5102,7 +5120,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
 
                                 /* Add binary format value */
-                                r = sd_json_variant_new_array_bytes(&add_more, a->bytes, FAMILY_ADDRESS_SIZE(f));
+                                r = sd_json_variant_new_array_bytes(&add_more, a->bytes, FAMILY_ADDRESS_SIZE_SAFE(f));
                                 if (r < 0)
                                         goto finish;
 
@@ -5111,7 +5129,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_string(&string_value, addr_str);
+                                r = sd_json_variant_new_string(&string_value, addr_str_ptr);
                                 if (r < 0)
                                         goto finish;
 
@@ -5125,7 +5143,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 current->elements[current->n_elements++] = TAKE_PTR(string_value);
                         }
 
-                        n_subtract = 2; /* we generated two items from the main pair (binary key and value) */
+                        n_subtract = 4; /* we generated two pairs (binary and string) */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -5135,6 +5153,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         const struct in6_addr *a;
                         const char *n;
                         _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
+                        const char *addr_str_ptr = "";
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *string_key = NULL, *string_value = NULL;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
@@ -5149,6 +5168,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 r = in6_addr_to_string(a, &addr_str);
                                 if (r < 0)
                                         goto finish;
+
+                                addr_str_ptr = addr_str;
 
                                 /* Create string key name using asprintf to avoid stack allocation in loop */
                                 r = asprintf(&string_key_name, "%sString", n);
@@ -5167,7 +5188,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_string(&string_value, addr_str);
+                                r = sd_json_variant_new_string(&string_value, addr_str_ptr);
                                 if (r < 0)
                                         goto finish;
 
@@ -5181,7 +5202,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 current->elements[current->n_elements++] = TAKE_PTR(string_value);
                         }
 
-                        n_subtract = 2; /* we generated two items from the main pair (binary key and value) */
+                        n_subtract = 4; /* we generated two pairs (binary and string) */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -5191,6 +5212,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         const struct in_addr *a;
                         const char *n;
                         _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
+                        const char *addr_str_ptr = "";
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *string_key = NULL, *string_value = NULL;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
@@ -5206,6 +5228,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 r = in_addr_to_string(AF_INET, &addr_union, &addr_str);
                                 if (r < 0)
                                         goto finish;
+
+                                addr_str_ptr = addr_str;
 
                                 /* Create string key name using asprintf to avoid stack allocation in loop */
                                 r = asprintf(&string_key_name, "%sString", n);
@@ -5224,7 +5248,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_string(&string_value, addr_str);
+                                r = sd_json_variant_new_string(&string_value, addr_str_ptr);
                                 if (r < 0)
                                         goto finish;
 
@@ -5238,7 +5262,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 current->elements[current->n_elements++] = TAKE_PTR(string_value);
                         }
 
-                        n_subtract = 2; /* we generated two items from the main pair (binary key and value) */
+                        n_subtract = 4; /* we generated two pairs (binary and string) */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
