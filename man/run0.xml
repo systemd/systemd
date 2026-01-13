@@ -295,7 +295,7 @@
 
         <listitem><para>If specified, run0 will elevate the privileges of the selected user (using
         <option>--user=</option>) or the current user if no user is explicitly selected. Currently this means
-        we give the invoked process all available capabilities and add the the <literal>empower</literal>
+        we give the invoked process all available capabilities and add the <literal>empower</literal>
         group as a supplemental group (for which all polkit actions are allowed by default), but other
         privileges may be granted in the future as well when using this option.</para>
 
