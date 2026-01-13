@@ -368,9 +368,9 @@ static int files_add(
         assert(files);
         assert(masked);
 
-        root = strempty(root);
+        root = empty_to_root(root);
 
-        FOREACH_DIRENT(de, dir, return log_debug_errno(errno, "Failed to read directory '%s/%s': %m",
+        FOREACH_DIRENT(de, dir, return log_debug_errno(errno, "Failed to read directory '%s%s': %m",
                                                        root, skip_leading_slash(original_dirpath))) {
 
                 _cleanup_free_ char *original_path = path_join(original_dirpath, de->d_name);
@@ -379,19 +379,19 @@ static int files_add(
 
                 /* Does this match the suffix? */
                 if (suffix && !endswith(de->d_name, suffix)) {
-                        log_debug("Skipping file '%s/%s', suffix is not '%s'.", root, skip_leading_slash(original_path), suffix);
+                        log_debug("Skipping file '%s%s', suffix is not '%s'.", root, skip_leading_slash(original_path), suffix);
                         continue;
                 }
 
                 /* Has this file already been found in an earlier directory? */
                 if (hashmap_contains(*files, de->d_name)) {
-                        log_debug("Skipping overridden file '%s/%s'.", root, skip_leading_slash(original_path));
+                        log_debug("Skipping overridden file '%s%s'.", root, skip_leading_slash(original_path));
                         continue;
                 }
 
                 /* Has this been masked in an earlier directory? */
                 if ((flags & CONF_FILES_FILTER_MASKED) != 0 && set_contains(*masked, de->d_name)) {
-                        log_debug("File '%s/%s' is masked by previous entry.", root, skip_leading_slash(original_path));
+                        log_debug("File '%s%s' is masked by previous entry.", root, skip_leading_slash(original_path));
                         continue;
                 }
 
@@ -595,6 +595,8 @@ static int conf_files_list_impl(
         assert(rfd >= 0 || rfd == AT_FDCWD);
         assert(ret);
 
+        root = empty_to_root(root);
+
         if (replacement) {
                 r = conf_file_new_at(replacement, rfd, CHASE_NONEXISTENT, &c);
                 if (r < 0)
@@ -608,7 +610,8 @@ static int conf_files_list_impl(
                 r = chase_and_opendirat(rfd, *p, CHASE_AT_RESOLVE_IN_ROOT, &path, &dir);
                 if (r < 0) {
                         if (r != -ENOENT)
-                                log_debug_errno(r, "Failed to chase and open directory '%s/%s', ignoring: %m", strempty(root), skip_leading_slash(*p));
+                                log_debug_errno(r, "Failed to chase and open directory '%s%s', ignoring: %m",
+                                                root, skip_leading_slash(*p));
                         continue;
                 }
 
