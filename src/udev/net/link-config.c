@@ -9,12 +9,14 @@
 
 #include "alloc-util.h"
 #include "arphrd-util.h"
+#include "capability-util.h"
 #include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "creds-util.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
@@ -270,6 +272,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 .eee_enabled = -1,
                 .eee_tx_lpi_enabled = -1,
                 .eee_tx_lpi_timer_usec = USEC_INFINITY,
+                .irq_affinity_policy = _IRQ_AFFINITY_POLICY_INVALID,
         };
 
         FOREACH_ELEMENT(feature, config->features)
@@ -939,6 +942,97 @@ static int link_apply_sr_iov_config(Link *link) {
         return 0;
 }
 
+static int set_irq_affinity(Link *link, const char *irq, unsigned cpu) {
+        _cleanup_free_ char *affinity_path = NULL, *mask_str = NULL;
+        unsigned n_groups = cpu / 32;
+        int r;
+
+        affinity_path = path_join("/proc/irq/", irq, "smp_affinity");
+        if (!affinity_path)
+                return log_oom();
+
+        /* Convert CPU number to hex bitmask.
+         * For CPU N, set bit N (1 << N). CPUs are split by comma-separated
+         * 32-bits groups. To assign CPU 32, we should write 1,00000000 */
+
+        r = strextendf(&mask_str, "%x", 1U << (cpu % 32));
+        if (r < 0)
+                return log_oom();
+
+        for (unsigned i = 0; i < n_groups; i++) {
+                r = strextendf(&mask_str, ",00000000");
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = write_string_file(affinity_path, mask_str, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to set IRQ %s affinity to CPU %u: %m", irq, cpu);
+
+        log_link_debug(link, "Set IRQ %s affinity to CPU %u.", irq, cpu);
+
+        return 0;
+}
+
+static int link_apply_irq_affinity_single(Link *link, const char *msi_irqs_path) {
+        _cleanup_closedir_ DIR *dir = NULL;
+        unsigned target_cpu = 0;
+        int r;
+
+        r = device_opendir(link->event->dev, msi_irqs_path, &dir);
+        if (r < 0 && errno == ENOENT) {
+                log_link_debug(link, "No MSI IRQs found at %s, skipping IRQ affinity configuration.", msi_irqs_path);
+                return 0;
+        }
+        if (r < 0)
+                return log_oom();
+
+        FOREACH_DIRENT(de, dir, return log_link_error_errno(link, errno, "Failed to read directory %s: %m", msi_irqs_path)) {
+                r = set_irq_affinity(link, de->d_name, target_cpu);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        log_link_info(link, "Applied IRQ affinity policy 'single' (pinning to CPU %u).", target_cpu);
+        return 0;
+}
+
+static int link_apply_irq_affinity(Link *link) {
+        _cleanup_free_ char *msi_irqs_path = NULL;
+        _cleanup_closedir_ DIR *dir = NULL;
+        const char *syspath;
+        int r;
+
+        assert(link);
+        assert(link->config);
+        assert(ASSERT_PTR(link->event)->dev);
+
+        if (link->event->event_mode != EVENT_UDEV_WORKER) {
+                log_link_debug(link, "Running in test mode, skipping application of IRQ affinity settings.");
+                return 0;
+        }
+
+        if (link->config->irq_affinity_policy < 0)
+                return 0;
+
+        r = sd_device_get_syspath(link->event->dev, &syspath);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get syspath: %m");
+
+        msi_irqs_path = path_join(syspath, "device/msi_irqs");
+        if (!msi_irqs_path)
+                return log_oom();
+
+        switch (link->config->irq_affinity_policy) {
+        case IRQ_AFFINITY_POLICY_SINGLE:
+                return link_apply_irq_affinity_single(link, msi_irqs_path);
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
 static int link_apply_rps_cpu_mask(Link *link) {
         _cleanup_free_ char *mask_str = NULL;
         LinkConfig *config;
@@ -1065,6 +1159,10 @@ int link_apply_config(LinkConfigContext *ctx, Link *link) {
                 return r;
 
         r = link_apply_rps_cpu_mask(link);
+        if (r < 0)
+                return r;
+
+        r = link_apply_irq_affinity(link);
         if (r < 0)
                 return r;
 
@@ -1417,3 +1515,14 @@ DEFINE_CONFIG_PARSE_ENUMV(config_parse_name_policy, name_policy, NamePolicy,
 
 DEFINE_CONFIG_PARSE_ENUMV(config_parse_alternative_names_policy, alternative_names_policy, NamePolicy,
                           _NAMEPOLICY_INVALID);
+
+static const char* const irq_affinity_policy_table[_IRQ_AFFINITY_POLICY_MAX] = {
+        [IRQ_AFFINITY_POLICY_SINGLE] = "single",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(irq_affinity_policy, IRQAffinityPolicy);
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(
+        config_parse_irq_affinity_policy,
+        irq_affinity_policy,
+        IRQAffinityPolicy,
+        _IRQ_AFFINITY_POLICY_INVALID);
