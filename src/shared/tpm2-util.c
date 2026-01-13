@@ -5441,6 +5441,11 @@ int tpm2_seal(Tpm2Context *c,
                                                seal_key_handle);
 
                 primary_alg = primary_public->publicArea.type;
+
+                /* check sealing key and set object's attributes if needed */
+                if (!(primary_public->publicArea.objectAttributes & TPMA_OBJECT_FIXEDTPM)) 
+                        hmac_template.objectAttributes = 0;   
+
         } else {
                 if (seal_key_handle != 0)
                         log_debug("Using primary alg sealing, but seal key handle also provided; ignoring seal key handle.");
