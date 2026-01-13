@@ -256,7 +256,7 @@ static int search_rules_file_in_conf_dirs(const char *s, const char *root, ConfF
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
-                        return log_error_errno(r, "Failed to chase \"%s\": %m", path);
+                        return log_error_errno(r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(path));
 
                 if (!GREEDY_REALLOC_APPEND(*files, *n_files, &c, 1))
                         return log_oom();
@@ -296,7 +296,7 @@ static int search_rules_file(const char *s, const char *root, ConfFile ***files,
         }
 
         if (r != -EISDIR)
-                return log_error_errno(r, "Failed to chase \"%s\": %m", s);
+                return log_error_errno(r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(s));
 
         /* If a directory is specified, then find all rules file in the directory. */
         ConfFile **f = NULL;
@@ -306,7 +306,7 @@ static int search_rules_file(const char *s, const char *root, ConfFile ***files,
 
         r = conf_files_list_strv_full(".rules", root, CONF_FILES_REGULAR, (const char* const*) STRV_MAKE_CONST(s), &f, &n);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate rules files in '%s': %m", s);
+                return log_error_errno(r, "Failed to enumerate rules files in '%s%s': %m", empty_to_root(root), skip_leading_slash(s));
 
         if (!GREEDY_REALLOC_APPEND(*files, *n_files, f, n))
                 return log_oom();
