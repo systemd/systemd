@@ -33,4 +33,6 @@ int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret);
 
 int numa_mask_add_all(CPUSet *mask);
 
+int numa_get_node_from_cpu(unsigned cpu, unsigned *ret);
+
 DECLARE_STRING_TABLE_LOOKUP(mpol, int);
