@@ -24,6 +24,7 @@ typedef enum MACAddressPolicy {
 
 typedef enum IRQAffinityPolicy {
         IRQ_AFFINITY_POLICY_SINGLE,
+        IRQ_AFFINITY_POLICY_SPREAD,
         _IRQ_AFFINITY_POLICY_MAX,
         _IRQ_AFFINITY_POLICY_INVALID = -EINVAL,
 } IRQAffinityPolicy;
@@ -146,7 +147,6 @@ int link_apply_config(LinkConfigContext *ctx, Link *link);
 
 DECLARE_STRING_TABLE_LOOKUP(mac_address_policy, MACAddressPolicy);
 DECLARE_STRING_TABLE_LOOKUP(irq_affinity_policy, IRQAffinityPolicy);
-DECLARE_STRING_TABLE_LOOKUP(mac_address_policy, MACAddressPolicy);
 
 /* gperf lookup function */
 const struct ConfigPerfItem* link_config_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
