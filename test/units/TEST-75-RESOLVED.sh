@@ -1482,6 +1482,64 @@ EOF
     grep -qF "1.2.3.4" "$RUN_OUT"
 }
 
+testcase_dns_server_policy() {
+    # Test that DNSServerPolicy is displayed in resolvectl status
+
+    # Cleanup - follows same pattern as other tests in this file
+    # shellcheck disable=SC2317
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/90-dns-server-policy.conf
+        rm -f /run/systemd/network/10-dns0.network.d/dns-server-policy.conf
+        networkctl reload
+        systemctl reload systemd-resolved.service
+    }
+
+    trap cleanup RETURN
+
+    # Test 1: Default policy should be "adaptive"
+    run resolvectl status
+    grep -qF "DNS Server Policy" "$RUN_OUT"
+    grep -qF "adaptive" "$RUN_OUT"
+
+    # Test 2: Set global policy to sequential
+    mkdir -p /run/systemd/resolved.conf.d
+    cat >/run/systemd/resolved.conf.d/90-dns-server-policy.conf <<EOF
+[Resolve]
+DNSServerPolicy=sequential
+EOF
+    systemctl reload systemd-resolved.service
+
+    run resolvectl status
+    grep -qF "DNS Server Policy" "$RUN_OUT"
+    # Global section should show sequential
+    grep -qE "DNS Server Policy:.*sequential" "$RUN_OUT"
+
+    # Test 3: Per-link override
+    mkdir -p /run/systemd/network/10-dns0.network.d
+    cat >/run/systemd/network/10-dns0.network.d/dns-server-policy.conf <<EOF
+[Network]
+DNSServerPolicy=adaptive
+EOF
+    networkctl reload
+    sleep 1
+
+    run resolvectl status dns0
+    grep -qF "DNS Server Policy" "$RUN_OUT"
+    # Link should show adaptive (override)
+    grep -qE "DNS Server Policy:.*adaptive" "$RUN_OUT"
+
+    # Cleanup config files before restart_resolved to avoid issues.
+    # Other tests follow this same pattern: remove config, then restart.
+    rm -f /run/systemd/resolved.conf.d/90-dns-server-policy.conf
+    rm -f /run/systemd/network/10-dns0.network.d/dns-server-policy.conf
+    networkctl reload
+    systemctl reload systemd-resolved.service
+    sleep 1
+
+    # Check if resolved exits cleanly.
+    restart_resolved
+}
+
 # PRE-SETUP
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service
