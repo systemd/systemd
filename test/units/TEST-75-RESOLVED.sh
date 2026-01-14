@@ -1485,22 +1485,22 @@ EOF
 testcase_dns_server_policy() {
     # Test that DNSServerPolicy is displayed in resolvectl status
 
-    # Cleanup
+    # Cleanup - follows same pattern as other tests in this file
     # shellcheck disable=SC2317
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-dns-server-policy.conf
         rm -f /run/systemd/network/10-dns0.network.d/dns-server-policy.conf
-        systemctl reload systemd-resolved.service
+        rmdir /run/systemd/network/10-dns0.network.d 2>/dev/null || true
         networkctl reload
-        sleep 1
+        systemctl reload systemd-resolved.service
+        resolvectl revert dns0
     }
 
     trap cleanup RETURN
 
     # Test 1: Default policy should be "adaptive"
     run resolvectl status
-    grep -qF "DNS Server Policy" "$RUN_OUT"
-    grep -qF "adaptive" "$RUN_OUT"
+    grep -qE "DNS Server Policy:.*adaptive" "$RUN_OUT"
 
     # Test 2: Set global policy to sequential
     mkdir -p /run/systemd/resolved.conf.d
@@ -1511,7 +1511,6 @@ EOF
     systemctl reload systemd-resolved.service
 
     run resolvectl status
-    grep -qF "DNS Server Policy" "$RUN_OUT"
     # Global section should show sequential
     grep -qE "DNS Server Policy:.*sequential" "$RUN_OUT"
 
@@ -1522,21 +1521,12 @@ EOF
 DNSServerPolicy=adaptive
 EOF
     networkctl reload
-    sleep 1
+    networkctl reconfigure dns0
+    /usr/lib/systemd/systemd-networkd-wait-online --timeout=60 --interface=dns0:routable
 
     run resolvectl status dns0
-    grep -qF "DNS Server Policy" "$RUN_OUT"
     # Link should show adaptive (override)
     grep -qE "DNS Server Policy:.*adaptive" "$RUN_OUT"
-
-    # Cleanup config files before restart_resolved to avoid issues
-    rm -f /run/systemd/resolved.conf.d/90-dns-server-policy.conf
-    rm -f /run/systemd/network/10-dns0.network.d/dns-server-policy.conf
-    networkctl reload
-    sleep 1
-
-    # Check if resolved exits cleanly.
-    restart_resolved
 }
 
 # PRE-SETUP
