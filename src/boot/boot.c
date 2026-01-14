@@ -127,7 +127,8 @@ typedef struct {
         size_t n_entries;
         size_t idx_default;
         size_t idx_default_efivar;
-        uint64_t timeout_sec; /* Actual timeout used (efi_main() override > efivar > config). */
+        uint64_t timeout_sec; /* Actual timeout used (efi_main() override > smbios > efivar > config). */
+        uint64_t timeout_sec_smbios;
         uint64_t timeout_sec_config;
         uint64_t timeout_sec_efivar;
         char16_t *entry_default_config;
@@ -322,6 +323,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
 
         print_timeout_status("              timeout (config)", config->timeout_sec_config);
         print_timeout_status("             timeout (EFI var)", config->timeout_sec_efivar);
+        print_timeout_status("              timeout (smbios)", config->timeout_sec_smbios);
 
         if (config->entry_default_config)
                 printf("              default (config): %ls\n", config->entry_default_config);
@@ -1005,6 +1007,42 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(BootEntry *, boot_entry_free);
 
+static int config_timeout_sec_from_string(const char *value, uint64_t *dst) {
+        if (streq8(value, "menu-disabled"))
+                *dst = TIMEOUT_MENU_DISABLED;
+        else if (streq8(value, "menu-force"))
+                *dst = TIMEOUT_MENU_DISABLED;
+        else if (streq8(value, "menu-hidden"))
+                *dst = TIMEOUT_MENU_DISABLED;
+        else {
+                uint64_t u;
+                if (!parse_number8(value, &u, NULL) || u > TIMEOUT_TYPE_MAX) {
+                        return -EINVAL;
+                }
+                *dst = u;
+        }
+        return 0;
+}
+
+static void config_timeout_load_from_smbios(Config *config) {
+        int r;
+
+        if (is_confidential_vm())
+                return; /* Don't consume SMBIOS in Confidential Computing contexts */
+
+        const char *value = smbios_find_oem_string("io.systemd.boot.timeout=", /* after= */ NULL);
+        if (!value)
+                return;
+
+        r = config_timeout_sec_from_string(value, &config->timeout_sec_smbios);
+        if (r != 0) {
+                log_error("Error parsing 'timeout' smbios option, ignoring: %s",
+                          value);
+                return;
+        }
+        config->timeout_sec = config->timeout_sec_smbios;
+}
+
 static void config_defaults_load_from_file(Config *config, char *content) {
         char *line;
         size_t pos = 0;
@@ -1017,20 +1055,11 @@ static void config_defaults_load_from_file(Config *config, char *content) {
          * shared/bootspec.c@boot_loader_read_conf() to make parsing by bootctl/logind/etc. work. */
         while ((line = line_get_key_value(content, " \t", &pos, &key, &value)))
                 if (streq8(key, "timeout")) {
-                        if (streq8(value, "menu-disabled"))
-                                config->timeout_sec_config = TIMEOUT_MENU_DISABLED;
-                        else if (streq8(value, "menu-force"))
-                                config->timeout_sec_config = TIMEOUT_MENU_FORCE;
-                        else if (streq8(value, "menu-hidden"))
-                                config->timeout_sec_config = TIMEOUT_MENU_HIDDEN;
-                        else {
-                                uint64_t u;
-                                if (!parse_number8(value, &u, NULL) || u > TIMEOUT_TYPE_MAX) {
-                                        log_error("Error parsing 'timeout' config option, ignoring: %s",
-                                                  value);
-                                        continue;
-                                }
-                                config->timeout_sec_config = u;
+                        int r = config_timeout_sec_from_string(value, &config->timeout_sec_config);
+                        if (r != 0) {
+                                log_error("Error parsing 'timeout' config option, ignoring: %s",
+                                          value);
+                                continue;
                         }
                         config->timeout_sec = config->timeout_sec_config;
 
@@ -1495,6 +1524,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .console_mode_efivar = CONSOLE_MODE_KEEP,
                 .timeout_sec_config = TIMEOUT_UNSET,
                 .timeout_sec_efivar = TIMEOUT_UNSET,
+                .timeout_sec_smbios = TIMEOUT_UNSET,
         };
 
         err = file_read(root_dir, u"\\loader\\loader.conf", 0, 0, &content, &content_size);
@@ -1519,6 +1549,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 config->timeout_sec = config->timeout_sec_efivar;
         else if (err != EFI_NOT_FOUND)
                 log_warning_status(err, "Error reading LoaderConfigTimeout EFI variable, ignoring: %m");
+        config_timeout_load_from_smbios(config);
 
         err = efivar_get_timeout(u"LoaderConfigTimeoutOneShot", &config->timeout_sec);
         if (err == EFI_SUCCESS) {
