@@ -317,7 +317,7 @@
           <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
           <para>Defaults to true. (Note that this is unlike the option of the same name to
-          <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           that defaults to false.)</para>
 
           <xi:include href="version-info.xml" xpointer="v258"/></listitem>
