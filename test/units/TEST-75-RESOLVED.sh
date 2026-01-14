@@ -1491,6 +1491,7 @@ testcase_dns_server_policy() {
         rm -f /run/systemd/resolved.conf.d/90-dns-server-policy.conf
         rm -f /run/systemd/network/10-dns0.network.d/dns-server-policy.conf
         networkctl reload
+        systemctl reload systemd-resolved.service
     }
 
     trap cleanup RETURN
@@ -1532,6 +1533,7 @@ EOF
     rm -f /run/systemd/resolved.conf.d/90-dns-server-policy.conf
     rm -f /run/systemd/network/10-dns0.network.d/dns-server-policy.conf
     networkctl reload
+    systemctl reload systemd-resolved.service
     sleep 1
 
     # Check if resolved exits cleanly.
