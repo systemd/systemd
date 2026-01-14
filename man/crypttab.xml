@@ -1012,6 +1012,24 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>x-keyhash-sha256=</option></term>
+
+        <listitem><para>Pin the expected hash of the volume key.</para>
+
+        <para>In certain cases, e.g. for LUKS volumes where the key is sealed to the TPM2,
+        it may be required to provide a guarantee that the volume being attached in non-interactive
+        mode is the volume which was previously created. <option>x-keyhash-sha256=</option>can
+        be used to set the expected volume key hash and refuse to attach the volume if it has
+        a different one.</para>
+
+        <para>The expected hash matches the digest which is measured to the sha265 PCR bank of the
+        TPM2 when <option>tpm2-measure-pcr=</option> is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>At early boot and when the system manager configuration is
