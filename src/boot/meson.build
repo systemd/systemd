@@ -321,6 +321,7 @@ libefi_sources = files(
         'graphics.c',
         'initrd.c',
         'measure.c',
+        'palette.c',
         'part-discovery.c',
         'pe.c',
         'random-seed.c',

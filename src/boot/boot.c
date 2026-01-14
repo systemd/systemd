@@ -18,6 +18,7 @@
 #include "measure.h"
 #include "memory-util-fundamental.h"
 #include "part-discovery.h"
+#include "palette.h"
 #include "pe.h"
 #include "proto/block-io.h"
 #include "proto/disk-io.h"
@@ -104,6 +105,9 @@ static const char *reboot_on_error_table[_REBOOT_ON_ERROR_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(reboot_on_error, RebootOnError);
 
+#define CONFIG_PALETTE(config, type) ((config)->efi_palettes[(EFI_PALETTE_##type)])
+#define CONFIG_COLOR(config, type, color) (CONFIG_PALETTE(config, type)[(EFI_PALETTE_COLORS_##color)])
+
 typedef struct BootEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry, possibly suffixed with a profile id) */
         char16_t *id_without_profile; /* same, but without any profile id suffixed */
@@ -165,6 +169,7 @@ typedef struct {
         bool sysfail_occurred;
         int64_t console_mode;
         int64_t console_mode_efivar;
+        EfiPalettes efi_palettes;
 } Config;
 
 /* These values have been chosen so that the transitions the user sees could employ unsigned over-/underflow
@@ -304,7 +309,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
 
         assert(config);
 
-        clear_screen(COLOR_NORMAL);
+        clear_screen(CONFIG_COLOR(config, NORMAL, TEXT));
         console_query_mode(&x_max, &y_max);
         query_screen_resolution(&screen_width, &screen_height);
 
@@ -386,6 +391,21 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                 printf("        console-mode (EFI var): %" PRIi64 "\n", config->console_mode_efivar);
 
         printf("                     log-level: %s\n", log_level_to_string(log_get_max_level()));
+
+        for (size_t i = 0; i < _EFI_PALETTE_TYPE_MAX; i++) {
+                const char *name = efi_color_to_string(i);
+                for (size_t j = strlen8(name); j < 18; j++)
+                        printf(" ");
+                printf("efi-palette-%s: ", name);
+                for (size_t j = 0; j < _EFI_PALETTE_COLORS_MAX; j++) {
+                        if (j > 0)
+                                printf(", ");
+                        size_t color = config->efi_palettes[i][j];
+                        printf("%s, %s", efi_color_to_string(EFI_TEXT_ATTR_FG(color)),
+                               efi_color_to_string(EFI_TEXT_ATTR_BG(color)));
+                }
+                printf("\n");
+        }
 
         if (!ps_continue())
                 return;
@@ -524,7 +544,7 @@ static bool menu_run(
         err = console_set_mode(config->console_mode_efivar != CONSOLE_MODE_KEEP ?
                                config->console_mode_efivar : config->console_mode);
         if (err != EFI_SUCCESS) {
-                clear_screen(COLOR_NORMAL);
+                clear_screen(CONFIG_COLOR(config, NORMAL, TEXT));
                 log_error_status(err, "Error switching console mode: %m");
         }
 
@@ -610,7 +630,7 @@ static bool menu_run(
                 }
 
                 if (clear) {
-                        clear_screen(COLOR_NORMAL);
+                        clear_screen(CONFIG_COLOR(config, NORMAL, TEXT));
                         clear = false;
                         refresh = true;
                 }
@@ -618,27 +638,27 @@ static bool menu_run(
                 if (refresh) {
                         for (size_t i = idx_first; i <= idx_last && i < config->n_entries; i++) {
                                 print_at(x_start, y_start + i - idx_first,
-                                         i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
+                                         i == idx_highlight ? CONFIG_COLOR(config, ENTRY, CURSOR) : CONFIG_COLOR(config, ENTRY, TEXT),
                                          lines[i]);
                                 if (i == config->idx_default_efivar)
                                         print_at(x_start,
                                                  y_start + i - idx_first,
-                                                 i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
+                                                 i == idx_highlight ? CONFIG_COLOR(config, ENTRY, CURSOR) : CONFIG_COLOR(config, ENTRY, TEXT),
                                                  unicode_supported() ? u" ►" : u"=>");
                         }
                         refresh = false;
                 } else if (highlight) {
-                        print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, lines[idx_highlight_prev]);
-                        print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
+                        print_at(x_start, y_start + idx_highlight_prev - idx_first, CONFIG_COLOR(config, ENTRY, TEXT), lines[idx_highlight_prev]);
+                        print_at(x_start, y_start + idx_highlight - idx_first, CONFIG_COLOR(config, ENTRY, CURSOR), lines[idx_highlight]);
                         if (idx_highlight_prev == config->idx_default_efivar)
                                 print_at(x_start,
                                          y_start + idx_highlight_prev - idx_first,
-                                         COLOR_ENTRY,
+                                         CONFIG_COLOR(config, ENTRY, TEXT),
                                          unicode_supported() ? u" ►" : u"=>");
                         if (idx_highlight == config->idx_default_efivar)
                                 print_at(x_start,
                                          y_start + idx_highlight - idx_first,
-                                         COLOR_HIGHLIGHT,
+                                         CONFIG_COLOR(config, ENTRY, CURSOR),
                                          unicode_supported() ? u" ►" : u"=>");
                         highlight = false;
                 }
@@ -656,16 +676,16 @@ static bool menu_run(
                         size_t len = strnlen16(status, x_max - 1);
                         size_t x = (x_max - len) / 2;
                         status[len] = '\0';
-                        print_at(0, y_status, COLOR_NORMAL, clearline + x_max - x);
+                        print_at(0, y_status, CONFIG_COLOR(config, NORMAL, TEXT), clearline + x_max - x);
                         ST->ConOut->OutputString(ST->ConOut, status);
                         ST->ConOut->OutputString(ST->ConOut, clearline + 1 + x + len);
 
                         len = MIN(MAX(len, line_width) + 2 * entry_padding, x_max);
                         x = (x_max - len) / 2;
-                        print_at(x, y_status - 1, COLOR_NORMAL, separator + x_max - len);
+                        print_at(x, y_status - 1, CONFIG_COLOR(config, NORMAL, TEXT), separator + x_max - len);
                 } else {
-                        print_at(0, y_status - 1, COLOR_NORMAL, clearline);
-                        print_at(0, y_status, COLOR_NORMAL, clearline + 1); /* See comment above. */
+                        print_at(0, y_status - 1, CONFIG_COLOR(config, NORMAL, TEXT), clearline);
+                        print_at(0, y_status, CONFIG_COLOR(config, NORMAL, TEXT), clearline + 1); /* See comment above. */
                 }
 
                 /* Beep several times so that the selected entry can be distinguished. */
@@ -849,10 +869,10 @@ static bool menu_run(
                          * causing a scroll to happen that screws with our beautiful boot loader output.
                          * Since we cannot paint the last character of the edit line, we simply start
                          * at x-offset 1 for symmetry. */
-                        print_at(1, y_status, COLOR_EDIT, clearline + 2);
-                        if (line_edit(&config->entries[idx_highlight]->options, x_max - 2, y_status))
+                        print_at(1, y_status, CONFIG_COLOR(config, EDIT, TEXT), clearline + 2);
+                        if (line_edit(&config->entries[idx_highlight]->options, x_max - 2, y_status, &CONFIG_PALETTE(config, EDIT)))
                                 action = ACTION_RUN;
-                        print_at(1, y_status, COLOR_NORMAL, clearline + 2);
+                        print_at(1, y_status, CONFIG_COLOR(config, NORMAL, TEXT), clearline + 2);
 
                         /* The options string was now edited, hence we have to pass it to the invoked
                          * binary. */
@@ -1012,7 +1032,7 @@ static bool menu_run(
         }
 
         *chosen_entry = config->entries[idx_highlight];
-        clear_screen(COLOR_NORMAL);
+        clear_screen(CONFIG_COLOR(config, NORMAL, TEXT));
         return action == ACTION_RUN;
 }
 
@@ -1220,6 +1240,14 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                 } else if (streq8(key, "log-level")) {
                         if (log_set_max_level_from_string(value) < 0)
                                 log_warning("Error parsing 'log-level' config option, ignoring: %s", value);
+                } else {
+                        const char *palete_string = startswith8(key, "efi-palette-");
+                        if (!palete_string)
+                                continue;
+                        EfiPaletteType palette_type = efi_palette_type_from_string(palete_string);
+                        if (palette_type < 0)
+                                continue;
+                        parse_palette(palette_type, value, &config->efi_palettes[palette_type]);
                 }
 }
 
@@ -1585,6 +1613,8 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .timeout_sec_efivar = TIMEOUT_UNSET,
                 .timeout_sec_smbios = TIMEOUT_UNSET,
         };
+
+        init_palettes(&config->efi_palettes);
 
         err = file_read(root_dir, u"\\loader\\loader.conf", 0, 0, &content, &content_size);
         if (err == EFI_SUCCESS) {
