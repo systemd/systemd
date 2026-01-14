@@ -638,6 +638,78 @@ TEST(line_get_key_value) {
         }
 }
 
+TEST(parse_array) {
+        char s1[] = "a,b, c ,\td,e\t,f";
+        char s2[] = " 1,2,3,";
+        char s3[] = "x,y,z  ,  ";
+        char s4[] = ",";
+        char s5[] = "_,,__,,___,";
+        char s6[] = " this \t also\t\t\tworks with\t\twhitespaces";
+        char s7[] = "X \t Y   Z\t \t ";
+        size_t pos = 0;
+
+        ASSERT_NULL(parse_array((char[]){ "" }, ",", &pos));
+        ASSERT_NULL(parse_array((char[]){ "\t" }, " \t", &pos));
+        ASSERT_NULL(parse_array((char[]){ " \t \t" }, " \t", &pos));
+
+        pos = 0;
+        ASSERT_TRUE(streq8(parse_array(s1, ",", &pos), "a"));
+        ASSERT_TRUE(streq8(parse_array(s1, ",", &pos), "b"));
+        ASSERT_TRUE(streq8(parse_array(s1, ",", &pos), "c"));
+        ASSERT_TRUE(streq8(parse_array(s1, ",", &pos), "d"));
+        ASSERT_TRUE(streq8(parse_array(s1, ",", &pos), "e"));
+        ASSERT_TRUE(streq8(parse_array(s1, ",", &pos), "f"));
+        ASSERT_NULL(parse_array(s1, ",", &pos));
+
+        pos = 0;
+        ASSERT_TRUE(streq8(parse_array(s2, ",", &pos), "1"));
+        ASSERT_TRUE(streq8(parse_array(s2, ",", &pos), "2"));
+        ASSERT_TRUE(streq8(parse_array(s2, ",", &pos), "3"));
+        ASSERT_NULL(parse_array(s2, ",", &pos));
+
+        pos = 0;
+        ASSERT_TRUE(streq8(parse_array(s3, ",", &pos), "x"));
+        ASSERT_TRUE(streq8(parse_array(s3, ",", &pos), "y"));
+        ASSERT_TRUE(streq8(parse_array(s3, ",", &pos), "z"));
+        ASSERT_NULL(parse_array(s3, ",", &pos));
+
+        /* empty values are allowed when the separator is not whitespace */
+        pos = 0;
+        ASSERT_TRUE(streq8(parse_array(s4, ",", &pos), ""));
+        ASSERT_NULL(parse_array(s4, ",", &pos));
+
+        /* empty values are allowed when the separator is not whitespace */
+        pos = 0;
+        ASSERT_TRUE(streq8(parse_array(s5, ",", &pos), "_"));
+        ASSERT_TRUE(streq8(parse_array(s5, ",", &pos), ""));
+        ASSERT_TRUE(streq8(parse_array(s5, ",", &pos), "__"));
+        ASSERT_TRUE(streq8(parse_array(s5, ",", &pos), ""));
+        ASSERT_TRUE(streq8(parse_array(s5, ",", &pos), "___"));
+        ASSERT_NULL(parse_array(s5, ",", &pos));
+        /* it is possible to keep using the function */
+        ASSERT_NULL(parse_array(s5, ",", &pos));
+        ASSERT_NULL(parse_array(s5, ",", &pos));
+
+        /* empty values are not allowed when the separator is whitespace */
+        pos = 0;
+        ASSERT_TRUE(streq8(parse_array(s6, " \t", &pos), "this"));
+        ASSERT_TRUE(streq8(parse_array(s6, " \t", &pos), "also"));
+        ASSERT_TRUE(streq8(parse_array(s6, " \t", &pos), "works"));
+        ASSERT_TRUE(streq8(parse_array(s6, " \t", &pos), "with"));
+        ASSERT_TRUE(streq8(parse_array(s6, " \t", &pos), "whitespaces"));
+        ASSERT_NULL(parse_array(s6, " \t", &pos));
+
+        /* empty values are not allowed when the separator is whitespace */
+        pos = 0;
+        ASSERT_TRUE(streq8(parse_array(s7, " \t", &pos), "X"));
+        ASSERT_TRUE(streq8(parse_array(s7, " \t", &pos), "Y"));
+        ASSERT_TRUE(streq8(parse_array(s7, " \t", &pos), "Z"));
+        ASSERT_NULL(parse_array(s7, " \t", &pos));
+        /* it is possible to keep using the function */
+        ASSERT_NULL(parse_array(s7, " \t", &pos));
+        ASSERT_NULL(parse_array(s7, " \t", &pos));
+}
+
 TEST(hexdump) {
         char16_t *hex;
 
