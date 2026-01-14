@@ -471,9 +471,6 @@ char* line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, 
                 if (linelen == 0)
                         continue;
 
-                /* terminate line */
-                line[linelen] = '\0';
-
                 /* remove leading whitespace */
                 while (linelen > 0 && strchr8(" \t", *line)) {
                         line++;
@@ -485,6 +482,7 @@ char* line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, 
                         linelen--;
                 line[linelen] = '\0';
 
+                /* terminate line */
                 if (*line == '#')
                         continue;
 
@@ -509,6 +507,46 @@ char* line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, 
                 *ret_value = value;
                 return line;
         }
+}
+
+/* This function parses an array separated by any character in sep.
+ * The values of the array are trimmed of whitespaces.
+ * A trailling separator will be ignored. */
+char* parse_array(char *s, const char *sep, size_t *pos) {
+        char *entry;
+        size_t entrylen;
+
+        assert(s);
+        assert(sep);
+        assert(pos);
+
+        entry = s + *pos;
+
+        if (*entry == '\0')
+                return NULL;
+
+        entrylen = 0;
+        while (entry[entrylen] && !strchr8(sep, entry[entrylen]))
+                entrylen++;
+
+        /* move pos to next array element */
+        *pos += entrylen;
+        if (s[*pos])
+                (*pos)++;
+
+        /* remove leading whitespace */
+        while (entrylen > 0 && strchr8(" \t", *entry)) {
+                entry++;
+                entrylen--;
+        }
+
+        /* remove trailing whitespace */
+        while (entrylen > 0 && strchr8(" \t", entry[entrylen - 1]))
+                entrylen--;
+
+        entry[entrylen] = '\0';
+
+        return entry;
 }
 
 char16_t *hexdump(const void *data, size_t size) {
