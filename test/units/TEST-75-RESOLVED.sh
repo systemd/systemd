@@ -70,7 +70,12 @@ restart_resolved() {
     # Reset the restart counter since we call this method a bunch of times
     # and can occasionally hit the default rate limit
     systemctl reset-failed systemd-resolved.service
-    systemctl start systemd-resolved-monitor.socket systemd-resolved-varlink.socket
+    if ! systemctl start systemd-resolved-monitor.socket systemd-resolved-varlink.socket; then
+        echo "Failed to start resolved sockets. Diagnostic info:"
+        systemctl status systemd-resolved-monitor.socket systemd-resolved-varlink.socket || true
+        journalctl -u systemd-resolved-monitor.socket -u systemd-resolved-varlink.socket -n 50 --no-pager || true
+        return 1
+    fi
     systemctl start systemd-resolved.service
 }
 
