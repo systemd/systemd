@@ -9,7 +9,14 @@ libefitest = static_library(
                 'bcd.c',
                 'chid.c',
                 'efi-string.c',
+                'palette.c',
         ),
+        c_args : [
+                '-DCOLOR_NORMAL=EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLACK)',
+                '-DCOLOR_ENTRY=EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLACK)',
+                '-DCOLOR_HIGHLIGHT=EFI_TEXT_ATTR(EFI_BLACK, EFI_LIGHTGRAY)',
+                '-DCOLOR_EDIT=EFI_TEXT_ATTR(EFI_BLACK, EFI_LIGHTGRAY)',
+        ],
         build_by_default : false,
         include_directories : [
                 basic_includes,
@@ -59,8 +66,19 @@ executables += [
                             test_hwids_section_c,
                 'conditions' : ['ENABLE_BOOTLOADER', 'ENABLE_UKIFY'],
         },
+        efi_test_template + {
+                'sources' : files('test-palette.c'),
+                'conditions' : ['ENABLE_BOOTLOADER'],
+                'include_directories' : includes + [
+                        # needed for efi.h
+                        include_directories('.'),
+                ],
+        },
         efi_fuzz_template + {
                 'sources' : files('fuzz-bcd.c'),
+        },
+        efi_fuzz_template + {
+                'sources' : files('fuzz-efi-array.c'),
         },
         efi_fuzz_template + {
                 'sources' : files('fuzz-efi-string.c'),
@@ -323,6 +341,7 @@ libefi_sources = files(
         'hii.c',
         'initrd.c',
         'measure.c',
+        'palette.c',
         'part-discovery.c',
         'pe.c',
         'random-seed.c',
