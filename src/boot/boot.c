@@ -13,6 +13,7 @@
 #include "export-vars.h"
 #include "graphics.h"
 #include "initrd.h"
+#include "iovec-util-fundamental.h"
 #include "line-edit.h"
 #include "measure.h"
 #include "memory-util-fundamental.h"
@@ -2690,7 +2691,7 @@ static EFI_STATUS call_image_start(
                                 return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
                 }
 
-                err = initrd_register(PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr), initrd_size, &initrd_handle);
+                err = initrd_register(&IOVEC_MAKE(PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr), initrd_size), &initrd_handle);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Error registering initrd: %m");
         }
