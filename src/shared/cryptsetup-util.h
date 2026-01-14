@@ -66,6 +66,8 @@ int cryptsetup_set_minimal_pbkdf(struct crypt_device *cd);
 
 int cryptsetup_get_token_as_json(struct crypt_device *cd, int idx, const char *verify_type, sd_json_variant **ret);
 int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v);
+int cryptsetup_get_key_hash_sha256(struct crypt_device *cd, const char *volume_name, const void *volume_key,
+                                   size_t volume_key_size, char **ret);
 #endif
 
 int dlopen_cryptsetup(void);
