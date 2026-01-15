@@ -2412,27 +2412,34 @@ static int create_symlink(Context *c, Item *i) {
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
                                        "Cannot open path '%s' for creating symlink, is a directory.", i->path);
 
-        if (arg_dry_run) {
-                log_info("Would create symlink %s -> %s", i->path, i->argument);
-                return 0;
-        }
-
         pfd = path_open_parent_safe(i->path, i->allow_failure);
         if (pfd < 0)
                 return pfd;
 
-        mac_selinux_create_file_prepare(i->path, S_IFLNK);
-        r = RET_NERRNO(symlinkat(i->argument, pfd, bn));
-        mac_selinux_create_file_clear();
+        if (arg_dry_run) {
+                fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                if (fd < 0) {
+                        if (errno == ENOENT) {
+                                log_info("Would create symlink %s -> %s", i->path, i->argument);
+                                return 0;
+                        } else
+                                return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
+                } else
+                        creation = CREATION_EXISTING;
+        } else {
+                mac_selinux_create_file_prepare(i->path, S_IFLNK);
+                r = RET_NERRNO(symlinkat(i->argument, pfd, bn));
+                mac_selinux_create_file_clear();
 
-        creation = r >= 0 ? CREATION_NORMAL : CREATION_EXISTING;
+                creation = r >= 0 ? CREATION_NORMAL : CREATION_EXISTING;
 
-        fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-        if (fd < 0) {
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create symlink '%s': %m", i->path); /* original error! */
+                fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                if (fd < 0) {
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create symlink '%s': %m", i->path); /* original error! */
 
-                return log_error_errno(errno, "Failed to open symlink we just created '%s': %m", i->path);
+                        return log_error_errno(errno, "Failed to open symlink we just created '%s': %m", i->path);
+                }
         }
 
         if (fstat(fd, &st) < 0)
@@ -2452,6 +2459,11 @@ static int create_symlink(Context *c, Item *i) {
         if (!good) {
                 if (!i->append_or_force) {
                         log_debug("\"%s\" is not a symlink or does not point to the correct path.", i->path);
+                        return 0;
+                }
+
+                if (arg_dry_run) {
+                        log_info("Would create replacement symlink %s -> %s", i->path, i->argument);
                         return 0;
                 }
 
