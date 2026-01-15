@@ -588,11 +588,12 @@
 
       <varlistentry>
         <term><varname>RestartSteps=</varname></term>
-        <listitem><para>Configures the number of steps to take to increase the interval
+        <listitem><para>Configures the number of exponential steps to take to increase the interval
         of auto-restarts from <varname>RestartSec=</varname> to <varname>RestartMaxDelaySec=</varname>.
         Takes a positive integer or 0 to disable it. Defaults to 0.</para>
 
-        <para>This setting is effective only if <varname>RestartMaxDelaySec=</varname> is also set.</para>
+        <para>This setting is effective only if <varname>RestartMaxDelaySec=</varname> is also set and
+        <varname>RestartSec=</varname> is not zero.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
@@ -604,7 +605,8 @@
         in the same format as <varname>RestartSec=</varname>, or <literal>infinity</literal>
         to disable the setting. Defaults to <literal>infinity</literal>.</para>
 
-        <para>This setting is effective only if <varname>RestartSteps=</varname> is also set.</para>
+        <para>This setting is effective only if <varname>RestartSteps=</varname> is also set and
+        <varname>RestartSec=</varname> is not zero.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
