@@ -776,6 +776,10 @@ DnsScopeMatch dns_scope_good_domain(
                         if (!d->route_only && !dns_name_is_root(d->name))
                                 has_search_domains = true;
 
+                        if (dns_name_endswith(domain, "local") && strcmp(d->name, "local") != 0) {
+                                continue;
+                        }
+
                         if (dns_name_endswith(domain, d->name) > 0) {
                                 int c;
 
