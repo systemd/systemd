@@ -76,7 +76,7 @@ EFI_STATUS initrd_register(
 
         assert(ret_initrd_handle);
 
-        /* If no initrd is specified we'll not install any. This avoids regstration of the protocol for that
+        /* If no initrd is specified we'll not install any. This avoids registration of the protocol for that
          * case, leaving it open for something else. */
 
         if (!iovec_is_set(initrd))
