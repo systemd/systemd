@@ -14,6 +14,7 @@
 #include "argv-util.h"
 #include "blockdev-util.h"
 #include "build.h"
+#include "capability-util.h"
 #include "chase.h"
 #include "copy.h"
 #include "device-util.h"
@@ -837,7 +838,10 @@ static int parse_argv(int argc, char *argv[]) {
         } else
                 arg_via_service = r;
 
-        if (!IN_SET(arg_action, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_DISCOVER, ACTION_VALIDATE) && geteuid() != 0)
+        if (IN_SET(arg_action, ACTION_MOUNT, ACTION_UMOUNT) && have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to have CAP_SYS_ADMIN to mount/unmount images");
+
+        if (IN_SET(arg_action, ACTION_ATTACH, ACTION_DETACH, ACTION_SHIFT) && geteuid() != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be root.");
 
         SET_FLAG(arg_flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH, isatty_safe(STDIN_FILENO));
@@ -1439,6 +1443,14 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
         assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_MAKE_ARCHIVE, ACTION_SHIFT));
 
+        /* If we unshare a user namespace later on we'll have all capabilities, regardless of whether they
+         * actually mean anything or not, so do the CAP_CHOWN check before we unshare any user namespaces. */
+        r = have_effective_cap(CAP_CHOWN);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check for CAP_CHOWN: %m");
+
+        bool cap_chown = r > 0;
+
         if (arg_image) {
                 assert(m);
 
@@ -1501,7 +1513,11 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 }
 
                 /* Try to copy as directory? */
-                r = copy_directory_at(source_fd, NULL, AT_FDCWD, arg_target, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
+                r = copy_directory_at(
+                                source_fd, NULL,
+                                AT_FDCWD, arg_target,
+                                cap_chown ? UID_INVALID : getuid(), cap_chown ? GID_INVALID : getgid(),
+                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                 if (r >= 0)
                         return 0;
                 if (r != -ENOTDIR)
@@ -1524,6 +1540,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                 (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
                 (void) copy_access(source_fd, target_fd);
+                (void) copy_owner(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
                 /* When this is a regular file we don't copy ownership! */
@@ -1580,9 +1597,23 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                                 if (errno != ENOENT)
                                         return log_error_errno(errno, "Failed to open destination '%s': %m", arg_target);
 
-                                r = copy_tree_at(source_fd, ".", dfd, bn, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS, NULL, NULL);
+                                r = copy_tree_at(
+                                                source_fd, ".",
+                                                dfd, bn,
+                                                cap_chown ? UID_INVALID : getuid(),
+                                                cap_chown ? GID_INVALID : getgid(),
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
+                                                /* denylist= */ NULL,
+                                                /* subvolumes= */ NULL);
                         } else
-                                r = copy_tree_at(source_fd, ".", target_fd, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS, NULL, NULL);
+                                r = copy_tree_at(
+                                                source_fd, ".",
+                                                target_fd, ".",
+                                                cap_chown ? UID_INVALID : getuid(),
+                                                cap_chown ? GID_INVALID : getgid(),
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
+                                                /* denylist= */ NULL,
+                                                /* subvolumes= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
 
@@ -1603,6 +1634,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                 (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
                 (void) copy_access(source_fd, target_fd);
+                (void) copy_owner(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
                 /* When this is a regular file we don't copy ownership! */
@@ -1721,7 +1753,7 @@ static int action_umount(const char *path) {
                 return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
 
         r = loop_device_open(dev, 0, LOCK_EX, &d);
-        if (r < 0)
+        if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
                 return log_device_error_errno(dev, r, "Failed to open loopback block device: %m");
 
         /* We've locked the loop device, now we're ready to unmount. To allow the unmount to succeed, we have
@@ -1733,7 +1765,8 @@ static int action_umount(const char *path) {
                 return log_error_errno(r, "Failed to unmount '%s': %m", canonical);
 
         /* We managed to lock and unmount successfully? That means we can try to remove the loop device. */
-        loop_device_unrelinquish(d);
+        if (d)
+                loop_device_unrelinquish(d);
 
         if (arg_rmdir) {
                 r = RET_NERRNO(rmdir(canonical));
@@ -1785,7 +1818,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
                         return log_error_errno(r, "Failed to unlock loopback block device: %m");
         }
 
-        rcode = pidref_safe_fork("(with)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, /* ret= */ NULL);
+        rcode = pidref_safe_fork("(with)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT, /* ret= */ NULL);
         if (rcode == 0) {
                 /* Child */
 
@@ -1799,7 +1832,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
                         _exit(EXIT_FAILURE);
                 }
 
-                if (setenv("SYSTEMD_DISSECT_DEVICE", d->node, /* overwrite= */ true) < 0) {
+                if (d && setenv("SYSTEMD_DISSECT_DEVICE", d->node, /* overwrite= */ true) < 0) {
                         log_error_errno(errno, "Failed to set $SYSTEMD_DISSECT_DEVICE: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -1813,10 +1846,14 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
                                 log_warning_errno(errno, "Failed to execute $SHELL, falling back to /bin/sh: %m");
                         }
 
+                        log_close();
                         execl("/bin/sh", "sh", NULL);
+                        log_open();
                         log_error_errno(errno, "Failed to invoke /bin/sh: %m");
                 } else {
+                        log_close();
                         execvp(arg_argv[0], arg_argv);
+                        log_open();
                         log_error_errno(errno, "Failed to execute '%s': %m", arg_argv[0]);
                 }
 
@@ -1839,7 +1876,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
         created_dir = TAKE_PTR(mounted_dir);
 
         if (rmdir(created_dir) < 0)
-                log_warning_errno(r, "Failed to remove directory '%s', ignoring: %m", created_dir);
+                log_warning_errno(errno, "Failed to remove directory '%s', ignoring: %m", created_dir);
 
         temp = TAKE_PTR(created_dir);
 
@@ -2112,7 +2149,7 @@ static int run(int argc, char *argv[]) {
                         else
                                 r = loop_device_make_by_path(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
                         if (r < 0) {
-                                if (!ERRNO_IS_PRIVILEGE(r) || !IN_SET(arg_action, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_SHIFT))
+                                if (!ERRNO_IS_PRIVILEGE(r) || !IN_SET(arg_action, ACTION_MOUNT, ACTION_UMOUNT, ACTION_WITH, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_SHIFT))
                                         return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
                                 log_debug_errno(r, "Lacking permissions to set up loopback block device for %s, using service: %m", arg_image);
@@ -2178,8 +2215,9 @@ static int run(int argc, char *argv[]) {
                         if (arg_loop_ref || arg_loop_ref_auto) /* yes, the 2nd check is strictly speaking redundant, given the normalization we did above, but let's be explicit here */
                                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--loop-ref=/--loop-ref-auto not supported when operating via systemd-mountfsd.");
 
-                        /* Don't run things in private userns, if the mount shall be attached to the host */
-                        if (!IN_SET(arg_action, ACTION_MOUNT, ACTION_WITH)) {
+                        /* Don't run things in private userns, if the mount shall be attached to the host
+                         * or if we're copying from/to the host. */
+                        if (!IN_SET(arg_action, ACTION_MOUNT, ACTION_WITH, ACTION_COPY_FROM, ACTION_COPY_TO)) {
                                 userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K); /* allocate 64K users by default */
                                 if (userns_fd < 0)
                                         return log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
