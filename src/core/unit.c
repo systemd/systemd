@@ -4750,12 +4750,11 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
         if (r < 0)
                 return r;
 
-        r = strv_push(&u->dropin_paths, q);
+        _cleanup_strv_free_ char **dropins = NULL;
+        r = unit_find_dropin_paths(u, /* use_unit_path_cache= */ true, &dropins);
         if (r < 0)
                 return r;
-        q = NULL;
-
-        strv_uniq(u->dropin_paths);
+        strv_free_and_replace(u->dropin_paths, dropins);
 
         u->dropin_mtime = now(CLOCK_REALTIME);
 
