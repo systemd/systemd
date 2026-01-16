@@ -578,8 +578,10 @@ cleanup_ssh() (
     systemctl is-active -q mysshserver.socket && systemctl stop mysshserver.socket
     rm -f /tmp/homed.id_ecdsa /run/systemd/system/mysshserver{@.service,.socket}
     systemctl daemon-reload
-    wait_for_state homedsshtest inactive
-    homectl remove homedsshtest
+    if homectl inspect homedsshtest &>/dev/null; then
+        wait_for_state homedsshtest inactive
+        homectl remove homedsshtest
+    fi
     for dir in /etc /usr/lib; do
         if [[ -f "$dir/pam.d/sshd.bak" ]]; then
             mv "$dir/pam.d/sshd.bak" "$dir/pam.d/sshd"

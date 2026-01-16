@@ -1508,7 +1508,7 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 _cleanup_(erase_and_freep) char *formatted = NULL;
 
-                r = sd_json_variant_format(hr->json, 0, &formatted);
+                r = sd_json_variant_format(hr->json, /* flags= */ 0, &formatted);
                 if (r < 0)
                         return log_error_errno(r, "Failed to format user record: %m");
 
@@ -1564,7 +1564,7 @@ static int create_home(int argc, char *argv[], void *userdata) {
         if (argc >= 2) {
                 /* If a username was specified, use it */
 
-                if (valid_user_group_name(argv[1], 0))
+                if (valid_user_group_name(argv[1], /* flags= */ 0))
                         r = sd_json_variant_set_field_string(&arg_identity_extra, "userName", argv[1]);
                 else {
                         _cleanup_free_ char *un = NULL, *rr = NULL;
@@ -1967,7 +1967,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_json_variant_format(hr->json, 0, &formatted);
+                r = sd_json_variant_format(hr->json, /* flags= */ 0, &formatted);
                 if (r < 0)
                         return log_error_errno(r, "Failed to format user record: %m");
 
@@ -2556,7 +2556,7 @@ static int create_or_register_from_credentials(void) {
                 else
                         continue;
 
-                if (!valid_user_group_name(e, 0)) {
+                if (!valid_user_group_name(e, /* flags= */ 0)) {
                         log_notice("Skipping over credential with name that is not a suitable user name: %s", de->d_name);
                         continue;
                 }
@@ -3025,31 +3025,840 @@ static int verb_firstboot(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int drop_from_identity(const char *field) {
-        int r;
+#define drop_from_identity(...) _drop_from_identity(STRV_MAKE(__VA_ARGS__))
 
-        assert(field);
+static int _drop_from_identity(char **fields) {
+        int r;
 
         /* If we are called to update an identity record and drop some field, let's keep track of what to
          * remove from the old record */
-        r = strv_extend(&arg_identity_filter, field);
+        r = strv_extend_strv(&arg_identity_filter, fields, /* filter_duplicates= */ true);
         if (r < 0)
                 return log_oom();
 
         /* Let's also drop the field if it was previously set to a new value on the same command line */
-        r = sd_json_variant_filter(&arg_identity_extra, STRV_MAKE(field));
+        r = sd_json_variant_filter(&arg_identity_extra, fields);
         if (r < 0)
                 return log_error_errno(r, "Failed to filter JSON identity data: %m");
 
-        r = sd_json_variant_filter(&arg_identity_extra_this_machine, STRV_MAKE(field));
+        r = sd_json_variant_filter(&arg_identity_extra_this_machine, fields);
         if (r < 0)
                 return log_error_errno(r, "Failed to filter JSON identity data: %m");
 
-        r = sd_json_variant_filter(&arg_identity_extra_privileged, STRV_MAKE(field));
+        r = sd_json_variant_filter(&arg_identity_extra_privileged, fields);
         if (r < 0)
                 return log_error_errno(r, "Failed to filter JSON identity data: %m");
 
         return 0;
+}
+
+static int parse_ssh_authorized_keys(sd_json_variant **identity, const char *field, const char *arg) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_strv_free_ char **l = NULL, **add = NULL;
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        if (arg[0] == '@') {
+                /* If prefixed with '@', read from a file */
+
+                _cleanup_fclose_ FILE *f = fopen(arg + 1, "re");
+                if (!f)
+                        return log_error_errno(errno, "Failed to open '%s': %m", arg + 1);
+
+                for (;;) {
+                        _cleanup_free_ char *line = NULL;
+
+                        r = read_line(f, LONG_LINE_MAX, &line);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read from '%s': %m", arg + 1);
+                        if (r == 0)
+                                break;
+
+                        if (isempty(line) || line[0] == '#')
+                                continue;
+
+                        r = strv_consume(&add, TAKE_PTR(line));
+                        if (r < 0)
+                                return log_oom();
+                }
+        } else {
+                /* Otherwise, assume it's a literal key. Let's do some superficial checks
+                 * before accepting it though. */
+
+                if (string_has_cc(arg, NULL))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Authorized key contains control characters, refusing.");
+                if (arg[0] == '#')
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified key is a comment?");
+
+                add = strv_new(arg);
+                if (!add)
+                        return log_oom();
+        }
+
+        v = sd_json_variant_ref(sd_json_variant_by_key(*identity, field));
+        if (v) {
+                r = sd_json_variant_strv(v, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s list: %m", field);
+        }
+
+        r = strv_extend_strv_consume(&l, TAKE_PTR(add), /* filter_duplicates= */ true);
+        if (r < 0)
+                return log_oom();
+
+        v = sd_json_variant_unref(v);
+
+        r = sd_json_variant_new_array_strv(&v, l);
+        if (r < 0)
+                return log_oom();
+
+        r = sd_json_variant_set_field(identity, field, v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+
+        return 0;
+}
+
+static int parse_string_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        r = sd_json_variant_set_field_string(identity, field, arg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_home_directory_field(sd_json_variant **identity, const char *field, const char *arg) {
+        _cleanup_free_ char *hd = NULL;
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (!isempty(arg)) {
+                r = parse_path_argument(arg, /* suppress_root= */ false, &hd);
+                if (r < 0)
+                        return r;
+
+                if (!valid_home(hd))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Home directory '%s' not valid.", hd);
+        }
+
+        return parse_string_field(identity, field, hd);
+}
+
+static int parse_realm_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (!isempty(arg)) {
+                r = dns_name_is_valid(arg);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether realm '%s' is a valid DNS domain: %m", arg);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Realm '%s' is not a valid DNS domain.", arg);
+        }
+
+        return parse_string_field(identity, field, arg);
+}
+
+static int parse_path_field(sd_json_variant **identity, const char *field, const char *arg) {
+        _cleanup_free_ char *v = NULL;
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (!isempty(arg)) {
+                r = parse_path_argument(arg, /* suppress_root= */ false, &v);
+                if (r < 0)
+                        return r;
+        }
+
+        return parse_string_field(identity, field, v);
+}
+
+static int parse_filename_field(sd_json_variant **identity, const char *field, const char *arg) {
+        assert(identity);
+        assert(field);
+
+        if (!isempty(arg) && !filename_is_valid(arg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Parameter for %s field not a valid filename: %s", field, arg);
+
+        return parse_string_field(identity, field, arg);
+}
+
+static int parse_unsigned_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        unsigned n;
+        r = safe_atou(arg, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_u64_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        uint64_t n;
+        r = safe_atou64(arg, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_size_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        uint64_t n;
+        r = parse_size(arg, 1024, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_boolean_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+ 
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+ 
+        r = parse_boolean(arg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse boolean parameter %s: %s", field, arg);
+ 
+        r = sd_json_variant_set_field_boolean(identity, field, r > 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_mode_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        mode_t mode;
+        r = parse_mode(arg, &mode);
+        if (r < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Access mode '%s' not valid.", arg);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, mode);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_timestamp_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        usec_t n;
+        r = parse_timestamp(arg, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_time_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        usec_t n;
+        r = parse_sec(arg, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_uid_field(sd_json_variant **identity, const char *field, const char *arg) {
+        uid_t uid;
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        r = parse_uid(arg, &uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse UID '%s'.", arg);
+
+        const char *bad_range =
+                uid_is_system(uid) ? "in system range" :
+                uid_is_greeter(uid) ? "in greeter range" :
+                uid_is_dynamic(uid) ? "in dynamic ragne" :
+                uid == UID_NOBODY ? "nobody UID" : NULL;
+        if (bad_range)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID "UID_FMT" is %s, refusing.", uid, bad_range);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_nice_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int nc, r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        r = parse_nice(arg, &nc);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse nice level '%s': %m", arg);
+
+        r = sd_json_variant_set_field_integer(identity, field, nc);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_auto_resize_mode_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (!isempty(arg)) {
+                r = auto_resize_mode_from_string(arg);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+                arg = auto_resize_mode_to_string(r);
+        }
+
+        return parse_string_field(identity, field, arg);
+}
+
+static int parse_rebalance_weight(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        uint64_t u;
+        if (streq(arg, "off"))
+                u = REBALANCE_WEIGHT_OFF;
+        else {
+                r = safe_atou64(arg, &u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse rebalance weight parameter: %s", arg);
+
+                if (u < REBALANCE_WEIGHT_MIN || u > REBALANCE_WEIGHT_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                               "Rebalancing weight out of valid range %" PRIu64 "%s%" PRIu64 ": %s",
+                                               REBALANCE_WEIGHT_MIN, glyph(GLYPH_ELLIPSIS), REBALANCE_WEIGHT_MAX,
+                                               arg);
+        }
+
+        /* Drop from per machine stuff and everywhere */
+        r = drop_from_identity(field);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_set_field_unsigned(identity, field, u);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_rlimit_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg)) {
+                /* Remove all resource limits */
+
+                r = drop_from_identity(field);
+                if (r < 0)
+                        return r;
+
+                arg_identity_filter_rlimits = strv_free(arg_identity_filter_rlimits);
+                *identity = sd_json_variant_unref(*identity);
+                return 0;
+        }
+
+        const char *eq = strchr(arg, '=');
+        if (!eq)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't parse resource limit assignment: %s", arg);
+
+        _cleanup_free_ char *s = strndup(arg, eq - arg);
+        if (!s)
+                return log_oom();
+
+        int limit = rlimit_from_string_harder(s);
+        if (limit < 0)
+                return log_error_errno(limit, "Unknown resource limit type: %s", s);
+
+        const char *rlimit_field = strjoina("RLIMIT_", rlimit_to_string(limit));
+
+        if (isempty(eq + 1)) {
+                /* Remove only the specific rlimit */
+
+                r = strv_extend(&arg_identity_filter_rlimits, rlimit_field);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_filter(identity, STRV_MAKE(rlimit_field));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to filter JSON identity data: %m");
+                return 0;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jcur = NULL, *jmax = NULL;
+        struct rlimit rl;
+
+        r = rlimit_parse(limit, eq + 1, &rl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse resource limit value: %s", eq + 1);
+
+        r = rl.rlim_cur == RLIM_INFINITY ? sd_json_variant_new_null(&jcur) : sd_json_variant_new_unsigned(&jcur, rl.rlim_cur);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate json variant: %m");
+
+        r = rl.rlim_max == RLIM_INFINITY ? sd_json_variant_new_null(&jmax) : sd_json_variant_new_unsigned(&jmax, rl.rlim_max);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate json variant: %m");
+
+        r = sd_json_variant_set_fieldbo(identity, rlimit_field,
+                                        SD_JSON_BUILD_PAIR_VARIANT("cur", jcur),
+                                        SD_JSON_BUILD_PAIR_VARIANT("max", jmax));
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", rlimit_field);
+        return 0;
+}
+
+static int parse_disk_size_field(sd_json_variant **identity, const char *arg) {
+        int r;
+
+        assert(identity);
+
+        if (isempty(arg)) {
+                r = drop_from_identity("diskSize", "diskSizeRelative", "rebalanceWeight");
+                if (r < 0)
+                        return r;
+
+                arg_disk_size = arg_disk_size_relative = UINT64_MAX;
+                return 0;
+        }
+
+        r = parse_permyriad(arg);
+        if (r < 0) {
+                r = parse_disk_size(arg, &arg_disk_size);
+                if (r < 0)
+                        return r;
+
+                r = drop_from_identity("diskSizeRelative");
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_set_field_unsigned(identity, "diskSize", arg_disk_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set %s field: %m", "diskSize");
+
+                arg_disk_size_relative = UINT64_MAX;
+        } else {
+                /* Normalize to UINT32_MAX == 100% */
+                arg_disk_size_relative = UINT32_SCALE_FROM_PERMYRIAD(r);
+
+                r = drop_from_identity("diskSize");
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_set_field_unsigned(identity, "diskSizeRelative", arg_disk_size_relative);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set %s field: %m", "diskSizeRelative");
+
+                arg_disk_size = UINT64_MAX;
+        }
+
+        /* Automatically turn off the rebalance logic if user configured a size explicitly */
+        r = sd_json_variant_set_field_unsigned(identity, "rebalanceWeight", REBALANCE_WEIGHT_OFF);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", "rebalanceWeight");
+        return 0;
+}
+
+static int parse_sector_size_field(sd_json_variant **identity, const char *field, const char *arg) {
+        uint64_t ss;
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        r = parse_sector_size(arg, &ss);
+        if (r < 0)
+                return r;
+
+        r = sd_json_variant_set_field_unsigned(identity, field, ss);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_weight_field(sd_json_variant **identity, const char *field, const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        uint64_t u;
+        r = safe_atou64(arg, &u);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s parameter: %s", field, arg);
+
+        if (!CGROUP_WEIGHT_IS_OK(u))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Weight %" PRIu64 " is out of valid range for field %s.", u, field);
+
+        r = sd_json_variant_set_field_unsigned(identity, field, u);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_environment_field(sd_json_variant **identity, const char *field, const char *arg) {
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ne = NULL;
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        sd_json_variant *e = sd_json_variant_by_key(*identity, field);
+        if (e) {
+                r = sd_json_variant_strv(e, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse JSON environment field: %m");
+        }
+
+        r = strv_env_replace_strdup_passthrough(&l, arg);
+        if (r < 0)
+                return log_error_errno(r, "Cannot assign environment variable %s: %m", arg);
+
+        strv_sort(l);
+
+        r = sd_json_variant_new_array_strv(&ne, l);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate json list: %m");
+
+        r = sd_json_variant_set_field(identity, field, ne);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_language_field(char ***languages, const char *arg) {
+        int r;
+
+        if (isempty(arg)) {
+                r = drop_from_identity("preferredLanguage", "additionalLanguages");
+                if (r < 0)
+                        return r;
+
+                strv_freep(languages);
+                return 0;
+        }
+
+        for (const char *p = arg;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, ",:", /* flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse locale list: %m");
+                if (r == 0)
+                        return 0;
+
+                if (!locale_is_valid(word))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale '%s' is not valid.", word);
+
+                if (locale_is_installed(word) <= 0)
+                        log_warning("Locale '%s' is not installed, accepting anyway.", word);
+
+                r = strv_consume(languages, TAKE_PTR(word));
+                if (r < 0)
+                        return log_oom();
+
+                strv_uniq(*languages);
+        }
+}
+
+static int parse_group_field(
+                sd_json_variant *source_identity,
+                sd_json_variant **identity,
+                const char *field,
+                const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+
+        if (isempty(arg))
+                return drop_from_identity(field);
+
+        for (const char *p = arg;;) {
+                _cleanup_free_ char *word = NULL;
+                _cleanup_strv_free_ char **list = NULL;
+
+                r = extract_first_word(&p, &word, ",", /* flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse group list: %m");
+                if (r == 0)
+                        return 0;
+
+                if (!valid_user_group_name(word, /* flags= */ 0))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid group name %s.", word);
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo =
+                        sd_json_variant_ref(sd_json_variant_by_key(source_identity, field));
+
+                r = sd_json_variant_strv(mo, &list);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse group list: %m");
+
+                r = strv_extend(&list, word);
+                if (r < 0)
+                        return log_oom();
+
+                strv_sort_uniq(list);
+
+                mo = sd_json_variant_unref(mo);
+                r = sd_json_variant_new_array_strv(&mo, list);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate json list: %m");
+
+                r = sd_json_variant_set_field(identity, field, mo);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set %s field: %m", field);
+        }
+}
+
+static int parse_capability_set_field(
+                sd_json_variant **identity,
+                uint64_t *capability_set,
+                const char *field,
+                const char *arg) {
+
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(identity);
+        assert(capability_set);
+        assert(field);
+        assert(arg);
+
+        r = parse_capability_set(arg, CAP_MASK_UNSET, capability_set);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capabilities in capability string '%s'.", arg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse capability string '%s': %m", arg);
+
+        if (*capability_set == CAP_MASK_UNSET)
+                return drop_from_identity(field);
+
+        if (capability_set_to_strv(*capability_set, &l) < 0)
+                return log_oom();
+
+        r = sd_json_variant_set_field_strv(identity, field, l);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field);
+        return 0;
+}
+
+static int parse_tmpfs_limit_field(
+                sd_json_variant **identity,
+                const char *field,
+                const char *field_scale,
+                const char *arg) {
+        int r;
+
+        assert(identity);
+        assert(field);
+        assert(field_scale);
+
+        if (isempty(arg))
+                return drop_from_identity(field, field_scale);
+
+        r = parse_permyriad(arg);
+        if (r < 0) {
+                uint64_t u;
+
+                r = parse_size(arg, 1024, &u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s/%s parameter: %s", field, field_scale, arg);
+
+                r = sd_json_variant_set_field_unsigned(identity, field, u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set %s field: %m", field);
+
+                return drop_from_identity(field_scale);
+        }
+
+        r = sd_json_variant_set_field_unsigned(identity, field_scale, UINT32_SCALE_FROM_PERMYRIAD(r));
+        if (r < 0)
+                return log_error_errno(r, "Failed to set %s field: %m", field_scale);
+
+        return drop_from_identity(field);
+}
+
+static int parse_pkcs11_token_uri_field(const char *arg) {
+        int r;
+
+        assert(arg);
+
+        if (streq(arg, "list"))
+                return pkcs11_list_tokens();
+
+        /* If --pkcs11-token-uri= is specified we always drop everything old */
+        r = drop_from_identity("pkcs11TokenUri", "pkcs11EncryptedKey");
+        if (r < 0)
+                return r;
+
+        if (isempty(arg)) {
+                arg_pkcs11_token_uri = strv_free(arg_pkcs11_token_uri);
+                return 1;
+        }
+
+        if (streq(arg, "auto")) {
+                char *found;
+                r = pkcs11_find_token_auto(&found);
+                if (r < 0)
+                        return r;
+
+                r = strv_consume(&arg_pkcs11_token_uri, found);
+        } else {
+                if (!pkcs11_uri_valid(arg))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid PKCS#11 URI: %s", arg);
+
+                r = strv_extend(&arg_pkcs11_token_uri, arg);
+        }
+        if (r < 0)
+                return r;
+
+        strv_uniq(arg_pkcs11_token_uri);
+        return 1;
+}
+
+static int parse_fido2_device_field(const char *arg) {
+        int r;
+
+        assert(arg);
+
+        if (streq(arg, "list"))
+                return fido2_list_devices();
+
+        r = drop_from_identity("fido2HmacCredential", "fido2HmacSalt");
+        if (r < 0)
+                return r;
+
+        if (isempty(arg)) {
+                arg_fido2_device = strv_free(arg_fido2_device);
+                return 1;
+        }
+
+        if (streq(arg, "auto")) {
+                char *found;
+                r = fido2_find_device_auto(&found);
+                if (r < 0)
+                        return r;
+
+                r = strv_consume(&arg_fido2_device, found);
+        } else
+                r = strv_extend(&arg_fido2_device, arg);
+        if (r < 0)
+                return r;
+
+        strv_uniq(arg_fido2_device);
+        return 1;
 }
 
 static int help(int argc, char *argv[], void *userdata) {
@@ -3488,7 +4297,8 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        /* Eventually we should probably turn this into a proper --dry-run option, but as long as it is not hooked up everywhere let's make it an environment variable only. */
+        /* Eventually we should probably turn this into a proper --dry-run option, but as long as it is not
+         * hooked up everywhere let's make it an environment variable only. */
         r = getenv_bool("SYSTEMD_HOME_DRY_RUN");
         if (r >= 0)
                 arg_dry_run = r;
@@ -3542,113 +4352,31 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'c':
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("realName");
-                                if (r < 0)
-                                        return r;
+                        if (!isempty(optarg) && !valid_gecos(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid GECOS field '%s'.", optarg);
 
-                                break;
-                        }
-
-                        if (!valid_gecos(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Real name '%s' not a valid GECOS field.", optarg);
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "realName", optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set realName field: %m");
-
-                        break;
-
-                case ARG_ALIAS: {
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("aliases");
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        for (const char *p = optarg;;) {
-                                _cleanup_free_ char *word = NULL;
-
-                                r = extract_first_word(&p, &word, ",", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse alias list: %m");
-                                if (r == 0)
-                                        break;
-
-                                if (!valid_user_group_name(word, 0))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid alias user name %s.", word);
-
-                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *av =
-                                        sd_json_variant_ref(sd_json_variant_by_key(arg_identity_extra, "aliases"));
-
-                                _cleanup_strv_free_ char **list = NULL;
-                                r = sd_json_variant_strv(av, &list);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse group list: %m");
-
-                                r = strv_extend(&list, word);
-                                if (r < 0)
-                                        return log_oom();
-
-                                strv_sort_uniq(list);
-
-                                av = sd_json_variant_unref(av);
-                                r = sd_json_variant_new_array_strv(&av, list);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to create alias list JSON: %m");
-
-                                r = sd_json_variant_set_field(&arg_identity_extra, "aliases", av);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to update alias list: %m");
-                        }
-
-                        break;
-                }
-
-                case 'd': {
-                        _cleanup_free_ char *hd = NULL;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("homeDirectory");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_path_argument(optarg, false, &hd);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "realName", optarg);
                         if (r < 0)
                                 return r;
-
-                        if (!valid_home(hd))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Home directory '%s' not valid.", hd);
-
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "homeDirectory", hd);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set homeDirectory field: %m");
-
                         break;
-                }
+
+                case ARG_ALIAS:
+                        r = parse_group_field(arg_identity_extra, &arg_identity_extra, "aliases", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 'd':
+                        r = parse_home_directory_field(&arg_identity_extra, "homeDirectory", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case ARG_REALM:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("realm");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = dns_name_is_valid(optarg);
+                        r = parse_realm_field(&arg_identity_extra, "realm", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to determine whether realm '%s' is a valid DNS domain: %m", optarg);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Realm '%s' is not a valid DNS domain.", optarg);
-
-                        r = sd_json_variant_set_field_string(&arg_identity_extra, "realm", optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set realm field: %m");
+                                return r;
                         break;
 
                 case ARG_EMAIL_ADDRESS:
@@ -3660,7 +4388,6 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LUKS_EXTRA_MOUNT_OPTIONS:
                 case ARG_SESSION_LAUNCHER:
                 case ARG_SESSION_TYPE: {
-
                         const char *field =
                                            c == ARG_EMAIL_ADDRESS ? "emailAddress" :
                                                 c == ARG_LOCATION ? "location" :
@@ -3672,319 +4399,93 @@ static int parse_argv(int argc, char *argv[]) {
                                         c == ARG_SESSION_LAUNCHER ? "preferredSessionLauncher" :
                                             c == ARG_SESSION_TYPE ? "preferredSessionType" :
                                                                     NULL;
-
                         assert(field);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, field, optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
                 case ARG_CIFS_SERVICE:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("cifsService");
+                        if (!isempty(optarg)) {
+                                r = parse_cifs_service(optarg, /* ret_host= */ NULL, /* ret_service= */ NULL, /* ret_path= */ NULL);
                                 if (r < 0)
-                                        return r;
-
-                                break;
+                                        return log_error_errno(r, "Failed to validate CIFS service name: %s", optarg);
                         }
 
-                        r = parse_cifs_service(optarg, NULL, NULL, NULL);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "cifsService", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to validate CIFS service name: %s", optarg);
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "cifsService", optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set cifsService field: %m");
-
+                                return r;
                         break;
 
                 case ARG_PASSWORD_HINT:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("passwordHint");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = sd_json_variant_set_field_string(&arg_identity_extra_privileged, "passwordHint", optarg);
+                        r = parse_string_field(&arg_identity_extra_privileged, "passwordHint", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set passwordHint field: %m");
+                                return r;
 
                         string_erase(optarg);
                         break;
 
-                case ARG_NICE: {
-                        int nc;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("niceLevel");
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        r = parse_nice(optarg, &nc);
+                case ARG_NICE:
+                        r = parse_nice_field(match_identity ?: &arg_identity_extra, "niceLevel", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse nice level: %s", optarg);
-
-                        r = sd_json_variant_set_field_integer(match_identity ?: &arg_identity_extra, "niceLevel", nc);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set niceLevel field: %m");
-
+                                return r;
                         break;
-                }
 
-                case ARG_RLIMIT: {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jcur = NULL, *jmax = NULL;
-                        _cleanup_free_ char *field = NULL, *t = NULL;
-                        const char *eq;
-                        struct rlimit rl;
-                        int l;
-
-                        if (isempty(optarg)) {
-                                /* Remove all resource limits */
-
-                                r = drop_from_identity("resourceLimits");
-                                if (r < 0)
-                                        return r;
-
-                                arg_identity_filter_rlimits = strv_free(arg_identity_filter_rlimits);
-                                arg_identity_extra_rlimits = sd_json_variant_unref(arg_identity_extra_rlimits);
-                                break;
-                        }
-
-                        eq = strchr(optarg, '=');
-                        if (!eq)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't parse resource limit assignment: %s", optarg);
-
-                        field = strndup(optarg, eq - optarg);
-                        if (!field)
-                                return log_oom();
-
-                        l = rlimit_from_string_harder(field);
-                        if (l < 0)
-                                return log_error_errno(l, "Unknown resource limit type: %s", field);
-
-                        if (isempty(eq + 1)) {
-                                /* Remove only the specific rlimit */
-
-                                r = strv_extend(&arg_identity_filter_rlimits, rlimit_to_string(l));
-                                if (r < 0)
-                                        return r;
-
-                                r = sd_json_variant_filter(&arg_identity_extra_rlimits, STRV_MAKE(field));
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to filter JSON identity data: %m");
-
-                                break;
-                        }
-
-                        r = rlimit_parse(l, eq + 1, &rl);
+                case ARG_RLIMIT:
+                        r = parse_rlimit_field(&arg_identity_extra_rlimits, "resourceLimits", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse resource limit value: %s", eq + 1);
-
-                        r = rl.rlim_cur == RLIM_INFINITY ? sd_json_variant_new_null(&jcur) : sd_json_variant_new_unsigned(&jcur, rl.rlim_cur);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to allocate current integer: %m");
-
-                        r = rl.rlim_max == RLIM_INFINITY ? sd_json_variant_new_null(&jmax) : sd_json_variant_new_unsigned(&jmax, rl.rlim_max);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to allocate maximum integer: %m");
-
-                        t = strjoin("RLIMIT_", rlimit_to_string(l));
-                        if (!t)
-                                return log_oom();
-
-                        r = sd_json_variant_set_fieldbo(
-                                        &arg_identity_extra_rlimits, t,
-                                        SD_JSON_BUILD_PAIR_VARIANT("cur", jcur),
-                                        SD_JSON_BUILD_PAIR_VARIANT("max", jmax));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", rlimit_to_string(l));
-
+                                return r;
                         break;
-                }
 
-                case 'u': {
-                        uid_t uid;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("uid");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_uid(optarg, &uid);
+                case 'u':
+                        r = parse_uid_field(&arg_identity_extra, "uid", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse UID '%s'.", optarg);
-
-                        if (uid_is_system(uid))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in system range, refusing.", uid);
-                        if (uid_is_greeter(uid))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in greeter range, refusing.", uid);
-                        if (uid_is_dynamic(uid))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is in dynamic range, refusing.", uid);
-                        if (uid == UID_NOBODY)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID " UID_FMT " is nobody UID, refusing.", uid);
-
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, "uid", uid);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set realm field: %m");
-
+                                return r;
                         break;
-                }
 
                 case 'k':
                 case ARG_IMAGE_PATH: {
                         const char *field = c == 'k' ? "skeletonDirectory" : "imagePath";
-                        _cleanup_free_ char *v = NULL;
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_path_argument(optarg, false, &v);
+                        r = parse_path_field(match_identity ?: &arg_identity_extra_this_machine, field, optarg);
                         if (r < 0)
                                 return r;
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra_this_machine, field, v);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", v);
-
                         break;
                 }
 
                 case 's':
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("shell");
-                                if (r < 0)
-                                        return r;
+                        if (!isempty(optarg) && !valid_shell(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Shell '%s' not valid.", optarg);
 
-                                break;
-                        }
-
-                        if (!valid_shell(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Shell '%s' not valid.", optarg);
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "shell", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "shell", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set shell field: %m");
-
+                                return r;
                         break;
 
-                case ARG_SETENV: {
-                        _cleanup_strv_free_ char **l = NULL;
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ne = NULL;
-                        sd_json_variant *e;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("environment");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        e = sd_json_variant_by_key(match_identity ? *match_identity: arg_identity_extra, "environment");
-                        if (e) {
-                                r = sd_json_variant_strv(e, &l);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse JSON environment field: %m");
-                        }
-
-                        r = strv_env_replace_strdup_passthrough(&l, optarg);
+                case ARG_SETENV:
+                        r = parse_environment_field(match_identity ?: &arg_identity_extra, "environment", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
-
-                        strv_sort(l);
-
-                        r = sd_json_variant_new_array_strv(&ne, l);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to allocate environment list JSON: %m");
-
-                        r = sd_json_variant_set_field(match_identity ?: &arg_identity_extra, "environment", ne);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set environment list: %m");
-
+                                return r;
                         break;
-                }
 
                 case ARG_TIMEZONE:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("timeZone");
-                                if (r < 0)
-                                        return r;
+                        if (!isempty(optarg) && !timezone_is_valid(optarg, LOG_DEBUG))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Timezone '%s' is not valid.", optarg);
 
-                                break;
-                        }
-
-                        if (!timezone_is_valid(optarg, LOG_DEBUG))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Timezone '%s' is not valid.", optarg);
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "timeZone", optarg);
+                        r = parse_string_field(match_identity ?: &arg_identity_extra, "timeZone", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set timezone field: %m");
-
+                                return r;
                         break;
 
-                case ARG_LANGUAGE: {
-                        const char *p = optarg;
-
-                        if (isempty(p)) {
-                                r = drop_from_identity("preferredLanguage");
-                                if (r < 0)
-                                        return r;
-
-                                r = drop_from_identity("additionalLanguages");
-                                if (r < 0)
-                                        return r;
-
-                                arg_languages = strv_free(arg_languages);
-                                break;
-                        }
-
-                        for (;;) {
-                                _cleanup_free_ char *word = NULL;
-
-                                r = extract_first_word(&p, &word, ",:", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse locale list: %m");
-                                if (r == 0)
-                                        break;
-
-                                if (!locale_is_valid(word))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale '%s' is not valid.", word);
-
-                                if (locale_is_installed(word) <= 0)
-                                        log_warning("Locale '%s' is not installed, accepting anyway.", word);
-
-                                r = strv_consume(&arg_languages, TAKE_PTR(word));
-                                if (r < 0)
-                                        return log_oom();
-
-                                strv_uniq(arg_languages);
-                        }
-
+                case ARG_LANGUAGE:
+                        r = parse_language_field(&arg_languages, optarg);
+                        if (r < 0)
+                                return r;
                         break;
-                }
 
                 case ARG_NOSUID:
                 case ARG_NODEV:
@@ -4004,143 +4505,41 @@ static int parse_argv(int argc, char *argv[]) {
                                              c == ARG_AUTO_LOGIN ? "autoLogin" :
                                     c == ARG_PASSWORD_CHANGE_NOW ? "passwordChangeNow" :
                                                                    NULL;
-
                         assert(field);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s boolean: %m", field);
-
-                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, field, r > 0);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
                 case 'P':
                         r = sd_json_variant_set_field_boolean(&arg_identity_extra, "enforcePasswordPolicy", false);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set enforcePasswordPolicy field: %m");
-
+                                return log_error_errno(r, "Failed to set %s field: %m", "enforcePasswordPolicy");
                         break;
 
                 case ARG_DISK_SIZE:
-                        if (isempty(optarg)) {
-                                FOREACH_STRING(prop, "diskSize", "diskSizeRelative", "rebalanceWeight") {
-                                        r = drop_from_identity(prop);
-                                        if (r < 0)
-                                                return r;
-                                }
-
-                                arg_disk_size = arg_disk_size_relative = UINT64_MAX;
-                                break;
-                        }
-
-                        r = parse_permyriad(optarg);
-                        if (r < 0) {
-                                r = parse_disk_size(optarg, &arg_disk_size);
-                                if (r < 0)
-                                        return r;
-
-                                r = drop_from_identity("diskSizeRelative");
-                                if (r < 0)
-                                        return r;
-
-                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, "diskSize", arg_disk_size);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to set diskSize field: %m");
-
-                                arg_disk_size_relative = UINT64_MAX;
-                        } else {
-                                /* Normalize to UINT32_MAX == 100% */
-                                arg_disk_size_relative = UINT32_SCALE_FROM_PERMYRIAD(r);
-
-                                r = drop_from_identity("diskSize");
-                                if (r < 0)
-                                        return r;
-
-                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, "diskSizeRelative", arg_disk_size_relative);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to set diskSizeRelative field: %m");
-
-                                arg_disk_size = UINT64_MAX;
-                        }
-
-                        /* Automatically turn off the rebalance logic if user configured a size explicitly */
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, "rebalanceWeight", REBALANCE_WEIGHT_OFF);
+                        r = parse_disk_size_field(match_identity ?: &arg_identity_extra_this_machine, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set rebalanceWeight field: %m");
-
+                                return r;
                         break;
 
-                case ARG_ACCESS_MODE: {
-                        mode_t mode;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("accessMode");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_mode(optarg, &mode);
+                case ARG_ACCESS_MODE:
+                        r = parse_mode_field(&arg_identity_extra, "accessMode", optarg);
                         if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Access mode '%s' not valid.", optarg);
-
-                        r = sd_json_variant_set_field_unsigned(&arg_identity_extra, "accessMode", mode);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set access mode field: %m");
-
+                                return r;
                         break;
-                }
 
                 case ARG_LUKS_DISCARD:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("luksDiscard");
-                                if (r < 0)
-                                        return r;
+                case ARG_LUKS_OFFLINE_DISCARD: {
+                        const char *field = c == ARG_LUKS_DISCARD ? "luksDiscard" : "luksOfflineDiscard";
 
-                                break;
-                        }
-
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --luks-discard= parameter: %s", optarg);
-
-                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, "luksDiscard", r);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set discard field: %m");
-
+                                return r;
                         break;
-
-                case ARG_LUKS_OFFLINE_DISCARD:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("luksOfflineDiscard");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_boolean(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --luks-offline-discard= parameter: %s", optarg);
-
-                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, "luksOfflineDiscard", r);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set offline discard field: %m");
-
-                        break;
+                }
 
                 case ARG_LUKS_VOLUME_KEY_SIZE:
                 case ARG_LUKS_PBKDF_FORCE_ITERATIONS:
@@ -4150,180 +4549,43 @@ static int parse_argv(int argc, char *argv[]) {
                                        c == ARG_LUKS_VOLUME_KEY_SIZE ? "luksVolumeKeySize" :
                                 c == ARG_LUKS_PBKDF_FORCE_ITERATIONS ? "luksPbkdfForceIterations" :
                                 c == ARG_LUKS_PBKDF_PARALLEL_THREADS ? "luksPbkdfParallelThreads" :
-                                           c == ARG_RATE_LIMIT_BURST ? "rateLimitBurst" : NULL;
-                        unsigned n;
-
+                                           c == ARG_RATE_LIMIT_BURST ? "rateLimitBurst" :
+                                                                       NULL;
                         assert(field);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        r = safe_atou(optarg, &n);
+                        r = parse_unsigned_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s parameter: %s", field, optarg);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, n);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
-                case ARG_LUKS_SECTOR_SIZE: {
-                        uint64_t ss;
+                case ARG_LUKS_SECTOR_SIZE:
+                        r = parse_sector_size_field(match_identity ?: &arg_identity_extra, "luksSectorSize", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("luksSectorSize");
-                                if (r < 0)
-                                        return r;
+                case ARG_UMASK:
+                        r = parse_mode_field(match_identity ?: &arg_identity_extra, "umask", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
 
-                                break;
-                        }
-
-                        r = parse_sector_size(optarg, &ss);
+                case ARG_SSH_AUTHORIZED_KEYS:
+                        r = parse_ssh_authorized_keys(&arg_identity_extra_privileged, "sshAuthorizedKeys", optarg);
                         if (r < 0)
                                 return r;
 
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, "luksSectorSize", ss);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set sector size field: %m");
-
                         break;
-                }
-
-                case ARG_UMASK: {
-                        mode_t m;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("umask");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_mode(optarg, &m);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse umask: %m");
-
-                        r = sd_json_variant_set_field_integer(match_identity ?: &arg_identity_extra, "umask", m);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set umask field: %m");
-
-                        break;
-                }
-
-                case ARG_SSH_AUTHORIZED_KEYS: {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-                        _cleanup_strv_free_ char **l = NULL, **add = NULL;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("sshAuthorizedKeys");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        if (optarg[0] == '@') {
-                                _cleanup_fclose_ FILE *f = NULL;
-
-                                /* If prefixed with '@' read from a file */
-
-                                f = fopen(optarg+1, "re");
-                                if (!f)
-                                        return log_error_errno(errno, "Failed to open '%s': %m", optarg+1);
-
-                                for (;;) {
-                                        _cleanup_free_ char *line = NULL;
-
-                                        r = read_line(f, LONG_LINE_MAX, &line);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to read from '%s': %m", optarg+1);
-                                        if (r == 0)
-                                                break;
-
-                                        if (isempty(line))
-                                                continue;
-
-                                        if (line[0] == '#')
-                                                continue;
-
-                                        r = strv_consume(&add, TAKE_PTR(line));
-                                        if (r < 0)
-                                                return log_oom();
-                                }
-                        } else {
-                                /* Otherwise, assume it's a literal key. Let's do some superficial checks
-                                 * before accept it though. */
-
-                                if (string_has_cc(optarg, NULL))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Authorized key contains control characters, refusing.");
-                                if (optarg[0] == '#')
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified key is a comment?");
-
-                                add = strv_new(optarg);
-                                if (!add)
-                                        return log_oom();
-                        }
-
-                        v = sd_json_variant_ref(sd_json_variant_by_key(arg_identity_extra_privileged, "sshAuthorizedKeys"));
-                        if (v) {
-                                r = sd_json_variant_strv(v, &l);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse SSH authorized keys list: %m");
-                        }
-
-                        r = strv_extend_strv_consume(&l, TAKE_PTR(add), /* filter_duplicates= */ true);
-                        if (r < 0)
-                                return log_oom();
-
-                        v = sd_json_variant_unref(v);
-
-                        r = sd_json_variant_new_array_strv(&v, l);
-                        if (r < 0)
-                                return log_oom();
-
-                        r = sd_json_variant_set_field(&arg_identity_extra_privileged, "sshAuthorizedKeys", v);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set authorized keys: %m");
-
-                        break;
-                }
 
                 case ARG_NOT_BEFORE:
                 case ARG_NOT_AFTER:
                 case 'e': {
-                        const char *field;
-                        usec_t n;
+                        const char *field = c == ARG_NOT_BEFORE ? "notBeforeUSec" : "notAfterUSec";
 
-                        field =           c == ARG_NOT_BEFORE ? "notBeforeUSec" :
-                                IN_SET(c, ARG_NOT_AFTER, 'e') ? "notAfterUSec" : NULL;
-
-                        assert(field);
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        /* Note the minor discrepancy regarding -e parsing here: we support that for compat
-                         * reasons, and in the original useradd(8) implementation it accepts dates in the
-                         * format YYYY-MM-DD. Coincidentally, we accept dates formatted like that too, but
-                         * with greater precision. */
-                        r = parse_timestamp(optarg, &n);
+                        r = parse_timestamp_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s parameter: %m", field);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, n);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
+                                return r;
                         break;
                 }
 
@@ -4331,32 +4593,17 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_PASSWORD_CHANGE_MAX:
                 case ARG_PASSWORD_CHANGE_WARN:
                 case ARG_PASSWORD_CHANGE_INACTIVE: {
-                        const char *field;
-                        usec_t n;
-
-                        field =      c == ARG_PASSWORD_CHANGE_MIN ? "passwordChangeMinUSec" :
+                        const char *field =
+                                     c == ARG_PASSWORD_CHANGE_MIN ? "passwordChangeMinUSec" :
                                      c == ARG_PASSWORD_CHANGE_MAX ? "passwordChangeMaxUSec" :
                                     c == ARG_PASSWORD_CHANGE_WARN ? "passwordChangeWarnUSec" :
                                 c == ARG_PASSWORD_CHANGE_INACTIVE ? "passwordChangeInactiveUSec" :
                                                                     NULL;
-
                         assert(field);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_sec(optarg, &n);
+                        r = parse_time_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s parameter: %m", field);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, n);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
+                                return r;
                         break;
                 }
 
@@ -4366,35 +4613,28 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LUKS_CIPHER_MODE:
                 case ARG_LUKS_PBKDF_TYPE:
                 case ARG_LUKS_PBKDF_HASH_ALGORITHM: {
-
                         const char *field =
                                                   c == ARG_STORAGE ? "storage" :
                                                   c == ARG_FS_TYPE ? "fileSystemType" :
                                               c == ARG_LUKS_CIPHER ? "luksCipher" :
                                          c == ARG_LUKS_CIPHER_MODE ? "luksCipherMode" :
                                           c == ARG_LUKS_PBKDF_TYPE ? "luksPbkdfType" :
-                                c == ARG_LUKS_PBKDF_HASH_ALGORITHM ? "luksPbkdfHashAlgorithm" : NULL;
-
+                                c == ARG_LUKS_PBKDF_HASH_ALGORITHM ? "luksPbkdfHashAlgorithm" :
+                                                                     NULL;
                         assert(field);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
+                        sd_json_variant **identity =
+                                match_identity ?:
+                                IN_SET(c, ARG_STORAGE, ARG_FS_TYPE) ?
+                                &arg_identity_extra_this_machine : &arg_identity_extra;
 
-                                break;
-                        }
+                        if (!isempty(optarg) && !string_is_safe(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Parameter for field %s not valid: %s", field, optarg);
 
-                        if (!string_is_safe(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parameter for %s field not valid: %s", field, optarg);
-
-                        r = sd_json_variant_set_field_string(
-                                        match_identity ?: (IN_SET(c, ARG_STORAGE, ARG_FS_TYPE) ?
-                                                           &arg_identity_extra_this_machine :
-                                                           &arg_identity_extra), field, optarg);
+                        r = parse_string_field(identity, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
@@ -4406,99 +4646,27 @@ static int parse_argv(int argc, char *argv[]) {
                                  c == ARG_RATE_LIMIT_INTERVAL ? "rateLimitIntervalUSec" :
                                           c == ARG_STOP_DELAY ? "stopDelayUSec" :
                                                                 NULL;
-                        usec_t t;
-
                         assert(field);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = parse_sec(optarg, &t);
+                        r = parse_time_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s field: %s", field, optarg);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, t);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
-                case 'G': {
-                        const char *p = optarg;
-
-                        if (isempty(p)) {
-                                r = drop_from_identity("memberOf");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        for (;;) {
-                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo = NULL;
-                                _cleanup_strv_free_ char **list = NULL;
-                                _cleanup_free_ char *word = NULL;
-
-                                r = extract_first_word(&p, &word, ",", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse group list: %m");
-                                if (r == 0)
-                                        break;
-
-                                if (!valid_user_group_name(word, 0))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid group name %s.", word);
-
-                                mo = sd_json_variant_ref(sd_json_variant_by_key(arg_identity_extra, "memberOf"));
-
-                                r = sd_json_variant_strv(mo, &list);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse group list: %m");
-
-                                r = strv_extend(&list, word);
-                                if (r < 0)
-                                        return log_oom();
-
-                                strv_sort_uniq(list);
-
-                                mo = sd_json_variant_unref(mo);
-                                r = sd_json_variant_new_array_strv(&mo, list);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to create group list JSON: %m");
-
-                                r = sd_json_variant_set_field(match_identity ?: &arg_identity_extra, "memberOf", mo);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to update group list: %m");
-                        }
-
-                        break;
-                }
-
-                case ARG_TASKS_MAX: {
-                        uint64_t u;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("tasksMax");
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        r = safe_atou64(optarg, &u);
+                case 'G':
+                        r = parse_group_field(arg_identity_extra,
+                                              match_identity ?: &arg_identity_extra,
+                                              "memberOf", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --tasks-max= parameter: %s", optarg);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, "tasksMax", u);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set tasksMax field: %m");
-
+                                return r;
                         break;
-                }
+
+                case ARG_TASKS_MAX:
+                        r = parse_u64_field(match_identity ?: &arg_identity_extra, "tasksMax", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case ARG_MEMORY_MAX:
                 case ARG_MEMORY_HIGH:
@@ -4506,92 +4674,31 @@ static int parse_argv(int argc, char *argv[]) {
                         const char *field =
                                             c == ARG_MEMORY_MAX ? "memoryMax" :
                                            c == ARG_MEMORY_HIGH ? "memoryHigh" :
-                                c == ARG_LUKS_PBKDF_MEMORY_COST ? "luksPbkdfMemoryCost" : NULL;
+                                c == ARG_LUKS_PBKDF_MEMORY_COST ? "luksPbkdfMemoryCost" :
+                                                                  NULL;
 
-                        uint64_t u;
-
-                        assert(field);
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        r = parse_size(optarg, 1024, &u);
+                        r = parse_size_field(match_identity ?: &arg_identity_extra_this_machine, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse %s parameter: %s", field, optarg);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra_this_machine, field, u);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
                 case ARG_CPU_WEIGHT:
                 case ARG_IO_WEIGHT: {
                         const char *field = c == ARG_CPU_WEIGHT ? "cpuWeight" :
-                                            c == ARG_IO_WEIGHT ? "ioWeight" : NULL;
-                        uint64_t u;
+                                             c == ARG_IO_WEIGHT ? "ioWeight" :
+                                                                  NULL;
 
-                        assert(field);
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        r = safe_atou64(optarg, &u);
+                        r = parse_weight_field(match_identity ?: &arg_identity_extra, field, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --cpu-weight=/--io-weight= parameter: %s", optarg);
-
-                        if (!CGROUP_WEIGHT_IS_OK(u))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Weight %" PRIu64 " is out of valid weight range.", u);
-
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, u);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
                 }
 
                 case ARG_PKCS11_TOKEN_URI:
-                        if (streq(optarg, "list"))
-                                return pkcs11_list_tokens();
-
-                        /* If --pkcs11-token-uri= is specified we always drop everything old */
-                        FOREACH_STRING(p, "pkcs11TokenUri", "pkcs11EncryptedKey") {
-                                r = drop_from_identity(p);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        if (isempty(optarg)) {
-                                arg_pkcs11_token_uri = strv_free(arg_pkcs11_token_uri);
-                                break;
-                        }
-
-                        if (streq(optarg, "auto")) {
-                                _cleanup_free_ char *found = NULL;
-
-                                r = pkcs11_find_token_auto(&found);
-                                if (r < 0)
-                                        return r;
-                                r = strv_consume(&arg_pkcs11_token_uri, TAKE_PTR(found));
-                        } else {
-                                if (!pkcs11_uri_valid(optarg))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid PKCS#11 URI: %s", optarg);
-
-                                r = strv_extend(&arg_pkcs11_token_uri, optarg);
-                        }
-                        if (r < 0)
+                        r = parse_pkcs11_token_uri_field(optarg);
+                        if (r <= 0)
                                 return r;
-
-                        strv_uniq(arg_pkcs11_token_uri);
                         break;
 
                 case ARG_FIDO2_CRED_ALG:
@@ -4601,34 +4708,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FIDO2_DEVICE:
-                        if (streq(optarg, "list"))
-                                return fido2_list_devices();
-
-                        FOREACH_STRING(p, "fido2HmacCredential", "fido2HmacSalt") {
-                                r = drop_from_identity(p);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        if (isempty(optarg)) {
-                                arg_fido2_device = strv_free(arg_fido2_device);
-                                break;
-                        }
-
-                        if (streq(optarg, "auto")) {
-                                _cleanup_free_ char *found = NULL;
-
-                                r = fido2_find_device_auto(&found);
-                                if (r < 0)
-                                        return r;
-
-                                r = strv_consume(&arg_fido2_device, TAKE_PTR(found));
-                        } else
-                                r = strv_extend(&arg_fido2_device, optarg);
-                        if (r < 0)
+                        r = parse_fido2_device_field(optarg);
+                        if (r <= 0)
                                 return r;
-
-                        strv_uniq(arg_fido2_device);
                         break;
 
                 case ARG_FIDO2_WITH_PIN:
@@ -4659,70 +4741,26 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_boolean(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --recovery-key= argument: %s", optarg);
-
                         arg_recovery_key = r;
 
-                        FOREACH_STRING(p, "recoveryKey", "recoveryKeyType") {
-                                r = drop_from_identity(p);
-                                if (r < 0)
-                                        return r;
-                        }
-
+                        r = drop_from_identity("recoveryKey", "recoveryKeyType");
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_AUTO_RESIZE_MODE:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("autoResizeMode");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        r = auto_resize_mode_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --auto-resize-mode= argument: %s", optarg);
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "autoResizeMode", auto_resize_mode_to_string(r));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set autoResizeMode field: %m");
-
-                        break;
-
-                case ARG_REBALANCE_WEIGHT: {
-                        uint64_t u;
-
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("rebalanceWeight");
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        if (streq(optarg, "off"))
-                                u = REBALANCE_WEIGHT_OFF;
-                        else {
-                                r = safe_atou64(optarg, &u);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --rebalance-weight= argument: %s", optarg);
-
-                                if (u < REBALANCE_WEIGHT_MIN || u > REBALANCE_WEIGHT_MAX)
-                                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Rebalancing weight out of valid range %" PRIu64 "%s%" PRIu64 ": %s",
-                                                               REBALANCE_WEIGHT_MIN, glyph(GLYPH_ELLIPSIS), REBALANCE_WEIGHT_MAX, optarg);
-                        }
-
-                        /* Drop from per machine stuff and everywhere */
-                        r = drop_from_identity("rebalanceWeight");
+                        r = parse_auto_resize_mode_field(match_identity ?: &arg_identity_extra,
+                                                         "autoResizeMode", optarg);
                         if (r < 0)
                                 return r;
-
-                        /* Add to main identity */
-                        r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, "rebalanceWeight", u);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set rebalanceWeight field: %m");
-
                         break;
-                }
+
+                case ARG_REBALANCE_WEIGHT:
+                        r = parse_rebalance_weight(match_identity ?: &arg_identity_extra,
+                                                   "rebalanceWeight", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case 'j':
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
@@ -4766,63 +4804,27 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_and_change_password = true;
                         break;
 
-                case ARG_DROP_CACHES: {
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("dropCaches");
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        r = parse_boolean_argument("--drop-caches=", optarg, NULL);
+                case ARG_DROP_CACHES:
+                        r = parse_boolean_field(match_identity ?: &arg_identity_extra, "dropCaches", optarg);
                         if (r < 0)
                                 return r;
-
-                        r = sd_json_variant_set_field_boolean(match_identity ?: &arg_identity_extra, "dropCaches", r);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set drop caches field: %m");
-
                         break;
-                }
 
                 case ARG_CAPABILITY_AMBIENT_SET:
-                case ARG_CAPABILITY_BOUNDING_SET: {
-                        _cleanup_strv_free_ char **l = NULL;
-                        uint64_t *which;
-                        const char *field;
-
-                        if (c == ARG_CAPABILITY_AMBIENT_SET) {
-                                which = &arg_capability_ambient_set;
-                                field = "capabilityAmbientSet";
-                        } else {
-                                assert(c == ARG_CAPABILITY_BOUNDING_SET);
-                                which = &arg_capability_bounding_set;
-                                field = "capabilityBoundingSet";
-                        }
-
-                        r = parse_capability_set(optarg, CAP_MASK_UNSET, which);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capabilities in capability string '%s'.", optarg);
+                        r = parse_capability_set_field(match_identity ?: &arg_identity_extra,
+                                                       &arg_capability_ambient_set,
+                                                       "capabilityAmbientSet", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse capability string '%s': %m", optarg);
-
-                        if (*which == CAP_MASK_UNSET) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        if (capability_set_to_strv(*which, &l) < 0)
-                                return log_oom();
-
-                        r = sd_json_variant_set_field_strv(match_identity ?: &arg_identity_extra, field, l);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set %s field: %m", field);
-
+                                return r;
                         break;
-                }
+
+                case ARG_CAPABILITY_BOUNDING_SET:
+                        r = parse_capability_set_field(match_identity ?: &arg_identity_extra,
+                                                       &arg_capability_bounding_set,
+                                                       "capabilityBoundingSet", optarg);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case ARG_PROMPT_NEW_USER:
                         arg_prompt_new_user = true;
@@ -4846,7 +4848,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 eq = strrchr(optarg, '=');
                                 if (!eq) { /* --blob=/some/path replaces the blob dir */
-                                        r = parse_path_argument(optarg, false, &arg_blob_dir);
+                                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_blob_dir);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to parse path %s: %m", optarg);
                                         break;
@@ -4862,7 +4864,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (!suitable_blob_filename(filename))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid blob filename: %s", filename);
 
-                                r = parse_path_argument(eq + 1, false, &path);
+                                r = parse_path_argument(eq + 1, /* suppress_root= */ false, &path);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse path %s: %m", eq + 1);
                         } else {
@@ -4876,7 +4878,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (!filename)
                                         return log_oom();
 
-                                r = parse_path_argument(optarg, false, &path);
+                                r = parse_path_argument(optarg, /* suppress_root= */ false, &path);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse path %s: %m", optarg);
                         }
@@ -4904,83 +4906,37 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_DEV_SHM_LIMIT: {
                         const char *field =
                                     c == ARG_TMP_LIMIT ? "tmpLimit" :
-                                c == ARG_DEV_SHM_LIMIT ? "devShmLimit" : NULL;
+                                c == ARG_DEV_SHM_LIMIT ? "devShmLimit" :
+                                                         NULL;
                         const char *field_scale =
                                     c == ARG_TMP_LIMIT ? "tmpLimitScale" :
-                                c == ARG_DEV_SHM_LIMIT ? "devShmLimitScale" : NULL;
+                                c == ARG_DEV_SHM_LIMIT ? "devShmLimitScale" :
+                                                         NULL;
 
                         assert(field);
                         assert(field_scale);
 
-                        if (isempty(optarg)) {
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-                                r = drop_from_identity(field_scale);
-                                if (r < 0)
-                                        return r;
-                                break;
-                        }
-
-                        r = parse_permyriad(optarg);
-                        if (r < 0) {
-                                uint64_t u;
-
-                                r = parse_size(optarg, 1024, &u);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse %s/%s parameter: %s", field, field_scale, optarg);
-
-                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field, u);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to set %s field: %m", field);
-
-                                r = drop_from_identity(field_scale);
-                                if (r < 0)
-                                        return r;
-                        } else {
-                                r = sd_json_variant_set_field_unsigned(match_identity ?: &arg_identity_extra, field_scale, UINT32_SCALE_FROM_PERMYRIAD(r));
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to set %s field: %m", field_scale);
-
-                                r = drop_from_identity(field);
-                                if (r < 0)
-                                        return r;
-                        }
-
+                        r = parse_tmpfs_limit_field(match_identity ?: &arg_identity_extra,
+                                                    field, field_scale, optarg);
+                        if (r < 0)
+                                return r;
                         break;
                 }
 
                 case ARG_DEFAULT_AREA:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("defaultArea");
-                                if (r < 0)
-                                        return r;
-
-                                break;
-                        }
-
-                        if (!filename_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parameter for default area field not valid: %s", optarg);
-
-                        r = sd_json_variant_set_field_string(match_identity ?: &arg_identity_extra, "defaultArea", optarg);
+                        r = parse_filename_field(match_identity ?: &arg_identity_extra, "defaultArea", optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set default area field: %m");
-
+                                return r;
                         break;
 
                 case ARG_KEY_NAME:
-                        if (isempty(optarg)) {
-                                arg_key_name = mfree(arg_key_name);
-                                return 0;
-                        }
+                        if (!isempty(optarg) && !filename_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Parameter for --key-name= not a valid filename: %s", optarg);
 
-                        if (!filename_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified key name not valid: %s", optarg);
-
-                        r = free_and_strdup_warn(&arg_key_name, optarg);
+                        r = free_and_strdup_warn(&arg_key_name, empty_to_null(optarg));
                         if (r < 0)
                                 return r;
-
                         break;
 
                 case ARG_SEIZE:
