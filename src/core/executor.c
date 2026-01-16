@@ -186,6 +186,7 @@ static int run(int argc, char *argv[]) {
                 .userns_storage_socket = EBADF_PAIR,
                 .netns_storage_socket = EBADF_PAIR,
                 .ipcns_storage_socket = EBADF_PAIR,
+                .mountns_storage_socket = EBADF_PAIR,
         };
         _cleanup_(dynamic_creds_done) DynamicCreds dynamic_creds = {};
         _cleanup_(exec_runtime_clear) ExecRuntime runtime = {

@@ -133,6 +133,9 @@ typedef struct ExecSharedRuntime {
 
         /* Like netns_storage_socket, but the file descriptor is referring to the user namespace. */
         int userns_storage_socket[2];
+
+        /* Like netns_storage_socket, but the file descriptor is referring to the mount namespace. */
+        int mountns_storage_socket[2];
 } ExecSharedRuntime;
 
 typedef struct ExecRuntime {

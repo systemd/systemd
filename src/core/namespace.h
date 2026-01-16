@@ -95,6 +95,7 @@ typedef enum JoinsNamespacesFlags {
         JOINS_NAMESPACES_IPC  = 1U << 1,
         JOINS_NAMESPACES_NET  = 1U << 2,
         JOINS_NAMESPACES_TMP  = 1U << 3,
+        JOINS_NAMESPACES_MNT  = 1U << 4,
         JOINS_NAMESPACES_FLAGS_DEFAULT = JOINS_NAMESPACES_USER | JOINS_NAMESPACES_IPC | JOINS_NAMESPACES_NET | JOINS_NAMESPACES_TMP,
 } JoinsNamespacesFlags;
 
@@ -211,6 +212,10 @@ typedef struct NamespaceParameters {
         PidRef *bpffs_pidref;
         int bpffs_socket_fd;
         int bpffs_errno_pipe;
+
+        /* Socket pair for sharing mount namespace via JoinNamespacesOf=, or NULL */
+        // XXX: rata. This problably needs some init to null or something
+        int *mountns_storage_socket;
 } NamespaceParameters;
 
 int setup_namespace(const NamespaceParameters *p, char **reterr_path);
