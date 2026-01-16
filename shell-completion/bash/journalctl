@@ -33,6 +33,14 @@ __get_machines() {
         sort -u
 }
 
+__get_system_units() {
+    systemctl --system --full --legend=no --no-pager --plain list-unit-files 2>/dev/null | { while read -r a b; do echo " $a"; done; }
+}
+
+__get_user_units() {
+    systemctl --user --full --legend=no --no-pager --plain list-unit-files 2>/dev/null | { while read -r a b; do echo " $a"; done; }
+}
+
 __syslog_priorities=(emerg alert crit err warning notice info debug)
 __syslog_facilities=(kern user mail daemon auth syslog lpr news uucp cron authpriv ftp local0 local1 local2 local3 local4 local5 local6 local7)
 
@@ -103,9 +111,9 @@ _journalctl() {
                 ;;
             --unit|-u)
                 if __contains_word "--user" ${COMP_WORDS[*]}; then
-                    comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
+                    comps=$( __get_user_units )
                 else
-                    comps=$(journalctl -F '_SYSTEMD_UNIT' 2>/dev/null)
+                    comps=$( __get_system_units )
                 fi
                 # Similarly to systemctl, we need to distinguish between
                 # escaped and unescaped names in order to be able to correctly
