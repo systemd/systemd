@@ -1962,10 +1962,10 @@ int bus_unit_queue_job_one(
 
         assert(u);
 
-        r = unit_queue_job_check_and_collapse_type(u, &type, /* reload_if_possible= */ FLAGS_SET(flags, BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE));
+        r = unit_queue_job_check_and_mangle_type(u, &type, /* reload_if_possible= */ FLAGS_SET(flags, BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE));
         if (r == -ENOENT)
                 return sd_bus_error_setf(reterr_error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
-        if (r == -EUNATCH)
+        if (r == -ELIBEXEC)
                 return sd_bus_error_setf(reterr_error,
                                          BUS_ERROR_ONLY_BY_DEPENDENCY,
                                          "Operation refused, unit %s may be requested by dependency only (it is configured to refuse manual start/stop).",
