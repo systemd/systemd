@@ -137,6 +137,17 @@ Deprecations and removals:
 
 Features:
 
+* systemd-sysupdate: add support a "best before" in manifests (ie. SHA256SUMS)
+  files, to detect freshness, and refuse stale sources
+
+* systemd-sysupdate: for each transfer support looking at multiple sources,
+  pick source with newest entry. If multiple sources have the same entry, use
+  first configured source. Usecase: "sideload" components from local dirs,
+  without disabling remote sources.
+
+* systemd-sysupdate: support "revoked" items, which cause the client to
+  downgrade/upgrade
+
 * portable services: attach not only unit files to host, but also simple
   binaries to a tmpfs path in $PATH.
 
