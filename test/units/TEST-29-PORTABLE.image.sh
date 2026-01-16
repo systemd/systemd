@@ -25,6 +25,10 @@ systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-foo.service
 systemctl is-active minimal-app0-bar.service && exit 1
 
+# Ensure pinning by policy works
+cat /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf
+grep -q -F 'root=signed+squashfs:' /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf
+
 portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
 portablectl is-attached minimal-app0
@@ -91,6 +95,9 @@ status="$(portablectl is-attached --extension app0 minimal_0)"
 grep -q -F "LogExtraFields=PORTABLE_ROOT=minimal_0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd/system.attached/app0.service.d/20-portable.conf
+# Ensure pinning by policy works
+grep -q -F 'RootImagePolicy=root=signed+squashfs:' /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
+grep -q -F 'ExtensionImagePolicy=root=signed+squashfs:' /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
 
 portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app0.raw /usr/share/minimal_1.raw app0
 
