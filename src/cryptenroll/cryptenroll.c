@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <sys/capability.h>
 #include <sys/mman.h>
 
 #include "sd-device.h"
@@ -849,8 +850,17 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        /* A delicious drop of snake oil */
-        (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
+        /* Memlock everything into physical RAM if we have the CAP_IPC_LOCK capability */
+        cap_t current_caps = cap_get_proc();
+        if (current_caps) {
+                cap_flag_value_t val;
+                if (!cap_get_flag(current_caps, CAP_IPC_LOCK, CAP_EFFECTIVE, &val)) {
+                        if (val == CAP_SET) {
+                                (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
+                        }
+                }
+                cap_free(current_caps);
+        }
 
         cryptsetup_enable_logging(NULL);
 

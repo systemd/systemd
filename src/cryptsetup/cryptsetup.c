@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <sys/capability.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -2581,8 +2582,17 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         log_debug("%s %s ← %s type=%s cipher=%s", __func__,
                   volume, source, strempty(arg_type), strempty(arg_cipher));
 
-        /* A delicious drop of snake oil */
-        (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
+        /* Memlock everything into physical RAM if we have the CAP_IPC_LOCK capability */
+        cap_t current_caps = cap_get_proc();
+        if (current_caps) {
+                cap_flag_value_t val;
+                if (!cap_get_flag(current_caps, CAP_IPC_LOCK, CAP_EFFECTIVE, &val)) {
+                        if (val == CAP_SET) {
+                                (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
+                        }
+                }
+                cap_free(current_caps);
+        }
 
         if (key_file && arg_keyfile_erase)
                 destroy_key_file = key_file; /* let's get this baby erased when we leave */
