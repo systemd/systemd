@@ -10,11 +10,11 @@
 int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 
 int varlink_unit_queue_job_one(
-                sd_varlink *link,
                 Unit *u,
                 JobType type,
                 JobMode mode,
                 bool reload_if_possible,
-                uint32_t *ret_job_id);
+                uint32_t *ret_job_id,
+                sd_bus_error *reterr_bus_error);
 
 int varlink_error_no_such_unit(sd_varlink *v, const char *name);
