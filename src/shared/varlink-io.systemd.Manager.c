@@ -188,10 +188,6 @@ static SD_VARLINK_DEFINE_METHOD(
 
 static SD_VARLINK_DEFINE_ERROR(RateLimitReached);
 
-static SD_VARLINK_DEFINE_ERROR(OnlyByDependency);
-
-static SD_VARLINK_DEFINE_ERROR(BusShuttingDown);
-
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Manager,
                 "io.systemd.Manager",
@@ -203,10 +199,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Enqueue all marked jobs"),
                 &vl_method_EnqueueMarkedJobs,
                 &vl_error_RateLimitReached,
-                SD_VARLINK_SYMBOL_COMMENT("Unit operation may be requested by dependency only"),
-                &vl_error_OnlyByDependency,
-                SD_VARLINK_SYMBOL_COMMENT("Operation refused, the bus is shutting down"),
-                &vl_error_BusShuttingDown,
                 &vl_type_ManagerContext,
                 &vl_type_ManagerRuntime,
                 &vl_type_Timestamp,
