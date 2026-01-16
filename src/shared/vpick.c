@@ -26,6 +26,53 @@ void pick_result_done(PickResult *p) {
         *p = PICK_RESULT_NULL;
 }
 
+int pick_result_compare(const PickResult *a, const PickResult *b, PickFlags flags) {
+        int d;
+
+        assert(a);
+        assert(b);
+
+        /* Returns > 0 if 'a' is the better pick, < 0 if 'b' is the better pick, 0 if they are equal. */
+
+        /* Prefer entries with tries left over those without */
+        if (FLAGS_SET(flags, PICK_TRIES))
+                d = CMP(a->tries_left != 0, b->tries_left != 0);
+        else
+                d = 0;
+
+        /* Prefer newer versions */
+        if (d == 0)
+                d = strverscmp_improved(a->version, b->version);
+
+        if (FLAGS_SET(flags, PICK_ARCHITECTURE)) {
+                /* Prefer native architectures over non-native architectures */
+                if (d == 0)
+                        d = CMP(a->architecture == native_architecture(), b->architecture == native_architecture());
+
+                /* Prefer secondary architectures over other architectures */
+#ifdef ARCHITECTURE_SECONDARY
+                if (d == 0)
+                        d = CMP(a->architecture == ARCHITECTURE_SECONDARY, b->architecture == ARCHITECTURE_SECONDARY);
+#endif
+        }
+
+        /* Prefer entries with more tries left */
+        if (FLAGS_SET(flags, PICK_TRIES)) {
+                if (d == 0)
+                        d = CMP(a->tries_left, b->tries_left);
+
+                /* Prefer entries with fewer attempts done so far */
+                if (d == 0)
+                        d = -CMP(a->tries_done, b->tries_done);
+        }
+
+        /* Finally, just compare the filenames as strings */
+        if (d == 0)
+                d = path_compare_filename(a->path, b->path);
+
+        return d;
+}
+
 static int format_fname(
                 const PickFilter *filter,
                 PickFlags flags,
@@ -169,13 +216,13 @@ static int pin_choice(
                 return log_debug_errno(errno, "Failed to stat discovered inode '%s%s': %m",
                                        empty_to_root(toplevel_path), skip_leading_slash(inode_path));
 
-        if (filter->type_mask != 0 &&
-            !BIT_SET(filter->type_mask, IFTODT(st.st_mode)))
-                return log_debug_errno(
-                                SYNTHETIC_ERRNO(errno_from_mode(filter->type_mask, st.st_mode)),
-                                "Inode '%s/%s' has wrong type, found '%s'.",
-                                empty_to_root(toplevel_path), skip_leading_slash(inode_path),
-                                inode_type_to_string(st.st_mode));
+        if (filter->type_mask != 0 && !BIT_SET(filter->type_mask, IFTODT(st.st_mode))) {
+                log_debug("Inode '%s/%s' has wrong type, found '%s'.",
+                          empty_to_root(toplevel_path), skip_leading_slash(inode_path),
+                          inode_type_to_string(st.st_mode));
+                *ret = PICK_RESULT_NULL;
+                return 0;
+        }
 
         _cleanup_(pick_result_done) PickResult result = {
                 .fd = TAKE_FD(inode_fd),
@@ -248,6 +295,23 @@ nomatch:
         return 0;
 }
 
+static bool architecture_matches(const PickFilter *filter, Architecture a) {
+        assert(filter);
+
+        if (filter->architecture >= 0)
+                return a == filter->architecture;
+
+        if (a == native_architecture())
+                return true;
+
+#ifdef ARCHITECTURE_SECONDARY
+        if (a == ARCHITECTURE_SECONDARY)
+                return true;
+#endif
+
+        return a == _ARCHITECTURE_INVALID;
+}
+
 static int make_choice(
                 const char *toplevel_path,
                 int toplevel_fd,
@@ -257,21 +321,7 @@ static int make_choice(
                 PickFlags flags,
                 PickResult *ret) {
 
-        static const Architecture local_architectures[] = {
-                /* In order of preference */
-                native_architecture(),
-#ifdef ARCHITECTURE_SECONDARY
-                ARCHITECTURE_SECONDARY,
-#endif
-                _ARCHITECTURE_INVALID, /* accept any arch, as last resort */
-        };
-
-        _cleanup_free_ DirectoryEntries *de = NULL;
-        _cleanup_free_ char *best_version = NULL, *best_filename = NULL, *p = NULL, *j = NULL;
-        _cleanup_close_ int dir_fd = -EBADF, object_fd = -EBADF, inode_fd = TAKE_FD(_inode_fd);
-        const Architecture *architectures;
-        unsigned best_tries_left = UINT_MAX, best_tries_done = UINT_MAX;
-        size_t n_architectures, best_architecture_index = SIZE_MAX;
+        _cleanup_close_ int inode_fd = TAKE_FD(_inode_fd);
         int r;
 
         assert(toplevel_fd >= 0 || toplevel_fd == AT_FDCWD);
@@ -286,15 +336,17 @@ static int make_choice(
         }
 
         /* Maybe the filter is fully specified? Then we can generate the file name directly */
+        _cleanup_free_ char *j = NULL;
         r = format_fname(filter, flags, &j);
         if (r >= 0) {
                 _cleanup_free_ char *object_path = NULL;
 
                 /* Yay! This worked! */
-                p = path_join(inode_path, j);
+                _cleanup_free_ char *p = path_join(inode_path, j);
                 if (!p)
                         return log_oom_debug();
 
+                _cleanup_close_ int object_fd = -EBADF;
                 r = chaseat(toplevel_fd, p, CHASE_AT_RESOLVE_IN_ROOT, &object_path, &object_fd);
                 if (r == -ENOENT) {
                         *ret = PICK_RESULT_NULL;
@@ -321,28 +373,22 @@ static int make_choice(
         /* Underspecified, so we do our enumeration dance */
 
         /* Convert O_PATH to a regular directory fd */
-        dir_fd = fd_reopen(inode_fd, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int dir_fd = fd_reopen(inode_fd, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
         if (dir_fd < 0)
                 return log_debug_errno(dir_fd, "Failed to reopen '%s/%s' as directory: %m",
                                        empty_to_root(toplevel_path), skip_leading_slash(inode_path));
 
+        _cleanup_free_ DirectoryEntries *de = NULL;
         r = readdir_all(dir_fd, 0, &de);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read directory '%s/%s': %m",
                                        empty_to_root(toplevel_path), skip_leading_slash(inode_path));
 
-        if (filter->architecture < 0) {
-                architectures = local_architectures;
-                n_architectures = ELEMENTSOF(local_architectures);
-        } else {
-                architectures = &filter->architecture;
-                n_architectures = 1;
-        }
+        _cleanup_(pick_result_done) PickResult best = PICK_RESULT_NULL;
 
         FOREACH_ARRAY(entry, de->entries, de->n_entries) {
                 unsigned found_tries_done = UINT_MAX, found_tries_left = UINT_MAX;
                 _cleanup_free_ char *dname = NULL;
-                size_t found_architecture_index = SIZE_MAX;
                 char *e;
 
                 dname = strdup((*entry)->d_name);
@@ -380,20 +426,16 @@ static int make_choice(
                         }
                 }
 
+                Architecture a = _ARCHITECTURE_INVALID;
                 if (FLAGS_SET(flags, PICK_ARCHITECTURE)) {
                         char *underscore = strrchr(e, '_');
-                        Architecture a;
 
-                        a = underscore ? architecture_from_string(underscore + 1) : _ARCHITECTURE_INVALID;
+                        if (underscore)
+                                a = architecture_from_string(underscore + 1);
 
-                        for (size_t i = 0; i < n_architectures; i++)
-                                if (architectures[i] == a) {
-                                        found_architecture_index = i;
-                                        break;
-                                }
-
-                        if (found_architecture_index == SIZE_MAX) { /* No matching arch found */
-                                log_debug("Found entry with architecture '%s' which is not what we are looking for, ignoring entry.", a < 0 ? "any" : architecture_to_string(a));
+                        if (!architecture_matches(filter, a)) {
+                                log_debug("Found entry with architecture '%s' which is not what we are looking for, ignoring entry.",
+                                          a < 0 ? "any" : architecture_to_string(a));
                                 continue;
                         }
 
@@ -412,89 +454,55 @@ static int make_choice(
                         continue;
                 }
 
-                if (best_filename) { /* Already found one matching entry? Then figure out the better one */
-                        int d = 0;
+                _cleanup_free_ char *p = path_join(inode_path, (*entry)->d_name);
+                if (!p)
+                        return log_oom_debug();
 
-                        /* First, prefer entries with tries left over those without */
-                        if (FLAGS_SET(flags, PICK_TRIES))
-                                d = CMP(found_tries_left != 0, best_tries_left != 0);
+                _cleanup_(pick_result_done) PickResult found = PICK_RESULT_NULL;
+                r = pin_choice(toplevel_path,
+                               toplevel_fd,
+                               p,
+                               /* _inode_fd= */ -EBADF,
+                               found_tries_left,
+                               found_tries_done,
+                               &(const PickFilter) {
+                                       .type_mask = filter->type_mask,
+                                       .basename = filter->basename,
+                                       .version = empty_to_null(e),
+                                       .architecture = a,
+                                       .suffix = filter->suffix,
+                               },
+                               flags,
+                               &found);
+                if (r == 0)
+                        continue;
+                if (r < 0)
+                        return r;
 
-                        /* Second, prefer newer versions */
-                        if (d == 0)
-                                d = strverscmp_improved(e, best_version);
-
-                        /* Third, prefer native architectures over secondary architectures */
-                        if (d == 0 &&
-                            FLAGS_SET(flags, PICK_ARCHITECTURE) &&
-                            found_architecture_index != SIZE_MAX && best_architecture_index != SIZE_MAX)
-                                d = -CMP(found_architecture_index, best_architecture_index);
-
-                        /* Fourth, prefer entries with more tries left */
-                        if (FLAGS_SET(flags, PICK_TRIES)) {
-                                if (d == 0)
-                                        d = CMP(found_tries_left, best_tries_left);
-
-                                /* Fifth, prefer entries with fewer attempts done so far */
-                                if (d == 0)
-                                        d = -CMP(found_tries_done, best_tries_done);
-                        }
-
-                        /* Last, just compare the filenames as strings */
-                        if (d == 0)
-                                d = strcmp((*entry)->d_name, best_filename);
-
-                        if (d < 0) {
-                                log_debug("Found entry '%s' but previously found entry '%s' matches better, hence skipping entry.", (*entry)->d_name, best_filename);
-                                continue;
-                        }
+                if (!best.path) {
+                        best = TAKE_PICK_RESULT(found);
+                        continue;
                 }
 
-                r = free_and_strdup_warn(&best_version, e);
-                if (r < 0)
-                        return r;
+                if (pick_result_compare(&found, &best, flags) <= 0) {
+                        log_debug("Found entry '%s' but previously found entry '%s' matches better, hence skipping entry.", found.path, best.path);
+                        continue;
+                }
 
-                r = free_and_strdup_warn(&best_filename, (*entry)->d_name);
-                if (r < 0)
-                        return r;
-
-                best_architecture_index = found_architecture_index;
-                best_tries_left = found_tries_left;
-                best_tries_done = found_tries_done;
+                pick_result_done(&best);
+                best = TAKE_PICK_RESULT(found);
         }
 
-        if (!best_filename) { /* Everything was good, but we didn't find any suitable entry */
+        if (!best.path) { /* Everything was good, but we didn't find any suitable entry */
                 *ret = PICK_RESULT_NULL;
                 return 0;
         }
 
-        p = path_join(inode_path, best_filename);
-        if (!p)
-                return log_oom_debug();
-
-        object_fd = openat(dir_fd, best_filename, O_CLOEXEC|O_PATH);
-        if (object_fd < 0)
-                return log_debug_errno(errno, "Failed to open '%s/%s': %m",
-                                       empty_to_root(toplevel_path), skip_leading_slash(inode_path));
-
-        return pin_choice(
-                        toplevel_path,
-                        toplevel_fd,
-                        p,
-                        TAKE_FD(object_fd),
-                        best_tries_left,
-                        best_tries_done,
-                        &(const PickFilter) {
-                                .type_mask = filter->type_mask,
-                                .basename = filter->basename,
-                                .version = empty_to_null(best_version),
-                                .architecture = best_architecture_index != SIZE_MAX ? architectures[best_architecture_index] : _ARCHITECTURE_INVALID,
-                                .suffix = filter->suffix,
-                        },
-                        flags,
-                        ret);
+        *ret = TAKE_PICK_RESULT(best);
+        return 1;
 }
 
-int path_pick(
+static int path_pick_one(
                 const char *toplevel_path,
                 int toplevel_fd,
                 const char *path,
@@ -644,9 +652,60 @@ bypass:
                         ret);
 }
 
+int path_pick(const char *toplevel_path,
+              int toplevel_fd,
+              const char *path,
+              const PickFilter filters[],
+              size_t n_filters,
+              PickFlags flags,
+              PickResult *ret) {
+
+        _cleanup_(pick_result_done) PickResult best = PICK_RESULT_NULL;
+        int r;
+
+        assert(toplevel_fd >= 0 || toplevel_fd == AT_FDCWD);
+        assert(path);
+        assert(filters || n_filters == 0);
+        assert(ret);
+
+        /* Iterate through all filters and pick the best result */
+        for (size_t i = 0; i < n_filters; i++) {
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+
+                r = path_pick_one(toplevel_path, toplevel_fd, path, &filters[i], flags, &result);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (!best.path) {
+                        best = TAKE_PICK_RESULT(result);
+                        continue;
+                }
+
+                if (pick_result_compare(&result, &best, flags) <= 0) {
+                        log_debug("Found entry '%s' but previously found entry '%s' matches better, hence skipping entry.",
+                                  result.path, best.path);
+                        continue;
+                }
+
+                pick_result_done(&best);
+                best = TAKE_PICK_RESULT(result);
+        }
+
+        if (!best.path) {
+                *ret = PICK_RESULT_NULL;
+                return 0;
+        }
+
+        *ret = TAKE_PICK_RESULT(best);
+        return 1;
+}
+
 int path_pick_update_warn(
                 char **path,
-                const PickFilter *filter,
+                const PickFilter filters[],
+                size_t n_filters,
                 PickFlags flags,
                 PickResult *ret_result) {
 
@@ -655,14 +714,15 @@ int path_pick_update_warn(
 
         assert(path);
         assert(*path);
-        assert(filter);
+        assert(filters || n_filters == 0);
 
         /* This updates the first argument if needed! */
 
         r = path_pick(/* toplevel_path= */ NULL,
                       /* toplevel_fd= */ AT_FDCWD,
                       *path,
-                      filter,
+                      filters,
+                      n_filters,
                       flags,
                       &result);
         if (r == -ENOENT) {
@@ -726,19 +786,17 @@ int path_uses_vpick(const char *path) {
         return !!endswith(parent, ".v");
 }
 
-const PickFilter pick_filter_image_raw = {
-        .type_mask = (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK),
-        .architecture = _ARCHITECTURE_INVALID,
-        .suffix = STRV_MAKE(".raw"),
+const PickFilter pick_filter_image_raw[1] = {
+        {
+                .type_mask = (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK),
+                .architecture = _ARCHITECTURE_INVALID,
+                .suffix = STRV_MAKE(".raw"),
+        },
 };
 
-const PickFilter pick_filter_image_dir = {
-        .type_mask = UINT32_C(1) << DT_DIR,
-        .architecture = _ARCHITECTURE_INVALID,
-};
-
-const PickFilter pick_filter_image_any = {
-        .type_mask = (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) | (UINT32_C(1) << DT_DIR),
-        .architecture = _ARCHITECTURE_INVALID,
-        .suffix = STRV_MAKE(".raw", ""),
+const PickFilter pick_filter_image_dir[1] = {
+        {
+                .type_mask = UINT32_C(1) << DT_DIR,
+                .architecture = _ARCHITECTURE_INVALID,
+        },
 };
