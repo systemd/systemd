@@ -172,9 +172,6 @@ pstore:
 random-seed:
   - changed-files:
     - any-glob-to-any-file: '**/*random-seed*'
-rc-local-generator:
-  - changed-files:
-    - any-glob-to-any-file: 'src/rc-local-generator/*'
 remount-fs:
   - changed-files:
     - any-glob-to-any-file: '**/*remount-fs*'
@@ -268,12 +265,6 @@ sysupdate:
 sysusers:
   - changed-files:
     - any-glob-to-any-file: '**/*sysusers*'
-sysv-generator:
-  - changed-files:
-    - any-glob-to-any-file: '**/*sysv-generator*'
-sysvcompat:
-  - changed-files:
-    - any-glob-to-any-file: '**/*sysv*'
 tests:
   - changed-files:
     - any-glob-to-any-file: [

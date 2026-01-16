@@ -90,8 +90,6 @@ conf.set10('HAVE_SPLIT_BIN', split_bin,
 
 have_standalone_binaries = get_option('standalone-binaries')
 
-sysvrclocal_path = get_option('rc-local')
-conf.set10('HAVE_SYSV_RC_LOCAL', sysvrclocal_path != '')
 conf.set10('CREATE_LOG_DIRS', get_option('create-log-dirs'))
 
 if get_option('hibernate') and not get_option('initrd')
@@ -299,7 +297,6 @@ conf.set_quoted('SYSTEM_GENERATOR_DIR',                       systemgeneratordir
 conf.set_quoted('SYSTEM_PRESET_DIR',                          systempresetdir)
 conf.set_quoted('SYSTEM_SHUTDOWN_PATH',                       systemshutdowndir)
 conf.set_quoted('SYSTEM_SLEEP_PATH',                          systemsleepdir)
-conf.set_quoted('SYSTEM_SYSVRCLOCAL_PATH',                    sysvrclocal_path)
 conf.set_quoted('SYSUSERS_DIR',                               sysusersdir)
 conf.set_quoted('TMPFILES_DIR',                               tmpfilesdir)
 conf.set_quoted('USER_TMPFILES_DIR',                          usertmpfilesdir)
@@ -2401,7 +2398,6 @@ subdir('src/pstore')
 subdir('src/ptyfwd')
 subdir('src/quotacheck')
 subdir('src/random-seed')
-subdir('src/rc-local-generator')
 subdir('src/remount-fs')
 subdir('src/repart')
 subdir('src/reply-password')
@@ -3022,7 +3018,6 @@ summary({
         'sysconf directory'                         : sysconfdir,
         'include directory'                         : includedir,
         'lib directory'                             : libdir,
-        'SysV rc.local script'                      : sysvrclocal_path,
         'PAM modules directory'                     : pamlibdir,
         'PAM configuration directory'               : pamconfdir,
         'ssh server configuration directory'        : sshdconfdir,
@@ -3188,7 +3183,6 @@ foreach tuple : [
         ['man pages',              want_man],
         ['html pages',             want_html],
         ['man page indices',       want_man and have_lxml],
-        ['SysV compat'],
         ['compat-mutable-uid-boundaries'],
         ['utmp'],
         ['ldconfig'],
