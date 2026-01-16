@@ -2146,10 +2146,9 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
                                                    reply, &error);
                 if (ERRNO_IS_NEG_RESOURCE(r))
                         return r;
-                if (r < 0) {
-                        RET_GATHER(ret, r);
-                        log_warning_errno(r, "%s", bus_error_message(&error, r));
-                }
+                if (r < 0)
+                        RET_GATHER(ret, log_warning_errno(r, "Failed to enqueue marked job for unit '%s': %s",
+                                                          u->id, bus_error_message(&error, r)));
         }
 
         if (ret < 0)
