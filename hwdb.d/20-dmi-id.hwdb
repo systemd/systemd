@@ -71,3 +71,7 @@ dmi:bvnLENOVO*
 # Microsoft Surface 1's chassis type
 dmi:bvnMicrosoft Corporation*:pvrSurface with Windows 8 Pro*
     ID_CHASSIS=tablet
+
+# GPD Pocket 4 chassis type
+dmi:bvnAmericanMegatrendsInternational*:rvnGPD:rnG1628-04*
+    ID_CHASSIS=convertible
