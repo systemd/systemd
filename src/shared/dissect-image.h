@@ -268,8 +268,8 @@ static inline const char* dissected_partition_fstype(const DissectedPartition *m
 
 int get_common_dissect_directory(char **ret);
 
-int mountfsd_mount_image_fd(int image_fd, int userns_fd, const ImagePolicy *image_policy, const VeritySettings *verity, DissectImageFlags flags, DissectedImage **ret);
-int mountfsd_mount_image(const char *path, int userns_fd, const ImagePolicy *image_policy, const VeritySettings *verity, DissectImageFlags flags, DissectedImage **ret);
+int mountfsd_mount_image_fd(int image_fd, int userns_fd, const MountOptions *options, const ImagePolicy *image_policy, const VeritySettings *verity, DissectImageFlags flags, DissectedImage **ret);
+int mountfsd_mount_image(const char *path, int userns_fd, const MountOptions *options, const ImagePolicy *image_policy, const VeritySettings *verity, DissectImageFlags flags, DissectedImage **ret);
 int mountfsd_mount_directory_fd(int directory_fd, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
 int mountfsd_mount_directory(const char *path, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
 

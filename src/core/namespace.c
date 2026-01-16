@@ -2621,6 +2621,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                 r = mountfsd_mount_image(
                                                 p->root_image,
                                                 userns_fd,
+                                                p->root_image_options,
                                                 p->root_image_policy,
                                                 p->verity,
                                                 dissect_image_flags,
