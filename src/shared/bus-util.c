@@ -35,7 +35,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "uid-classification.h"
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         sd_event *e = ASSERT_PTR(userdata);
@@ -316,17 +315,13 @@ static int pin_capsule_socket(const char *capsule, const char *suffix, uid_t *re
         if (!p)
                 return -ENOMEM;
 
-        /* We enter territory owned by the user, hence let's be paranoid about symlinks and ownership */
+        /* We enter territory owned by the user, hence let's be paranoid about symlinks */
         r = chase(p, /* root= */ NULL, CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS, /* ret_path= */ NULL, &inode_fd);
         if (r < 0)
                 return r;
 
         if (fstat(inode_fd, &st) < 0)
                 return negative_errno();
-
-        /* Paranoid safety check */
-        if (uid_is_system(st.st_uid) || gid_is_system(st.st_gid))
-                return -EPERM;
 
         *ret_uid = st.st_uid;
         *ret_gid = st.st_gid;
