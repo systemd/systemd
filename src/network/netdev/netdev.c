@@ -1098,7 +1098,7 @@ int netdev_load(Manager *manager) {
 
         assert(manager);
 
-        r = conf_files_list_strv(&files, ".netdev", NULL, 0, NETWORK_DIRS);
+        r = conf_files_list_strv(&files, ".netdev", /* root= */ NULL, CONF_FILES_WARN, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate netdev files: %m");
 
@@ -1127,7 +1127,7 @@ int netdev_reload(Manager *manager) {
 
         assert(manager);
 
-        r = conf_files_list_strv(&files, ".netdev", NULL, 0, NETWORK_DIRS);
+        r = conf_files_list_strv(&files, ".netdev", /* root= */ NULL, CONF_FILES_WARN, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate netdev files: %m");
 

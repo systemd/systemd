@@ -14,6 +14,7 @@ typedef enum ConfFilesFlags {
         CONF_FILES_FILTER_MASKED_BY_EMPTY   = 1 << 5, /* implement masking by empty file */
         CONF_FILES_FILTER_MASKED            = CONF_FILES_FILTER_MASKED_BY_SYMLINK | CONF_FILES_FILTER_MASKED_BY_EMPTY,
         CONF_FILES_TRUNCATE_SUFFIX          = 1 << 6, /* truncate specified suffix from return filename or path */
+        CONF_FILES_WARN                     = 1 << 7, /* warn on some errors */
 } ConfFilesFlags;
 
 typedef struct ConfFile {
@@ -29,8 +30,8 @@ ConfFile* conf_file_free(ConfFile *c);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ConfFile*, conf_file_free);
 void conf_file_free_many(ConfFile **array, size_t n);
 
-int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile **ret);
-int conf_file_new(const char *path, const char *root, ChaseFlags chase_flags, ConfFile **ret);
+int conf_file_new_at(const char *path, int rfd, ConfFilesFlags flags, ConfFile **ret);
+int conf_file_new(const char *path, const char *root, ConfFilesFlags flags, ConfFile **ret);
 
 int conf_files_list(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dir);
 int conf_files_list_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dir);
@@ -56,6 +57,7 @@ int conf_files_list_dropins(
                 char ***ret,
                 const char *dropin_dirname,
                 const char *root,
+                ConfFilesFlags flags,
                 const char * const *dirs);
 
 typedef int parse_line_t(

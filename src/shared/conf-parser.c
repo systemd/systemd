@@ -615,7 +615,9 @@ int config_parse_many(
         assert(dropin_dirname);
         assert(table);
 
-        r = conf_files_list_dropins(&files, dropin_dirname, root, conf_file_dirs);
+        r = conf_files_list_dropins(&files, dropin_dirname, root,
+                                    FLAGS_SET(flags, CONFIG_PARSE_WARN) ? CONF_FILES_WARN : 0,
+                                    conf_file_dirs);
         if (r < 0)
                 return log_full_errno(FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_WARNING : LOG_DEBUG, r,
                                       "Failed to list drop-ins in %s: %m", dropin_dirname);
@@ -690,7 +692,7 @@ static int dropins_get_stats_by_path(
         if (!strextend(&dropin_dirname, ".d"))
                 return -ENOMEM;
 
-        r = conf_files_list_dropins(&files, dropin_dirname, /* root= */ NULL, conf_file_dirs);
+        r = conf_files_list_dropins(&files, dropin_dirname, /* root= */ NULL, /* flags= */ 0, conf_file_dirs);
         if (r < 0)
                 return r;
 
@@ -715,7 +717,7 @@ static int dropins_get_stats_by_path(
 int config_get_stats_by_path(
                 const char *suffix,
                 const char *root,
-                unsigned flags,
+                ConfFilesFlags flags,
                 const char* const* dirs,
                 bool check_dropins,
                 Hashmap **ret) {
