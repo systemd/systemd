@@ -83,11 +83,11 @@ static const char* chassis_string_to_glyph(const char *chassis) {
         if (streq_ptr(chassis, "watch"))
                 return UTF8("⌚"); /* Watch */
         if (streq_ptr(chassis, "handset"))
-                return UTF8("🕻"); /* Left Hand Telephone Receiver */
+                return UTF8("📱"); /* Mobile Phone */
         if (streq_ptr(chassis, "vm"))
-                return UTF8("🖴"); /* Hard disk */
+                return UTF8("💽"); /* Computer disk */
         if (streq_ptr(chassis, "container"))
-                return UTF8("☐"); /* Ballot Box  */
+                return UTF8("📦"); /* Package  */
         return NULL;
 }
 
