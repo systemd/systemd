@@ -1199,7 +1199,7 @@ static int property_get_cpu_usage(
 
         r = unit_get_cpu_usage(u, &ns);
         if (r < 0 && r != -ENODATA)
-                log_unit_warning_errno(u, r, "Failed to get cpuacct.usage attribute: %m");
+                log_unit_warning_errno(u, r, "Failed to get CPU usage: %m");
 
         return sd_bus_message_append(reply, "t", ns);
 }
