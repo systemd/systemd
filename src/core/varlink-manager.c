@@ -10,7 +10,6 @@
 #include "build.h"
 #include "bus-polkit.h"
 #include "confidential-virt.h"
-#include "dbus-job.h"
 #include "errno-util.h"
 #include "glyph-util.h"
 #include "json-util.h"
@@ -304,41 +303,6 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
 
         return 1;
 }
-static int varlink_manager_queue_job_one(
-                sd_varlink *link,
-                Unit *u,
-                JobType type,
-                JobMode mode,
-                bool reload_if_possible,
-                uint32_t *ret_job_id) {
-
-        int r;
-
-        assert(u);
-
-        r = unit_queue_job_check_and_mangle_type(u, &type, reload_if_possible);
-        if (r == -ENOENT)
-                return varlink_error_no_such_unit(link, "name");
-        if (r == -ELIBEXEC)
-                return sd_varlink_errorb(link, VARLINK_ERROR_MANAGER_ONLY_BY_DEPENDENCY);
-        if (r == -ESHUTDOWN)
-                return sd_varlink_errorb(link, VARLINK_ERROR_MANAGER_BUS_SHUTTING_DOWN);
-        if (r < 0)
-                return r;
-
-        Job *j;
-        r = manager_add_job(u->manager, type, u, mode, /* reterr_error= */ NULL, &j);
-        if (r < 0)
-                return r;
-
-        /* Before we send the method reply, force out the announcement JobNew for this job */
-        bus_job_send_pending_change_signal(j, /* including_new= */ true);
-
-        if (ret_job_id)
-                *ret_job_id = j->id;
-
-        return 0;
-}
 
 int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
@@ -382,7 +346,7 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
 
                 r = mac_selinux_unit_access_check_varlink(u, link, job_type_to_access_method(JOB_TRY_RESTART));
                 if (r >= 0)
-                        r = varlink_manager_queue_job_one(
+                        r = varlink_unit_queue_job_one(
                                         link,
                                         u,
                                         JOB_TRY_RESTART,
