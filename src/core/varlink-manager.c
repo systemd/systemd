@@ -309,13 +309,14 @@ static int varlink_manager_queue_job_one(
                 Unit *u,
                 JobType type,
                 JobMode mode,
+                bool reload_if_possible,
                 uint32_t *ret_job_id) {
 
         int r;
 
         assert(u);
 
-        r = unit_queue_job_check_and_mangle_type(u, &type, /* reload_if_possible= */ BIT_SET(u->markers, UNIT_MARKER_NEEDS_RELOAD));
+        r = unit_queue_job_check_and_mangle_type(u, &type, reload_if_possible);
         if (r == -ENOENT)
                 return varlink_error_no_such_unit(link, "name");
         if (r == -ELIBEXEC)
@@ -386,6 +387,7 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
                                         u,
                                         JOB_TRY_RESTART,
                                         JOB_FAIL,
+                                        /* reload_if_possible= */ !BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART),
                                         &job_id);
                 if (ERRNO_IS_NEG_RESOURCE(r))
                         return r;
