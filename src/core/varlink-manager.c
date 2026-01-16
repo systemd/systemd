@@ -315,10 +315,10 @@ static int varlink_manager_queue_job_one(
 
         assert(u);
 
-        r = unit_queue_job_check_and_collapse_type(u, &type, /* reload_if_possible= */ BIT_SET(u->markers, UNIT_MARKER_NEEDS_RELOAD));
+        r = unit_queue_job_check_and_mangle_type(u, &type, /* reload_if_possible= */ BIT_SET(u->markers, UNIT_MARKER_NEEDS_RELOAD));
         if (r == -ENOENT)
                 return varlink_error_no_such_unit(link, "name");
-        if (r == -EUNATCH)
+        if (r == -ELIBEXEC)
                 return sd_varlink_errorb(link, VARLINK_ERROR_MANAGER_ONLY_BY_DEPENDENCY);
         if (r == -ESHUTDOWN)
                 return sd_varlink_errorb(link, VARLINK_ERROR_MANAGER_BUS_SHUTTING_DOWN);
