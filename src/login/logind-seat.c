@@ -331,13 +331,14 @@ static int static_node_acl(Seat *s) {
 #if HAVE_ACL
         int r, ret = 0;
         uid_t uid;
+        uid_t *users = NULL;
 
         assert(s);
 
-        if (s->active)
+        if (s->active) {
                 uid = s->active->user->user_record->uid;
-        else
-                uid = 0;
+                users = &uid;
+        }
 
         _cleanup_closedir_ DIR *dir = opendir("/run/udev/static_node-tags/uaccess/");
         if (!dir) {
@@ -377,7 +378,7 @@ static int static_node_acl(Seat *s) {
                 if (!ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(r))
                         log_debug_errno(r, "Failed to check if '/run/udev/static_node-tags/uaccess/%s' points to a static device node, ignoring: %m", de->d_name);
 
-                r = devnode_acl(fd, uid);
+                r = devnode_acl(fd, users, users == NULL ? 0 : 1);
                 if (r >= 0 || r == -ENOENT)
                         continue;
 
@@ -385,11 +386,11 @@ static int static_node_acl(Seat *s) {
                 _cleanup_free_ char *node = NULL;
                 (void) fd_get_path(fd, &node);
 
-                if (uid != 0) {
+                if (users != NULL) {
                         RET_GATHER(ret, log_debug_errno(r, "Failed to apply ACL on '%s': %m", node ?: de->d_name));
 
                         /* Better be safe than sorry and reset ACL */
-                        r = devnode_acl(fd, /* uid= */ 0);
+                        r = devnode_acl(fd, NULL, 0);
                         if (r >= 0 || r == -ENOENT)
                                 continue;
                 }

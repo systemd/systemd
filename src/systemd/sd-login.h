@@ -150,6 +150,9 @@ int sd_session_is_active(const char *session);
 /* Return 1 if the session is remote. */
 int sd_session_is_remote(const char *session);
 
+/* Return 1 if the session has additional remote access powers. */
+int sd_session_has_raccess(const char *session);
+
 /* Get state from session. Possible states: online, active, closing.
  * This function is a more generic version of sd_session_is_active(). */
 int sd_session_get_state(const char *session, char **ret_state);

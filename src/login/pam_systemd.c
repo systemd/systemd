@@ -814,6 +814,7 @@ typedef struct SessionContext {
         const char *tty;
         const char *display;
         bool remote;
+        bool remote_access;
         const char *remote_user;
         const char *remote_host;
         const char *memory_max;
@@ -1148,7 +1149,8 @@ static int register_session(
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("Display", c->display),
                                         SD_JSON_BUILD_PAIR_BOOLEAN("Remote", c->remote),
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteUser", c->remote_user),
-                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteHost", c->remote_host));
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteHost", c->remote_host),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("RemoteAccess", c->remote_access));
                         if (r < 0)
                                 return pam_syslog_errno(pamh, LOG_ERR, r,
                                                         "Failed to issue io.systemd.Login.CreateSession varlink call: %m");
@@ -1298,6 +1300,10 @@ static int register_session(
                 return r;
 
         r = update_environment(pamh, "XDG_SESSION_DESKTOP", c->desktop);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        r = update_environment(pamh, "XDG_SESSION_RACCESS", one_zero(c->remote_access));
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1771,6 +1777,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         c.desktop = getenv_harder(pamh, "XDG_SESSION_DESKTOP", desktop_pam);
         c.area = getenv_harder(pamh, "XDG_AREA", area_pam);
         c.incomplete = getenv_harder_bool(pamh, "XDG_SESSION_INCOMPLETE", false);
+        c.remote_access = getenv_harder_bool(pamh, "XDG_SESSION_RACCESS", false);
 
         r = pam_get_data_many(
                         pamh,
