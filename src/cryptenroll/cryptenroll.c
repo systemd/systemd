@@ -27,6 +27,7 @@
 #include "parse-util.h"
 #include "pkcs11-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "tpm2-pcr.h"
@@ -849,8 +850,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        /* A delicious drop of snake oil */
-        (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
+        (void) safe_mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
 
         cryptsetup_enable_logging(NULL);
 
