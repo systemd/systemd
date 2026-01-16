@@ -285,7 +285,9 @@ static int print_dependencies(FILE *f, const char* device_path, const char* time
         return 0;
 }
 
-static bool attach_in_initrd(const char *name, const char *options) {
+static bool attach_in_initrd(const char *name, const char *device, const char *uuid, const char *options) {
+        int r;
+
         assert(name);
 
         /* Imply x-initrd.attach in case the volume name is among those defined in the Discoverable Partition
@@ -293,13 +295,62 @@ static bool attach_in_initrd(const char *name, const char *options) {
          * i.e. for the root fs itself, and /usr/. This mirrors similar behaviour in
          * systemd-fstab-generator. */
 
-        return fstab_test_option(options, "x-initrd.attach\0") ||
-                STR_IN_SET(name, "root", "usr");
+        if (fstab_test_option(options, "x-initrd.attach\0") ||
+            STR_IN_SET(name, "root", "usr"))
+                return true;
+
+        /* Also return true if the UUID is specified in rd.luks.uuid= kernel command line parameter */
+        if (uuid && hashmap_contains(arg_disks, uuid))
+                return true;
+        else {
+                _cleanup_strv_free_ char **cmdline = NULL;
+
+                /* UUID is NULL so let's check command line manually */
+                uuid = startswith(device, "UUID=");
+                if (!uuid)
+                        uuid = path_startswith(device, "/dev/disk/by-uuid/");
+                if (!uuid)
+                        uuid = startswith(name, "luks-");
+
+                if (!uuid)
+                        return false;
+
+                r = proc_cmdline_strv(&cmdline);
+                if (r < 0)
+                        return false;
+
+                STRV_FOREACH(arg, cmdline) {
+                        _cleanup_free_ char *luks_uuid = NULL;
+                        char *value;
+
+                        if (!startswith(*arg, "rd.luks.uuid") && !startswith(*arg, "luks.uuid"))
+                                continue;
+
+                        value = strchr(*arg, '=');
+                        if (value)
+                                *(value++) = '\0';
+
+                        if (streq(value, uuid))
+                                return true;
+
+                        luks_uuid = strjoin("luks-", uuid);
+                        if (!luks_uuid) {
+                                log_oom();
+                                continue;
+                        }
+
+                        if (streq(value, luks_uuid))
+                                return true;
+                }
+        }
+
+        return false;
 }
 
 static int create_disk(
                 const char *name,
                 const char *device,
+                const char *uuid,
                 const char *key_file,
                 const char *keydev,
                 const char *headerdev,
@@ -388,7 +439,7 @@ static int create_disk(
                 fprintf(f, "After=remote-fs-pre.target\n");
 
         /* If initrd takes care of attaching the disk then it should also detach it during shutdown. */
-        if (!attach_in_initrd(name, options))
+        if (!attach_in_initrd(name, device, uuid, options))
                 fprintf(f,
                         "Conflicts=umount.target\n"
                         "Before=umount.target\n");
@@ -826,6 +877,7 @@ static int add_crypttab_device(const char *name, const char *device, const char 
 
         r = create_disk(name,
                         device,
+                        d ? d->uuid : NULL,
                         keyfile,
                         keydev,
                         (d && d->options) ? d->headerdev : headerdev,
@@ -904,6 +956,7 @@ static int add_proc_cmdline_devices(void) {
 
                 r = create_disk(d->name,
                                 d->datadev ?: device,
+                                d->uuid,
                                 d->keyfile ?: arg_default_keyfile,
                                 d->keydev,
                                 d->headerdev,
