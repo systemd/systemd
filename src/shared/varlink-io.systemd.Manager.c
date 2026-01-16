@@ -181,7 +181,16 @@ static SD_VARLINK_DEFINE_METHOD(
 static SD_VARLINK_DEFINE_METHOD(
                 Reload);
 
+static SD_VARLINK_DEFINE_METHOD(
+                EnqueueMarkedJobs,
+                SD_VARLINK_FIELD_COMMENT("IDs of enqueued jobs"),
+                SD_VARLINK_DEFINE_OUTPUT(JobIDs, SD_VARLINK_INT, SD_VARLINK_ARRAY));
+
 static SD_VARLINK_DEFINE_ERROR(RateLimitReached);
+
+static SD_VARLINK_DEFINE_ERROR(OnlyByDependency);
+
+static SD_VARLINK_DEFINE_ERROR(BusShuttingDown);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Manager,
@@ -191,7 +200,13 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Reexecute,
                 SD_VARLINK_SYMBOL_COMMENT("Reload the manager configuration"),
                 &vl_method_Reload,
+                SD_VARLINK_SYMBOL_COMMENT("Enqueue all marked jobs"),
+                &vl_method_EnqueueMarkedJobs,
                 &vl_error_RateLimitReached,
+                SD_VARLINK_SYMBOL_COMMENT("Unit operation may be requested by dependency only"),
+                &vl_error_OnlyByDependency,
+                SD_VARLINK_SYMBOL_COMMENT("Operation refused, the bus is shutting down"),
+                &vl_error_BusShuttingDown,
                 &vl_type_ManagerContext,
                 &vl_type_ManagerRuntime,
                 &vl_type_Timestamp,
