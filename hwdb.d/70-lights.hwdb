@@ -26,11 +26,11 @@
 # Logitech
 ################
 # Litra Beam
-bluetooth:v046dpc901*
-usb:v046dpc901*
+bluetooth:v046DpC901*
+usb:v046DpC901*
  ID_AV_LIGHTS=1
 
 # Litra Glow
-bluetooth:v046dpc900*
-usb:v046dpc900*
+bluetooth:v046DpC900*
+usb:v046DpC900*
  ID_AV_LIGHTS=1
