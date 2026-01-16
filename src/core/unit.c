@@ -4679,6 +4679,7 @@ char* unit_concat_strv(char **l, UnitWriteFlags flags) {
 
 int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const char *data) {
         _cleanup_free_ char *p = NULL, *q = NULL, *escaped = NULL;
+        _cleanup_strv_free_ char **dropins = NULL;
         const char *dir, *wrapped;
         int r;
 
@@ -4748,12 +4749,12 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
         if (r < 0)
                 return r;
 
-        r = strv_push(&u->dropin_paths, q);
-        if (r < 0)
-                return r;
         q = NULL;
 
-        strv_uniq(u->dropin_paths);
+        r = unit_find_dropin_paths(u, /* use_unit_path_cache= */ false, &dropins);
+        if (r < 0)
+                return r;
+        strv_free_and_replace(u->dropin_paths, dropins);
 
         u->dropin_mtime = now(CLOCK_REALTIME);
 
