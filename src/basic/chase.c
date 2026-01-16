@@ -220,7 +220,10 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
          */
 
         _cleanup_close_ int _dir_fd = -EBADF;
-        if (dir_fd == XAT_FDROOT) {
+        r = dir_fd_is_root(dir_fd);
+        if (r < 0)
+                return r;
+        if (r > 0) {
 
                 /* Shortcut the common case where no root dir is specified, and no special flags are given to
                  * a regular open() */
