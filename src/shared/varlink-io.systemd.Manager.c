@@ -183,8 +183,14 @@ static SD_VARLINK_DEFINE_METHOD(
 
 static SD_VARLINK_DEFINE_METHOD(
                 EnqueueMarkedJobs,
-                SD_VARLINK_FIELD_COMMENT("IDs of enqueued jobs"),
-                SD_VARLINK_DEFINE_OUTPUT(JobIDs, SD_VARLINK_INT, SD_VARLINK_ARRAY));
+                SD_VARLINK_FIELD_COMMENT("Enqueued unit ID"),
+                SD_VARLINK_DEFINE_OUTPUT(UnitID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("ID of enqueued job (if successful)"),
+                SD_VARLINK_DEFINE_OUTPUT(JobID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Job enqueue error ID (on failure)"),
+                SD_VARLINK_DEFINE_OUTPUT(JobError, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Job enqueue error message (on failure)"),
+                SD_VARLINK_DEFINE_OUTPUT(JobErrorMessage, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(RateLimitReached);
 
