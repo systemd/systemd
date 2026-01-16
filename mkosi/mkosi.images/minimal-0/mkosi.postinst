@@ -12,3 +12,4 @@ if [ ! -L "$BUILDROOT/etc/os-release" ]; then
     cp "$BUILDROOT/usr/lib/os-release" "$BUILDROOT/etc/os-release"
 fi
 cp "$BUILDROOT/usr/lib/systemd/system/minimal-app0.service" "$BUILDROOT/usr/lib/systemd/system/minimal-app0-foo.service"
+cp "$BUILDROOT/usr/lib/systemd/user/minimal-app0.service" "$BUILDROOT/usr/lib/systemd/user/minimal-app0-foo.service"
