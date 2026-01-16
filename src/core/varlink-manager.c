@@ -2,12 +2,14 @@
 
 #include <sys/prctl.h>
 
+#include "sd-bus.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "architecture.h"
 #include "bitfield.h"
 #include "build.h"
+#include "bus-error.h"
 #include "bus-polkit.h"
 #include "confidential-virt.h"
 #include "errno-util.h"
@@ -330,11 +332,11 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
 
         log_info("Queuing reload/restart jobs for marked units%s", glyph(GLYPH_ELLIPSIS));
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *reply = NULL;
         Unit *u;
         char *k;
         int ret = 0;
         HASHMAP_FOREACH_KEY(u, k, manager->units) {
+                _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
                 uint32_t job_id = 0; /* silence 'maybe-uninitialized' compiler warning */
 
                 /* ignore aliases */
@@ -347,32 +349,50 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
                 r = mac_selinux_unit_access_check_varlink(u, link, job_type_to_access_method(JOB_TRY_RESTART));
                 if (r >= 0)
                         r = varlink_unit_queue_job_one(
-                                        link,
                                         u,
                                         JOB_TRY_RESTART,
                                         JOB_FAIL,
                                         /* reload_if_possible = */ !BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART),
-                                        &job_id);
+                                        &job_id,
+                                        &bus_error);
                 if (ERRNO_IS_NEG_RESOURCE(r))
                         return r;
-                RET_GATHER(ret, r);
-                if (r >= 0) {
-                        r = sd_json_variant_append_arrayb(&array, SD_JSON_BUILD_UNSIGNED(job_id));
-                        if (r < 0)
-                                return r;
-                }
+                if (r < 0)
+                        RET_GATHER(ret, log_unit_warning_errno(u, r, "Failed to enqueue marked job: %s",
+                                                               bus_error_message(&bus_error, r)));
+
+                if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                        continue;
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+                int q;
+
+                q = sd_json_variant_set_field_string(&reply, "UnitID", u->id);
+                if (q < 0)
+                        return q;
+
+                if (r < 0) {
+                        const char *error_id = varlink_error_id_from_bus_error(&bus_error);
+                        if (error_id) {
+                                q = sd_json_variant_set_field_string(&reply, "JobError", error_id);
+                                if (q < 0)
+                                        return q;
+                        }
+
+                        q = sd_json_variant_set_field_string(&reply, "JobErrorMessage",
+                                                             bus_error.message ?: error_id ? NULL : STRERROR(r));
+                } else
+                        q = sd_json_variant_set_field_integer(&reply, "JobID", job_id);
+                if (q < 0)
+                        return q;
+
+                q = sd_varlink_notify(link, reply);
+                if (q < 0)
+                        return q;
         }
 
         if (ret < 0)
                 return ret;
 
-        /* Return parameter is not nullable, build empty array if there's nothing to return */
-        if (array)
-                r = sd_json_buildo(&reply, SD_JSON_BUILD_PAIR_VARIANT("JobIDs", array));
-        else
-                r = sd_json_buildo(&reply, SD_JSON_BUILD_PAIR_EMPTY_ARRAY("JobIDs"));
-        if (r < 0)
-                return r;
-
-        return sd_varlink_reply(link, reply);
+        return sd_varlink_reply(link, NULL);
 }
