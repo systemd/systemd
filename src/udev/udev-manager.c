@@ -53,9 +53,14 @@ typedef enum EventState {
         EVENT_QUEUED,
         EVENT_RUNNING,
         EVENT_LOCKED,
+        EVENT_PROCESSED,
 } EventState;
 
 typedef struct Event {
+        /* All events that have not been processed (state != EVENT_PROCESSED) are referenced by the Manager.
+         * Additionally, an event may be referenced by events blocked by this event. See event_find_blocker(). */
+        unsigned n_ref;
+
         Manager *manager;
         Worker *worker;
         EventState state;
@@ -76,9 +81,8 @@ typedef struct Event {
         char *whole_disk;
         LIST_FIELDS(Event, same_disk);
 
-        bool dependencies_built;
-        Set *blocker_events;
-        Set *blocking_events;
+        /* The last blocker for this event. This event must not be processed before the blocker is processed. */
+        Event *blocker;
 
         LIST_FIELDS(Event, event);
 } Event;
@@ -100,21 +104,6 @@ typedef struct Worker {
         WorkerState state;
         Event *event;
 } Worker;
-
-static void event_clear_dependencies(Event *event) {
-        assert(event);
-
-        Event *e;
-        while ((e = set_steal_first(event->blocker_events)))
-                assert_se(set_remove(e->blocking_events, event) == event);
-        event->blocker_events = set_free(event->blocker_events);
-
-        while ((e = set_steal_first(event->blocking_events)))
-                assert_se(set_remove(e->blocker_events, event) == event);
-        event->blocking_events = set_free(event->blocking_events);
-
-        event->dependencies_built = false;
-}
 
 static void event_unset_whole_disk(Event *event) {
         Manager *manager = ASSERT_PTR(ASSERT_PTR(event)->manager);
@@ -140,6 +129,10 @@ static void event_unset_whole_disk(Event *event) {
         event->whole_disk = mfree(event->whole_disk);
 }
 
+static Event* event_free(Event *event);
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(Event, event, event_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Event*, event_unref);
+
 static Event* event_free(Event *event) {
         if (!event)
                 return NULL;
@@ -156,14 +149,25 @@ static Event* event_free(Event *event) {
         if (event->worker)
                 event->worker->event = NULL;
 
-        event_clear_dependencies(event);
+        event_unref(event->blocker);
 
         sd_device_unref(event->dev);
 
         return mfree(event);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Event*, event_free);
+static Event* event_enter_processed(Event *event) {
+        if (!event)
+                return NULL;
+
+        if (event->state == EVENT_PROCESSED)
+                return NULL;
+
+        event->state = EVENT_PROCESSED;
+        return event_unref(event);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Event*, event_enter_processed);
 
 static Worker* worker_free(Worker *worker) {
         if (!worker)
@@ -176,7 +180,6 @@ static Worker* worker_free(Worker *worker) {
         sd_event_source_unref(worker->timeout_warning_event_source);
         sd_event_source_unref(worker->timeout_kill_event_source);
         pidref_done(&worker->pidref);
-        event_free(worker->event);
 
         return mfree(worker);
 }
@@ -200,8 +203,8 @@ Manager* manager_free(Manager *manager) {
         udev_rules_free(manager->rules);
 
         hashmap_free(manager->workers);
-        while (manager->events)
-                event_free(manager->events);
+        LIST_FOREACH(event, event, manager->events)
+                event_enter_processed(event);
 
         prioq_free(manager->locked_events_by_time);
         hashmap_free(manager->locked_events_by_disk);
@@ -469,7 +472,8 @@ static Event* worker_detach_event(Worker *worker) {
 
 static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
         _cleanup_(worker_freep) Worker *worker = ASSERT_PTR(userdata);
-        sd_device *dev = worker->event ? ASSERT_PTR(worker->event->dev) : NULL;
+        _cleanup_(event_enter_processedp) Event *event = worker_detach_event(worker);
+        sd_device *dev = event ? ASSERT_PTR(event->dev) : NULL;
 
         assert(si);
 
@@ -649,17 +653,21 @@ bool devpath_conflict(const char *a, const char *b) {
         return *a == '/' || *b == '/' || *a == *b;
 }
 
-static int event_build_dependencies(Event *event) {
-        int r;
-
+static void event_find_blocker(Event *event) {
         assert(event);
 
         /* lookup event for identical, parent, child device */
 
-        if (event->dependencies_built)
-                return 0;
+        if (event->blocker && event->blocker->state != EVENT_PROCESSED)
+                /* Previously found blocker is not processed yet. */
+                return;
 
-        LIST_FOREACH_BACKWARDS(event, e, event->event_prev) {
+        /* If we have not found blocker yet, or the previously found blocker has been processed, let's find
+         * (another) blocker for this event. */
+        LIST_FOREACH_BACKWARDS(event, e, (event->blocker ?: event)->event_prev) {
+                if (e->state == EVENT_PROCESSED)
+                        continue;
+
                 if (!streq_ptr(event->id, e->id) &&
                     !devpath_conflict(event->devpath, e->devpath) &&
                     !devpath_conflict(event->devpath, e->devpath_old) &&
@@ -667,22 +675,16 @@ static int event_build_dependencies(Event *event) {
                     !(event->devnode && streq_ptr(event->devnode, e->devnode)))
                         continue;
 
-                r = set_ensure_put(&event->blocker_events, NULL, e);
-                if (r < 0)
-                        return r;
-
-                r = set_ensure_put(&e->blocking_events, NULL, event);
-                if (r < 0) {
-                        assert_se(set_remove(event->blocker_events, e) == e);
-                        return r;
-                }
-
                 log_device_debug(event->dev, "SEQNUM=%" PRIu64 " blocked by SEQNUM=%" PRIu64,
                                  event->seqnum, e->seqnum);
+
+                unref_and_replace_full(event->blocker, e, event_ref, event_unref);
+                return;
         }
 
-        event->dependencies_built = true;
-        return 0;
+        /* No new blocker is found, and if set, previously found blocker has been processed. Clear the
+         * previous blocker if set. */
+        event->blocker = event_unref(event->blocker);
 }
 
 static bool manager_can_process_event(Manager *manager) {
@@ -739,14 +741,10 @@ static int event_queue_start(Manager *manager) {
                 if (event->state != EVENT_QUEUED)
                         continue;
 
-                r = event_build_dependencies(event);
-                if (r < 0)
-                        log_device_warning_errno(event->dev, r,
-                                                 "Failed to check dependencies for event (SEQNUM=%"PRIu64", ACTION=%s), ignoring: %m",
-                                                 event->seqnum, strna(device_action_to_string(event->action)));
+                event_find_blocker(event);
 
                 /* do not start event if parent or child event is still running or queued */
-                if (!set_isempty(event->blocker_events))
+                if (event->blocker)
                         continue;
 
                 r = event_run(event);
@@ -927,11 +925,12 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        _cleanup_(event_freep) Event *event = new(Event, 1);
+        _cleanup_(event_unrefp) Event *event = new(Event, 1);
         if (!event)
                 return -ENOMEM;
 
         *event = (Event) {
+                .n_ref = 1,
                 .dev = sd_device_ref(dev),
                 .seqnum = seqnum,
                 .action = action,
@@ -942,6 +941,9 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 .state = EVENT_QUEUED,
                 .locked_event_prioq_index = PRIOQ_IDX_NULL,
         };
+
+        /* The kernel sometimes sends events in a wrong order, and we may receive an event with smaller
+         * SEQNUM after one with larger SEQNUM. To workaround the issue, let's reorder events if necessary. */
 
         Event *prev = NULL;
         LIST_FOREACH_BACKWARDS(event, e, manager->last_event) {
@@ -954,8 +956,9 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                                                         "The event (SEQNUM=%"PRIu64") has been already queued.",
                                                         event->seqnum);
 
-                /* Inserting an event in an earlier place may change dependency tree. Let's rebuild it later. */
-                event_clear_dependencies(e);
+                /* The inserted event may be a blocker of an already queued event, hence the already found
+                 * blocker may not be the last one. Let's find the last blocker again later. */
+                e->blocker = event_unref(e->blocker);
         }
 
         LIST_INSERT_AFTER(event, manager->events, prev, event);
@@ -1211,7 +1214,7 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
                 return 0;
         }
 
-        _cleanup_(event_freep) Event *event = worker_detach_event(worker);
+        _cleanup_(event_enter_processedp) Event *event = worker_detach_event(worker);
 
         if (strv_contains(l, "TRY_AGAIN=1")) {
                 /* Worker cannot lock the device. */
