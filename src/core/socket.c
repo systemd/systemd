@@ -1032,7 +1032,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Socket*, socket_close_fds, NULL);
                 int _e_ = (e);                                                         \
                 log_unit_full_errno(                                                   \
                                 UNIT(s),                                               \
-                                ERRNO_IS_NOT_SUPPORTED(_e_) ? LOG_DEBUG : LOG_WARNING, \
+                                ERRNO_IS_NOT_SUPPORTED(_e_) ||                         \
+                                ERRNO_IS_PRIVILEGE(_e_) ? LOG_DEBUG : LOG_WARNING,     \
                                 _e_,                                                   \
                                 "Failed to set %s socket option, ignoring: %m",        \
                                 option);                                               \
