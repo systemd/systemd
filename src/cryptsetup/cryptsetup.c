@@ -125,6 +125,7 @@ static char *arg_tpm2_measure_keyslot_nvpcr = NULL;
 static char *arg_link_keyring = NULL;
 static char *arg_link_key_type = NULL;
 static char *arg_link_key_description = NULL;
+static char *arg_fixate_volume_key = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -142,6 +143,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_keyring, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_key_description, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_fixate_volume_key, freep);
 
 static const char* const passphrase_type_table[_PASSPHRASE_TYPE_MAX] = {
         [PASSPHRASE_REGULAR]      = "passphrase",
@@ -650,6 +652,11 @@ static int parse_one_option(const char *option) {
 #else
                 log_error("Build lacks libcryptsetup support for linking volume keys in user specified kernel keyrings upon device activation, ignoring: %s", option);
 #endif
+        } else if ((val = startswith(option, "fixate-volume-key="))) {
+                r = free_and_strdup(&arg_fixate_volume_key, val);
+                if (r < 0)
+                        return log_oom();
+
         } else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
@@ -1172,11 +1179,34 @@ static int measured_crypt_activate_by_volume_key(
 
         /* A wrapper around crypt_activate_by_volume_key() which also measures to a PCR if that's requested. */
 
+        /* First, check if volume key digest matches the expectation. */
+        if (arg_fixate_volume_key) {
+                 _cleanup_free_ char *key_id = NULL;
+
+                 r = cryptsetup_get_volume_key_id(cd,
+                                                  /* volume_name= */ name,
+                                                  /* volume_key= */ volume_key,
+                                                  /* volume_key_size= */ volume_key_size,
+                                                  /* ret= */ &key_id);
+                 if (r < 0)
+                         return r;
+
+                 if (!streq(arg_fixate_volume_key, key_id))
+                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                "Volume key id: '%s' does not match the expectation.", key_id);
+        }
+
         r = crypt_activate_by_volume_key(cd, name, volume_key, volume_key_size, flags);
         if (r == -EEXIST) /* volume is already active */
                 return log_external_activation(r, name);
         if (r < 0)
                 return r;
+
+        if (arg_tpm2_measure_pcr == UINT_MAX) {
+                log_debug("Not measuring volume key, deactivated.");
+
+                return 0;
+        }
 
         if (volume_key_size > 0)
                 (void) measure_volume_key(cd, name, volume_key, volume_key_size); /* OK if fails */
@@ -1203,14 +1233,12 @@ static int measured_crypt_activate_by_passphrase(
         assert(cd);
 
         /* A wrapper around crypt_activate_by_passphrase() which also measures to a PCR if that's
-         * requested. Note that we need the volume key for the measurement, and
+         * requested. Note that we may need the volume key for the measurement and/or for the comparison, and
          * crypt_activate_by_passphrase() doesn't give us access to this. Hence, we operate indirectly, and
          * retrieve the volume key first, and then activate through that. */
 
-        if (arg_tpm2_measure_pcr == UINT_MAX) {
-                log_debug("Not measuring volume key, deactivated.");
+        if (arg_tpm2_measure_pcr == UINT_MAX && !arg_fixate_volume_key)
                 goto shortcut;
-        }
 
         r = crypt_get_volume_key_size(cd);
         if (r < 0)
@@ -1451,6 +1479,9 @@ static bool use_token_plugins(void) {
         if (arg_tpm2_measure_pcr != UINT_MAX)
                 return false;
         if (arg_tpm2_measure_keyslot_nvpcr)
+                return false;
+        /* Volume key is also needed if the expected key id is set */
+        if (arg_fixate_volume_key)
                 return false;
 #endif
 

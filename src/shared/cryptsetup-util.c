@@ -7,6 +7,9 @@
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
 #include "dlfcn-util.h"
+#include "escape.h"
+#include "hexdecoct.h"
+#include "hmac.h"
 #include "log.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -195,6 +198,44 @@ int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v) {
         r = sym_crypt_token_json_set(cd, CRYPT_ANY_TOKEN, text);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write token data to LUKS: %m");
+
+        return 0;
+}
+
+int cryptsetup_get_volume_key_id(
+                struct crypt_device *cd,
+                const char *volume_name,
+                const void *volume_key,
+                size_t volume_key_size,
+                char **ret) {
+
+        _cleanup_free_ char *s = NULL, *volume = NULL;
+        const char *uuid;
+        uint8_t digest[SHA256_DIGEST_SIZE];
+        char *hex;
+
+        uuid = sym_crypt_get_uuid(cd);
+        if (!uuid)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get LUKS UUID.");
+
+        if (volume_name)
+                volume = xescape(volume_name, ":");
+        else
+                volume = strjoin("luks-", uuid);
+        if (!volume)
+                return log_oom();
+
+        s = strjoin("cryptsetup:", volume, ":", uuid);
+        if (!s)
+                return log_oom();
+
+        hmac_sha256(volume_key, volume_key_size, s, strlen(s), digest);
+
+        hex = hexmem(digest, sizeof(digest));
+        if (!hex)
+                return log_oom();
+
+        *ret = hex;
 
         return 0;
 }
