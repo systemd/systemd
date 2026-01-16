@@ -2047,7 +2047,7 @@ int portable_attach(
 
         if (!FLAGS_SET(flags, PORTABLE_REATTACH) && !FLAGS_SET(flags, PORTABLE_FORCE_ATTACH))
                 HASHMAP_FOREACH(item, unit_files) {
-                        r = unit_file_exists(scope, &paths, item->name);
+                        r = unit_file_exists_full(scope, &paths, SEARCH_IGNORE_TEMPLATE, item->name, /* ret_path= */ NULL);
                         if (r < 0)
                                 return sd_bus_error_set_errnof(error, r, "Failed to determine whether unit '%s' exists on the host: %m", item->name);
                         if (r > 0)
