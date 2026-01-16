@@ -106,7 +106,7 @@ static int get_config_files_by_name(
                 if (!dropin_dirname)
                         return -ENOMEM;
 
-                r = conf_files_list_dropins(ret_dropins, dropin_dirname, /* root= */ NULL, NETWORK_DIRS);
+                r = conf_files_list_dropins(ret_dropins, dropin_dirname, /* root= */ NULL, CONF_FILES_WARN, NETWORK_DIRS);
                 if (r < 0)
                         return r;
         }

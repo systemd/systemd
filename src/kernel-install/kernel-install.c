@@ -685,7 +685,7 @@ static int context_load_plugins(Context *c) {
                         &c->plugins,
                         ".install",
                         c->rfd,
-                        CONF_FILES_EXECUTABLE | CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
+                        CONF_FILES_EXECUTABLE | CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
                         STRV_MAKE_CONST("/etc/kernel/install.d", "/usr/lib/kernel/install.d"));
         if (r < 0)
                 return log_error_errno(r, "Failed to find plugins: %m");

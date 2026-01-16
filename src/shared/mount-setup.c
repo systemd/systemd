@@ -418,7 +418,7 @@ static int relabel_extra(void) {
          */
 
         r = conf_files_list(&files, ".relabel", NULL,
-                            CONF_FILES_FILTER_MASKED | CONF_FILES_REGULAR,
+                            CONF_FILES_FILTER_MASKED | CONF_FILES_REGULAR | CONF_FILES_WARN,
                             "/run/systemd/relabel-extra.d/");
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate /run/systemd/relabel-extra.d/, ignoring: %m");

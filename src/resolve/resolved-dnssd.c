@@ -225,7 +225,7 @@ int dnssd_load(Manager *manager) {
         if (manager->mdns_support != RESOLVE_SUPPORT_YES)
                 return 0;
 
-        r = conf_files_list_strv(&files, ".dnssd", NULL, 0, DNSSD_SERVICE_DIRS);
+        r = conf_files_list_strv(&files, ".dnssd", /* root= */ NULL, CONF_FILES_WARN, DNSSD_SERVICE_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate .dnssd files: %m");
 
