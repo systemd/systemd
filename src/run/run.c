@@ -765,7 +765,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_stdio == ARG_STDIO_NONE)
                                 arg_stdio = ARG_STDIO_AUTO;
 
-                        if (!arg_working_directory) {
+                        if (!arg_working_directory && arg_transport != BUS_TRANSPORT_CAPSULE) {
                                 r = safe_getcwd(&arg_working_directory);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to get current working directory: %m");
