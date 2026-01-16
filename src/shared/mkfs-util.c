@@ -453,9 +453,21 @@ int make_filesystem(
 
                 if (sector_size > 0) {
                         if (strv_extend(&env, "MKE2FS_DEVICE_SECTSIZE") < 0)
-                                        return log_oom();
+                                return log_oom();
 
                         if (strv_extendf(&env, "%"PRIu64, sector_size) < 0)
+                                return log_oom();
+                }
+
+                /* e2fsprogs supports $SOURCE_DATE_EPOCH since v1.47.1. For older versions, we need to set
+                 * $E2FSPROGS_FAKE_TIME. See the following:
+                 * https://github.com/tytso/e2fsprogs/commit/b6e2913061577ad981464e435026d71a48fd5caf
+                 * Note, $E2FSPROGS_FAKE_TIME and $SOURCE_DATE_EPOCH are mostly equivalent, except for the
+                 * 0 value handling, where $E2FSPROGS_FAKE_TIME=0 is ignored and the current time is used,
+                 * but $SOURCE_DATE_EPOCH=0 sets 1970-01-01 as the timestamp. */
+                if (!secure_getenv("E2FSPROGS_FAKE_TIME")) { /* honor $E2FSPROGS_FAKE_TIME if already set */
+                        const char *e = secure_getenv("SOURCE_DATE_EPOCH");
+                        if (e && strv_extend_strv(&env, STRV_MAKE("E2FSPROGS_FAKE_TIME", e), /* filter_duplicates= */ false) < 0)
                                 return log_oom();
                 }
 
