@@ -507,29 +507,23 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
 }
 
 int varlink_unit_queue_job_one(
-                sd_varlink *link,
                 Unit *u,
                 JobType type,
                 JobMode mode,
                 bool reload_if_possible,
-                uint32_t *ret_job_id) {
+                uint32_t *ret_job_id,
+                sd_bus_error *reterr_bus_error) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(u);
 
-        r = unit_queue_job_check_and_mangle_type(u, &type, reload_if_possible, &bus_error);
-        if (r < 0) {
-                const char *error_id = varlink_error_id_from_bus_error(&bus_error);
-                if (error_id)
-                        return sd_varlink_error(link, error_id);
-
+        r = unit_queue_job_check_and_mangle_type(u, &type, reload_if_possible, reterr_bus_error);
+        if (r < 0)
                 return r;
-        }
 
         Job *j;
-        r = manager_add_job(u->manager, type, u, mode, /* reterr_error= */ NULL, &j);
+        r = manager_add_job(u->manager, type, u, mode, reterr_bus_error, &j);
         if (r < 0)
                 return r;
 
