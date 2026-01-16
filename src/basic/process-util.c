@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <spawn.h>
 #include <stdio.h>
+#include <sys/mman.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
@@ -20,6 +21,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "argv-util.h"
+#include "capability-util.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "env-file.h"
@@ -2286,6 +2288,26 @@ int proc_dir_read_pidref(DIR *d, PidRef *ret) {
 
         if (ret)
                 *ret = PIDREF_NULL;
+        return 0;
+}
+
+int safe_mlockall(int flags) {
+        int r;
+
+        /* When dealing with sensitive data, let's lock ourselves into memory. We do this only when
+         * privileged however, as otherwise the amount of lockable memory that RLIMIT_MEMLOCK grants us is
+         * frequently too low to make this work. The resource limit has no effect on CAP_IPC_LOCK processes,
+         * hence that's the capability we check for. */
+        r = have_effective_cap(CAP_IPC_LOCK);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine if we have CAP_IPC_LOCK: %m");
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Lacking CAP_IPC_LOCK, skipping mlockall().");
+
+        if (mlockall(flags) < 0)
+                return log_debug_errno(errno, "Failed to call mlockall(): %m");
+
+        log_debug("Successfully called mlockall().");
         return 0;
 }
 
