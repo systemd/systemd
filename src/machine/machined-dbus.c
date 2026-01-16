@@ -275,12 +275,33 @@ static int machine_add_from_params(
         /* Ensure an unprivileged user cannot claim any process they don't control as their own machine */
         switch (manager->runtime_scope) {
 
-        case RUNTIME_SCOPE_SYSTEM:
-                /* In system mode root may register anything */
-                if (uid == 0)
+        case RUNTIME_SCOPE_SYSTEM: {
+                const char *details[] = {
+                        "name",  name,
+                        "class", machine_class_to_string(c),
+                        NULL
+                };
+                bool leader_is_admin = false;
+
+                r = bus_verify_polkit_async_full(
+                                message,
+                                polkit_action,
+                                details,
+                                /* good_user= */ UID_INVALID,
+                                /* flags= */ 0,
+                                &manager->polkit_registry,
+                                &leader_is_admin,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 0; /* Will call us back */
+
+                /* In system mode root/admin may register anything */
+                if (uid == 0 || leader_is_admin)
                         break;
 
-                /* And non-root may only register things if they own the userns */
+                /* And non-root/admin may only register things if they own the userns */
                 r = process_is_owned_by_uid(leader_pidref, uid);
                 if (r < 0)
                         return r;
@@ -289,6 +310,7 @@ static int machine_add_from_params(
 
                 /* Nothing else may */
                 return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Only root may register machines for other users");
+        }
 
         case RUNTIME_SCOPE_USER:
                 /* In user mode the user owning our instance may register anything. */
@@ -300,25 +322,6 @@ static int machine_add_from_params(
 
         default:
                 assert_not_reached();
-        }
-
-        if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
-                const char *details[] = {
-                        "name",  name,
-                        "class", machine_class_to_string(c),
-                        NULL
-                };
-
-                r = bus_verify_polkit_async(
-                                message,
-                                polkit_action,
-                                details,
-                                &manager->polkit_registry,
-                                error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 0; /* Will call us back */
         }
 
         r = manager_add_machine(manager, name, &m);
