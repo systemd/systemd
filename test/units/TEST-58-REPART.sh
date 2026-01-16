@@ -1839,7 +1839,7 @@ EOF
 }
 
 testcase_ext_reproducibility() {
-    local defs imgs
+    local defs imgs ts
 
     # Online mode mounts the filesystem which updates inode timestamps non-deterministically
     if [[ "$OFFLINE" != "yes" ]]; then
@@ -1859,21 +1859,28 @@ Format=ext4
 EOF
 
     # Build the image twice with the same seed and verify they are identical
-    systemd-repart --offline="$OFFLINE" \
-                   --definitions="$defs" \
-                   --empty=create \
-                   --size=50M \
-                   --seed="$seed" \
-                   --dry-run=no \
-                   "$imgs/test1.img"
+    ts=$(date +%s)
+    env SOURCE_DATE_EPOCH="$ts" \
+        systemd-repart \
+        --offline="$OFFLINE" \
+        --definitions="$defs" \
+        --empty=create \
+        --size=50M \
+        --seed="$seed" \
+        --dry-run=no \
+        "$imgs/test1.img"
 
-    systemd-repart --offline="$OFFLINE" \
-                   --definitions="$defs" \
-                   --empty=create \
-                   --size=50M \
-                   --seed="$seed" \
-                   --dry-run=no \
-                   "$imgs/test2.img"
+    sleep 2
+
+    env SOURCE_DATE_EPOCH="$ts" \
+        systemd-repart \
+        --offline="$OFFLINE" \
+        --definitions="$defs" \
+        --empty=create \
+        --size=50M \
+        --seed="$seed" \
+        --dry-run=no \
+        "$imgs/test2.img"
 
     cmp "$imgs/test1.img" "$imgs/test2.img"
 }
