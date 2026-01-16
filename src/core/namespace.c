@@ -2068,15 +2068,20 @@ static int apply_one_mount(
                         /* Hmm, either the source or the destination are missing. Let's see if we can create
                            the destination, then try again. */
 
-                        (void) mkdir_parents(mount_entry_path(m), 0755);
-
-                        q = make_mount_point_inode_from_path(what, mount_entry_path(m), 0755);
+                        q = mkdir_parents(mount_entry_path(m), 0755);
                         if (q < 0 && q != -EEXIST)
                                 // FIXME: this shouldn't be logged at LOG_WARNING, but be bubbled up, and logged there to avoid duplicate logging
-                                log_warning_errno(q, "Failed to create destination mount point node '%s', ignoring: %m",
+                                log_warning_errno(q, "Failed to create parent directories of destination mount point node '%s', ignoring: %m",
                                                   mount_entry_path(m));
-                        else
-                                try_again = true;
+                        else {
+                                q = make_mount_point_inode_from_path(what, mount_entry_path(m), 0755);
+                                if (q < 0 && q != -EEXIST)
+                                        // FIXME: this shouldn't be logged at LOG_WARNING, but be bubbled up, and logged there to avoid duplicate logging
+                                        log_warning_errno(q, "Failed to create destination mount point node '%s', ignoring: %m",
+                                                          mount_entry_path(m));
+                                else
+                                        try_again = true;
+                        }
                 }
 
                 if (try_again)
