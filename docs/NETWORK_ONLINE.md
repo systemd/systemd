@@ -70,16 +70,10 @@ For more details about those targets, see the
 [systemd.special(7)](https://www.freedesktop.org/software/systemd/man/systemd.special.html)
 man page.
 
-## Compatibility with SysV init
-
-LSB defines a `$network` dependency for legacy init scripts. Whenever systemd
-encounters a `$network` dependency in LSB headers of init scripts it will
-translate this to `Wants=` and `After=` dependencies on
-`network-online.target`, staying relatively close to traditional LSB behaviour.
-
 # Discussion
 
-The meaning of `$network` is defined [only very
+LSB defines a `$network` dependency for legacy init scripts.
+However, it is defined [only very
 unprecisely](http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/facilname.html)
 and people tend to have different ideas what it is supposed to mean. Here are a
 couple of ideas people came up with so far:

@@ -2261,7 +2261,7 @@ Features:
     being properly synchronous we just keep open the fd and close it
     when done. That means clients do not get a successful method reply,
     but much rather a disconnect on success.
-  - when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
+  - when breaking cycles drop services from /run first, then from /etc, then from /usr
   - when a bus name of a service disappears from the bus make sure to queue further activation requests
   - maybe introduce CoreScheduling=yes/no to optionally set a PR_SCHED_CORE cookie, so that all
     processes in a service's cgroup share the same cookie and are guaranteed not to share SMT cores
@@ -2688,7 +2688,6 @@ Features:
 * document:
   - document that deps in [Unit] sections ignore Alias= fields in
     [Install] units of other units, unless those units are disabled
-  - man: clarify that time-sync.target is not only sysv compat but also useful otherwise. Same for similar targets
   - document that service reload may be implemented as service reexec
   - add a man page containing packaging guidelines and recommending usage of things like Documentation=, PrivateTmp=, PrivateNetwork= and ReadOnlyDirectories=/etc /usr.
   - document systemd-journal-flush.service properly

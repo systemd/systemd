@@ -4,6 +4,20 @@ CHANGES WITH 260 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * Support for System V service scripts has been removed. Please make
+          sure to update your software *now* to include a native systemd unit
+          file instead of a legacy System V script.
+
+          The following components have been removed:
+
+          * systemd-rc-local-generator and rc-local.service,
+          * systemd-sysv-generator,
+          * systemd-sysv-install (hook for systemctl enable/disable/is-enabled).
+
+          The corresponding meson options '-Drc-local=', '-Dsysvinit-path=',
+          and '-Dsysvrcnd-path=' are deprecated, and will be dropped in a future
+          release.
+
         * Meson options '-Dintegration-tests=' and '-Dcryptolib=' (deprecated
           in v258) have been removed.
 
