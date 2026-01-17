@@ -14,6 +14,7 @@
 #include "argv-util.h"
 #include "ask-password-api.h"
 #include "build.h"
+#include "capability-util.h"
 #include "cryptsetup-fido2.h"
 #include "cryptsetup-keyfile.h"
 #include "cryptsetup-pkcs11.h"
@@ -2581,8 +2582,10 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         log_debug("%s %s ← %s type=%s cipher=%s", __func__,
                   volume, source, strempty(arg_type), strempty(arg_cipher));
 
-        /* A delicious drop of snake oil */
-        (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
+        /* Memlock everything into physical RAM if we have the CAP_IPC_LOCK capability */
+        if (have_effective_cap(CAP_IPC_LOCK) == 1) {
+                (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
+        }
 
         if (key_file && arg_keyfile_erase)
                 destroy_key_file = key_file; /* let's get this baby erased when we leave */
