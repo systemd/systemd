@@ -6,7 +6,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "chase.h"
 #include "color-util.h"
 #include "conf-files.h"
 #include "constants.h"
@@ -326,7 +325,20 @@ static int cat_file_by_path(const char *p, bool *newline, CatFlags flags) {
 
         assert(p);
 
-        r = conf_file_new(p, /* root = */ NULL, CHASE_MUST_BE_REGULAR, &c);
+        r = conf_file_new(p, /* root= */ NULL, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, &c);
+        if (r == -ERFKILL) { /* masked */
+                if (newline) {
+                        if (*newline)
+                                putc('\n', stdout);
+                        *newline = true;
+                }
+
+                printf("%s# %s is a mask.%s\n",
+                       ansi_highlight_magenta(),
+                       p,
+                       ansi_normal());
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to chase '%s': %m", p);
 
@@ -459,7 +471,8 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags) {
                         if (!p)
                                 return log_oom();
 
-                        if (conf_file_new(p, root, CHASE_MUST_BE_REGULAR, &c) >= 0)
+                        r = conf_file_new(p, root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, &c);
+                        if (r >= 0 || r == -ERFKILL) /* Found a regular file or masked file */
                                 break;
                 }
 

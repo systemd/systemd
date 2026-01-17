@@ -112,7 +112,147 @@ static int conf_file_prefix_root(ConfFile *c, const char *root) {
         return 0;
 }
 
-int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile **ret) {
+static bool conf_files_need_stat(ConfFilesFlags flags) {
+        return (flags & (CONF_FILES_FILTER_MASKED | CONF_FILES_REGULAR | CONF_FILES_DIRECTORY | CONF_FILES_EXECUTABLE)) != 0;
+}
+
+static ChaseFlags conf_files_chase_flags(ConfFilesFlags flags) {
+        ChaseFlags chase_flags = CHASE_AT_RESOLVE_IN_ROOT;
+
+        if (!conf_files_need_stat(flags) || FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK))
+                /* Even if no verification is requested, let's unconditionally call chaseat(),
+                 * to drop unsafe symlinks. */
+                chase_flags |= CHASE_NONEXISTENT;
+
+        return chase_flags;
+}
+
+static int conf_file_chase_and_verify(
+                int rfd,
+                const char *root,          /* for logging, can be NULL */
+                const char *original_path, /* for logging */
+                const char *path,
+                const char *name,
+                Set **masked,              /* optional */
+                ConfFilesFlags flags,
+                char **ret_path,
+                int *ret_fd,
+                struct stat *ret_stat) {
+
+        _cleanup_free_ char *resolved_path = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        struct stat st = {};
+        int r;
+
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(original_path);
+        assert(path);
+        assert(name);
+
+        root = empty_to_root(root);
+
+        r = chaseat(rfd, path, conf_files_chase_flags(flags), &resolved_path, &fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to chase '%s%s': %m",
+                                       root, skip_leading_slash(original_path));
+        if (r == 0) {
+                if (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK)) {
+                        /* If the path points to /dev/null in a image or so, then the device node may not exist. */
+                        if (path_equal(skip_leading_slash(resolved_path), "dev/null")) {
+                                if (masked) {
+                                        /* Mark this one as masked */
+                                        r = set_put_strdup(masked, name);
+                                        if (r < 0)
+                                                return log_oom_debug();
+                                }
+
+                                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                                       "File '%s%s' is a mask (symlink to /dev/null).",
+                                                       root, skip_leading_slash(original_path));
+                        }
+                }
+
+                if (conf_files_need_stat(flags))
+                        /* If we need to have stat, skip the entry. */
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to chase '%s%s': %m",
+                                               root, skip_leading_slash(original_path));
+        }
+
+        /* Even if we do not need stat, let's take stat now. The caller may use the info later. */
+        if (fd >= 0 && fstat(fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat '%s%s': %m",
+                                       root, skip_leading_slash(original_path));
+
+        /* Is this a masking entry? */
+        if (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK) && stat_may_be_dev_null(&st)) {
+                if (masked) {
+                        /* Mark this one as masked */
+                        r = set_put_strdup(masked, name);
+                        if (r < 0)
+                                return log_oom_debug();
+                }
+
+                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                       "File '%s%s' is a mask (symlink to /dev/null).",
+                                       root, skip_leading_slash(original_path));
+        }
+
+        if (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_EMPTY) && stat_is_empty(&st)) {
+                if (masked) {
+                        /* Mark this one as masked */
+                        r = set_put_strdup(masked, name);
+                        if (r < 0)
+                                return log_oom_debug();
+                }
+
+                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                       "File '%s%s' is a mask (an empty file).",
+                                       root, skip_leading_slash(original_path));
+        }
+
+        if (FLAGS_SET(flags, CONF_FILES_REGULAR|CONF_FILES_DIRECTORY)) {
+                if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADFD),
+                                               "File '%s%s' is neither a regular file or directory.",
+                                               root, skip_leading_slash(original_path));
+        } else {
+                /* Is this node a regular file? */
+                if (FLAGS_SET(flags, CONF_FILES_REGULAR)) {
+                        r = stat_verify_regular(&st);
+                        if (r < 0)
+                                return log_debug_errno(r, "File '%s%s' is not a regular file: %m",
+                                                       root, skip_leading_slash(original_path));
+                }
+
+                /* Is this node a directory? */
+                if (FLAGS_SET(flags, CONF_FILES_DIRECTORY)) {
+                        r = stat_verify_directory(&st);
+                        if (r < 0)
+                                return log_debug_errno(r, "File '%s%s' is not a directory: %m",
+                                                       root, skip_leading_slash(original_path));
+                }
+        }
+
+        /* Does this node have the executable bit set?
+         * As requested: check if the file is marked executable. Note that we don't check access(X_OK) here,
+         * as we care about whether the file is marked executable at all, and not whether it is executable
+         * for us, because if so, such errors are stuff we should log about. */
+        if (FLAGS_SET(flags, CONF_FILES_EXECUTABLE) && (st.st_mode & 0111) == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOEXEC),
+                                       "File '%s%s' is not marked executable.",
+                                       root, skip_leading_slash(original_path));
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(resolved_path);
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
+        if (ret_stat)
+                *ret_stat = st;
+
+        return 0;
+}
+
+int conf_file_new_at(const char *path, int rfd, ConfFilesFlags flags, ConfFile **ret) {
         int r;
 
         assert(path);
@@ -145,10 +285,8 @@ int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile
                 return log_debug_errno(r, "Failed to extract directory from '%s': %m", path);
         if (r >= 0) {
                 r = chaseat(rfd, dirpath,
-                            CHASE_AT_RESOLVE_IN_ROOT |
-                            CHASE_MUST_BE_DIRECTORY |
-                            (FLAGS_SET(chase_flags, CHASE_NONEXISTENT) ? CHASE_NONEXISTENT : 0),
-                            &resolved_dirpath, /* ret_fd = */ NULL);
+                            CHASE_MUST_BE_DIRECTORY | conf_files_chase_flags(flags),
+                            &resolved_dirpath, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(dirpath));
         }
@@ -157,22 +295,28 @@ int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile
         if (!c->result)
                 return log_oom_debug();
 
-        r = chaseat(rfd, c->result, CHASE_AT_RESOLVE_IN_ROOT | chase_flags, &c->resolved_path, &c->fd);
+        r = conf_file_chase_and_verify(
+                        rfd,
+                        root,
+                        c->original_path,
+                        c->result,
+                        c->name,
+                        /* masked= */ NULL,
+                        flags,
+                        &c->resolved_path,
+                        &c->fd,
+                        &c->st);
         if (r < 0)
-                return log_debug_errno(r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(c->original_path));
-
-        if (c->fd >= 0 && fstat(c->fd, &c->st) < 0)
-                return log_debug_errno(r, "Failed to stat '%s%s': %m", empty_to_root(root), skip_leading_slash(c->resolved_path));
+                return r;
 
         *ret = TAKE_PTR(c);
         return 0;
 }
 
-int conf_file_new(const char *path, const char *root, ChaseFlags chase_flags, ConfFile **ret) {
+int conf_file_new(const char *path, const char *root, ConfFilesFlags flags, ConfFile **ret) {
         int r;
 
         assert(path);
-        assert((chase_flags & (CHASE_PREFIX_ROOT | CHASE_STEP)) == 0);
         assert(ret);
 
         _cleanup_free_ char *root_abs = NULL;
@@ -191,7 +335,7 @@ int conf_file_new(const char *path, const char *root, ChaseFlags chase_flags, Co
         }
 
         _cleanup_(conf_file_freep) ConfFile *c = NULL;
-        r = conf_file_new_at(path, rfd, chase_flags, &c);
+        r = conf_file_new_at(path, rfd, flags, &c);
         if (r < 0)
                 return r;
 
@@ -228,9 +372,9 @@ static int files_add(
         assert(files);
         assert(masked);
 
-        root = strempty(root);
+        root = empty_to_root(root);
 
-        FOREACH_DIRENT(de, dir, return log_debug_errno(errno, "Failed to read directory '%s/%s': %m",
+        FOREACH_DIRENT(de, dir, return log_debug_errno(errno, "Failed to read directory '%s%s': %m",
                                                        root, skip_leading_slash(original_dirpath))) {
 
                 _cleanup_free_ char *original_path = path_join(original_dirpath, de->d_name);
@@ -239,19 +383,19 @@ static int files_add(
 
                 /* Does this match the suffix? */
                 if (suffix && !endswith(de->d_name, suffix)) {
-                        log_debug("Skipping file '%s/%s' with unexpected suffix.", root, skip_leading_slash(original_path));
+                        log_debug("Skipping file '%s%s', suffix is not '%s'.", root, skip_leading_slash(original_path), suffix);
                         continue;
                 }
 
                 /* Has this file already been found in an earlier directory? */
                 if (hashmap_contains(*files, de->d_name)) {
-                        log_debug("Skipping overridden file '%s/%s'.", root, skip_leading_slash(original_path));
+                        log_debug("Skipping overridden file '%s%s'.", root, skip_leading_slash(original_path));
                         continue;
                 }
 
                 /* Has this been masked in an earlier directory? */
                 if ((flags & CONF_FILES_FILTER_MASKED) != 0 && set_contains(*masked, de->d_name)) {
-                        log_debug("File '%s/%s' is masked by previous entry.", root, skip_leading_slash(original_path));
+                        log_debug("File '%s%s' is masked by previous entry.", root, skip_leading_slash(original_path));
                         continue;
                 }
 
@@ -261,100 +405,22 @@ static int files_add(
 
                 _cleanup_free_ char *resolved_path = NULL;
                 _cleanup_close_ int fd = -EBADF;
-                bool need_stat = (flags & (CONF_FILES_FILTER_MASKED | CONF_FILES_REGULAR | CONF_FILES_DIRECTORY | CONF_FILES_EXECUTABLE)) != 0;
-                ChaseFlags chase_flags = CHASE_AT_RESOLVE_IN_ROOT;
-
-                if (!need_stat || FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK))
-                        /* Even if no verification is requested, let's unconditionally call chaseat(),
-                         * to drop unsafe symlinks. */
-                        chase_flags |= CHASE_NONEXISTENT;
-
-                r = chaseat(rfd, p, chase_flags, &resolved_path, &fd);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to chase '%s/%s', ignoring: %m",
-                                        root, skip_leading_slash(original_path));
+                struct stat st;
+                r = conf_file_chase_and_verify(
+                                rfd,
+                                root,
+                                original_path,
+                                p,
+                                de->d_name,
+                                masked,
+                                flags,
+                                &resolved_path,
+                                &fd,
+                                &st);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0)
                         continue;
-                }
-                if (r == 0) {
-                        if (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK)) {
-
-                                /* If the path points to /dev/null in a image or so, then the device node may not exist. */
-                                if (path_equal(skip_leading_slash(resolved_path), "dev/null")) {
-                                        /* Mark this one as masked */
-                                        r = set_put_strdup(masked, de->d_name);
-                                        if (r < 0)
-                                                return log_oom_debug();
-
-                                        log_debug("File '%s/%s' is a mask (symlink to /dev/null).",
-                                                  root, skip_leading_slash(original_path));
-                                        continue;
-                                }
-                        }
-
-                        if (need_stat) {
-                                /* If we need to have stat, skip the entry. */
-                                log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to chase '%s/%s', ignoring.",
-                                                root, skip_leading_slash(original_path));
-                                continue;
-                        }
-                }
-
-                /* Even if we do not need stat, let's take stat now. The caller may use the info later. */
-                struct stat st = {};
-                if (fd >= 0 && fstat(fd, &st) < 0) {
-                        log_debug_errno(errno, "Failed to stat '%s/%s', ignoring: %m",
-                                        root, skip_leading_slash(original_path));
-                        continue;
-                }
-
-                /* Is this a masking entry? */
-                if (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK) && stat_may_be_dev_null(&st)) {
-                        /* Mark this one as masked */
-                        r = set_put_strdup(masked, de->d_name);
-                        if (r < 0)
-                                return log_oom_debug();
-
-                        log_debug("File '%s/%s' is a mask (symlink to /dev/null).", root, skip_leading_slash(original_path));
-                        continue;
-                }
-
-                if (FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_EMPTY) && stat_is_empty(&st)) {
-                        /* Mark this one as masked */
-                        r = set_put_strdup(masked, de->d_name);
-                        if (r < 0)
-                                return log_oom_debug();
-
-                        log_debug("File '%s/%s' is a mask (an empty file).", root, skip_leading_slash(original_path));
-                        continue;
-                }
-
-                if (FLAGS_SET(flags, CONF_FILES_REGULAR|CONF_FILES_DIRECTORY)) {
-                        if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)) {
-                                log_debug("Ignoring '%s/%s', as it is neither a regular file or directory.", root, skip_leading_slash(original_path));
-                                continue;
-                        }
-                } else {
-                        /* Is this node a regular file? */
-                        if (FLAGS_SET(flags, CONF_FILES_REGULAR) && !S_ISREG(st.st_mode)) {
-                                log_debug("Ignoring '%s/%s', as it is not a regular file.", root, skip_leading_slash(original_path));
-                                continue;
-                        }
-
-                        /* Is this node a directory? */
-                        if (FLAGS_SET(flags, CONF_FILES_DIRECTORY) && !S_ISDIR(st.st_mode)) {
-                                log_debug("Ignoring '%s/%s', as it is not a directory.", root, skip_leading_slash(original_path));
-                                continue;
-                        }
-                }
-
-                /* Does this node have the executable bit set?
-                 * As requested: check if the file is marked executable. Note that we don't check access(X_OK)
-                 * here, as we care about whether the file is marked executable at all, and not whether it is
-                 * executable for us, because if so, such errors are stuff we should log about. */
-                if (FLAGS_SET(flags, CONF_FILES_EXECUTABLE) && (st.st_mode & 0111) == 0) {
-                        log_debug("Ignoring '%s/%s', as it is not marked executable.", root, skip_leading_slash(original_path));
-                        continue;
-                }
 
                 _cleanup_(conf_file_freep) ConfFile *c = new(ConfFile, 1);
                 if (!c)
@@ -416,7 +482,13 @@ static int dump_files(Hashmap *fh, const char *root, ConfFile ***ret_files, size
         return 0;
 }
 
-static int copy_and_sort_files_from_hashmap(Hashmap *fh, const char *root, ConfFilesFlags flags, char ***ret) {
+static int copy_and_sort_files_from_hashmap(
+                Hashmap *fh,
+                const char *suffix,
+                const char *root,
+                ConfFilesFlags flags,
+                char ***ret) {
+
         _cleanup_strv_free_ char **results = NULL;
         _cleanup_free_ ConfFile **files = NULL;
         size_t n_files = 0, n_results = 0;
@@ -432,19 +504,44 @@ static int copy_and_sort_files_from_hashmap(Hashmap *fh, const char *root, ConfF
 
         FOREACH_ARRAY(i, files, n_files) {
                 ConfFile *c = *i;
+                const char *add = NULL;
 
                 if (FLAGS_SET(flags, CONF_FILES_BASENAME))
-                        r = strv_extend_with_size(&results, &n_results, c->name);
+                        add = c->name;
                 else if (root) {
-                        char *p;
+                        _cleanup_free_ char *p = NULL;
 
                         r = chaseat_prefix_root(c->result, root, &p);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to prefix '%s' with root '%s': %m", c->result, root);
 
-                        r = strv_consume_with_size(&results, &n_results, TAKE_PTR(p));
+                        if (FLAGS_SET(flags, CONF_FILES_TRUNCATE_SUFFIX) && suffix) {
+                                char *e = endswith(p, suffix);
+                                if (!e)
+                                        continue;
+
+                                *e = 0;
+                        }
+
+                        if (strv_consume_with_size(&results, &n_results, TAKE_PTR(p)) < 0)
+                                return log_oom_debug();
+
+                        continue;
                 } else
-                        r = strv_extend_with_size(&results, &n_results, c->result);
+                        add = c->result;
+
+                if (FLAGS_SET(flags, CONF_FILES_TRUNCATE_SUFFIX)) {
+                        const char *e = endswith(add, suffix);
+                        if (!e)
+                                continue;
+
+                        _cleanup_free_ char *n = strndup(add, e - add);
+                        if (!n)
+                                return log_oom_debug();
+
+                        r = strv_consume_with_size(&results, &n_results, TAKE_PTR(n));
+                } else
+                        r = strv_extend_with_size(&results, &n_results, add);
                 if (r < 0)
                         return log_oom_debug();
         }
@@ -502,8 +599,10 @@ static int conf_files_list_impl(
         assert(rfd >= 0 || rfd == AT_FDCWD);
         assert(ret);
 
+        root = empty_to_root(root);
+
         if (replacement) {
-                r = conf_file_new_at(replacement, rfd, CHASE_NONEXISTENT, &c);
+                r = conf_file_new_at(replacement, rfd, /* flags= */ 0, &c);
                 if (r < 0)
                         return r;
         }
@@ -515,7 +614,8 @@ static int conf_files_list_impl(
                 r = chase_and_opendirat(rfd, *p, CHASE_AT_RESOLVE_IN_ROOT, &path, &dir);
                 if (r < 0) {
                         if (r != -ENOENT)
-                                log_debug_errno(r, "Failed to chase and open directory '%s/%s', ignoring: %m", strempty(root), skip_leading_slash(*p));
+                                log_debug_errno(r, "Failed to chase and open directory '%s%s', ignoring: %m",
+                                                root, skip_leading_slash(*p));
                         continue;
                 }
 
@@ -566,7 +666,7 @@ int conf_files_list_strv(
         if (r < 0)
                 return r;
 
-        return copy_and_sort_files_from_hashmap(fh, empty_to_root(root_abs), flags, ret);
+        return copy_and_sort_files_from_hashmap(fh, suffix, empty_to_root(root_abs), flags, ret);
 }
 
 int conf_files_list_strv_full(
@@ -619,7 +719,7 @@ int conf_files_list_strv_at(
         if (r < 0)
                 return r;
 
-        return copy_and_sort_files_from_hashmap(fh, /* root = */ NULL, flags, ret);
+        return copy_and_sort_files_from_hashmap(fh, suffix, /* root = */ NULL, flags, ret);
 }
 
 int conf_files_list_strv_at_full(
@@ -747,7 +847,7 @@ int conf_files_list_with_replacement(
                         return log_debug_errno(r, "Failed to prefix '%s' with root '%s': %m", c->result, empty_to_root(root_abs));
         }
 
-        r = copy_and_sort_files_from_hashmap(fh, empty_to_root(root_abs), flags, ret_files);
+        r = copy_and_sort_files_from_hashmap(fh, ".conf", empty_to_root(root_abs), flags, ret_files);
         if (r < 0)
                 return r;
 

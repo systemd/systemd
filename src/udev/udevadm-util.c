@@ -7,7 +7,6 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
-#include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "device-private.h"
@@ -250,7 +249,7 @@ static int search_rules_file_in_conf_dirs(const char *s, const char *root, ConfF
                         return log_oom();
 
                 _cleanup_(conf_file_freep) ConfFile *c = NULL;
-                r = conf_file_new(path, root, CHASE_MUST_BE_REGULAR, &c);
+                r = conf_file_new(path, root, CONF_FILES_REGULAR, &c);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -280,7 +279,7 @@ static int search_rules_file(const char *s, const char *root, ConfFile ***files,
 
         /* If not found, or if it is a path, then chase it. */
         _cleanup_(conf_file_freep) ConfFile *c = NULL;
-        r = conf_file_new(s, root, CHASE_MUST_BE_REGULAR, &c);
+        r = conf_file_new(s, root, CONF_FILES_REGULAR, &c);
         if (r >= 0) {
                 if (!GREEDY_REALLOC_APPEND(*files, *n_files, &c, 1))
                         return log_oom();
