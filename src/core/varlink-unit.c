@@ -514,19 +514,19 @@ int varlink_unit_queue_job_one(
                 bool reload_if_possible,
                 uint32_t *ret_job_id) {
 
+        _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(u);
 
-        r = unit_queue_job_check_and_mangle_type(u, &type, reload_if_possible);
-        if (r == -ENOENT)
-                return varlink_error_no_such_unit(link, "name");
-        if (r == -ELIBEXEC)
-                return sd_varlink_error(link, VARLINK_ERROR_UNIT_ONLY_BY_DEPENDENCY);
-        if (r == -ESHUTDOWN)
-                return sd_varlink_error(link, VARLINK_ERROR_UNIT_DBUS_SHUTTING_DOWN);
-        if (r < 0)
+        r = unit_queue_job_check_and_mangle_type(u, &type, reload_if_possible, &bus_error);
+        if (r < 0) {
+                const char *error_id = varlink_error_id_from_bus_error(&bus_error);
+                if (error_id)
+                        return sd_varlink_error(link, error_id);
+
                 return r;
+        }
 
         Job *j;
         r = manager_add_job(u->manager, type, u, mode, /* reterr_error= */ NULL, &j);
