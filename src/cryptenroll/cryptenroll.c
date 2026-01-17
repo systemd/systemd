@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <sys/capability.h>
 #include <sys/mman.h>
 
 #include "sd-device.h"
@@ -8,6 +9,7 @@
 #include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "build.h"
+#include "capability-util.h"
 #include "cryptenroll.h"
 #include "cryptenroll-fido2.h"
 #include "cryptenroll-list.h"
@@ -849,8 +851,10 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        /* A delicious drop of snake oil */
-        (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
+        /* Memlock everything into physical RAM if we have the CAP_IPC_LOCK capability */
+        if (have_effective_cap(CAP_IPC_LOCK) == 1) {
+                (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
+        }
 
         cryptsetup_enable_logging(NULL);
 
