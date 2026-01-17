@@ -16,6 +16,25 @@ void partition_info_destroy(PartitionInfo *p) {
         p->device = mfree(p->device);
 }
 
+int partition_info_copy(PartitionInfo *dest, const PartitionInfo *src) {
+        int r;
+
+        assert(dest);
+        assert(src);
+
+        *dest = *src;
+
+        r = strdup_to(&dest->label, src->label);
+        if (r < 0)
+                return r;
+
+        r = strdup_to(&dest->device, src->device);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int read_partition_info(
                 struct fdisk_context *c,
                 struct fdisk_table *t,
