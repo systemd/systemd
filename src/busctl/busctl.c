@@ -72,6 +72,7 @@ static bool arg_watch_bind = false;
 static usec_t arg_timeout = 0;
 static const char *arg_destination = NULL;
 static uint64_t arg_limit_messages = UINT64_MAX;
+static uint64_t arg_limit_signals = 1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 
@@ -1931,8 +1932,24 @@ static int get_property(int argc, char **argv, void *userdata) {
 }
 
 static int on_bus_signal(sd_bus_message *msg, void *userdata, sd_bus_error *ret_error) {
-        return sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(ASSERT_PTR(msg))),
-                             bus_message_dump(msg, /* flags= */ 0));
+        int r;
+
+        r = bus_message_dump(msg, /* flags= */ 0);
+        if (r < 0)
+                return sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(ASSERT_PTR(msg))), r);
+
+        if (arg_limit_signals != UINT64_MAX) {
+                arg_limit_signals--;
+
+                if (arg_limit_signals == 0) {
+                        if (!arg_quiet && !sd_json_format_enabled(arg_json_format_flags))
+                                log_info("Received requested maximum number of signals, exiting.");
+
+                        return sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(ASSERT_PTR(msg))), 0);
+                }
+        }
+
+        return 0;
 }
 
 static int wait_signal(int argc, char **argv, void *userdata) {
@@ -2353,7 +2370,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'N':
                         if (isempty(optarg)) {
-                                arg_limit_messages = UINT64_MAX; /* Reset to default */
+                                /* Reset to default */
+                                arg_limit_messages = UINT64_MAX;
+                                arg_limit_signals = 1;
+                                break;
+                        }
+
+                        if (streq(optarg, "infinity")) {
+                                arg_limit_signals = arg_limit_messages = UINT64_MAX;
                                 break;
                         }
 
@@ -2363,6 +2387,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_limit_messages == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--limit-messages= parameter cannot be 0");
 
+                        arg_limit_signals = arg_limit_messages;
                         break;
 
                 case '?':
