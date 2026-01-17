@@ -16,6 +16,7 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fiber-def.h"
 #include "format-util.h"
 #include "iovec-util.h"
 #include "list.h"
@@ -71,7 +72,7 @@ static bool always_reopen_console = false;
 static bool open_when_needed = false;
 static bool prohibit_ipc = false;
 
-static thread_local const char *log_prefix = NULL;
+static thread_local const char *_log_prefix = NULL;
 
 #if LOG_MESSAGE_VERIFICATION || defined(__COVERITY__)
 bool _log_message_dummy = false; /* Always false */
@@ -86,6 +87,23 @@ bool _log_message_dummy = false; /* Always false */
                         abort();                                        \
                 }                                                       \
         } while (false)
+
+static const char* log_prefix(void) {
+        return fiber_get_current() ? fiber_get_current()->log_prefix : _log_prefix;
+}
+
+const char* _log_set_prefix(const char *prefix, bool force) {
+        const char *old = log_prefix();
+
+        if (prefix || force) {
+                if (fiber_get_current())
+                        fiber_get_current()->log_prefix = prefix;
+                else
+                        _log_prefix = prefix;
+        }
+
+        return old;
+}
 
 static void log_close_console(void) {
         /* See comment in log_close_journal() */
@@ -462,8 +480,8 @@ static int write_to_console(
 
         if (on)
                 iovec[n++] = IOVEC_MAKE_STRING(on);
-        if (log_prefix) {
-                iovec[n++] = IOVEC_MAKE_STRING(log_prefix);
+        if (log_prefix()) {
+                iovec[n++] = IOVEC_MAKE_STRING(log_prefix());
                 iovec[n++] = IOVEC_MAKE_STRING(": ");
         }
         iovec[n++] = IOVEC_MAKE_STRING(buffer);
@@ -534,8 +552,8 @@ static int write_to_syslog(
                 IOVEC_MAKE_STRING(header_time),
                 IOVEC_MAKE_STRING(program_invocation_short_name),
                 IOVEC_MAKE_STRING(header_pid),
-                IOVEC_MAKE_STRING(strempty(log_prefix)),
-                IOVEC_MAKE_STRING(log_prefix ? ": " : ""),
+                IOVEC_MAKE_STRING(strempty(log_prefix())),
+                IOVEC_MAKE_STRING(log_prefix() ? ": " : ""),
                 IOVEC_MAKE_STRING(buffer),
         };
         const struct msghdr msghdr = {
@@ -604,8 +622,8 @@ static int write_to_kmsg(
                 IOVEC_MAKE_STRING(header_priority),
                 IOVEC_MAKE_STRING(program_invocation_short_name),
                 IOVEC_MAKE_STRING(header_pid),
-                IOVEC_MAKE_STRING(strempty(log_prefix)),
-                IOVEC_MAKE_STRING(log_prefix ? ": " : ""),
+                IOVEC_MAKE_STRING(strempty(log_prefix())),
+                IOVEC_MAKE_STRING(log_prefix() ? ": " : ""),
                 IOVEC_MAKE_STRING(buffer),
                 IOVEC_MAKE_STRING("\n"),
         };
@@ -727,8 +745,8 @@ static int write_to_journal(
 
         iovec[n++] = IOVEC_MAKE_STRING(header);
         iovec[n++] = IOVEC_MAKE_STRING("MESSAGE=");
-        if (log_prefix) {
-                iovec[n++] = IOVEC_MAKE_STRING(log_prefix);
+        if (log_prefix()) {
+                iovec[n++] = IOVEC_MAKE_STRING(log_prefix());
                 iovec[n++] = IOVEC_MAKE_STRING(": ");
         }
         iovec[n++] = IOVEC_MAKE_STRING(buffer);
@@ -1715,13 +1733,4 @@ void log_setup(void) {
         (void) log_open();
         if (log_on_console() && show_color < 0)
                 log_show_color(true);
-}
-
-const char* _log_set_prefix(const char *prefix, bool force) {
-        const char *old = log_prefix;
-
-        if (prefix || force)
-                log_prefix = prefix;
-
-        return old;
 }
