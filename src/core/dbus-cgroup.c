@@ -395,9 +395,6 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IOWriteIOPSMax", "a(st)", property_get_io_device_limits, 0, 0),
         SD_BUS_PROPERTY("IODeviceLatencyTargetUSec", "a(st)", property_get_io_device_latency, 0, 0),
         SD_BUS_PROPERTY("MemoryAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, memory_accounting), 0),
-        SD_BUS_PROPERTY("DefaultMemoryLow", "t", NULL, offsetof(CGroupContext, default_memory_low), 0),
-        SD_BUS_PROPERTY("DefaultStartupMemoryLow", "t", NULL, offsetof(CGroupContext, default_startup_memory_low), 0),
-        SD_BUS_PROPERTY("DefaultMemoryMin", "t", NULL, offsetof(CGroupContext, default_memory_min), 0),
         SD_BUS_PROPERTY("MemoryMin", "t", NULL, offsetof(CGroupContext, memory_min), 0),
         SD_BUS_PROPERTY("MemoryLow", "t", NULL, offsetof(CGroupContext, memory_low), 0),
         SD_BUS_PROPERTY("StartupMemoryLow", "t", NULL, offsetof(CGroupContext, startup_memory_low), 0),
@@ -447,6 +444,10 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("BlockIOWriteBandwidth", "a(st)", property_get_blockio_ast, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
         /* since kernel v4.15 CPU accounting requires no controller, i.e. is available everywhere */
         SD_BUS_PROPERTY("CPUAccounting", "b", bus_property_get_bool_true, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
+        /* since kernel v5.7 kernel would take care of these when cgroup is mounted with memory_recursiveprot */
+        SD_BUS_PROPERTY("DefaultMemoryMin", "t", bus_property_get_uint64_0, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("DefaultMemoryLow", "t", bus_property_get_uint64_0, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("DefaultStartupMemoryLow", "t", bus_property_get_uint64_0, 0, SD_BUS_VTABLE_DEPRECATED|SD_BUS_VTABLE_HIDDEN),
 
         SD_BUS_VTABLE_END
 };
@@ -1053,45 +1054,16 @@ int bus_cgroup_set_property(
         if (streq(name, "MemoryAccounting"))
                 return bus_cgroup_set_boolean(u, name, &c->memory_accounting, CGROUP_MASK_MEMORY, message, flags, reterr_error);
 
-        if (streq(name, "MemoryMin")) {
-                r = bus_cgroup_set_memory_protection(u, name, &c->memory_min, message, flags, reterr_error);
-                if (r > 0)
-                        c->memory_min_set = true;
-                return r;
-        }
+        if (streq(name, "MemoryMin"))
+                return bus_cgroup_set_memory_protection(u, name, &c->memory_min, message, flags, reterr_error);
 
-        if (streq(name, "MemoryLow")) {
-                r = bus_cgroup_set_memory_protection(u, name, &c->memory_low, message, flags, reterr_error);
-                if (r > 0)
-                        c->memory_low_set = true;
-                return r;
-        }
+        if (streq(name, "MemoryLow"))
+                return bus_cgroup_set_memory_protection(u, name, &c->memory_low, message, flags, reterr_error);
 
         if (streq(name, "StartupMemoryLow")) {
                 r = bus_cgroup_set_memory_protection(u, name, &c->startup_memory_low, message, flags, reterr_error);
                 if (r > 0)
                         c->startup_memory_low_set = true;
-                return r;
-        }
-
-        if (streq(name, "DefaultMemoryMin")) {
-                r = bus_cgroup_set_memory_protection(u, name, &c->default_memory_min, message, flags, reterr_error);
-                if (r > 0)
-                        c->default_memory_min_set = true;
-                return r;
-        }
-
-        if (streq(name, "DefaultMemoryLow")) {
-                r = bus_cgroup_set_memory_protection(u, name, &c->default_memory_low, message, flags, reterr_error);
-                if (r > 0)
-                        c->default_memory_low_set = true;
-                return r;
-        }
-
-        if (streq(name, "DefaultStartupMemoryLow")) {
-                r = bus_cgroup_set_memory_protection(u, name, &c->default_startup_memory_low, message, flags, reterr_error);
-                if (r > 0)
-                        c->default_startup_memory_low_set = true;
                 return r;
         }
 
@@ -1135,33 +1107,11 @@ int bus_cgroup_set_property(
                 return r;
         }
 
-        if (streq(name, "MemoryMinScale")) {
-                r = bus_cgroup_set_memory_protection_scale(u, name, &c->memory_min, message, flags, reterr_error);
-                if (r > 0)
-                        c->memory_min_set = true;
-                return r;
-        }
+        if (streq(name, "MemoryMinScale"))
+                return bus_cgroup_set_memory_protection_scale(u, name, &c->memory_min, message, flags, reterr_error);
 
-        if (streq(name, "MemoryLowScale")) {
-                r = bus_cgroup_set_memory_protection_scale(u, name, &c->memory_low, message, flags, reterr_error);
-                if (r > 0)
-                        c->memory_low_set = true;
-                return r;
-        }
-
-        if (streq(name, "DefaultMemoryMinScale")) {
-                r = bus_cgroup_set_memory_protection_scale(u, name, &c->default_memory_min, message, flags, reterr_error);
-                if (r > 0)
-                        c->default_memory_min_set = true;
-                return r;
-        }
-
-        if (streq(name, "DefaultMemoryLowScale")) {
-                r = bus_cgroup_set_memory_protection_scale(u, name, &c->default_memory_low, message, flags, reterr_error);
-                if (r > 0)
-                        c->default_memory_low_set = true;
-                return r;
-        }
+        if (streq(name, "MemoryLowScale"))
+                return bus_cgroup_set_memory_protection_scale(u, name, &c->memory_low, message, flags, reterr_error);
 
         if (streq(name, "MemoryHighScale"))
                 return bus_cgroup_set_memory_scale(u, name, &c->memory_high, message, flags, reterr_error);
@@ -2041,8 +1991,8 @@ int bus_cgroup_set_property(
                 return 1;
         }
 
-        /* deprecated CGroup v1 properties */
         if (STR_IN_SET(name,
+                       /* deprecated CGroup v1 properties */
                        "MemoryLimit",
                        "MemoryLimitScale",
                        "CPUShares",
@@ -2053,7 +2003,13 @@ int bus_cgroup_set_property(
                        "BlockIODeviceWeight",
                        "BlockIOReadBandwidth",
                        "BlockIOWriteBandwidth",
-                       "CPUAccounting")) { /* see comment in bus_cgroup_vtable */
+                       /* see comments in bus_cgroup_vtable */
+                       "CPUAccounting",
+                       "DefaultMemoryMin",
+                       "DefaultMemoryMinScale",
+                       "DefaultMemoryLow",
+                       "DefaultMemoryLowScale",
+                       "DefaultStartupMemoryLow")) {
 
                 r = sd_bus_message_skip(message, NULL);
                 if (r < 0)
