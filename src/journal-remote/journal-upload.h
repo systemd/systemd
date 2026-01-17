@@ -26,16 +26,16 @@ typedef struct Uploader {
 
         char *url;
         CURL *easy;
-        bool uploading;
-        char error[CURL_ERROR_SIZE];
         struct curl_slist *header;
         char *answer;
-
-        sd_event_source *input_event;
-        uint64_t timeout;
+        bool uploading:1;
+        char error[CURL_ERROR_SIZE];
 
         /* fd stuff */
         int input;
+
+        sd_event_source *input_event;
+        uint64_t timeout;
 
         /* journal stuff */
         sd_journal *journal;
