@@ -1962,19 +1962,11 @@ int bus_unit_queue_job_one(
 
         assert(u);
 
-        r = unit_queue_job_check_and_mangle_type(u, &type, /* reload_if_possible= */ FLAGS_SET(flags, BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE));
-        if (r == -ENOENT)
-                return sd_bus_error_setf(reterr_error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
-        if (r == -ELIBEXEC)
-                return sd_bus_error_setf(reterr_error,
-                                         BUS_ERROR_ONLY_BY_DEPENDENCY,
-                                         "Operation refused, unit %s may be requested by dependency only (it is configured to refuse manual start/stop).",
-                                         u->id);
-        if (r == -ESHUTDOWN)
-                return sd_bus_error_setf(reterr_error,
-                                         BUS_ERROR_SHUTTING_DOWN,
-                                         "Operation for unit %s refused, D-Bus is shutting down.",
-                                         u->id);
+        r = unit_queue_job_check_and_mangle_type(
+                        u,
+                        &type,
+                        /* reload_if_possible= */ FLAGS_SET(flags, BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE),
+                        reterr_error);
         if (r < 0)
                 return r;
 
