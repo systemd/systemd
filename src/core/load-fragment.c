@@ -3790,9 +3790,7 @@ int config_parse_memory_limit(
         uint64_t bytes = CGROUP_LIMIT_MAX;
         int r;
 
-        if (isempty(rvalue) && STR_IN_SET(lvalue, "DefaultMemoryLow",
-                                                  "DefaultMemoryMin",
-                                                  "MemoryLow",
+        if (isempty(rvalue) && STR_IN_SET(lvalue, "MemoryLow",
                                                   "StartupMemoryLow",
                                                   "MemoryMin"))
                 bytes = CGROUP_LIMIT_MIN;
@@ -3816,31 +3814,17 @@ int config_parse_memory_limit(
                                                "StartupMemoryZSwapMax",
                                                "MemoryLow",
                                                "StartupMemoryLow",
-                                               "MemoryMin",
-                                               "DefaultMemoryLow",
-                                               "DefaultstartupMemoryLow",
-                                               "DefaultMemoryMin"))) {
+                                               "MemoryMin"))) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Memory limit '%s' out of range, ignoring.", rvalue);
                         return 0;
                 }
         }
 
-        if (streq(lvalue, "DefaultMemoryLow")) {
-                c->default_memory_low = bytes;
-                c->default_memory_low_set = true;
-        } else if (streq(lvalue, "DefaultStartupMemoryLow")) {
-                c->default_startup_memory_low = bytes;
-                c->default_startup_memory_low_set = true;
-        } else if (streq(lvalue, "DefaultMemoryMin")) {
-                c->default_memory_min = bytes;
-                c->default_memory_min_set = true;
-        } else if (streq(lvalue, "MemoryMin")) {
+        if (streq(lvalue, "MemoryMin"))
                 c->memory_min = bytes;
-                c->memory_min_set = true;
-        } else if (streq(lvalue, "MemoryLow")) {
+        else if (streq(lvalue, "MemoryLow"))
                 c->memory_low = bytes;
-                c->memory_low_set = true;
-        } else if (streq(lvalue, "StartupMemoryLow")) {
+        else if (streq(lvalue, "StartupMemoryLow")) {
                 c->startup_memory_low = bytes;
                 c->startup_memory_low_set = true;
         } else if (streq(lvalue, "MemoryHigh"))

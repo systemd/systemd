@@ -1,9 +1,0 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
-[Unit]
-Description=DML passthrough set DML service
-
-[Service]
-Slice=dml-passthrough.slice
-Type=oneshot
-ExecStart=true
-DefaultMemoryLow=15

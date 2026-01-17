@@ -2969,12 +2969,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultMemoryLow = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultStartupMemoryLow = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultMemoryMin = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
@@ -3641,12 +3635,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property IODeviceLatencyTargetUSec is not documented!-->
 
     <!--property MemoryAccounting is not documented!-->
-
-    <!--property DefaultMemoryLow is not documented!-->
-
-    <!--property DefaultStartupMemoryLow is not documented!-->
-
-    <!--property DefaultMemoryMin is not documented!-->
 
     <!--property MemoryMin is not documented!-->
 
@@ -4335,12 +4323,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="IODeviceLatencyTargetUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAccounting"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryLow"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartupMemoryLow"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
@@ -5238,12 +5220,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultMemoryLow = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultStartupMemoryLow = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultMemoryMin = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
@@ -5929,12 +5905,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property MemoryAccounting is not documented!-->
 
-    <!--property DefaultMemoryLow is not documented!-->
-
-    <!--property DefaultStartupMemoryLow is not documented!-->
-
-    <!--property DefaultMemoryMin is not documented!-->
-
     <!--property MemoryMin is not documented!-->
 
     <!--property MemoryLow is not documented!-->
@@ -6598,12 +6568,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="IODeviceLatencyTargetUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAccounting"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryLow"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartupMemoryLow"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
@@ -7325,12 +7289,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultMemoryLow = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultStartupMemoryLow = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultMemoryMin = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
@@ -7940,12 +7898,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property MemoryAccounting is not documented!-->
 
-    <!--property DefaultMemoryLow is not documented!-->
-
-    <!--property DefaultStartupMemoryLow is not documented!-->
-
-    <!--property DefaultMemoryMin is not documented!-->
-
     <!--property MemoryMin is not documented!-->
 
     <!--property MemoryLow is not documented!-->
@@ -8517,12 +8469,6 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="IODeviceLatencyTargetUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAccounting"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryLow"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartupMemoryLow"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
@@ -9377,12 +9323,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultMemoryLow = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultStartupMemoryLow = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultMemoryMin = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
@@ -9974,12 +9914,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property MemoryAccounting is not documented!-->
 
-    <!--property DefaultMemoryLow is not documented!-->
-
-    <!--property DefaultStartupMemoryLow is not documented!-->
-
-    <!--property DefaultMemoryMin is not documented!-->
-
     <!--property MemoryMin is not documented!-->
 
     <!--property MemoryLow is not documented!-->
@@ -10533,12 +10467,6 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="IODeviceLatencyTargetUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAccounting"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryLow"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartupMemoryLow"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
@@ -11246,12 +11174,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultMemoryLow = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultStartupMemoryLow = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultMemoryMin = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
@@ -11426,12 +11348,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property IODeviceLatencyTargetUSec is not documented!-->
 
     <!--property MemoryAccounting is not documented!-->
-
-    <!--property DefaultMemoryLow is not documented!-->
-
-    <!--property DefaultStartupMemoryLow is not documented!-->
-
-    <!--property DefaultMemoryMin is not documented!-->
 
     <!--property MemoryMin is not documented!-->
 
@@ -11618,12 +11534,6 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="IODeviceLatencyTargetUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAccounting"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryLow"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartupMemoryLow"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
@@ -11836,12 +11746,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultMemoryLow = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultStartupMemoryLow = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t DefaultMemoryMin = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryMin = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryLow = ...;
@@ -12030,12 +11934,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property IODeviceLatencyTargetUSec is not documented!-->
 
     <!--property MemoryAccounting is not documented!-->
-
-    <!--property DefaultMemoryLow is not documented!-->
-
-    <!--property DefaultStartupMemoryLow is not documented!-->
-
-    <!--property DefaultMemoryMin is not documented!-->
 
     <!--property MemoryMin is not documented!-->
 
@@ -12246,12 +12144,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="IODeviceLatencyTargetUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAccounting"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryLow"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartupMemoryLow"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryMin"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryMin"/>
 
