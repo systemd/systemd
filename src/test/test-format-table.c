@@ -4,7 +4,10 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "ansi-color.h"
+#include "env-util.h"
 #include "format-table.h"
+#include "hexdecoct.h"
 #include "json-util.h"
 #include "terminal-util.h"
 #include "tests.h"
@@ -833,6 +836,57 @@ TEST(table_bps) {
                      "1000000000         953.6M         1Gbps\n"
                      "2000000000         1.8G           2Gbps\n"
                      "2500000000         2.3G           2.5Gbps\n");
+}
+
+TEST(table_ansi) {
+
+        _cleanup_(table_unrefp) Table *table = NULL;
+
+        ASSERT_NOT_NULL((table = table_new("foo", "bar", "baz", "kkk")));
+
+        ASSERT_OK(table_add_many(table,
+                                 TABLE_STRING, "hallo",
+                                 TABLE_STRING_WITH_ANSI, "knuerz" ANSI_HIGHLIGHT_RED "red" ANSI_HIGHLIGHT_GREEN "green",
+                                 TABLE_STRING_WITH_ANSI, "noansi",
+                                 TABLE_STRING_WITH_ANSI, ANSI_GREY "thisisgrey"));
+
+        unsigned saved_columns = columns();
+        bool saved_color = colors_enabled();
+
+        ASSERT_OK(setenv("COLUMNS", "200", /* overwrite= */ true));
+        ASSERT_OK(setenv("SYSTEMD_COLORS", "1", /* overwrite= */ true));
+        reset_terminal_feature_caches();
+
+        _cleanup_free_ char *formatted = NULL;
+        ASSERT_OK(table_format(table, &formatted));
+
+        ASSERT_STREQ(formatted,
+                     ANSI_ADD_UNDERLINE "FOO  " ANSI_NORMAL
+                     ANSI_ADD_UNDERLINE " " ANSI_NORMAL
+                     ANSI_ADD_UNDERLINE "BAR           " ANSI_NORMAL
+                     ANSI_ADD_UNDERLINE " " ANSI_NORMAL
+                     ANSI_ADD_UNDERLINE "BAZ   " ANSI_NORMAL
+                     ANSI_ADD_UNDERLINE " " ANSI_NORMAL
+                     ANSI_ADD_UNDERLINE "KKK       " ANSI_NORMAL "\n"
+                     "hallo knuerz" ANSI_HIGHLIGHT_RED "red" ANSI_HIGHLIGHT_GREEN "green" ANSI_NORMAL
+                     " noansi" ANSI_NORMAL
+                     " " ANSI_GREY "thisisgrey" ANSI_NORMAL "\n");
+
+        /* Validate that color is correctly stripped */
+        ASSERT_OK(setenv("SYSTEMD_COLORS", "0", /* overwrite= */ true));
+        reset_terminal_feature_caches();
+
+        formatted = mfree(formatted);
+        ASSERT_OK(table_format(table, &formatted));
+
+        ASSERT_STREQ(formatted,
+                     "FOO   BAR            BAZ    KKK\n"
+                     "hallo knuerzredgreen noansi thisisgrey\n");
+
+        ASSERT_OK(table_print(table, /* f= */ NULL));
+
+        ASSERT_OK(setenvf("COLUMNS", /* overwrite= */ true, "%u", saved_columns));
+        ASSERT_OK(setenvf("SYSTEMD_COLORS", /* overwrite= */ true, "%i", saved_color));
 }
 
 static int intro(void) {
