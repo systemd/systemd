@@ -735,7 +735,7 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 case STATE_CSI:
                         assert(n_carriage_returns == 0);
 
-                        if (eot || !strchr("01234567890;m", *i)) { /* EOT or invalid chars in sequence */
+                        if (eot || !strchr(DIGITS ";:m", *i)) { /* EOT or invalid chars in sequence */
                                 fputc('\x1B', f);
                                 fputc('[', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 2);
