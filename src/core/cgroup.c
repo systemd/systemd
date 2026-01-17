@@ -330,13 +330,13 @@ static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_
         bool startup = u->manager && IN_SET(manager_state(u->manager), MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING);
 
         if (streq(property_name, "MemoryLow")) {
-                unit_value = unit_get_ancestor_memory_low(u);
+                unit_value = c->memory_low;
                 file = "memory.low";
         } else if (startup && streq(property_name, "StartupMemoryLow")) {
-                unit_value = unit_get_ancestor_startup_memory_low(u);
+                unit_value = c->startup_memory_low;
                 file = "memory.low";
         } else if (streq(property_name, "MemoryMin")) {
-                unit_value = unit_get_ancestor_memory_min(u);
+                unit_value = c->memory_min;
                 file = "memory.min";
         } else if (streq(property_name, "MemoryHigh")) {
                 unit_value = c->memory_high;
@@ -504,8 +504,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sStartupAllowedMemoryNodes: %s\n"
                 "%sIOWeight: %" PRIu64 "\n"
                 "%sStartupIOWeight: %" PRIu64 "\n"
-                "%sDefaultMemoryMin: %" PRIu64 "\n"
-                "%sDefaultMemoryLow: %" PRIu64 "\n"
                 "%sMemoryMin: %" PRIu64 "%s\n"
                 "%sMemoryLow: %" PRIu64 "%s\n"
                 "%sStartupMemoryLow: %" PRIu64 "%s\n"
@@ -542,8 +540,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, strempty(startup_cpuset_mems),
                 prefix, c->io_weight,
                 prefix, c->startup_io_weight,
-                prefix, c->default_memory_min,
-                prefix, c->default_memory_low,
                 prefix, c->memory_min, format_cgroup_memory_limit_comparison(u, "MemoryMin", cda, sizeof(cda)),
                 prefix, c->memory_low, format_cgroup_memory_limit_comparison(u, "MemoryLow", cdb, sizeof(cdb)),
                 prefix, c->startup_memory_low, format_cgroup_memory_limit_comparison(u, "StartupMemoryLow", cdc, sizeof(cdc)),
@@ -763,36 +759,6 @@ int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_typ
 
         return 0;
 }
-
-#define UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(entry)                       \
-        uint64_t unit_get_ancestor_##entry(Unit *u) {                   \
-                CGroupContext *c;                                       \
-                                                                        \
-                /* 1. Is entry set in this unit? If so, use that.       \
-                 * 2. Is the default for this entry set in any          \
-                 *    ancestor? If so, use that.                        \
-                 * 3. Otherwise, return CGROUP_LIMIT_MIN. */            \
-                                                                        \
-                assert(u);                                              \
-                                                                        \
-                c = unit_get_cgroup_context(u);                         \
-                if (c && c->entry##_set)                                \
-                        return c->entry;                                \
-                                                                        \
-                while ((u = UNIT_GET_SLICE(u))) {                       \
-                        c = unit_get_cgroup_context(u);                 \
-                        if (c && c->default_##entry##_set)              \
-                                return c->default_##entry;              \
-                }                                                       \
-                                                                        \
-                /* We've reached the root, but nobody had default for   \
-                 * this entry set, so set it to the kernel default. */  \
-                return CGROUP_LIMIT_MIN;                                \
-}
-
-UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_low);
-UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(startup_memory_low);
-UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_min);
 
 static void unit_set_xattr_graceful(Unit *u, const char *name, const void *data, size_t size) {
         int r;
@@ -1265,15 +1231,11 @@ static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t
         (void) set_attribute_and_warn(u, "io.max", buf);
 }
 
-static bool unit_has_memory_config(Unit *u) {
-        CGroupContext *c;
+static bool cgroup_context_has_memory_config(CGroupContext *c) {
+        assert(c);
 
-        assert(u);
-
-        assert_se(c = unit_get_cgroup_context(u));
-
-        return unit_get_ancestor_memory_min(u) > 0 ||
-               unit_get_ancestor_memory_low(u) > 0 || unit_get_ancestor_startup_memory_low(u) > 0 ||
+        return c->memory_min > 0 ||
+               c->memory_low > 0 || c->startup_memory_low_set ||
                c->memory_high != CGROUP_LIMIT_MAX || c->startup_memory_high_set ||
                c->memory_max != CGROUP_LIMIT_MAX || c->startup_memory_max_set ||
                c->memory_swap_max != CGROUP_LIMIT_MAX || c->startup_memory_swap_max_set ||
@@ -1519,19 +1481,20 @@ static void cgroup_context_apply(
 
         /* 'memory' attributes do not exist on the root cgroup. */
         if ((apply_mask & CGROUP_MASK_MEMORY) && !is_local_root) {
-                uint64_t max = CGROUP_LIMIT_MAX, swap_max = CGROUP_LIMIT_MAX, zswap_max = CGROUP_LIMIT_MAX, high = CGROUP_LIMIT_MAX;
+                uint64_t low = CGROUP_LIMIT_MIN, max = CGROUP_LIMIT_MAX, swap_max = CGROUP_LIMIT_MAX, zswap_max = CGROUP_LIMIT_MAX, high = CGROUP_LIMIT_MAX;
 
-                if (unit_has_memory_config(u)) {
+                if (cgroup_context_has_memory_config(u)) {
                         bool startup = IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING);
 
+                        low = startup && c->startup_memory_low_set ? c->startup_memory_low : c->memory_low;
                         high = startup && c->startup_memory_high_set ? c->startup_memory_high : c->memory_high;
                         max = startup && c->startup_memory_max_set ? c->startup_memory_max : c->memory_max;
                         swap_max = startup && c->startup_memory_swap_max_set ? c->startup_memory_swap_max : c->memory_swap_max;
                         zswap_max = startup && c->startup_memory_zswap_max_set ? c->startup_memory_zswap_max : c->memory_zswap_max;
                 }
 
-                cgroup_apply_memory_limit(u, "memory.min", unit_get_ancestor_memory_min(u));
-                cgroup_apply_memory_limit(u, "memory.low", unit_get_ancestor_memory_low(u));
+                cgroup_apply_memory_limit(u, "memory.min", c->memory_min);
+                cgroup_apply_memory_limit(u, "memory.low", low);
                 cgroup_apply_memory_limit(u, "memory.high", high);
                 cgroup_apply_memory_limit(u, "memory.max", max);
                 cgroup_apply_memory_limit(u, "memory.swap.max", swap_max);
@@ -1699,7 +1662,7 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
                 mask |= CGROUP_MASK_IO;
 
         if (c->memory_accounting ||
-            unit_has_memory_config(u))
+            cgroup_context_has_memory_config(u))
                 mask |= CGROUP_MASK_MEMORY;
 
         if (cgroup_context_has_device_policy(c))
