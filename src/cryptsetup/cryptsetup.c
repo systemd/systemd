@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <sys/capability.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -15,6 +14,7 @@
 #include "argv-util.h"
 #include "ask-password-api.h"
 #include "build.h"
+#include "capability-util.h"
 #include "cryptsetup-fido2.h"
 #include "cryptsetup-keyfile.h"
 #include "cryptsetup-pkcs11.h"
@@ -2583,15 +2583,8 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                   volume, source, strempty(arg_type), strempty(arg_cipher));
 
         /* Memlock everything into physical RAM if we have the CAP_IPC_LOCK capability */
-        cap_t current_caps = cap_get_proc();
-        if (current_caps) {
-                cap_flag_value_t val;
-                if (!cap_get_flag(current_caps, CAP_IPC_LOCK, CAP_EFFECTIVE, &val)) {
-                        if (val == CAP_SET) {
-                                (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
-                        }
-                }
-                cap_free(current_caps);
+        if (have_effective_cap(CAP_IPC_LOCK) == 1) {
+                (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
         }
 
         if (key_file && arg_keyfile_erase)

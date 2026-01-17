@@ -9,6 +9,7 @@
 #include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "build.h"
+#include "capability-util.h"
 #include "cryptenroll.h"
 #include "cryptenroll-fido2.h"
 #include "cryptenroll-list.h"
@@ -851,15 +852,8 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         /* Memlock everything into physical RAM if we have the CAP_IPC_LOCK capability */
-        cap_t current_caps = cap_get_proc();
-        if (current_caps) {
-                cap_flag_value_t val;
-                if (!cap_get_flag(current_caps, CAP_IPC_LOCK, CAP_EFFECTIVE, &val)) {
-                        if (val == CAP_SET) {
-                                (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
-                        }
-                }
-                cap_free(current_caps);
+        if (have_effective_cap(CAP_IPC_LOCK) == 1) {
+                (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
         }
 
         cryptsetup_enable_logging(NULL);
