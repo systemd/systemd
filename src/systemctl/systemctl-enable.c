@@ -96,15 +96,6 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        /* If the operation was fully executed by the SysV compat, let's finish early */
-        if (strv_isempty(names)) {
-                if (arg_no_reload || install_client_side() != INSTALL_CLIENT_SIDE_NO)
-                        return 0;
-
-                r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
-                return r > 0 ? 0 : r;
-        }
-
         if (streq(verb, "disable"))
                 r = normalize_names(names);
         else if (streq(verb, "link"))
