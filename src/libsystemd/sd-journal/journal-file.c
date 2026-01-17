@@ -3250,13 +3250,13 @@ static int generic_array_bisect_for_data(
         if (d->object.type != OBJECT_DATA)
                 return -EBADMSG;
 
+        extra = le64toh(d->data.entry_offset);
+        first = le64toh(d->data.entry_array_offset);
+
         n = le64toh(d->data.n_entries);
         if (n <= 0)
                 return 0;
         n--; /* n_entries is the number of entries linked to the data object, including the 'extra' entry. */
-
-        extra = le64toh(d->data.entry_offset);
-        first = le64toh(d->data.entry_array_offset);
 
         /* This bisects the array in object 'first', but first checks an extra. */
         r = test_object(f, extra, needle);
