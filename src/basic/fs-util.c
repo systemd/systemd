@@ -360,6 +360,19 @@ int access_nofollow(const char *path, int mode) {
         return RET_NERRNO(faccessat(AT_FDCWD, path, mode, AT_SYMLINK_NOFOLLOW));
 }
 
+int access_fd(int fd, int mode) {
+        /* Like access() but operates on an already open fd */
+
+        if (fd == AT_FDCWD)
+                return RET_NERRNO(access(".", mode));
+        if (fd == XAT_FDROOT)
+                return RET_NERRNO(access("/", mode));
+
+        assert(fd >= 0);
+
+        return RET_NERRNO(faccessat(fd, "", mode, AT_EMPTY_PATH));
+}
+
 int touch_fd(int fd, usec_t stamp) {
         assert(fd >= 0);
 
@@ -695,19 +708,6 @@ char* unlink_and_free(char *p) {
 
         (void) unlink(p);
         return mfree(p);
-}
-
-int access_fd(int fd, int mode) {
-        /* Like access() but operates on an already open fd */
-
-        if (fd == AT_FDCWD)
-                return RET_NERRNO(access(".", mode));
-        if (fd == XAT_FDROOT)
-                return RET_NERRNO(access("/", mode));
-
-        assert(fd >= 0);
-
-        return RET_NERRNO(faccessat(fd, "", mode, AT_EMPTY_PATH));
 }
 
 int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
