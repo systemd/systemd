@@ -7003,7 +7003,7 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
         }
 }
 
-int unit_queue_job_check_and_collapse_type(
+int unit_queue_job_check_and_mangle_type(
                 Unit *u,
                 JobType *type, /* input and output */
                 bool reload_if_possible) {
@@ -7011,7 +7011,7 @@ int unit_queue_job_check_and_collapse_type(
         /* Returns:
          *
          * -ENOENT    → Unit not loaded
-         * -EUNATCH   → Unit can only be activated via dependency, not directly
+         * -ELIBEXEC  → Unit can only be activated via dependency, not directly
          * -ESHUTDOWN → System bus is shutting down */
 
         JobType t;
@@ -7028,6 +7028,8 @@ int unit_queue_job_check_and_collapse_type(
                         t = JOB_TRY_RELOAD;
         }
 
+        /* Our transaction logic allows units not properly loaded to be stopped. But if already dead
+         * let's return clear error to caller. */
         if (t == JOB_STOP && UNIT_IS_LOAD_ERROR(u->load_state) && unit_active_state(u) == UNIT_INACTIVE)
                 return -ENOENT;
 
@@ -7035,7 +7037,7 @@ int unit_queue_job_check_and_collapse_type(
             (t == JOB_STOP && u->refuse_manual_stop) ||
             (IN_SET(t, JOB_RESTART, JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)) ||
             (t == JOB_RELOAD_OR_START && job_type_collapse(t, u) == JOB_START && u->refuse_manual_start))
-                return -EUNATCH;
+                return -ELIBEXEC;
 
         /* dbus-broker issues StartUnit for activation requests, and Type=dbus services automatically
          * gain dependency on dbus.socket. Therefore, if dbus has a pending stop job, the new start

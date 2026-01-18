@@ -184,6 +184,9 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
         if (r != 0)
                 return r;
 
+        if (p.class == SESSION_NONE)
+                return sd_varlink_error_invalid_parameter_name(link, "Class");
+
         Seat *seat = NULL;
         if (p.seat) {
                 seat = hashmap_get(m->seats, p.seat);
