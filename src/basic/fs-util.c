@@ -321,22 +321,7 @@ int futimens_opath(int fd, const struct timespec ts[2]) {
 
         assert(fd >= 0);
 
-        if (utimensat(fd, "", ts, AT_EMPTY_PATH) >= 0)
-                return 0;
-        if (errno != EINVAL)
-                return -errno;
-
-        /* Support for AT_EMPTY_PATH is added rather late (kernel 5.8), so fall back to going through /proc/
-         * if unavailable. */
-
-        if (utimensat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), ts, /* flags= */ 0) < 0) {
-                if (errno != ENOENT)
-                        return -errno;
-
-                return proc_fd_enoent_errno();
-        }
-
-        return 0;
+        return RET_NERRNO(utimensat(fd, "", ts, AT_EMPTY_PATH));
 }
 
 int stat_warn_permissions(const char *path, const struct stat *st) {
@@ -722,22 +707,7 @@ int access_fd(int fd, int mode) {
 
         assert(fd >= 0);
 
-        if (faccessat(fd, "", mode, AT_EMPTY_PATH) >= 0)
-                return 0;
-        if (errno != EINVAL)
-                return -errno;
-
-        /* Support for AT_EMPTY_PATH is added rather late (kernel 5.8), so fall back to going through /proc/
-         * if unavailable. */
-
-        if (access(FORMAT_PROC_FD_PATH(fd), mode) < 0) {
-                if (errno != ENOENT)
-                        return -errno;
-
-                return proc_fd_enoent_errno();
-        }
-
-        return 0;
+        return RET_NERRNO(faccessat(fd, "", mode, AT_EMPTY_PATH));
 }
 
 int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
