@@ -8,6 +8,7 @@
 #include "condition.h"
 #include "dbus.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "glyph-util.h"
@@ -402,6 +403,84 @@ int unit_deserialize_state_skip(FILE *f) {
                 /* End marker */
                 if (isempty(line))
                         return 1;
+        }
+}
+
+int unit_deserialize_state_discard(FILE *f, FDSet *fds) {
+        int r;
+
+        assert(f);
+        assert(fds);
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL, *key = NULL;
+                const char *val;
+
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read serialization line: %m");
+                if (r == 0)
+                        return 0;
+
+                if (isempty(line))
+                        return 0;
+
+                val = line;
+                r = extract_first_word(&val, &key, "=", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract key from serialization line: %m");
+                if (r == 0 || !key)
+                        continue;
+
+                if (STR_IN_SET(key,
+                               "stdin-fd",
+                               "stdout-fd",
+                               "stderr-fd",
+                               "exec-fd",
+                               "socket-fd",
+                               "pipe-fd",
+                               "root-directory-fd",
+                               "netns-socket-0",
+                               "netns-socket-1",
+                               "ipv4-socket-bind-bpf-link-fd",
+                               "ipv6-socket-bind-bpf-link-fd",
+                               "restrict-ifaces-bpf-fd")) {
+                        /* Value is just the FD number */
+                        safe_close(deserialize_fd(fds, val));
+
+                } else if (STR_IN_SET(key,
+                                      "fd-store-fd",                       /* service: <fd> <name> [<do_poll>] */
+                                      "extra-fd",                          /* service: <fd> <name> */
+                                      "fifo",                              /* socket: <fd> <path> */
+                                      "special",                           /* socket: <fd> <path> */
+                                      "mqueue",                            /* socket: <fd> <path> */
+                                      "socket",                            /* socket: <fd> <type> <address> */
+                                      "netlink",                           /* socket: <fd> <address> */
+                                      "ffs",                               /* socket: <fd> <path> */
+                                      "ip-bpf-ingress-installed",          /* cgroup: <fd> <attach_type> <path> */
+                                      "ip-bpf-egress-installed",           /* cgroup: <fd> <attach_type> <path> */
+                                      "bpf-device-control-installed",      /* cgroup: <fd> <attach_type> <path> */
+                                      "ip-bpf-custom-ingress-installed",   /* cgroup: <fd> <attach_type> <path> */
+                                      "ip-bpf-custom-egress-installed")) { /* cgroup: <fd> <attach_type> <path> */
+                        /* Single FD keys where fd is first word, followed by additional data */
+                        _cleanup_free_ char *fdv = NULL;
+
+                        if (extract_first_word(&val, &fdv, NULL, 0) > 0)
+                                safe_close(deserialize_fd(fds, fdv));
+
+                } else if (STR_IN_SET(key, "control-pid", "main-pid", "pids")) {
+                        /* These are PidRef keys: may contain pidfd (format: @<fd>:<pid> or @<fd> or just <pid>) */
+                        const char *e;
+
+                        e = startswith(val, "@");
+                        if (e) {
+                                _cleanup_free_ char *fdstr = NULL;
+
+                                if (extract_first_word(&e, &fdstr, ":", 0) > 0)
+                                        safe_close(deserialize_fd(fds, fdstr));
+                        }
+                        /* ...otherwise it's a plain PID number, no FD to handle */
+                }
         }
 }
 
