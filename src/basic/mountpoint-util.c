@@ -529,66 +529,6 @@ bool mount_new_api_supported(void) {
         return (cache = true);
 }
 
-unsigned long ms_nosymfollow_supported(void) {
-        _cleanup_close_ int fsfd = -EBADF, mntfd = -EBADF;
-        static int cache = -1;
-
-        /* Returns MS_NOSYMFOLLOW if it is supported, zero otherwise. */
-
-        if (cache >= 0)
-                return cache ? MS_NOSYMFOLLOW : 0;
-
-        if (!mount_new_api_supported())
-                goto not_supported;
-
-        /* Checks if MS_NOSYMFOLLOW is supported (which was added in 5.10). We use the new mount API's
-         * mount_setattr() call for that, which was added in 5.12, which is close enough. */
-
-        fsfd = fsopen("tmpfs", FSOPEN_CLOEXEC);
-        if (fsfd < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
-                        goto not_supported;
-
-                log_debug_errno(errno, "Failed to open superblock context for tmpfs: %m");
-                return 0;
-        }
-
-        if (fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
-                        goto not_supported;
-
-                log_debug_errno(errno, "Failed to create tmpfs superblock: %m");
-                return 0;
-        }
-
-        mntfd = fsmount(fsfd, FSMOUNT_CLOEXEC, 0);
-        if (mntfd < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
-                        goto not_supported;
-
-                log_debug_errno(errno, "Failed to turn superblock fd into mount fd: %m");
-                return 0;
-        }
-
-        if (mount_setattr(mntfd, "", AT_EMPTY_PATH|AT_RECURSIVE,
-                          &(struct mount_attr) {
-                                  .attr_set = MOUNT_ATTR_NOSYMFOLLOW,
-                          }, sizeof(struct mount_attr)) < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
-                        goto not_supported;
-
-                log_debug_errno(errno, "Failed to set MOUNT_ATTR_NOSYMFOLLOW mount attribute: %m");
-                return 0;
-        }
-
-        cache = true;
-        return MS_NOSYMFOLLOW;
-
-not_supported:
-        cache = false;
-        return 0;
-}
-
 int mount_option_supported(const char *fstype, const char *key, const char *value) {
         _cleanup_close_ int fd = -EBADF;
         int r;
