@@ -107,8 +107,6 @@ Deprecations and removals:
 * drop support for LOOP_CONFIGURE-less loopback block devices, once kernel
   baseline is 5.8.
 
-* Once baseline is 5.10, remove support or MS_NOSYMFOLLOW-less kernels
-
 * Remove /dev/mem ACPI FPDT parsing when /sys/firmware/acpi/fpdt is ubiquitous.
   That requires distros to enable CONFIG_ACPI_FPDT, and have kernels v5.12 for
   x86 and v6.2 for arm.
