@@ -191,9 +191,6 @@ REQUIREMENTS:
         next best thing is to make this change through a modprobe.d drop-in.
         This is shipped by default, see modprobe.d/systemd.conf.
 
-        Required for systemd-nspawn:
-          CONFIG_DEVPTS_MULTIPLE_INSTANCES or Linux kernel >= 4.7
-
         Required for systemd-oomd:
           CONFIG_PSI
           CONFIG_MEMCG
