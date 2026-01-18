@@ -1515,6 +1515,7 @@ static int mount_private_cgroup2fs(const MountEntry *m, const NamespaceParameter
 
 static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
         _cleanup_free_ char *opts = NULL;
+        int r;
 
         assert(m);
         assert(p);
@@ -1522,32 +1523,16 @@ static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
         if (p->protect_proc != PROTECT_PROC_DEFAULT ||
             p->proc_subset != PROC_SUBSET_ALL) {
 
-                /* Starting with kernel 5.8 procfs' hidepid= logic is truly per-instance (previously it
-                 * pretended to be per-instance but actually was per-namespace), hence let's make use of it
-                 * if requested. To make sure this logic succeeds only on kernels where hidepid= is
-                 * per-instance, we'll exclusively use the textual value for hidepid=, since support was
-                 * added in the same commit: if it's supported it is thus also per-instance. */
+                opts = strjoin("hidepid=",
+                               p->protect_proc == PROTECT_PROC_DEFAULT ? "off" : protect_proc_to_string(p->protect_proc));
+                if (!opts)
+                        return -ENOMEM;
 
-                const char *hpv = p->protect_proc == PROTECT_PROC_DEFAULT ?
-                                  "off" :
-                                  protect_proc_to_string(p->protect_proc);
-
-                /* hidepid= support was added in 5.8, so we can use fsconfig()/fsopen() (which were added in
-                 * 5.2) to check if hidepid= is supported. This avoids a noisy dmesg log by the kernel when
-                 * trying to use hidepid= on systems where it isn't supported. The same applies for subset=.
-                 * fsopen()/fsconfig() was also backported on some distros which allows us to detect
-                 * hidepid=/subset= support in even more scenarios. */
-
-                if (mount_option_supported("proc", "hidepid", hpv) > 0) {
-                        opts = strjoin("hidepid=", hpv);
-                        if (!opts)
-                                return -ENOMEM;
+                if (p->proc_subset != PROC_SUBSET_ALL) {
+                        r = strextendf_with_separator(&opts, ",", "subset=%s", proc_subset_to_string(p->proc_subset));
+                        if (r < 0)
+                                return r;
                 }
-
-                if (p->proc_subset == PROC_SUBSET_PID &&
-                    mount_option_supported("proc", "subset", "pid") > 0)
-                        if (!strextend_with_separator(&opts, ",", "subset=pid"))
-                                return -ENOMEM;
         }
 
         /* Mount a new instance, so that we get the one that matches our user namespace, if we are running in
