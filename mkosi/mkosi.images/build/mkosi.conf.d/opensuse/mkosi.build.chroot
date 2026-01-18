@@ -18,9 +18,6 @@ TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 # The openSUSE filelists hardcode the manpage compression extension. This causes rpmbuild errors since we
 # disable manpage compression as the files cannot be found. Fix the issue by removing the compression
 # extension.
-#
-# TODO: remove patches for removal of cgroups-agent, renaming pubring file, and removal of sysv files
-# when the upstream spec is updated
 while read -r filelist; do
     sed -E \
         -e 's/\.gz$//' \
