@@ -40,6 +40,7 @@
 #include "path-util.h"
 #include "pkcs11-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -2582,7 +2583,7 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                   volume, source, strempty(arg_type), strempty(arg_cipher));
 
         /* A delicious drop of snake oil */
-        (void) mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
+        (void) safe_mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
 
         if (key_file && arg_keyfile_erase)
                 destroy_key_file = key_file; /* let's get this baby erased when we leave */
