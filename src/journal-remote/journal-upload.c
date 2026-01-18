@@ -36,6 +36,7 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "version.h"
+#include "web-util.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-upload.pem"
@@ -449,10 +450,8 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
 
 static int setup_uploader(Uploader *u, const char *url, const char *state_file) {
         int r;
-        const char *url_without_proto, *proto = "";
 
         assert(u);
-        assert(url);
 
         *u = (Uploader) {
                 .input = -1,
@@ -461,36 +460,7 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         if (arg_force_compression)
                 u->compression = ordered_hashmap_first(arg_compression);
 
-        url_without_proto = STARTSWITH_SET(url, "http://", "https://");
-        if (url_without_proto)
-                proto = startswith(url, "https://") ? "https://" : "http://";
-        else {
-                url_without_proto = url;
-                proto = "https://";
-        }
-
-        if (strchr(url_without_proto, ':'))
-                u->url = strjoin(proto, url_without_proto, "/upload");
-        else {
-                char *t, *host;
-                const char *path = "";
-                size_t x;
-
-                host = strdupa_safe(url_without_proto);
-                x = strlen(host);
-
-                while (x > 0 && host[x - 1] == '/')
-                        host[x - 1] = '\0';
-
-                t = strchr(host, '/');
-
-                if (t) {
-                        path = strdupa_safe(t);
-                        *t = '\0';
-                }
-
-                u->url = strjoin(proto, host, ":" STRINGIFY(DEFAULT_PORT), path, "/upload");
-        }
+        u->url = http_url_add_port(url, STRINGIFY(DEFAULT_PORT));
         if (!u->url)
                 return log_oom();
 
