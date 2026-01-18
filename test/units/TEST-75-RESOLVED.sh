@@ -70,7 +70,12 @@ restart_resolved() {
     # Reset the restart counter since we call this method a bunch of times
     # and can occasionally hit the default rate limit
     systemctl reset-failed systemd-resolved.service
-    systemctl start systemd-resolved-monitor.socket systemd-resolved-varlink.socket
+    if ! systemctl start systemd-resolved-monitor.socket systemd-resolved-varlink.socket; then
+        echo "Failed to start resolved sockets. Diagnostic info:"
+        systemctl status systemd-resolved-monitor.socket systemd-resolved-varlink.socket || true
+        journalctl -u systemd-resolved-monitor.socket -u systemd-resolved-varlink.socket -n 50 --no-pager || true
+        return 1
+    fi
     systemctl start systemd-resolved.service
 }
 
@@ -1480,6 +1485,62 @@ EOF
     # Should work again without delegation in the mix
     run resolvectl query delegation.exercise.test
     grep -qF "1.2.3.4" "$RUN_OUT"
+}
+
+testcase_dns_server_policy() {
+    # Test that DNSServerPolicy is displayed in resolvectl status
+
+    # Cleanup - follows same pattern as other tests in this file
+    # shellcheck disable=SC2317
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/90-dns-server-policy.conf
+        rm -f /run/systemd/network/10-dns0.network.d/dns-server-policy.conf
+        rmdir /run/systemd/network/10-dns0.network.d 2>/dev/null || true
+        networkctl reload
+        systemctl reload systemd-resolved.service
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN
+
+    # Test 1: Default policy should be "adaptive"
+    run resolvectl status
+    grep -qE "DNS Server Policy:.*adaptive" "$RUN_OUT"
+
+    # Test 2: Set global policy to sequential
+    mkdir -p /run/systemd/resolved.conf.d
+    cat >/run/systemd/resolved.conf.d/90-dns-server-policy.conf <<EOF
+[Resolve]
+DNSServerPolicy=sequential
+EOF
+    systemctl reload systemd-resolved.service
+
+    run resolvectl status
+    # Global section should show sequential
+    grep -qE "DNS Server Policy:.*sequential" "$RUN_OUT"
+
+    # Test 3: Per-link override
+    mkdir -p /run/systemd/network/10-dns0.network.d
+    cat >/run/systemd/network/10-dns0.network.d/dns-server-policy.conf <<EOF
+[Network]
+DNSServerPolicy=adaptive
+EOF
+    networkctl reload
+    networkctl reconfigure dns0
+    /usr/lib/systemd/systemd-networkd-wait-online --timeout=60 --interface=dns0:routable
+
+    run resolvectl status dns0
+    # Link should show adaptive (override)
+    grep -qE "DNS Server Policy:.*adaptive" "$RUN_OUT"
+
+    # Test 4: Remove config and verify reversion to default
+    # This tests that manager_set_defaults() properly resets dns_server_policy on reload
+    rm -f /run/systemd/resolved.conf.d/90-dns-server-policy.conf
+    systemctl reload systemd-resolved.service
+
+    run resolvectl status
+    # Should revert back to adaptive (the default)
+    grep -qE "DNS Server Policy:.*adaptive" "$RUN_OUT"
 }
 
 # PRE-SETUP

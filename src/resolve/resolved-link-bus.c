@@ -35,6 +35,7 @@ static BUS_DEFINE_PROPERTY_GET2(property_get_dnssec_mode, "s", Link, link_get_dn
 static BUS_DEFINE_PROPERTY_GET2(property_get_llmnr_support, "s", Link, link_get_llmnr_support, resolve_support_to_string);
 static BUS_DEFINE_PROPERTY_GET2(property_get_mdns_support, "s", Link, link_get_mdns_support, resolve_support_to_string);
 static BUS_DEFINE_PROPERTY_GET(property_get_default_route, "b", Link, link_get_default_route);
+static BUS_DEFINE_PROPERTY_GET2(property_get_dns_server_policy, "s", Link, link_get_dns_server_policy, dns_server_policy_to_string);
 
 static int property_get_dns_over_tls_mode(
                 sd_bus *bus,
@@ -850,6 +851,7 @@ static const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", bus_property_get_string_set, offsetof(Link, dnssec_negative_trust_anchors), 0),
         SD_BUS_PROPERTY("DNSSECSupported", "b", property_get_dnssec_supported, 0, 0),
+        SD_BUS_PROPERTY("DNSServerPolicy", "s", property_get_dns_server_policy, 0, 0),
 
         SD_BUS_METHOD_WITH_ARGS("SetDNS",
                                 SD_BUS_ARGS("a(iay)", addresses),

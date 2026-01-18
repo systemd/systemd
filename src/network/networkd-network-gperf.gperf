@@ -149,6 +149,7 @@ Network.DNSDefaultRoute,                         config_parse_tristate,         
 Network.LLMNR,                                   config_parse_resolve_support,                   0,                                      offsetof(Network, llmnr)
 Network.MulticastDNS,                            config_parse_resolve_support,                   0,                                      offsetof(Network, mdns)
 Network.DNSOverTLS,                              config_parse_dns_over_tls_mode,                 0,                                      offsetof(Network, dns_over_tls_mode)
+Network.DNSServerPolicy,                         config_parse_dns_server_policy,                 0,                                      offsetof(Network, dns_server_policy)
 Network.DNSSEC,                                  config_parse_dnssec_mode,                       0,                                      offsetof(Network, dnssec_mode)
 Network.DNSSECNegativeTrustAnchors,              config_parse_dnssec_negative_trust_anchors,     0,                                      offsetof(Network, dnssec_negative_trust_anchors)
 Network.NTP,                                     config_parse_ntp,                               0,                                      offsetof(Network, ntp)

@@ -640,6 +640,7 @@ static void manager_set_defaults(Manager *m) {
         m->resolve_unicast_single_label = false;
         m->cache_from_localhost = false;
         m->stale_retention_usec = 0;
+        m->dns_server_policy = DNS_SERVER_POLICY_ADAPTIVE;
         m->refuse_record_types = set_free(m->refuse_record_types);
         m->resolv_conf_stat = (struct stat) {};
 }
