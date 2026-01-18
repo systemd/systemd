@@ -1117,8 +1117,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectHostname: %s%s%s\n"
                 "%sProtectProc: %s\n"
                 "%sProcSubset: %s\n"
-                "%sPrivateBPF: %s\n"
-                "%sMemoryTHP: %s\n",
+                "%sMemoryTHP: %s\n"
+                "%sPrivateBPF: %s\n",
                 prefix, c->umask,
                 prefix, empty_to_root(c->working_directory),
                 prefix, empty_to_root(c->root_directory),
@@ -1146,8 +1146,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, protect_hostname_to_string(c->protect_hostname), c->private_hostname ? ":" : "", strempty(c->private_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
                 prefix, proc_subset_to_string(c->proc_subset),
-                prefix, private_bpf_to_string(c->private_bpf),
-                prefix, memory_thp_to_string(c->memory_thp));
+                prefix, memory_thp_to_string(c->memory_thp),
+                prefix, private_bpf_to_string(c->private_bpf));
 
         if (c->private_bpf == PRIVATE_BPF_YES) {
                 _cleanup_free_ char
@@ -3128,3 +3128,12 @@ static const char* const exec_keyring_mode_table[_EXEC_KEYRING_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode);
+
+static const char* const memory_thp_table[_MEMORY_THP_MAX] = {
+        [MEMORY_THP_INHERIT] = "inherit",
+        [MEMORY_THP_DISABLE] = "disable",
+        [MEMORY_THP_MADVISE] = "madvise",
+        [MEMORY_THP_SYSTEM]  = "system",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(memory_thp, MemoryTHP);
