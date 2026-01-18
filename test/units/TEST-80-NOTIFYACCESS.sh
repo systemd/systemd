@@ -89,6 +89,38 @@ assert_eq "$(systemctl show reload-timeout.service -P ReloadResult)" "success"
 
 systemctl stop reload-timeout.service
 
+# RELOADING=-1
+
+systemctl start reload-fail.service
+
+systemctl reload --no-block reload-fail.service
+sync_in hup1
+timeout 10 bash -c 'until [[ $(systemctl show reload-fail.service -P SubState) == "running" ]]; do sleep .5; done'
+assert_eq "$(systemctl show reload-fail.service -P ReloadResult)" "success"
+
+systemctl reload reload-fail.service &
+sync_in hup2
+timeout 10 bash -c 'until [[ $(systemctl show reload-fail.service -P SubState) == "reload-notify" ]]; do sleep .5; done'
+sync_out ready-fail
+! wait "$!" || exit 1
+assert_eq "$(systemctl show reload-fail.service -P SubState)" "running"
+assert_eq "$(systemctl show reload-fail.service -P ReloadResult)" "resources"
+
+systemctl reload reload-fail.service &
+sync_in hup3
+sync_out ready
+wait "$!"
+assert_eq "$(systemctl show reload-fail.service -P SubState)" "running"
+assert_eq "$(systemctl show reload-fail.service -P ReloadResult)" "success"
+
+systemctl reload reload-fail.service &
+sync_in hup4
+timeout 10 bash -c 'until [[ $(systemctl show reload-fail.service -P SubState) == "reload-notify" ]]; do sleep .5; done'
+sync_out fail-stop
+! wait "$!" || exit 1
+assert_eq "$(systemctl show reload-fail.service -P SubState)" "stop-sigterm"
+assert_eq "$(systemctl show reload-fail.service -P ReloadResult)" "resources"
+
 rm /tmp/syncfifo1 /tmp/syncfifo2
 
 # Explicitly test busctl's BUSERROR= reporting and systemctl status should show it
