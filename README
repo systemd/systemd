@@ -195,19 +195,6 @@ REQUIREMENTS:
           CONFIG_PSI
           CONFIG_MEMCG
 
-        Note that kernel auditing is broken when used with systemd's container
-        code. When using systemd in conjunction with containers, please make
-        sure to either turn off auditing at runtime using the kernel command
-        line option "audit=0", or turn it off at kernel compile time using:
-          CONFIG_AUDIT=n
-
-        If systemd is compiled with libseccomp support on architectures which do
-        not use socketcall() and where seccomp is supported (this effectively
-        means x86-64 and ARM, but excludes 32-bit x86!), then nspawn will now
-        install a work-around seccomp filter that makes containers boot even
-        with audit being enabled. This works correctly only on kernels 3.14 and
-        newer though. TL;DR: turn audit off, still.
-
         glibc >= 2.31
         libxcrypt >= 4.4.0 (optional)
         libmount >= 2.30 (from util-linux)
