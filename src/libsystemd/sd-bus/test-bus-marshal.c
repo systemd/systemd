@@ -19,12 +19,16 @@ REENABLE_WARNING
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "log.h"
+#include "memfd-util.h"
 #include "memstream-util.h"
+#include "stat-util.h"
 #include "tests.h"
 
 static void test_bus_path_encode_unique(void) {
@@ -97,6 +101,119 @@ static void test_bus_label_escape_one(const char *a, const char *b) {
 
         assert_se(y = bus_label_unescape(b));
         assert_se(streq(a, y));
+}
+
+static ino_t get_inode(int fd) {
+        struct stat st;
+        assert_se(fstat(fd, &st) >= 0);
+        return st.st_ino;
+}
+
+static void test_bus_fds_truncated(void) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_close_ int memfd0 = -EBADF, memfd1 = -EBADF;
+        _cleanup_free_ void *blob = NULL;
+        _cleanup_free_ int *fds = NULL;
+        ino_t ino0, ino1;
+        size_t blob_size;
+        int fd;
+
+        /* Create two memfds and record their inodes for later verification */
+        memfd0 = ASSERT_OK(memfd_create_wrapper("test-fd-0", 0));
+        ino0 = get_inode(memfd0);
+
+        memfd1 = ASSERT_OK(memfd_create_wrapper("test-fd-1", 0));
+        ino1 = get_inode(memfd1);
+
+        /* Create a bus for message operations (no actual connection needed) */
+        ASSERT_OK(sd_bus_new(&bus));
+        bus->state = BUS_RUNNING; /* Fake state to allow message creation */
+        bus->can_fds = true;      /* Allow fd passing */
+
+        /* Build a message containing two fds */
+        ASSERT_OK(sd_bus_message_new_method_call(bus, &m, "foo.bar", "/", "foo.bar", "Ping"));
+        ASSERT_OK(sd_bus_message_append(m, "hh", memfd0, memfd1));
+        ASSERT_OK(sd_bus_message_seal(m, 1, 0));
+
+        /* Serialize the message to a blob */
+        ASSERT_OK(bus_message_get_blob(m, &blob, &blob_size));
+        m = sd_bus_message_unref(m);
+
+        /* Duplicate the fds since bus_message_from_malloc() takes ownership */
+        fds = ASSERT_NOT_NULL(new(int, 2));
+        fds[0] = ASSERT_OK_ERRNO(fcntl(memfd0, F_DUPFD_CLOEXEC, 3));
+        fds[1] = ASSERT_OK_ERRNO(fcntl(memfd1, F_DUPFD_CLOEXEC, 3));
+
+        /* Test 1: Parse with correct fd count, no truncation - should succeed */
+        log_info("Test 1: Exact fd count match, got_ctrunc=false");
+        void *blob_copy = ASSERT_NOT_NULL(memdup(blob, blob_size));
+        ASSERT_OK(bus_message_from_malloc(bus, blob_copy, blob_size, fds, 2, /* got_ctrunc= */ false, NULL, &m));
+
+        /* Verify we can read both fds and they have the expected inodes */
+        ASSERT_OK(sd_bus_message_read_basic(m, 'h', &fd));
+        ASSERT_EQ(get_inode(fd), ino0);
+        ASSERT_OK(sd_bus_message_read_basic(m, 'h', &fd));
+        ASSERT_EQ(get_inode(fd), ino1);
+
+        m = sd_bus_message_unref(m);
+        fds = NULL; /* ownership transferred */
+
+        /* Test 2: Parse with fewer fds than declared, no truncation flag - should fail */
+        log_info("Test 2: Fewer fds than declared, got_ctrunc=false");
+        fds = ASSERT_NOT_NULL(new(int, 1));
+        fds[0] = ASSERT_OK_ERRNO(fcntl(memfd0, F_DUPFD_CLOEXEC, 3));
+
+        blob_copy = ASSERT_NOT_NULL(memdup(blob, blob_size));
+        ASSERT_ERROR(bus_message_from_malloc(bus, blob_copy, blob_size, fds, 1, /* got_ctrunc= */ false, NULL, &m), EBADMSG);
+        free(blob_copy);
+        close(fds[0]);
+        fds = mfree(fds);
+
+        /* Test 3: Parse with fewer fds than declared, with truncation flag - parsing should succeed */
+        log_info("Test 3: Fewer fds than declared, got_ctrunc=true");
+        fds = ASSERT_NOT_NULL(new(int, 1));
+        fds[0] = ASSERT_OK_ERRNO(fcntl(memfd0, F_DUPFD_CLOEXEC, 3));
+
+        blob_copy = ASSERT_NOT_NULL(memdup(blob, blob_size));
+        ASSERT_OK(bus_message_from_malloc(bus, blob_copy, blob_size, fds, 1, /* got_ctrunc= */ true, NULL, &m));
+
+        /* First fd should be readable and have correct inode */
+        ASSERT_OK(sd_bus_message_read_basic(m, 'h', &fd));
+        ASSERT_EQ(get_inode(fd), ino0);
+
+        /* Second fd was truncated - reading it should fail */
+        ASSERT_ERROR(sd_bus_message_read_basic(m, 'h', &fd), EBADMSG);
+
+        m = sd_bus_message_unref(m);
+        fds = NULL; /* ownership transferred */
+
+        /* Test 4: Parse with more fds than declared, with truncation flag - should fail */
+        log_info("Test 4: More fds than declared, got_ctrunc=true");
+        fds = ASSERT_NOT_NULL(new(int, 3));
+        fds[0] = ASSERT_OK_ERRNO(fcntl(memfd0, F_DUPFD_CLOEXEC, 3));
+        fds[1] = ASSERT_OK_ERRNO(fcntl(memfd1, F_DUPFD_CLOEXEC, 3));
+        fds[2] = ASSERT_OK_ERRNO(fcntl(memfd0, F_DUPFD_CLOEXEC, 3));
+
+        blob_copy = ASSERT_NOT_NULL(memdup(blob, blob_size));
+        ASSERT_ERROR(bus_message_from_malloc(bus, blob_copy, blob_size, fds, 3, /* got_ctrunc= */ true, NULL, &m), EBADMSG);
+        free(blob_copy);
+        close(fds[0]);
+        close(fds[1]);
+        close(fds[2]);
+        fds = mfree(fds);
+
+        /* Test 5: Parse with zero fds when two were declared, with truncation flag - should succeed */
+        log_info("Test 5: Zero fds when some declared, got_ctrunc=true");
+        blob_copy = ASSERT_NOT_NULL(memdup(blob, blob_size));
+        ASSERT_OK(bus_message_from_malloc(bus, blob_copy, blob_size, NULL, 0, /* got_ctrunc= */ true, NULL, &m));
+
+        /* Both fd reads should fail since all were truncated */
+        ASSERT_ERROR(sd_bus_message_read_basic(m, 'h', &fd), EBADMSG);
+
+        m = sd_bus_message_unref(m);
+
+        log_info("All fd truncation tests passed");
 }
 
 static void test_bus_label_escape(void) {
@@ -243,7 +360,7 @@ int main(int argc, char *argv[]) {
 
         m = sd_bus_message_unref(m);
 
-        r = bus_message_from_malloc(bus, buffer, sz, NULL, 0, NULL, &m);
+        r = bus_message_from_malloc(bus, buffer, sz, NULL, 0, /* got_ctrunc= */ false, NULL, &m);
         assert_se(r >= 0);
 
         sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
@@ -415,6 +532,7 @@ int main(int argc, char *argv[]) {
         test_bus_path_encode();
         test_bus_path_encode_unique();
         test_bus_path_encode_many();
+        test_bus_fds_truncated();
 
         return 0;
 }
