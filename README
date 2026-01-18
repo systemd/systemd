@@ -50,7 +50,8 @@ REQUIREMENTS:
                      ≥ 5.6 for getrandom() GRND_INSECURE
                      ≥ 5.7 for CLONE_INTO_CGROUP, cgroup2fs memory_recursiveprot option,
                                BPF links and the BPF LSM hook
-                     ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
+                     ≥ 5.8 for LOOP_CONFIGURE, STATX_ATTR_MOUNT_ROOT, and procfs
+                               per-instance hidepid=/subset= options
                      ≥ 5.9 for close_range()
                      ≥ 5.10 for STATX_MNT_ID and MS_NOSYMFOLLOW mount option
 
