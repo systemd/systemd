@@ -3801,7 +3801,6 @@ int unit_coldplug(Unit *u) {
         if (u->nop_job)
                 RET_GATHER(r, job_coldplug(u->nop_job));
 
-        unit_modify_nft_set(u, /* add= */ true);
         return r;
 }
 

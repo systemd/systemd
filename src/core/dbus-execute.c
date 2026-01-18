@@ -1837,11 +1837,11 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE(keyring_mode, ExecKeyringMode, exec_keyrin
 static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_proc, ProtectProc, protect_proc_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(proc_subset, ProcSubset, proc_subset_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(private_bpf, PrivateBPF, private_bpf_from_string);
-static BUS_DEFINE_SET_TRANSIENT_PARSE(memory_thp, MemoryTHP, memory_thp_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_commands, uint64_t, bpf_delegate_commands_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_maps, uint64_t, bpf_delegate_maps_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_programs, uint64_t, bpf_delegate_programs_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_attachments, uint64_t, bpf_delegate_attachments_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(memory_thp, MemoryTHP, memory_thp_from_string);
 BUS_DEFINE_SET_TRANSIENT_PARSE(exec_preserve_mode, ExecPreserveMode, exec_preserve_mode_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(personality, unsigned long, parse_personality);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(secure_bits, "i", int32_t, int, "%" PRIi32, secure_bits_to_string_alloc_with_check);

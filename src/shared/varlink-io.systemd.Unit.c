@@ -530,6 +530,11 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#IOSchedulingPriority="),
                 SD_VARLINK_DEFINE_FIELD(IOSchedulingPriority, SD_VARLINK_INT, 0),
 
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#MemoryKSM="),
+                SD_VARLINK_DEFINE_FIELD(MemoryKSM, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#MemoryTHP="),
+                SD_VARLINK_DEFINE_FIELD(MemoryTHP, SD_VARLINK_STRING, 0),
+
                 /* Sandboxing
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Sandboxing */
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#ProtectSystem="),
@@ -574,8 +579,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(PrivateIPC, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#IPCNamespacePath="),
                 SD_VARLINK_DEFINE_FIELD(IPCNamespacePath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#MemoryKSM="),
-                SD_VARLINK_DEFINE_FIELD(MemoryKSM, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#PrivatePIDs="),
                 SD_VARLINK_DEFINE_FIELD(PrivatePIDs, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#PrivateUsers="),
@@ -626,8 +629,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(PrivateMounts, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#MountFlags="),
                 SD_VARLINK_DEFINE_FIELD(MountFlags, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#MemoryTHP="),
-                SD_VARLINK_DEFINE_FIELD(MemoryTHP, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
 
                 /* System Call Filtering
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#System%20Call%20Filtering */
