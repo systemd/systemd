@@ -1158,19 +1158,6 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
          *   • The dir fd can be passed as XAT_FDROOT, in which case any relative paths will be taken relative to the root fs.
          */
 
-        _cleanup_close_ int _dir_fd = -EBADF;
-        if (dir_fd == XAT_FDROOT) {
-                if (path_is_absolute(path))
-                        dir_fd = AT_FDCWD;
-                else {
-                        _dir_fd = open("/", O_CLOEXEC|O_DIRECTORY|O_RDONLY);
-                        if (_dir_fd < 0)
-                                return -errno;
-
-                        dir_fd = _dir_fd;
-                }
-        }
-
         if (mode == MODE_INVALID)
                 mode = (open_flags & O_DIRECTORY) ? 0755 : 0644;
 
@@ -1184,6 +1171,19 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 }
 
                 return fd_reopen(dir_fd, open_flags & ~O_NOFOLLOW);
+        }
+
+        _cleanup_close_ int _dir_fd = -EBADF;
+        if (dir_fd == XAT_FDROOT) {
+                if (path_is_absolute(path))
+                        dir_fd = AT_FDCWD;
+                else {
+                        _dir_fd = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
+                        if (_dir_fd < 0)
+                                return -errno;
+
+                        dir_fd = _dir_fd;
+                }
         }
 
         bool call_label_ops_post = false;
