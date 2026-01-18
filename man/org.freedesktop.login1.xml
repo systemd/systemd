@@ -225,6 +225,8 @@ node /org/freedesktop/login1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as SleepOperation = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t LongPressDurationUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HandlePowerKey = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HandlePowerKeyLongPress = '...';
@@ -498,6 +500,8 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-property" generated="True" extra-ref="UserStopDelayUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SleepOperation"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LongPressDurationUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="HandlePowerKey"/>
 
@@ -796,6 +800,7 @@ node /org/freedesktop/login1 {
       <varname>InhibitDelayMaxUSec</varname>,
       <varname>InhibitorsMax</varname>,
       <varname>UserStopDelayUSec</varname>,
+      <varname>LongPressDurationUSec</varname>,
       <varname>HandlePowerKey</varname>, <varname>HandleSuspendKey</varname>,
       <varname>HandleHibernateKey</varname>, <varname>HandleLidSwitch</varname>,
       <varname>HandleLidSwitchExternalPower</varname>, <varname>HandleLidSwitchDocked</varname>,

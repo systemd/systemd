@@ -51,8 +51,6 @@ static const struct {
 
 #define ULONG_BITS (sizeof(unsigned long)*8)
 
-#define LONG_PRESS_DURATION (5 * USEC_PER_SEC)
-
 static bool bitset_get(const unsigned long *bits, unsigned i) {
         return (bits[i / ULONG_BITS] >> (i % ULONG_BITS)) & 1UL;
 }
@@ -243,7 +241,7 @@ static void start_long_press(Button *b, sd_event_source **e, sd_event_time_handl
                         m->event,
                         e,
                         CLOCK_MONOTONIC,
-                        LONG_PRESS_DURATION, 0,
+                        m->long_press_duration_usec, 0,
                         callback, b);
         if (r < 0)
                 log_warning_errno(r, "Failed to add long press timer event, ignoring: %m");
