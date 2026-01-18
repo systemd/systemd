@@ -1092,7 +1092,7 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
 
 DECLARE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);
 
-int unit_queue_job_check_and_mangle_type(Unit *u, JobType *type, bool reload_if_possible);
+int unit_queue_job_check_and_mangle_type(Unit *u, JobType *type, bool reload_if_possible, sd_bus_error *reterr_error);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
