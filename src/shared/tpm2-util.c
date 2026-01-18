@@ -7310,6 +7310,9 @@ int tpm2_nvpcr_initialize(
         assert(c);
         assert(name);
 
+        if (!tpm2_supports_command(c, TPM2_CC_PolicyAuthorizeNV))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 does not support PolicyAuthorizeNV command, refusing.");
+
         _cleanup_(nvpcr_data_done) NvPCRData p = {};
         r = nvpcr_data_load(name, &p);
         if (r < 0)
