@@ -65,6 +65,7 @@ static const ImagePolicy image_policy_untrusted = {
 static int json_dispatch_image_options(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
         MountOptions **p = ASSERT_PTR(userdata);
+        int r;
 
         if (sd_json_variant_is_null(variant)) {
                 *p = mount_options_free_all(*p);
@@ -87,12 +88,12 @@ static int json_dispatch_image_options(const char *name, sd_json_variant *varian
                 if (!options) {
                         options = new0(MountOptions, 1);
                         if (!options)
-                                return -ENOMEM;
+                                return json_log_oom(variant, flags);
                 }
 
-                options->options[pd] = strdup(sd_json_variant_string(e));
-                if (!options->options[pd])
-                        return -ENOMEM;
+                r = free_and_strdup(&options->options[pd], sd_json_variant_string(e));
+                if (r < 0)
+                        return json_log_oom(variant, flags);
         }
 
         mount_options_free_all(*p);
