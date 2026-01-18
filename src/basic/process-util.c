@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <spawn.h>
 #include <stdio.h>
+#include <sys/mman.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
@@ -20,6 +21,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "argv-util.h"
+#include "capability-util.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "dlfcn-util.h"
@@ -2224,6 +2226,21 @@ int proc_dir_read_pidref(DIR *d, PidRef *ret) {
 
         if (ret)
                 *ret = PIDREF_NULL;
+        return 0;
+}
+
+int try_mlockall(int flags) {
+        int err;
+
+        if (have_effective_cap(CAP_IPC_LOCK) > 0) {
+                log_debug("Calling mlockall since we have CAP_IPC_LOCK.");
+                if (mlockall(flags) < 0) {
+                        err = errno;
+                        log_debug_errno(err, "Failed to call mlockall: %m");
+                        return -err;
+                }
+                return 1;
+        }
         return 0;
 }
 
