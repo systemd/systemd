@@ -663,7 +663,7 @@ static int pick_image_search_path(
         }
 
         case RUNTIME_SCOPE_USER: {
-                if (class != IMAGE_MACHINE)
+                if (!IN_SET(class, IMAGE_MACHINE, IMAGE_PORTABLE))
                         break;
 
                 static const uint64_t dirs[] = {
@@ -676,7 +676,7 @@ static int pick_image_search_path(
                 FOREACH_ELEMENT(d, dirs) {
                         _cleanup_free_ char *p = NULL;
 
-                        r = sd_path_lookup(*d, "machines", &p);
+                        r = sd_path_lookup(*d, image_dirname_to_string(class), &p);
                         if (r == -ENXIO) /* No XDG_RUNTIME_DIR set */
                                 continue;
                         if (r < 0)
@@ -1469,7 +1469,7 @@ static int get_pool_directory(
         return 0;
 }
 
-static int unpriviled_clone(Image *i, const char *new_path) {
+static int unprivileged_clone(Image *i, const char *new_path) {
         int r;
 
         assert(i);
@@ -1510,45 +1510,7 @@ static int unpriviled_clone(Image *i, const char *new_path) {
                 return r;
 
         /* Fork off child that moves into userns and does the copying */
-        r = pidref_safe_fork_full(
-                        "clone-tree",
-                        /* stdio_fds= */ NULL,
-                        (int[]) { userns_fd, tree_fd, target_fd }, 3,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_REOPEN_LOG,
-                        /* ret= */ NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Process that was supposed to clone tree failed: %m");
-        if (r == 0) {
-                /* child */
-
-                r = namespace_enter(
-                                /* pidns_fd= */ -EBADF,
-                                /* mntns_fd= */ -EBADF,
-                                /* netns_fd= */ -EBADF,
-                                userns_fd,
-                                /* root_fd= */ -EBADF);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to join user namespace: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = copy_tree_at(
-                                tree_fd, /* from= */ NULL,
-                                target_fd, /* to= */ NULL,
-                                /* override_uid= */ UID_INVALID,
-                                /* override_gid= */ GID_INVALID,
-                                COPY_REFLINK|COPY_HARDLINKS|COPY_MERGE_EMPTY|COPY_MERGE_APPLY_STAT|COPY_SAME_MOUNT|COPY_ALL_XATTRS,
-                                /* denylist= */ NULL,
-                                /* subvolumes= */ NULL);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to copy clone tree: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                _exit(EXIT_SUCCESS);
-        }
-
-        return 0;
+        return copy_tree_at_foreign(tree_fd, target_fd, userns_fd);
 }
 
 int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope scope) {
@@ -1596,7 +1558,7 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
                         return r;
 
                 if (i->foreign_uid_owned)
-                        r = unpriviled_clone(i, new_path);
+                        r = unprivileged_clone(i, new_path);
                 else {
                         r = btrfs_subvol_snapshot_at(
                                         AT_FDCWD, i->path,

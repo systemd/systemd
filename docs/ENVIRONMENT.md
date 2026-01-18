@@ -289,6 +289,9 @@ All tools:
   user/group records for dynamically registered service users (i.e. users
   registered through `DynamicUser=1`).
 
+* `$SYSTEMD_NSS_LOG_LEVEL=<level>` — If set, sets the log level for `nss-systemd`
+  and other NSS plugins specifically. Takes priority over `$SYSTEMD_LOG_LEVEL`.
+
 `systemd-timedated`:
 
 * `$SYSTEMD_TIMEDATED_NTP_SERVICES=…` — colon-separated list of unit names of

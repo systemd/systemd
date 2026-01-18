@@ -309,7 +309,7 @@ static int tar_pull_make_local_copy(TarPull *p) {
                         if (r < 0)
                                 return r;
 
-                        r = import_copy_foreign(p->tree_fd, copy_fd, &p->userns_fd);
+                        r = copy_tree_at_foreign(p->tree_fd, copy_fd, p->userns_fd);
                         if (r < 0)
                                 return r;
                 } else {
