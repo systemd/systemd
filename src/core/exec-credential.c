@@ -695,17 +695,20 @@ static int load_credential(
         else
                 assert_not_reached();
 
-        if (r == -ENOENT && (missing_ok || hashmap_contains(args->context->set_credentials, id))) {
-                /* Make a missing inherited credential non-fatal, let's just continue. After all apps
-                 * will get clear errors if we don't pass such a missing credential on as they
-                 * themselves will get ENOENT when trying to read them, which should not be much
-                 * worse than when we handle the error here and make it fatal.
-                 *
-                 * Also, if the source file doesn't exist, but a fallback is set via SetCredentials=
-                 * we are fine, too. */
-                log_full_errno(hashmap_contains(args->context->set_credentials, id) ? LOG_DEBUG : LOG_INFO,
-                               r, "Couldn't read inherited credential '%s', skipping: %m", path);
-                return 0;
+        if (r == -ENOENT) {
+                bool in_set_credentials = hashmap_contains(args->context->set_credentials, id);
+                if (missing_ok || in_set_credentials) {
+                        /* Make a missing inherited credential non-fatal, let's just continue. After all apps
+                         * will get clear errors if we don't pass such a missing credential on as they
+                         * themselves will get ENOENT when trying to read them, which should not be much
+                         * worse than when we handle the error here and make it fatal.
+                         *
+                         * Also, if the source file doesn't exist, but a fallback is set via SetCredentials=
+                         * we are fine, too. */
+                        log_full_errno(in_set_credentials ? LOG_DEBUG : LOG_INFO,
+                                       r, "Couldn't read inherited credential '%s', skipping: %m", path);
+                        return 0;
+                }
         }
         if (r < 0)
                 return log_debug_errno(r, "Failed to read credential '%s': %m", path);
