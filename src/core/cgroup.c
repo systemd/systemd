@@ -944,39 +944,12 @@ static void cgroup_delegate_xattr_apply(Unit *u) {
 }
 
 static void cgroup_survive_xattr_apply(Unit *u) {
-        int r;
-
         assert(u);
 
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt)
-                return;
-
-        if (u->survive_final_kill_signal) {
-                r = cg_set_xattr(
-                                crt->cgroup_path,
-                                "user.survive_final_kill_signal",
-                                "1",
-                                1,
-                                /* flags= */ 0);
-                /* user xattr support was added in kernel v5.7 */
-                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        r = cg_set_xattr(
-                                        crt->cgroup_path,
-                                        "trusted.survive_final_kill_signal",
-                                        "1",
-                                        1,
-                                        /* flags= */ 0);
-                if (r < 0)
-                        log_unit_debug_errno(u,
-                                             r,
-                                             "Failed to set 'survive_final_kill_signal' xattr on control "
-                                             "group %s, ignoring: %m",
-                                             empty_to_root(crt->cgroup_path));
-        } else {
+        if (u->survive_final_kill_signal)
+                unit_set_xattr_graceful(u, "user.survive_final_kill_signal", "1", 1);
+        else
                 unit_remove_xattr_graceful(u, "user.survive_final_kill_signal");
-                unit_remove_xattr_graceful(u, "trusted.survive_final_kill_signal");
-        }
 }
 
 static void cgroup_xattr_apply(Unit *u) {
