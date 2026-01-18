@@ -2767,16 +2767,8 @@ static int reset_audit_loginuid(void) {
                 return 0;
 
         r = write_string_file("/proc/self/loginuid", "4294967295", WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0) {
-                log_error_errno(r,
-                                "Failed to reset audit login UID. This probably means that your kernel is too\n"
-                                "old and you have audit enabled. Note that the auditing subsystem is known to\n"
-                                "be incompatible with containers on old kernels. Please make sure to upgrade\n"
-                                "your kernel or to off auditing with 'audit=0' on the kernel command line before\n"
-                                "using systemd-nspawn. Sleeping for 5s... (%m)");
-
-                sleep(5);
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset audit login UID: %m");
 
         return 0;
 }
