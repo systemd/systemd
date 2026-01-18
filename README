@@ -192,7 +192,7 @@ REQUIREMENTS:
         This is shipped by default, see modprobe.d/systemd.conf.
 
         Required for systemd-nspawn:
-          CONFIG_DEVPTS_MULTIPLE_INSTANCES or Linux kernel >= 4.7
+          CONFIG_DEVPTS_MULTIPLE_INSTANCES (removed and unneeded since 4.7)
 
         Required for systemd-oomd:
           CONFIG_PSI
