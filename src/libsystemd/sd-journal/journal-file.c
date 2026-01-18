@@ -3319,7 +3319,9 @@ use_extra:
 
 static int test_object_offset(JournalFile *f, uint64_t p, uint64_t needle) {
         assert(f);
-        assert(p > 0);
+
+        if (p <= 0)
+                return -EBADMSG;
 
         if (p == needle)
                 return TEST_FOUND;
@@ -3355,7 +3357,6 @@ static int test_object_seqnum(JournalFile *f, uint64_t p, uint64_t needle) {
         int r;
 
         assert(f);
-        assert(p > 0);
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
         if (r < 0)
@@ -3396,7 +3397,6 @@ static int test_object_realtime(JournalFile *f, uint64_t p, uint64_t needle) {
         int r;
 
         assert(f);
-        assert(p > 0);
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
         if (r < 0)
@@ -3437,7 +3437,6 @@ static int test_object_monotonic(JournalFile *f, uint64_t p, uint64_t needle) {
         int r;
 
         assert(f);
-        assert(p > 0);
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
         if (r < 0)
