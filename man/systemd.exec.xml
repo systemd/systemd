@@ -572,14 +572,13 @@
         To disable the safety check that the extension-release file name matches the image file name, the
         <varname>x-systemd.relax-extension-release-check</varname> mount option may be appended.</para>
 
-        <para>This option can be used together with a <option>notify-reload</option> service type and
-        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        to manage configuration updates. When such a service carrying confext images is reloaded via
-        <command>systemctl reload foo.service</command> or equivalent D-Bus method, the confext itself will
-        be reloaded to pick up any changes. This only applies to confext extensions. Note that in case a
-        service has this configuration enabled at first, and then it is subsequently removed in an update
-        followed by a daemon-reload operation, reloading the confexts will be a no-op, and a full service
-        restart is required instead. See
+        <para>If a service employs this option with
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        and has <option>RefreshOnReload=extensions</option> enabled (the default), the confexts will
+        be refreshed to pick up any changes on service reload. This only applies to confext extensions.
+        Note that in case a service has this configuration enabled at first, and then it is subsequently
+        removed in an update followed by a daemon-reload operation, reloading the confexts will be a no-op,
+        and a full service restart is required instead. See
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         also for details.</para>
 
@@ -630,14 +629,13 @@
         or the host. See:
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-        <para>This option can be used together with a <option>notify-reload</option> service type and
-        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        to manage configuration updates. When such a service carrying confext directories is reloaded via
-        <command>systemctl reload foo.service</command> or equivalent D-Bus method, the confext itself will
-        be reloaded to pick up any changes. This only applies to confext extensions. Note that in case a
-        service has this configuration enabled at first, and then it is subsequently removed in an update
-        followed by a daemon-reload operation, reloading the confexts will be a no-op, and a full service
-        restart is required instead. See
+        <para>If a service employs this option with
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        and has <option>RefreshOnReload=extensions</option> enabled (the default), the confexts will
+        be refreshed to pick up any changes on service reload. This only applies to confext extensions.
+        Note that in case a service has this configuration enabled at first, and then it is subsequently
+        removed in an update followed by a daemon-reload operation, reloading the confexts will be a no-op,
+        and a full service restart is required instead. See
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         also for details.</para>
 
