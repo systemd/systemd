@@ -31,6 +31,12 @@ CHANGES WITH 260 in spe:
           rather than the first, to keep these options coherent with other
           unit settings.
 
+        Changes in other components:
+
+        * New options SYSTEMD_COLORS=auto-16 and SYSTEMD_COLORS=auto-256, which
+          are like SYSTEMD_COLORS=16 and SYSTEMD_COLORS=256 respectively when
+          output is to a non-dumb TTY, and like SYSTEMD_COLORS=no otherwise.
+
 CHANGES WITH 259:
 
         Announcements of Future Feature Removals and Incompatible Changes:
