@@ -469,6 +469,8 @@ typedef struct Manager {
          * systemd-oomd to report changes in ManagedOOM settings (systemd client - oomd server). */
         sd_varlink *managed_oom_varlink;
 
+        sd_varlink_server *metrics_varlink_server;
+
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
 
