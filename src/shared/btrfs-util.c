@@ -1480,6 +1480,8 @@ int btrfs_subvol_snapshot_at_full(
                 r = copy_directory_at_full(
                                 dir_fdf, from,
                                 new_fd, subvolume,
+                                /* override_uid= */ UID_INVALID,
+                                /* override_gid= */ GID_INVALID,
                                 COPY_MERGE_EMPTY|
                                 COPY_REFLINK|
                                 COPY_SAME_MOUNT|
