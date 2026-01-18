@@ -1,9 +1,33 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "bus-common-errors.h"
 #include "cpu-set-util.h"
 #include "json-util.h"
 #include "rlimit-util.h"
 #include "varlink-common.h"
+#include "varlink-unit.h"
+
+const char* varlink_error_id_from_bus_error(const sd_bus_error *e) {
+        static const struct {
+                const char *bus_error;
+                const char *varlink_error;
+        } map[] = {
+                { BUS_ERROR_NO_SUCH_UNIT,       VARLINK_ERROR_UNIT_NO_SUCH_UNIT       },
+                { BUS_ERROR_ONLY_BY_DEPENDENCY, VARLINK_ERROR_UNIT_ONLY_BY_DEPENDENCY },
+                { BUS_ERROR_SHUTTING_DOWN,      VARLINK_ERROR_UNIT_DBUS_SHUTTING_DOWN },
+        };
+
+        if (!sd_bus_error_is_set(e))
+                return NULL;
+
+        FOREACH_ELEMENT(i, map)
+                if (sd_bus_error_has_name(e, i->bus_error))
+                        return i->varlink_error;
+
+        return NULL;
+}
 
 int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         const struct rlimit *rl = userdata;
