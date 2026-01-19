@@ -107,8 +107,6 @@ Deprecations and removals:
 * drop support for LOOP_CONFIGURE-less loopback block devices, once kernel
   baseline is 5.8.
 
-* Once baseline is 5.10, remove support or MS_NOSYMFOLLOW-less kernels
-
 * Remove /dev/mem ACPI FPDT parsing when /sys/firmware/acpi/fpdt is ubiquitous.
   That requires distros to enable CONFIG_ACPI_FPDT, and have kernels v5.12 for
   x86 and v6.2 for arm.
@@ -121,10 +119,6 @@ Deprecations and removals:
 * Once
   https://github.com/util-linux/util-linux/commit/508fb0e7ac103b68531a59db2a4473897853ab52
   has hit the prominent distributions, revert --issue-file= hack in units/*getty*service.in
-
-* Once kernel baseline is 5.7, obsolete DefaultMemoryMin/Low= and DefaultStartupMemoryLow=
-  since we can systematically enable memory_recursiveprot on cgroupfs and have those
-  enforced by the kernel
 
 Features:
 

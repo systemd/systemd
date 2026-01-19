@@ -541,9 +541,6 @@ executables += [
                 'dependencies' : common_test_dependencies,
         },
         core_test_template + {
-                'sources' : files('test-cgroup-unit-default.c'),
-        },
-        core_test_template + {
                 'sources' : files('test-chown-rec.c'),
         },
         core_test_template + {
