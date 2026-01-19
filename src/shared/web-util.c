@@ -34,6 +34,34 @@ bool http_url_is_valid(const char *url) {
         return ascii_is_valid(p);
 }
 
+char* http_url_add_port(const char *url, const char *port) {
+
+        assert(url);
+        assert(port);
+        const char *host, *proto = "";
+
+        host = STARTSWITH_SET(url, "http://", "https://");
+        if (!host) {
+                host = url;
+                proto = "https://";
+        }
+
+        if (strchr(host, ':'))
+                return strjoin(proto, url, "/upload");
+        else {
+                char *t;
+                size_t x;
+
+                t = strdupa_safe(url);
+                x = strlen(t);
+                while (x > 0 && t[x - 1] == '/')
+                        t[x - 1] = '\0';
+
+                return strjoin(proto, t, ":", port, "/upload");
+        }
+        return NULL;
+}
+
 bool file_url_is_valid(const char *url) {
         const char *p;
 
