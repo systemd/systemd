@@ -21,6 +21,8 @@ if [[ ! -x "$SYSUPDATE" ]]; then
     exit 77
 fi
 
+have_updatectl=$([[ -x "$SYSUPDATED" ]] && command -v updatectl)
+
 # Loopback devices may not be supported. They are used because sfdisk cannot
 # change the sector size of a file, and we want to test both 512 and 4096 byte
 # sectors. If loopback devices are not supported, we can only test one sector
@@ -112,6 +114,16 @@ update_now() {
     elif [[ "$update_type" == "split" ]]; then
         "$SYSUPDATE" --verify=no acquire
         "$SYSUPDATE" --verify=no update
+    elif [[ "$update_type" == "updatectl" ]]; then
+        if $have_updatectl; then
+            systemctl start systemd-sysupdated
+            updatectl update
+        else
+            # Gracefully fall back to sysupdate
+            "$SYSUPDATE" --verify=no update
+        fi
+    else
+        exit 1
     fi
     (! "$SYSUPDATE" --verify=no check-new)
 }
@@ -157,7 +169,7 @@ verify_object_fields() {
 }
 
 for sector_size in "${SECTOR_SIZES[@]}"; do
-for update_type in monolithic split-offline split; do
+for update_type in monolithic split-offline split updatectl; do
     # Disk size of:
     # - 1MB for GPT
     # - 4 partitions of 2048 sectors each
@@ -358,7 +370,7 @@ EOF
     # Create sixth version, update using updatectl and verify it replaced the
     # correct version
     new_version "$sector_size" v6
-    if [[ -x "$SYSUPDATED" ]] && command -v updatectl; then
+    if $have_updatectl; then
         systemctl start systemd-sysupdated
         "$SYSUPDATE" --verify=no check-new
         updatectl update
@@ -376,7 +388,7 @@ EOF
     # testing for specific output, but this will at least catch obvious crashes
     # and allow updatectl to run under the various sanitizers. We create a
     # component so that updatectl has multiple targets to list.
-    if [[ -x "$SYSUPDATED" ]] && command -v updatectl; then
+    if $have_updatectl; then
         mkdir -p /run/sysupdate.test.d/
         cp "$CONFIGDIR/01-first.transfer" /run/sysupdate.test.d/01-first.transfer
         verify_object_fields "$(updatectl list 2>&1)"
