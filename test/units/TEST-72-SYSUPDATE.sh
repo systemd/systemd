@@ -54,7 +54,11 @@ at_exit() {
 trap at_exit EXIT
 
 update_checksums() {
-    (cd "$WORKDIR/source" && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
+    (cd "$WORKDIR/source" && rm -f BEST-BEFORE-* && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
+}
+
+update_checksums_with_best_before() {
+    (cd "$WORKDIR/source" && rm -f BEST-BEFORE-* && touch "BEST-BEFORE-$1" && sha256sum uki* part* dir-*.tar.gz "BEST-BEFORE-$1" >SHA256SUMS)
 }
 
 new_version() {
@@ -396,6 +400,21 @@ EOF
     update_now
     verify_version "$blockdev" "$sector_size" v6 1
     verify_version_current "$blockdev" "$sector_size" v7 2
+
+    # Check with a best before in the past
+    update_checksums_with_best_before "$(date -u +'%Y-%m-%d' -d 'last month')"
+    (! "$SYSUPDATE" --verify=no update)
+
+    # Retry but force check off
+    SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS=0 "$SYSUPDATE" --verify=no update
+
+    # Check with best before in the future
+    update_checksums_with_best_before "$(date -u +'%Y-%m-%d' -d 'next month')"
+    "$SYSUPDATE" --verify=no update
+
+    # Check again without a best before
+    update_checksums
+    "$SYSUPDATE" --verify=no update
 
     # Let's make sure that we don't break our backwards-compat for .conf files
     # (what .transfer files were called before v257)
