@@ -131,10 +131,6 @@ Deprecations and removals:
   https://github.com/util-linux/util-linux/commit/508fb0e7ac103b68531a59db2a4473897853ab52
   has hit the prominent distributions, revert --issue-file= hack in units/*getty*service.in
 
-* Once kernel baseline is 5.7, obsolete DefaultMemoryMin/Low= and DefaultStartupMemoryLow=
-  since we can systematically enable memory_recursiveprot on cgroupfs and have those
-  enforced by the kernel
-
 Features:
 
 * systemd-sysupdate: add support a "best before" in manifests (ie. SHA256SUMS)

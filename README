@@ -50,9 +50,10 @@ REQUIREMENTS:
                      ≥ 5.6 for getrandom() GRND_INSECURE
                      ≥ 5.7 for CLONE_INTO_CGROUP, cgroup2fs memory_recursiveprot option,
                                BPF links and the BPF LSM hook
-                     ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
+                     ≥ 5.8 for LOOP_CONFIGURE, STATX_ATTR_MOUNT_ROOT, and procfs
+                               per-instance hidepid=/subset= options
                      ≥ 5.9 for close_range()
-                     ≥ 5.10 for STATX_MNT_ID
+                     ≥ 5.10 for STATX_MNT_ID and MS_NOSYMFOLLOW mount option
 
         ⛔ Kernel versions below 5.10 ("minimum baseline") are not supported at all,
            and are missing required functionality as listed above.
@@ -191,25 +192,9 @@ REQUIREMENTS:
         next best thing is to make this change through a modprobe.d drop-in.
         This is shipped by default, see modprobe.d/systemd.conf.
 
-        Required for systemd-nspawn:
-          CONFIG_DEVPTS_MULTIPLE_INSTANCES or Linux kernel >= 4.7
-
         Required for systemd-oomd:
           CONFIG_PSI
           CONFIG_MEMCG
-
-        Note that kernel auditing is broken when used with systemd's container
-        code. When using systemd in conjunction with containers, please make
-        sure to either turn off auditing at runtime using the kernel command
-        line option "audit=0", or turn it off at kernel compile time using:
-          CONFIG_AUDIT=n
-
-        If systemd is compiled with libseccomp support on architectures which do
-        not use socketcall() and where seccomp is supported (this effectively
-        means x86-64 and ARM, but excludes 32-bit x86!), then nspawn will now
-        install a work-around seccomp filter that makes containers boot even
-        with audit being enabled. This works correctly only on kernels 3.14 and
-        newer though. TL;DR: turn audit off, still.
 
         glibc >= 2.31
         libxcrypt >= 4.4.0 (optional)
