@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-daemon.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
@@ -1257,19 +1258,35 @@ static int register_session(
                         return PAM_SESSION_ERR;
                 }
 
+                int session_fd;
                 r = sd_bus_message_read(
                                 reply,
                                 "soshusub",
                                 &id,
                                 &object_path,
                                 &runtime_path,
-                                /* session_fd = */ NULL,
+                                &session_fd,
                                 &original_uid,
                                 &real_seat,
                                 &real_vtnr,
                                 &existing);
                 if (r < 0)
                         return pam_bus_log_parse_error(handle, r);
+
+                /* Since v258, logind fully relies on pidfd to monitor the lifetime of the session leader
+                 * process and returns a dummy session_fd (no longer a fifo). However because logind cannot
+                 * be restarted (known long-standing issue), we must still be prepared to receive a fifo fd
+                 * from a running logind older than v258. */
+                if (sd_is_fifo(session_fd, NULL) > 0) {
+                        _cleanup_close_ int fd = fcntl(session_fd, F_DUPFD_CLOEXEC, 3);
+                        if (fd < 0)
+                                return pam_syslog_errno(handle, LOG_ERR, errno, "Failed to dup session fd: %m");
+
+                        r = pam_set_data(handle, "systemd.session-fd", FD_TO_PTR(fd), NULL);
+                        if (r != PAM_SUCCESS)
+                                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to install session fd: @PAMERR@");
+                        TAKE_FD(fd);
+                }
         }
 
         pam_debug_syslog(handle, debug,
