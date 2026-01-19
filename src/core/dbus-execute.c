@@ -4047,8 +4047,6 @@ int bus_exec_context_set_transient_property(
                 _cleanup_free_ char *format_str = NULL;
                 MountImage *mount_images = NULL;
                 size_t n_mount_images = 0;
-                char *source, *destination;
-                int permissive;
 
                 CLEANUP_ARRAY(mount_images, n_mount_images, mount_image_free_many);
 
@@ -4059,7 +4057,8 @@ int bus_exec_context_set_transient_property(
                 for (;;) {
                         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
                         _cleanup_free_ char *source_escaped = NULL, *destination_escaped = NULL;
-                        char *tuple;
+                        char *source, *destination;
+                        int permissive;
 
                         r = sd_bus_message_enter_container(message, 'r', "ssba(ss)");
                         if (r < 0)
@@ -4086,15 +4085,12 @@ int bus_exec_context_set_transient_property(
                         if (!destination_escaped)
                                 return -ENOMEM;
 
-                        tuple = strjoin(format_str,
-                                        format_str ? " " : "",
-                                        permissive ? "-" : "",
-                                        source_escaped,
-                                        ":",
-                                        destination_escaped);
-                        if (!tuple)
-                                return -ENOMEM;
-                        free_and_replace(format_str, tuple);
+                        r = strextendf_with_separator(&format_str, " ", "%s%s:%s",
+                                                      permissive ? "-" : "",
+                                                      source_escaped,
+                                                      destination_escaped);
+                        if (r < 0)
+                                return r;
 
                         r = bus_read_mount_options(message, reterr_error, &options, &format_str, ":");
                         if (r < 0)
@@ -4164,7 +4160,7 @@ int bus_exec_context_set_transient_property(
                 for (;;) {
                         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
                         _cleanup_free_ char *source_escaped = NULL;
-                        char *source, *tuple;
+                        char *source;
                         int permissive;
 
                         r = sd_bus_message_enter_container(message, 'r', "sba(ss)");
@@ -4185,13 +4181,10 @@ int bus_exec_context_set_transient_property(
                         if (!source_escaped)
                                 return -ENOMEM;
 
-                        tuple = strjoin(format_str,
-                                        format_str ? " " : "",
-                                        permissive ? "-" : "",
-                                        source_escaped);
-                        if (!tuple)
-                                return -ENOMEM;
-                        free_and_replace(format_str, tuple);
+                        r = strextendf_with_separator(&format_str, " ", "%s%s",
+                                                      permissive ? "-" : "", source_escaped);
+                        if (r < 0)
+                                return r;
 
                         r = bus_read_mount_options(message, reterr_error, &options, &format_str, ":");
                         if (r < 0)
