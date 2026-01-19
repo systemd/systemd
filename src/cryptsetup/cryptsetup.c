@@ -126,6 +126,7 @@ static char *arg_tpm2_measure_keyslot_nvpcr = NULL;
 static char *arg_link_keyring = NULL;
 static char *arg_link_key_type = NULL;
 static char *arg_link_key_description = NULL;
+static char *arg_fixate_volume_key = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -143,6 +144,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_keyring, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_link_key_description, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_fixate_volume_key, freep);
 
 static const char* const passphrase_type_table[_PASSPHRASE_TYPE_MAX] = {
         [PASSPHRASE_REGULAR]      = "passphrase",
@@ -651,6 +653,11 @@ static int parse_one_option(const char *option) {
 #else
                 log_error("Build lacks libcryptsetup support for linking volume keys in user specified kernel keyrings upon device activation, ignoring: %s", option);
 #endif
+        } else if ((val = startswith(option, "fixate-volume-key="))) {
+                r = free_and_strdup(&arg_fixate_volume_key, val);
+                if (r < 0)
+                        return log_oom();
+
         } else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
@@ -1050,24 +1057,29 @@ static int measure_volume_key(
          * unprotected direct hash of the secret volume key over the wire to the TPM. Hence let's instead
          * send a HMAC signature instead. */
 
-        _cleanup_free_ char *escaped = NULL;
-        escaped = xescape(name, ":"); /* avoid ambiguity around ":" once we join things below */
-        if (!escaped)
-                return log_oom();
+        _cleanup_free_ char *prefix = NULL;
 
-        _cleanup_free_ char *s = NULL;
-        s = strjoin("cryptsetup:", escaped, ":", strempty(crypt_get_uuid(cd)));
-        if (!s)
-                return log_oom();
+        /* Note: what is extended to the SHA256 bank here must match the expected hash of 'fixate-volume-key='
+         * calculated by cryptsetup_get_volume_key_id(). */
+        r = cryptsetup_get_volume_key_prefix(cd, name, &prefix);
+        if (r)
+                return log_error_errno(r, "Could not verify pcr banks: %m");
 
-        r = tpm2_pcr_extend_bytes(c, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, &IOVEC_MAKE_STRING(s), &IOVEC_MAKE(volume_key, volume_key_size), TPM2_EVENT_VOLUME_KEY, s);
+        r = tpm2_pcr_extend_bytes(
+                        c,
+                        /* banks= */ l ?: arg_tpm2_measure_banks,
+                        /* pcr_index = */ arg_tpm2_measure_pcr,
+                        /* data = */ &IOVEC_MAKE_STRING(prefix),
+                        /* secret = */ &IOVEC_MAKE(volume_key, volume_key_size),
+                        /* event_type = */ TPM2_EVENT_VOLUME_KEY,
+                        /* description = */ prefix);
         if (r < 0)
                 return log_error_errno(r, "Could not extend PCR: %m");
 
         log_struct(LOG_INFO,
                    LOG_MESSAGE_ID(SD_MESSAGE_TPM_PCR_EXTEND_STR),
-                   LOG_MESSAGE("Successfully extended PCR index %u with '%s' and volume key (banks %s).", arg_tpm2_measure_pcr, s, joined),
-                   LOG_ITEM("MEASURING=%s", s),
+                   LOG_MESSAGE("Successfully extended PCR index %u with '%s' and volume key (banks %s).", arg_tpm2_measure_pcr, prefix, joined),
+                   LOG_ITEM("MEASURING=%s", prefix),
                    LOG_ITEM("PCR=%u", arg_tpm2_measure_pcr),
                    LOG_ITEM("BANKS=%s", joined));
 
@@ -1173,11 +1185,35 @@ static int measured_crypt_activate_by_volume_key(
 
         /* A wrapper around crypt_activate_by_volume_key() which also measures to a PCR if that's requested. */
 
+        /* First, check if volume key digest matches the expectation. */
+        if (arg_fixate_volume_key) {
+                 _cleanup_free_ char *key_id = NULL;
+
+                 r = cryptsetup_get_volume_key_id(
+                                 cd,
+                                 /* volume_name= */ name,
+                                 /* volume_key= */ volume_key,
+                                 /* volume_key_size= */ volume_key_size,
+                                 /* ret= */ &key_id);
+                 if (r < 0)
+                         return r;
+
+                 if (!streq(arg_fixate_volume_key, key_id))
+                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                "Volume key id: '%s' does not match the expectation: '%s'.",
+                                                key_id, arg_fixate_volume_key);
+        }
+
         r = crypt_activate_by_volume_key(cd, name, volume_key, volume_key_size, flags);
         if (r == -EEXIST) /* volume is already active */
                 return log_external_activation(r, name);
         if (r < 0)
                 return r;
+
+        if (arg_tpm2_measure_pcr == UINT_MAX) {
+                log_debug("Not measuring volume key, deactivated.");
+                return 0;
+        }
 
         if (volume_key_size > 0)
                 (void) measure_volume_key(cd, name, volume_key, volume_key_size); /* OK if fails */
@@ -1204,14 +1240,12 @@ static int measured_crypt_activate_by_passphrase(
         assert(cd);
 
         /* A wrapper around crypt_activate_by_passphrase() which also measures to a PCR if that's
-         * requested. Note that we need the volume key for the measurement, and
+         * requested. Note that we may need the volume key for the measurement and/or for the comparison, and
          * crypt_activate_by_passphrase() doesn't give us access to this. Hence, we operate indirectly, and
          * retrieve the volume key first, and then activate through that. */
 
-        if (arg_tpm2_measure_pcr == UINT_MAX) {
-                log_debug("Not measuring volume key, deactivated.");
+        if (arg_tpm2_measure_pcr == UINT_MAX && !arg_fixate_volume_key)
                 goto shortcut;
-        }
 
         r = crypt_get_volume_key_size(cd);
         if (r < 0)
@@ -1452,6 +1486,9 @@ static bool use_token_plugins(void) {
         if (arg_tpm2_measure_pcr != UINT_MAX)
                 return false;
         if (arg_tpm2_measure_keyslot_nvpcr)
+                return false;
+        /* Volume key is also needed if the expected key id is set */
+        if (arg_fixate_volume_key)
                 return false;
 #endif
 
