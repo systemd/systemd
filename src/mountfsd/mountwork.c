@@ -327,6 +327,28 @@ static int validate_userns(sd_varlink *link, int *userns_fd) {
         return 0;
 }
 
+static bool mount_options_in_allowlist(const MountOptions *options) {
+        if (!options)
+                return true;
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                if (isempty(options->options[i]))
+                        continue;
+
+                log_info("partition: %s, options: %s", partition_designator_to_string(i), options->options[i]);
+
+                if (i != PARTITION_ROOT)
+                        return false;
+
+                /* x-systemd.relax-extension-release-check doesn't affect security in any way for the root
+                 * partition so we don't have to require additional privileges when it is specified. */
+                if (!streq(options->options[i], "x-systemd.relax-extension-release-check"))
+                        return false;
+        }
+
+        return true;
+}
+
 static int mount_options_to_polkit_details(const MountOptions *options, char **ret_mount_options_concat) {
         _cleanup_free_ char *mount_options_concat = NULL;
         int r;
@@ -442,7 +464,7 @@ static int vl_method_mount_image(
 
         /* Mount options could be used to thwart security measures such as ACLs or SELinux so if they are
          * specified don't mark the image as trusted so that it requires additional privileges to use. */
-        if (!p.options) {
+        if (mount_options_in_allowlist(p.options)) {
                 r = verify_trusted_image_fd_by_path(image_fd);
                 if (r < 0)
                         return r;
@@ -500,7 +522,7 @@ static int vl_method_mount_image(
         r = varlink_verify_polkit_async_full(
                         link,
                         /* bus= */ NULL,
-                        p.options ? polkit_untrusted_action : polkit_action, /* Using mount options requires higher privs */
+                        mount_options_in_allowlist(p.options) ? polkit_action : polkit_untrusted_action, /* Using mount options requires higher privs */
                         polkit_details,
                         /* good_user= */ UID_INVALID,
                         polkit_flags,
