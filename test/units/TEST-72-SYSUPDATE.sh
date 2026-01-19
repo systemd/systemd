@@ -150,6 +150,12 @@ verify_version_current() {
     cmp "$WORKDIR/source/dir-$version/bar.txt" "$WORKDIR/dirs/current/bar.txt"
 }
 
+verify_object_fields() {
+    local updatectl_output="${1:?}"
+
+    [[ "${updatectl_output}" != *"Unrecognized object field"* ]] || exit 1
+}
+
 for sector_size in "${SECTOR_SIZES[@]}"; do
 for update_type in monolithic split-offline split; do
     # Disk size of:
@@ -373,9 +379,9 @@ EOF
     if [[ -x "$SYSUPDATED" ]] && command -v updatectl; then
         mkdir -p /run/sysupdate.test.d/
         cp "$CONFIGDIR/01-first.transfer" /run/sysupdate.test.d/01-first.transfer
-        updatectl list
-        updatectl list host
-        updatectl list host@v6
+        verify_object_fields "$(updatectl list 2>&1)"
+        verify_object_fields "$(updatectl list host 2>&1)"
+        verify_object_fields "$(updatectl list host@v6 2>&1)"
         updatectl check
         rm -r /run/sysupdate.test.d
     fi
