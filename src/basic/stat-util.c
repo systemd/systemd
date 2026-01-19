@@ -264,7 +264,7 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
         assert(ret);
 
         if (!isempty(path)) {
-                fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY);
+                fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC);
                 if (fd < 0)
                         return fd;
                 dir_fd = fd;
