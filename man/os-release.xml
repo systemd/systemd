@@ -636,6 +636,19 @@
 
           <xi:include href="version-info.xml" xpointer="v250"/></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>PORTABLE_SCOPE=</varname></term>
+          <listitem><para>Specifies the scope of the portable service. Takes one of <literal>system</literal>,
+          <literal>user</literal> or <literal>global</literal>. When set to <literal>system</literal>, the
+          portable service can only be attached to the system instance of <command>systemd-portabled</command>.
+          When set to <literal>user</literal>, the portable service can only be attached to the user instance
+          of <command>systemd-portabled</command>. When set to <literal>global</literal>, the portable service
+          can be attached to both the system and user instances of <command>systemd-portabled</command>.
+          If not set, <literal>PORTABLE_SCOPE=system</literal> is implied.</para>
+
+          <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 

@@ -57,6 +57,7 @@ int lookup_paths_init_or_warn(LookupPaths *lp, RuntimeScope scope, LookupPathsFl
 void lookup_paths_log(LookupPaths *p);
 void lookup_paths_done(LookupPaths *p);
 
+int config_directory_generic(RuntimeScope scope, const char *suffix, char **ret);
 int runtime_directory_generic(RuntimeScope scope, const char *suffix, char **ret);
 int runtime_directory(RuntimeScope scope, const char *fallback_suffix, char **ret);
 
