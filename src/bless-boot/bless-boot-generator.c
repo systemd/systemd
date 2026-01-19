@@ -26,6 +26,11 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return 0;
         }
 
+        if (generator_soft_rebooted()) {
+                log_debug("Skipping generator, current system is entered via soft-reboot.");
+                return 0;
+        }
+
         if (!is_efi_boot()) {
                 log_debug("Skipping generator, not an EFI boot.");
                 return 0;
