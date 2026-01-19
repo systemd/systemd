@@ -125,6 +125,16 @@ node /org/freedesktop/sysupdate1/target/host {
              out s new_version,
              out t job_id,
              out o job_path);
+      Acquire(in  s new_version,
+              in  t flags,
+              out s new_version,
+              out t job_id,
+              out o job_path);
+      Install(in  s new_version,
+              in  t flags,
+              out s new_version,
+              out t job_id,
+              out o job_path);
       Vacuum(out u instances,
              out u disabled_transfers);
       GetAppStream(out as appstream);
@@ -164,6 +174,10 @@ node /org/freedesktop/sysupdate1/target/host {
     <variablelist class="dbus-method" generated="True" extra-ref="CheckNew()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Update()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Acquire()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Install()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Vacuum()"/>
 
@@ -272,6 +286,26 @@ node /org/freedesktop/sysupdate1/target/host {
       by the caller. This method pulls both metadata and payload data from the network. Listen for the
       Manager's <function>JobRemoved()</function> signal to detect when the job is complete.</para>
 
+      <para><function>Acquire()</function> downloads an update for this target, if one is available. If a
+      <varname>new_version</varname> is specified, that is the version that gets downloaded. Otherwise, the
+      latest version is downloaded. Call <function>Install()</function> to install the acquired update.
+      The <varname>flags</varname> argument is added for future extensibility. No flags are currently
+      defined, and the argument is required to be set to <literal>0</literal>. This method pulls both
+      metadata and payload data from the network.</para>
+
+      <para><function>Install()</function> installs an already-acquired update for this target. If a
+      <varname>new_version</varname> is specified, that is the version that gets installed, assuming it has
+      already been acquired. Otherwise, the latest acquired version is installed. The
+      <varname>flags</varname> argument is added for future extensibility. No flags are currently defined,
+      and the argument is required to be set to <literal>0</literal>.</para>
+
+      <para>Unlike all the other methods in this interface, <function>Acquire()</function> and
+      <function>Install()</function> do not wait for their jobs to complete. Instead, they return the job's
+      numeric ID and object path as soon as the job begins, so that the caller can listen for progress
+      updates or cancel the operation. These methods also return the version the target will be updated to,
+      for cases where no version was specified by the caller. Listen for the Manager's
+      <function>JobRemoved()</function> signal to detect when the job is complete.</para>
+
       <para><function>Vacuum()</function> deletes old installed versions of this target to free up space.
       It returns the number of instances that have been deleted.</para>
 
@@ -347,7 +381,7 @@ node /org/freedesktop/sysupdate1/target/host {
       preemptive decisions to be made about features that are planned to appear in future releases of the OS.
       The drop-in will have a filename of <literal>50-systemd-sysupdate-enabled.conf</literal>.
       This method only changes configuration files; to actually apply the changes, clients will need to
-      call <function>Update()</function>.
+      call <function>Update()</function> (or <function>Acquire()</function> and <function>Install()</function>).
       Depending on the exact needs of the client, it can choose to update the system to the latest available
       version, or it can extend the newest existing installation in-place (by passing in the version returned
       by <varname>GetVersion()</varname>).
@@ -397,7 +431,8 @@ node /org/freedesktop/sysupdate1/target/host {
       use the polkit action <interfacename>org.freedesktop.sysupdate1.check</interfacename>.
       By default, this action is permitted without administrator authentication.</para>
 
-      <para><function>Update()</function> uses the polkit action
+      <para><function>Update()</function>, <function>Acquire()</function> and <function>Install()</function>
+      use the polkit action
       <interfacename>org.freedesktop.sysupdate1.update</interfacename> when no version is specified.
       By default, this action is permitted without administrator authentication. When a version is
       specified, <interfacename>org.freedesktop.sysupdate1.update-to-version</interfacename> is
@@ -496,14 +531,15 @@ node /org/freedesktop/sysupdate1/job/_1 {
 
       <para>The <varname>Type</varname> property exposes the type of operation (one of:
       <literal>list</literal>, <literal>describe</literal>, <literal>check-new</literal>,
-      <literal>update</literal>, <literal>vacuum</literal>, or <literal>describe-feature</literal>).</para>
+      <literal>update</literal>, <literal>acquire</literal>, <literal>install</literal>,
+      <literal>vacuum</literal>, or <literal>describe-feature</literal>).</para>
 
       <para>The <varname>Offline</varname> property exposes whether the job is permitted to access
       the network or not.</para>
 
       <para>The <varname>Progress</varname> property exposes the current progress of the job as a value
-      between 0 and 100. It is only available for <literal>update</literal> jobs; for all other jobs
-      it is always 0.</para>
+      between 0 and 100. It is only available for <literal>update</literal>, <literal>acquire</literal> and
+      <literal>install</literal> jobs; for all other jobs it is always 0.</para>
     </refsect2>
 
     <refsect2>
@@ -563,6 +599,8 @@ node /org/freedesktop/sysupdate1/job/_1 {
       <function>Describe()</function>,
       <function>CheckNew()</function>,
       <function>Update()</function>,
+      <function>Acquire()</function>,
+      <function>Install()</function>,
       <function>Vacuum()</function>,
       <function>GetAppStream()</function>,
       <function>GetVersion()</function>,
