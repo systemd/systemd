@@ -257,6 +257,22 @@ static int xfstatfs(int fd, struct statfs *ret) {
         return RET_NERRNO(fstatfs(fd, ret));
 }
 
+int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(ret);
+
+        if (!isempty(path)) {
+                fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC);
+                if (fd < 0)
+                        return fd;
+                dir_fd = fd;
+        }
+
+        return xfstatfs(dir_fd, ret);
+}
+
 int fd_is_read_only_fs(int fd) {
         int r;
 
@@ -520,22 +536,6 @@ bool statx_mount_same(const struct statx *a, const struct statx *b) {
         assert(FLAGS_SET(b->stx_mask, STATX_MNT_ID));
 
         return a->stx_mnt_id == b->stx_mnt_id;
-}
-
-int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
-        _cleanup_close_ int fd = -EBADF;
-
-        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
-        assert(ret);
-
-        if (!isempty(path)) {
-                fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0)
-                        return fd;
-                dir_fd = fd;
-        }
-
-        return RET_NERRNO(xfstatfs(dir_fd, ret));
 }
 
 usec_t statx_timestamp_load(const struct statx_timestamp *ts) {

@@ -259,12 +259,9 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
 
                         /* Memory Accounting and Control */
                         SD_JSON_BUILD_PAIR_BOOLEAN("MemoryAccounting", c->memory_accounting),
-                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(c->memory_min_set, "MemoryMin", c->memory_min),
-                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(c->default_memory_min_set, "DefaultMemoryMin", c->default_memory_min),
-                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(c->memory_low_set, "MemoryLow", c->memory_low),
-                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(c->default_memory_low_set, "DefaultMemoryLow", c->default_memory_low),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("MemoryMin", c->memory_min, CGROUP_LIMIT_MIN),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("MemoryLow", c->memory_low, CGROUP_LIMIT_MIN),
                         JSON_BUILD_PAIR_CONDITION_UNSIGNED(c->startup_memory_low_set, "StartupMemoryLow", c->startup_memory_low),
-                        JSON_BUILD_PAIR_CONDITION_UNSIGNED(c->default_startup_memory_low_set, "DefaultStartupMemoryLow", c->default_startup_memory_low),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("MemoryHigh", c->memory_high, CGROUP_LIMIT_MAX),
                         JSON_BUILD_PAIR_CONDITION_UNSIGNED(c->startup_memory_high_set, "StartupMemoryHigh", c->startup_memory_high),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("MemoryMax", c->memory_max, CGROUP_LIMIT_MAX),

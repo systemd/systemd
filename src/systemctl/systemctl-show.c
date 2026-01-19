@@ -302,10 +302,6 @@ typedef struct UnitStatusInfo {
         uint64_t io_read_bytes;
         uint64_t io_write_bytes;
 
-        uint64_t default_memory_min;
-        uint64_t default_memory_low;
-        uint64_t default_startup_memory_low;
-
         /* Exec Quotas */
         QuotaInfo exec_directories_quota[_EXEC_DIRECTORY_TYPE_MAX];
 
@@ -2248,9 +2244,6 @@ static int show_one(
                 { "MemorySwapPeak",                 "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_peak)                  },
                 { "MemoryZSwapCurrent",             "t",               NULL,           offsetof(UnitStatusInfo, memory_zswap_current)              },
                 { "MemoryAvailable",                "t",               NULL,           offsetof(UnitStatusInfo, memory_available)                  },
-                { "DefaultMemoryMin",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_min)                },
-                { "DefaultMemoryLow",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_low)                },
-                { "DefaultStartupMemoryLow",        "t",               NULL,           offsetof(UnitStatusInfo, default_startup_memory_low)        },
                 { "MemoryMin",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_min)                        },
                 { "MemoryLow",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_low)                        },
                 { "StartupMemoryLow",               "t",               NULL,           offsetof(UnitStatusInfo, startup_memory_low)                },

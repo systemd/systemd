@@ -2767,16 +2767,8 @@ static int reset_audit_loginuid(void) {
                 return 0;
 
         r = write_string_file("/proc/self/loginuid", "4294967295", WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0) {
-                log_error_errno(r,
-                                "Failed to reset audit login UID. This probably means that your kernel is too\n"
-                                "old and you have audit enabled. Note that the auditing subsystem is known to\n"
-                                "be incompatible with containers on old kernels. Please make sure to upgrade\n"
-                                "your kernel or to off auditing with 'audit=0' on the kernel command line before\n"
-                                "using systemd-nspawn. Sleeping for 5s... (%m)");
-
-                sleep(5);
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset audit login UID: %m");
 
         return 0;
 }
@@ -3775,7 +3767,7 @@ static int setup_unix_export_dir_outside(char **ret) {
                         "tmpfs",
                         q,
                         "tmpfs",
-                        MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported(),
+                        MS_NODEV|MS_NOEXEC|MS_NOSUID|MS_NOSYMFOLLOW,
                         "size=4M,nr_inodes=64,mode=0755");
         if (r < 0)
                 return r;
@@ -3789,7 +3781,7 @@ static int setup_unix_export_dir_outside(char **ret) {
                         /* what= */ NULL,
                         w,
                         /* fstype= */ NULL,
-                        MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported(),
+                        MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NODEV|MS_NOEXEC|MS_NOSUID|MS_NOSYMFOLLOW,
                         /* options= */ NULL);
         if (r < 0)
                 return r;
@@ -3834,7 +3826,7 @@ static int setup_unix_export_host_inside(const char *directory, const char *unix
                         /* what= */ NULL,
                         p,
                         /* fstype= */ NULL,
-                        MS_BIND|MS_REMOUNT|MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported(),
+                        MS_BIND|MS_REMOUNT|MS_NODEV|MS_NOEXEC|MS_NOSUID|MS_NOSYMFOLLOW,
                         /* options= */ NULL);
         if (r < 0)
                 return r;

@@ -1951,7 +1951,7 @@ int trigger_automount_at(int dir_fd, const char *path) {
 
 unsigned long credentials_fs_mount_flags(bool ro) {
         /* A tight set of mount flags for credentials mounts */
-        return MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported()|(ro ? MS_RDONLY : 0);
+        return MS_NODEV|MS_NOEXEC|MS_NOSUID|MS_NOSYMFOLLOW|(ro ? MS_RDONLY : 0);
 }
 
 int fsmount_credentials_fs(int *ret_fsfd) {
