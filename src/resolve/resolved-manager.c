@@ -2071,6 +2071,12 @@ static int dns_configuration_json_append(
 
         assert(configuration);
 
+        if (current_dns_server) {
+                r = dns_server_dump_configuration_to_json(current_dns_server, &current_dns_server_json);
+                if (r < 0)
+                        return r;
+        }
+
         SET_FOREACH(scope, dns_scopes) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
