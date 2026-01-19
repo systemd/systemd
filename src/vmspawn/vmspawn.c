@@ -2444,7 +2444,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 _cleanup_free_ char *id = NULL;
-                if (asprintf(&id, "mnt%zi", mount - arg_runtime_mounts.mounts) < 0)
+                if (asprintf(&id, "mnt%ti", mount - arg_runtime_mounts.mounts) < 0)
                         return log_oom();
 
                 if (strv_extendf(&cmdline, "socket,id=%s,path=%s", id, escaped_listen_address) < 0)
