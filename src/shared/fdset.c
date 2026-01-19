@@ -15,6 +15,7 @@
 #include "set.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "errno-util.h"
 
 #define MAKE_SET(s) ((Set*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)
@@ -179,9 +180,10 @@ int fdset_new_fill(
         d = opendir("/proc/self/fd");
         if (!d) {
                 if (errno == ENOENT && proc_mounted() == 0)
-                        return -ENOSYS;
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS),
+                                               "Failed to open /proc/self/fd/, /proc/ is not mounted.");
 
-                return -errno;
+                return log_debug_errno(errno, "Failed to open /proc/self/fd/: %m ");
         }
 
         s = fdset_new();
@@ -210,9 +212,14 @@ int fdset_new_fill(
                          * been passed in can be collected and fds which have been created locally can be
                          * ignored, under the assumption that only the latter have O_CLOEXEC set. */
 
-                        fl = fcntl(fd, F_GETFD);
-                        if (fl < 0)
-                                return -errno;
+                        fl = RET_NERRNO(fcntl(fd, F_GETFD));
+                        if (fl < 0) {
+                                _cleanup_free_ char *path = NULL;
+                                (void) fd_get_path(fd, &path);
+                                return log_debug_errno(fl,
+                                                       "Failed to get flag of fd=%d (%s): %m ",
+                                                       fd, strna(path));
+                        }
 
                         if (FLAGS_SET(fl, FD_CLOEXEC) != !!filter_cloexec)
                                 continue;
@@ -221,13 +228,23 @@ int fdset_new_fill(
                 /* We need to set CLOEXEC manually only if we're collecting non-CLOEXEC fds. */
                 if (filter_cloexec <= 0) {
                         r = fd_cloexec(fd, true);
-                        if (r < 0)
-                                return r;
+                        if (r < 0) {
+                                _cleanup_free_ char *path = NULL;
+                                (void) fd_get_path(fd, &path);
+                                return log_debug_errno(r,
+                                                       "Failed to set CLOEXEC flag fd=%d (%s): %m ",
+                                                       fd, strna(path));
+                        }
                 }
 
                 r = fdset_put(s, fd);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        _cleanup_free_ char *path = NULL;
+                        (void) fd_get_path(fd, &path);
+                        return log_debug_errno(r,
+                                               "Failed to put fd=%d (%s) into fdset: %m ",
+                                               fd, strna(path));
+                }
         }
 
         *ret = TAKE_PTR(s);
