@@ -194,7 +194,8 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized");
 
         if (is_image) {
-                r = bus_read_mount_options(message, reterr_error, &options, NULL, "");
+                r = bus_read_mount_options(message, reterr_error, &options,
+                                           /* in_out_format_str = */ NULL, /* separator = */ NULL);
                 if (r < 0)
                         return r;
         }
