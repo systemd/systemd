@@ -179,9 +179,10 @@ int fdset_new_fill(
         d = opendir("/proc/self/fd");
         if (!d) {
                 if (errno == ENOENT && proc_mounted() == 0)
-                        return -ENOSYS;
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS),
+                                                "Failed to open /proc/self/fd, /proc not mounted: %m");
 
-                return -errno;
+                return log_debug_errno(errno, "Failed to open /proc/self/fd: %m");
         }
 
         s = fdset_new();
@@ -190,6 +191,7 @@ int fdset_new_fill(
 
         FOREACH_DIRENT(de, d, return -errno) {
                 int fd;
+                _cleanup_free_ char *path = NULL;
 
                 if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
                         continue;
@@ -211,8 +213,12 @@ int fdset_new_fill(
                          * ignored, under the assumption that only the latter have O_CLOEXEC set. */
 
                         fl = fcntl(fd, F_GETFD);
-                        if (fl < 0)
-                                return -errno;
+                        if (fl < 0) {
+                                (void) fd_get_path(fd, &path);
+                                return log_debug_errno(errno,
+                                                       "Failed to get FLAG fd=%d (%s): %m",
+                                                       fd, strna(path));
+                        }
 
                         if (FLAGS_SET(fl, FD_CLOEXEC) != !!filter_cloexec)
                                 continue;
@@ -221,13 +227,21 @@ int fdset_new_fill(
                 /* We need to set CLOEXEC manually only if we're collecting non-CLOEXEC fds. */
                 if (filter_cloexec <= 0) {
                         r = fd_cloexec(fd, true);
-                        if (r < 0)
-                                return r;
+                        if (r < 0) {
+                                (void) fd_get_path(fd, &path);
+                                return log_debug_errno(r,
+                                                        "Failed to set CLOEXEC fd=%d (%s): %m",
+                                                        fd, strna(path));
+                        }
                 }
 
                 r = fdset_put(s, fd);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        (void) fd_get_path(fd, &path);
+                        return log_debug_errno(r,
+                                                "Failed to put fd=%d (%s) into fdset: %m",
+                                                fd, strna(path));
+                }
         }
 
         *ret = TAKE_PTR(s);
