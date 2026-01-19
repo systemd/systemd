@@ -104,17 +104,8 @@ Deprecations and removals:
   and then rework cgroupsv2 support around fds, i.e. keep one fd per active
   unit around, and always operate on that, instead of cgroup fs paths.
 
-* drop support for getrandom()-less kernels. (GRND_INSECURE means once kernel
-  5.6 becomes our baseline). See
-  https://github.com/systemd/systemd/pull/24101#issuecomment-1193966468 for
-  details. Maybe before that: at taint-flags/warn about kernels that lack
-  getrandom()/environments where it is blocked.
-
 * drop support for LOOP_CONFIGURE-less loopback block devices, once kernel
   baseline is 5.8.
-
-* drop fd_is_mount_point() fallback mess once we can rely on
-  STATX_ATTR_MOUNT_ROOT to exist i.e. kernel baseline 5.8
 
 * Once baseline is 5.10, remove support or MS_NOSYMFOLLOW-less kernels
 
