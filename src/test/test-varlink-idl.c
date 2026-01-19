@@ -537,4 +537,38 @@ TEST(enums_idl) {
         TEST_IDL_ENUM(ResolveSupport, resolve_support, vl_type_ResolveSupport);
 }
 
+static SD_VARLINK_DEFINE_METHOD(
+                AnyTestStrict,
+                SD_VARLINK_DEFINE_INPUT(foo, SD_VARLINK_ANY, 0),
+                SD_VARLINK_DEFINE_INPUT(foo2, SD_VARLINK_ANY, 0),
+                SD_VARLINK_DEFINE_INPUT(foo3, SD_VARLINK_ANY, 0),
+                SD_VARLINK_DEFINE_INPUT(foo4, SD_VARLINK_ANY, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                AnyTestNullable,
+                SD_VARLINK_DEFINE_INPUT(foo, SD_VARLINK_ANY, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(foo2, SD_VARLINK_ANY, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(foo3, SD_VARLINK_ANY, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(foo4, SD_VARLINK_ANY, SD_VARLINK_NULLABLE));
+
+TEST(any) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        ASSERT_OK(sd_json_buildo(&v,
+                                 SD_JSON_BUILD_PAIR_STRING("foo", "bar"),
+                                 SD_JSON_BUILD_PAIR_INTEGER("foo2", 47),
+                                 SD_JSON_BUILD_PAIR_NULL("foo3"),
+                                 SD_JSON_BUILD_PAIR_BOOLEAN("foo4", true)));
+
+        /* "any" shall mean any type – but null */
+        const char *bad_field = NULL;
+        ASSERT_ERROR(varlink_idl_validate_method_call(&vl_method_AnyTestStrict, v, /* flags= */ 0, &bad_field), ENOANO);
+        ASSERT_STREQ(bad_field, "foo3");
+
+        /* "any?" shall many truly any type */
+        bad_field = NULL;
+        ASSERT_OK(varlink_idl_validate_method_call(&vl_method_AnyTestNullable, v, /* flags= */ 0, &bad_field));
+        ASSERT_NULL(bad_field);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
