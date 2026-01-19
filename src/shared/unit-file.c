@@ -119,7 +119,7 @@ int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, con
         if (!(dst_name_type == src_name_type ||
               (src_name_type == UNIT_NAME_INSTANCE && dst_name_type == UNIT_NAME_TEMPLATE)))
                 return log_full_errno(log_level, SYNTHETIC_ERRNO(EXDEV),
-                                      "%s: symlink target name type \"%s\" does not match source, rejecting.",
+                                      "%s: symlink target name unit type \"%s\" does not match source unit type, rejecting.",
                                       filename, dst);
 
         if (dst_name_type == UNIT_NAME_INSTANCE) {
