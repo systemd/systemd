@@ -359,10 +359,6 @@ TEST(is_mount_point_at) {
         ASSERT_OK(is_mount_point_at(fd, "regular", 0));
 }
 
-TEST(ms_nosymfollow_supported) {
-        log_info("MS_NOSYMFOLLOW supported: %s", yes_no(ms_nosymfollow_supported()));
-}
-
 TEST(mount_option_supported) {
         int r;
 

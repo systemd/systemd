@@ -137,9 +137,6 @@ typedef struct CGroupContext {
         LIST_HEAD(CGroupIODeviceLimit, io_device_limits);
         LIST_HEAD(CGroupIODeviceLatency, io_device_latencies);
 
-        uint64_t default_memory_min;
-        uint64_t default_memory_low;
-        uint64_t default_startup_memory_low;
         uint64_t memory_min;
         uint64_t memory_low;
         uint64_t startup_memory_low;
@@ -152,11 +149,6 @@ typedef struct CGroupContext {
         uint64_t memory_zswap_max;
         uint64_t startup_memory_zswap_max;
 
-        bool default_memory_min_set:1;
-        bool default_memory_low_set:1;
-        bool default_startup_memory_low_set:1;
-        bool memory_min_set:1;
-        bool memory_low_set:1;
         bool startup_memory_low_set:1;
         bool startup_memory_high_set:1;
         bool startup_memory_max_set:1;
@@ -415,10 +407,6 @@ Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup);
 Unit* manager_get_unit_by_pidref_cgroup(Manager *m, const PidRef *pid);
 Unit* manager_get_unit_by_pidref_watching(Manager *m, const PidRef *pid);
 Unit* manager_get_unit_by_pidref(Manager *m, PidRef *pid);
-
-uint64_t unit_get_ancestor_memory_min(Unit *u);
-uint64_t unit_get_ancestor_memory_low(Unit *u);
-uint64_t unit_get_ancestor_startup_memory_low(Unit *u);
 
 int unit_search_main_pid(Unit *u, PidRef *ret);
 
