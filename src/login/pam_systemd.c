@@ -1106,7 +1106,7 @@ static int register_session(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL; /* the following variables point into this message, hence pin it for longer */
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL; /* similar */
         const char *id = NULL, *object_path = NULL, *runtime_path = NULL, *real_seat = NULL;
-        int existing = false;
+        int session_fd = -EBADF, existing = false;
         uint32_t original_uid = UID_INVALID, real_vtnr = 0;
 
         bool done = false;
@@ -1260,7 +1260,7 @@ static int register_session(
                                 &id,
                                 &object_path,
                                 &runtime_path,
-                                /* session_fd= */ NULL,
+                                &session_fd,
                                 &original_uid,
                                 &real_seat,
                                 &real_vtnr,
@@ -1317,6 +1317,17 @@ static int register_session(
         r = pam_set_data(pamh, "systemd.existing", INT_TO_PTR(!!existing), NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to install existing flag: @PAMERR@");
+
+        if (session_fd >= 0) {
+                _cleanup_close_ int fd = fcntl(session_fd, F_DUPFD_CLOEXEC, 3);
+                if (fd < 0)
+                        return pam_syslog_errno(handle, LOG_ERR, errno, "Failed to dup session fd: %m");
+
+                r = pam_set_data(handle, "systemd.session-fd", FD_TO_PTR(fd), NULL);
+                if (r != PAM_SUCCESS)
+                        return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to install session fd: @PAMERR@");
+                TAKE_FD(fd);
+        }
 
         /* Don't set $XDG_RUNTIME_DIR if the user we now authenticated for does not match the
          * original user of the session. We do this in order not to result in privileged apps
