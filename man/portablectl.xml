@@ -141,6 +141,11 @@
         immediately started (blocking operation unless <option>--no-block</option> is passed) and/or enabled after
         attaching the image.</para>
 
+        <para>When images are attached, an image policy will be generated that pins the attached image by
+        the exact content that was found while attaching, so that it cannot be swapped downgrading security
+        (e.g.: removing dm-verity protection) without a full reinstallation. For more details on policies, see
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
         <xi:include href="vpick.xml" xpointer="image"/>
         <xi:include href="vpick.xml" xpointer="directory"/>
         <xi:include href="version-info.xml" xpointer="v239"/>
