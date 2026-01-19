@@ -5,6 +5,8 @@
 
 #include "sd-forward.h"
 
+#include "alloc-util.h" /* IWYU pragma: keep */
+
 DECLARE_STRING_TABLE_LOOKUP(audit_type, int);
 
 /* This is inspired by DNS TYPEnnn formatting */
