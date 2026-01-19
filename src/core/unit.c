@@ -5582,7 +5582,7 @@ int unit_fork_helper_process_full(Unit *u, const char *name, bool into_cgroup, F
 }
 
 int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef *ret) {
-        return unit_fork_helper_process_full(u, name, into_cgroup, /* flags = */ 0, ret);
+        return unit_fork_helper_process_full(u, name, into_cgroup, /* flags= */ 0, ret);
 }
 
 int unit_fork_and_watch_rm_rf(Unit *u, char **paths, PidRef *ret_pid) {

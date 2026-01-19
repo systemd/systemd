@@ -1804,7 +1804,7 @@ int namespace_fork_full(
 
         r = pidref_safe_fork_full(
                         outer_name,
-                        /* stdio_fds = */ NULL, /* except_fds = */ NULL, /* n_except_fds = */ 0,
+                        /* stdio_fds= */ NULL, /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         (flags|FORK_DEATHSIG_SIGKILL) & ~(FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_NEW_NETNS|FORK_NEW_PIDNS|FORK_CLOSE_ALL_FDS|FORK_PACK_FDS|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE),
                         &pidref_outer);
         if (r == -EPROTO && FLAGS_SET(flags, FORK_WAIT)) {

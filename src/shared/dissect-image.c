@@ -471,7 +471,7 @@ static int partition_is_luks2_integrity(int part_fd, uint64_t offset, uint64_t s
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read LUKS JSON header.");
         json[sz] = '\0';
 
-        r = sd_json_parse(json, /* flags = */ 0, &v, /* reterr_line = */ NULL, /* reterr_column = */ NULL);
+        r = sd_json_parse(json, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse LUKS JSON header.");
 
@@ -567,7 +567,7 @@ static int dissected_image_probe_filesystems(
                         m->encrypted = true;
 
                         if (p->mount_node_fd >= 0)
-                                r = partition_is_luks2_integrity(p->mount_node_fd, /* offset = */ 0, /* size = */ UINT64_MAX);
+                                r = partition_is_luks2_integrity(p->mount_node_fd, /* offset= */ 0, /* size= */ UINT64_MAX);
                         else
                                 r = partition_is_luks2_integrity(fd, p->offset, p->size);
                         if (r < 0)
@@ -1168,7 +1168,7 @@ static int dissect_image(
                         if (verity_settings_data_covers(verity, PARTITION_ROOT))
                                 found_flags = iovec_is_set(&verity->root_hash_sig) ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY;
                         else if (encrypted) {
-                                r = partition_is_luks2_integrity(fd, /* offset = */ 0, /* size = */ UINT64_MAX);
+                                r = partition_is_luks2_integrity(fd, /* offset= */ 0, /* size= */ UINT64_MAX);
                                 if (r < 0)
                                         return r;
 
