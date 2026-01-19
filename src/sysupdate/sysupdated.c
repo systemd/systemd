@@ -101,6 +101,8 @@ typedef enum JobType {
         JOB_DESCRIBE,
         JOB_CHECK_NEW,
         JOB_UPDATE,
+        JOB_ACQUIRE,
+        JOB_INSTALL,
         JOB_VACUUM,
         JOB_DESCRIBE_FEATURE,
         _JOB_TYPE_MAX,
@@ -121,7 +123,7 @@ struct Job {
 
         JobType type;
         bool offline;
-        char *version; /* Passed into sysupdate for JOB_DESCRIBE and JOB_UPDATE */
+        char *version; /* Passed into sysupdate for JOB_DESCRIBE, JOB_UPDATE, JOB_ACQUIRE and JOB_INSTALL */
         char *feature; /* Passed into sysupdate for JOB_DESCRIBE_FEATURE */
 
         unsigned progress_percent;
@@ -154,6 +156,8 @@ static const char* const job_type_table[_JOB_TYPE_MAX] = {
         [JOB_DESCRIBE]         = "describe",
         [JOB_CHECK_NEW]        = "check-new",
         [JOB_UPDATE]           = "update",
+        [JOB_ACQUIRE]          = "acquire",
+        [JOB_INSTALL]          = "install",
         [JOB_VACUUM]           = "vacuum",
         [JOB_DESCRIBE_FEATURE] = "describe-feature",
 };
@@ -222,7 +226,7 @@ static int job_new(JobType type, Target *t, sd_bus_message *msg, JobComplete com
 
 /* Is Job in the set of jobs which require Target.busy to be set so they run exclusively? */
 static bool job_requires_busy(Job *j) {
-        return IN_SET(j->type, JOB_UPDATE, JOB_VACUUM);
+        return IN_SET(j->type, JOB_UPDATE, JOB_ACQUIRE, JOB_INSTALL, JOB_VACUUM);
 }
 
 static int job_parse_child_output(int _fd, sd_json_variant **ret) {
@@ -507,6 +511,16 @@ static int job_start(Job *j) {
                         cmd[k++] = empty_to_null(j->version);
                         break;
 
+                case JOB_ACQUIRE:
+                        cmd[k++] = "acquire";
+                        cmd[k++] = empty_to_null(j->version);
+                        break;
+
+                case JOB_INSTALL:
+                        cmd[k++] = "install";
+                        cmd[k++] = empty_to_null(j->version);
+                        break;
+
                 case JOB_VACUUM:
                         cmd[k++] = "vacuum";
                         break;
@@ -587,6 +601,8 @@ static int job_method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *
                 break;
 
         case JOB_UPDATE:
+        case JOB_ACQUIRE:
+        case JOB_INSTALL:
                 if (j->version)
                         action = "org.freedesktop.sysupdate1.update-to-version";
                 else
@@ -1152,6 +1168,174 @@ static int target_method_update(sd_bus_message *msg, void *userdata, sd_bus_erro
         return 1;
 }
 
+static int target_method_acquire_finished_early(
+                sd_bus_message *msg,
+                const Job *j,
+                sd_json_variant *json,
+                sd_bus_error *error) {
+
+        /* Called when job finishes w/ a successful exit code, but before any work begins.
+         * This happens when there is no candidate (i.e. we're already up-to-date), or
+         * specified update is already acquired. */
+        return sd_bus_error_setf(error, BUS_ERROR_NO_UPDATE_CANDIDATE,
+                                 "Job exited successfully with no work to do, assume already acquired");
+}
+
+static int target_method_acquire_detach(sd_bus_message *msg, const Job *j) {
+        int r;
+
+        assert(msg);
+        assert(j);
+
+        r = sd_bus_reply_method_return(msg, "sto", j->version, j->id, j->object_path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
+static int target_method_acquire(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        Target *t = ASSERT_PTR(userdata);
+        _cleanup_(job_freep) Job *j = NULL;
+        const char *version, *action;
+        uint64_t flags;
+        int r;
+
+        assert(msg);
+
+        r = sd_bus_message_read(msg, "st", &version, &flags);
+        if (r < 0)
+                return r;
+
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be 0");
+
+        /* We don’t have a separate polkit action for acquire/install as they are both effectively (part of)
+         * an update anyway. */
+        if (isempty(version))
+                action = "org.freedesktop.sysupdate1.update";
+        else
+                action = "org.freedesktop.sysupdate1.update-to-version";
+
+        const char *details[] = {
+                "class", target_class_to_string(t->class),
+                "name", t->name,
+                "version", version,
+                NULL
+        };
+
+        r = bus_verify_polkit_async(
+                        msg,
+                        action,
+                        details,
+                        &t->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        r = job_new(JOB_ACQUIRE, t, msg, target_method_acquire_finished_early, &j);
+        if (r < 0)
+                return r;
+        j->detach_cb = target_method_acquire_detach;
+
+        j->version = strdup(version);
+        if (!j->version)
+                return -ENOMEM;
+
+        r = job_start(j);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to start job: %m");
+        TAKE_PTR(j);
+
+        return 1;
+}
+
+static int target_method_install_finished_early(
+                sd_bus_message *msg,
+                const Job *j,
+                sd_json_variant *json,
+                sd_bus_error *error) {
+
+        /* Called when job finishes w/ a successful exit code, but before any work begins.
+         * This happens when there is no candidate (i.e. we're already up-to-date), or
+         * specified update is already installed. */
+        return sd_bus_error_setf(error, BUS_ERROR_NO_UPDATE_CANDIDATE,
+                                 "Job exited successfully with no work to do, assume already installed");
+}
+
+static int target_method_install_detach(sd_bus_message *msg, const Job *j) {
+        int r;
+
+        assert(msg);
+        assert(j);
+
+        r = sd_bus_reply_method_return(msg, "sto", j->version, j->id, j->object_path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
+static int target_method_install(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        Target *t = ASSERT_PTR(userdata);
+        _cleanup_(job_freep) Job *j = NULL;
+        const char *version, *action;
+        uint64_t flags;
+        int r;
+
+        assert(msg);
+
+        r = sd_bus_message_read(msg, "st", &version, &flags);
+        if (r < 0)
+                return r;
+
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be 0");
+
+        /* We don’t have a separate polkit action for acquire/install as they are both effectively (part of)
+         * an update anyway. */
+        if (isempty(version))
+                action = "org.freedesktop.sysupdate1.update";
+        else
+                action = "org.freedesktop.sysupdate1.update-to-version";
+
+        const char *details[] = {
+                "class", target_class_to_string(t->class),
+                "name", t->name,
+                "version", version,
+                NULL
+        };
+
+        r = bus_verify_polkit_async(
+                        msg,
+                        action,
+                        details,
+                        &t->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        r = job_new(JOB_INSTALL, t, msg, target_method_install_finished_early, &j);
+        if (r < 0)
+                return r;
+        j->detach_cb = target_method_install_detach;
+
+        j->version = strdup(version);
+        if (!j->version)
+                return -ENOMEM;
+
+        r = job_start(j);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to start job: %m");
+        TAKE_PTR(j);
+
+        return 1;
+}
+
 static int target_method_vacuum_finish(
                 sd_bus_message *msg,
                 const Job *j,
@@ -1589,6 +1773,18 @@ static const sd_bus_vtable target_vtable[] = {
                                 SD_BUS_ARGS("s", new_version, "t", flags),
                                 SD_BUS_RESULT("s", new_version, "t", job_id, "o", job_path),
                                 target_method_update,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("Acquire",
+                                SD_BUS_ARGS("s", new_version, "t", flags),
+                                SD_BUS_RESULT("s", new_version, "t", job_id, "o", job_path),
+                                target_method_acquire,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("Install",
+                                SD_BUS_ARGS("s", new_version, "t", flags),
+                                SD_BUS_RESULT("s", new_version, "t", job_id, "o", job_path),
+                                target_method_install,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_METHOD_WITH_ARGS("Vacuum",
