@@ -22,6 +22,7 @@ typedef struct NLAPolicySetUnionElement {
         union {
                 int family;          /* used by NETLINK_TYPE_NESTED_UNION_BY_FAMILY */
                 const char *string;  /* used by NETLINK_TYPE_NESTED_UNION_BY_STRING */
+                uint8_t u8_val;      /* used by NETLINK_TYPE_NESTED_UNION_BY_U8 */
         };
         NLAPolicySet policy_set;
 } NLAPolicySetUnionElement;
@@ -44,6 +45,8 @@ struct NLAPolicySetUnion {
         { .type = NETLINK_TYPE_NESTED_UNION_BY_##by, .policy_set_union = &name##_policy_set_union }
 #define BUILD_POLICY_NESTED_UNION_BY_STRING(name)       \
         _BUILD_POLICY_NESTED_UNION(name, STRING)
+#define BUILD_POLICY_NESTED_UNION_BY_U8(name)       \
+        _BUILD_POLICY_NESTED_UNION(name, U8)
 #define BUILD_POLICY_NESTED_UNION_BY_FAMILY(name)       \
         _BUILD_POLICY_NESTED_UNION(name, FAMILY)
 
@@ -54,6 +57,8 @@ struct NLAPolicySetUnion {
 
 # define BUILD_UNION_ELEMENT_BY_STRING(s, name)                 \
         { .string = s, .policy_set = _BUILD_POLICY_SET(name) }
+# define BUILD_UNION_ELEMENT_BY_U8(val, name)                   \
+        { .u8_val = val, .policy_set = _BUILD_POLICY_SET(name) }
 # define BUILD_UNION_ELEMENT_BY_FAMILY(f, name)                 \
         { .family = f, .policy_set = _BUILD_POLICY_SET(name) }
 
