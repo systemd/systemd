@@ -7,7 +7,6 @@
 #include "sd-event.h"
 
 #include "capability-util.h"
-#include "copy.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
@@ -383,129 +382,19 @@ int import_make_foreign_userns(int *userns_fd) {
         return 1;
 }
 
-int import_copy_foreign(
-                int source_fd,
-                int target_fd,
-                int *userns_fd) {
-
-        int r;
-
-        assert(source_fd >= 0);
-        assert(target_fd >= 0);
-        assert(userns_fd);
-
-        /* Copies dir referenced by source_fd into dir referenced by source_fd, moves to the specified userns
-         * for that (allocated if needed), which should be foreign UID range */
-
-        r = import_make_foreign_userns(userns_fd);
-        if (r < 0)
-                return r;
-
-        r = pidref_safe_fork_full(
-                        "copy-tree",
-                        /* stdio_fds= */ NULL,
-                        (int[]) { *userns_fd, source_fd, target_fd }, 3,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT,
-                        /* ret= */ NULL);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                r = namespace_enter(
-                                /* pidns_fd= */ -EBADF,
-                                /* mntns_fd= */ -EBADF,
-                                /* netns_fd= */ -EBADF,
-                                *userns_fd,
-                                /* root_fd= */ -EBADF);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to join user namespace: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = copy_tree_at(
-                                source_fd, /* from= */ NULL,
-                                target_fd, /* to= */ NULL,
-                                /* override_uid= */ UID_INVALID,
-                                /* override_gid= */ GID_INVALID,
-                                COPY_REFLINK|COPY_HARDLINKS|COPY_MERGE_EMPTY|COPY_MERGE_APPLY_STAT|COPY_SAME_MOUNT|COPY_ALL_XATTRS,
-                                /* denylist= */ NULL,
-                                /* subvolumes= */ NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to copy tree: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                _exit(EXIT_SUCCESS);
-        }
-
-        return 0;
-}
-
-int import_remove_tree_foreign(const char *path, int *userns_fd) {
-        int r;
-
-        assert(path);
-        assert(userns_fd);
-
-        r = import_make_foreign_userns(userns_fd);
-        if (r < 0)
-                return r;
-
-        _cleanup_close_ int tree_fd = -EBADF;
-        r = mountfsd_mount_directory(
-                        path,
-                        *userns_fd,
-                        DISSECT_IMAGE_FOREIGN_UID,
-                        &tree_fd);
-        if (r < 0)
-                return r;
-
-        r = pidref_safe_fork_full(
-                        "rm-tree",
-                        /* stdio_fds= */ NULL,
-                        (int[]) { *userns_fd, tree_fd }, 2,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT,
-                        /* ret= */ NULL);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                /* child */
-
-                r = namespace_enter(
-                                /* pidns_fd= */ -EBADF,
-                                /* mntns_fd= */ -EBADF,
-                                /* netns_fd= */ -EBADF,
-                                *userns_fd,
-                                /* root_fd= */ -EBADF);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to join user namespace: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
-                if (dfd < 0) {
-                        log_error_errno(r, "Failed to reopen tree fd: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = rm_rf_children(dfd, REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD, /* root_dev= */ NULL);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to empty '%s' directory in foreign UID mode, ignoring: %m", path);
-
-                _exit(EXIT_SUCCESS);
-        }
-
-        return 0;
-}
-
 int import_remove_tree(const char *path, int *userns_fd, ImportFlags flags) {
         int r;
 
         assert(path);
         assert(userns_fd);
 
+        r = import_make_foreign_userns(userns_fd);
+        if (r < 0)
+                return r;
+
         /* Try the userns dance first, to remove foreign UID range owned trees */
         if (FLAGS_SET(flags, IMPORT_FOREIGN_UID))
-                (void) import_remove_tree_foreign(path, userns_fd);
+                (void) remove_tree_foreign(path, *userns_fd);
 
         r = rm_rf(path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
         if (r < 0)
