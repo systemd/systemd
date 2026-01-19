@@ -36,8 +36,7 @@ int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret) {
 
         assert(dir_fd >= 0);
 
-        /* Returns an array with pointers to "struct dirent" directory entries, optionally sorted. Free the
-         * array with readdir_all_freep().
+        /* Returns an array with pointers to "struct dirent" directory entries, optionally sorted.
          *
          * Start with space for up to 8 directory entries. We expect at least 2 ("." + ".."), hence hopefully
          * 8 will cover most cases comprehensively. (Note that most likely a lot more entries will actually

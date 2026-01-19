@@ -117,8 +117,7 @@ int rtnl_resolve_ifname_full(
                 r = sd_netlink_call(*rtnl, message, 0, &reply);
                 if (r >= 0)
                         return parse_newlink_message(reply, ret_name, ret_altnames);
-                /* The kernels older than 76c9ac0ee878f6693d398d3a95ccaf85e1f597a6 (v5.5) return -EINVAL. */
-                if (!IN_SET(r, -ENODEV, -EINVAL))
+                if (r != -ENODEV)
                         return r;
         }
 

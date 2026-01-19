@@ -321,22 +321,7 @@ int futimens_opath(int fd, const struct timespec ts[2]) {
 
         assert(fd >= 0);
 
-        if (utimensat(fd, "", ts, AT_EMPTY_PATH) >= 0)
-                return 0;
-        if (errno != EINVAL)
-                return -errno;
-
-        /* Support for AT_EMPTY_PATH is added rather late (kernel 5.8), so fall back to going through /proc/
-         * if unavailable. */
-
-        if (utimensat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), ts, /* flags= */ 0) < 0) {
-                if (errno != ENOENT)
-                        return -errno;
-
-                return proc_fd_enoent_errno();
-        }
-
-        return 0;
+        return RET_NERRNO(utimensat(fd, "", ts, AT_EMPTY_PATH));
 }
 
 int stat_warn_permissions(const char *path, const struct stat *st) {
@@ -373,6 +358,19 @@ int fd_warn_permissions(const char *path, int fd) {
 
 int access_nofollow(const char *path, int mode) {
         return RET_NERRNO(faccessat(AT_FDCWD, path, mode, AT_SYMLINK_NOFOLLOW));
+}
+
+int access_fd(int fd, int mode) {
+        /* Like access() but operates on an already open fd */
+
+        if (fd == AT_FDCWD)
+                return RET_NERRNO(access(".", mode));
+        if (fd == XAT_FDROOT)
+                return RET_NERRNO(access("/", mode));
+
+        assert(fd >= 0);
+
+        return RET_NERRNO(faccessat(fd, "", mode, AT_EMPTY_PATH));
 }
 
 int touch_fd(int fd, usec_t stamp) {
@@ -710,34 +708,6 @@ char* unlink_and_free(char *p) {
 
         (void) unlink(p);
         return mfree(p);
-}
-
-int access_fd(int fd, int mode) {
-        /* Like access() but operates on an already open fd */
-
-        if (fd == AT_FDCWD)
-                return RET_NERRNO(access(".", mode));
-        if (fd == XAT_FDROOT)
-                return RET_NERRNO(access("/", mode));
-
-        assert(fd >= 0);
-
-        if (faccessat(fd, "", mode, AT_EMPTY_PATH) >= 0)
-                return 0;
-        if (errno != EINVAL)
-                return -errno;
-
-        /* Support for AT_EMPTY_PATH is added rather late (kernel 5.8), so fall back to going through /proc/
-         * if unavailable. */
-
-        if (access(FORMAT_PROC_FD_PATH(fd), mode) < 0) {
-                if (errno != ENOENT)
-                        return -errno;
-
-                return proc_fd_enoent_errno();
-        }
-
-        return 0;
 }
 
 int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
@@ -1188,19 +1158,6 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
          *   • The dir fd can be passed as XAT_FDROOT, in which case any relative paths will be taken relative to the root fs.
          */
 
-        _cleanup_close_ int _dir_fd = -EBADF;
-        if (dir_fd == XAT_FDROOT) {
-                if (path_is_absolute(path))
-                        dir_fd = AT_FDCWD;
-                else {
-                        _dir_fd = open("/", O_CLOEXEC|O_DIRECTORY|O_RDONLY);
-                        if (_dir_fd < 0)
-                                return -errno;
-
-                        dir_fd = _dir_fd;
-                }
-        }
-
         if (mode == MODE_INVALID)
                 mode = (open_flags & O_DIRECTORY) ? 0755 : 0644;
 
@@ -1214,6 +1171,19 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 }
 
                 return fd_reopen(dir_fd, open_flags & ~O_NOFOLLOW);
+        }
+
+        _cleanup_close_ int _dir_fd = -EBADF;
+        if (dir_fd == XAT_FDROOT) {
+                if (path_is_absolute(path))
+                        dir_fd = AT_FDCWD;
+                else {
+                        _dir_fd = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
+                        if (_dir_fd < 0)
+                                return -errno;
+
+                        dir_fd = _dir_fd;
+                }
         }
 
         bool call_label_ops_post = false;
