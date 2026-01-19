@@ -1704,6 +1704,8 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
 
 static int varlink_idl_validate_field_element_type(const sd_varlink_field *field, sd_json_variant *v) {
         assert(field);
+        assert(v);
+        assert(!sd_json_variant_is_null(v));
 
         switch (field->field_type) {
 
@@ -1764,7 +1766,8 @@ static int varlink_idl_validate_field_element_type(const sd_varlink_field *field
                 break;
 
         case SD_VARLINK_ANY:
-                /* The any type accepts any JSON value, no validation needed */
+                /* The any type accepts any non-null JSON value, no validation needed. (Note that null is
+                 * already handled by the caller.) */
                 break;
 
         case _SD_VARLINK_FIELD_COMMENT:
