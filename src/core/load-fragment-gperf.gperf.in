@@ -223,11 +223,11 @@
 {{type}}.CPUQuotaPeriodSec,                   config_parse_sec_def_infinity,                      0,                                  offsetof({{type}}, cgroup_context.cpu_quota_period_usec)
 {{type}}.MemoryAccounting,                    config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.memory_accounting)
 {{type}}.MemoryMin,                           config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
-{{type}}.DefaultMemoryMin,                    config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
-{{type}}.DefaultMemoryLow,                    config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
-{{type}}.DefaultStartupMemoryLow,             config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.MemoryLow,                           config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.StartupMemoryLow,                    config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
+{{type}}.DefaultMemoryMin,                    config_parse_warn_compat,                           DISABLED_LEGACY,                    0
+{{type}}.DefaultMemoryLow,                    config_parse_warn_compat,                           DISABLED_LEGACY,                    0
+{{type}}.DefaultStartupMemoryLow,             config_parse_warn_compat,                           DISABLED_LEGACY,                    0
 {{type}}.MemoryHigh,                          config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.StartupMemoryHigh,                   config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.MemoryMax,                           config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)

@@ -342,8 +342,6 @@ static int bus_append_parse_resource_limit(sd_bus_message *m, const char *field,
         if (isempty(eq) || streq(eq, "infinity")) {
                 uint64_t x = streq(eq, "infinity") ? CGROUP_LIMIT_MAX :
                         STR_IN_SET(field,
-                                   "DefaultMemoryLow",
-                                   "DefaultMemoryMin",
                                    "MemoryLow",
                                    "MemoryMin") ? CGROUP_LIMIT_MIN : CGROUP_LIMIT_MAX;
 
@@ -2348,8 +2346,6 @@ static const BusProperty cgroup_properties[] = {
         { "DisableControllers",                    bus_append_strv                               },
         { "Delegate",                              bus_append_parse_delegate                     },
         { "MemoryMin",                             bus_append_parse_resource_limit               },
-        { "DefaultMemoryLow",                      bus_append_parse_resource_limit               },
-        { "DefaultMemoryMin",                      bus_append_parse_resource_limit               },
         { "MemoryLow",                             bus_append_parse_resource_limit               },
         { "MemoryHigh",                            bus_append_parse_resource_limit               },
         { "MemoryMax",                             bus_append_parse_resource_limit               },
@@ -2386,6 +2382,8 @@ static const BusProperty cgroup_properties[] = {
         { "BlockIOReadBandwidth",                  warn_deprecated                               },
         { "BlockIOWriteBandwidth",                 warn_deprecated                               },
         { "CPUAccounting",                         warn_deprecated                               },
+        { "DefaultMemoryMin",                      warn_deprecated                               },
+        { "DefaultMemoryLow",                      warn_deprecated                               },
 
         { NULL, bus_try_append_parse_cgroup_io_limit, cgroup_io_limits_list                      },
         {}

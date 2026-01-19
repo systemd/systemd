@@ -332,7 +332,6 @@ if install_tests
                 'journal-data',
                 'knot-data',
                 'test-cgroup-mask',
-                'test-cgroup-unit-default',
                 'test-engine',
                 'test-execute',
                 'test-fstab-generator',

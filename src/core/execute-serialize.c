@@ -132,18 +132,6 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
                         return r;
         }
 
-        if (c->default_memory_min > 0) {
-                r = serialize_item_format(f, "exec-cgroup-context-default-memory-min", "%" PRIu64, c->default_memory_min);
-                if (r < 0)
-                        return r;
-        }
-
-        if (c->default_memory_low > 0) {
-                r = serialize_item_format(f, "exec-cgroup-context-default-memory-low", "%" PRIu64, c->default_memory_low);
-                if (r < 0)
-                        return r;
-        }
-
         if (c->memory_min > 0) {
                 r = serialize_item_format(f, "exec-cgroup-context-memory-min", "%" PRIu64, c->memory_min);
                 if (r < 0)
@@ -225,26 +213,6 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
                 if (r < 0)
                         return r;
         }
-
-        r = serialize_bool_elide(f, "exec-cgroup-context-default-memory-min-set", c->default_memory_min_set);
-        if (r < 0)
-                return r;
-
-        r = serialize_bool_elide(f, "exec-cgroup-context-default-memory-low-set", c->default_memory_low_set);
-        if (r < 0)
-                return r;
-
-        r = serialize_bool_elide(f, "exec-cgroup-context-default-startup-memory-low-set", c->default_startup_memory_low_set);
-        if (r < 0)
-                return r;
-
-        r = serialize_bool_elide(f, "exec-cgroup-context-memory-min-set", c->memory_min_set);
-        if (r < 0)
-                return r;
-
-        r = serialize_bool_elide(f, "exec-cgroup-context-memory-low-set", c->memory_low_set);
-        if (r < 0)
-                return r;
 
         r = serialize_bool_elide(f, "exec-cgroup-context-startup-memory-low-set", c->startup_memory_low_set);
         if (r < 0)
@@ -532,14 +500,6 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         r = safe_atou64(val, &c->startup_io_weight);
                         if (r < 0)
                                 return r;
-                } else if ((val = startswith(l, "exec-cgroup-context-default-memory-min="))) {
-                        r = safe_atou64(val, &c->default_memory_min);
-                        if (r < 0)
-                                return r;
-                } else if ((val = startswith(l, "exec-cgroup-context-default-memory-low="))) {
-                        r = safe_atou64(val, &c->default_memory_low);
-                        if (r < 0)
-                                return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-memory-min="))) {
                         r = safe_atou64(val, &c->memory_min);
                         if (r < 0)
@@ -597,31 +557,6 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         r = safe_atou64(val, &c->tasks_max.scale);
                         if (r < 0)
                                 return r;
-                } else if ((val = startswith(l, "exec-cgroup-context-default-memory-min-set="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->default_memory_min_set = r;
-                } else if ((val = startswith(l, "exec-cgroup-context-default-memory-low-set="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->default_memory_low_set = r;
-                } else if ((val = startswith(l, "exec-cgroup-context-default-startup-memory-low-set="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->default_startup_memory_low_set = r;
-                } else if ((val = startswith(l, "exec-cgroup-context-memory-min-set="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->memory_min_set = r;
-                } else if ((val = startswith(l, "exec-cgroup-context-memory-low-set="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->memory_low_set = r;
                 } else if ((val = startswith(l, "exec-cgroup-context-startup-memory-low-set="))) {
                         r = parse_boolean(val);
                         if (r < 0)
