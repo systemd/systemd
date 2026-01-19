@@ -7,6 +7,9 @@
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
 #include "dlfcn-util.h"
+#include "escape.h"
+#include "hexdecoct.h"
+#include "hmac.h"
 #include "log.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -195,6 +198,64 @@ int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v) {
         r = sym_crypt_token_json_set(cd, CRYPT_ANY_TOKEN, text);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write token data to LUKS: %m");
+
+        return 0;
+}
+
+int cryptsetup_get_volume_key_prefix(
+                struct crypt_device *cd,
+                const char *volume_name,
+                char **ret) {
+
+        _cleanup_free_ char *volume = NULL;
+        const char *uuid;
+        char *s;
+
+        uuid = sym_crypt_get_uuid(cd);
+        if (!uuid)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get LUKS UUID.");
+
+        if (volume_name)
+                /* avoid ambiguity around ":" once we join things below */
+                volume = xescape(volume_name, ":");
+        else
+                volume = strjoin("luks-", uuid);
+        if (!volume)
+                return log_oom_debug();
+
+        s = strjoin("cryptsetup:", volume, ":", uuid);
+        if (!s)
+                return log_oom_debug();
+
+        *ret = s;
+
+        return 0;
+}
+
+/* The hash must match what measure_volume_key() extends to the SHA256 bank of the TPM2. */
+int cryptsetup_get_volume_key_id(
+                struct crypt_device *cd,
+                const char *volume_name,
+                const void *volume_key,
+                size_t volume_key_size,
+                char **ret) {
+
+        _cleanup_free_ char *prefix = NULL;
+        uint8_t digest[SHA256_DIGEST_SIZE];
+        char *hex;
+        int r;
+
+        r = cryptsetup_get_volume_key_prefix(cd, volume_name, &prefix);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get LUKS volume key prefix.");
+
+        hmac_sha256(volume_key, volume_key_size, prefix, strlen(prefix), digest);
+
+        hex = hexmem(digest, sizeof(digest));
+        if (!hex)
+                return log_oom_debug();
+
+        *ret = hex;
 
         return 0;
 }
