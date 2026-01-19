@@ -959,6 +959,9 @@ testcase_10_resolvectl_json() {
 
     assert_eq "$(resolvectl --json=short nta dns0 | jq -rc '.[0].negativeTrustAnchors | .[0]')" 'bar'
     assert_eq "$(jq -rc '.[0].negativeTrustAnchors | .[0]' "$status_json")" 'bar'
+
+    # Test that currentServer is non-empty.
+    jq -rce '.[0].currentServer' "$status_json"
 }
 
 # Test serve stale feature and NFTSet= if nftables is installed
