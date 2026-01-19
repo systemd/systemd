@@ -1150,8 +1150,9 @@ static void cgroup_apply_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
 }
 
 static bool cgroup_context_has_io_config(CGroupContext *c) {
-        return c->io_accounting ||
-                c->io_weight != CGROUP_WEIGHT_INVALID ||
+        assert(c);
+
+        return c->io_weight != CGROUP_WEIGHT_INVALID ||
                 c->startup_io_weight != CGROUP_WEIGHT_INVALID ||
                 c->io_device_weights ||
                 c->io_device_latencies ||
@@ -1691,7 +1692,8 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
         if (cgroup_context_has_allowed_cpus(c) || cgroup_context_has_allowed_mems(c))
                 mask |= CGROUP_MASK_CPUSET;
 
-        if (cgroup_context_has_io_config(c))
+        if (c->io_accounting ||
+            cgroup_context_has_io_config(c))
                 mask |= CGROUP_MASK_IO;
 
         if (c->memory_accounting ||
