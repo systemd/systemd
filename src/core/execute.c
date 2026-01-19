@@ -684,8 +684,6 @@ void exec_context_done(ExecContext *c) {
         iovec_done(&c->root_hash_sig);
         c->root_hash_sig_path = mfree(c->root_hash_sig_path);
         c->root_verity = mfree(c->root_verity);
-        c->extension_images = mount_image_free_many(c->extension_images, &c->n_extension_images);
-        c->extension_directories = strv_free(c->extension_directories);
         c->tty_path = mfree(c->tty_path);
         c->syslog_identifier = mfree(c->syslog_identifier);
         c->user = mfree(c->user);
@@ -705,10 +703,16 @@ void exec_context_done(ExecContext *c) {
         bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
         c->bind_mounts = NULL;
         c->n_bind_mounts = 0;
+        mount_image_free_many(c->mount_images, c->n_mount_images);
+        c->mount_images = NULL;
+        c->n_mount_images = 0;
+        mount_image_free_many(c->extension_images, c->n_extension_images);
+        c->extension_images = NULL;
+        c->n_extension_images = 0;
+        c->extension_directories = strv_free(c->extension_directories);
         temporary_filesystem_free_many(c->temporary_filesystems, c->n_temporary_filesystems);
         c->temporary_filesystems = NULL;
         c->n_temporary_filesystems = 0;
-        c->mount_images = mount_image_free_many(c->mount_images, &c->n_mount_images);
 
         cpu_set_done(&c->cpu_set);
         numa_policy_reset(&c->numa_policy);
