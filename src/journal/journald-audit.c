@@ -340,11 +340,10 @@ static int map_all_fields(
 void process_audit_string(Manager *m, int type, const char *data, size_t size) {
         size_t n = 0, z;
         uint64_t seconds, msec, id;
-        const char *p, *type_name;
+        const char *p, *type_name, *type_field_name, *mm;
         char id_field[STRLEN("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)],
                 type_field[STRLEN("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)];
         struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_AUDIT_FIELDS];
-        char *mm, *type_field_name;
         int k;
 
         assert(m);
@@ -395,7 +394,11 @@ void process_audit_string(Manager *m, int type, const char *data, size_t size) {
         type_field_name = strjoina("_AUDIT_TYPE_NAME=", type_name);
         iovec[n++] = IOVEC_MAKE_STRING(type_field_name);
 
-        mm = strjoina("MESSAGE=", type_name, " ", p);
+        _cleanup_free_ char *mm_alloc = strjoin("MESSAGE=", type_name, " ", p);
+        if (mm_alloc)
+                mm = mm_alloc;
+        else
+                mm = strjoina("MESSAGE=", type_name, " (message is truncated because of OOM)");
         iovec[n++] = IOVEC_MAKE_STRING(mm);
 
         z = n;
@@ -406,9 +409,8 @@ void process_audit_string(Manager *m, int type, const char *data, size_t size) {
                                  TIMEVAL_STORE((usec_t) seconds * USEC_PER_SEC + (usec_t) msec * USEC_PER_MSEC),
                                  LOG_NOTICE, 0);
 
-        /* free() all entries that map_all_fields() added. All others
-         * are allocated on the stack or are constant. */
-
+        /* free() all entries that map_all_fields() added. All others are allocated on the stack, constant,
+         * or freed by their _cleanup_ attributes. */
         for (; z < n; z++)
                 free(iovec[z].iov_base);
 }
