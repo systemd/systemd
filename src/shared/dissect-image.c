@@ -4631,9 +4631,7 @@ int mount_options_set_and_consume(MountOptions **options, PartitionDesignator d,
                 }
         }
 
-        free_and_replace((*options)->options[d], s);
-
-        return 0;
+        return free_and_replace((*options)->options[d], s);
 }
 
 int mount_options_dup(const MountOptions *source, MountOptions **ret) {
@@ -4644,7 +4642,7 @@ int mount_options_dup(const MountOptions *source, MountOptions **ret) {
 
         options = new0(MountOptions, 1);
         if (!options)
-                return log_oom();
+                return log_oom_debug();
 
         for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++)
                 if (source->options[d]) {
