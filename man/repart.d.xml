@@ -869,13 +869,18 @@
         <term><varname>EncryptedVolume=</varname></term>
 
         <listitem><para>Specifies how the encrypted partition should be set up. Takes at least one and at most
-        three fields separated with a colon (<literal>:</literal>). The first field specifies the encrypted
+        four fields separated with a colon (<literal>:</literal>). The first field specifies the encrypted
         volume name under <filename>/dev/mapper/</filename>. If not specified, <literal>luks-UUID</literal>
         will be used where <literal>UUID</literal> is the LUKS UUID. The second field specifies the keyfile
         to use following the same format as specified in crypttab. The third field specifies a
-        comma-delimited list of crypttab options. These fields correspond to the first, third and fourth
+        comma-delimited list of crypttab options. These three fields correspond to the first, third and fourth
         column of the
         <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> format.
+        The fourth field contains extra options, which are not directly reflected to crypttab options. Currently,
+        the only supported extra option is <varname>fixate-volume-key</varname>. When specified, the volume key
+        hash will be taken upon LUKS volume formatting and the result will be added to the list of crypttab options,
+        i.e. <varname>fixate-volume-key=expected-hash</varname> will be added to the fourth column of the generated
+        crypttab.
         </para>
 
         <para>Note that this setting is only taken into account when <option>--generate-crypttab=</option>

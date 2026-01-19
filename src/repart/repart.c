@@ -318,6 +318,7 @@ typedef struct PartitionEncryptedVolume {
         char *name;
         char *keyfile;
         char *options;
+        bool fixate_volume_key;
 } PartitionEncryptedVolume;
 
 static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryptedVolume *c) {
@@ -2547,7 +2548,8 @@ static int config_parse_encrypted_volume(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *volume = NULL, *keyfile = NULL, *options = NULL;
+        _cleanup_free_ char *volume = NULL, *keyfile = NULL, *options = NULL, *extra = NULL;
+        bool fixate_volume_key = false;
         Partition *p = ASSERT_PTR(data);
         int r;
 
@@ -2558,7 +2560,7 @@ static int config_parse_encrypted_volume(
 
         const char *q = rvalue;
         r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNQUOTE,
-                               &volume, &keyfile, &options);
+                               &volume, &keyfile, &options, &extra);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -2589,10 +2591,30 @@ static int config_parse_encrypted_volume(
         if (!p->encrypted_volume)
                 return log_oom();
 
+        if (!isempty(extra)) {
+                const char *e = extra;
+                for (;;) {
+                        _cleanup_free_ char *word = NULL;
+
+                        r = extract_first_word(&e, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS | EXTRACT_UNESCAPE_SEPARATORS);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse extra options: %m");
+                        if (r == 0)
+                                break;
+
+                        if (streq(word, "fixate-volume-key"))
+                                fixate_volume_key = true;
+                        else
+                                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                           "Unknown extra option '%s', ignoring", word);
+            }
+        }
+
         *p->encrypted_volume = (PartitionEncryptedVolume) {
                 .name = TAKE_PTR(volume),
                 .keyfile = TAKE_PTR(keyfile),
                 .options = TAKE_PTR(options),
+                .fixate_volume_key = fixate_volume_key,
         };
 
         return 0;
@@ -5173,6 +5195,41 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         &luks_params);
         if (r < 0)
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
+
+        if (p->encrypted_volume && p->encrypted_volume->fixate_volume_key) {
+                _cleanup_free_ char *key_id = NULL, *hash_option = NULL;
+
+                r = sym_crypt_get_volume_key_size(cd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine volume key size: %m");
+
+                _cleanup_(iovec_done) struct iovec vk = {
+                        .iov_base = malloc(r),
+                        .iov_len = r,
+                };
+
+                if (!vk.iov_base)
+                        return log_oom();
+
+                r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, (char *) vk.iov_base, &vk.iov_len, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get volume key: %m");
+
+                r = cryptsetup_get_volume_key_id(cd,
+                                                 /* volume_name= */ p->encrypted_volume->name,
+                                                 /* volume_key= */ vk.iov_base,
+                                                 /* volume_key_size= */ vk.iov_len,
+                                                 /* ret= */ &key_id);
+                if (r)
+                        return log_error_errno(r, "Failed to get volume key hash: %m");
+
+                hash_option = strjoin("fixate-volume-key=", key_id);
+                if (!hash_option)
+                        return log_oom();
+
+                if (!strextend_with_separator(&p->encrypted_volume->options, ",", hash_option))
+                        return log_oom();
+        }
 
         if (IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2)) {
                 /* Use partition-specific key if available, otherwise fall back to global key */
@@ -10719,14 +10776,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = context_fstab(context);
-        if (r < 0)
-                return r;
-
-        r = context_crypttab(context);
-        if (r < 0)
-                return r;
-
         r = context_update_verity_size(context);
         if (r < 0)
                 return r;
@@ -10779,6 +10828,14 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = context_split(context);
+        if (r < 0)
+                return r;
+
+        r = context_fstab(context);
+        if (r < 0)
+                return r;
+
+        r = context_crypttab(context);
         if (r < 0)
                 return r;
 
