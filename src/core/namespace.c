@@ -3098,19 +3098,16 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
         return 0;
 }
 
-MountImage* mount_image_free_many(MountImage *m, size_t *n) {
-        assert(n);
-        assert(m || *n == 0);
+void mount_image_free_many(MountImage *m, size_t n) {
+        assert(m || n == 0);
 
-        for (size_t i = 0; i < *n; i++) {
-                free(m[i].source);
-                free(m[i].destination);
-                mount_options_free_all(m[i].mount_options);
+        FOREACH_ARRAY(i, m, n) {
+                free(i->source);
+                free(i->destination);
+                mount_options_free_all(i->mount_options);
         }
 
         free(m);
-        *n = 0;
-        return NULL;
 }
 
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {

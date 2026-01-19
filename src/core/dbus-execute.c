@@ -4050,6 +4050,8 @@ int bus_exec_context_set_transient_property(
                 char *source, *destination;
                 int permissive;
 
+                CLEANUP_ARRAY(mount_images, n_mount_images, mount_image_free_many);
+
                 r = sd_bus_message_enter_container(message, 'a', "(ssba(ss))");
                 if (r < 0)
                         return r;
@@ -4122,15 +4124,21 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (n_mount_images == 0) {
-                                c->mount_images = mount_image_free_many(c->mount_images, &c->n_mount_images);
+                                mount_image_free_many(c->mount_images, c->n_mount_images);
+                                c->mount_images = NULL;
+                                c->n_mount_images = 0;
 
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
-                                for (size_t i = 0; i < n_mount_images; ++i) {
-                                        r = mount_image_add(&c->mount_images, &c->n_mount_images, &mount_images[i]);
-                                        if (r < 0)
-                                                return r;
-                                }
+                                if (!c->mount_images) {
+                                        c->mount_images = TAKE_PTR(mount_images);
+                                        c->n_mount_images = n_mount_images;
+                                } else
+                                        FOREACH_ARRAY(i, mount_images, n_mount_images) {
+                                                r = mount_image_add(&c->mount_images, &c->n_mount_images, i);
+                                                if (r < 0)
+                                                        return r;
+                                        }
 
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS,
                                                     name,
@@ -4140,13 +4148,14 @@ int bus_exec_context_set_transient_property(
                         }
                 }
 
-                mount_images = mount_image_free_many(mount_images, &n_mount_images);
-
                 return 1;
+
         } else if (streq(name, "ExtensionImages")) {
                 _cleanup_free_ char *format_str = NULL;
                 MountImage *extension_images = NULL;
                 size_t n_extension_images = 0;
+
+                CLEANUP_ARRAY(extension_images, n_extension_images, mount_image_free_many);
 
                 r = sd_bus_message_enter_container(message, 'a', "(sba(ss))");
                 if (r < 0)
@@ -4211,15 +4220,21 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (n_extension_images == 0) {
-                                c->extension_images = mount_image_free_many(c->extension_images, &c->n_extension_images);
+                                mount_image_free_many(c->extension_images, c->n_extension_images);
+                                c->extension_images = NULL;
+                                c->n_extension_images = 0;
 
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
-                                for (size_t i = 0; i < n_extension_images; ++i) {
-                                        r = mount_image_add(&c->extension_images, &c->n_extension_images, &extension_images[i]);
-                                        if (r < 0)
-                                                return r;
-                                }
+                                if (!c->extension_images) {
+                                        c->extension_images = TAKE_PTR(extension_images);
+                                        c->n_extension_images = n_extension_images;
+                                } else
+                                        FOREACH_ARRAY(i, extension_images, n_extension_images) {
+                                                r = mount_image_add(&c->extension_images, &c->n_extension_images, i);
+                                                if (r < 0)
+                                                        return r;
+                                        }
 
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS,
                                                     name,
@@ -4228,8 +4243,6 @@ int bus_exec_context_set_transient_property(
                                                     format_str);
                         }
                 }
-
-                extension_images = mount_image_free_many(extension_images, &n_extension_images);
 
                 return 1;
 
