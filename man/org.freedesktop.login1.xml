@@ -276,7 +276,6 @@ node /org/freedesktop/login1 {
       readonly t RuntimeDirectoryInodesMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t InhibitorsMax = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t NCurrentInhibitors = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t SessionsMax = ...;
