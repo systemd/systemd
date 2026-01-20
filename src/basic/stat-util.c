@@ -415,6 +415,8 @@ int path_is_network_fs(const char *path) {
 }
 
 int proc_mounted(void) {
+        /* This is typically used in error path. So, it is better to not overwrite the original errno. */
+        PROTECT_ERRNO;
         int r;
 
         /* A quick check of procfs is properly mounted */
