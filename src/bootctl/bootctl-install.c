@@ -16,12 +16,12 @@
 #include "efi-fundamental.h"
 #include "efivars.h"
 #include "env-file.h"
-#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "id128-util.h"
+#include "install-file.h"
 #include "io-util.h"
 #include "kernel-config.h"
 #include "log.h"
@@ -597,17 +597,12 @@ static int install_entry_token(void) {
 
 #if HAVE_OPENSSL
 static int efi_timestamp(EFI_TIME *ret) {
-        uint64_t epoch = UINT64_MAX;
         struct tm tm = {};
         int r;
 
         assert(ret);
 
-        r = secure_getenv_uint64("SOURCE_DATE_EPOCH", &epoch);
-        if (r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SOURCE_DATE_EPOCH, ignoring: %m");
-
-        r = localtime_or_gmtime_usec(epoch != UINT64_MAX ? epoch : now(CLOCK_REALTIME), /* utc= */ true, &tm);
+        r = localtime_or_gmtime_usec(source_date_epoch_or_now(), /* utc= */ true, &tm);
         if (r < 0)
                 return log_error_errno(r, "Failed to convert timestamp to calendar time: %m");
 
