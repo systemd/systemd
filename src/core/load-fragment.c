@@ -5175,7 +5175,9 @@ int config_parse_mount_images(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                c->mount_images = mount_image_free_many(c->mount_images, &c->n_mount_images);
+                mount_image_free_many(c->mount_images, c->n_mount_images);
+                c->mount_images = NULL;
+                c->n_mount_images = 0;
                 return 0;
         }
 
@@ -5323,7 +5325,9 @@ int config_parse_extension_images(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                c->extension_images = mount_image_free_many(c->extension_images, &c->n_extension_images);
+                mount_image_free_many(c->extension_images, c->n_extension_images);
+                c->extension_images = NULL;
+                c->n_extension_images = 0;
                 return 0;
         }
 
