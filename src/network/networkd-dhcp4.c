@@ -1206,14 +1206,6 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address.");
 
                         if (link->dhcp_lease) {
-                                if (link->network->dhcp_send_release) {
-                                        r = sd_dhcp_client_send_release(client);
-                                        if (r < 0)
-                                                log_link_full_errno(link,
-                                                                    ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_WARNING,
-                                                                    r, "Failed to send DHCP RELEASE, ignoring: %m");
-                                }
-
                                 r = dhcp4_lease_lost(link);
                                 if (r < 0) {
                                         link_enter_failed(link);
@@ -1502,6 +1494,11 @@ static int dhcp4_configure(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to %s BOOTP: %m",
                                             enable_disable(link->network->dhcp_use_bootp));
+
+        r = sd_dhcp_client_set_send_release(link->dhcp_client, link->network->dhcp_send_release);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to %s sending release message on stop: %m",
+                                            enable_disable(link->network->dhcp_send_release));
 
         r = sd_dhcp_client_attach_event(link->dhcp_client, link->manager->event, 0);
         if (r < 0)
@@ -1865,8 +1862,27 @@ int link_request_dhcp4_client(Link *link) {
         return 0;
 }
 
+static bool link_should_drop_dhcp4_config(Link *link, Network *network) {
+        assert(link);
+        assert(link->network);
+
+        if (!link_dhcp4_enabled(link))
+                 /* DHCP client is now disabled. */
+                return true;
+
+        if (link->dhcp_client && link->network->dhcp_use_bootp &&
+            network && !network->dhcp_use_bootp && network->dhcp_send_release)
+                /* The client was enabled as a DHCP client and sending release message is requested, and now
+                 * the client is enabled as a BOOTP client. In this case, we need to release the previous
+                 * lease, and hence all DHCPv4 configurations (address, routes, DNS servers, and so on) needs
+                 * to be dropped. */
+                return true;
+
+        return false;
+}
+
 int link_drop_dhcp4_config(Link *link, Network *network) {
-        int r, ret = 0;
+        int ret = 0;
 
         assert(link);
         assert(link->network);
@@ -1874,8 +1890,8 @@ int link_drop_dhcp4_config(Link *link, Network *network) {
         if (link->network == network)
                 return 0; /* .network file is unchanged. It is not necessary to reconfigure the client. */
 
-        if (!link_dhcp4_enabled(link)) {
-                /* DHCP client is disabled. Stop the client if it is running and drop the lease. */
+        if (link_should_drop_dhcp4_config(link, network)) {
+                /* Stop the client if it is running and drop the lease. */
                 ret = sd_dhcp_client_stop(link->dhcp_client);
 
                 /* Also explicitly drop DHCPv4 address and routes. Why? This is for the case when the DHCPv4
@@ -1883,17 +1899,6 @@ int link_drop_dhcp4_config(Link *link, Network *network) {
                  * .network file may match to the interface, and DHCPv4 client may be disabled. In that case,
                  * the DHCPv4 client is not running, hence sd_dhcp_client_stop() in the above does nothing. */
                 RET_GATHER(ret, dhcp4_remove_address_and_routes(link, /* only_marked= */ false));
-        }
-
-        if (link->dhcp_client && link->network->dhcp_use_bootp &&
-            network && !network->dhcp_use_bootp && network->dhcp_send_release) {
-                /* If the client was enabled as a DHCP client, and is now enabled as a BOOTP client, release
-                 * the previous lease. Note, this can be easily fail, e.g. when the interface is down. Hence,
-                 * ignore any failures here. */
-                r = sd_dhcp_client_send_release(link->dhcp_client);
-                if (r < 0)
-                        log_link_full_errno(link, ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                            "Failed to send DHCP RELEASE, ignoring: %m");
         }
 
         /* Even if the client is currently enabled and also enabled in the new .network file, detailed
