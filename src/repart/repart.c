@@ -31,7 +31,6 @@
 #include "dirent-util.h"
 #include "dissect-image.h"
 #include "efivars.h"
-#include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "factory-reset.h"
@@ -48,6 +47,7 @@
 #include "id128-util.h"
 #include "image-policy.h"
 #include "initrd-util.h"
+#include "install-file.h"
 #include "io-util.h"
 #include "json-util.h"
 #include "libmount-util.h"
@@ -6275,30 +6275,6 @@ static int make_subvolumes_by_source_inode_hashmap(
         return 0;
 }
 
-static usec_t epoch_or_infinity(void) {
-        static usec_t cache;
-        static bool cached = false;
-        uint64_t epoch;
-        int r;
-
-        if (cached)
-                return cache;
-
-        r = secure_getenv_uint64("SOURCE_DATE_EPOCH", &epoch);
-        if (r >= 0) {
-                if (epoch <= UINT64_MAX / USEC_PER_SEC) { /* Overflow check */
-                        cached = true;
-                        return (cache = epoch * USEC_PER_SEC);
-                }
-                r = -ERANGE;
-        }
-        if (r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SOURCE_DATE_EPOCH, ignoring: %m");
-
-        cached = true;
-        return (cache = USEC_INFINITY);
-}
-
 static int file_is_denylisted(const char *source, Hashmap *denylist) {
         _cleanup_close_ int pfd = -EBADF;
         struct stat st, rst;
@@ -6391,7 +6367,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 _cleanup_hashmap_free_ Hashmap *denylist = NULL;
                 _cleanup_hashmap_free_ Hashmap *subvolumes_by_source_inode = NULL;
                 _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
-                usec_t ts = epoch_or_infinity();
+                usec_t ts = parse_source_date_epoch();
 
                 r = make_copy_files_denylist(context, p, line->source, line->target, &denylist);
                 if (r < 0)
@@ -6532,7 +6508,7 @@ static int do_make_directories(Partition *p, const char *root) {
         }
 
         STRV_FOREACH(d, override_dirs ?: p->make_directories) {
-                r = mkdir_p_root_full(root, *d, UID_INVALID, GID_INVALID, 0755, epoch_or_infinity(), subvolumes);
+                r = mkdir_p_root_full(root, *d, UID_INVALID, GID_INVALID, 0755, parse_source_date_epoch(), subvolumes);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
         }
