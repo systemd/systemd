@@ -9,10 +9,10 @@
 #include "build.h"
 #include "copy.h"
 #include "efi-fundamental.h"
-#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "install-file.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -293,16 +293,12 @@ static int spc_indirect_data_content_new(const void *digest, size_t digestsz, ui
 
 static int asn1_timestamp(ASN1_TIME **ret) {
         ASN1_TIME *time;
-        uint64_t epoch = UINT64_MAX;
-        int r;
 
         assert(ret);
 
-        r = secure_getenv_uint64("SOURCE_DATE_EPOCH", &epoch);
-        if (r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SOURCE_DATE_EPOCH, ignoring: %m");
+        usec_t epoch = parse_source_date_epoch();
 
-        if (epoch == UINT64_MAX) {
+        if (epoch == USEC_INFINITY) {
                 time = X509_gmtime_adj(NULL, 0);
                 if (!time)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get current time: %s",
