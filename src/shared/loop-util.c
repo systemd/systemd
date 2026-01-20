@@ -690,7 +690,6 @@ int loop_device_make_by_path_at(
         bool direct = false;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
         assert(ret);
         assert(open_flags < 0 || IN_SET(open_flags, O_RDWR, O_RDONLY));
 
@@ -730,8 +729,8 @@ int loop_device_make_by_path_at(
         } else if (open_flags < 0)
                 open_flags = O_RDWR;
 
-        log_debug("Opened '%s' in %s access mode%s, with O_DIRECT %s%s.",
-                  path,
+        log_debug("Opened %s in %s access mode%s, with O_DIRECT %s%s.",
+                  path ?: "loop device",
                   open_flags == O_RDWR ? "O_RDWR" : "O_RDONLY",
                   open_flags != rdwr_flags ? " (O_RDWR was requested but not allowed)" : "",
                   direct ? "enabled" : "disabled",
