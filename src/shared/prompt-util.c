@@ -2,7 +2,7 @@
 
 #include <unistd.h>
 
-#include <sd-varlink.h>
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "glyph-util.h"
