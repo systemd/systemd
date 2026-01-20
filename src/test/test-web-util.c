@@ -17,4 +17,45 @@ TEST(is_valid_documentation_url) {
         ASSERT_FALSE(documentation_url_is_valid(""));
 }
 
+TEST(url_add_port) {
+        _cleanup_free_ char *u = NULL;
+
+        u = http_url_add_port("http://192.0.2.0/journal/" , "19532");
+        ASSERT_STREQ(u, "http://192.0.2.0:19532/journal");
+        u = mfree(u);
+        u = http_url_add_port("http://192.0.2.0/journal", "19532");
+        ASSERT_STREQ(u, "http://192.0.2.0:19532/journal");
+        u = mfree(u);
+        u = http_url_add_port("http://[2001:db8::1]/journal", "19532");
+        ASSERT_STREQ(u, "http://[2001:db8::1]:19532/journal");
+        u = mfree(u);
+        u = http_url_add_port("http://test.example.com/journal", "19532");
+        ASSERT_STREQ(u, "http://test.example.com:19532/journal");
+        u = mfree(u);
+        u = http_url_add_port("http://ssyytteemmdd", "19532");
+        ASSERT_STREQ(u, "http://ssyytteemmdd:19532");
+        u = mfree(u);
+        u = http_url_add_port("https://192.0.2.0:443/journal/", "19532");
+        ASSERT_STREQ(u, "https://192.0.2.0:443/journal");
+        u = mfree(u);
+        u = http_url_add_port("https://192.0.2.0/journal/", "19532");
+        ASSERT_STREQ(u, "https://192.0.2.0:19532/journal");
+        u = mfree(u);
+        u = http_url_add_port("https://[2001:db8::1]:443/journal", "19532");
+        ASSERT_STREQ(u, "https://[2001:db8::1]:443/journal");
+        u = mfree(u);
+        u = http_url_add_port("https://[2001:db8::1]/journal", "19532");
+        ASSERT_STREQ(u, "https://[2001:db8::1]:19532/journal");
+        u = mfree(u);
+        u = http_url_add_port("ssyytteemmdd/journal", "19532");
+        ASSERT_STREQ(u, "https://ssyytteemmdd:19532/journal");
+        u = mfree(u);
+        u = http_url_add_port("ssyytteemmdd:443", "19532");
+        ASSERT_STREQ(u, "https://ssyytteemmdd:443");
+        u = mfree(u);
+        u = http_url_add_port("ssyytteemmdd", "19532");
+        ASSERT_STREQ(u, "https://ssyytteemmdd:19532");
+        u = mfree(u);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
