@@ -713,6 +713,7 @@ static int vl_method_mount_image(
         return sd_varlink_replybo(
                         link,
                         SD_JSON_BUILD_PAIR_VARIANT("partitions", aj),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("singleFileSystem", di->single_file_system),
                         SD_JSON_BUILD_PAIR_STRING("imagePolicy", ps),
                         SD_JSON_BUILD_PAIR_UNSIGNED("imageSize", di->image_size),
                         SD_JSON_BUILD_PAIR_UNSIGNED("sectorSize", di->sector_size),
