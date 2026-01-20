@@ -40,6 +40,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fsck-util.h"
+#include "fstab-util.h"
 #include "gpt.h"
 #include "hash-funcs.h"
 #include "hexdecoct.h"
@@ -5185,13 +5186,32 @@ int mountfsd_mount_image_fd(
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *mount_options = NULL;
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                _cleanup_free_ char *filtered = NULL;
+
                 const char *o = mount_options_from_designator(options, i);
                 if (!o)
                         continue;
 
+                /* We communicate relaxExtensionReleaseCheck separately via the varlink API, so filter it out
+                 * from the mount options we pass to mountfsd. */
+                if (IN_SET(i, PARTITION_ROOT, PARTITION_USR)) {
+                        r = fstab_filter_options(
+                                        o,
+                                        "x-systemd.relax-extension-release-check\0",
+                                        /* ret_namefound= */ NULL,
+                                        /* ret_value= */ NULL,
+                                        /* ret_values= */ NULL,
+                                        &filtered);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to filter mount options: %m");
+
+                        if (isempty(filtered))
+                                continue;
+                }
+
                 r = sd_json_variant_merge_objectbo(
                                 &mount_options,
-                                SD_JSON_BUILD_PAIR_STRING(partition_designator_to_string(i), o));
+                                SD_JSON_BUILD_PAIR_STRING(partition_designator_to_string(i), filtered ?: o));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build mount options array: %m");
         }
@@ -5208,6 +5228,7 @@ int mountfsd_mount_image_fd(
                         SD_JSON_BUILD_PAIR_BOOLEAN("growFileSystems", FLAGS_SET(flags, DISSECT_IMAGE_GROWFS)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!ps, "imagePolicy", SD_JSON_BUILD_STRING(ps)),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("mountOptions", mount_options),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("relaxExtensionReleaseChecks", mount_options_relax_extension_release_checks(options)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("veritySharing", FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)),
                         SD_JSON_BUILD_PAIR_CONDITION(verity_data_fd >= 0, "verityDataFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd >= 0 ? 2 : 1)),
                         SD_JSON_BUILD_PAIR_CONDITION(verity && iovec_is_set(&verity->root_hash), "verityRootHash", JSON_BUILD_IOVEC_HEX(&verity->root_hash)),
