@@ -6,6 +6,7 @@
 
 #include "btrfs-util.h"
 #include "chattr-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -13,6 +14,7 @@
 #include "log.h"
 #include "rm-rf.h"
 #include "sync-util.h"
+#include "time-util.h"
 
 static int fs_make_very_read_only(int fd) {
         struct stat st;
@@ -268,4 +270,39 @@ int install_file(int source_atfd, const char *source_name,
         }
 
         return 0;
+}
+
+usec_t parse_source_date_epoch(void) {
+        static usec_t cache;
+        static bool cached = false;
+        int r;
+
+        if (cached)
+                return cache;
+
+        uint64_t t;
+        r = secure_getenv_uint64("SOURCE_DATE_EPOCH", &t);
+        if (r >= 0) {
+                if (MUL_SAFE(&cache, t, USEC_PER_SEC)) {
+                        cached = true;
+                        return cache;
+                }
+
+                r = -ERANGE;
+        }
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SOURCE_DATE_EPOCH, ignoring: %m");
+
+        cached = true;
+        return (cache = USEC_INFINITY);
+}
+
+usec_t source_date_epoch_or_now(void) {
+        usec_t epoch;
+
+        epoch = parse_source_date_epoch();
+        if (epoch != USEC_INFINITY)
+                return epoch;
+
+        return now(CLOCK_REALTIME);
 }
