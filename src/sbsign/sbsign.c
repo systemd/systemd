@@ -299,7 +299,7 @@ static int asn1_timestamp(ASN1_TIME **ret) {
         assert(ret);
 
         r = secure_getenv_uint64("SOURCE_DATE_EPOCH", &epoch);
-        if (r != -ENXIO)
+        if (r != 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SOURCE_DATE_EPOCH, ignoring: %m");
 
         if (epoch == UINT64_MAX) {
