@@ -836,3 +836,10 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   overall number of threads used to load modules by `systemd-modules-load`.
   If unset, the default number of threads is equal to the number of online CPUs,
   with a maximum of 16. If set to `0`, multi-threaded loading is disabled.
+
+`systemd-sysupdate`:
+
+* `$SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS` – takes a boolean. If false the
+  'freshness' check via `BEST-BEFORE-YYYY-MM-DD` files in `SHA256SUMS` manifest
+  files is disabled, and updating from outdated manifests will not result in an
+  error.
