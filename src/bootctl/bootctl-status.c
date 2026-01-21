@@ -900,6 +900,8 @@ int verb_list(int argc, char *argv[], void *userdata) {
          * Here we're interested in the latter but not the former, hence request the mode, and log about
          * EACCES. */
 
+        (void) touch_variables();
+
         r = acquire_esp(/* unprivileged_mode= */ -1, /* graceful= */ false, NULL, NULL, NULL, NULL, &esp_devid);
         if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
                 return log_error_errno(r, "Failed to determine ESP location: %m");
