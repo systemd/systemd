@@ -183,7 +183,7 @@ int fdset_new_fill(
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS),
                                                "Failed to open /proc/self/fd/, /proc/ is not mounted.");
 
-                return log_debug_errno(errno, "Failed to open /proc/self/fd/: %m ");
+                return log_debug_errno(errno, "Failed to open /proc/self/fd/: %m");
         }
 
         s = fdset_new();
@@ -214,11 +214,14 @@ int fdset_new_fill(
 
                         fl = RET_NERRNO(fcntl(fd, F_GETFD));
                         if (fl < 0) {
-                                _cleanup_free_ char *path = NULL;
-                                (void) fd_get_path(fd, &path);
-                                return log_debug_errno(fl,
-                                                       "Failed to get flag of fd=%d (%s): %m ",
-                                                       fd, strna(path));
+                                if (DEBUG_LOGGING) {
+                                        _cleanup_free_ char *path = NULL;
+                                        (void) fd_get_path(fd, &path);
+                                        log_debug_errno(fl, "Failed to get flags of fd=%d (%s): %m",
+                                                        fd, strna(path));
+                                }
+
+                                return fl;
                         }
 
                         if (FLAGS_SET(fl, FD_CLOEXEC) != !!filter_cloexec)
@@ -229,21 +232,27 @@ int fdset_new_fill(
                 if (filter_cloexec <= 0) {
                         r = fd_cloexec(fd, true);
                         if (r < 0) {
-                                _cleanup_free_ char *path = NULL;
-                                (void) fd_get_path(fd, &path);
-                                return log_debug_errno(r,
-                                                       "Failed to set CLOEXEC flag fd=%d (%s): %m ",
-                                                       fd, strna(path));
+                                if (DEBUG_LOGGING) {
+                                        _cleanup_free_ char *path = NULL;
+                                        (void) fd_get_path(fd, &path);
+                                        log_debug_errno(r, "Failed to set CLOEXEC flag on fd=%d (%s): %m",
+                                                        fd, strna(path));
+                                }
+
+                                return r;
                         }
                 }
 
                 r = fdset_put(s, fd);
                 if (r < 0) {
-                        _cleanup_free_ char *path = NULL;
-                        (void) fd_get_path(fd, &path);
-                        return log_debug_errno(r,
-                                               "Failed to put fd=%d (%s) into fdset: %m ",
-                                               fd, strna(path));
+                        if (DEBUG_LOGGING) {
+                                _cleanup_free_ char *path = NULL;
+                                (void) fd_get_path(fd, &path);
+                                log_debug_errno(r, "Failed to put fd=%d (%s) into fdset: %m",
+                                                fd, strna(path));
+                        }
+
+                        return r;
                 }
         }
 

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
 #include "iterator.h"
+#include "shared-forward.h"
 
 FDSet* fdset_new(void);
 FDSet* fdset_free(FDSet *s);
