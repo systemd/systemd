@@ -518,6 +518,11 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_tristate_argument("--variables=", optarg, &arg_touch_variables);
                         if (r < 0)
                                 return r;
+#if !ENABLE_EFI
+                        if (arg_touch_variables > 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Compiled without support for EFI, --variables=%s cannot be specified.", optarg);
+#endif
                         break;
 
                 case ARG_NO_VARIABLES:
