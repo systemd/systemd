@@ -37,6 +37,7 @@
 #include "os-util.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "rm-rf.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -1322,6 +1323,97 @@ static int vl_method_chown_directory(
         return sd_varlink_reply(link, /* parameters= */ NULL);
 }
 
+typedef struct RemoveDirectoryParameters {
+        unsigned parent_fd_idx;
+        const char *name;
+} RemoveDirectoryParameters;
+
+static int vl_method_remove_directory(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "parentFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,        offsetof(RemoveDirectoryParameters, parent_fd_idx), SD_JSON_MANDATORY },
+                { "name",                 SD_JSON_VARIANT_STRING,        json_dispatch_const_filename, offsetof(RemoveDirectoryParameters, name),          SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        RemoveDirectoryParameters p = {
+                .parent_fd_idx = UINT_MAX,
+        };
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.parent_fd_idx == UINT_MAX)
+                return sd_varlink_error_invalid_parameter_name(link, "parentFileDescriptor");
+
+        _cleanup_close_ int parent_fd = sd_varlink_peek_dup_fd(link, p.parent_fd_idx);
+        if (parent_fd < 0)
+                return log_debug_errno(parent_fd, "Failed to peek parent directory fd from client: %m");
+
+        uid_t peer_uid;
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get client UID: %m");
+
+        struct stat parent_stat;
+        if (fstat(parent_fd, &parent_stat) < 0)
+                return -errno;
+
+        r = stat_verify_directory(&parent_stat);
+        if (r < 0)
+                return r;
+
+        int fl = fd_verify_safe_flags_full(parent_fd, O_DIRECTORY);
+        if (fl < 0)
+                return log_debug_errno(fl, "Directory file descriptor has unsafe flags set: %m");
+
+        _cleanup_free_ char *parent_path = NULL;
+        (void) fd_get_path(parent_fd, &parent_path);
+
+        _cleanup_free_ char *remove_path = parent_path ? path_join(parent_path, p.name) : NULL;
+        log_debug("Asked to remove directory: %s", strna(remove_path));
+
+        const char *polkit_details[] = {
+                "directory", strna(remove_path),
+                NULL,
+        };
+
+        const char *polkit_action;
+        PolkitFlags polkit_flags;
+        if (parent_stat.st_uid != peer_uid) {
+                polkit_action = "io.systemd.mount-file-system.remove-directory-untrusted";
+                polkit_flags = 0;
+        } else {
+                polkit_action = "io.systemd.mount-file-system.remove-directory";
+                polkit_flags = POLKIT_DEFAULT_ALLOW;
+        }
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL,
+                        polkit_action,
+                        polkit_details,
+                        /* good_user= */ UID_INVALID,
+                        polkit_flags,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = rm_rf_child_full(parent_fd, p.name, REMOVE_PHYSICAL|REMOVE_SUBVOLUME, FOREIGN_UID_MIN, FOREIGN_UID_MAX);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to recursively remove directory '%s': %m", strna(remove_path));
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int process_connection(sd_varlink_server *server, int _fd) {
         _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possession */
         _cleanup_(sd_varlink_close_unrefp) sd_varlink *vl = NULL;
@@ -1394,7 +1486,8 @@ static int run(int argc, char *argv[]) {
                         "io.systemd.MountFileSystem.MountImage",     vl_method_mount_image,
                         "io.systemd.MountFileSystem.MountDirectory", vl_method_mount_directory,
                         "io.systemd.MountFileSystem.MakeDirectory",  vl_method_make_directory,
-                        "io.systemd.MountFileSystem.ChownDirectory", vl_method_chown_directory);
+                        "io.systemd.MountFileSystem.ChownDirectory", vl_method_chown_directory,
+                        "io.systemd.MountFileSystem.RemoveDirectory", vl_method_remove_directory);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind methods: %m");
 
