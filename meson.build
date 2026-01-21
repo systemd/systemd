@@ -2911,7 +2911,7 @@ endif
 alias_target('gensources', generated_sources)
 
 clang_tidy = find_program('clang-tidy', required : false)
-if meson.version().version_compare('>=1.10.0')
+if meson.version().version_compare('>=1.4.0')
         uniq = {}
 
         foreach source : sources
@@ -2921,7 +2921,11 @@ if meson.version().version_compare('>=1.10.0')
                 uniq += {source.full_path(): source}
         endforeach
 
-        sources = uniq.values()
+        # TODO: Use uniq.values() when we can rely on meson 1.10.0.
+        sources = []
+        foreach path, file : uniq
+                sources += [file]
+        endforeach
 
         foreach source : sources
                 if systemd_headers.contains(source)
