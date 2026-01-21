@@ -17,7 +17,8 @@ two specific features of container management:
 2. Stricter default security policies, i.e. sand-boxing of applications.
 
 The primary tool for interacting with Portable Services is `portablectl`,
-and they are managed by the `systemd-portabled` service.
+and they are managed by the `systemd-portabled` service. `systemd-portabled` can
+run as a system or a user service.
 
 Portable services don't bring anything inherently new to the table.
 All they do is put together known concepts to cover a specific set of use-cases in a
@@ -249,6 +250,14 @@ This is particularly relevant if the images are cryptographically authenticated 
 validated against the (authenticated) image contents.
 If the field is not specified the image will work fine, but is not necessarily recognizable as
 portable service image, and any set of units included in the image may be attached, there are no restrictions enforced.
+
+The [os-release(5)](https://www.freedesktop.org/software/systemd/man/os-release.html) may
+optionally be extended with a `PORTABLE_SCOPE=` field listing the scope in which the portable
+service may be used. This field may be set to either `system`, in which case the portable service
+can only be attached to the system instance of `systemd-portabled`, `user` in which case the portable
+can only be attached to a user instance of `systemd-portabled`, or `any` in which case it can be
+attached to either the system instance or user instances of `systemd-portabled`. If not specified, the
+`system` scope is implied.
 
 ## Extension Images
 
