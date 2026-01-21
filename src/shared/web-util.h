@@ -9,3 +9,4 @@ bool file_url_is_valid(const char *url) _pure_;
 bool documentation_url_is_valid(const char *url) _pure_;
 
 bool http_etag_is_valid(const char *etag);
+char* http_url_add_port(const char *url, const char *port);
