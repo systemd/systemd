@@ -392,6 +392,81 @@ void manager_revert(Manager *manager) {
         manager_kill_workers(manager, SIGTERM);
 }
 
+static int on_worker_timeout_kill(sd_event_source *s, uint64_t usec, void *userdata) {
+        Worker *worker = ASSERT_PTR(userdata);
+        Manager *manager = ASSERT_PTR(worker->manager);
+        Event *event = ASSERT_PTR(worker->event);
+
+        (void) pidref_kill_and_sigcont(&worker->pidref, manager->config.timeout_signal);
+        worker->state = WORKER_KILLED;
+
+        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed.", worker->pidref.pid, event->seqnum);
+        return 0;
+}
+
+static int on_worker_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
+        Worker *worker = ASSERT_PTR(userdata);
+        Event *event = ASSERT_PTR(worker->event);
+
+        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time.", worker->pidref.pid, event->seqnum);
+        return 0;
+}
+
+static void worker_attach_event(Worker *worker, Event *event) {
+        Manager *manager = ASSERT_PTR(ASSERT_PTR(worker)->manager);
+
+        assert(event);
+        assert(event->state == EVENT_QUEUED);
+        assert(!event->worker);
+        assert(IN_SET(worker->state, WORKER_UNDEF, WORKER_IDLE));
+        assert(!worker->event);
+
+        worker->state = WORKER_RUNNING;
+        worker->event = event;
+        event->state = EVENT_RUNNING;
+        event->worker = worker;
+
+        (void) event_reset_time_relative(
+                        manager->event,
+                        &worker->timeout_warning_event_source,
+                        CLOCK_MONOTONIC,
+                        udev_warn_timeout(manager->config.timeout_usec),
+                        USEC_PER_SEC,
+                        on_worker_timeout_warning,
+                        worker,
+                        EVENT_PRIORITY_WORKER_TIMER,
+                        "worker-timeout-warn",
+                        /* force_reset= */ true);
+
+        (void) event_reset_time_relative(
+                        manager->event,
+                        &worker->timeout_kill_event_source,
+                        CLOCK_MONOTONIC,
+                        manager_kill_worker_timeout(manager),
+                        USEC_PER_SEC,
+                        on_worker_timeout_kill,
+                        worker,
+                        EVENT_PRIORITY_WORKER_TIMER,
+                        "worker-timeout-kill",
+                        /* force_reset= */ true);
+}
+
+static Event* worker_detach_event(Worker *worker) {
+        assert(worker);
+
+        Event *event = TAKE_PTR(worker->event);
+        if (event)
+                assert_se(TAKE_PTR(event->worker) == worker);
+
+        if (worker->state != WORKER_KILLED)
+                worker->state = WORKER_IDLE;
+
+        (void) event_source_disable(worker->timeout_warning_event_source);
+        (void) event_source_disable(worker->timeout_kill_event_source);
+
+        return event;
+}
+
 static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
         _cleanup_(worker_freep) Worker *worker = ASSERT_PTR(userdata);
         sd_device *dev = worker->event ? ASSERT_PTR(worker->event->dev) : NULL;
@@ -470,81 +545,6 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
 
         *ret = TAKE_PTR(worker);
         return 0;
-}
-
-static int on_worker_timeout_kill(sd_event_source *s, uint64_t usec, void *userdata) {
-        Worker *worker = ASSERT_PTR(userdata);
-        Manager *manager = ASSERT_PTR(worker->manager);
-        Event *event = ASSERT_PTR(worker->event);
-
-        (void) pidref_kill_and_sigcont(&worker->pidref, manager->config.timeout_signal);
-        worker->state = WORKER_KILLED;
-
-        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed.", worker->pidref.pid, event->seqnum);
-        return 0;
-}
-
-static int on_worker_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
-        Worker *worker = ASSERT_PTR(userdata);
-        Event *event = ASSERT_PTR(worker->event);
-
-        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time.", worker->pidref.pid, event->seqnum);
-        return 0;
-}
-
-static void worker_attach_event(Worker *worker, Event *event) {
-        Manager *manager = ASSERT_PTR(ASSERT_PTR(worker)->manager);
-
-        assert(event);
-        assert(event->state == EVENT_QUEUED);
-        assert(!event->worker);
-        assert(IN_SET(worker->state, WORKER_UNDEF, WORKER_IDLE));
-        assert(!worker->event);
-
-        worker->state = WORKER_RUNNING;
-        worker->event = event;
-        event->state = EVENT_RUNNING;
-        event->worker = worker;
-
-        (void) event_reset_time_relative(
-                        manager->event,
-                        &worker->timeout_warning_event_source,
-                        CLOCK_MONOTONIC,
-                        udev_warn_timeout(manager->config.timeout_usec),
-                        USEC_PER_SEC,
-                        on_worker_timeout_warning,
-                        worker,
-                        EVENT_PRIORITY_WORKER_TIMER,
-                        "worker-timeout-warn",
-                        /* force_reset= */ true);
-
-        (void) event_reset_time_relative(
-                        manager->event,
-                        &worker->timeout_kill_event_source,
-                        CLOCK_MONOTONIC,
-                        manager_kill_worker_timeout(manager),
-                        USEC_PER_SEC,
-                        on_worker_timeout_kill,
-                        worker,
-                        EVENT_PRIORITY_WORKER_TIMER,
-                        "worker-timeout-kill",
-                        /* force_reset= */ true);
-}
-
-static Event* worker_detach_event(Worker *worker) {
-        assert(worker);
-
-        Event *event = TAKE_PTR(worker->event);
-        if (event)
-                assert_se(TAKE_PTR(event->worker) == worker);
-
-        if (worker->state != WORKER_KILLED)
-                worker->state = WORKER_IDLE;
-
-        (void) event_source_disable(worker->timeout_warning_event_source);
-        (void) event_source_disable(worker->timeout_kill_event_source);
-
-        return event;
 }
 
 static int worker_spawn(Manager *manager, Event *event) {
