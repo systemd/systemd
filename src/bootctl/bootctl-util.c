@@ -2,17 +2,86 @@
 
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "boot-entry.h"
 #include "bootctl.h"
 #include "bootctl-util.h"
+#include "efivars.h"
 #include "errno-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "sync-util.h"
+#include "virt.h"
+
+bool touch_variables(void) {
+        /* If we run in a container or on a non-EFI system, automatically turn off EFI file system access,
+         * unless explicitly overridden. */
+
+        if (arg_touch_variables >= 0)
+                return set_efi_boot(arg_touch_variables);
+
+        if (arg_root) {
+                log_once(LOG_NOTICE,
+                         "Operating on %s, skipping EFI variable modifications.",
+                         arg_image ? "image" : "root directory");
+                return set_efi_boot(false);
+        }
+
+        if (!is_efi_boot()) { /* NB: this internally checks if we run in a container */
+                log_once(LOG_NOTICE,
+                         "Not booted with EFI or running in a container, skipping EFI variable modifications.");
+                return false;
+        }
+
+        return true;
+}
+
+int verify_touch_variables_allowed(const char *command) {
+        /* Note: changing EFI variables is the primary purpose of these verbs, hence unlike in the other
+         * verbs that might touch EFI variables where we skip things gracefully, here we fail loudly if we
+         * are not run on EFI or EFI variable modifications were turned off. */
+
+        if (arg_touch_variables > 0) {
+                /* If we explicitly allowed to touch EFI variables, then skip the is_efi_boot() checks used
+                 * at various places. */
+                set_efi_boot(true);
+                return 0;
+        }
+
+        if (arg_touch_variables == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "'%s' operation cannot be combined with --variables=no.",
+                                       command);
+
+        if (arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Acting on %s, refusing EFI variable setup.",
+                                       arg_image ? "image" : "root directory");
+
+        if (detect_container() > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "'%s' operation not supported in a container.",
+                                       command);
+
+        if (!is_efi_boot())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Not booted with UEFI.");
+
+        if (access(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderInfo")), F_OK) < 0) {
+                if (errno == ENOENT) {
+                        log_error_errno(errno, "Not booted with a supported boot loader.");
+                        return -EOPNOTSUPP;
+                }
+
+                return log_error_errno(errno, "Failed to detect whether boot loader supports '%s' operation: %m", command);
+        }
+
+        return 0;
+}
 
 int sync_everything(void) {
         int r = 0, k;
