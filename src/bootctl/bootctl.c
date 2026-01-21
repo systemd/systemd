@@ -139,8 +139,8 @@ int acquire_xbootldr(
         int r;
 
         r = find_xbootldr_and_warn(arg_root, arg_xbootldr_path, unprivileged_mode, &np, ret_uuid, ret_devid);
-        if (r == -ENOKEY) {
-                log_debug_errno(r, "Didn't find an XBOOTLDR partition, using the ESP as $BOOT.");
+        if (r == -ENOKEY || path_equal(np, arg_esp_path)) {
+                log_debug("Didn't find an XBOOTLDR partition, using the ESP as $BOOT.");
                 arg_xbootldr_path = mfree(arg_xbootldr_path);
 
                 if (ret_uuid)
