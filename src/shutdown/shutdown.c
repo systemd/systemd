@@ -430,6 +430,47 @@ int main(int argc, char *argv[]) {
              need_dm_detach = !in_container, need_md_detach = !in_container,
              can_exitrd = !in_container && !in_initrd() && access("/run/initramfs/shutdown", X_OK) >= 0;
 
+        /* We're done with the watchdog. Note that the watchdog is explicitly not stopped here. It remains
+         * active to guard against any issues during the rest of the shutdown sequence. Note that we
+         * explicitly close the device with disarm=false here, before releasing the rest of the watchdog
+         * data. */
+        watchdog_close(/* disarm= */ false);
+        watchdog_free_device();
+
+        const char *arguments[] = {
+                NULL, /* Filled in by execute_directories(), when needed */
+                arg_verb,
+                NULL,
+        };
+        (void) execute_directories(
+                        "system-shutdown",
+                        dirs,
+                        DEFAULT_TIMEOUT_USEC,
+                        /* callbacks= */ NULL,
+                        /* callback_args= */ NULL,
+                        (char**) arguments,
+                        /* envp= */ NULL,
+                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+
+        (void) rlimit_nofile_safe();
+
+        if (can_exitrd) {
+                r = switch_root_initramfs();
+                if (r >= 0) {
+                        argv[0] = (char*) "/shutdown";
+
+                        (void) setsid();
+                        (void) make_console_stdio();
+
+                        log_info("Successfully changed into root pivot.\n"
+                                 "Entering exitrd...");
+
+                        execv("/shutdown", argv);
+                        log_error_errno(errno, "Failed to execute shutdown binary: %m");
+                } else
+                        log_error_errno(r, "Failed to switch root to \"/run/initramfs\": %m");
+        }
+
         /* Unmount all mountpoints, swaps, and loopback devices */
         for (bool last_try = false;;) {
                 bool changed = false;
@@ -534,47 +575,6 @@ int main(int argc, char *argv[]) {
                           need_loop_detach ? " loop devices," : "",
                           need_dm_detach ? " DM devices," : "",
                           need_md_detach ? " MD devices," : "");
-        }
-
-        /* We're done with the watchdog. Note that the watchdog is explicitly not stopped here. It remains
-         * active to guard against any issues during the rest of the shutdown sequence. Note that we
-         * explicitly close the device with disarm=false here, before releasing the rest of the watchdog
-         * data. */
-        watchdog_close(/* disarm= */ false);
-        watchdog_free_device();
-
-        const char *arguments[] = {
-                NULL, /* Filled in by execute_directories(), when needed */
-                arg_verb,
-                NULL,
-        };
-        (void) execute_directories(
-                        "system-shutdown",
-                        dirs,
-                        DEFAULT_TIMEOUT_USEC,
-                        /* callbacks= */ NULL,
-                        /* callback_args= */ NULL,
-                        (char**) arguments,
-                        /* envp= */ NULL,
-                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
-
-        (void) rlimit_nofile_safe();
-
-        if (can_exitrd) {
-                r = switch_root_initramfs();
-                if (r >= 0) {
-                        argv[0] = (char*) "/shutdown";
-
-                        (void) setsid();
-                        (void) make_console_stdio();
-
-                        log_info("Successfully changed into root pivot.\n"
-                                 "Entering exitrd...");
-
-                        execv("/shutdown", argv);
-                        log_error_errno(errno, "Failed to execute shutdown binary: %m");
-                } else
-                        log_error_errno(r, "Failed to switch root to \"/run/initramfs\": %m");
         }
 
         if (need_umount || need_swapoff || need_loop_detach || need_dm_detach || need_md_detach)
