@@ -657,6 +657,7 @@ static int vl_method_mount_image(
         if (r < 0)
                 return r;
 
+        _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL;
         for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
                 DissectedPartition *pp = di->partitions + d;
                 int fd_idx;
@@ -668,7 +669,14 @@ static int vl_method_mount_image(
                         continue;
 
                 if (userns_fd >= 0) {
-                        r = nsresource_add_mount(userns_fd, pp->fsmount_fd);
+
+                        if (!nsresource_link) {
+                                r = nsresource_connect(&nsresource_link);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        r = nsresource_add_mount(nsresource_link, userns_fd, pp->fsmount_fd);
                         if (r < 0)
                                 return r;
                 }
@@ -775,6 +783,7 @@ static JSON_DISPATCH_ENUM_DEFINE(dispatch_mount_directory_mode, MountMapMode, mo
 
 static DirectoryOwnership validate_directory_fd(
                 int fd,
+                const char *path, /* purely for logging purposes */
                 uid_t peer_uid,
                 uid_t *ret_current_owner_uid) {
 
@@ -809,14 +818,14 @@ static DirectoryOwnership validate_directory_fd(
         if (st.st_uid == 0) {
                 *ret_current_owner_uid = st.st_uid;
                 if (peer_uid == 0) {
-                        log_debug("Directory file descriptor points to root owned directory, who is also the peer.");
+                        log_debug("Directory file descriptor points to root owned directory (%s), who is also the peer.", strna(path));
                         return DIRECTORY_IS_ROOT_PEER_OWNED;
                 }
-                log_debug("Directory file descriptor points to root owned directory.");
+                log_debug("Directory file descriptor points to root owned directory (%s).", strna(path));
                 return DIRECTORY_IS_ROOT_OWNED;
         }
         if (st.st_uid == peer_uid) {
-                log_debug("Directory file descriptor points to peer owned directory.");
+                log_debug("Directory file descriptor points to peer owned directory (%s).", strna(path));
                 *ret_current_owner_uid = st.st_uid;
                 return DIRECTORY_IS_PEER_OWNED;
         }
@@ -837,7 +846,7 @@ static DirectoryOwnership validate_directory_fd(
 
                 /* If the peer is root, then it doesn't matter if we find a parent owned by root, let's shortcut things. */
                 if (peer_uid == 0) {
-                        log_debug("Directory file descriptor is owned by foreign UID range, and peer is root.");
+                        log_debug("Directory referenced by file descriptor is owned by foreign UID range, and peer is root.");
                         *ret_current_owner_uid = st.st_uid;
                         return DIRECTORY_IS_FOREIGN_OWNED;
                 }
@@ -920,8 +929,12 @@ static int vl_method_mount_directory(
         if (r < 0)
                 return log_debug_errno(r, "Failed to get client UID: %m");
 
+        /* Get path of the fd, to improve logging */
+        _cleanup_free_ char *directory_path = NULL;
+        (void) fd_get_path(directory_fd, &directory_path);
+
         uid_t current_owner_uid;
-        DirectoryOwnership owned_by = validate_directory_fd(directory_fd, peer_uid, &current_owner_uid);
+        DirectoryOwnership owned_by = validate_directory_fd(directory_fd, directory_path, peer_uid, &current_owner_uid);
         if (owned_by == -EREMOTEIO)
                 return sd_varlink_errorbo(link, "io.systemd.MountFileSystem.BadFileDescriptorFlags", SD_JSON_BUILD_PAIR_STRING("parameter", "directoryFileDescriptor"));
         if (owned_by < 0)
@@ -936,9 +949,6 @@ static int vl_method_mount_directory(
                 p.mode = default_mount_map_mode(owned_by);
                 assert(p.mode > 0);
         }
-
-        _cleanup_free_ char *directory_path = NULL;
-        (void) fd_get_path(directory_fd, &directory_path);
 
         log_debug("Mounting '%s' with mapping mode: %s", strna(directory_path), mount_map_mode_to_string(p.mode));
 
@@ -1077,7 +1087,7 @@ static int vl_method_mount_directory(
         }
 
         if (userns_fd >= 0) {
-                r = nsresource_add_mount(userns_fd, mount_fd);
+                r = nsresource_add_mount(/* vl= */ NULL, userns_fd, mount_fd);
                 if (r < 0)
                         return r;
         }
