@@ -74,38 +74,51 @@ static int status_entries(
 
         printf("%sBoot Loader Entry Locations:%s\n", ansi_underline(), ansi_normal());
 
-        printf("          ESP: %s (", esp_path);
-        if (!sd_id128_is_null(esp_partition_uuid))
-                printf("/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "",
+        bool need_paren = false;
+        printf("          ESP: %s", esp_path);
+        if (!sd_id128_is_null(esp_partition_uuid)) {
+                printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "",
                        SD_ID128_FORMAT_VAL(esp_partition_uuid));
-        if (!xbootldr_path)
+                need_paren = true;
+        }
+        if (!xbootldr_path) {
+                if (!need_paren) {
+                        fputs(" (", stdout);
+                        need_paren = true;
+                } else
+                        fputs(", ", stdout);
+
                 /* ESP is $BOOT if XBOOTLDR not present. */
-                printf(", %s$BOOT%s", ansi_green(), ansi_normal());
-        printf(")");
+                printf("%s$BOOT%s", ansi_green(), ansi_normal());
+        }
+        if (need_paren)
+                putchar(')');
+        putchar('\n');
 
         if (config->loader_conf_status != 0) {
                 assert(esp_path);
-                printf("\n       config: %s%s/%s%s",
+                printf("       config: %s%s/%s%s",
                        ansi_grey(), esp_path, ansi_normal(), "/loader/loader.conf");
                 if (config->loader_conf_status < 0)
                         printf(": %s%s%s",
                                config->loader_conf_status == -ENOENT ? ansi_grey() : ansi_highlight_yellow(),
                                STRERROR(config->loader_conf_status),
                                ansi_normal());
+                putchar('\n');
         }
 
         if (xbootldr_path) {
-                printf("\n     XBOOTLDR: %s (", xbootldr_path);
+                printf("     XBOOTLDR: %s (", xbootldr_path);
                 if (!sd_id128_is_null(xbootldr_partition_uuid))
                         printf("/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ", ",
                                SD_ID128_FORMAT_VAL(xbootldr_partition_uuid));
                 /* XBOOTLDR is always $BOOT if present. */
-                printf("%s$BOOT%s)", ansi_green(), ansi_normal());
+                printf("%s$BOOT%s)\n", ansi_green(), ansi_normal());
         }
 
         if (settle_entry_token() >= 0)
-                printf("\n        token: %s", arg_entry_token);
-        printf("\n\n");
+                printf("        token: %s\n", arg_entry_token);
+        putchar('\n');
 
         if (config->default_entry < 0)
                 printf("%zu entries, no entry could be determined as default.\n", config->n_entries);
