@@ -1245,7 +1245,7 @@ fail:
         return r;
 }
 
-static int setup_volatile_overlay(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
+static int setup_volatile_overlay_root(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
         _cleanup_free_ char *buf = NULL, *escaped_directory = NULL, *escaped_upper = NULL, *escaped_work = NULL;
         _cleanup_(rmdir_and_freep) char *template = NULL;
         const char *upper, *work, *options;
@@ -1320,8 +1320,8 @@ int setup_volatile_mode(
         case VOLATILE_STATE:
                 return setup_volatile_state(directory);
 
-        case VOLATILE_OVERLAY:
-                return setup_volatile_overlay(directory, uid_shift, selinux_apifs_context);
+        case VOLATILE_OVERLAY_ROOT:
+                return setup_volatile_overlay_root(directory, uid_shift, selinux_apifs_context);
 
         default:
                 return 0;
