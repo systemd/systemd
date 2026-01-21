@@ -22,13 +22,13 @@ bool touch_variables(void) {
          * unless explicitly overridden. */
 
         if (arg_touch_variables >= 0)
-                return arg_touch_variables;
+                return set_efi_boot(arg_touch_variables);
 
         if (arg_root) {
                 log_once(LOG_NOTICE,
                          "Operating on %s, skipping EFI variable modifications.",
                          arg_image ? "image" : "root directory");
-                return false;
+                return set_efi_boot(false);
         }
 
         if (!is_efi_boot()) { /* NB: this internally checks if we run in a container */
@@ -45,8 +45,12 @@ int verify_touch_variables_allowed(const char *command) {
          * verbs that might touch EFI variables where we skip things gracefully, here we fail loudly if we
          * are not run on EFI or EFI variable modifications were turned off. */
 
-        if (arg_touch_variables > 0)
+        if (arg_touch_variables > 0) {
+                /* If we explicitly allowed to touch EFI variables, then skip the is_efi_boot() checks used
+                 * at various places. */
+                set_efi_boot(true);
                 return 0;
+        }
 
         if (arg_touch_variables == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
