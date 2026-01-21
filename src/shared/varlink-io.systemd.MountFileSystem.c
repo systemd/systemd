@@ -76,7 +76,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("An array with information about contained partitions that have been prepared for mounting, as well as their mount file descriptors."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(partitions, PartitionInfo, SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("Indicates whether the image contains only a single file system, i.e. no partition table."),
-                SD_VARLINK_DEFINE_OUTPUT(singleFileSystem, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_OUTPUT(singleFileSystem, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The used image policy."),
                 SD_VARLINK_DEFINE_OUTPUT(imagePolicy, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The size of the image in bytes."),
