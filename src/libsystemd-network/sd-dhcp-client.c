@@ -103,6 +103,7 @@ struct sd_dhcp_client {
         bool socket_priority_set;
         bool ipv6_acquired;
         bool bootp;
+        bool send_release;
 };
 
 static const uint8_t default_req_opts[] = {
@@ -659,6 +660,14 @@ int sd_dhcp_client_set_bootp(sd_dhcp_client *client, int bootp) {
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
         client->bootp = bootp;
+
+        return 0;
+}
+
+int sd_dhcp_client_set_send_release(sd_dhcp_client *client, int enable) {
+        assert_return(client, -EINVAL);
+
+        client->send_release = enable;
 
         return 0;
 }
@@ -2347,13 +2356,18 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         return r;
 }
 
-int sd_dhcp_client_send_release(sd_dhcp_client *client) {
+static int client_send_release(sd_dhcp_client *client) {
         _cleanup_free_ DHCPPacket *release = NULL;
         size_t optoffset, optlen;
         int r;
 
-        if (!sd_dhcp_client_is_running(client) || !client->lease || client->bootp)
-                return 0; /* do nothing */
+        assert(client);
+
+        if (!client->send_release)
+                return 0; /* disabled */
+
+        if (!client->lease || client->bootp)
+                return 0; /* there is nothing to be released */
 
         r = client_message_init(client, DHCP_RELEASE, &release, &optlen, &optoffset);
         if (r < 0)
@@ -2377,12 +2391,7 @@ int sd_dhcp_client_send_release(sd_dhcp_client *client) {
                 return r;
 
         log_dhcp_client(client, "RELEASE");
-
-        /* This function is mostly called when stopping daemon. Hence, do not call client_stop() or
-         * client_restart(). Otherwise, the notification callback will be called again and we may easily
-         * enter an infinite loop. */
-        client_initialize(client);
-        return 1; /* sent and stopped. */
+        return 0;
 }
 
 int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
@@ -2425,10 +2434,17 @@ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
 }
 
 int sd_dhcp_client_stop(sd_dhcp_client *client) {
+        int r;
+
         if (!client)
                 return 0;
 
         DHCP_CLIENT_DONT_DESTROY(client);
+
+        r = client_send_release(client);
+        if (r < 0)
+                log_dhcp_client_errno(client, r,
+                                      "Failed to send DHCP release message, ignoring: %m");
 
         client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
 
