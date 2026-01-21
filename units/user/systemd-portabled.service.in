@@ -16,6 +16,7 @@ Documentation=man:org.freedesktop.portable1(5)
 ExecStart={{LIBEXECDIR}}/systemd-portabled --user
 BusName=org.freedesktop.portable1
 MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
 RestrictRealtime=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 SystemCallFilter=@system-service @mount
