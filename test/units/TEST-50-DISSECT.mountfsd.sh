@@ -249,3 +249,38 @@ test -d "$TESTHOME/removeme2"
 test -d "$TESTHOME/removeme2/notforeign"
 
 rm -rf "$TESTHOME/removeme2"
+
+# Make sure CopyDirectory() works correctly
+mkdir -p "$TESTHOME/copysource/subdir"
+echo "hello" > "$TESTHOME/copysource/file.txt"
+echo "world" > "$TESTHOME/copysource/subdir/nested.txt"
+chown -R 2147352576:2147352576 "$TESTHOME/copysource"
+
+# Copy it using CopyDirectory - destination should preserve foreign UID range ownership
+run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.CopyDirectory --push-fd="$TESTHOME/copysource" --push-fd="$TESTHOME" '{ "sourceFileDescriptor" : 0, "destinationParentFileDescriptor" : 1, "name" : "copydest" }'
+
+# Verify the copy exists and is owned by the foreign UID root user
+test -d "$TESTHOME/copydest"
+assert_eq "$(stat -c "%u" "$TESTHOME/copydest")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/copydest/subdir")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/copydest/file.txt")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/copydest/subdir/nested.txt")" 2147352576
+
+# Verify content was actually copied
+assert_eq "$(cat "$TESTHOME/copydest/file.txt")" "hello"
+assert_eq "$(cat "$TESTHOME/copydest/subdir/nested.txt")" "world"
+
+rm -rf "$TESTHOME/copysource" "$TESTHOME/copydest"
+
+# Test that CopyDirectory fails if source inodes are outside the foreign UID range
+mkdir -p "$TESTHOME/copysource2/foreign"
+mkdir "$TESTHOME/copysource2/notforeign"
+echo "foreign" > "$TESTHOME/copysource2/foreign/file.txt"
+echo "notforeign" > "$TESTHOME/copysource2/notforeign/file.txt"
+chown -R 2147352576:2147352576 "$TESTHOME/copysource2"
+chown -R root:root "$TESTHOME/copysource2/notforeign"
+
+(! run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.CopyDirectory --push-fd="$TESTHOME/copysource2" --push-fd="$TESTHOME" '{ "sourceFileDescriptor" : 0, "destinationParentFileDescriptor" : 1, "name" : "copydest2" }')
+
+test ! -d "$TESTHOME/copydest2"
+rm -rf "$TESTHOME/copysource2"

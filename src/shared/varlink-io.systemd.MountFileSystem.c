@@ -135,6 +135,16 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
                 VARLINK_DEFINE_POLKIT_INPUT);
 
+static SD_VARLINK_DEFINE_METHOD(
+                CopyDirectory,
+                SD_VARLINK_FIELD_COMMENT("File descriptor of the source directory to copy. Must be a regular, i.e. non-O_PATH file descriptor."),
+                SD_VARLINK_DEFINE_INPUT(sourceFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("File descriptor of the directory containing the destination directory. Must be a regular, i.e. non-O_PATH file descriptor."),
+                SD_VARLINK_DEFINE_INPUT(destinationParentFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Name of the destination directory to create."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                VARLINK_DEFINE_POLKIT_INPUT);
+
 static SD_VARLINK_DEFINE_ERROR(IncompatibleImage);
 static SD_VARLINK_DEFINE_ERROR(MultipleRootPartitionsFound);
 static SD_VARLINK_DEFINE_ERROR(RootPartitionNotFound);
@@ -165,6 +175,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_ChownDirectory,
                 SD_VARLINK_SYMBOL_COMMENT("Recursively removes a directory. Only inodes owned by the foreign UID/GID range are removed."),
                 &vl_method_RemoveDirectory,
+                SD_VARLINK_SYMBOL_COMMENT("Recursively copies a directory tree to a new location, chowning all contents to the foreign UID/GID range's root user."),
+                &vl_method_CopyDirectory,
                 SD_VARLINK_SYMBOL_COMMENT("Disk image is not compatible with this service."),
                 &vl_error_IncompatibleImage,
                 SD_VARLINK_SYMBOL_COMMENT("Multiple suitable root partitions found."),
