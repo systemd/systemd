@@ -223,29 +223,6 @@ static int print_loader_or_stub_path(void) {
         return 0;
 }
 
-bool touch_variables(void) {
-        /* If we run in a container or on a non-EFI system, automatically turn off EFI file system access,
-         * unless explicitly overridden. */
-
-        if (arg_touch_variables >= 0)
-                return arg_touch_variables;
-
-        if (arg_root) {
-                log_once(LOG_NOTICE,
-                         "Operating on %s, skipping EFI variable modifications.",
-                         arg_image ? "image" : "root directory");
-                return false;
-        }
-
-        if (!is_efi_boot()) { /* NB: this internally checks if we run in a container */
-                log_once(LOG_NOTICE,
-                         "Not booted with EFI or running in a container, skipping EFI variable modifications.");
-                return false;
-        }
-
-        return true;
-}
-
 GracefulMode arg_graceful(void) {
         static bool chroot_checked = false;
 
@@ -518,6 +495,11 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_tristate_argument("--variables=", optarg, &arg_touch_variables);
                         if (r < 0)
                                 return r;
+#if !ENABLE_EFI
+                        if (arg_touch_variables > 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Compiled without support for EFI, --variables=%s cannot be specified.", optarg);
+#endif
                         break;
 
                 case ARG_NO_VARIABLES:
