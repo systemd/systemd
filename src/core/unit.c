@@ -71,12 +71,6 @@
 #define MENTIONWORTHY_IO_BYTES     (1 * U64_MB)
 #define MENTIONWORTHY_IP_BYTES     UINT64_C(0)
 
-/* Thresholds for logging at NOTICE level about resource consumption */
-#define NOTICEWORTHY_CPU_NSEC     (10 * NSEC_PER_MINUTE)
-#define NOTICEWORTHY_MEMORY_BYTES (512 * U64_MB)
-#define NOTICEWORTHY_IO_BYTES     (10 * U64_MB)
-#define NOTICEWORTHY_IP_BYTES     (128 * U64_MB)
-
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE]   = &service_vtable,
         [UNIT_SOCKET]    = &socket_vtable,
@@ -2364,9 +2358,7 @@ void unit_trigger_notify(Unit *u) {
                         UNIT_VTABLE(other)->trigger_notify(other, u);
 }
 
-static int raise_level(int log_level, bool condition_info, bool condition_notice) {
-        if (condition_notice && log_level > LOG_NOTICE)
-                return LOG_NOTICE;
+static int raise_level(int log_level, bool condition_info) {
         if (condition_info && log_level > LOG_INFO)
                 return LOG_INFO;
         return log_level;
@@ -2435,8 +2427,7 @@ static int unit_log_resources(Unit *u) {
                 }
 
                 log_level = raise_level(log_level,
-                                        cpu_nsec > MENTIONWORTHY_CPU_NSEC,
-                                        cpu_nsec > NOTICEWORTHY_CPU_NSEC);
+                                        cpu_nsec > MENTIONWORTHY_CPU_NSEC);
         }
 
         for (CGroupMemoryAccountingMetric metric = 0; metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST; metric++) {
@@ -2462,8 +2453,7 @@ static int unit_log_resources(Unit *u) {
                         return log_oom();
 
                 log_level = raise_level(log_level,
-                                        value > MENTIONWORTHY_MEMORY_BYTES,
-                                        value > NOTICEWORTHY_MEMORY_BYTES);
+                                        value > MENTIONWORTHY_MEMORY_BYTES);
         }
 
         for (CGroupIOAccountingMetric k = 0; k < _CGROUP_IO_ACCOUNTING_METRIC_MAX; k++) {
@@ -2492,8 +2482,7 @@ static int unit_log_resources(Unit *u) {
                                 return log_oom();
 
                         log_level = raise_level(log_level,
-                                                value > MENTIONWORTHY_IO_BYTES,
-                                                value > NOTICEWORTHY_IO_BYTES);
+                                                value > MENTIONWORTHY_IO_BYTES);
                 }
         }
 
@@ -2523,8 +2512,7 @@ static int unit_log_resources(Unit *u) {
                                 return log_oom();
 
                         log_level = raise_level(log_level,
-                                                value > MENTIONWORTHY_IP_BYTES,
-                                                value > NOTICEWORTHY_IP_BYTES);
+                                                value > MENTIONWORTHY_IP_BYTES);
                 }
         }
 
