@@ -182,3 +182,37 @@ echo thisisatest | cmp /tmp/unpriv.out3 -
 assert_eq "$(run0 -u testuser varlinkctl --exec call  /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MakeDirectory --push-fd=./ '{ "parentFileDescriptor" : 0, "name" : "foreignuidowned" }' -- stat -Lc "%u" /proc/self/fd/3)" 2147352576
 assert_eq "$(stat -c "%u" ~testuser/foreignuidowned)" 2147352576
 rmdir ~testuser/foreignuidowned
+
+# make sure ChownDirectory() works correctly
+TESTHOME=~testuser
+mkdir -p "$TESTHOME/chowntest/subdir"
+touch "$TESTHOME/chowntest/subdir/file"
+chown -R testuser:testuser "$TESTHOME/chowntest"
+
+# Run ChownDirectory as testuser - should chown to FOREIGN_UID_MIN (2147352576)
+run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.ChownDirectory --push-fd="$TESTHOME/chowntest" '{ "directoryFileDescriptor" : 0 }'
+
+# Verify everything is now owned by FOREIGN_UID_MIN
+assert_eq "$(stat -c "%u" "$TESTHOME/chowntest")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/chowntest/subdir")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/chowntest/subdir/file")" 2147352576
+
+rm -rf "$TESTHOME/chowntest"
+
+# Test that ChownDirectory only changes inodes owned by peer
+mkdir "$TESTHOME/chowntest2"
+chown testuser:testuser "$TESTHOME/chowntest2"
+mkdir "$TESTHOME/chowntest2/mine"
+chown testuser:testuser "$TESTHOME/chowntest2/mine"
+mkdir "$TESTHOME/chowntest2/notmine"
+
+# ChownDirectory should only chown things owned by testuser, not root's directory
+run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.ChownDirectory --push-fd="$TESTHOME/chowntest2" '{ "directoryFileDescriptor" : 0 }'
+
+# testuser's directories should be chowned
+assert_eq "$(stat -c "%u" "$TESTHOME/chowntest2")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/chowntest2/mine")" 2147352576
+# root's directory should remain unchanged
+assert_eq "$(stat -c "%u" "$TESTHOME/chowntest2/notmine")" 0
+
+rm -rf "$TESTHOME/chowntest2"
