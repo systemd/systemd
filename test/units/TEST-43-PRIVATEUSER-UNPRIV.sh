@@ -14,6 +14,9 @@ fi
 install_extension_images
 
 runas testuser systemd-run --wait --user --unit=test-private-users \
+    -p PrivateUsers=rootidmap -P cat /proc/self/status
+
+runas testuser systemd-run --wait --user --unit=test-private-users \
     -p PrivateUsers=yes -P echo hello
 
 runas testuser systemd-run --wait --user --unit=test-private-tmp-innerfile \

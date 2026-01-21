@@ -4090,6 +4090,7 @@ static const char* const private_users_table[_PRIVATE_USERS_MAX] = {
         [PRIVATE_USERS_SELF]     = "self",
         [PRIVATE_USERS_IDENTITY] = "identity",
         [PRIVATE_USERS_FULL]     = "full",
+        [PRIVATE_USERS_ROOTIDMAP]= "rootidmap",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_users, PrivateUsers, PRIVATE_USERS_SELF);
