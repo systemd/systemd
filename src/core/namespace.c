@@ -34,6 +34,7 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "mstack.h"
 #include "namespace.h"
 #include "namespace-util.h"
 #include "nsflags.h"
@@ -1360,7 +1361,7 @@ static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) 
 
         /* We assume /run/systemd/journal/ is available if not changing root, which isn't entirely accurate
          * but shouldn't matter, as either way the user would get ENOENT when accessing /dev/log */
-        if ((!p->root_image && !p->root_directory && p->root_directory_fd < 0) || p->bind_log_sockets) {
+        if (!pinned_resource_is_set(p->rootfs) || p->bind_log_sockets) {
                 const char *devlog = strjoina(temporary_mount, "/dev/log");
                 if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
                         log_debug_errno(errno,
@@ -1447,26 +1448,28 @@ static int mount_private_apivfs(
                 const char *opts,
                 RuntimeScope scope) {
 
-        _cleanup_(rmdir_and_freep) char *temporary_mount = NULL;
         int r;
 
         assert(fstype);
         assert(entry_path);
         assert(bind_source);
 
-        (void) mkdir_p_label(entry_path, 0755);
+        /* First, check if we have enough privileges to mount a new instance. */
+        _cleanup_close_ int mount_fd = make_fsmount(
+                        LOG_DEBUG,
+                        /* what= */ fstype,
+                        fstype,
+                        MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                        opts,
+                        /* userns_fd= */ -EBADF);
+        if (mount_fd < 0) {
+                if (!ERRNO_IS_NEG_PRIVILEGE(mount_fd))
+                        return mount_fd;
 
-        /* First, check if we have enough privileges to mount a new instance. Note, a new sysfs instance
-         * cannot be mounted on an already existing mount. Let's use a temporary place. */
-        r = create_temporary_mount_point(scope, &temporary_mount);
-        if (r < 0)
-                return r;
+                (void) mkdir_p_label(entry_path, 0755);
 
-        r = mount_nofollow_verbose(LOG_DEBUG, fstype, temporary_mount, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
-        if (ERRNO_IS_NEG_PRIVILEGE(r)) {
                 /* When we do not have enough privileges to mount a new instance, fall back to use an
                  * existing mount. */
-
                 r = path_is_mount_point(entry_path);
                 if (r < 0)
                         return log_debug_errno(r, "Unable to determine whether '%s' is already mounted: %m", entry_path);
@@ -1482,8 +1485,8 @@ static int mount_private_apivfs(
 
                 return 1;
         }
-        if (r < 0)
-                return r;
+
+        (void) mkdir_p_label(entry_path, 0755);
 
         /* OK. We have a new mount instance. Let's clear an existing mount and its submounts. */
         r = umount_recursive(entry_path, /* flags= */ 0);
@@ -1491,9 +1494,8 @@ static int mount_private_apivfs(
                 log_debug_errno(r, "Failed to unmount directories below '%s', ignoring: %m", entry_path);
 
         /* Then, move the new mount instance. */
-        r = mount_nofollow_verbose(LOG_DEBUG, temporary_mount, entry_path, /* fstype= */ NULL, MS_MOVE, /* options= */ NULL);
-        if (r < 0)
-                return r;
+        if (move_mount(mount_fd, "", -EBADF, entry_path, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                return log_debug_errno(errno, "Failed to attach '%s' to '%s': %m", fstype, entry_path);
 
         /* We mounted a new instance now. Let's bind mount the children over now. This matters for nspawn
          * where a bunch of files are overmounted, in particular the boot id. */
@@ -1974,12 +1976,20 @@ static int apply_one_mount(
                 }
 
                 r = chase(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH|CHASE_TRIGGER_AUTOFS, &chased, NULL);
-                if (r == -ENOENT && m->ignore) {
-                        log_debug_errno(r, "Path %s does not exist, ignoring.", mount_entry_source(m));
-                        return 0;
-                }
-                if (r < 0)
+                if (r < 0) {
+                        if (m->ignore) {
+                                if (r == -ENOENT) {
+                                        log_debug_errno(r, "Path '%s' does not exist, ignoring.", mount_entry_source(m));
+                                        return 0;
+                                }
+                                if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                                        log_debug_errno(r, "Path '%s' is not accessible, ignoring: %m", mount_entry_source(m));
+                                        return 0;
+                                }
+                        }
+
                         return log_debug_errno(r, "Failed to follow symlinks on %s: %m", mount_entry_source(m));
+                }
 
                 log_debug("Followed source symlinks %s %s %s.",
                           mount_entry_source(m), glyph(GLYPH_ARROW_RIGHT), chased);
@@ -2492,6 +2502,17 @@ static bool home_read_only(
         return false;
 }
 
+static bool namespace_read_only(const NamespaceParameters *p) {
+        assert(p);
+
+        return root_read_only(p->read_only_paths,
+                              p->protect_system) &&
+                home_read_only(p->read_only_paths, p->inaccessible_paths, p->empty_directories,
+                               p->bind_mounts, p->n_bind_mounts, p->temporary_filesystems, p->n_temporary_filesystems,
+                               p->protect_home) &&
+                strv_isempty(p->read_write_paths);
+}
+
 int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
@@ -2513,6 +2534,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
                 DISSECT_IMAGE_VERITY_SHARE;
+        MStackFlags mstack_flags = 0;
         int r;
 
         assert(p);
@@ -2524,87 +2546,127 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         bool setup_propagate = !isempty(p->propagate_dir) && !isempty(p->incoming_dir);
         unsigned long mount_propagation_flag = p->mount_propagation_flag != 0 ? p->mount_propagation_flag : MS_SHARED;
 
-        if (p->root_image) {
-                /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
-                if (root_read_only(p->read_only_paths,
-                                   p->protect_system) &&
-                    home_read_only(p->read_only_paths, p->inaccessible_paths, p->empty_directories,
-                                   p->bind_mounts, p->n_bind_mounts, p->temporary_filesystems, p->n_temporary_filesystems,
-                                   p->protect_home) &&
-                    strv_isempty(p->read_write_paths))
-                        dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
+        /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
+        bool ro = namespace_read_only(p);
+        if (ro) {
+                dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
+                mstack_flags |= MSTACK_RDONLY;
+        }
 
-                SET_FLAG(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE, p->verity && p->verity->data_path);
+        _cleanup_close_ int root_mount_fd = -EBADF;
+        if (pinned_resource_is_set(p->rootfs)) {
+                if (p->rootfs->directory_fd >= 0) {
 
-                /* First check if we have a verity device already open and with a fstype pinned by policy. If it
-                * cannot be found, then fallback to the slow path (full dissect). */
-                r = dissected_image_new_from_existing_verity(
-                                p->root_image,
-                                p->verity,
-                                p->root_image_options,
-                                p->root_image_policy,
-                                /* image_filter= */ NULL,
-                                p->runtime_scope,
-                                dissect_image_flags,
-                                &dissected_image);
-                if (r < 0 && !ERRNO_IS_NEG_DEVICE_ABSENT(r) && r != -ENOPKG)
-                        return r;
-                if (r >= 0)
-                        log_debug("Reusing pre-existing verity-protected root image %s", p->root_image);
-                else {
+                        /* In "dynamic64k" mode we need to map from foreign UID/GID space, hence go via mountfsd */
+                        if (p->private_users == PRIVATE_USERS_DYNAMIC64K) {
+                                userns_fd = namespace_open_by_type(NAMESPACE_USER);
+                                if (userns_fd < 0)
+                                        return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
+
+                                r = mountfsd_mount_directory_fd(
+                                                p->mountfsd_link,
+                                                p->rootfs->directory_fd,
+                                                userns_fd,
+                                                dissect_image_flags,
+                                                &root_mount_fd);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        /* Try to to clone the directory mount if we have privs to, so that we can apply the
+                         * MS_SLAVE propagation settings right-away. */
+                        if (root_mount_fd < 0) {
+                                root_mount_fd = open_tree_attr_with_fallback(
+                                                p->rootfs->directory_fd,
+                                                "",
+                                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH|AT_RECURSIVE,
+                                                &(struct mount_attr) {
+                                                        /* We just remounted / as slave, but that didn't affect the detached
+                                                         * mount that we just mounted, so remount that one as slave recursive
+                                                         * as well now. */
+                                                        .propagation = MS_SLAVE,
+                                                });
+                                if (root_mount_fd < 0 && !ERRNO_IS_NEG_PRIVILEGE(root_mount_fd) && root_mount_fd != -EINVAL)
+                                        return log_debug_errno(root_mount_fd, "Failed to clone specified directory: %m");
+                        }
+                }
+
+                if (p->rootfs->image_fd >= 0) {
+                        SET_FLAG(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE, p->verity && p->verity->data_path);
+
                         if (p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                                 /* In system mode we mount directly */
 
-                                r = loop_device_make_by_path(
-                                                p->root_image,
-                                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
-                                                /* sector_size= */ UINT32_MAX,
-                                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
-                                                LOCK_SH,
-                                                &loop_device);
-                                if (r < 0)
-                                        return log_debug_errno(r, "Failed to create loop device for root image: %m");
-
-                                r = dissect_loop_device(
-                                                loop_device,
+                                /* First check if we have a verity device already open and with a fstype pinned by policy. If it
+                                 * cannot be found, then fallback to the slow path (full dissect). */
+                                r = dissected_image_new_from_existing_verity(
+                                                p->rootfs->image,
                                                 p->verity,
                                                 p->root_image_options,
                                                 p->root_image_policy,
                                                 /* image_filter= */ NULL,
+                                                p->runtime_scope,
                                                 dissect_image_flags,
                                                 &dissected_image);
-                                if (r < 0)
-                                        return log_debug_errno(r, "Failed to dissect image: %m");
-
-                                r = dissected_image_load_verity_sig_partition(
-                                                dissected_image,
-                                                loop_device->fd,
-                                                p->verity);
-                                if (r < 0)
+                                if (r < 0 && !ERRNO_IS_NEG_DEVICE_ABSENT(r) && r != -ENOPKG)
                                         return r;
+                                if (r >= 0)
+                                        log_debug("Reusing pre-existing verity-protected root image %s", p->rootfs->image);
+                                else {
+                                        r = loop_device_make(
+                                                        p->rootfs->image_fd,
+                                                        FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means take access mode from fd */,
+                                                        /* offset= */ 0,
+                                                        /* size= */ UINT64_MAX,
+                                                        /* sector_size= */ UINT32_MAX,
+                                                        FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                                                        LOCK_SH,
+                                                        &loop_device);
+                                        if (r < 0)
+                                                return log_debug_errno(r, "Failed to create loop device for root image: %m");
 
-                                r = dissected_image_guess_verity_roothash(
-                                                dissected_image,
-                                                p->verity);
-                                if (r < 0)
-                                        return r;
+                                        r = dissect_loop_device(
+                                                        loop_device,
+                                                        p->verity,
+                                                        p->root_image_options,
+                                                        p->root_image_policy,
+                                                        /* image_filter= */ NULL,
+                                                        dissect_image_flags,
+                                                        &dissected_image);
+                                        if (r < 0)
+                                                return log_debug_errno(r, "Failed to dissect image: %m");
 
-                                r = dissected_image_decrypt(
-                                                dissected_image,
-                                                /* root= */ NULL,
-                                                /* passphrase= */ NULL,
-                                                p->verity,
-                                                p->root_image_policy,
-                                                dissect_image_flags);
-                                if (r < 0)
-                                        return log_debug_errno(r, "Failed to decrypt dissected image: %m");
+                                        r = dissected_image_load_verity_sig_partition(
+                                                        dissected_image,
+                                                        loop_device->fd,
+                                                        p->verity);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = dissected_image_guess_verity_roothash(
+                                                        dissected_image,
+                                                        p->verity);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = dissected_image_decrypt(
+                                                        dissected_image,
+                                                        /* root= */ NULL,
+                                                        /* passphrase= */ NULL,
+                                                        p->verity,
+                                                        p->root_image_policy,
+                                                        dissect_image_flags);
+                                        if (r < 0)
+                                                return log_debug_errno(r, "Failed to decrypt dissected image: %m");
+                                }
                         } else {
                                 userns_fd = namespace_open_by_type(NAMESPACE_USER);
                                 if (userns_fd < 0)
                                         return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
 
-                                r = mountfsd_mount_image(
-                                                p->root_image,
+                                r = mountfsd_mount_image_fd(
+                                                p->mountfsd_link,
+                                                p->rootfs->image_fd,
                                                 userns_fd,
                                                 p->root_image_options,
                                                 p->root_image_policy,
@@ -2615,10 +2677,28 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                         return r;
                         }
                 }
+
+                if (p->rootfs->mstack_loaded) {
+                        if (p->runtime_scope != RUNTIME_SCOPE_SYSTEM) {
+                                userns_fd = namespace_open_by_type(NAMESPACE_USER);
+                                if (userns_fd < 0)
+                                        return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
+                        }
+
+                        r = mstack_open_images(
+                                        p->rootfs->mstack_loaded,
+                                        p->mountfsd_link,
+                                        userns_fd,
+                                        p->root_image_policy,
+                                        /* image_filter= */ NULL,
+                                        mstack_flags);
+                        if (r < 0)
+                                return r;
+                }
         }
 
-        if (p->root_directory)
-                root = p->root_directory;
+        if (p->rootfs && p->rootfs->directory)
+                root = p->rootfs->directory;
         else {
                 /* /run/systemd should have been created by PID 1 early on already, but in some cases, like
                  * when running tests (test-execute), it might not have been created yet so let's make sure
@@ -2963,18 +3043,28 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
                 return log_debug_errno(errno, "Failed to remount '/' as SLAVE: %m");
 
-        if (p->root_directory_fd >= 0) {
+        if (root_mount_fd >= 0) {
+                /* If we have root_mount_fd we have a ready-to-use detached mount. Attach it. */
 
-                if (move_mount(p->root_directory_fd, "", AT_FDCWD, root, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                if (move_mount(root_mount_fd, "", AT_FDCWD, root, MOVE_MOUNT_F_EMPTY_PATH) < 0)
                         return log_debug_errno(errno, "Failed to move detached mount to '%s': %m", root);
 
-                /* We just remounted / as slave, but that didn't affect the detached mount that we just
-                 * mounted, so remount that one as slave recursive as well now. */
+        } else if (p->rootfs && p->rootfs->directory) {
 
-                if (mount(NULL, root, NULL, MS_SLAVE|MS_REC, NULL) < 0)
-                        return log_debug_errno(errno, "Failed to remount '%s' as SLAVE: %m", root);
+                /* If we do not have root_mount_fd, but a directory was specified, then we can use it directly. */
 
-        } else if (p->root_image) {
+                /* A root directory is specified. Turn its directory into bind mount, if it isn't one yet. */
+                r = path_is_mount_point_full(root, /* root = */ NULL, AT_SYMLINK_FOLLOW);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to detect that %s is a mount point or not: %m", root);
+                if (r == 0) {
+                        r = mount_nofollow_verbose(LOG_DEBUG, root, root, NULL, MS_BIND|MS_REC, NULL);
+                        if (r < 0)
+                                return r;
+                }
+
+        } else if (dissected_image) {
+
                 /* A root image is specified, mount it to the right place */
                 r = dissected_image_mount(
                                 dissected_image,
@@ -2998,17 +3088,15 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to relinquish dissected image: %m");
 
-        } else if (p->root_directory) {
+        } else if (p->rootfs && p->rootfs->mstack_loaded) {
 
-                /* A root directory is specified. Turn its directory into bind mount, if it isn't one yet. */
-                r = path_is_mount_point_full(root, /* root= */ NULL, AT_SYMLINK_FOLLOW);
+                r = mstack_make_mounts(p->rootfs->mstack_loaded, root, mstack_flags);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to detect that %s is a mount point or not: %m", root);
-                if (r == 0) {
-                        r = mount_nofollow_verbose(LOG_DEBUG, root, root, NULL, MS_BIND|MS_REC, NULL);
-                        if (r < 0)
-                                return r;
-                }
+                        return r;
+
+                r = mstack_bind_mounts(p->rootfs->mstack_loaded, root, /* where_fd= */ -EBADF, mstack_flags, /* ret_root_fd= */ NULL);
+                if (r < 0)
+                        return r;
 
         } else {
                 /* Let's mount the main root directory to the root directory to use */
@@ -3018,7 +3106,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         }
 
         /* Try to set up the new root directory before mounting anything else there. */
-        if (p->root_image || p->root_directory || p->root_directory_fd >= 0)
+        if (pinned_resource_is_set(p->rootfs))
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         /* Now make the magic happen */
@@ -3027,8 +3115,8 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 return r;
 
         /* MS_MOVE does not work on MS_SHARED so the remount MS_SHARED will be done later */
-        r = mount_switch_root(root, /* mount_propagation_flag= */ 0);
-        if (r == -EINVAL && p->root_directory) {
+        r = mount_switch_root(root, /* mount_propagation_flag = */ 0);
+        if (r == -EINVAL) {
                 /* If we are using root_directory and we don't have privileges (ie: user manager in a user
                  * namespace) and the root_directory is already a mount point in the parent namespace,
                  * MS_MOVE will fail as we don't have permission to change it (with EINVAL rather than
@@ -3037,6 +3125,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 r = mount_nofollow_verbose(LOG_DEBUG, root, root, NULL, MS_BIND|MS_REC, NULL);
                 if (r < 0)
                         return r;
+
                 r = mount_switch_root(root, /* mount_propagation_flag= */ 0);
         }
         if (r < 0)
@@ -4086,10 +4175,11 @@ static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_tmp, PrivateTmp, PRIVATE_TMP_CONNECTED);
 
 static const char* const private_users_table[_PRIVATE_USERS_MAX] = {
-        [PRIVATE_USERS_NO]       = "no",
-        [PRIVATE_USERS_SELF]     = "self",
-        [PRIVATE_USERS_IDENTITY] = "identity",
-        [PRIVATE_USERS_FULL]     = "full",
+        [PRIVATE_USERS_NO]         = "no",
+        [PRIVATE_USERS_SELF]       = "self",
+        [PRIVATE_USERS_IDENTITY]   = "identity",
+        [PRIVATE_USERS_FULL]       = "full",
+        [PRIVATE_USERS_DYNAMIC64K] = "dynamic64k",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_users, PrivateUsers, PRIVATE_USERS_SELF);
@@ -4100,3 +4190,23 @@ static const char* const private_pids_table[_PRIVATE_PIDS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_pids, PrivatePIDs, PRIVATE_PIDS_YES);
+
+void pinned_resource_done(PinnedResource *p) {
+        assert(p);
+
+        p->directory_fd = safe_close(p->directory_fd);
+        p->directory = mfree(p->directory);
+        p->image_fd = safe_close(p->image_fd);
+        p->image = mfree(p->image);
+        p->mstack_loaded = mstack_free(p->mstack_loaded);
+        p->mstack = mfree(p->mstack);
+}
+
+bool pinned_resource_is_set(const PinnedResource *p) {
+        if (!p)
+                return false;
+
+        return p->directory_fd >= 0 ||
+                p->image_fd >= 0 ||
+                p->mstack_loaded;
+}
