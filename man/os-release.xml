@@ -44,8 +44,8 @@
     implementing a shell compatible execution engine. Variable assignment values must be enclosed in double
     or single quotes if they include spaces, semicolons or other special characters outside of A–Z, a–z,
     0–9. (Assignments that do not include these special characters may be enclosed in quotes too, but this is
-    optional.) Shell special characters ("$", quotes, backslash, backtick) must be escaped with backslashes,
-    following shell style. All strings should be in UTF-8 encoding, and non-printable characters should not
+    optional.) Shell special characters ("$", quotes, backslash, backtick) must be escaped following POSIX shell style.
+    All strings should be in UTF-8 encoding, and non-printable characters should not
     be used. Concatenation of multiple individually quoted strings is not supported. Lines beginning with "#"
     are treated as comments. Blank lines are permitted and ignored.</para>
 
