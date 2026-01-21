@@ -432,7 +432,7 @@ static int handle_generic_user_record_error(
 
                 assert(secret);
 
-                (void) pam_prompt_graceful(pamh, PAM_ERROR_MSG, NULL, _("Please authenticate physically on security token of user %s."), user_name);
+                (void) pam_prompt_graceful(pamh, PAM_TEXT_INFO, NULL, _("Please authenticate physically on security token of user %s."), user_name);
 
                 r = user_record_set_pkcs11_protected_authentication_path_permitted(secret, true);
                 if (r < 0)
@@ -443,7 +443,7 @@ static int handle_generic_user_record_error(
 
                 assert(secret);
 
-                (void) pam_prompt_graceful(pamh, PAM_ERROR_MSG, NULL, _("Please confirm presence on security token of user %s."), user_name);
+                (void) pam_prompt_graceful(pamh, PAM_TEXT_INFO, NULL, _("Please confirm presence on security token of user %s."), user_name);
 
                 r = user_record_set_fido2_user_presence_permitted(secret, true);
                 if (r < 0)
@@ -454,7 +454,7 @@ static int handle_generic_user_record_error(
 
                 assert(secret);
 
-                (void) pam_prompt_graceful(pamh, PAM_ERROR_MSG, NULL, _("Please verify user on security token of user %s."), user_name);
+                (void) pam_prompt_graceful(pamh, PAM_TEXT_INFO, NULL, _("Please verify user on security token of user %s."), user_name);
 
                 r = user_record_set_fido2_user_verification_permitted(secret, true);
                 if (r < 0)
