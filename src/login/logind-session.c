@@ -268,12 +268,19 @@ int session_set_leader_consume(Session *s, PidRef _leader) {
 static void session_save_devices(Session *s, FILE *f) {
         SessionDevice *sd;
 
-        if (!hashmap_isempty(s->devices)) {
-                fprintf(f, "DEVICES=");
-                HASHMAP_FOREACH(sd, s->devices)
-                        fprintf(f, DEVNUM_FORMAT_STR " ", DEVNUM_FORMAT_VAL(sd->dev));
-                fprintf(f, "\n");
+        if (hashmap_isempty(s->devices))
+                return;
+
+        bool need_space = false;
+        fputs("DEVICES=\"", f);
+        HASHMAP_FOREACH(sd, s->devices) {
+                if (need_space)
+                        fputc(' ', f);
+
+                fprintf(f, DEVNUM_FORMAT_STR, DEVNUM_FORMAT_VAL(sd->dev));
+                need_space = true;
         }
+        fputs("\"\n", f);
 }
 
 int session_save(Session *s) {
