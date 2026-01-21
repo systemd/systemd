@@ -133,6 +133,7 @@ typedef struct MountImageParameters {
         char *password;
         ImagePolicy *image_policy;
         MountOptions *options;
+        bool relax_extension_release_check;
         bool verity_sharing;
         struct iovec verity_root_hash;
         struct iovec verity_root_hash_sig;
@@ -369,17 +370,18 @@ static int vl_method_mount_image(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "imageFileDescriptor",         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, image_fd_idx),         SD_JSON_MANDATORY },
-                { "userNamespaceFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, userns_fd_idx),        0 },
-                { "readOnly",                    SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,    offsetof(MountImageParameters, read_only),            0 },
-                { "growFileSystems",             SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,    offsetof(MountImageParameters, growfs),               0 },
-                { "password",                    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(MountImageParameters, password),             0 },
-                { "imagePolicy",                 SD_JSON_VARIANT_STRING,   json_dispatch_image_policy,   offsetof(MountImageParameters, image_policy),         0 },
-                { "mountOptions",                SD_JSON_VARIANT_OBJECT,   json_dispatch_image_options,  offsetof(MountImageParameters, options),              0 },
-                { "veritySharing",               SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,     offsetof(MountImageParameters, verity_sharing),       0 },
-                { "verityDataFileDescriptor",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, verity_data_fd_idx),   0 },
-                { "verityRootHash",              SD_JSON_VARIANT_STRING,   json_dispatch_unhex_iovec,    offsetof(MountImageParameters, verity_root_hash),     0 },
-                { "verityRootHashSignature",     SD_JSON_VARIANT_STRING,   json_dispatch_unbase64_iovec, offsetof(MountImageParameters, verity_root_hash_sig), 0 },
+                { "imageFileDescriptor",         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, image_fd_idx),                  SD_JSON_MANDATORY },
+                { "userNamespaceFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, userns_fd_idx),                 0 },
+                { "readOnly",                    SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,    offsetof(MountImageParameters, read_only),                     0 },
+                { "growFileSystems",             SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,    offsetof(MountImageParameters, growfs),                        0 },
+                { "password",                    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(MountImageParameters, password),                      0 },
+                { "imagePolicy",                 SD_JSON_VARIANT_STRING,   json_dispatch_image_policy,   offsetof(MountImageParameters, image_policy),                  0 },
+                { "mountOptions",                SD_JSON_VARIANT_OBJECT,   json_dispatch_image_options,  offsetof(MountImageParameters, options),                       0 },
+                { "relaxExtensionReleaseChecks", SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,     offsetof(MountImageParameters, relax_extension_release_check), 0 },
+                { "veritySharing",               SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,     offsetof(MountImageParameters, verity_sharing),                0 },
+                { "verityDataFileDescriptor",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, verity_data_fd_idx),            0 },
+                { "verityRootHash",              SD_JSON_VARIANT_STRING,   json_dispatch_unhex_iovec,    offsetof(MountImageParameters, verity_root_hash),              0 },
+                { "verityRootHashSignature",     SD_JSON_VARIANT_STRING,   json_dispatch_unbase64_iovec, offsetof(MountImageParameters, verity_root_hash_sig),          0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -538,7 +540,8 @@ static int vl_method_mount_image(
                 /* Maybe the image is a bare filesystem. Note that this requires privileges, as it is
                  * classified by the policy as an 'unprotected' image and will be refused otherwise. */
                 DISSECT_IMAGE_NO_PARTITION_TABLE |
-                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
+                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
+                (p.relax_extension_release_check ? DISSECT_IMAGE_RELAX_EXTENSION_CHECK : 0);
 
         /* Let's see if we have acquired the privilege to mount untrusted images already */
         bool polkit_have_untrusted_action =
@@ -710,6 +713,7 @@ static int vl_method_mount_image(
         return sd_varlink_replybo(
                         link,
                         SD_JSON_BUILD_PAIR_VARIANT("partitions", aj),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("singleFileSystem", di->single_file_system),
                         SD_JSON_BUILD_PAIR_STRING("imagePolicy", ps),
                         SD_JSON_BUILD_PAIR_UNSIGNED("imageSize", di->image_size),
                         SD_JSON_BUILD_PAIR_UNSIGNED("sectorSize", di->sector_size),
