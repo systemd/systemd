@@ -216,3 +216,36 @@ assert_eq "$(stat -c "%u" "$TESTHOME/chowntest2/mine")" 2147352576
 assert_eq "$(stat -c "%u" "$TESTHOME/chowntest2/notmine")" 0
 
 rm -rf "$TESTHOME/chowntest2"
+
+# make sure RemoveDirectory() works correctly
+# First create a directory tree owned by the foreign UID range
+run0 -u testuser varlinkctl --exec call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MakeDirectory --push-fd="$TESTHOME" '{ "parentFileDescriptor" : 0, "name" : "removeme" }' -- true
+assert_eq "$(stat -c "%u" "$TESTHOME/removeme")" 2147352576
+
+# Create some content inside it, also owned by foreign UID range
+mkdir "$TESTHOME/removeme/subdir"
+touch "$TESTHOME/removeme/subdir/file"
+chown -R 2147352576:2147352576 "$TESTHOME/removeme"
+
+# Remove it using RemoveDirectory
+run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.RemoveDirectory --push-fd="$TESTHOME" '{ "parentFileDescriptor" : 0, "name" : "removeme" }'
+
+# Verify it's gone
+test ! -e "$TESTHOME/removeme"
+
+# Test that RemoveDirectory only removes inodes owned by foreign UID range
+mkdir "$TESTHOME/removeme2"
+chown 2147352576:2147352576 "$TESTHOME/removeme2"
+mkdir "$TESTHOME/removeme2/foreign"
+chown 2147352576:2147352576 "$TESTHOME/removeme2/foreign"
+mkdir "$TESTHOME/removeme2/notforeign"
+chown root:root "$TESTHOME/removeme2/notforeign"
+
+# RemoveDirectory should fail because there's content not owned by foreign UID range
+(! run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.RemoveDirectory --push-fd="$TESTHOME" '{ "parentFileDescriptor" : 0, "name" : "removeme2" }')
+
+# The directory should still exist with the root-owned content
+test -d "$TESTHOME/removeme2"
+test -d "$TESTHOME/removeme2/notforeign"
+
+rm -rf "$TESTHOME/removeme2"
