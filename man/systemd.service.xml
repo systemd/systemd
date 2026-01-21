@@ -608,6 +608,22 @@
         <para>This setting is effective only if <varname>RestartSteps=</varname> is also set and
         <varname>RestartSec=</varname> is not zero.</para>
 
+        <para>Given that:</para>
+        <itemizedlist>
+          <listitem><simpara><literal>r_n</literal> is <varname>RestartMaxDelaySec</varname></simpara></listitem>
+          <listitem><simpara><literal>r_0</literal> is <varname>RestartSec</varname></simpara></listitem>
+          <listitem><simpara><literal>n</literal> is <varname>RestartSteps</varname></simpara></listitem>
+        </itemizedlist>
+
+        <para>Then the following holds:</para>
+        <itemizedlist>
+          <listitem><simpara>The wait time of a given step <literal>i</literal> is <literal>(r_n / r_0) ^ (i
+          / n) / r_0</literal>.</simpara></listitem>
+
+          <listitem><simpara>Total worst case wait time is <literal>(r_n * (r_n / r_0) ^ (1/n) - r_0) / (( r_n / r_0 ) ^
+          (1/n) - 1)</literal>.</simpara></listitem>
+        </itemizedlist>
+
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
