@@ -382,7 +382,7 @@ static int process_magic_file(
          * so that people fix it. After all we want to retain liberty to maybe one day place some useful data
          * inside it */
         if (iovec_memcmp(&IOVEC_MAKE(expected_hash, sizeof(expected_hash)), hash) != 0)
-                log_warning("Hash of best before marker file '%s' has unexpected value, ignoring.", fn);
+                log_warning("Hash of best before marker file '%s' has unexpected value, proceeding anyway.", fn);
 
         struct tm parsed_tm = {};
         const char *n = strptime(e, "%Y-%m-%d", &parsed_tm);
