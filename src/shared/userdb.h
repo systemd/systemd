@@ -31,6 +31,7 @@ typedef enum UserDBFlags {
 
         USERDB_PARSE_NUMERIC             = 1 << 8,  /* if a numeric UID is specified as name, parse it and look up by UID/GID */
         USERDB_SYNTHESIZE_NUMERIC        = 1 << 9,  /* synthesize system UID/GID even if it does not exist */
+        USERDB_EXCLUDE_MACHINE           = 1 << 10, /* exclude looking up in io.systemd.Machine */
 } UserDBFlags;
 
 /* Well-known errors we'll return here:
