@@ -75,6 +75,7 @@ typedef struct Resource {
         char *path;
         bool path_auto; /* automatically find root path (only available if target resource, not source resource) */
         PathRelativeTo path_relative_to;
+        char *manifest; /* Manifest file name (Default: SHA256SUMS)*/
         char **patterns;
         GptPartitionType partition_type;
         bool partition_type_set;
