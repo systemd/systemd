@@ -1179,15 +1179,19 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21LG:pvr*
  KEYBOARD_KEY_0a=!9
  KEYBOARD_KEY_0b=!0
 
-# Lenovo Legion Go & Go S
+# Lenovo Legion Go Translated
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnLENOVO:pn83E1:*
+# Lenovo Legion Go S Translated
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnLENOVO:pn83L3:*
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnLENOVO:pn83N6:*
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnLENOVO:pn83Q2:*
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnLENOVO:pn83Q3:*
+# Lenovo Legion Go 2 Translated
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnLENOVO:pn83N0:*
+evdev:name:AT Translated Set 2 keyboard:dmi:*:svnLENOVO:pn83N1:*
  KEYBOARD_KEY_67=f16 # Power button long press
 
-# Lenovo Legion Go 2
+# Lenovo Legion Go 2 Raw
 evdev:name:AT Raw Set 2 keyboard:dmi:*:svnLENOVO:pn83N0:*
 evdev:name:AT Raw Set 2 keyboard:dmi:*:svnLENOVO:pn83N1:*
  KEYBOARD_KEY_20=f16 # Power button long press
