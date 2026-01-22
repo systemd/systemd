@@ -202,22 +202,18 @@ int json_dispatch_in_addr(const char *name, sd_json_variant *variant, sd_json_di
 
 int json_dispatch_const_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         const char **p = ASSERT_PTR(userdata), *path;
+        int r;
 
         assert(variant);
 
-        if (sd_json_variant_is_null(variant)) {
-                *p = NULL;
-                return 0;
-        }
+        r = sd_json_dispatch_const_string(name, variant, flags, &path);
+        if (r < 0)
+                return r;
 
-        if (!sd_json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
-
-        path = sd_json_variant_string(variant);
-        if (!((flags & SD_JSON_STRICT) ? path_is_normalized(path) : path_is_valid(path)))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a normalized file system path.", strna(name));
         if (!path_is_absolute(path))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an absolute file system path.", strna(name));
+        if (!((flags & SD_JSON_STRICT) ? path_is_normalized(path) : path_is_valid(path)))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a normalized file system path.", strna(name));
 
         *p = path;
         return 0;
