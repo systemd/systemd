@@ -139,4 +139,92 @@
 
                 <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.make-directory</annotate>
         </action>
+
+        <action id="io.systemd.mount-file-system.chown-directory">
+                <description gettext-domain="systemd">Allow chowning directory recursively to the foreign UID range's root user</description>
+                <message gettext-domain="systemd">Authentication is required for an application to chown $(directory) to the foreign UID range's root user.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.mount-file-system.chown-directory-untrusted">
+                <description gettext-domain="systemd">Allow chowning directory recursively to the foreign UID range's root user that is not owned by the user</description>
+                <message gettext-domain="systemd">Authentication is required for an application to chown $(directory) to the foreign UID range's root user that is not owned by the user.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.chown-directory</annotate>
+        </action>
+
+        <action id="io.systemd.mount-file-system.remove-directory">
+                <description gettext-domain="systemd">Allow removing directory owned by the foreign UID range</description>
+                <message gettext-domain="systemd">Authentication is required for an application to remove $(directory) owned by the foreign UID range.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.mount-file-system.remove-directory-untrusted">
+                <description gettext-domain="systemd">Allow removing directory owned by the foreign UID range below directory not owned by the user</description>
+                <message gettext-domain="systemd">Authentication is required for an application to remove $(directory) owned by the foreign UID range, below a directory not owned by the user.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.remove-directory</annotate>
+        </action>
+
+        <action id="io.systemd.mount-file-system.copy-directory">
+                <description gettext-domain="systemd">Allow copying directory tree owned by the foreign UID range</description>
+                <message gettext-domain="systemd">Authentication is required for an application to copy $(source) to $(destination) owned by the foreign UID range.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.mount-file-system.copy-directory-untrusted">
+                <description gettext-domain="systemd">Allow copying directory tree owned by the foreign UID range below directory not owned by the user</description>
+                <message gettext-domain="systemd">Authentication is required for an application to copy $(source) to $(destination) owned by the foreign UID range, below a directory not owned by the user.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.copy-directory</annotate>
+        </action>
+
+        <action id="io.systemd.mount-file-system.rename-directory">
+                <description gettext-domain="systemd">Allow renaming directory tree owned by the foreign UID range</description>
+                <message gettext-domain="systemd">Authentication is required for an application to rename $(source) to $(destination) owned by the foreign UID range.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
+        <action id="io.systemd.mount-file-system.rename-directory-untrusted">
+                <description gettext-domain="systemd">Allow renaming directory tree owned by the foreign UID range below directory not owned by the user</description>
+                <message gettext-domain="systemd">Authentication is required for an application to rename $(source) to $(destination) owned by the foreign UID range, below a directory not owned by the user.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+
+                <annotate key="org.freedesktop.policykit.imply">io.systemd.mount-file-system.rename-directory</annotate>
+        </action>
 </policyconfig>
