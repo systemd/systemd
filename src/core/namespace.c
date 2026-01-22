@@ -2973,6 +2973,11 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 return r;
         }
 
+        /* Remount / as SLAVE so that nothing now mounted in the namespace
+         * shows up in the parent */
+        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
+                return log_debug_errno(errno, "Failed to remount '/' as SLAVE: %m");
+
         /* Create the source directory to allow runtime propagation of mounts */
         if (setup_propagate)
                 (void) mkdir_p(p->propagate_dir, 0600);
@@ -2983,11 +2988,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 char *extension_dir = strjoina(p->private_namespace_dir, "/unit-extensions");
                 (void) mkdir_p(extension_dir, 0600);
         }
-
-        /* Remount / as SLAVE so that nothing now mounted in the namespace
-         * shows up in the parent */
-        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
-                return log_debug_errno(errno, "Failed to remount '/' as SLAVE: %m");
 
         if (p->root_directory_fd >= 0) {
 
