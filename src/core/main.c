@@ -1422,6 +1422,9 @@ static int os_release_status(void) {
                         if (l < 0) {
                                 log_debug_errno(l, "Failed to unescape FANCY_NAME=, ignoring: %m");
                                 fancy_name = mfree(fancy_name);
+                        } else if (!utf8_is_valid(fancy_name)) {
+                                log_debug("Unescaped FANCY_NAME= contains invalid UTF-8, ignoring.");
+                                fancy_name = mfree(fancy_name);
                         } else {
                                 free_and_replace(fancy_name, unescaped);
 
