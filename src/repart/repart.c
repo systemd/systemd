@@ -9934,7 +9934,7 @@ static int acquire_root_devno(
                 return -ENOTBLK;
 
         /* From dm-crypt to backing partition */
-        r = block_get_originating(devno, &devno);
+        r = block_get_originating(devno, &devno, /* recursive= */ false);
         if (r == -ENOENT)
                 log_debug_errno(r, "Device '%s' has no dm-crypt/dm-verity device, no need to look for underlying block device.", p);
         else if (r < 0)

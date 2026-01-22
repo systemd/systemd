@@ -678,7 +678,7 @@ static int get_sysext_overlay_block(const char *p, dev_t *ret) {
                 return 0;
         }
 
-        (void) block_get_originating(*ret, ret);
+        (void) block_get_originating(*ret, ret, /* recursive= */ false);
         return 1;
 }
 
