@@ -92,3 +92,4 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid);
 int is_idmapping_supported(const char *path);
 
 int netns_acquire(void);
+int mntns_acquire(int *ret_fd);

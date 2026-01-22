@@ -6,6 +6,7 @@
 #include <sched.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "dlfcn-util.h"
@@ -19,6 +20,7 @@
 #include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "uid-range.h"
@@ -803,4 +805,46 @@ int netns_acquire(void) {
         assert(r > 0);
 
         return pidref_namespace_open_by_type(&pid, NAMESPACE_NET);
+}
+
+int mntns_acquire(int *ret_fd) {
+        _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
+                return -errno;
+
+        /* Forks off a process in a new mount namespace, acquires a mount namespace fd, and then kills
+         * the process again. This way we have a mntns fd that is not bound to any process. */
+
+        r = pidref_safe_fork("(sd-mkmntns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_WAIT, &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork process into new mntns: %m");
+        if (r == 0) {
+                _cleanup_close_ int child_fd = -EBADF;
+
+                pair[0] = safe_close(pair[0]);
+
+                child_fd = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (child_fd < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (send_one_fd(pair[1], child_fd, 0) < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        fd = receive_one_fd(pair[0], 0);
+        if (fd < 0)
+                return fd;
+
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
+
+        return pidref_namespace_open_by_type(&pid, NAMESPACE_MOUNT);
 }
