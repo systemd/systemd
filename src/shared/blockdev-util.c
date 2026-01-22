@@ -363,14 +363,14 @@ int get_block_device_harder_fd(int fd, dev_t *ret) {
         assert(fd >= 0);
         assert(ret);
 
-        /* Gets the backing block device for a file system, and handles LUKS encrypted file systems, looking for its
-         * immediate parent, if there is one. */
+        /* Gets the backing block device for a file system, and handles LUKS encrypted file systems, looking
+         * for its underlying physical device, if there is one. */
 
         r = get_block_device_fd(fd, ret);
         if (r <= 0)
                 return r;
 
-        r = block_get_originating(*ret, ret);
+        r = block_get_originating_recursive(*ret, ret);
         if (r < 0)
                 log_debug_errno(r, "Failed to chase block device, ignoring: %m");
 
