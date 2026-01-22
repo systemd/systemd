@@ -475,5 +475,4 @@ DECLARE_STRING_TABLE_LOOKUP(keep_configuration, KeepConfiguration);
 
 DECLARE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy);
 
-const char* dhcp_client_persist_leases_to_string(DHCPClientPersistLeases i) _const_;
-DHCPClientPersistLeases dhcp_client_persist_leases_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dhcp_client_persist_leases, DHCPClientPersistLeases);
