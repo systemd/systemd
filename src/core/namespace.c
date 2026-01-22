@@ -1376,7 +1376,7 @@ static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) 
 
         /* We assume /run/systemd/journal/ is available if not changing root, which isn't entirely accurate
          * but shouldn't matter, as either way the user would get ENOENT when accessing /dev/log */
-        if ((!p->root_image && !p->root_directory && p->root_directory_fd < 0) || p->bind_log_sockets) {
+        if ((!p->root_image && p->root_directory_fd < 0) || p->bind_log_sockets) {
                 const char *devlog = strjoina(temporary_mount, "/dev/log");
                 if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
                         log_debug_errno(errno,
@@ -2514,7 +2514,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_strv_free_ char **hierarchies = NULL;
         _cleanup_(mount_list_done) MountList ml = {};
-        _cleanup_close_ int userns_fd = -EBADF, mntns_fd = -EBADF, root_fd = -EBADF;
+        _cleanup_close_ int userns_fd = -EBADF, mntns_fd = -EBADF, root_fd = -EBADF, root_directory_fd = -EBADF;
         bool require_prefix = false;
         const char *root;
         DissectImageFlags dissect_image_flags =
@@ -2983,32 +2983,68 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 (void) mkdir_p(extension_dir, 0600);
         }
 
-        root_fd = safe_close(root_fd);
-        if (setns(mntns_fd, CLONE_NEWNS) < 0)
-                return log_debug_errno(errno, "Failed to enter new mount namespace: %m");
+        if (p->root_directory) {
+                assert(p->root_directory_fd < 0);
 
-        if (p->root_directory_fd >= 0) {
-
-                if (move_mount(p->root_directory_fd, "", AT_FDCWD, root, MOVE_MOUNT_F_EMPTY_PATH) < 0)
-                        return log_debug_errno(errno, "Failed to move detached mount to '%s': %m", root);
-
-                /* We just remounted / as slave, but that didn't affect the detached mount that we just
-                 * mounted, so remount that one as slave recursive as well now. */
-
-                if (mount(NULL, root, NULL, MS_SLAVE|MS_REC, NULL) < 0)
-                        return log_debug_errno(errno, "Failed to remount '%s' as SLAVE: %m", root);
-
+                root_directory_fd = open_tree(AT_FDCWD, p->root_directory, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE|AT_SYMLINK_NOFOLLOW);
+                if (root_directory_fd < 0)
+                        return log_debug_errno(errno, "Failed to open tree at '%s': %m", p->root_directory);
+        } else if (p->root_directory_fd >= 0) {
+                assert(!p->root_directory);
+                /* Take our own reference since @p is const. */
+                root_directory_fd = fcntl(p->root_directory_fd, F_DUPFD_CLOEXEC, 3);
         } else if (p->root_image) {
                 /* A root image is specified, mount it to the right place */
                 r = dissected_image_mount(
                                 dissected_image,
-                                root,
+                                /* where= */ NULL,
                                 /* uid_shift= */ UID_INVALID,
                                 /* uid_range= */ UID_INVALID,
                                 userns_fd,
                                 dissect_image_flags);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to mount root image: %m");
+        } else {
+                root_directory_fd = open_tree(AT_FDCWD, "/", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE|AT_SYMLINK_NOFOLLOW);
+                if (root_directory_fd < 0)
+                        return log_debug_errno(errno, "Failed to open tree at '%s': %m", p->root_directory);
+        }
+
+        assert(root_directory_fd >= 0 || p->root_image);
+
+        root_fd = safe_close(root_fd);
+        if (setns(mntns_fd, CLONE_NEWNS) < 0)
+                return log_debug_errno(errno, "Failed to enter new mount namespace: %m");
+
+        if (root_directory_fd >= 0) {
+                if (move_mount(root_directory_fd, "", AT_FDCWD, root, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                        return log_debug_errno(errno, "Failed to move detached mount to '%s': %m", root);
+        } else if (p->root_image) {
+                for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
+                        _cleanup_free_ char *partition_mountpoint = NULL;
+                        DissectedPartition *pp = dissected_image->partitions + d;
+
+                        if (!pp->found)
+                                continue;
+
+                        if (pp->fsmount_fd < 0)
+                                continue;
+
+                        const char *m = partition_mountpoint_to_string(d);
+                        _cleanup_strv_free_ char **l = NULL;
+                        if (!isempty(m)) {
+                                l = strv_split_nulstr(m);
+                                if (!l)
+                                        return log_oom_debug();
+                        }
+
+                        partition_mountpoint = path_join(root, l);
+                        if (!partition_mountpoint)
+                                return -ENOMEM;
+
+                        if (move_mount(pp->fsmount_fd, "", AT_FDCWD, partition_mountpoint, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                                return log_debug_errno(errno, "Failed to move detached mount to '%s': %m", partition_mountpoint);
+                }
 
                 /* Now release the block device lock, so that udevd is free to call BLKRRPART on the device
                  * if it likes. */
@@ -3022,27 +3058,15 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to relinquish dissected image: %m");
 
-        } else if (p->root_directory) {
-
-                /* A root directory is specified. Turn its directory into bind mount, if it isn't one yet. */
-                r = path_is_mount_point_full(root, /* root= */ NULL, AT_SYMLINK_FOLLOW);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to detect that %s is a mount point or not: %m", root);
-                if (r == 0) {
-                        r = mount_nofollow_verbose(LOG_DEBUG, root, root, NULL, MS_BIND|MS_REC, NULL);
-                        if (r < 0)
-                                return r;
-                }
-
-        } else {
-                /* Let's mount the main root directory to the root directory to use */
-                r = mount_nofollow_verbose(LOG_DEBUG, "/", root, NULL, MS_BIND|MS_REC, NULL);
-                if (r < 0)
-                        return r;
         }
 
+        /* We just remounted / as slave, but that didn't affect the detached mount that we just
+         * mounted, so remount that one as slave recursive as well now. */
+        if (mount(NULL, root, NULL, MS_SLAVE|MS_REC, NULL) < 0)
+                return log_debug_errno(errno, "Failed to remount '%s' as SLAVE: %m", root);
+
         /* Try to set up the new root directory before mounting anything else there. */
-        if (p->root_image || p->root_directory || p->root_directory_fd >= 0)
+        if (p->root_image || root_directory_fd >= 0)
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         /* Now make the magic happen */
