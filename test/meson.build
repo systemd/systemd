@@ -247,7 +247,7 @@ endif
 
 if want_tests != 'false' and conf.get('ENABLE_KERNEL_INSTALL') == 1
         kernel_install = executables_by_name.get('kernel-install')
-        args = [kernel_install.full_path(), loaderentry_install.full_path(), uki_copy_install]
+        args = [kernel_install.full_path(), loaderentry_install.full_path(), uki_copy_rinstall]
         deps = [kernel_install, loaderentry_install]
         if want_ukify and boot_stubs.length() > 0
                 args += [ukify.full_path(), ukify_install.full_path(), boot_stubs[0]]
