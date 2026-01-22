@@ -123,6 +123,7 @@ typedef struct MountEntry {
         bool idmapped;
         uid_t idmap_uid;
         gid_t idmap_gid;
+        int fd_detached;
 } MountEntry;
 
 typedef struct MountList {
@@ -140,55 +141,55 @@ static const BindMount bind_log_sockets_table[] = {
  * hasn't mounted something already. These mounts are hence overridden by any other explicitly configured
  * mounts. */
 static const MountEntry apivfs_table[] = {
-        { "/proc",               MOUNT_PROCFS,       false },
-        { "/dev",                MOUNT_BIND_DEV,     false },
-        { "/sys",                MOUNT_BIND_SYSFS,   false },
-        { "/run",                MOUNT_RUN,          false, .options_const = "mode=0755" TMPFS_LIMITS_RUN, .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME },
+        { "/proc",               MOUNT_PROCFS,       false, .fd_detached = -EBADF },
+        { "/dev",                MOUNT_BIND_DEV,     false, .fd_detached = -EBADF },
+        { "/sys",                MOUNT_BIND_SYSFS,   false, .fd_detached = -EBADF },
+        { "/run",                MOUNT_RUN,          false, .options_const = "mode=0755" TMPFS_LIMITS_RUN, .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME, .fd_detached = -EBADF },
 };
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
 static const MountEntry protect_kernel_tunables_proc_table[] = {
-        { "/proc/acpi",          MOUNT_READ_ONLY,           true  },
-        { "/proc/apm",           MOUNT_READ_ONLY,           true  }, /* Obsolete API, there's no point in permitting access to this, ever */
-        { "/proc/asound",        MOUNT_READ_ONLY,           true  },
-        { "/proc/bus",           MOUNT_READ_ONLY,           true  },
-        { "/proc/fs",            MOUNT_READ_ONLY,           true  },
-        { "/proc/irq",           MOUNT_READ_ONLY,           true  },
-        { "/proc/kallsyms",      MOUNT_INACCESSIBLE,        true  },
-        { "/proc/kcore",         MOUNT_INACCESSIBLE,        true  },
-        { "/proc/latency_stats", MOUNT_READ_ONLY,           true  },
-        { "/proc/mtrr",          MOUNT_READ_ONLY,           true  },
-        { "/proc/scsi",          MOUNT_READ_ONLY,           true  },
-        { "/proc/sys",           MOUNT_READ_ONLY,           true  },
-        { "/proc/sysrq-trigger", MOUNT_READ_ONLY,           true  },
-        { "/proc/timer_stats",   MOUNT_READ_ONLY,           true  },
+        { "/proc/acpi",          MOUNT_READ_ONLY,           true, .fd_detached = -EBADF  },
+        { "/proc/apm",           MOUNT_READ_ONLY,           true, .fd_detached = -EBADF  }, /* Obsolete API, there's no point in permitting access to this, ever */
+        { "/proc/asound",        MOUNT_READ_ONLY,           true, .fd_detached = -EBADF  },
+        { "/proc/bus",           MOUNT_READ_ONLY,           true, .fd_detached = -EBADF  },
+        { "/proc/fs",            MOUNT_READ_ONLY,           true, .fd_detached = -EBADF  },
+        { "/proc/irq",           MOUNT_READ_ONLY,           true, .fd_detached = -EBADF  },
+        { "/proc/kallsyms",      MOUNT_INACCESSIBLE,        true, .fd_detached = -EBADF  },
+        { "/proc/kcore",         MOUNT_INACCESSIBLE,        true, .fd_detached = -EBADF  },
+        { "/proc/latency_stats", MOUNT_READ_ONLY,           true, .fd_detached = -EBADF  },
+        { "/proc/mtrr",          MOUNT_READ_ONLY,           true, .fd_detached = -EBADF  },
+        { "/proc/scsi",          MOUNT_READ_ONLY,           true, .fd_detached = -EBADF  },
+        { "/proc/sys",           MOUNT_READ_ONLY,           true, .fd_detached = -EBADF  },
+        { "/proc/sysrq-trigger", MOUNT_READ_ONLY,           true, .fd_detached = -EBADF  },
+        { "/proc/timer_stats",   MOUNT_READ_ONLY,           true, .fd_detached = -EBADF  },
 };
 
 static const MountEntry protect_kernel_tunables_sys_table[] = {
-        { "/sys",                MOUNT_READ_ONLY,           false },
-        { "/sys/fs/cgroup",      MOUNT_READ_WRITE_IMPLICIT, false }, /* READ_ONLY is set by ProtectControlGroups= option */
-        { "/sys/fs/selinux",     MOUNT_READ_WRITE_IMPLICIT, true  },
-        { "/sys/kernel/debug",   MOUNT_READ_ONLY,           true  },
-        { "/sys/kernel/tracing", MOUNT_READ_ONLY,           true  },
+        { "/sys",                MOUNT_READ_ONLY,           false, .fd_detached = -EBADF },
+        { "/sys/fs/cgroup",      MOUNT_READ_WRITE_IMPLICIT, false, .fd_detached = -EBADF }, /* READ_ONLY is set by ProtectControlGroups= option */
+        { "/sys/fs/selinux",     MOUNT_READ_WRITE_IMPLICIT, true,  .fd_detached = -EBADF },
+        { "/sys/kernel/debug",   MOUNT_READ_ONLY,           true,  .fd_detached = -EBADF },
+        { "/sys/kernel/tracing", MOUNT_READ_ONLY,           true,  .fd_detached = -EBADF },
 };
 
 /* PrivateBPF= option */
 static const MountEntry private_bpf_no_table[] = {
-        { "/sys/fs/bpf",         MOUNT_READ_ONLY,    true  },
+        { "/sys/fs/bpf",         MOUNT_READ_ONLY,    true, .fd_detached = -EBADF  },
 };
 
 /* ProtectKernelModules= option */
 static const MountEntry protect_kernel_modules_table[] = {
-        { "/usr/lib/modules",    MOUNT_INACCESSIBLE, true  },
+        { "/usr/lib/modules",    MOUNT_INACCESSIBLE, true, .fd_detached = -EBADF  },
 };
 
 /* ProtectKernelLogs= option */
 static const MountEntry protect_kernel_logs_proc_table[] = {
-        { "/proc/kmsg",          MOUNT_INACCESSIBLE, true },
+        { "/proc/kmsg",          MOUNT_INACCESSIBLE, true, .fd_detached = -EBADF },
 };
 
 static const MountEntry protect_kernel_logs_dev_table[] = {
-        { "/dev/kmsg",           MOUNT_INACCESSIBLE, true },
+        { "/dev/kmsg",           MOUNT_INACCESSIBLE, true, .fd_detached = -EBADF },
 };
 
 /*
@@ -196,54 +197,54 @@ static const MountEntry protect_kernel_logs_dev_table[] = {
  * system should be protected by ProtectSystem=.
  */
 static const MountEntry protect_home_read_only_table[] = {
-        { "/home",               MOUNT_READ_ONLY,     true  },
-        { "/run/user",           MOUNT_READ_ONLY,     true  },
-        { "/root",               MOUNT_READ_ONLY,     true  },
+        { "/home",               MOUNT_READ_ONLY,     true, .fd_detached = -EBADF  },
+        { "/run/user",           MOUNT_READ_ONLY,     true, .fd_detached = -EBADF  },
+        { "/root",               MOUNT_READ_ONLY,     true, .fd_detached = -EBADF  },
 };
 
 /* ProtectHome=tmpfs */
 static const MountEntry protect_home_tmpfs_table[] = {
-        { "/home",               MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
-        { "/run/user",           MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
-        { "/root",               MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0700" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
+        { "/home",               MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME, .fd_detached = -EBADF },
+        { "/run/user",           MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME, .fd_detached = -EBADF },
+        { "/root",               MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0700" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME, .fd_detached = -EBADF },
 };
 
 /* ProtectHome=yes */
 static const MountEntry protect_home_yes_table[] = {
-        { "/home",               MOUNT_INACCESSIBLE, true  },
-        { "/run/user",           MOUNT_INACCESSIBLE, true  },
-        { "/root",               MOUNT_INACCESSIBLE, true  },
+        { "/home",               MOUNT_INACCESSIBLE, true, .fd_detached = -EBADF  },
+        { "/run/user",           MOUNT_INACCESSIBLE, true, .fd_detached = -EBADF  },
+        { "/root",               MOUNT_INACCESSIBLE, true, .fd_detached = -EBADF  },
 };
 
 /* ProtectControlGroups=yes */
 static const MountEntry protect_control_groups_yes_table[] = {
-        { "/sys/fs/cgroup",      MOUNT_READ_ONLY,         false  },
+        { "/sys/fs/cgroup",      MOUNT_READ_ONLY,         false, .fd_detached = -EBADF  },
 };
 
 /* ProtectControlGroups=private. Note mount_private_apivfs() always use MS_NOSUID|MS_NOEXEC|MS_NODEV so
  * flags are not set here. */
 static const MountEntry protect_control_groups_private_table[] = {
-        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = false },
+        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = false, .fd_detached = -EBADF },
 };
 
 /* ProtectControlGroups=strict */
 static const MountEntry protect_control_groups_strict_table[] = {
-        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = true },
+        { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = true, .fd_detached = -EBADF },
 };
 
 /* ProtectSystem=yes */
 static const MountEntry protect_system_yes_table[] = {
-        { "/usr",                MOUNT_READ_ONLY,     false },
-        { "/boot",               MOUNT_READ_ONLY,     true  },
-        { "/efi",                MOUNT_READ_ONLY,     true  },
+        { "/usr",                MOUNT_READ_ONLY,     false, .fd_detached = -EBADF },
+        { "/boot",               MOUNT_READ_ONLY,     true,  .fd_detached = -EBADF },
+        { "/efi",                MOUNT_READ_ONLY,     true,  .fd_detached = -EBADF },
 };
 
 /* ProtectSystem=full includes ProtectSystem=yes */
 static const MountEntry protect_system_full_table[] = {
-        { "/usr",                MOUNT_READ_ONLY,     false },
-        { "/boot",               MOUNT_READ_ONLY,     true  },
-        { "/efi",                MOUNT_READ_ONLY,     true  },
-        { "/etc",                MOUNT_READ_ONLY,     false },
+        { "/usr",                MOUNT_READ_ONLY,     false, .fd_detached = -EBADF },
+        { "/boot",               MOUNT_READ_ONLY,     true,  .fd_detached = -EBADF },
+        { "/efi",                MOUNT_READ_ONLY,     true,  .fd_detached = -EBADF },
+        { "/etc",                MOUNT_READ_ONLY,     false, .fd_detached = -EBADF },
 };
 
 /* ProtectSystem=strict. In this strict mode, we mount everything read-only, except for /proc, /dev, and
@@ -252,19 +253,19 @@ static const MountEntry protect_system_full_table[] = {
  * left writable, as ProtectHome= shall manage those, orthogonally).
  */
 static const MountEntry protect_system_strict_table[] = {
-        { "/",                   MOUNT_READ_ONLY,           false },
-        { "/proc",               MOUNT_READ_WRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
-        { "/sys",                MOUNT_READ_WRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
-        { "/dev",                MOUNT_READ_WRITE_IMPLICIT, false },      /* PrivateDevices= */
-        { "/home",               MOUNT_READ_WRITE_IMPLICIT, true  },      /* ProtectHome= */
-        { "/run/user",           MOUNT_READ_WRITE_IMPLICIT, true  },      /* ProtectHome= */
-        { "/root",               MOUNT_READ_WRITE_IMPLICIT, true  },      /* ProtectHome= */
+        { "/",                   MOUNT_READ_ONLY,           false, .fd_detached = -EBADF },
+        { "/proc",               MOUNT_READ_WRITE_IMPLICIT, false, .fd_detached = -EBADF },      /* ProtectKernelTunables= */
+        { "/sys",                MOUNT_READ_WRITE_IMPLICIT, false, .fd_detached = -EBADF },      /* ProtectKernelTunables= */
+        { "/dev",                MOUNT_READ_WRITE_IMPLICIT, false, .fd_detached = -EBADF },      /* PrivateDevices= */
+        { "/home",               MOUNT_READ_WRITE_IMPLICIT, true,  .fd_detached = -EBADF },      /* ProtectHome= */
+        { "/run/user",           MOUNT_READ_WRITE_IMPLICIT, true,  .fd_detached = -EBADF },      /* ProtectHome= */
+        { "/root",               MOUNT_READ_WRITE_IMPLICIT, true,  .fd_detached = -EBADF },      /* ProtectHome= */
 };
 
 /* ProtectHostname=yes */
 static const MountEntry protect_hostname_yes_table[] = {
-        { "/proc/sys/kernel/hostname",   MOUNT_READ_ONLY, false },
-        { "/proc/sys/kernel/domainname", MOUNT_READ_ONLY, false },
+        { "/proc/sys/kernel/hostname",   MOUNT_READ_ONLY, false, .fd_detached = -EBADF },
+        { "/proc/sys/kernel/domainname", MOUNT_READ_ONLY, false, .fd_detached = -EBADF },
 };
 
 static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
@@ -434,6 +435,7 @@ static int append_access_mounts(MountList *ml, char **strv, MountMode mode, bool
                         .mode = mode,
                         .ignore = ignore,
                         .has_prefix = !needs_prefix && !forcibly_require_prefix,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -458,6 +460,7 @@ static int append_empty_dir_mounts(MountList *ml, char **strv) {
                         .read_only = true,
                         .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST,
                         .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -485,6 +488,7 @@ static int append_bind_mounts(MountList *ml, const BindMount *binds, size_t n) {
                         .idmapped = b->idmapped,
                         .idmap_uid = b->uid,
                         .idmap_gid = b->gid,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -515,6 +519,7 @@ static int append_mount_images(MountList *ml, const MountImage *mount_images, si
                         .ignore = m->ignore_enoent,
                         .verity = TAKE_GENERIC(verity, VeritySettings, VERITY_SETTINGS_DEFAULT),
                         .filter_class = _IMAGE_CLASS_INVALID,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -614,6 +619,7 @@ static int append_extensions(
                         .has_prefix = true,
                         .verity = TAKE_GENERIC(verity, VeritySettings, VERITY_SETTINGS_DEFAULT),
                         .filter_class = _IMAGE_CLASS_INVALID,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -682,6 +688,7 @@ static int append_extensions(
                         .has_prefix = true,
                         .read_only = true,
                         .filter_class = _IMAGE_CLASS_INVALID,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -704,6 +711,7 @@ static int append_extensions(
                         .mode = MOUNT_OVERLAY,
                         .has_prefix = true,
                         .ignore = true, /* If the source image doesn't set the ignore bit it will fail earlier. */
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -744,6 +752,7 @@ static int append_tmpfs_mounts(MountList *ml, const TemporaryFileSystem *tmpfs, 
                         .read_only = ro,
                         .options_malloc = TAKE_PTR(o),
                         .flags = flags,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -769,6 +778,7 @@ static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
                         .mode = MOUNT_PRIVATE_TMP,
                         .read_only = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY),
                         .source_const = p->tmp_dir,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -783,6 +793,7 @@ static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
                         .mode = MOUNT_PRIVATE_TMP,
                         .read_only = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY),
                         .source_const = p->var_tmp_dir,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -798,6 +809,7 @@ static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
                         .mode = MOUNT_PRIVATE_TMPFS,
                         .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
                         .flags = MS_NODEV|MS_STRICTATIME,
+                        .fd_detached = -EBADF,
                 };
 
                 return 0;
@@ -819,6 +831,7 @@ static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
                 .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
                 .flags = MS_NODEV|MS_STRICTATIME,
                 .has_prefix = true,
+                .fd_detached = -EBADF,
         };
 
         me = mount_list_extend(ml);
@@ -830,6 +843,7 @@ static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
                 .mode = MOUNT_BIND,
                 .source_dir_mode = 01777,
                 .create_source_dir = true,
+                .fd_detached = -EBADF,
         };
 
         me = mount_list_extend(ml);
@@ -841,6 +855,7 @@ static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
                 .mode = MOUNT_BIND,
                 .source_dir_mode = 01777,
                 .create_source_dir = true,
+                .fd_detached = -EBADF,
         };
 
         return 0;
@@ -961,6 +976,7 @@ static int append_private_bpf(
                         .path_const = "/sys/fs/bpf",
                         .mode = MOUNT_BPFFS,
                         .ignore = !protect_kernel_tunables, /* indicate whether we should fall back to MOUNT_READ_ONLY on failure. */
+                        .fd_detached = -EBADF,
                 };
                 return 0;
         }
@@ -2697,6 +2713,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .path_const = "/dev",
                         .mode = MOUNT_PRIVATE_DEV,
                         .flags = DEV_MOUNT_OPTIONS,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -2792,6 +2809,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 *me = (MountEntry) {
                         .path_const = "/sys",
                         .mode = MOUNT_PRIVATE_SYSFS,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -2804,6 +2822,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .path_const = "/dev/mqueue",
                         .mode = MOUNT_MQUEUEFS,
                         .flags = MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_RELATIME,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -2820,6 +2839,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .read_only = true,
                         .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST,
                         .flags = MS_NODEV|MS_STRICTATIME|MS_NOSUID|MS_NOEXEC,
+                        .fd_detached = -EBADF,
                 };
 
                 if (p->runtime_scope == RUNTIME_SCOPE_SYSTEM)
@@ -2841,6 +2861,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .read_only = true,
                         .source_const = p->creds_path,
                         .ignore = true,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -2856,6 +2877,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .path_const = "/run/credentials",
                         .mode = MOUNT_INACCESSIBLE,
                         .ignore = true,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -2875,6 +2897,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .mode = MOUNT_BIND_RECURSIVE,
                         .read_only = true,
                         .source_malloc = TAKE_PTR(q),
+                        .fd_detached = -EBADF,
                 };
 
         } else if (p->bind_log_sockets) {
@@ -2894,6 +2917,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .path_const = p->incoming_dir,
                         .mode = MOUNT_BIND,
                         .read_only = true,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -2907,6 +2931,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .source_const = p->host_notify_socket,
                         .mode = MOUNT_BIND,
                         .read_only = true,
+                        .fd_detached = -EBADF,
                 };
         }
 
@@ -2921,6 +2946,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .mode = MOUNT_BIND,
                         .read_only = true,
                         .ignore = true, /* Live copy, don't hard-fail if it goes missing */
+                        .fd_detached = -EBADF,
                 };
         }
 
