@@ -8,12 +8,14 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Boot Loader Control Service
-Documentation=man:bootctl(1)
-DefaultDependencies=no
-Conflicts=shutdown.target
-After=local-fs.target
-Before=shutdown.target
+Description=System Install Tool
+Documentation=man:systemd-sysinstall(1)
+Wants=dbus.socket systemd-logind.service systemd-mute-console.socket
+After=systemd-logind.service
 
 [Service]
-ExecStart=bootctl
+ExecStart=systemd-sysinstall --variables=yes --reboot=yes --mute-console=yes
+StandardOutput=tty
+StandardInput=tty
+StandardError=tty
+TTYReset=yes

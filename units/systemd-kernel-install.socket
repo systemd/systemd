@@ -8,12 +8,11 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Boot Loader Control Service
-Documentation=man:bootctl(1)
-DefaultDependencies=no
-Conflicts=shutdown.target
-After=local-fs.target
-Before=shutdown.target
+Description=Kernel Install Service Socket
+Documentation=man:kernel-install(8)
 
-[Service]
-ExecStart=bootctl
+[Socket]
+ListenStream=/run/systemd/io.systemd.KernelInstall
+FileDescriptorName=varlink
+SocketMode=0600
+Accept=yes

@@ -101,8 +101,10 @@
           one or more initrd images may be specified as well (note that plugins might generate additional
           ones).</para>
 
-          <para>The executable files from <filename>/usr/lib/kernel/install.d/*.install</filename> and
-          <filename>/etc/kernel/install.d/*.install</filename> (i.e. the plugins) are called with the
+          <para>The executable files from <filename>/usr/lib/kernel/install.d/*.install</filename>,
+          <filename>/usr/lib/kernel/install.d/*.rinstall</filename>,
+          <filename>/etc/kernel/install.d/*.install</filename> and
+          <filename>/etc/kernel/install.d/*.rinstall</filename> (i.e. the plugins) are called with the
           following arguments:</para>
 
           <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]</programlisting>
@@ -119,6 +121,19 @@
           <para><command>kernel-install</command> creates
           <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable></filename>,
           if enabled (see <varname>$KERNEL_INSTALL_LAYOUT</varname>).</para>
+
+          <para>Plugin file names may end in either the <filename>.install</filename> or
+          <filename>.rinstall</filename> suffix. Plugins with former suffix are called only if
+          <command>kernel-install</command> is invoked without
+          <option>--root=</option>/<option>--image=</option> switch, i.e. when operating directly on the host
+          the command is called on, rather than a separate image. Plugins with the latter suffix are invoked
+          in any case, i.e. both when operating on the host and when operating on a root directory or disk
+          image. Plugins that alter system state (i.e. state outside of the relevant directories whose paths
+          are passed to the plugins via the command line and environment variables) should use the
+          <filename>.install</filename> suffix, and those operate purely below the specified directories may
+          use the <filename>.rinstall</filename> suffix. Or in other words, the suffix indicates whether a
+          plugin is ready to operate "offline" on a disk image (<filename>*.rinstall</filename>) or exclusively operates "online"
+          (<filename>*.install</filename>) on a running system.</para>
 
           <para>Three default plugins execute the following operations in this case:</para>
 
@@ -153,7 +168,7 @@
             </varlistentry>
 
             <varlistentry>
-              <term><filename>90-uki-copy.install</filename></term>
+              <term><filename>90-uki-copy.rinstall</filename></term>
               <listitem>
                 <para>If <varname>$KERNEL_INSTALL_STAGING_AREA/uki.efi</varname> exists, the plugin copies it
                 to
@@ -227,7 +242,7 @@
             </varlistentry>
 
             <varlistentry>
-              <term><filename>90-uki-copy.install</filename></term>
+              <term><filename>90-uki-copy.rinstall</filename></term>
               <listitem>
                 <para>The plugin removes the file
                 <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.efi</filename> and
@@ -418,6 +433,45 @@
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--kernel-search=</option></term>
+        <listitem>
+          <para>Controls whether and how to search for the kernel image to install. Normally, a path to the
+          kernel image to install is specified as second argument to the <literal>add</literal>
+          command. Alternatively, if <option>--kernel-search=</option> is specified, the kernel image may be
+          searched for automatically (in which case the second argument is ignored). If specified as
+          <literal>usr</literal> the kernel image is looked for in
+          <filename>/usr/lib/modules/<replaceable>version</replaceable>/vmlinuz</filename>, where
+          <replaceable>version</replaceable> is replaced with the version string specified as first argument
+          to the <literal>add</literal> command. If specified as <literal>current</literal> the kernel
+          currently booted is looked for in the EFI System Partition (ESP) or XBOOTLDR partition, using
+          information passed in from the boot loader (i.e. typically the
+          <varname>StubImageIdentifier</varname> and <varname>StubDevicePartUUID</varname> EFI
+          variables). This option is particularly useful when replicating the currently booted operating
+          system installation onto a new disk (e.g. in an OS installer scenario), specifically in order order
+          to install a suitable kernel from the currently booted systemd onto the newly initialized
+          ESP/XBOOTLDR of the target disk.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--install-source=</option></term>
+        <listitem>
+          <para>When operating with <option>--root=</option>/<option>--image=</option> controls where to
+          look for the kernel to install on the target image. May be one of <literal>image</literal>
+          (for searching for it on the specified image), <literal>host</literal> (for searching on the host)
+          or <literal>auto</literal> (to pick the mode depending on <option>--kernel-search=</option>.</para>
+
+          <para>Note that <option>--install-source=image</option> is only available if the kernel version is
+          explicitly specified, i.e. it is not supported in conjunction with
+          <option>--kernel-search=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
@@ -525,7 +579,7 @@
             <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>:
             unified kernel images under <filename>$BOOT/EFI/Linux</filename> as
             <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>[+<replaceable>TRIES</replaceable>].efi</filename>.</para>
-            <para>Implemented by <filename>90-uki-copy.install</filename>.</para>
+            <para>Implemented by <filename>90-uki-copy.rinstall</filename>.</para>
 
             <xi:include href="version-info.xml" xpointer="v253"/>
           </listitem>
@@ -650,7 +704,7 @@
         <term><filename>/etc/kernel/tries</filename></term>
         <listitem>
           <para>Read by <filename>90-loaderentry.install</filename> and
-          <filename>90-uki-copy.install</filename>. If this file exists, a numeric value is read from it and
+          <filename>90-uki-copy.rinstall</filename>. If this file exists, a numeric value is read from it and
           the naming of the generated entry file or UKI is altered to include it as
           <filename>$BOOT/loader/entries/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.conf</filename>
           or
