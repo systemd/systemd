@@ -972,12 +972,9 @@ static int link_save(Link *link) {
                         int dir_fd;
 
                         r = link_get_dhcp_client_lease_path(link, &dir_fd, &persistent_path);
-
-                        if (r == -EBUSY) {
-                                /* not ready */
-                        } else if (r < 0) {
+                        if (r < 0 && r != -EBUSY) /* EBUSY: not ready */
                                 log_link_debug_errno(link, r, "Failed to get persistent lease path: %m");
-                        } else if (r > 0) {
+                        else if (r > 0) {
                                 r = dhcp_lease_save(link->dhcp_lease, dir_fd, persistent_path);
                                 if (r < 0)
                                         log_link_warning_errno(link, r, "Failed to save persistent DHCP lease: %m");
