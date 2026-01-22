@@ -900,7 +900,11 @@ static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, c
         if (r < 0)
                 return r;
 
-        r = pidref_in_same_namespace(/* pid1= */ NULL, &pidref, NAMESPACE_MOUNT);
+        _cleanup_close_ int mntns_fd = pidref_namespace_open_by_type(&pidref, NAMESPACE_MOUNT);
+        if (mntns_fd < 0)
+                return log_debug_errno(mntns_fd, "Failed to open mount namespace of peer: %m");
+
+        r = is_our_namespace(mntns_fd, NAMESPACE_MOUNT);
         if (r < 0)
                 return log_debug_errno(r, "Failed to check if peer is in same mount namespace: %m");
         if (r > 0)
@@ -910,13 +914,9 @@ static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, c
          * from a different mount namespace, so we need to fork off a child process that joins the peer's
          * mount namespace and calls open_tree() there. */
 
-        _cleanup_close_ int mntns_fd = pidref_namespace_open_by_type(&pidref, NAMESPACE_MOUNT);
-        if (mntns_fd < 0)
-                return log_debug_errno(mntns_fd, "Failed to open mount namespace of peer: %m");
-
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR, mount_fd_socket[2] = EBADF_PAIR;
 
-        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+        if (pipe2(errno_pipe_fd, O_CLOEXEC) < 0)
                 return log_debug_errno(errno, "Failed to create pipe: %m");
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, mount_fd_socket) < 0)
