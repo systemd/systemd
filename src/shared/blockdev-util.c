@@ -148,6 +148,35 @@ int block_device_get_originating(sd_device *dev, sd_device **ret) {
         return 0;
 }
 
+int block_device_get_originating_recursive(sd_device *dev, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *current = NULL;
+        sd_device *origin;
+        bool advanced = false;
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        current = sd_device_ref(dev);
+
+        for (;;) {
+                r = block_device_get_originating(current, &origin);
+                if (r < 0)
+                        break;
+
+                sd_device_unref(current);
+                current = origin;
+                advanced = true;
+        }
+
+        if (!advanced)
+                return r;
+
+        *ret = TAKE_PTR(current);
+
+        return 0;
+}
+
 int block_device_new_from_fd(int fd, BlockDeviceLookupFlags flags, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         dev_t devnum;
@@ -307,20 +336,41 @@ int block_get_originating(dev_t dt, dev_t *ret) {
         return sd_device_get_devnum(origin, ret);
 }
 
+int block_get_originating_recursive(dev_t dt, dev_t *ret) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL, *origin = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sd_device_new_from_devnum(&dev, 'b', dt);
+        if (r < 0)
+                return r;
+
+        r = block_device_get_originating_recursive(dev, &origin);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_devnum(origin, ret);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int get_block_device_harder_fd(int fd, dev_t *ret) {
         int r;
 
         assert(fd >= 0);
         assert(ret);
 
-        /* Gets the backing block device for a file system, and handles LUKS encrypted file systems, looking for its
-         * immediate parent, if there is one. */
+        /* Gets the backing block device for a file system, and handles LUKS encrypted file systems, looking
+         * for its underlying physical device, if there is one. */
 
         r = get_block_device_fd(fd, ret);
         if (r <= 0)
                 return r;
 
-        r = block_get_originating(*ret, ret);
+        r = block_get_originating_recursive(*ret, ret);
         if (r < 0)
                 log_debug_errno(r, "Failed to chase block device, ignoring: %m");
 
