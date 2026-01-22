@@ -1013,7 +1013,6 @@ static int bind_description(sd_bus *b, int fd, int family) {
 
 static int connect_as(int fd, const struct sockaddr *sa, socklen_t salen, uid_t uid, gid_t gid) {
         _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
-        ssize_t n;
         int r;
 
         /* Shortcut if we are not supposed to drop privileges */
@@ -1039,39 +1038,25 @@ static int connect_as(int fd, const struct sockaddr *sa, socklen_t salen, uid_t 
 
                 r = RET_NERRNO(setgroups(0, NULL));
                 if (r < 0)
-                        goto child_finish;
+                        report_errno_and_exit(pfd[1], r);
 
                 if (gid_is_valid(gid)) {
                         r = RET_NERRNO(setresgid(gid, gid, gid));
                         if (r < 0)
-                                goto child_finish;
+                                report_errno_and_exit(pfd[1], r);
                 }
 
                 if (uid_is_valid(uid)) {
                         r = RET_NERRNO(setresuid(uid, uid, uid));
                         if (r < 0)
-                                goto child_finish;
+                                report_errno_and_exit(pfd[1], r);
                 }
 
                 r = RET_NERRNO(connect(fd, sa, salen));
-                if (r < 0)
-                        goto child_finish;
-
-                r = 0;
-
-        child_finish:
-                n = write(pfd[1], &r, sizeof(r));
-                if (n != sizeof(r))
-                        _exit(EXIT_FAILURE);
-
-                _exit(EXIT_SUCCESS);
+                report_errno_and_exit(pfd[1], r);
         }
 
-        n = read(pfd[0], &r, sizeof(r));
-        if (n != sizeof(r))
-                return -EIO;
-
-        return r;
+        return read_errno(pfd[0]);
 }
 
 int bus_socket_connect(sd_bus *b) {

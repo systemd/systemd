@@ -1137,15 +1137,14 @@ static int mount_in_namespace_legacy(
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
         r = pidref_wait_for_terminate_and_check("(sd-bindmnt)", &child, 0);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to wait for child: %m");
+        if (r < 0)
                 goto finish;
-        }
         if (r != EXIT_SUCCESS) {
-                if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
+                r = read_errno(errno_pipe_fd[0]);
+                if (r < 0)
                         log_debug_errno(r, "Failed to mount: %m");
                 else
-                        log_debug("Child failed.");
+                        r = -EPROTO;
                 goto finish;
         }
 
@@ -1334,7 +1333,8 @@ static int mount_in_namespace(
         if (r < 0)
                 return log_debug_errno(r, "Failed to wait for child: %m");
         if (r != EXIT_SUCCESS) {
-                if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
+                r = read_errno(errno_pipe_fd[0]);
+                if (r < 0)
                         return log_debug_errno(r, "Failed to mount into namespace: %m");
 
                 return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Child failed.");

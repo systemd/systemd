@@ -18,8 +18,6 @@
 #include "process-util.h"
 
 static int read_operation_errno(const siginfo_t *si, Operation *o) {
-        int r;
-
         assert(si);
         assert(o);
 
@@ -27,16 +25,9 @@ static int read_operation_errno(const siginfo_t *si, Operation *o) {
                 return log_debug_errno(SYNTHETIC_ERRNO(ESHUTDOWN), "Child died abnormally");
 
         if (si->si_status == EXIT_SUCCESS)
-                r = 0;
-        else {
-                ssize_t n = read(o->errno_fd, &r, sizeof(r));
-                if (n < 0)
-                        return log_debug_errno(errno, "Failed to read operation's errno: %m");
-                if (n != sizeof(r))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Received unexpectedly short message when reading operation's errno");
-        }
+                return 0;
 
-        return r;
+        return read_errno(o->errno_fd);
 }
 
 static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdata) {
