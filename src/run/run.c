@@ -61,7 +61,6 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
-#include "uid-classification.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -766,7 +765,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_stdio == ARG_STDIO_NONE)
                                 arg_stdio = ARG_STDIO_AUTO;
 
-                        if (!arg_working_directory) {
+                        if (!arg_working_directory && arg_transport != BUS_TRANSPORT_CAPSULE) {
                                 r = safe_getcwd(&arg_working_directory);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to get current working directory: %m");
@@ -2249,9 +2248,6 @@ static int fchown_to_capsule(int fd, const char *capsule) {
         r = chase_and_stat(p, /* root= */ NULL, CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS, /* ret_path= */ NULL, &st);
         if (r < 0)
                 return r;
-
-        if (uid_is_system(st.st_uid) || gid_is_system(st.st_gid)) /* paranoid safety check */
-                return -EPERM;
 
         return fchmod_and_chown(fd, 0600, st.st_uid, st.st_gid);
 }
