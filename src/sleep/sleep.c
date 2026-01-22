@@ -61,7 +61,7 @@ static int determine_auto_swap(sd_device *device) {
 
         assert(device);
 
-        r = block_device_get_originating(device, &origin);
+        r = block_device_get_originating(device, &origin, /* recursive= */ false);
         if (r < 0 && r != -ENOENT)
                 return r;
         if (r >= 0)
