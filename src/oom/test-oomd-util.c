@@ -88,7 +88,7 @@ TEST(oomd_cgroup_kill) {
                 ASSERT_OK(fork_and_sleep(5, &two));
                 ASSERT_OK(cg_attach(subcgroup, two.pid));
 
-                ASSERT_OK_POSITIVE(oomd_cgroup_kill(subcgroup, false /* recurse */, false /* dry run */));
+                ASSERT_OK_POSITIVE(oomd_cgroup_kill(NULL /* manager */, &(OomdCGroupContext){ .path = subcgroup }, false /* recurse */));
 
                 ASSERT_OK(cg_get_xattr(subcgroup, "user.oomd_ooms", &v, /* ret_size= */ NULL));
                 ASSERT_STREQ(v, i == 0 ? "1" : "2");
@@ -115,7 +115,7 @@ TEST(oomd_cgroup_kill) {
 
 TEST(oomd_cgroup_context_acquire_and_insert) {
         _cleanup_hashmap_free_ Hashmap *h1 = NULL, *h2 = NULL;
-        _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
+        _cleanup_(oomd_cgroup_context_unrefp) OomdCGroupContext *ctx = NULL;
         OomdCGroupContext *c1, *c2;
         CGroupMask mask;
 
@@ -138,7 +138,7 @@ TEST(oomd_cgroup_context_acquire_and_insert) {
         ASSERT_EQ(ctx->swap_usage, 0u);
         ASSERT_EQ(ctx->last_pgscan, 0u);
         ASSERT_EQ(ctx->pgscan, 0u);
-        ASSERT_NULL(ctx = oomd_cgroup_context_free(ctx));
+        ASSERT_NULL(ctx = oomd_cgroup_context_unref(ctx));
 
         ASSERT_OK(oomd_cgroup_context_acquire("", &ctx));
         ASSERT_STREQ(ctx->path, "/");
@@ -429,7 +429,7 @@ TEST(oomd_sort_cgroups) {
 }
 
 TEST(oomd_fetch_cgroup_oom_preference) {
-        _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
+        _cleanup_(oomd_cgroup_context_unrefp) OomdCGroupContext *ctx = NULL;
         ManagedOOMPreference root_pref;
         CGroupMask mask;
         bool test_xattrs;
@@ -464,7 +464,7 @@ TEST(oomd_fetch_cgroup_oom_preference) {
                 ASSERT_FAIL(oomd_fetch_cgroup_oom_preference(ctx, NULL));
                 ASSERT_EQ(ctx->preference, MANAGED_OOM_PREFERENCE_NONE);
         }
-        ctx = oomd_cgroup_context_free(ctx);
+        ctx = oomd_cgroup_context_unref(ctx);
 
         /* also check when only avoid is set to true */
         if (test_xattrs) {
@@ -473,7 +473,7 @@ TEST(oomd_fetch_cgroup_oom_preference) {
                 ASSERT_OK(oomd_cgroup_context_acquire(cgroup, &ctx));
                 ASSERT_OK(oomd_fetch_cgroup_oom_preference(ctx, NULL));
                 ASSERT_EQ(ctx->preference, geteuid() == 0 ? MANAGED_OOM_PREFERENCE_AVOID : MANAGED_OOM_PREFERENCE_NONE);
-                ctx = oomd_cgroup_context_free(ctx);
+                ctx = oomd_cgroup_context_unref(ctx);
         }
 
         /* Test the root cgroup */
@@ -493,7 +493,7 @@ TEST(oomd_fetch_cgroup_oom_preference) {
         /* Assert that avoid/omit are not set if the cgroup and prefix are not
          * owned by the same user. */
         if (test_xattrs && !empty_or_root(cgroup) && geteuid() == 0) {
-                ctx = oomd_cgroup_context_free(ctx);
+                ctx = oomd_cgroup_context_unref(ctx);
                 ASSERT_OK(cg_set_access(cgroup, 61183, 0));
                 ASSERT_OK(oomd_cgroup_context_acquire(cgroup, &ctx));
 
