@@ -238,6 +238,9 @@ static void context_read_os_release(Context *c) {
                 if (l < 0) {
                         log_warning_errno(l, "Failed to unescape fancy OS name, ignoring: %m");
                         os_fancy_name = mfree(os_fancy_name);
+                } else if (!utf8_is_valid(unescaped)) {
+                        log_warning_errno(l, "Unescape fancy OS name is not valid UTF-8, ignoring.");
+                        os_fancy_name = mfree(os_fancy_name);
                 } else
                         free_and_replace(os_fancy_name, unescaped);
         }
