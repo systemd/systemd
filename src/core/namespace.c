@@ -2514,7 +2514,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_strv_free_ char **hierarchies = NULL;
         _cleanup_(mount_list_done) MountList ml = {};
-        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_close_ int userns_fd = -EBADF, mntns_fd = -EBADF, root_fd = -EBADF;
         bool require_prefix = false;
         const char *root;
         DissectImageFlags dissect_image_flags =
@@ -2959,24 +2959,22 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         /* All above is just preparation, figuring out what to do. Let's now actually start doing something. */
 
-        if (unshare(CLONE_NEWNS) < 0) {
-                r = log_debug_errno(errno, "Failed to unshare the mount namespace: %m");
-
-                if (ERRNO_IS_PRIVILEGE(r) ||
-                    ERRNO_IS_NOT_SUPPORTED(r))
+        mntns_fd = mntns_acquire(&root_fd);
+        if (mntns_fd < 0) {
+                if (ERRNO_IS_PRIVILEGE(mntns_fd) ||
+                    ERRNO_IS_NOT_SUPPORTED(mntns_fd))
                         /* If the kernel doesn't support namespaces, or when there's a MAC or seccomp filter
                          * in place that doesn't allow us to create namespaces (or a missing cap), then
                          * propagate a recognizable error back, which the caller can use to detect this case
                          * (and only this) and optionally continue without namespacing applied. */
                         return -ENOANO;
 
-                return r;
+                return log_debug_errno(mntns_fd, "Failed to acquire new mount namespace: %m");
         }
 
-        /* Remount / as SLAVE so that nothing now mounted in the namespace
-         * shows up in the parent */
-        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
-                return log_debug_errno(errno, "Failed to remount '/' as SLAVE: %m");
+        root_fd = safe_close(root_fd);
+        if (setns(mntns_fd, CLONE_NEWNS) < 0)
+                return log_debug_errno(errno, "Failed to enter new mount namespace: %m");
 
         /* Create the source directory to allow runtime propagation of mounts */
         if (setup_propagate)
