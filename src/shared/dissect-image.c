@@ -5124,7 +5124,7 @@ int mountfsd_mount_image_fd(
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "partitions",         SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(struct MountImageReplyParameters, partitions),         SD_JSON_MANDATORY },
-                { "singleFileSystem",   SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(struct MountImageReplyParameters, single_file_system), 0                 },
+                { "singleFileSystem",   SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(struct MountImageReplyParameters, single_file_system), SD_JSON_MANDATORY },
                 { "imagePolicy",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(struct MountImageReplyParameters, image_policy),       0                 },
                 { "imageSize",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,  offsetof(struct MountImageReplyParameters, image_size),         SD_JSON_MANDATORY },
                 { "sectorSize",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,  offsetof(struct MountImageReplyParameters, sector_size),        SD_JSON_MANDATORY },
