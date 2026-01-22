@@ -2972,10 +2972,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 return log_debug_errno(mntns_fd, "Failed to acquire new mount namespace: %m");
         }
 
-        root_fd = safe_close(root_fd);
-        if (setns(mntns_fd, CLONE_NEWNS) < 0)
-                return log_debug_errno(errno, "Failed to enter new mount namespace: %m");
-
         /* Create the source directory to allow runtime propagation of mounts */
         if (setup_propagate)
                 (void) mkdir_p(p->propagate_dir, 0600);
@@ -2986,6 +2982,10 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 char *extension_dir = strjoina(p->private_namespace_dir, "/unit-extensions");
                 (void) mkdir_p(extension_dir, 0600);
         }
+
+        root_fd = safe_close(root_fd);
+        if (setns(mntns_fd, CLONE_NEWNS) < 0)
+                return log_debug_errno(errno, "Failed to enter new mount namespace: %m");
 
         if (p->root_directory_fd >= 0) {
 
