@@ -2400,7 +2400,6 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         _cleanup_close_ int unshare_ready_fd = -EBADF;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         uint64_t c = 1;
-        ssize_t n;
         int r;
 
         /* Set up a user namespace and map the original UID/GID (IDs from before any user or group changes, i.e.
@@ -2501,9 +2500,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         if (r == 0) {
                 errno_pipe[0] = safe_close(errno_pipe[0]);
                 r = setup_private_users_child(unshare_ready_fd, uid_map, gid_map, allow_setgroups);
-                if (r < 0)
-                        report_errno_and_exit(errno_pipe[1], r);
-                _exit(EXIT_SUCCESS);
+                report_errno_and_exit(errno_pipe[1], r);
         }
 
         errno_pipe[1] = safe_close(errno_pipe[1]);
@@ -2515,24 +2512,18 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         if (write(unshare_ready_fd, &c, sizeof(c)) < 0)
                 return -errno;
 
-        /* Try to read an error code from the child */
-        n = read(errno_pipe[0], &r, sizeof(r));
-        if (n < 0)
-                return -errno;
-        if (n == sizeof(r)) { /* an error code was sent to us */
-                if (r < 0)
-                        return r;
-                return -EIO;
-        }
-        if (n != 0) /* on success we should have read 0 bytes */
-                return -EIO;
-
         r = pidref_wait_for_terminate_and_check("(sd-userns)", &pidref, 0);
         if (r < 0)
                 return r;
         pidref_done(&pidref);
-        if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
-                return -EIO;
+        if (r != EXIT_SUCCESS) {
+                /* Try to read an error code from the child */
+                r = read_errno(errno_pipe[0]);
+                if (r < 0)
+                        return r;
+                /* If something strange happened with the child, let's consider this fatal, too */
+                return -EPROTO;
+        }
 
         return 1;
 }
@@ -2540,7 +2531,6 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
 static int can_mount_proc(void) {
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
-        ssize_t n;
         int r;
 
         /* If running via unprivileged user manager and /proc/ is masked (e.g. /proc/kmsg is over-mounted with tmpfs
@@ -2566,38 +2556,27 @@ static int can_mount_proc(void) {
                 /* Try mounting /proc on /dev/shm/. No need to clean up the mount since the mount
                  * namespace will be cleaned up once the process exits. */
                 r = mount_follow_verbose(LOG_DEBUG, "proc", "/dev/shm/", "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
-                if (r < 0) {
-                        (void) write(errno_pipe[1], &r, sizeof(r));
-                        _exit(EXIT_FAILURE);
-                }
-
-                _exit(EXIT_SUCCESS);
+                report_errno_and_exit(errno_pipe[1], r);
         }
 
         errno_pipe[1] = safe_close(errno_pipe[1]);
-
-        /* Try to read an error code from the child */
-        n = read(errno_pipe[0], &r, sizeof(r));
-        if (n < 0)
-                return log_debug_errno(errno, "Failed to read errno from pipe with child process (sd-proc-check): %m");
-        if (n == sizeof(r)) { /* an error code was sent to us */
-                /* This is the expected case where proc cannot be mounted due to permissions. */
-                if (ERRNO_IS_NEG_PRIVILEGE(r))
-                        return 0;
-                if (r < 0)
-                        return r;
-
-                return -EIO;
-        }
-        if (n != 0) /* on success we should have read 0 bytes */
-                return -EIO;
 
         r = pidref_wait_for_terminate_and_check("(sd-proc-check)", &pidref, /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to wait for (sd-proc-check) child process to terminate: %m");
         pidref_done(&pidref);
-        if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Child process (sd-proc-check) exited with unexpected exit status '%d'.", r);
+        if (r != EXIT_SUCCESS) {
+                /* Try to read an error code from the child */
+                r = read_errno(errno_pipe[0]);
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        /* This is the expected case where proc cannot be mounted due to permissions. */
+                        return 0;
+                if (r < 0)
+                        return r;
+
+                /* If something strange happened with the child, let's consider this fatal, too */
+                return -EPROTO;
+        }
 
         return 1;
 }
@@ -2605,8 +2584,7 @@ static int can_mount_proc(void) {
 static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
-        ssize_t n;
-        int r, q;
+        int r;
 
         assert(c);
         assert(p);
@@ -2632,17 +2610,16 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
                 /* In the parent process, we send the child pidref to the manager and exit.
                  * If PIDFD is not supported, only the child PID is sent. The server then
                  * uses the child PID to set the new exec main process. */
-                q = send_one_fd_iov(
+                r = send_one_fd_iov(
                                 p->pidref_transport_fd,
                                 pidref.fd,
                                 &IOVEC_MAKE(&pidref.pid, sizeof(pidref.pid)),
                                 /* iovlen= */ 1,
                                 /* flags= */ 0);
-                /* Send error code to child process. */
-                (void) write(errno_pipe[1], &q, sizeof(q));
-                /* Exit here so we only go through the destructors in exec_invoke only once - in the child - as
+                /* Send error code to child process.
+                 * Exit here so we only go through the destructors in exec_invoke only once - in the child - as
                  * some destructors have external effects. The main codepaths continue in the child process. */
-                _exit(q < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+                report_errno_and_exit(errno_pipe[1], r);
         }
 
         errno_pipe[1] = safe_close(errno_pipe[1]);
@@ -2650,16 +2627,12 @@ static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
 
         /* Try to read an error code from the parent. Note a child process cannot wait for the parent so we always
          * receive an errno even on success. */
-        n = read(errno_pipe[0], &r, sizeof(r));
-        if (n < 0)
-                return log_debug_errno(errno, "Failed to read errno from pipe with parent process: %m");
-        if (n != sizeof(r))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to read enough bytes from pipe with parent process");
+        r = read_errno(errno_pipe[0]);
         if (r < 0)
                 return log_debug_errno(r, "Failed to send child pidref to manager: %m");
 
         /* NOTE! This function returns in the child process only. */
-        return r;
+        return 0;
 }
 
 static int create_many_symlinks(const char *root, const char *source, char **symlinks) {
