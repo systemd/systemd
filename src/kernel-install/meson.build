@@ -27,17 +27,23 @@ loaderentry_install = custom_target(
         install_mode : 'rwxr-xr-x',
         install_dir : kernelinstalldir)
 
-uki_copy_install = files('90-uki-copy.install')
+uki_copy_install = custom_target(
+        input : '90-uki-copy.install.in',
+        output : '90-uki-copy.install',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : want_kernel_install,
+        install_mode : 'rwxr-xr-x',
+        install_dir : kernelinstalldir)
 
-kernel_install_files = uki_copy_install + files(
-        '50-depmod.install',
-)
+custom_target(
+        input : '50-depmod.install.in',
+        output : '50-depmod.install',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : want_kernel_install,
+        install_mode : 'rwxr-xr-x',
+        install_dir : kernelinstalldir)
 
 if want_kernel_install
-        install_data(kernel_install_files,
-                     install_mode : 'rwxr-xr-x',
-                     install_dir : kernelinstalldir)
-
         install_data('install.conf',
                      install_dir : kerneldir)
 
