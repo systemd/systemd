@@ -52,6 +52,16 @@
     registered with this service. Moreover, UIDs and GIDs are always allocated together, and
     symmetrically.</para>
 
+    <para>The allocation API supports <emphasis>delegated ranges</emphasis>: additional UID/GID ranges that
+    are mapped 1:1 into the user namespace rather than being translated to a target UID/GID. These delegated
+    ranges enable nested user namespace scenarios where a container needs to create child user namespaces
+    with their own transient UID ranges. Normally, the kernel restricts which UIDs can be mapped into a user
+    namespace to those that are also mapped in the parent. Delegated ranges solve this by pre-allocating
+    additional ranges that are visible inside the user namespace and can be used by nested
+    <function>AllocateUserRange()</function> calls. Up to 16 delegated ranges can be requested per user
+    namespace, each of size 65536. The ranges are allocated from the container UID ranges as per
+    <ulink url="https://systemd.io/UIDS-GIDS">Users, Groups, UIDs and GIDs on systemd Systems</ulink>.</para>
+
     <para>The service provides API calls to allowlist mounts (referenced via their mount file descriptors as
     per Linux <function>fsmount()</function> API), to pass ownership of a cgroup subtree to the user
     namespace and to delegate a virtual Ethernet device pair to the user namespace. When used in combination
