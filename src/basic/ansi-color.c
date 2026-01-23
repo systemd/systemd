@@ -110,7 +110,7 @@ static const char* const color_mode_table[_COLOR_MODE_MAX] = {
         [COLOR_AUTO_24BIT] = "auto-24bit",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(color_mode, ColorMode, COLOR_24BIT);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(color_mode, ColorMode, _COLOR_MODE_INVALID);
 
 /*
  * Check that the string is formatted like an ANSI color code, i.e. that it consists of one or more
