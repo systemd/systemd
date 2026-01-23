@@ -2289,45 +2289,6 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         return 0;
 }
 
-static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, const char *gid_map, bool allow_setgroups) {
-        int r;
-
-        /* Child process, running in the original user namespace. Let's update the parent's UID/GID map from
-         * here, after the parent opened its own user namespace. */
-
-        pid_t ppid = getppid();
-
-        /* Wait until the parent unshared the user namespace */
-        uint64_t c;
-        ssize_t n = read(unshare_ready_fd, &c, sizeof(c));
-        if (n < 0)
-                return log_debug_errno(errno, "Failed to read from signaling eventfd: %m");
-        if (n != sizeof(c))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from signaling eventfd.");
-
-        /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
-         * and using the system service manager. */
-        const char *a = procfs_file_alloca(ppid, "setgroups");
-        const char *setgroups = allow_setgroups ? "allow" : "deny";
-        r = write_string_file(a, setgroups, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write '%s' to %s: %m", setgroups, a);
-
-        /* First write the GID map */
-        a = procfs_file_alloca(ppid, "gid_map");
-        r = write_string_file(a, gid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write GID map to %s: %m", a);
-
-        /* Then write the UID map */
-        a = procfs_file_alloca(ppid, "uid_map");
-        r = write_string_file(a, uid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write UID map to %s: %m", a);
-
-        return 0;
-}
-
 static int bpffs_helper(const ExecContext *c, int socket_fd) {
         assert(c);
         assert(socket_fd >= 0);
@@ -2394,6 +2355,45 @@ static int bpffs_prepare(
         return 0;
 }
 
+static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, const char *gid_map, bool allow_setgroups) {
+        int r;
+
+        /* Child process, running in the original user namespace. Let's update the parent's UID/GID map from
+         * here, after the parent opened its own user namespace. */
+
+        pid_t ppid = getppid();
+
+        /* Wait until the parent unshared the user namespace */
+        uint64_t c;
+        ssize_t n = read(unshare_ready_fd, &c, sizeof(c));
+        if (n < 0)
+                return log_debug_errno(errno, "Failed to read from signaling eventfd: %m");
+        if (n != sizeof(c))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from signaling eventfd.");
+
+        /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
+         * and using the system service manager. */
+        const char *a = procfs_file_alloca(ppid, "setgroups");
+        const char *setgroups = allow_setgroups ? "allow" : "deny";
+        r = write_string_file(a, setgroups, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write '%s' to %s: %m", setgroups, a);
+
+        /* First write the GID map */
+        a = procfs_file_alloca(ppid, "gid_map");
+        r = write_string_file(a, gid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write GID map to %s: %m", a);
+
+        /* Then write the UID map */
+        a = procfs_file_alloca(ppid, "uid_map");
+        r = write_string_file(a, uid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write UID map to %s: %m", a);
+
+        return 0;
+}
+
 static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
@@ -2421,28 +2421,16 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 if (!uid_map)
                         return -ENOMEM;
         } else if (private_users == PRIVATE_USERS_FULL) {
-                /* Map all UID/GID from original to new user namespace. We can't use `0 0 UINT32_MAX` because
-                 * this is the same UID/GID map as the init user namespace and systemd's running_in_userns()
-                 * checks whether its in a user namespace by comparing uid_map/gid_map to `0 0 UINT32_MAX`.
-                 * Thus, we still map all UIDs/GIDs but do it using two extents to differentiate the new user
-                 * namespace from the init namespace:
-                 *   0 0 1
-                 *   1 1 UINT32_MAX - 1
-                 *
-                 * systemd will remove the heuristic in running_in_userns() and use namespace inodes in version 258
-                 * (PR #35382). But some users may be running a container image with older systemd < 258 so we keep
-                 * this uid_map/gid_map hack until version 259 for version N-1 compatibility.
-                 *
-                 * TODO: Switch to `0 0 UINT32_MAX` in systemd v259.
+                /* Map all UID/GID from original to new user namespace.
                  *
                  * Note the kernel defines the UID range between 0 and UINT32_MAX so we map all UIDs even though
                  * the UID range beyond INT32_MAX (e.g. i.e. the range above the signed 32-bit range) is
                  * icky. For example, setfsuid() returns the old UID as signed integer. But units can decide to
                  * use these UIDs/GIDs so we need to map them. */
-                r = asprintf(&uid_map, "0 0 1\n"
-                                       "1 1 " UID_FMT "\n", (uid_t) (UINT32_MAX - 1));
+                r = asprintf(&uid_map, "0 0 " UID_FMT "\n", (uid_t) UINT32_MAX);
                 if (r < 0)
                         return -ENOMEM;
+
         /* Can only set up multiple mappings with CAP_SETUID. */
         } else if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid)) {
                 r = asprintf(&uid_map,
@@ -2464,10 +2452,10 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
                 if (!gid_map)
                         return -ENOMEM;
         } else if (private_users == PRIVATE_USERS_FULL) {
-                r = asprintf(&gid_map, "0 0 1\n"
-                                       "1 1 " GID_FMT "\n", (gid_t) (UINT32_MAX - 1));
+                r = asprintf(&gid_map, "0 0 " GID_FMT "\n", (gid_t) UINT32_MAX);
                 if (r < 0)
                         return -ENOMEM;
+
         /* Can only set up multiple mappings with CAP_SETGID. */
         } else if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid)) {
                 r = asprintf(&gid_map,
