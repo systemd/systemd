@@ -225,15 +225,16 @@
       <term><varname>$SYSTEMD_COLORS</varname></term>
 
       <listitem>
-        <para>Takes a boolean argument, or a special value.</para>
+        <para>Takes a boolean argument, or a special value. If unset, <command>systemd</command> and related
+        utilities will use colors in their output if possible. If <varname>$COLORTERM</varname> is set to
+        <literal>truecolor</literal> or <literal>24bit</literal>, 24-bit colors will be enabled, 256 colors
+        otherwise, unless <varname>$NO_COLOR</varname> or <varname>$TERM</varname> indicates colors
+        are disabled.</para>
 
         <variablelist>
           <varlistentry>
             <term><option>true</option></term>
-            <listitem><para>The default. <command>systemd</command> and related utilities will use colors in
-            their output if possible. Same as <literal>auto-24bit</literal> if <varname>$COLORTERM</varname>
-            is set to <literal>truecolor</literal> or <literal>24bit</literal>; same as
-            <literal>auto-256</literal> otherwise.</para></listitem>
+            <listitem><para>Same as unset, except that <varname>$NO_COLOR</varname> is ignored.</para></listitem>
           </varlistentry>
 
           <varlistentry>
