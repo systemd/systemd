@@ -74,6 +74,8 @@ static ColorMode get_color_mode_impl(void) {
                 return COLOR_16;
         if (m == COLOR_AUTO_256)
                 return COLOR_256;
+        if (m == COLOR_AUTO_24BIT)
+                return COLOR_24BIT;
 
         if (STRPTR_IN_SET(getenv("COLORTERM"),
                           "truecolor",

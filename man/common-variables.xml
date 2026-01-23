@@ -225,29 +225,36 @@
       <term><varname>$SYSTEMD_COLORS</varname></term>
 
       <listitem>
-        <para>Takes a boolean argument, or a special value. When true, <command>systemd</command> and
-        related utilities will use colors in their output if possible; when false, the output will be
-        monochrome. The special values are:</para>
+        <para>Takes a boolean argument, or a special value.</para>
 
         <variablelist>
           <varlistentry>
-            <term><option>auto-16</option></term>
-            <term><option>auto-256</option></term>
-            <listitem><para>Restrict the use of colors to, at most, the base 16 or 256 ANSI colors.</para></listitem>
+            <term><option>true</option></term>
+            <listitem><para>The default. <command>systemd</command> and related utilities will use colors in
+            their output if possible. Same as <literal>auto-24bit</literal> if <varname>$COLORTERM</varname>
+            is set to <literal>truecolor</literal> or <literal>24bit</literal>; same as
+            <literal>auto-256</literal> otherwise.</para></listitem>
           </varlistentry>
 
           <varlistentry>
-            <term><option>auto-24bit</option></term>
-            <listitem><para>Equivalent to true, the default.</para></listitem>
+            <term><option>false</option></term>
+            <listitem><para>The output will be monochrome.</para></listitem>
           </varlistentry>
 
           <varlistentry>
-            <term><option>16</option></term>
-            <term><option>256</option></term>
-            <term><option>24bit</option></term>
-            <listitem><para>Always use a specific quantity of colors, overriding the automatic decision based on
-            <varname>$TERM</varname>, <varname>$COLORTERM</varname>, and what the console is connected
-            to.</para></listitem>
+            <term><literal>16</literal></term>
+            <term><literal>256</literal></term>
+            <term><literal>24bit</literal></term>
+            <listitem><para>Always use the base 16 ANSI colors, 256 colors, or 24 bit color,
+            respectively.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><literal>auto-16</literal></term>
+            <term><literal>auto-256</literal></term>
+            <term><literal>auto-24bit</literal></term>
+            <listitem><para>Use the given quantity of colours, subject to <varname>$TERM</varname>, and what
+            the console is connected to.</para></listitem>
           </varlistentry>
         </variablelist>
       </listitem>

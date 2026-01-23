@@ -10,7 +10,7 @@ typedef enum ColorMode {
         COLOR_256,        /* Only 256 colors. */
         COLOR_24BIT,      /* For truecolor or 24bit color support, no restriction. */
         COLOR_AUTO_16,    /* The "AUTO" modes are as the above, but subject to suitable settings for */
-        COLOR_AUTO_256,   /* the environment variables TERM, NO_COLOR, and COLORTERM. */
+        COLOR_AUTO_256,   /* the environment variables TERM and NO_COLOR. */
         COLOR_AUTO_24BIT,
         _COLOR_MODE_MAX,
         _COLOR_MODE_INVALID = -EINVAL,
