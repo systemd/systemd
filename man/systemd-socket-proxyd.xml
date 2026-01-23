@@ -83,6 +83,17 @@
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
+      <varlistentry>
+        <term><option>--proxy-protocol=</option></term>
+
+        <listitem><para>Uses the <ulink url="https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt">PROXY protocol</ulink>
+        to communicate with the server. This allows an appropriately configured server to know the real client ip address.
+        Takes the version of the <ulink url="https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt">PROXY protocol</ulink>
+        used, and only supports <literal>v1</literal> for now.
+        Default is not to use a PROXY protocol.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>
@@ -179,6 +190,47 @@ server {
 $ curl http://localhost:80/]]></programlisting>
       </example>
     </refsect2>
+    <refsect2>
+      <title>PROXY protocol example with nginx</title>
+      <para>systemd-socket-proxyd and nginx using the PROXY protocol</para>
+      <example>
+        <title>proxy-to-nginx.socket</title>
+        <programlisting><![CDATA[[Socket]
+ListenStream=80
+
+[Install]
+WantedBy=sockets.target]]></programlisting>
+      </example>
+      <example>
+        <title>proxy-to-nginx.service</title>
+        <programlisting><![CDATA[[Unit]
+Requires=nginx.service
+After=nginx.service
+Requires=proxy-to-nginx.socket
+After=proxy-to-nginx.socket
+
+[Service]
+Type=notify
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd --proxy-protocol=v1 /run/nginx/socket
+PrivateTmp=yes
+PrivateNetwork=yes]]></programlisting>
+      </example>
+      <example>
+        <title>nginx.conf</title>
+        <programlisting>
+<![CDATA[[…]
+server {
+    listen         unix:/run/nginx/socket proxy_protocol;
+    real_ip_header proxy_protocol;
+    […]]]>
+</programlisting>
+      </example>
+      <example>
+        <title>Enabling the proxy</title>
+        <programlisting><![CDATA[# systemctl enable --now proxy-to-nginx.socket
+$ curl http://localhost:80/]]></programlisting>
+      </example>
+    </refsect2>
   </refsect1>
   <refsect1>
     <title>See Also</title>
@@ -190,6 +242,8 @@ $ curl http://localhost:80/]]></programlisting>
       <member><citerefentry project='die-net'><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>nginx</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>curl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><ulink url="https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt">PROXY protocol specification</ulink></member>
+      <member><ulink url="https://docs.nginx.com/nginx/admin-guide/load-balancer/using-proxy-protocol/">nginx: Accepting the PROXY Protocol</ulink></member>
     </simplelist></para>
   </refsect1>
 </refentry>
