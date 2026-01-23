@@ -55,7 +55,7 @@ static ColorMode get_color_mode_impl(void) {
 
         /* First, we check $SYSTEMD_COLORS, which is the explicit way to change the mode. */
         ColorMode m = parse_systemd_colors();
-        if (IN_SET(m, COLOR_OFF, COLOR_16, COLOR_256, COLOR_24BIT))
+        if (m >= 0 && m < _COLOR_MODE_FIXED_MAX)
                 return m;
 
         /* Next, check for the presence of $NO_COLOR; value is ignored. */
@@ -92,12 +92,13 @@ static ColorMode get_color_mode_impl(void) {
 }
 
 ColorMode get_color_mode(void) {
-        if (cached_color_mode < 0)
+        if (cached_color_mode < 0) {
                 cached_color_mode = get_color_mode_impl();
+                assert(cached_color_mode >= 0 && cached_color_mode < _COLOR_MODE_FIXED_MAX);
+        }
 
         return cached_color_mode;
 }
-
 
 static const char* const color_mode_table[_COLOR_MODE_MAX] = {
         [COLOR_OFF]        = "off",
