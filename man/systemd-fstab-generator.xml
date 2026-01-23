@@ -85,8 +85,8 @@
         initrd. This accepts a device node path (usually <filename>/dev/disk/by-uuid/…</filename> or
         <filename>/dev/disk/by-label/…</filename> or similar), or the special values
         <literal>gpt-auto</literal>, <literal>gpt-auto-force</literal>, <literal>dissect</literal>,
-        <literal>dissect-force</literal>, <literal>fstab</literal>, <literal>fstab</literal>, and
-        <literal>off</literal>.</para>
+        <literal>dissect-force</literal>, <literal>fstab</literal>, <literal>tmpfs</literal>,
+        <literal>bind:…</literal>, and <literal>off</literal>.</para>
 
         <para>Set to <literal>gpt-auto</literal>, <literal>gpt-auto-force</literal>,
         <literal>dissect</literal>, <literal>dissect-force</literal> to explicitly request automatic root
