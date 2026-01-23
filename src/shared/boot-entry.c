@@ -22,7 +22,7 @@ static int entry_token_load_one(int rfd, const char *dir, BootEntryTokenType *ty
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(dir);
         assert(type);
         assert(*type == BOOT_ENTRY_TOKEN_AUTO);
@@ -58,7 +58,7 @@ static int entry_token_load_one(int rfd, const char *dir, BootEntryTokenType *ty
 static int entry_token_load(int rfd, const char *conf_root, BootEntryTokenType *type, char **token) {
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(type);
         assert(*type == BOOT_ENTRY_TOKEN_AUTO);
         assert(token);
@@ -98,7 +98,7 @@ static int entry_token_from_os_release(int rfd, BootEntryTokenType *type, char *
         _cleanup_free_ char *id = NULL, *image_id = NULL;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(type);
         assert(IN_SET(*type, BOOT_ENTRY_TOKEN_AUTO, BOOT_ENTRY_TOKEN_OS_IMAGE_ID, BOOT_ENTRY_TOKEN_OS_ID));
         assert(token);
@@ -151,9 +151,11 @@ int boot_entry_token_ensure_at(
 
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(type);
         assert(token);
+
+        /* Returns -EUNATCH if the selected token is not set */
 
         if (*token)
                 return 0; /* Already set. */
@@ -181,7 +183,7 @@ int boot_entry_token_ensure_at(
                                 return r;
                 }
 
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_error_errno(SYNTHETIC_ERRNO(EUNATCH),
                                        "No machine ID set, and /etc/os-release carries no ID=/IMAGE_ID= fields.");
 
         case BOOT_ENTRY_TOKEN_MACHINE_ID:
@@ -189,14 +191,14 @@ int boot_entry_token_ensure_at(
                 if (r != 0)
                         return r;
 
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No machine ID set.");
+                return log_error_errno(SYNTHETIC_ERRNO(EUNATCH), "No machine ID set.");
 
         case BOOT_ENTRY_TOKEN_OS_IMAGE_ID:
                 r = entry_token_from_os_release(rfd, type, token);
                 if (r != 0)
                         return r;
 
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_error_errno(SYNTHETIC_ERRNO(EUNATCH),
                                        "IMAGE_ID= field not set in /etc/os-release.");
 
         case BOOT_ENTRY_TOKEN_OS_ID:
@@ -204,12 +206,12 @@ int boot_entry_token_ensure_at(
                 if (r != 0)
                         return r;
 
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_error_errno(SYNTHETIC_ERRNO(EUNATCH),
                                        "ID= field not set in /etc/os-release.");
 
         case BOOT_ENTRY_TOKEN_LITERAL:
                 /* In this case, the token should be already set by the user input. */
-                return -EINVAL;
+                return log_error_errno(SYNTHETIC_ERRNO(EUNATCH), "Literal token indicated but not specified.");
 
         default:
                 assert_not_reached();
@@ -229,11 +231,12 @@ int boot_entry_token_ensure(
         if (*token)
                 return 0; /* Already set. */
 
-        _cleanup_close_ int rfd = -EBADF;
-
-        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
-        if (rfd < 0)
-                return -errno;
+        _cleanup_close_ int rfd = XAT_FDROOT;
+        if (!empty_or_root(root)) {
+                rfd = open(root, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                if (rfd < 0)
+                        return -errno;
+        }
 
         return boot_entry_token_ensure_at(rfd, conf_root, machine_id, machine_id_is_random, type, token);
 }
@@ -290,4 +293,4 @@ static const char *const boot_entry_token_type_table[] = {
         [BOOT_ENTRY_TOKEN_AUTO]        = "auto",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_token_type, BootEntryTokenType);
+DEFINE_STRING_TABLE_LOOKUP(boot_entry_token_type, BootEntryTokenType);
