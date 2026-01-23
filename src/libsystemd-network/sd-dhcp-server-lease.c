@@ -244,7 +244,7 @@ static int dhcp_server_lease_append_json(sd_dhcp_server_lease *lease, sd_json_va
         return sd_json_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR_BYTE_ARRAY("ClientId", lease->client_id.raw, lease->client_id.size),
-                        JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &(struct in_addr) { .s_addr = lease->address }),
+                        JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING_NON_NULL("Address", &(struct in_addr) { .s_addr = lease->address }),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", lease->hostname),
                         SD_JSON_BUILD_PAIR_UNSIGNED("HardwareAddressType", lease->htype),
                         SD_JSON_BUILD_PAIR_UNSIGNED("HardwareAddressLength", lease->hlen),
