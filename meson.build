@@ -1002,6 +1002,13 @@ librt = cc.find_library('rt')
 libm = cc.find_library('m')
 libdl = cc.find_library('dl')
 
+if meson.version().version_compare('>=1.1.0')
+        libucontext = dependency('libucontext', required : get_option('libucontext').enable_if(get_option('libc') == 'musl'))
+else
+        libucontext = dependency('libucontext', required : get_option('libucontext'))
+endif
+conf.set10('HAVE_LIBUCONTEXT', libucontext.found())
+
 # On some distributions that use musl (e.g. Alpine), libintl.h may be provided by gettext rather than musl.
 # In that case, we need to explicitly link with libintl.so.
 if cc.has_function('dgettext',
@@ -2081,6 +2088,7 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-common',
         'src/libsystemd/sd-device',
         'src/libsystemd/sd-event',
+        'src/libsystemd/sd-future',
         'src/libsystemd/sd-hwdb',
         'src/libsystemd/sd-id128',
         'src/libsystemd/sd-journal',
@@ -2116,6 +2124,7 @@ libsystemd = shared_library(
                      libbasic_static],
         link_whole : [libsystemd_static],
         dependencies : [librt,
+                        libucontext,
                         threads,
                         userspace],
         link_depends : libsystemd_sym,
@@ -2141,6 +2150,7 @@ if static_libsystemd != 'false'
                                 liblz4_cflags,
                                 libm,
                                 librt,
+                                libucontext,
                                 libxz_cflags,
                                 libzstd_cflags,
                                 threads,
@@ -2428,6 +2438,7 @@ subdir('src/tmpfiles')
 subdir('src/tpm2-setup')
 subdir('src/tty-ask-password-agent')
 subdir('src/update-done')
+subdir('src/update-helper')
 subdir('src/update-utmp')
 subdir('src/user-sessions')
 subdir('src/userdb')

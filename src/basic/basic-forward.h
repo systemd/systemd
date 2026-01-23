@@ -75,6 +75,8 @@ typedef void (*hash_func_t)(const void *p, struct siphash *state);
 typedef int (*compare_func_t)(const void *a, const void *b);
 typedef compare_func_t comparison_fn_t;
 typedef int (*comparison_userdata_fn_t)(const void *, const void *, void *);
+typedef int (*FiberFunc)(void *userdata);
+typedef void (*FiberDestroy)(void *userdata);
 
 struct hash_ops;
 struct hw_addr_data;
@@ -99,10 +101,12 @@ typedef enum UnitDependency UnitDependency;
 typedef enum UnitType UnitType;
 typedef enum WaitFlags WaitFlags;
 
+typedef struct Fiber Fiber;
 typedef struct Hashmap Hashmap;
 typedef struct HashmapBase HashmapBase;
 typedef struct IteratedCache IteratedCache;
 typedef struct Iterator Iterator;
+typedef struct LogContext LogContext;
 typedef struct OrderedHashmap OrderedHashmap;
 typedef struct OrderedSet OrderedSet;
 typedef struct Set Set;
