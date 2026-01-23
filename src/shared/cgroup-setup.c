@@ -239,6 +239,14 @@ int cg_set_access(
                 }
         }
 
+        {
+                _cleanup_free_ char *a = path_join(fs, "memory.peak");
+                r = chmod_and_chown(a, 0666, uid, gid);
+                if (r < 0) {
+                        return r;
+                }
+        }
+
         return 0;
 }
 
