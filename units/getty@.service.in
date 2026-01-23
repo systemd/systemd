@@ -47,6 +47,7 @@ KillMode=process
 {% endif %}
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
+
 ImportCredential=tty.virtual.%I.agetty.*:agetty.
 ImportCredential=tty.virtual.%I.login.*:login.
 ImportCredential=agetty.*
@@ -58,5 +59,7 @@ ImportCredential=shell.*
 UnsetEnvironment=LANG LANGUAGE LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT LC_IDENTIFICATION
 
 [Install]
+Alias=autovt@.service
+
 WantedBy=getty.target
 DefaultInstance=tty1

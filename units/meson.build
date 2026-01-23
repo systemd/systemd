@@ -45,7 +45,6 @@ units = [
         },
         {
           'file' : 'getty@.service.in',
-          'symlinks' : ['autovt@.service'],
         },
         {
           'file' : 'graphical.target',
