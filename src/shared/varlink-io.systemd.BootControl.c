@@ -143,6 +143,9 @@ static SD_VARLINK_DEFINE_ERROR(
 static SD_VARLINK_DEFINE_ERROR(
                 NoESPFound);
 
+static SD_VARLINK_DEFINE_ERROR(
+                BootEntryTokenUnavailable);
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_BootControl,
                 "io.systemd.BootControl",
@@ -172,4 +175,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("No boot entry defined."),
                 &vl_error_NoSuchBootEntry,
                 SD_VARLINK_SYMBOL_COMMENT("No EFI System Partition (ESP) found."),
-                &vl_error_NoESPFound);
+                &vl_error_NoESPFound,
+                SD_VARLINK_SYMBOL_COMMENT("The select boot entry token could not be determined."),
+                &vl_error_BootEntryTokenUnavailable);

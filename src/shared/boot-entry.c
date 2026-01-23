@@ -155,6 +155,8 @@ int boot_entry_token_ensure_at(
         assert(type);
         assert(token);
 
+        /* Returns -EUNATCH if the selected token is not set */
+
         if (*token)
                 return 0; /* Already set. */
 
@@ -181,7 +183,7 @@ int boot_entry_token_ensure_at(
                                 return r;
                 }
 
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_error_errno(SYNTHETIC_ERRNO(EUNATCH),
                                        "No machine ID set, and /etc/os-release carries no ID=/IMAGE_ID= fields.");
 
         case BOOT_ENTRY_TOKEN_MACHINE_ID:
@@ -189,14 +191,14 @@ int boot_entry_token_ensure_at(
                 if (r != 0)
                         return r;
 
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No machine ID set.");
+                return log_error_errno(SYNTHETIC_ERRNO(EUNATCH), "No machine ID set.");
 
         case BOOT_ENTRY_TOKEN_OS_IMAGE_ID:
                 r = entry_token_from_os_release(rfd, type, token);
                 if (r != 0)
                         return r;
 
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_error_errno(SYNTHETIC_ERRNO(EUNATCH),
                                        "IMAGE_ID= field not set in /etc/os-release.");
 
         case BOOT_ENTRY_TOKEN_OS_ID:
@@ -204,12 +206,12 @@ int boot_entry_token_ensure_at(
                 if (r != 0)
                         return r;
 
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_error_errno(SYNTHETIC_ERRNO(EUNATCH),
                                        "ID= field not set in /etc/os-release.");
 
         case BOOT_ENTRY_TOKEN_LITERAL:
                 /* In this case, the token should be already set by the user input. */
-                return -EINVAL;
+                return log_error_errno(SYNTHETIC_ERRNO(EUNATCH), "Literal token indicated but not specified.");
 
         default:
                 assert_not_reached();
