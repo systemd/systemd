@@ -59,7 +59,7 @@ static ColorMode get_color_mode_impl(void) {
                 return m;
 
         /* Next, check for the presence of $NO_COLOR; value is ignored. */
-        if (getenv("NO_COLOR"))
+        if (m != COLOR_AUTO_ON && getenv("NO_COLOR"))
                 return COLOR_OFF;
 
         /* If the above didn't work, we turn colors off unless we are on a TTY. And if we are on a TTY we
@@ -108,9 +108,10 @@ static const char* const color_mode_table[_COLOR_MODE_MAX] = {
         [COLOR_AUTO_16]    = "auto-16",
         [COLOR_AUTO_256]   = "auto-256",
         [COLOR_AUTO_24BIT] = "auto-24bit",
+        [COLOR_AUTO_ON]    = "true",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(color_mode, ColorMode, COLOR_24BIT);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(color_mode, ColorMode, COLOR_AUTO_ON);
 
 /*
  * Check that the string is formatted like an ANSI color code, i.e. that it consists of one or more
