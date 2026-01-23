@@ -437,6 +437,16 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   aren't, we are happy to use GNU or Linux APIs, and expect non-GNU
   implementations of libc to catch up with glibc.
 
+- Very often we pass a pair of file descriptor and a path to functions, which
+  are to be understood in combination. For example `openat()` style functions
+  typically take a directory fd and a filename relative to that as argument. In
+  other cases where operations operate relative to a root directory it makes
+  sense to have a pair of root path and root fd. Whenever possible the function
+  arguments should be in the order "fd first, path second" when the path shall
+  be understood relative to the fd. And an order "path first, fd second"
+  shall be used when the root path is the path of the referenced fd, i.e. two
+  references to the same object.
+
 ## Using C Constructs
 
 - Allocate local variables where it makes sense: at the top of the block, or at

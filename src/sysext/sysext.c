@@ -191,6 +191,7 @@ static int parse_config_file(ImageClass image_class) {
 
         r = config_parse_standard_file_with_dropins_full(
                         arg_root,
+                        /* root_fd= */ -EBADF,
                         config_file,
                         sections,
                         config_item_table_lookup, items,
