@@ -14,6 +14,7 @@
 #include "rm-rf.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "uid-classification.h"
 #include "userns-restrict.h"
 
 static int make_tmpfs_fsmount(void) {
@@ -50,10 +51,16 @@ TEST(userns_restrict) {
         int r;
 
         ASSERT_OK(mkdtemp_malloc(NULL, &t));
+        /* Make sure the dir is owned by the transient UID we'll be using so we don't get rejected with a
+         * permission error before we even get to the BPF-LSM. */
+        ASSERT_OK_ERRNO(chown(t, CONTAINER_UID_MIN, CONTAINER_UID_MIN));
 
         host_fd1 = ASSERT_OK_ERRNO(open(t, O_DIRECTORY|O_CLOEXEC));
         host_tmpfs = ASSERT_OK(make_tmpfs_fsmount());
-        userns_fd = ASSERT_OK(userns_acquire("0 0 1", "0 0 1", /* setgroups_deny= */ true));
+
+        _cleanup_free_ char *idmap = NULL;
+        ASSERT_OK(asprintf(&idmap, "0 "UID_FMT" 1", CONTAINER_UID_MIN));
+        userns_fd = ASSERT_OK(userns_acquire(idmap, idmap, /* setgroups_deny= */ true));
 
         ASSERT_OK(userns_restrict_put_by_fd(
                         bpf_obj,
@@ -69,7 +76,7 @@ TEST(userns_restrict) {
         if (r == 0) {
                 _cleanup_close_ int private_tmpfs = -EBADF;
 
-                ASSERT_OK_ERRNO(setns(userns_fd, CLONE_NEWUSER));
+                ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
                 ASSERT_OK_ERRNO(unshare(CLONE_NEWNS));
 
                 /* Allocate tmpfs locally */
