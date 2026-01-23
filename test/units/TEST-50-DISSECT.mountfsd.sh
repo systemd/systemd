@@ -60,6 +60,23 @@ if (SYSTEMD_LOG_TARGET=console varlinkctl call \
     exit 0
 fi
 
+# Test delegated UID ranges
+# Verify that delegated ranges show up in uid_map (6 lines: 1 primary + 2 container ranges + 3 dynamic users)
+test "$(run0 -u testuser --pipe unshare --user varlinkctl --exec call \
+        --push-fd=/proc/self/ns/user \
+        /run/systemd/userdb/io.systemd.NamespaceResource \
+        io.systemd.NamespaceResource.AllocateUserRange \
+        '{"name":"test-delegate","size":65536,"userNamespaceFileDescriptor":0,"delegateContainerRanges":2}' \
+        -- cat /proc/self/uid_map | wc -l)" -eq 3
+
+# Test that delegateContainerRanges > 16 fails with TooManyDelegations error
+(! run0 -u testuser --pipe unshare --user varlinkctl call \
+        --push-fd=/proc/self/ns/user \
+        /run/systemd/userdb/io.systemd.NamespaceResource \
+        io.systemd.NamespaceResource.AllocateUserRange \
+        '{"name":"test-fail","size":65536,"userNamespaceFileDescriptor":0,"delegateContainerRanges":17}') |&
+            grep "io.systemd.NamespaceResource.TooManyDelegations" >/dev/null
+
 # This should work without the key
 systemd-dissect --image-policy='root=verity:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null
 systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null
