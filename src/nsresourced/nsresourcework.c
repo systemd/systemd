@@ -359,7 +359,8 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
 
 static int uid_is_available(
                 int registry_dir_fd,
-                uid_t candidate) {
+                uid_t candidate,
+                uint64_t parent_userns_inode) {
 
         int r;
 
@@ -378,6 +379,38 @@ static int uid_is_available(
                 return r;
         if (r > 0)
                 return false;
+
+        /* Also check delegation files. If parent_userns_inode is set and matches the delegation's userns
+         * inode, the UID is available because the parent owns that delegation. */
+        r = userns_registry_delegation_uid_exists(registry_dir_fd, candidate);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                if (parent_userns_inode == 0)
+                        return false;
+
+                DelegatedUserNamespaceInfo delegation;
+                r = userns_registry_load_delegation_by_uid(registry_dir_fd, candidate, &delegation);
+                if (r < 0)
+                        return r;
+
+                if (delegation.userns_inode != parent_userns_inode)
+                        return false;
+
+                /* The parent userns owns this delegation, so the UID is available for nested allocation */
+                log_debug("UID " UID_FMT " is delegated by parent userns inode %" PRIu64 ", available for nested allocation.",
+                          candidate, parent_userns_inode);
+        }
+
+        r = userns_registry_delegation_gid_exists(registry_dir_fd, (gid_t) candidate);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                if (parent_userns_inode == 0)
+                        return false;
+
+                /* We already checked the UID delegation above, GID should match */
+        }
 
         r = userdb_by_uid(candidate, /* match= */ NULL, USERDB_AVOID_MULTIPLEXER, /* ret= */ NULL);
         if (r >= 0)
@@ -433,19 +466,104 @@ static int name_is_available(
         return true;
 }
 
-static int allocate_now(
+static int allocate_one(
                 int registry_dir_fd,
-                UserNamespaceInfo *info,
-                int *ret_lock_fd) {
+                const char *name,
+                uint32_t size,
+                uint64_t parent_userns_inode,
+                UIDRange *candidates,
+                uid_t *ret_candidate) {
 
         static const uint8_t hash_key[16] = {
                 0xd4, 0xd7, 0x33, 0xa7, 0x4d, 0xd3, 0x42, 0xcd,
                 0xaa, 0xe9, 0x45, 0xd0, 0xfb, 0xec, 0x79, 0xee,
         };
-
-        _cleanup_(uid_range_freep) UIDRange *valid_range = NULL;
-        uid_t candidate, uidmin, uidmax, uidmask;
+        _cleanup_(uid_range_freep) UIDRange *copy = NULL;
+        uid_t candidate, uidmin, uidmax;
         unsigned n_tries = 100;
+        size_t idx;
+        int r;
+
+        assert(registry_dir_fd >= 0);
+        assert(candidates);
+        assert(ret_candidate);
+
+        switch (size) {
+
+        case 0x10000U:
+                uidmin = CONTAINER_UID_BASE_MIN;
+                uidmax = CONTAINER_UID_BASE_MAX;
+                break;
+
+        case 1U:
+                uidmin = DYNAMIC_UID_MIN;
+                uidmax = DYNAMIC_UID_MAX;
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        /* Make a copy of candidates that we can modify for the selection algorithm */
+        r = uid_range_copy(candidates, &copy);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to copy UID range: %m");
+
+        /* Intersect the copy with the valid UID range for this allocation size */
+        r = uid_range_intersect(copy, uidmin, uidmax);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to intersect UID range: %m");
+
+        /* Partition entries into entries of exactly the right size */
+        r = uid_range_partition(copy, size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to partition UID ranges: %m");
+
+        if (uid_range_is_empty(copy))
+                return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Relevant UID range not delegated, can't allocate.");
+
+        /* Start from a hash of the input name if we have one, use random values afterwards. */
+        idx = name ? siphash24_string(name, hash_key) : random_u32();
+        for (;; idx = random_u32()) {
+                idx %= copy->n_entries;
+
+                if (--n_tries <= 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "Try limit hit, no UIDs available.");
+
+                candidate = copy->entries[idx].start;
+
+                /* We only check the base UID for each range. Pass the parent userns inode so that
+                 * allocating from a delegated range owned by the parent is allowed. */
+                r = uid_is_available(registry_dir_fd, candidate, parent_userns_inode);
+                if (r < 0)
+                        return log_debug_errno(r, "Can't determine if UID range " UID_FMT " is available: %m", candidate);
+                if (r > 0)
+                        break;
+
+                log_debug("UID range " UID_FMT " already taken.", candidate);
+        }
+
+        /* Remove the allocated range from the original candidates */
+        r = uid_range_remove(candidates, candidate, size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to remove allocated range from candidates: %m");
+
+        *ret_candidate = candidate;
+
+        log_debug("Allocating UID range " UID_FMT "…" UID_FMT, candidate, candidate + size - 1);
+
+        return 0;
+}
+
+static int allocate_now(
+                int registry_dir_fd,
+                int userns_fd,
+                int parent_userns_fd,
+                UserNamespaceInfo *info,
+                int *ret_lock_fd) {
+
+        _cleanup_(uid_range_freep) UIDRange *candidates = NULL;
+        uid_t candidate;
         int r;
 
         /* Returns the following error codes:
@@ -456,33 +574,18 @@ static int allocate_now(
          */
 
         assert(registry_dir_fd >= 0);
+        assert(userns_fd >= 0);
         assert(info);
 
-        switch (info->size) {
+        uint64_t parent_userns_inode = 0;
+        struct stat parent_st;
+        if (fstat(parent_userns_fd, &parent_st) < 0)
+                return log_debug_errno(errno, "Failed to fstat parent user namespace: %m");
+        parent_userns_inode = parent_st.st_ino;
 
-        case 0x10000U:
-                uidmin = CONTAINER_UID_BASE_MIN;
-                uidmax = CONTAINER_UID_BASE_MAX;
-                uidmask = (uid_t) UINT32_C(0xFFFF0000);
-                break;
-
-        case 1U:
-                uidmin = DYNAMIC_UID_MIN;
-                uidmax = DYNAMIC_UID_MAX;
-                uidmask = (uid_t) UINT32_C(0xFFFFFFFF);
-                break;
-
-        default:
-                assert_not_reached();
-        }
-
-        r = uid_range_load_userns(/* path= */ NULL, UID_RANGE_USERNS_INSIDE, &valid_range);
+        r = uid_range_load_userns_by_fd(parent_userns_fd, UID_RANGE_USERNS_INSIDE, &candidates);
         if (r < 0)
-                return r;
-
-        /* Check early whether we have any chance at all given our own uid range */
-        if (!uid_range_overlaps(valid_range, uidmin, uidmax))
-                return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Relevant UID range not delegated, can't allocate.");
+                return log_debug_errno(r, "Failed to read userns UID range: %m");
 
         _cleanup_close_ int lock_fd = -EBADF;
         lock_fd = userns_registry_lock(registry_dir_fd);
@@ -508,45 +611,74 @@ static int allocate_now(
         if (r == 0)
                 return -EEXIST;
 
-        for (candidate = siphash24_string(info->name, hash_key) & UINT32_MAX;; /* Start from a hash of the input name */
-             candidate = random_u32()) {                                 /* Use random values afterwards */
+        r = allocate_one(
+                        registry_dir_fd,
+                        info->name, info->size,
+                        parent_userns_inode,
+                        candidates,
+                        &candidate);
+        if (r < 0)
+                return r;
 
-                if (--n_tries <= 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "Try limit hit, no UIDs available.");
+        info->start_uid = candidate;
+        info->start_gid = (gid_t) candidate;
 
-                candidate = (candidate % (uidmax - uidmin)) + uidmin;
-                candidate &= uidmask;
+        /* Now allocate delegated ranges if requested */
+        if (info->n_delegates > 0) {
+                assert(info->delegates);
 
-                if (!uid_range_covers(valid_range, candidate, info->size))
-                        continue;
+                for (size_t i = 0; i < info->n_delegates; i++) {
+                        r = allocate_one(
+                                        registry_dir_fd,
+                                        /* name= */ NULL,
+                                        info->delegates[i].size,
+                                        /* parent_userns_inode= */ 0,
+                                        candidates,
+                                        &candidate);
+                        if (r < 0)
+                                return r;
 
-                /* We only check the base UID for each range (!) */
-                r = uid_is_available(registry_dir_fd, candidate);
-                if (r < 0)
-                        return log_debug_errno(r, "Can't determine if UID range " UID_FMT " is available: %m", candidate);
-                if (r > 0) {
-                        info->start_uid = candidate;
-                        info->start_gid = (gid_t) candidate;
-
-                        log_debug("Allocating UID range " UID_FMT "…" UID_FMT, candidate, candidate + info->size - 1);
-
-                        if (ret_lock_fd)
-                                *ret_lock_fd = TAKE_FD(lock_fd);
-
-                        return 0;
+                        info->delegates[i].userns_inode = info->userns_inode;
+                        info->delegates[i].start_uid = candidate;
+                        info->delegates[i].start_gid = (gid_t) candidate;
                 }
-
-                log_debug("UID range " UID_FMT " already taken.", candidate);
         }
+
+        if (ret_lock_fd)
+                *ret_lock_fd = TAKE_FD(lock_fd);
+
+        return 0;
 }
 
-static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
+static int write_userns_mappings(PidRef *pidref, const char *uidmap, const char *gidmap) {
+        const char *pmap;
+        int r;
+
+        assert(pidref);
+        assert(uidmap);
+        assert(gidmap);
+
+        pmap = procfs_file_alloca(pidref->pid, "uid_map");
+        r = write_string_file(pmap, uidmap, /* flags= */ 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write 'uid_map' file of user namespace: %m");
+
+        pmap = procfs_file_alloca(pidref->pid, "gid_map");
+        r = write_string_file(pmap, gidmap, /* flags= */ 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write 'gid_map' file of user namespace: %m");
+
+        return 0;
+}
+
+static int write_userns(int userns_fd, int parent_userns_fd, const UserNamespaceInfo *userns_info) {
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         _cleanup_close_ int efd = -EBADF;
         uint64_t u;
         int r;
 
-        assert(usernsfd >= 0);
+        assert(userns_fd >= 0);
+        assert(parent_userns_fd >= 0);
         assert(userns_info);
         assert(uid_is_valid(userns_info->target_uid));
         assert(uid_is_valid(userns_info->start_uid));
@@ -566,7 +698,7 @@ static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
         if (r == 0) {
                 /* child */
 
-                if (setns(usernsfd, CLONE_NEWUSER) < 0) {
+                if (setns(userns_fd, CLONE_NEWUSER) < 0) {
                         log_error_errno(errno, "Failed to join user namespace: %m");
                         goto child_fail;
                 }
@@ -588,22 +720,74 @@ static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
 
         /* Now write mapping */
 
-        _cleanup_free_ char *pmap = NULL;
-
-        if (asprintf(&pmap, "/proc/" PID_FMT "/uid_map", pidref.pid) < 0)
+        /* Build uid_map content: primary mapping + delegated mappings (1:1) */
+        _cleanup_free_ char *uidmap = NULL;
+        if (asprintf(&uidmap, UID_FMT " " UID_FMT " %" PRIu32 "\n",
+                     userns_info->target_uid, userns_info->start_uid, userns_info->size) < 0)
                 return log_oom();
 
-        r = write_string_filef(pmap, 0, UID_FMT " " UID_FMT " %" PRIu32 "\n", userns_info->target_uid, userns_info->start_uid, userns_info->size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write 'uid_map' file of user namespace: %m");
+        log_debug("UID mapping: " UID_FMT " " UID_FMT " %" PRIu32,
+                  userns_info->target_uid, userns_info->start_uid, userns_info->size);
 
-        pmap = mfree(pmap);
-        if (asprintf(&pmap, "/proc/" PID_FMT "/gid_map", pidref.pid) < 0)
+        for (size_t i = 0; i < userns_info->n_delegates; i++) {
+                /* Delegated ranges are mapped 1:1 (inside UID == outside UID) */
+                if (strextendf(&uidmap,
+                               UID_FMT " " UID_FMT " %" PRIu32 "\n",
+                               userns_info->delegates[i].start_uid,
+                               userns_info->delegates[i].start_uid,
+                               userns_info->delegates[i].size) < 0)
+                        return log_oom();
+
+                log_debug("UID mapping: " UID_FMT " " UID_FMT " %" PRIu32,
+                          userns_info->delegates[i].start_uid, userns_info->delegates[i].start_uid, userns_info->delegates[i].size);
+        }
+
+        /* Build gid_map content: primary mapping + delegated mappings (1:1) */
+        _cleanup_free_ char *gidmap = NULL;
+        if (asprintf(&gidmap, GID_FMT " " GID_FMT " %" PRIu32 "\n",
+                     userns_info->target_gid, userns_info->start_gid, userns_info->size) < 0)
                 return log_oom();
 
-        r = write_string_filef(pmap, 0, GID_FMT " " GID_FMT " %" PRIu32 "\n", userns_info->target_gid, userns_info->start_gid, userns_info->size);
+        log_debug("GID mapping: " GID_FMT " " GID_FMT " %" PRIu32,
+                  userns_info->target_gid, userns_info->start_gid, userns_info->size);
+
+        for (size_t i = 0; i < userns_info->n_delegates; i++) {
+                /* Delegated ranges are mapped 1:1 (inside GID == outside GID) */
+                if (strextendf(&gidmap, GID_FMT " " GID_FMT " %" PRIu32 "\n",
+                               userns_info->delegates[i].start_gid,
+                               userns_info->delegates[i].start_gid,
+                               userns_info->delegates[i].size) < 0)
+                        return log_oom();
+
+                log_debug("GID mapping: " GID_FMT " " GID_FMT " %" PRIu32,
+                          userns_info->delegates[i].start_gid, userns_info->delegates[i].start_gid, userns_info->delegates[i].size);
+        }
+
+        if (is_our_namespace(parent_userns_fd, NAMESPACE_USER))
+                return write_userns_mappings(&pidref, uidmap, gidmap);
+
+        /* The kernel is paranoid that the uid_map and gid_map files are written either from the user
+         * namespace itself or its parent user namespace, so we have to join the parent user namespace to
+         * write the files. Note that we do not bother with translating the range from the init userns to the
+         * parent userns. The parent userns can play games if it wants by switching mappings around, in the
+         * worst case we'll map some different range from the parent userns than the one we intended to map.
+         * This shouldn't be a security problem as any range we end up mapping still belongs to the parent
+         * userns and can't come from the outside. In the regular case, we assume the delegated mappings are
+         * always mapped through 1:1 until they're used which means no translation is needed to the parent
+         * userns.  */
+
+        r = pidref_safe_fork("(sd-userns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT, /* ret= */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to write 'gid_map' file of user namespace: %m");
+                return r;
+        if (r == 0) {
+                if (setns(parent_userns_fd, CLONE_NEWUSER) < 0) {
+                        log_error_errno(errno, "Failed to join parent user namespace: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = write_userns_mappings(&pidref, uidmap, gidmap);
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+        }
 
         /* We are done! */
 
@@ -767,6 +951,18 @@ static int validate_target_and_size(sd_varlink *link, uid_t target, uint32_t siz
         return 0;
 }
 
+static int validate_delegate_amount_and_size(sd_varlink *link, uint32_t delegate_amount, uint32_t delegate_size) {
+        assert(link);
+
+        if (delegate_amount > USER_NAMESPACE_DELEGATIONS_MAX)
+                return sd_varlink_error(link, "io.systemd.NamespaceResource.TooManyDelegations", NULL);
+
+        if (delegate_amount > 0 && !IN_SET(delegate_size, 1U, 0x10000U))
+                return sd_varlink_error_invalid_parameter_name(link, "delegateSize");
+
+        return 0;
+}
+
 static int validate_userns(sd_varlink *link, int userns_fd) {
         int r;
 
@@ -840,16 +1036,20 @@ typedef struct AllocateParameters {
         uid_t target;
         unsigned userns_fd_idx;
         bool mangle_name;
+        uint32_t delegate_amount;
+        uint32_t delegate_size;
 } AllocateParameters;
 
 static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",                        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(AllocateParameters, name),          SD_JSON_MANDATORY },
-                { "size",                        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,       offsetof(AllocateParameters, size),          SD_JSON_MANDATORY },
-                { "target",                      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(AllocateParameters, target),        0                 },
-                { "userNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AllocateParameters, userns_fd_idx), SD_JSON_MANDATORY },
-                { "mangleName",                  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(AllocateParameters, mangle_name),   0                 },
+                { "name",                        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(AllocateParameters, name),            SD_JSON_MANDATORY },
+                { "size",                        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,       offsetof(AllocateParameters, size),            SD_JSON_MANDATORY },
+                { "target",                      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(AllocateParameters, target),          0                 },
+                { "userNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AllocateParameters, userns_fd_idx),   SD_JSON_MANDATORY },
+                { "mangleName",                  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(AllocateParameters, mangle_name),     0                 },
+                { "delegateAmount",              _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,       offsetof(AllocateParameters, delegate_amount), 0                 },
+                { "delegateSize",                _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,       offsetof(AllocateParameters, delegate_size),   0                 },
                 {}
         };
 
@@ -883,6 +1083,10 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         if (r != 0)
                 return r;
 
+        r = validate_delegate_amount_and_size(link, p.delegate_amount, p.delegate_size);
+        if (r != 0)
+                return r;
+
         userns_fd = sd_varlink_peek_dup_fd(link, p.userns_fd_idx);
         if (userns_fd < 0)
                 return log_debug_errno(userns_fd, "Failed to take user namespace fd from Varlink connection: %m");
@@ -897,6 +1101,10 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
 
         if (fstat(userns_fd, &userns_st) < 0)
                 return log_debug_errno(errno, "Failed to fstat() user namespace fd: %m");
+
+        _cleanup_close_ int parent_userns_fd = ioctl(userns_fd, NS_GET_PARENT);
+        if (parent_userns_fd < 0)
+                return log_debug_errno(errno, "Failed to get parent user namespace: %m");
 
         r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)
@@ -942,7 +1150,19 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         userns_info->target_uid = p.target;
         userns_info->target_gid = (gid_t) p.target;
 
-        r = allocate_now(registry_dir_fd, userns_info, &lock_fd);
+        /* Set up delegation arrays if requested */
+        if (p.delegate_amount > 0) {
+                userns_info->delegates = new0(DelegatedUserNamespaceInfo, p.delegate_amount);
+                if (!userns_info->delegates)
+                        return -ENOMEM;
+
+                userns_info->n_delegates = p.delegate_amount;
+
+                for (size_t i = 0; i < p.delegate_amount; i++)
+                        userns_info->delegates[i].size = p.delegate_size;
+        }
+
+        r = allocate_now(registry_dir_fd, userns_fd, parent_userns_fd, userns_info, &lock_fd);
         if (r == -EHOSTDOWN) /* The needed UID range is not delegated to us */
                 return sd_varlink_error(link, "io.systemd.NamespaceResource.DynamicRangeUnavailable", NULL);
         if (r == -EBUSY)     /* All used up */
@@ -968,7 +1188,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         if (r < 0)
                 goto fail;
 
-        r = write_userns(userns_fd, userns_info);
+        r = write_userns(userns_fd, parent_userns_fd, userns_info);
         if (r < 0)
                 goto fail;
 
