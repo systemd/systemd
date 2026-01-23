@@ -70,8 +70,14 @@ if [ -f "$TRIES_FILE" ]; then
     if [ -f "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi" ]; then
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Removing previous UKI '$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi' without boot counting." >&2
-        rm -f "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi" "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION+"*.efi
+        rm -f "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION.efi"
     fi
+    for uki in "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION+"*.efi; do
+        [ "$uki" = "$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION+*.efi" ] && break
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing previous UKI '$uki' that has not yet booted successfully." >&2
+        rm -f "$uki"
+    done
 
     UKI_FILE="$UKI_DIR/$ENTRY_TOKEN-$KERNEL_VERSION+$TRIES.efi"
 else
