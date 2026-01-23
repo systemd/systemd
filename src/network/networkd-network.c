@@ -514,8 +514,12 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipoib_umcast = -1,
         };
 
-        r = config_parse_many(
-                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname, /* root= */ NULL,
+        r = config_parse_many_full(
+                        STRV_MAKE_CONST(filename),
+                        NETWORK_DIRS,
+                        dropin_dirname,
+                        /* root= */ NULL,
+                        /* root_fd= */ -EBADF,
                         "Match\0"
                         "Link\0"
                         "SR-IOV\0"
@@ -574,7 +578,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "StochasticFairnessQueueing\0"
                         "TokenBucketFilter\0"
                         "TrivialLinkEqualizer\0",
-                        config_item_perf_lookup, network_network_gperf_lookup,
+                        config_item_perf_lookup,
+                        network_network_gperf_lookup,
                         CONFIG_PARSE_WARN,
                         network,
                         &network->stats_by_path,
