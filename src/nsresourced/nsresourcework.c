@@ -435,6 +435,7 @@ static int name_is_available(
 
 static int allocate_now(
                 int registry_dir_fd,
+                int userns_fd,
                 UserNamespaceInfo *info,
                 int *ret_lock_fd) {
 
@@ -456,6 +457,7 @@ static int allocate_now(
          */
 
         assert(registry_dir_fd >= 0);
+        assert(userns_fd >= 0);
         assert(info);
 
         switch (info->size) {
@@ -476,7 +478,14 @@ static int allocate_now(
                 assert_not_reached();
         }
 
-        r = uid_range_load_userns(/* path= */ NULL, UID_RANGE_USERNS_INSIDE, &valid_range);
+        _cleanup_close_ int userns_parent_fd = -EBADF;
+        if (ioctl(userns_fd, NS_GET_PARENT, &userns_parent_fd) < 0 && !ERRNO_IS_IOCTL_NOT_SUPPORTED(errno))
+                return log_debug_errno(errno, "Failed to get parent user namespace: %m");
+
+        if (userns_parent_fd >= 0)
+                r = uid_range_load_userns_by_fd(userns_parent_fd, UID_RANGE_USERNS_INSIDE, &valid_range);
+        else
+                r = uid_range_load_userns(/* path= */ NULL, UID_RANGE_USERNS_INSIDE, &valid_range);
         if (r < 0)
                 return r;
 
@@ -942,7 +951,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         userns_info->target_uid = p.target;
         userns_info->target_gid = (gid_t) p.target;
 
-        r = allocate_now(registry_dir_fd, userns_info, &lock_fd);
+        r = allocate_now(registry_dir_fd, userns_fd, userns_info, &lock_fd);
         if (r == -EHOSTDOWN) /* The needed UID range is not delegated to us */
                 return sd_varlink_error(link, "io.systemd.NamespaceResource.DynamicRangeUnavailable", NULL);
         if (r == -EBUSY)     /* All used up */
