@@ -17,6 +17,9 @@ typedef enum ColorMode {
         COLOR_AUTO_256,
         COLOR_AUTO_24BIT,
 
+        /* Same as unset, except that $NO_COLOR is ignored */
+        COLOR_AUTO_ON,
+
         _COLOR_MODE_MAX,
         _COLOR_MODE_INVALID = -EINVAL,
 } ColorMode;

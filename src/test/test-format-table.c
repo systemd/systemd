@@ -849,14 +849,18 @@ TEST(table_ansi) {
                                  TABLE_STRING_WITH_ANSI, ANSI_GREY "thisisgrey"));
 
         unsigned saved_columns = columns();
-        bool saved_color = colors_enabled();
-        _cleanup_free_ char *saved_term = NULL;
-        const char *e = getenv("TERM");
+        _cleanup_free_ char *saved_term = NULL, *saved_color = NULL;
+        const char *e;
+
+        e = getenv("TERM");
         if (e)
                 ASSERT_NOT_NULL((saved_term = strdup(e)));
+        e = getenv("SYSTEMD_COLORS");
+        if (e)
+                ASSERT_NOT_NULL((saved_color = strdup(e)));
 
         ASSERT_OK_ERRNO(setenv("COLUMNS", "200", /* overwrite= */ true));
-        ASSERT_OK_ERRNO(setenv("SYSTEMD_COLORS", "1", /* overwrite= */ true));
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_COLORS", "24bit", /* overwrite= */ true));
         ASSERT_OK_ERRNO(setenv("TERM", FALLBACK_TERM, /* overwrite= */ true));
         reset_terminal_feature_caches();
 
@@ -904,7 +908,7 @@ TEST(table_ansi) {
         ASSERT_OK(sd_json_variant_dump(j, SD_JSON_FORMAT_COLOR_AUTO|SD_JSON_FORMAT_PRETTY_AUTO, /* f= */ NULL, /* prefix= */ NULL));
 
         ASSERT_OK(setenvf("COLUMNS", /* overwrite= */ true, "%u", saved_columns));
-        ASSERT_OK(setenvf("SYSTEMD_COLORS", /* overwrite= */ true, "%i", saved_color));
+        ASSERT_OK(set_unset_env("SYSTEMD_COLORS", saved_color, /* overwrite= */ true));
         ASSERT_OK(set_unset_env("TERM", saved_term, /* overwrite= */ true));
 }
 
