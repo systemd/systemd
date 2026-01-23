@@ -2100,6 +2100,8 @@ int vl_method_install(
                 return r;
 
         r = run_install(&p.context);
+        if (r == -EUNATCH) /* no boot entry token is set */
+                return sd_varlink_error(link, "io.systemd.BootControl.BootEntryTokenUnavailable", NULL);
         if (r < 0)
                 return r;
 
