@@ -1031,13 +1031,14 @@ int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
 
         dropin_dirname = strjoina(file_basename, ".d");
         r = config_parse_many(
-                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname, /* root= */ NULL,
+                        STRV_MAKE_CONST(filename),
+                        NETWORK_DIRS,
+                        dropin_dirname,
                         NETDEV_COMMON_SECTIONS NETDEV_OTHER_SECTIONS,
-                        config_item_perf_lookup, network_netdev_gperf_lookup,
+                        config_item_perf_lookup,
+                        network_netdev_gperf_lookup,
                         CONFIG_PARSE_WARN,
-                        netdev_raw,
-                        NULL,
-                        NULL);
+                        netdev_raw);
         if (r < 0)
                 return r; /* config_parse_many() logs internally. */
 
@@ -1064,10 +1065,15 @@ int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
         if (NETDEV_VTABLE(netdev)->init)
                 NETDEV_VTABLE(netdev)->init(netdev);
 
-        r = config_parse_many(
-                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname, /* root= */ NULL,
+        r = config_parse_many_full(
+                        STRV_MAKE_CONST(filename),
+                        NETWORK_DIRS,
+                        dropin_dirname,
+                        /* root= */ NULL,
+                        /* root_fd= */ -EBADF,
                         NETDEV_VTABLE(netdev)->sections,
-                        config_item_perf_lookup, network_netdev_gperf_lookup,
+                        config_item_perf_lookup,
+                        network_netdev_gperf_lookup,
                         CONFIG_PARSE_WARN,
                         netdev,
                         &netdev->stats_by_path,

@@ -31,6 +31,7 @@
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
@@ -38,12 +39,6 @@
 #include "varlink-util.h"
 #include "verbs.h"
 #include "virt.h"
-
-/* EFI_BOOT_OPTION_DESCRIPTION_MAX sets the maximum length for the boot option description
- * stored in NVRAM. The UEFI spec does not specify a minimum or maximum length for this
- * string, but we limit the length to something reasonable to prevent from the firmware
- * having to deal with a potentially too long string. */
-#define EFI_BOOT_OPTION_DESCRIPTION_MAX ((size_t) 255)
 
 static GracefulMode _arg_graceful = ARG_GRACEFUL_NO;
 
@@ -69,6 +64,7 @@ char *arg_root = NULL;
 char *arg_image = NULL;
 InstallSource arg_install_source = INSTALL_SOURCE_AUTO;
 char *arg_efi_boot_option_description = NULL;
+bool arg_efi_boot_option_description_with_device = false;
 bool arg_dry_run = false;
 ImagePolicy *arg_image_policy = NULL;
 bool arg_varlink = false;
@@ -92,6 +88,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
+
+static const char* const install_source_table[_INSTALL_SOURCE_MAX] = {
+        [INSTALL_SOURCE_IMAGE] = "image",
+        [INSTALL_SOURCE_HOST]  = "host",
+        [INSTALL_SOURCE_AUTO]  = "auto",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(install_source, InstallSource);
 
 int acquire_esp(
                 int unprivileged_mode,
@@ -340,6 +344,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                       Install all supported EFI architectures\n"
                "     --efi-boot-option-description=DESCRIPTION\n"
                "                       Description of the entry in the boot option list\n"
+               "     --efi-boot-option-description-with-device=yes\n"
+               "                       Suffix description with disk vendor/model/serial\n"
                "     --dry-run         Dry run (unlink and cleanup)\n"
                "     --secure-boot-auto-enroll=yes|no\n"
                "                       Set up secure boot auto-enrollment\n"
@@ -389,6 +395,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_ARCH_ALL,
                 ARG_EFI_BOOT_OPTION_DESCRIPTION,
+                ARG_EFI_BOOT_OPTION_DESCRIPTION_WITH_DEVICE,
                 ARG_DRY_RUN,
                 ARG_PRINT_LOADER_PATH,
                 ARG_PRINT_STUB_PATH,
@@ -400,39 +407,40 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",                        no_argument,       NULL, 'h'                             },
-                { "version",                     no_argument,       NULL, ARG_VERSION                     },
-                { "esp-path",                    required_argument, NULL, ARG_ESP_PATH                    },
-                { "path",                        required_argument, NULL, ARG_ESP_PATH                    }, /* Compatibility alias */
-                { "boot-path",                   required_argument, NULL, ARG_BOOT_PATH                   },
-                { "root",                        required_argument, NULL, ARG_ROOT                        },
-                { "image",                       required_argument, NULL, ARG_IMAGE                       },
-                { "image-policy",                required_argument, NULL, ARG_IMAGE_POLICY                },
-                { "install-source",              required_argument, NULL, ARG_INSTALL_SOURCE              },
-                { "print-esp-path",              no_argument,       NULL, 'p'                             },
-                { "print-path",                  no_argument,       NULL, 'p'                             }, /* Compatibility alias */
-                { "print-boot-path",             no_argument,       NULL, 'x'                             },
-                { "print-loader-path",           no_argument,       NULL, ARG_PRINT_LOADER_PATH           },
-                { "print-stub-path",             no_argument,       NULL, ARG_PRINT_STUB_PATH             },
-                { "print-root-device",           no_argument,       NULL, 'R'                             },
-                { "variables",                   required_argument, NULL, ARG_VARIABLES                   },
-                { "no-variables",                no_argument,       NULL, ARG_NO_VARIABLES                }, /* Compatibility alias */
-                { "random-seed",                 required_argument, NULL, ARG_RANDOM_SEED                 },
-                { "no-pager",                    no_argument,       NULL, ARG_NO_PAGER                    },
-                { "graceful",                    no_argument,       NULL, ARG_GRACEFUL                    },
-                { "quiet",                       no_argument,       NULL, 'q'                             },
-                { "make-entry-directory",        required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY        },
-                { "make-machine-id-directory",   required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY        }, /* Compatibility alias */
-                { "entry-token",                 required_argument, NULL, ARG_ENTRY_TOKEN                 },
-                { "json",                        required_argument, NULL, ARG_JSON                        },
-                { "all-architectures",           no_argument,       NULL, ARG_ARCH_ALL                    },
-                { "efi-boot-option-description", required_argument, NULL, ARG_EFI_BOOT_OPTION_DESCRIPTION },
-                { "dry-run",                     no_argument,       NULL, ARG_DRY_RUN                     },
-                { "secure-boot-auto-enroll",     required_argument, NULL, ARG_SECURE_BOOT_AUTO_ENROLL     },
-                { "certificate",                 required_argument, NULL, ARG_CERTIFICATE                 },
-                { "certificate-source",          required_argument, NULL, ARG_CERTIFICATE_SOURCE          },
-                { "private-key",                 required_argument, NULL, ARG_PRIVATE_KEY                 },
-                { "private-key-source",          required_argument, NULL, ARG_PRIVATE_KEY_SOURCE          },
+                { "help",                                    no_argument,       NULL, 'h'                                         },
+                { "version",                                 no_argument,       NULL, ARG_VERSION                                 },
+                { "esp-path",                                required_argument, NULL, ARG_ESP_PATH                                },
+                { "path",                                    required_argument, NULL, ARG_ESP_PATH                                }, /* Compatibility alias */
+                { "boot-path",                               required_argument, NULL, ARG_BOOT_PATH                               },
+                { "root",                                    required_argument, NULL, ARG_ROOT                                    },
+                { "image",                                   required_argument, NULL, ARG_IMAGE                                   },
+                { "image-policy",                            required_argument, NULL, ARG_IMAGE_POLICY                            },
+                { "install-source",                          required_argument, NULL, ARG_INSTALL_SOURCE                          },
+                { "print-esp-path",                          no_argument,       NULL, 'p'                                         },
+                { "print-path",                              no_argument,       NULL, 'p'                                         }, /* Compatibility alias */
+                { "print-boot-path",                         no_argument,       NULL, 'x'                                         },
+                { "print-loader-path",                       no_argument,       NULL, ARG_PRINT_LOADER_PATH                       },
+                { "print-stub-path",                         no_argument,       NULL, ARG_PRINT_STUB_PATH                         },
+                { "print-root-device",                       no_argument,       NULL, 'R'                                         },
+                { "variables",                               required_argument, NULL, ARG_VARIABLES                               },
+                { "no-variables",                            no_argument,       NULL, ARG_NO_VARIABLES                            }, /* Compatibility alias */
+                { "random-seed",                             required_argument, NULL, ARG_RANDOM_SEED                             },
+                { "no-pager",                                no_argument,       NULL, ARG_NO_PAGER                                },
+                { "graceful",                                no_argument,       NULL, ARG_GRACEFUL                                },
+                { "quiet",                                   no_argument,       NULL, 'q'                                         },
+                { "make-entry-directory",                    required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY                    },
+                { "make-machine-id-directory",               required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY                    }, /* Compatibility alias */
+                { "entry-token",                             required_argument, NULL, ARG_ENTRY_TOKEN                             },
+                { "json",                                    required_argument, NULL, ARG_JSON                                    },
+                { "all-architectures",                       no_argument,       NULL, ARG_ARCH_ALL                                },
+                { "efi-boot-option-description",             required_argument, NULL, ARG_EFI_BOOT_OPTION_DESCRIPTION             },
+                { "efi-boot-option-description-with-device", required_argument, NULL, ARG_EFI_BOOT_OPTION_DESCRIPTION_WITH_DEVICE },
+                { "dry-run",                                 no_argument,       NULL, ARG_DRY_RUN                                 },
+                { "secure-boot-auto-enroll",                 required_argument, NULL, ARG_SECURE_BOOT_AUTO_ENROLL                 },
+                { "certificate",                             required_argument, NULL, ARG_CERTIFICATE                             },
+                { "certificate-source",                      required_argument, NULL, ARG_CERTIFICATE_SOURCE                      },
+                { "private-key",                             required_argument, NULL, ARG_PRIVATE_KEY                             },
+                { "private-key-source",                      required_argument, NULL, ARG_PRIVATE_KEY_SOURCE                      },
                 {}
         };
 
@@ -481,18 +489,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_INSTALL_SOURCE:
-                        if (streq(optarg, "auto"))
-                                arg_install_source = INSTALL_SOURCE_AUTO;
-                        else if (streq(optarg, "image"))
-                                arg_install_source = INSTALL_SOURCE_IMAGE;
-                        else if (streq(optarg, "host"))
-                                arg_install_source = INSTALL_SOURCE_HOST;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unexpected parameter for --install-source=: %s", optarg);
+                case ARG_INSTALL_SOURCE: {
+                        InstallSource is = install_source_from_string(optarg);
+                        if (is < 0)
+                                return log_error_errno(is, "Unexpected parameter for --install-source=: %s", optarg);
 
+                        arg_install_source = is;
                         break;
+                }
 
                 case 'p':
                         arg_print_esp_path = true;
@@ -572,9 +576,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_EFI_BOOT_OPTION_DESCRIPTION:
                         if (isempty(optarg) || !(string_is_safe(optarg) && utf8_is_valid(optarg))) {
-                                _cleanup_free_ char *escaped = NULL;
-
-                                escaped = cescape(optarg);
+                                _cleanup_free_ char *escaped = cescape(optarg);
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Invalid --efi-boot-option-description=: %s", strna(escaped));
                         }
@@ -585,6 +587,13 @@ static int parse_argv(int argc, char *argv[]) {
                         r = free_and_strdup_warn(&arg_efi_boot_option_description, optarg);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_EFI_BOOT_OPTION_DESCRIPTION_WITH_DEVICE:
+                        r = parse_boolean_argument("--efi-boot-option-description-with-device=", optarg, &arg_efi_boot_option_description_with_device);
+                        if (r < 0)
+                                return r;
+
                         break;
 
                 case ARG_DRY_RUN:
@@ -711,7 +720,7 @@ static int vl_server(void) {
 
         r = varlink_server_new(
                         &varlink_server,
-                        SD_VARLINK_SERVER_ROOT_ONLY,
+                        SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT,
                         /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
@@ -724,7 +733,8 @@ static int vl_server(void) {
                         varlink_server,
                         "io.systemd.BootControl.ListBootEntries",     vl_method_list_boot_entries,
                         "io.systemd.BootControl.SetRebootToFirmware", vl_method_set_reboot_to_firmware,
-                        "io.systemd.BootControl.GetRebootToFirmware", vl_method_get_reboot_to_firmware);
+                        "io.systemd.BootControl.GetRebootToFirmware", vl_method_get_reboot_to_firmware,
+                        "io.systemd.BootControl.Install",             vl_method_install);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 

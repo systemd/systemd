@@ -5,6 +5,8 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#include "sd-varlink.h"
+
 #include "argv-util.h"
 #include "boot-entry.h"
 #include "bootspec.h"
@@ -18,20 +20,26 @@
 #include "exec-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "efi-loader.h"
+#include "efivars.h"
 #include "fileio.h"
 #include "find-esp.h"
 #include "format-table.h"
 #include "fs-util.h"
 #include "id128-util.h"
 #include "image-policy.h"
+#include "iovec-util.h"
+#include "json-util.h"
 #include "kernel-config.h"
 #include "kernel-image.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "memfd-util.h"
 #include "mount-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
 #include "stat-util.h"
@@ -39,7 +47,25 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "varlink-io.systemd.KernelInstall.h"
+#include "varlink-util.h"
 #include "verbs.h"
+
+typedef enum KernelSearch {
+        KERNEL_LITERAL,                 /* kernel has been specified explicitly */
+        KERNEL_USR,                     /* Will use kernel below /usr/lib/modules/ */
+        KERNEL_CURRENT,                 /* Will try to find currently booted kernel image */
+        _KERNEL_SEARCH_MAX,
+        _KERNEL_SEARCH_INVALID = -EINVAL,
+} KernelSearch;
+
+typedef enum InstallSource {
+        INSTALL_SOURCE_IMAGE,
+        INSTALL_SOURCE_HOST,
+        INSTALL_SOURCE_AUTO,
+        _INSTALL_SOURCE_MAX,
+        _INSTALL_SOURCE_INVALID = -EINVAL,
+} InstallSource;
 
 static bool arg_verbose = false;
 static char *arg_esp_path = NULL;
@@ -51,12 +77,21 @@ static char *arg_root = NULL;
 static char *arg_image = NULL;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_legend = true;
+static BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+static char *arg_entry_token = NULL;
+static BootEntryType arg_boot_entry_type = _BOOT_ENTRY_TYPE_INVALID;
+static KernelSearch arg_kernel_search = _KERNEL_SEARCH_INVALID;
+static InstallSource arg_install_source = INSTALL_SOURCE_AUTO;
+static char **arg_extra_files = NULL;
+static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_extra_files, strv_freep);
 
 typedef enum Action {
         ACTION_ADD,
@@ -84,6 +119,28 @@ static const char * const layout_table[_LAYOUT_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(layout, Layout);
 
+static const char* const kernel_search_table[_KERNEL_SEARCH_MAX] = {
+        [KERNEL_LITERAL] = "literal",
+        [KERNEL_USR]     = "usr",
+        [KERNEL_CURRENT] = "current",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(kernel_search, KernelSearch);
+
+static const char* const install_source_table[_INSTALL_SOURCE_MAX] = {
+        [INSTALL_SOURCE_IMAGE] = "image",
+        [INSTALL_SOURCE_HOST]  = "host",
+        [INSTALL_SOURCE_AUTO]  = "auto",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(install_source, InstallSource);
+
+typedef struct ExtraFile {
+        char *name;
+        int fd;
+        struct iovec data;
+} ExtraFile;
+
 typedef struct Context {
         int rfd;
         Action action;
@@ -99,17 +156,41 @@ typedef struct Context {
         char *entry_token;
         char *entry_dir;
         char *version;
+        KernelSearch kernel_search;
         char *kernel;
         char **initrds;
         char *initrd_generator;
         char *uki_generator;
         char *staging_area;
+        int staging_area_fd;
         char **plugins;
         char **argv;
         char **envp;
+        InstallSource install_source;
+        ExtraFile *extra_files;
+        size_t n_extra_files;
 } Context;
 
-#define CONTEXT_NULL (Context) { .rfd = -EBADF }
+#define CONTEXT_NULL                                                    \
+        (Context) {                                                     \
+                .rfd = XAT_FDROOT,                                      \
+                .action = _ACTION_INVALID,                              \
+                .kernel_image_type = _KERNEL_IMAGE_TYPE_INVALID,        \
+                .layout = _LAYOUT_INVALID,                              \
+                .entry_type = _BOOT_ENTRY_TYPE_INVALID,                 \
+                .entry_token_type = _BOOT_ENTRY_TOKEN_TYPE_INVALID,     \
+                .kernel_search = _KERNEL_SEARCH_INVALID,                \
+                .staging_area_fd = -EBADF,                              \
+                .install_source = _INSTALL_SOURCE_INVALID,              \
+        }
+
+static void extra_file_done(ExtraFile *x) {
+        assert(x);
+
+        x->name = mfree(x->name);
+        x->fd = safe_close(x->fd);
+        iovec_done(&x->data);
+}
 
 static void context_done(Context *c) {
         assert(c);
@@ -124,15 +205,19 @@ static void context_done(Context *c) {
         strv_free(c->initrds);
         free(c->initrd_generator);
         free(c->uki_generator);
-        if (c->action == ACTION_INSPECT)
-                free(c->staging_area);
-        else
+        if (c->staging_area_fd >= 0) {
+                c->staging_area_fd = safe_close(c->staging_area_fd);
                 rm_rf_physical_and_free(c->staging_area);
+        } else
+                free(c->staging_area);
         strv_free(c->plugins);
         strv_free(c->argv);
         strv_free(c->envp);
 
         safe_close(c->rfd);
+
+        FOREACH_ARRAY(x, c->extra_files, c->n_extra_files)
+                extra_file_done(x);
 }
 
 static int context_copy(const Context *source, Context *ret) {
@@ -140,23 +225,34 @@ static int context_copy(const Context *source, Context *ret) {
 
         assert(source);
         assert(ret);
-        assert(source->rfd >= 0 || source->rfd == AT_FDCWD);
+        assert(source->rfd >= 0 || IN_SET(source->rfd, AT_FDCWD, XAT_FDROOT));
 
         _cleanup_(context_done) Context copy = (Context) {
-                .rfd = AT_FDCWD,
+                .rfd = XAT_FDROOT,
                 .action = source->action,
                 .machine_id = source->machine_id,
                 .machine_id_is_random = source->machine_id_is_random,
                 .kernel_image_type = source->kernel_image_type,
                 .layout = source->layout,
                 .entry_token_type = source->entry_token_type,
+                .kernel_search = source->kernel_search,
+                .staging_area_fd = -EBADF,
+                .install_source = source->install_source,
         };
 
         if (source->rfd >= 0) {
                 copy.rfd = fd_reopen(source->rfd, O_CLOEXEC|O_DIRECTORY|O_PATH);
                 if (copy.rfd < 0)
                         return copy.rfd;
-        }
+        } else
+                copy.rfd = source->rfd;
+
+        if (source->staging_area_fd >= 0) {
+                copy.staging_area_fd = fcntl(source->staging_area_fd, F_DUPFD_CLOEXEC, 3);
+                if (copy.staging_area_fd < 0)
+                        return -errno;
+        } else
+                copy.staging_area_fd = source->staging_area_fd;
 
         r = strdup_to(&copy.layout_other, source->layout_other);
         if (r < 0)
@@ -203,28 +299,6 @@ static int context_copy(const Context *source, Context *ret) {
 
         *ret = copy;
         copy = CONTEXT_NULL;
-
-        return 0;
-}
-
-static int context_open_root(Context *c) {
-        int r;
-
-        assert(c);
-        assert(c->rfd < 0);
-
-        if (isempty(arg_root))
-                return 0;
-
-        r = path_is_root(arg_root);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine if '%s' is the root directory: %m", arg_root);
-        if (r > 0)
-                return 0;
-
-        c->rfd = open(arg_root, O_CLOEXEC | O_DIRECTORY | O_PATH);
-        if (c->rfd < 0)
-                return log_error_errno(errno, "Failed to open root directory '%s': %m", arg_root);
 
         return 0;
 }
@@ -317,13 +391,20 @@ static int context_set_uki_generator(Context *c, const char *s, const char *sour
 static int context_set_version(Context *c, const char *s) {
         assert(c);
 
-        if (s && !filename_is_valid(s))
+        if (s && !version_is_valid(s))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid version specified: %s", s);
 
         return context_set_string(s, "command line", "kernel version", &c->version);
 }
 
-static int context_set_path(Context *c, const char *s, const char *source, const char *name, char **dest) {
+static int context_set_path(
+                Context *c,
+                int rfd,
+                const char *path,
+                const char *source,
+                const char *name,
+                char **dest) {
+
         char *p;
         int r;
 
@@ -332,20 +413,13 @@ static int context_set_path(Context *c, const char *s, const char *source, const
         assert(name);
         assert(dest);
 
-        if (*dest || !s)
+        if (*dest || !path)
                 return 0;
 
-        if (c->rfd >= 0) {
-                r = chaseat(c->rfd, s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd= */ NULL);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to chase path %s for %s specified via %s, ignoring: %m",
-                                                 s, name, source);
-        } else {
-                r = path_make_absolute_cwd(s, &p);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to make path '%s' for %s specified via %s absolute, ignoring: %m",
-                                                 s, name, source);
-        }
+        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd= */ NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to chase path %s for %s specified via %s, ignoring: %m",
+                                         path, name, source);
 
         log_debug("%s (%s) set via %s.", name, p, source);
 
@@ -353,22 +427,35 @@ static int context_set_path(Context *c, const char *s, const char *source, const
         return 1;
 }
 
-static int context_set_boot_root(Context *c, const char *s, const char *source) {
+static int context_set_boot_root(Context *c, const char *path, const char *source) {
         assert(c);
-        return context_set_path(c, s, source, "BOOT_ROOT", &c->boot_root);
+        return context_set_path(c, c->rfd, path, source, "BOOT_ROOT", &c->boot_root);
 }
 
-static int context_set_conf_root(Context *c, const char *s, const char *source) {
+static int context_set_conf_root(Context *c, const char *path, const char *source) {
         assert(c);
-        return context_set_path(c, s, source, "CONF_ROOT", &c->conf_root);
+        return context_set_path(c, c->rfd, path, source, "CONF_ROOT", &c->conf_root);
 }
 
-static int context_set_kernel(Context *c, const char *s) {
+static int context_set_kernel(Context *c, const char *path) {
         assert(c);
-        return context_set_path(c, s, "command line", "kernel image file", &c->kernel);
+
+        return context_set_path(
+                        c,
+                        c->install_source == INSTALL_SOURCE_IMAGE ? c->rfd : XAT_FDROOT,
+                        path,
+                        "command line",
+                        "kernel image file",
+                        &c->kernel);
 }
 
-static int context_set_path_strv(Context *c, char* const* strv, const char *source, const char *name, char ***dest) {
+static int context_set_path_strv(
+                Context *c,
+                int rfd,
+                char* const* strv,
+                const char *source,
+                const char *name,
+                char ***dest) {
         _cleanup_strv_free_ char **w = NULL;
         int r;
 
@@ -383,17 +470,10 @@ static int context_set_path_strv(Context *c, char* const* strv, const char *sour
         STRV_FOREACH(s, strv) {
                 char *p;
 
-                if (c->rfd >= 0) {
-                        r = chaseat(c->rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd= */ NULL);
-                        if (r < 0)
-                                return log_warning_errno(r, "Failed to chase path %s for %s specified via %s: %m",
-                                                         *s, name, source);
-                } else {
-                        r = path_make_absolute_cwd(*s, &p);
-                        if (r < 0)
-                                return log_warning_errno(r, "Failed to make path '%s' for %s specified via %s absolute, ignoring: %m",
-                                                         *s, name, source);
-                }
+                r = chaseat(rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd= */ NULL);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to chase path %s for %s specified via %s: %m",
+                                                 *s, name, source);
                 r = strv_consume(&w, p);
                 if (r < 0)
                         return log_oom();
@@ -421,26 +501,18 @@ static int context_set_plugins(Context *c, const char *s, const char *source) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse plugin paths from %s: %m", source);
 
-        return context_set_path_strv(c, v, source, "plugins", &c->plugins);
+        return context_set_path_strv(c, XAT_FDROOT, v, source, "plugins", &c->plugins);
 }
 
 static int context_set_initrds(Context *c, char* const* strv) {
         assert(c);
-        return context_set_path_strv(c, strv, "command line", "initrds", &c->initrds);
-}
-
-static int context_set_entry_type(Context *c, const char *s) {
-        assert(c);
-        BootEntryType e;
-        if (isempty(s) || streq(s, "all")) {
-                c->entry_type = _BOOT_ENTRY_TYPE_INVALID;
-                return 0;
-        }
-        e = boot_entry_type_from_string(s);
-        if (e < 0)
-                return log_error_errno(e, "Invalid entry type: %s", s);
-        c->entry_type = e;
-        return 1;
+        return context_set_path_strv(
+                        c,
+                        c->install_source == INSTALL_SOURCE_IMAGE ? c->rfd : XAT_FDROOT,
+                        strv,
+                        "command line",
+                        "initrds",
+                        &c->initrds);
 }
 
 static int context_load_environment(Context *c) {
@@ -460,13 +532,15 @@ static int context_load_install_conf(Context *c) {
 
         assert(c);
 
-        r = load_kernel_install_conf(arg_root,
-                                     c->conf_root,
-                                     &machine_id,
-                                     &boot_root,
-                                     &layout,
-                                     &initrd_generator,
-                                     &uki_generator);
+        r = load_kernel_install_conf_at(
+                        c->conf_root ? NULL : arg_root,
+                        c->conf_root ? XAT_FDROOT : c->rfd,
+                        c->conf_root,
+                        &machine_id,
+                        &boot_root,
+                        &layout,
+                        &initrd_generator,
+                        &uki_generator);
         if (r <= 0)
                 return r;
 
@@ -503,7 +577,7 @@ static int context_load_machine_info(Context *c) {
                 return 0;
         }
 
-        r = chase_and_fopenat_unlocked(c->rfd, path, CHASE_AT_RESOLVE_IN_ROOT, "re", NULL, &f);
+        r = chase_and_fopenat_unlocked(c->rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -677,30 +751,62 @@ static int context_load_plugins(Context *c) {
         int r;
 
         assert(c);
+        assert(c->rfd >= 0 || c->rfd == XAT_FDROOT);
 
         if (c->plugins)
                 return 0;
 
-        r = conf_files_list_strv_at(
-                        &c->plugins,
-                        ".install",
-                        c->rfd,
+        /* NB: the plugins directory is not subject to root directory shenanigans, we do not want to mix code
+         * from host and image. */
+        _cleanup_strv_free_ char **plugin_dirs = NULL;
+        r = getenv_path_list("KERNEL_INSTALL_PLUGINS_PATH", &plugin_dirs);
+        if (r == -ENXIO) {
+                plugin_dirs = strv_new("/etc/kernel/install.d", "/usr/lib/kernel/install.d");
+                if (!plugin_dirs)
+                        return log_oom();
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to parse $KERNEL_INSTALL_PLUGINS_PATH: %m");
+
+        if (c->rfd == XAT_FDROOT) {
+                /* traditional *.install drop-ins do not support operation relative to a root directory. */
+                r = conf_files_list_strv(
+                                &c->plugins,
+                                ".install",
+                                /* root= */ NULL,
+                                CONF_FILES_EXECUTABLE | CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
+                                (const char *const*) plugin_dirs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find *.install plugins: %m");
+        }
+
+        /* The newer-style *.rinstall drop-ins also support operation relative to a root directory. */
+        _cleanup_strv_free_ char **add = NULL;
+        r = conf_files_list_strv(
+                        &add,
+                        ".rinstall",
+                        /* root= */ NULL,
                         CONF_FILES_EXECUTABLE | CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
-                        STRV_MAKE_CONST("/etc/kernel/install.d", "/usr/lib/kernel/install.d"));
+                        (const char *const*) plugin_dirs);
         if (r < 0)
-                return log_error_errno(r, "Failed to find plugins: %m");
+                return log_error_errno(r, "Failed to find *.rinstall plugins: %m");
+
+        if (strv_extend_strv(&c->plugins, add, /* filter_duplicates= */ true) < 0)
+                return log_oom();
+
+        strv_sort(c->plugins);
 
         return 0;
 }
 
-static int context_init(Context *c) {
+static int context_setup(Context *c) {
         int r;
 
         assert(c);
 
-        r = context_open_root(c);
-        if (r < 0)
-                return r;
+        if (c->kernel_image_type < 0)
+                c->kernel_image_type = KERNEL_IMAGE_TYPE_UNKNOWN;
+        if (c->entry_token_type < 0)
+                c->entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
 
         r = context_load_environment(c);
         if (r < 0)
@@ -730,7 +836,106 @@ static int context_init(Context *c) {
         if (r < 0)
                 return r;
 
+        if (c->install_source < 0)
+                c->install_source = INSTALL_SOURCE_AUTO;
+
         return 0;
+}
+
+static int context_open_root(Context *c) {
+        int r;
+
+        assert(c);
+        assert(c->rfd < 0);
+
+        if (empty_or_root(arg_root)) {
+                c->rfd = XAT_FDROOT;
+                return 0;
+        }
+
+        r = path_is_root(arg_root);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if '%s' is the root directory: %m", arg_root);
+        if (r > 0) {
+                c->rfd = XAT_FDROOT;
+                return 0;
+        }
+
+        c->rfd = open(arg_root, O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (c->rfd < 0)
+                return log_error_errno(errno, "Failed to open root directory '%s': %m", arg_root);
+
+        return 0;
+}
+
+static ExtraFile* context_find_extra_file(Context *c, const char *name) {
+        assert(c);
+        assert(name);
+
+        FOREACH_ARRAY(i, c->extra_files, c->n_extra_files)
+                if (streq_ptr(i->name, name))
+                        return i;
+
+        return NULL;
+}
+
+static int context_open_extra_files(Context *c) {
+        int r;
+
+        assert(c);
+
+        STRV_FOREACH(i, arg_extra_files) {
+                _cleanup_free_ char *fn = NULL;
+                r = path_extract_filename(*i, &fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from extra file path '%s': %m", *i);
+                if (r == O_DIRECTORY)
+                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Extra file path '%s' refers to directory, refusing.", *i);
+
+                if (context_find_extra_file(c, fn))
+                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate extra file '%s' specified, refusing.", *i);
+
+                _cleanup_close_ int fd = xopenat_full(AT_FDCWD, *i, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to open extra file '%s': %m", *i);
+
+                if (!GREEDY_REALLOC(c->extra_files, c->n_extra_files+1))
+                        return log_oom();
+
+                c->extra_files[c->n_extra_files++] = (ExtraFile) {
+                        .name = TAKE_PTR(fn),
+                        .fd = TAKE_FD(fd),
+                };
+        }
+
+        return 0;
+}
+
+static int context_from_cmdline(Context *c, Action action) {
+        int r;
+
+        assert(c);
+
+        c->action = action;
+        c->entry_type = arg_boot_entry_type;
+
+        r = free_and_strdup_warn(&c->entry_token, arg_entry_token);
+        if (r < 0)
+                return r;
+
+        c->entry_token_type = arg_entry_token_type;
+        c->kernel_search = arg_kernel_search;
+        c->install_source = arg_install_source;
+
+        r = context_open_root(c);
+        if (r < 0)
+                return r;
+
+        r = context_open_extra_files(c);
+        if (r < 0)
+                return r;
+
+        return context_setup(c);
 }
 
 static int context_inspect_kernel(Context *c) {
@@ -766,9 +971,18 @@ static int context_ensure_layout(Context *c) {
         if (!srel_path)
                 return log_oom();
 
-        _cleanup_free_ char *srel = NULL;
-        r = read_one_line_file_at(c->rfd, srel_path, &srel);
-        if (r >= 0) {
+        _cleanup_fclose_ FILE *f = NULL;
+        r = chase_and_fopenat_unlocked(c->rfd, srel_path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to open '%s': %m", srel_path);
+        } else {
+                _cleanup_free_ char *srel = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &srel);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read %s: %m", srel_path);
+
                 if (streq(srel, "type1"))
                         /* The loader/entries.srel file clearly indicates that the installed boot loader
                          * implements the proper standard upstream boot loader spec for Type #1 entries.
@@ -782,17 +996,17 @@ static int context_ensure_layout(Context *c) {
 
                 log_debug("%s with '%s' found, using layout=%s.", srel_path, srel, layout_to_string(c->layout));
                 return 0;
-        } else if (r != -ENOENT)
-                return log_error_errno(r, "Failed to read %s: %m", srel_path);
+        }
 
         _cleanup_free_ char *entry_token_path = path_join(c->boot_root, c->entry_token);
         if (!entry_token_path)
                 return log_oom();
 
-        r = is_dir_at(c->rfd, entry_token_path, /* follow= */ false);
-        if (r < 0 && r != -ENOENT)
-                return log_error_errno(r, "Failed to check if '%s' is a directory: %m", entry_token_path);
-        if (r > 0) {
+        r = chaseat(c->rfd, entry_token_path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, /* ret_fd= */ NULL);
+        if (r < 0) {
+                if (!IN_SET(r, -ENOENT, -ENOTDIR))
+                        return log_error_errno(r, "Failed to check if '%s' exists and is a directory: %m", entry_token_path);
+        } else {
                 /* If the metadata in $BOOT_ROOT doesn't tell us anything, then check if the entry token
                  * directory already exists. If so, let's assume it's the standard boot loader spec, too. */
                 c->layout = LAYOUT_BLS;
@@ -817,6 +1031,8 @@ static int context_set_up_staging_area(Context *c) {
         if (c->staging_area)
                 return 0;
 
+        assert(c->staging_area_fd < 0);
+
         const char *d;
         r = var_tmp_dir(&d);
         if (r < 0)
@@ -826,13 +1042,51 @@ static int context_set_up_staging_area(Context *c) {
         if (!template)
                 return log_oom();
 
-        if (c->action == ACTION_INSPECT)
+        if (c->action == ACTION_INSPECT) {
                 /* This is only used for display. The directory will not be created. */
                 c->staging_area = TAKE_PTR(template);
-        else {
-                r = mkdtemp_malloc(template, &c->staging_area);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create staging area: %m");
+
+                /* we'll leave c->staging_area_fd invalidated, as it is an indication that the staging area
+                 * is not actually realized. */
+                return 0;
+        }
+
+        c->staging_area_fd = mkdtemp_open(template, O_CLOEXEC, &c->staging_area);
+        if (c->staging_area_fd < 0)
+                return log_error_errno(c->staging_area_fd, "Failed to create staging area: %m");
+
+        return 0;
+}
+
+static int context_write_extra_symlinks(Context *c) {
+        assert(c);
+
+        if (c->staging_area_fd < 0)
+                return 0;
+
+        /* For each extra file to associate with entry, create a symlink in the uki.efi.extra.d/ subdir in the staging tree */
+        _cleanup_close_ int extra_fd = -EBADF;
+        FOREACH_ARRAY(i, c->extra_files, c->n_extra_files) {
+                if (extra_fd < 0) {
+                        extra_fd = open_mkdir_at(c->staging_area_fd, "uki.efi.extra.d", O_DIRECTORY, 0755);
+                        if (extra_fd < 0)
+                                return log_error_errno(extra_fd, "Failed to create uki.efi.extra.d/ directory: %m");
+                }
+
+                if (i->fd < 0) {
+                        i->fd = memfd_new_and_seal(i->name, i->data.iov_base, i->data.iov_len);
+                        if (i->fd < 0)
+                                return log_error_errno(i->fd, "Failed to allocate memfd for '%s': %m", i->name);
+                }
+
+                _cleanup_free_ char *fdpath = NULL;
+                if (asprintf(&fdpath, "/proc/" PID_FMT "/fd/%i", getpid_cached(), i->fd) < 0)
+                        return log_oom();
+
+                if (symlinkat(fdpath, extra_fd, i->name) < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(errno), "Failed to create symlink for extra file '%s': %m", i->name);
+
+                log_debug("Linked '%s/uki.efi.extra.d/%s' → '%s'.", c->staging_area, i->name, fdpath);
         }
 
         return 0;
@@ -924,6 +1178,25 @@ static int context_remove_entry_dir(Context *c) {
         return 0;
 }
 
+static char* build_path_for_root(Context *c, const char *path) {
+        assert(c);
+        assert(c->rfd >= 0 || c->rfd == XAT_FDROOT);
+
+        if (c->rfd == XAT_FDROOT)
+                return path_is_absolute(path) ? strdup(path) : path_join("/", path);
+
+        /* An IPC client might have passed us a dir from another namespace, hence construct a path
+         * via our own /proc/<pid>/fd/<fd>, to pass to the plugins. */
+        _cleanup_free_ char *j = NULL;
+        if (asprintf(&j, "/proc/" PID_FMT "/fd/%i", getpid_cached(), c->rfd) < 0)
+                return NULL;
+
+        if (path && !path_extend(&j, path))
+                return NULL;
+
+        return TAKE_PTR(j);
+}
+
 static int context_build_arguments(Context *c) {
         _cleanup_strv_free_ char **a = NULL;
         const char *verb;
@@ -957,10 +1230,14 @@ static int context_build_arguments(Context *c) {
                 assert_not_reached();
         }
 
+        _cleanup_free_ char *ed = build_path_for_root(c, c->entry_dir);
+        if (!ed)
+                return log_oom();
+
         a = strv_new("dummy-arg", /* to make strv_free() works for this variable. */
                      verb,
                      c->version ?: "KERNEL_VERSION",
-                     c->entry_dir);
+                     ed);
         if (!a)
                 return log_oom();
 
@@ -995,20 +1272,38 @@ static int context_build_environment(Context *c) {
         if (c->envp)
                 return 0;
 
+        _cleanup_free_ char *br = build_path_for_root(c, c->boot_root);
+        if (!br)
+                return log_oom();
+
+        _cleanup_free_ char *cr = build_path_for_root(c, c->conf_root ?: "/etc/kernel");
+        if (!cr)
+                return log_oom();
+
         r = strv_env_assign_many(&e,
                                  "LC_COLLATE",                      SYSTEMD_DEFAULT_LOCALE,
                                  "KERNEL_INSTALL_VERBOSE",          one_zero(arg_verbose),
                                  "KERNEL_INSTALL_IMAGE_TYPE",       kernel_image_type_to_string(c->kernel_image_type),
                                  "KERNEL_INSTALL_MACHINE_ID",       SD_ID128_TO_STRING(c->machine_id),
                                  "KERNEL_INSTALL_ENTRY_TOKEN",      c->entry_token,
-                                 "KERNEL_INSTALL_BOOT_ROOT",        c->boot_root,
+                                 "KERNEL_INSTALL_BOOT_ROOT",        br,
                                  "KERNEL_INSTALL_LAYOUT",           context_get_layout(c),
                                  "KERNEL_INSTALL_INITRD_GENERATOR", strempty(c->initrd_generator),
                                  "KERNEL_INSTALL_UKI_GENERATOR",    strempty(c->uki_generator),
                                  "KERNEL_INSTALL_BOOT_ENTRY_TYPE",  boot_entry_type_to_string(c->entry_type),
-                                 "KERNEL_INSTALL_STAGING_AREA",     c->staging_area);
+                                 "KERNEL_INSTALL_STAGING_AREA",     c->staging_area,
+                                 "KERNEL_INSTALL_CONF_ROOT",        cr);
         if (r < 0)
                 return log_error_errno(r, "Failed to build environment variables for plugins: %m");
+
+        if (c->rfd != XAT_FDROOT) {
+                _cleanup_free_ char *root = build_path_for_root(c, /* path= */ NULL);
+
+                /* Set $KERNEL_INSTALL_ROOT only when we operate on another root dir */
+                r = strv_env_assign(&e, "KERNEL_INSTALL_ROOT", root);
+                if (r < 0)
+                        return log_oom();
+        }
 
         c->envp = TAKE_PTR(e);
         return 0;
@@ -1028,6 +1323,10 @@ static int context_prepare_execution(Context *c) {
                 return r;
 
         r = context_set_up_staging_area(c);
+        if (r < 0)
+                return r;
+
+        r = context_write_extra_symlinks(c);
         if (r < 0)
                 return r;
 
@@ -1089,6 +1388,164 @@ static bool bypass(void) {
         return should_bypass("KERNEL_INSTALL");
 }
 
+static int normalize_version(
+                const char *version,
+                char **ret_version) {
+
+        int r;
+
+        assert(ret_version);
+
+        if (version) {
+                *ret_version = NULL;
+                return 0;
+        }
+
+        struct utsname un;
+        assert_se(uname(&un) >= 0);
+
+        r = strdup_to(ret_version, un.release);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int find_usr_kernel_from_version(Context *c, const char *version, char **ret_kernel) {
+        int r;
+
+        assert(version);
+
+        if (c->install_source == INSTALL_SOURCE_IMAGE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--install-source=host must be selected in case --kernel-search=usr is used.");
+
+        _cleanup_free_ char *vmlinuz = path_join("/usr/lib/modules/", version, "/vmlinuz");
+        if (!vmlinuz)
+                return log_oom();
+
+        _cleanup_free_ char *v = NULL;
+        r = chase_and_accessat(XAT_FDROOT, vmlinuz, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, F_OK, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to look for '%s' on host: %m", vmlinuz);
+
+        c->install_source = INSTALL_SOURCE_HOST;
+        *ret_kernel = TAKE_PTR(v);
+        return 0;
+}
+
+static int find_current_kernel(Context *c, char **ret_kernel) {
+        int r;
+
+        if (c->install_source == INSTALL_SOURCE_IMAGE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--install-source=host must be selected in case --kernel-search=current is used.");
+
+        sd_id128_t uuid;
+        r = efi_stub_get_device_part_uuid(&uuid);
+        if (r == -ENOENT)
+                return log_error_errno(r, "Cannot find current kernel, no stub partition UUID passed via EFI variables.");
+        if (r < 0)
+                return log_error_errno(r, "Unable to determine stub partition UUID: %m");
+
+        _cleanup_free_ char *image = NULL;
+        r = efi_get_variable_path(EFI_LOADER_VARIABLE_STR("StubImageIdentifier"), &image);
+        if (r == -ENOENT)
+                return log_error_errno(r, "Cannot find current kernel, no stub EFI binary path passed.");
+        if (r < 0)
+                return log_error_errno(r, "Unable to determine stub EFI binary path: %m");
+
+        /* Note: we search for the *host* ESP here (i.e. the one the current EFI paths relate to), not the
+         * one of the target image */
+        _cleanup_free_ char *esp_path = NULL;
+        sd_id128_t esp_uuid;
+        r = find_esp_and_warn(
+                        /* root= */ NULL,
+                        arg_esp_path,
+                        /* unprivileged_mode= */ false,
+                        &esp_path,
+                        /* ret_part= */ NULL,
+                        /* ret_pstart= */ NULL,
+                        /* ret_psize= */ NULL,
+                        &esp_uuid,
+                        /* ret_devid= */ NULL);
+        if (r == -ENOKEY)
+                return log_error_errno(r, "Failed to find the host ESP.");
+        if (r < 0)
+                return r;
+        if (sd_id128_equal(uuid, esp_uuid)) {
+                r = chase(image, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_REGULAR, ret_kernel, /* ret_fd= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find EFI binary '%s' on ESP partition '%s': %m", image, esp_path);
+
+                return 0;
+        }
+
+        _cleanup_free_ char *xbootldr_path = NULL;
+        sd_id128_t xbootldr_uuid;
+        r = find_xbootldr_and_warn(
+                        /* root= */ NULL,
+                        arg_xbootldr_path,
+                        /* unprivileged_mode= */ false,
+                        &xbootldr_path,
+                        &xbootldr_uuid,
+                        /* ret_devid= */ NULL);
+        if (r == -ENOKEY)
+                log_debug_errno(r, "Failed to find the host XBOOTLDR.");
+        else if (r < 0)
+                return r;
+        else if (sd_id128_equal(uuid, xbootldr_uuid)) {
+                r = chase(image, xbootldr_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_REGULAR, ret_kernel, /* ret_fd= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find EFI binary '%s' on XBOOTLDR partition '%s': %m", image, xbootldr_path);
+
+                return 0;
+        }
+
+        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Boot partition " SD_ID128_FORMAT_STR " not found.", SD_ID128_FORMAT_VAL(uuid));
+}
+
+static int normalize_kernel(
+                Context *c,
+                const char *kernel,
+                const char *version,
+                char **ret_kernel) {
+
+        int r;
+
+        assert(c);
+        assert(version);
+        assert(ret_kernel);
+
+        if (c->kernel_search < 0)
+                c->kernel_search = kernel ? KERNEL_LITERAL : KERNEL_USR;
+        if (kernel && c->kernel_search != KERNEL_LITERAL)
+                log_warning("Automatic kernel discovery enabled, will ignore specified kernel.");
+
+        _cleanup_free_ char *found_kernel = NULL;
+        switch (c->kernel_search) {
+
+        case KERNEL_LITERAL:
+                *ret_kernel = NULL;
+                return 0; /* 0 → we didn't fill in a kernel */
+
+        case KERNEL_USR:
+                r = find_usr_kernel_from_version(c, version, &found_kernel);
+                break;
+
+        case KERNEL_CURRENT:
+                r = find_current_kernel(c, &found_kernel);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        if (r < 0)
+                return r;
+
+        *ret_kernel = TAKE_PTR(found_kernel);
+        return 1; /* 1 → we did in fill a kernel */
+}
+
 static int do_add(
                 Context *c,
                 const char *version,
@@ -1098,12 +1555,24 @@ static int do_add(
         int r;
 
         assert(c);
-        assert(version);
-        assert(kernel);
+
+        _cleanup_free_ char *found_version = NULL;
+        r = normalize_version(version, &found_version);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                version = found_version;
 
         r = context_set_version(c, version);
         if (r < 0)
                 return r;
+
+        _cleanup_free_ char *found_kernel = NULL;
+        r = normalize_kernel(c, kernel, version, &found_kernel);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                kernel = found_kernel;
 
         r = context_set_kernel(c, kernel);
         if (r < 0)
@@ -1120,43 +1589,20 @@ static int do_add(
         return context_execute(c);
 }
 
-static int kernel_from_version(const char *version, char **ret_kernel) {
-        _cleanup_free_ char *vmlinuz = NULL;
-        int r;
-
-        assert(version);
-
-        vmlinuz = path_join("/usr/lib/modules/", version, "/vmlinuz");
-        if (!vmlinuz)
-                return log_oom();
-
-        r = access_nofollow(vmlinuz, F_OK);
-        if (r == -ENOENT)
-                return log_error_errno(r, "Kernel image not installed to '%s', requiring manual kernel image path specification.", vmlinuz);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine if kernel image is installed to '%s': %m", vmlinuz);
-
-        *ret_kernel = TAKE_PTR(vmlinuz);
-        return 0;
-}
-
 static int verb_add(int argc, char *argv[], void *userdata) {
-        Context *c = ASSERT_PTR(userdata);
-        _cleanup_free_ char *vmlinuz = NULL;
         const char *version, *kernel;
         char **initrds;
-        struct utsname un;
         int r;
 
         assert(argv);
 
-        if (arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'add' does not support --root= or --image=.");
-
         if (bypass())
                 return 0;
 
-        c->action = ACTION_ADD;
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        r = context_from_cmdline(&c, ACTION_ADD);
+        if (r < 0)
+                return r;
 
         /* We use the same order of arguments that "inspect" introduced, i.e. if only on argument is
          * specified we take it as the kernel path, not the version, i.e. it's the first argument that is
@@ -1166,24 +1612,10 @@ static int verb_add(int argc, char *argv[], void *userdata) {
                 (argc > 1 ? empty_or_dash_to_null(argv[1]) : NULL);
         initrds = strv_skip(argv, 3);
 
-        if (!version) {
-                assert_se(uname(&un) >= 0);
-                version = un.release;
-        }
-
-        if (!kernel) {
-                r = kernel_from_version(version, &vmlinuz);
-                if (r < 0)
-                        return r;
-
-                kernel = vmlinuz;
-        }
-
-        return do_add(c, version, kernel, initrds);
+        return do_add(&c, version, kernel, initrds);
 }
 
 static int verb_add_all(int argc, char *argv[], void *userdata) {
-        Context *c = ASSERT_PTR(userdata);
         _cleanup_close_ int fd = -EBADF;
         size_t n = 0;
         int ret = 0, r;
@@ -1196,9 +1628,12 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
         if (bypass())
                 return 0;
 
-        c->action = ACTION_ADD;
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        r = context_from_cmdline(&c, ACTION_ADD);
+        if (r < 0)
+                return r;
 
-        fd = chase_and_openat(c->rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
+        fd = chase_and_openat(c.rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
@@ -1232,7 +1667,7 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
 
                 _cleanup_(context_done) Context copy = CONTEXT_NULL;
 
-                r = context_copy(c, &copy);
+                r = context_copy(&c, &copy);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy execution context: %m");
 
@@ -1260,18 +1695,17 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int run_as_installkernel(int argc, char *argv[], Context *c) {
+static int run_as_installkernel(int argc, char *argv[]) {
         /* kernel's install.sh invokes us as
          *   /sbin/installkernel <version> <vmlinuz> <map> <installation-dir>
          * We ignore the last two arguments. */
         if (optind + 2 > argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "'installkernel' command requires at least two arguments.");
 
-        return verb_add(3, STRV_MAKE("add", argv[optind], argv[optind+1]), c);
+        return verb_add(3, STRV_MAKE("add", argv[optind], argv[optind+1]), /* userdata= */ NULL);
 }
 
 static int verb_remove(int argc, char *argv[], void *userdata) {
-        Context *c = ASSERT_PTR(userdata);
         int r;
 
         assert(argc >= 2);
@@ -1287,33 +1721,36 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (bypass())
                 return 0;
 
-        c->action = ACTION_REMOVE;
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        r = context_from_cmdline(&c, ACTION_REMOVE);
+        if (r < 0)
+                return r;
 
         /* Note, we do not automatically derive the kernel version to remove from uname() here (unlike we do
          * it for the "add" verb), since we don't want to make it too easy to uninstall your running
          * kernel, as a safety precaution */
 
-        r = context_set_version(c, argv[1]);
+        r = context_set_version(&c, argv[1]);
         if (r < 0)
                 return r;
 
-        r = context_prepare_execution(c);
+        r = context_prepare_execution(&c);
         if (r < 0)
                 return r;
 
-        return context_execute(c);
+        return context_execute(&c);
 }
 
 static int verb_inspect(int argc, char *argv[], void *userdata) {
-        Context *c = ASSERT_PTR(userdata);
         _cleanup_(table_unrefp) Table *t = NULL;
-        _cleanup_free_ char *vmlinuz = NULL;
         const char *version, *kernel;
         char **initrds;
-        struct utsname un;
         int r;
 
-        c->action = ACTION_INSPECT;
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        r = context_from_cmdline(&c, ACTION_INSPECT);
+        if (r < 0)
+                return r;
 
         /* When only a single parameter is specified 'inspect' it's the kernel image path, and not the kernel
          * version. i.e. it's the first argument that is optional, not the 2nd. That's a bit unfortunate, but
@@ -1325,32 +1762,37 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
                 (argc > 1 ? empty_or_dash_to_null(argv[1]) : NULL);
         initrds = strv_skip(argv, 3);
 
-        if (!version && !arg_root) {
-                assert_se(uname(&un) >= 0);
-                version = un.release;
-        }
-
-        if (!kernel && version) {
-                r = kernel_from_version(version, &vmlinuz);
+        _cleanup_free_ char *found_version = NULL;
+        if (!arg_root) {
+                r = normalize_version(version, &found_version);
                 if (r < 0)
                         return r;
-
-                kernel = vmlinuz;
+                if (r > 0)
+                        version = found_version;
         }
 
-        r = context_set_version(c, version);
+        r = context_set_version(&c, version);
         if (r < 0)
                 return r;
 
-        r = context_set_kernel(c, kernel);
+        _cleanup_free_ char *found_kernel = NULL;
+        if (version) {
+                r = normalize_kernel(&c, kernel, version, &found_kernel);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        kernel = found_kernel;
+        }
+
+        r = context_set_kernel(&c, kernel);
         if (r < 0)
                 return r;
 
-        r = context_set_initrds(c, initrds);
+        r = context_set_initrds(&c, initrds);
         if (r < 0)
                 return r;
 
-        r = context_prepare_execution(c);
+        r = context_prepare_execution(&c);
         if (r < 0)
                 return r;
 
@@ -1360,40 +1802,40 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
 
         r = table_add_many(t,
                            TABLE_FIELD, "Machine ID",
-                           TABLE_ID128, c->machine_id,
+                           TABLE_ID128, c.machine_id,
                            TABLE_FIELD, "Kernel Image Type",
-                           TABLE_STRING, kernel_image_type_to_string(c->kernel_image_type),
+                           TABLE_STRING, kernel_image_type_to_string(c.kernel_image_type),
                            TABLE_FIELD, "Layout",
-                           TABLE_STRING, context_get_layout(c),
+                           TABLE_STRING, context_get_layout(&c),
                            TABLE_FIELD, "Boot Root",
-                           TABLE_STRING, c->boot_root,
+                           TABLE_STRING, c.boot_root,
                            TABLE_FIELD, "Entry Token Type",
-                           TABLE_STRING, boot_entry_token_type_to_string(c->entry_token_type),
+                           TABLE_STRING, boot_entry_token_type_to_string(c.entry_token_type),
                            TABLE_FIELD, "Entry Token",
-                           TABLE_STRING, c->entry_token,
+                           TABLE_STRING, c.entry_token,
                            TABLE_FIELD, "Entry Directory",
-                           TABLE_STRING, c->entry_dir,
+                           TABLE_STRING, c.entry_dir,
                            TABLE_FIELD, "Kernel Version",
-                           TABLE_VERSION, c->version,
+                           TABLE_VERSION, c.version,
                            TABLE_FIELD, "Kernel",
-                           TABLE_STRING, c->kernel,
+                           TABLE_STRING, c.kernel,
                            TABLE_FIELD, "Initrds",
-                           TABLE_STRV, c->initrds,
+                           TABLE_STRV, c.initrds,
                            TABLE_FIELD, "Initrd Generator",
-                           TABLE_STRING, c->initrd_generator,
+                           TABLE_STRING, c.initrd_generator,
                            TABLE_FIELD, "UKI Generator",
-                           TABLE_STRING, c->uki_generator,
+                           TABLE_STRING, c.uki_generator,
                            TABLE_FIELD, "Plugins",
-                           TABLE_STRV, c->plugins,
+                           TABLE_STRV, c.plugins,
                            TABLE_FIELD, "Plugin Environment",
-                           TABLE_STRV, c->envp);
+                           TABLE_STRV, c.envp);
         if (r < 0)
                 return table_log_add_error(r);
 
         if (!sd_json_format_enabled(arg_json_format_flags)) {
                 r = table_add_many(t,
                                    TABLE_FIELD, "Plugin Arguments",
-                                   TABLE_STRV, strv_skip(c->argv, 1));
+                                   TABLE_STRV, strv_skip(c.argv, 1));
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -1416,11 +1858,15 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_list(int argc, char *argv[], void *userdata) {
-        Context *c = ASSERT_PTR(userdata);
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = chase_and_openat(c->rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        r = context_from_cmdline(&c, ACTION_INSPECT);
+        if (r < 0)
+                return r;
+
+        fd = chase_and_openat(c.rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
@@ -1514,6 +1960,13 @@ static int help(void) {
                "     --root=PATH               Operate on an alternate filesystem root\n"
                "     --image=PATH              Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY     Specify disk image dissection policy\n"
+               "     --kernel-search=usr|current\n"
+               "                               Control how kernel to install is discovered\n"
+               "     --install-source=auto|image|host\n"
+               "                               Where to take files from when using\n"
+               "                               --root=/--image=\n"
+               "     --extra=PATH              Specify additional file to drop into UKI's\n"
+               "                               .extra.d/ directory\n"
                "\n"
                "This program may also be invoked as 'installkernel':\n"
                "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
@@ -1530,7 +1983,7 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[], Context *c) {
+static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_LEGEND,
@@ -1544,6 +1997,9 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 ARG_IMAGE,
                 ARG_IMAGE_POLICY,
                 ARG_BOOT_ENTRY_TYPE,
+                ARG_KERNEL_SEARCH,
+                ARG_INSTALL_SOURCE,
+                ARG_EXTRA,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1560,13 +2016,15 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
                 { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
                 { "entry-type",           required_argument, NULL, ARG_BOOT_ENTRY_TYPE      },
+                { "kernel-search",        required_argument, NULL, ARG_KERNEL_SEARCH        },
+                { "install-source",       required_argument, NULL, ARG_INSTALL_SOURCE       },
+                { "extra",                required_argument, NULL, ARG_EXTRA                },
                 {}
         };
         int t, r;
 
         assert(argc >= 0);
         assert(argv);
-        assert(c);
 
         while ((t = getopt_long(argc, argv, "hv", options, NULL)) >= 0)
                 switch (t) {
@@ -1610,7 +2068,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                         break;
 
                 case ARG_ENTRY_TOKEN:
-                        r = parse_boot_entry_token_type(optarg, &c->entry_token_type, &c->entry_token);
+                        r = parse_boot_entry_token_type(optarg, &arg_entry_token_type, &arg_entry_token);
                         if (r < 0)
                                 return r;
                         break;
@@ -1643,11 +2101,49 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                                 return r;
                         break;
 
-                case ARG_BOOT_ENTRY_TYPE:
-                        r = context_set_entry_type(c, optarg);
-                        if (r < 0)
-                                return r;
+                case ARG_BOOT_ENTRY_TYPE: {
+                        if (isempty(optarg) || streq(optarg, "all")) {
+                                arg_boot_entry_type = _BOOT_ENTRY_TYPE_INVALID;
+                                break;
+                        }
+
+                        BootEntryType e = boot_entry_type_from_string(optarg);
+                        if (e < 0)
+                                return log_error_errno(e, "Invalid entry type: %s", optarg);
+                        arg_boot_entry_type = e;
                         break;
+                }
+
+                case ARG_KERNEL_SEARCH: {
+                        KernelSearch ks = kernel_search_from_string(optarg);
+                        if (ks < 0)
+                                return log_error_errno(ks, "Failed to parse --kernel-search= parameter: %s", optarg);
+
+                        arg_kernel_search = ks;
+                        break;
+                }
+
+                case ARG_INSTALL_SOURCE: {
+                        InstallSource is = install_source_from_string(optarg);
+                        if (is < 0)
+                                return log_error_errno(is, "Failed to parse --install-source= parameter: %s", optarg);
+
+                        arg_install_source = is;
+                        break;
+                }
+
+                case ARG_EXTRA: {
+                        _cleanup_free_ char *path = NULL;
+
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &path);
+                        if (r < 0)
+                                return log_oom();
+
+                        if (strv_consume(&arg_extra_files, TAKE_PTR(path)) < 0)
+                                return log_oom();
+
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -1659,36 +2155,187 @@ static int parse_argv(int argc, char *argv[], Context *c) {
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0) {
+                arg_varlink = true;
+                arg_pager_flags |= PAGER_DISABLE;
+        }
+
         return 1;
 }
 
-static int run(int argc, char* argv[]) {
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_boot_entry_type, BootEntryType, boot_entry_type_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_boot_entry_token_type, BootEntryTokenType, boot_entry_token_type_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_kernel_search, KernelSearch, kernel_search_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_install_source, InstallSource, install_source_from_string);
+
+static int json_dispatch_extra_files(
+                const char *name,
+                sd_json_variant *variant,
+                sd_json_dispatch_flags_t flags,
+                void *userdata) {
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        sd_json_variant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, variant) {
+                _cleanup_(extra_file_done) ExtraFile xf = {
+                        .fd = -EBADF,
+                };
+
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "name", SD_JSON_VARIANT_STRING, json_dispatch_filename,       voffsetof(xf, name), SD_JSON_MANDATORY },
+                        { "data", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, voffsetof(xf, data), SD_JSON_MANDATORY },
+                        {}
+                };
+
+                r = sd_json_dispatch(i, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &xf);
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC(c->extra_files, c->n_extra_files+1))
+                        return -ENOMEM;
+
+                c->extra_files[c->n_extra_files++] = xf;
+                xf = (ExtraFile) { .fd = -EBADF };
+        }
+
+        return 0;
+}
+
+typedef struct AddParameters {
+        Context context;
+        const char *root;
+        const char *kernel;
+        const char *version;
+        unsigned root_fd_index;
+} AddParameters;
+
+static void add_parameters_done(AddParameters *p) {
+        assert(p);
+
+        context_done(&p->context);
+}
+
+static int vl_method_add(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        int r;
+
+        assert(link);
+
+        _cleanup_(add_parameters_done) AddParameters p = {
+                .context = CONTEXT_NULL,
+                .root_fd_index = UINT_MAX,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "rootFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,               voffsetof(p, root_fd_index),            0 },
+                { "rootDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_const_path,            voffsetof(p, root),                     0 },
+                { "version",            SD_JSON_VARIANT_STRING,        json_dispatch_const_version,         voffsetof(p, version),                  0 },
+                { "kernel",             SD_JSON_VARIANT_STRING,        json_dispatch_const_path,            voffsetof(p, kernel),                   0 },
+                { "bootEntryType",      SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_type,       voffsetof(p, context.entry_type),       0 },
+                { "kernelSearch",       SD_JSON_VARIANT_STRING,        json_dispatch_kernel_search,         voffsetof(p, context.kernel_search),    0 },
+                { "installSource",      SD_JSON_VARIANT_STRING,        json_dispatch_install_source,        voffsetof(p, context.install_source),   0 },
+                { "bootEntryTokenType", SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type, voffsetof(p, context.entry_token_type), 0 },
+                { "extraFiles",         SD_JSON_VARIANT_ARRAY,         json_dispatch_extra_files,           voffsetof(p, context),                  0 },
+                {},
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        p.context.action = ACTION_ADD;
+
+        if (p.root_fd_index != UINT_MAX) {
+                p.context.rfd = sd_varlink_peek_dup_fd(link, p.root_fd_index);
+                if (p.context.rfd < 0)
+                        return log_debug_errno(p.context.rfd, "Failed to acquire root fd from Varlink: %m");
+
+                r = fd_verify_directory(p.context.rfd);
+                if (r < 0)
+                        return log_debug_errno(r, "Specified file descriptor does not refer to a directory: %m");
+        } else if (p.root) {
+                p.context.rfd = open(p.root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (p.context.rfd < 0)
+                        return log_debug_errno(p.context.rfd, "Failed to open specified root directory: %m");
+        }
+
+        r = context_setup(&p.context);
+        if (r < 0)
+                return r;
+
+        r = do_add(&p.context, p.version, p.kernel, /* initrds= */ NULL);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        int r;
+
+        /* Invocation as Varlink service */
+
+        r = varlink_server_new(
+                        &varlink_server,
+                        SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT,
+                        /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_KernelInstall);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        varlink_server,
+                        "io.systemd.KernelInstall.Add", vl_method_add);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
+}
+
+static int kernel_install_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "add",         1,        VERB_ANY, 0,            verb_add            },
-                { "add-all",     1,        1,        0,            verb_add_all        },
-                { "remove",      2,        VERB_ANY, 0,            verb_remove         },
-                { "inspect",     1,        VERB_ANY, VERB_DEFAULT, verb_inspect        },
-                { "list",        1,        1,        0,            verb_list           },
+                { "add",     1, VERB_ANY, 0,            verb_add     },
+                { "add-all", 1, 1,        0,            verb_add_all },
+                { "remove",  2, VERB_ANY, 0,            verb_remove  },
+                { "inspect", 1, VERB_ANY, VERB_DEFAULT, verb_inspect },
+                { "list",    1, 1,        0,            verb_list    },
                 {}
         };
-        _cleanup_(context_done) Context c = {
-                .rfd = AT_FDCWD,
-                .action = _ACTION_INVALID,
-                .kernel_image_type = KERNEL_IMAGE_TYPE_UNKNOWN,
-                .layout = _LAYOUT_INVALID,
-                .entry_type = _BOOT_ENTRY_TYPE_INVALID,
-                .entry_token_type = BOOT_ENTRY_TOKEN_AUTO,
-        };
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
+
+        return dispatch_verb(argc, argv, verbs, /* userdata= */ NULL);
+}
+
+static int run(int argc, char* argv[]) {
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv, &c);
+        r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
+        if (arg_varlink)
+                return vl_server();
+
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         if (arg_image) {
                 assert(!arg_root);
 
@@ -1711,14 +2358,10 @@ static int run(int argc, char* argv[]) {
                         return log_oom();
         }
 
-        r = context_init(&c);
-        if (r < 0)
-                return r;
-
         if (invoked_as(argv, "installkernel"))
-                return run_as_installkernel(argc, argv, &c);
+                return run_as_installkernel(argc, argv);
 
-        return dispatch_verb(argc, argv, verbs, &c);
+        return kernel_install_main(argc, argv);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
