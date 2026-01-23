@@ -432,9 +432,23 @@ static int loop_device_make_internal(
         struct stat st;
 
         assert(ret);
-        assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
+        assert(open_flags < 0 || IN_SET(open_flags, O_RDWR, O_RDONLY));
 
-        if (fstat(ASSERT_FD(fd), &st) < 0)
+        f_flags = fcntl(ASSERT_FD(fd), F_GETFL);
+        if (f_flags < 0)
+                return -errno;
+
+        if (open_flags < 0) {
+                /* Of open_flags is unset, initialize it from the open fd */
+                if (FLAGS_SET(f_flags, O_PATH))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADFD), "Cannot determine access mode from O_PATH fd: %m");
+
+                open_flags = f_flags & O_ACCMODE_STRICT;
+                if (!IN_SET(open_flags, O_RDWR, O_RDONLY))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADFD), "Access mode of image file is write only (?): %m");
+        }
+
+        if (fstat(fd, &st) < 0)
                 return -errno;
 
         if (S_ISBLK(st.st_mode)) {
@@ -460,10 +474,6 @@ static int loop_device_make_internal(
                 if (r < 0)
                         return r;
         }
-
-        f_flags = fcntl(fd, F_GETFL);
-        if (f_flags < 0)
-                return -errno;
 
         if (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) != FLAGS_SET(f_flags, O_DIRECT)) {
                 /* If LO_FLAGS_DIRECT_IO is requested, then make sure we have the fd open with O_DIRECT, as

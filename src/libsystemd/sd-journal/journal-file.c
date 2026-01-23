@@ -1940,8 +1940,10 @@ static int maybe_decompress_payload(
         assert(f);
 
         /* We can't read objects larger than 4G on a 32-bit machine */
-        if ((uint64_t) (size_t) size != size)
+#if __SIZEOF_SIZE_T__ == 4
+        if (size > UINT32_MAX)
                 return -E2BIG;
+#endif
 
         if (compression != COMPRESSION_NONE) {
 #if HAVE_COMPRESSION
