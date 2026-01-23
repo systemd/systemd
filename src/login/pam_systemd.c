@@ -1107,7 +1107,6 @@ static int register_session(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL; /* the following variables point into this message, hence pin it for longer */
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL; /* similar */
         const char *id = NULL, *object_path = NULL, *runtime_path = NULL, *real_seat = NULL;
-        int existing = false;
         uint32_t original_uid = UID_INVALID, real_vtnr = 0;
 
         bool done = false;
@@ -1169,7 +1168,6 @@ static int register_session(
                                 uid_t uid;
                                 const char *seat;
                                 unsigned vtnr;
-                                bool existing;
                         } p = {
                                 .uid = UID_INVALID,
                         };
@@ -1192,7 +1190,6 @@ static int register_session(
                         original_uid = p.uid;
                         real_seat = p.seat;
                         real_vtnr = p.vtnr;
-                        existing = false; /* Even on D-Bus logind only returns false these days */
 
                         done = true;
                 }
@@ -1266,7 +1263,7 @@ static int register_session(
                                 &original_uid,
                                 &real_seat,
                                 &real_vtnr,
-                                &existing);
+                                /* existing = */ NULL); /* deprecated in b80120c4cba7d134b5437a58437a23fdf7ab2084 */
                 if (r < 0)
                         return pam_bus_log_parse_error(pamh, r);
 
@@ -1330,10 +1327,6 @@ static int register_session(
                 if (r != PAM_SUCCESS)
                         return r;
         }
-
-        r = pam_set_data(pamh, "systemd.existing", INT_TO_PTR(!!existing), NULL);
-        if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to install existing flag: @PAMERR@");
 
         /* Don't set $XDG_RUNTIME_DIR if the user we now authenticated for does not match the
          * original user of the session. We do this in order not to result in privileged apps
@@ -1829,7 +1822,6 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 int flags,
                 int argc, const char **argv) {
 
-        const void *existing = NULL;
         bool debug = false;
         const char *id;
         int r;
@@ -1851,17 +1843,10 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         pam_debug_syslog(pamh, debug, "pam-systemd: shutting down...");
 
-        /* Only release session if it wasn't pre-existing when we
-         * tried to create it */
-        r = pam_get_data(pamh, "systemd.existing", &existing);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(pamh, LOG_ERR, r,
-                                            "Failed to get PAM systemd.existing data: @PAMERR@");
-
         (void) close_osc_context(pamh, debug);
 
         id = pam_getenv(pamh, "XDG_SESSION_ID");
-        if (id && !existing) {
+        if (id) {
                 _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
                 bool done = false;
 
