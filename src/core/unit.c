@@ -7005,13 +7005,8 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
 int unit_queue_job_check_and_mangle_type(
                 Unit *u,
                 JobType *type, /* input and output */
-                bool reload_if_possible) {
-
-        /* Returns:
-         *
-         * -ENOENT    → Unit not loaded
-         * -ELIBEXEC  → Unit can only be activated via dependency, not directly
-         * -ESHUTDOWN → System bus is shutting down */
+                bool reload_if_possible,
+                sd_bus_error *reterr_error) {
 
         JobType t;
 
@@ -7030,13 +7025,16 @@ int unit_queue_job_check_and_mangle_type(
         /* Our transaction logic allows units not properly loaded to be stopped. But if already dead
          * let's return clear error to caller. */
         if (t == JOB_STOP && UNIT_IS_LOAD_ERROR(u->load_state) && unit_active_state(u) == UNIT_INACTIVE)
-                return -ENOENT;
+                return sd_bus_error_setf(reterr_error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
 
         if ((t == JOB_START && u->refuse_manual_start) ||
             (t == JOB_STOP && u->refuse_manual_stop) ||
             (IN_SET(t, JOB_RESTART, JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)) ||
             (t == JOB_RELOAD_OR_START && job_type_collapse(t, u) == JOB_START && u->refuse_manual_start))
-                return -ELIBEXEC;
+                return sd_bus_error_setf(reterr_error,
+                                         BUS_ERROR_ONLY_BY_DEPENDENCY,
+                                         "Operation refused, unit %s may be requested by dependency only (it is configured to refuse manual start/stop).",
+                                         u->id);
 
         /* dbus-broker issues StartUnit for activation requests, and Type=dbus services automatically
          * gain dependency on dbus.socket. Therefore, if dbus has a pending stop job, the new start
@@ -7050,7 +7048,10 @@ int unit_queue_job_check_and_mangle_type(
                 FOREACH_STRING(dbus_unit, SPECIAL_DBUS_SOCKET, SPECIAL_DBUS_SERVICE) {
                         Unit *dbus = manager_get_unit(u->manager, dbus_unit);
                         if (dbus && unit_stop_pending(dbus))
-                                return -ESHUTDOWN;
+                                return sd_bus_error_setf(reterr_error,
+                                                         BUS_ERROR_SHUTTING_DOWN,
+                                                         "Operation for unit %s refused, D-Bus is shutting down.",
+                                                         u->id);
                 }
 
         *type = t;
