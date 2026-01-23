@@ -460,13 +460,15 @@ static int context_load_install_conf(Context *c) {
 
         assert(c);
 
-        r = load_kernel_install_conf(arg_root,
-                                     c->conf_root,
-                                     &machine_id,
-                                     &boot_root,
-                                     &layout,
-                                     &initrd_generator,
-                                     &uki_generator);
+        r = load_kernel_install_conf_at(
+                        c->conf_root ? NULL : arg_root,
+                        c->conf_root ? XAT_FDROOT : c->rfd,
+                        c->conf_root,
+                        &machine_id,
+                        &boot_root,
+                        &layout,
+                        &initrd_generator,
+                        &uki_generator);
         if (r <= 0)
                 return r;
 
