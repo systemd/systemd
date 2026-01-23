@@ -122,8 +122,14 @@ Deprecations and removals:
 
 Features:
 
-* systemd-sysupdate: add support a "best before" in manifests (ie. SHA256SUMS)
-  files, to detect freshness, and refuse stale sources
+* Maybe introducean InodeRef structure inspired by PidRef, which references a
+  specific inode, and combines: a path, an O_PATH fd, and possibly a FID into
+  one. Why? We often pass around path and fd separately in chaseat() and similar
+  calls. Because passing around both separately is cumbersome we sometimes only
+  one pass one, once the other and sometimes both. It would make the code a lot
+  simpler if we could path both around at the same time in a simple way, via an
+  InodeRef which *both* pins the inode via an fd, *and* gives us a friendly
+  name for it.
 
 * systemd-sysupdate: for each transfer support looking at multiple sources,
   pick source with newest entry. If multiple sources have the same entry, use
