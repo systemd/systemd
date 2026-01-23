@@ -12,6 +12,6 @@ systemd-run -p PrivateUsersEx=self --wait bash -c 'test "$(cat /proc/self/gid_ma
 systemd-run -p PrivateUsersEx=self --wait bash -c 'test "$(cat /proc/self/setgroups)" == "deny"'
 systemd-run -p PrivateUsersEx=identity --wait bash -c 'test "$(cat /proc/self/uid_map)" == "         0          0      65536"'
 systemd-run -p PrivateUsersEx=identity --wait bash -c 'test "$(cat /proc/self/gid_map)" == "         0          0      65536"'
-systemd-run -p PrivateUsersEx=full --wait bash -c 'test "$(cat /proc/self/uid_map | tr -d "\n")" == "         0          0          1         1          1 4294967294"'
-systemd-run -p PrivateUsersEx=full --wait bash -c 'test "$(cat /proc/self/gid_map | tr -d "\n")" == "         0          0          1         1          1 4294967294"'
+systemd-run -p PrivateUsersEx=full --wait bash -c 'test "$(cat /proc/self/uid_map)" == "         0          0 4294967295"'
+systemd-run -p PrivateUsersEx=full --wait bash -c 'test "$(cat /proc/self/gid_map)" == "         0          0 4294967295"'
 systemd-run -p PrivateUsersEx=full --wait bash -c 'test "$(cat /proc/self/setgroups)" == "allow"'
