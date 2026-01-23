@@ -14,6 +14,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(target, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("A file descriptor to an allocated userns with no current UID range assignments"),
                 SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Number of transient 64K container UID/GID ranges to delegate. These are mapped 1:1 into the user namespace and can be used by nested user namespaces for container workloads. Must be between 0 and 16. Defaults to 0."),
+                SD_VARLINK_DEFINE_INPUT(delegateContainerRanges, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The name assigned to the user namespace. (This is particularly interesting in case mangleName was enabled)."),
                 SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
@@ -69,6 +71,7 @@ static SD_VARLINK_DEFINE_ERROR(UserNamespaceWithoutUserRange);
 static SD_VARLINK_DEFINE_ERROR(TooManyControlGroups);
 static SD_VARLINK_DEFINE_ERROR(ControlGroupAlreadyAdded);
 static SD_VARLINK_DEFINE_ERROR(TooManyNetworkInterfaces);
+static SD_VARLINK_DEFINE_ERROR(TooManyDelegations);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_NamespaceResource,
@@ -103,4 +106,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("The specified cgroup has already been added to the user namespace."),
                 &vl_error_ControlGroupAlreadyAdded,
                 SD_VARLINK_SYMBOL_COMMENT("The per-user namespace limit of network interfaces has been reached."),
-                &vl_error_TooManyNetworkInterfaces);
+                &vl_error_TooManyNetworkInterfaces,
+                SD_VARLINK_SYMBOL_COMMENT("The specified number of delegations exceeds the maximum allowed."),
+                &vl_error_TooManyDelegations);
