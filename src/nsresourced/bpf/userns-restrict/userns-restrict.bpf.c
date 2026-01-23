@@ -20,6 +20,9 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
+#define CONTAINER_UID_MIN (CONTAINER_UID_BASE_MIN)
+#define CONTAINER_UID_MAX (CONTAINER_UID_BASE_MAX + 0xFFFFU)
+
 #ifndef bpf_core_cast
 /* bpf_rdonly_cast() was introduced in libbpf commit 688879f together with
  * the definition of a bpf_core_cast macro. So use that one to avoid
@@ -68,7 +71,19 @@ static inline struct mount *real_mount(struct vfsmount *mnt) {
         return container_of(mnt, struct mount, mnt);
 }
 
-static int validate_inode_on_mount(struct inode *inode, struct vfsmount *v) {
+static inline bool uid_is_dynamic(uid_t uid) {
+        return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
+}
+
+static inline bool uid_is_container(uid_t uid) {
+        return CONTAINER_UID_MIN <= uid && uid <= CONTAINER_UID_MAX;
+}
+
+static inline bool uid_is_transient(uid_t uid) {
+        return uid_is_dynamic(uid) || uid_is_container(uid);
+}
+
+static int validate_mount(struct vfsmount *v, uid_t uid, gid_t gid) {
         struct user_namespace *mount_userns, *task_userns, *p;
         unsigned task_userns_inode;
         struct task_struct *task;
@@ -108,6 +123,9 @@ static int validate_inode_on_mount(struct inode *inode, struct vfsmount *v) {
         if (!mnt_id_map) /* No rules installed for this userns? Then say yes, too! */
                 return 0;
 
+        if (!uid_is_transient(uid) && !uid_is_transient((uid_t) gid))
+                return 0;
+
         mnt_id = m->mnt_id;
 
         /* Otherwise, say yes if the mount ID is allowlisted */
@@ -118,6 +136,20 @@ static int validate_inode_on_mount(struct inode *inode, struct vfsmount *v) {
 }
 
 static int validate_path(const struct path *path, int ret) {
+        struct task_struct *task;
+        struct vfsmount *v;
+
+        if (ret != 0) /* propagate earlier error */
+                return ret;
+
+        task = (struct task_struct*) bpf_get_current_task_btf();
+        v = path->mnt;
+
+        return validate_mount(v, task->cred->fsuid.val, task->cred->fsgid.val);
+}
+
+SEC("lsm/path_chown")
+int BPF_PROG(userns_restrict_path_chown, struct path *path, unsigned long long uid, unsigned long long gid, int ret) {
         struct inode *inode;
         struct vfsmount *v;
 
@@ -127,12 +159,7 @@ static int validate_path(const struct path *path, int ret) {
         inode = path->dentry->d_inode;
         v = path->mnt;
 
-        return validate_inode_on_mount(inode, v);
-}
-
-SEC("lsm/path_chown")
-int BPF_PROG(userns_restrict_path_chown, struct path *path, void* uid, void *gid, int ret) {
-        return validate_path(path, ret);
+        return validate_mount(v, (uid_t) uid, (gid_t) gid);
 }
 
 SEC("lsm/path_mkdir")
