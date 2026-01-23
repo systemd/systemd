@@ -1798,7 +1798,7 @@ if conf.get('BPF_FRAMEWORK') == 1
                 ]
         endif
 
-        bpf_o_unstripped_cmd += ['-I.']
+        bpf_o_unstripped_cmd += ['-I.', '-include', 'config.h']
 
         if cc.get_id() == 'gcc' or meson.is_cross_build()
                 if cc.get_id() != 'gcc'
