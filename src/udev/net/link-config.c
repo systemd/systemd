@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/netdevice.h>
+#include <net/if.h>
 #include <net/if_arp.h>
 #include <unistd.h>
 
@@ -15,6 +16,7 @@
 #include "creds-util.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
@@ -31,13 +33,16 @@
 #include "netif-util.h"
 #include "netlink-util.h"
 #include "network-util.h"
+#include "numa-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "random-util.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "specifier.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -78,6 +83,7 @@ static LinkConfig* link_config_free(LinkConfig *config) {
         free(config->wol_password_file);
         erase_and_free(config->wol_password);
         cpu_set_done(&config->rps_cpu_mask);
+        cpu_set_done(&config->irq_affinity_cpus);
 
         ordered_hashmap_free(config->sr_iov_by_section);
 
@@ -270,6 +276,8 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 .eee_enabled = -1,
                 .eee_tx_lpi_enabled = -1,
                 .eee_tx_lpi_timer_usec = USEC_INFINITY,
+                .irq_affinity_policy = _IRQ_AFFINITY_POLICY_INVALID,
+                .irq_affinity_numa = IRQ_AFFINITY_NUMA_UNSET,
         };
 
         FOREACH_ELEMENT(feature, config->features)
@@ -939,6 +947,754 @@ static int link_apply_sr_iov_config(Link *link) {
         return 0;
 }
 
+/* Get the local NUMA node for a network device from sysfs.
+ * Returns -ENOENT if numa_node file doesn't exist or shows -1 (no NUMA). */
+static int link_get_device_numa_node(Link *link, int *ret) {
+        _cleanup_free_ char *numa_node_path = NULL, *content = NULL;
+        const char *syspath;
+        int r, node;
+
+        assert(link);
+        assert(link->event);
+        assert(link->event->dev);
+        assert(ret);
+
+        r = sd_device_get_syspath(link->event->dev, &syspath);
+        if (r < 0)
+                return r;
+
+        numa_node_path = path_join(syspath, "device/numa_node");
+        if (!numa_node_path)
+                return -ENOMEM;
+
+        r = read_one_line_file(numa_node_path, &content);
+        if (r < 0)
+                return r;
+
+        r = safe_atoi(content, &node);
+        if (r < 0)
+                return r;
+
+        /* -1 means no NUMA node (non-NUMA system or device not associated with a node) */
+        if (node < 0)
+                return -ENOENT;
+
+        *ret = node;
+        return 0;
+}
+
+/* Get the CPUs belonging to a specific NUMA node */
+static int numa_node_get_cpus(int node, CPUSet *ret) {
+        char path[STRLEN("/sys/devices/system/node/node/cpulist") + DECIMAL_STR_MAX(int) + 1];
+        _cleanup_free_ char *cpulist = NULL;
+        int r;
+
+        assert(ret);
+
+        xsprintf(path, "/sys/devices/system/node/node%d/cpulist", node);
+
+        r = read_one_line_file(path, &cpulist);
+        if (r < 0)
+                return r;
+
+        return parse_cpu_set(cpulist, ret);
+}
+
+/* CPU topology information for IRQ affinity spread algorithm. */
+typedef struct CPUTopology {
+        unsigned cpu;
+        unsigned numa_node;
+        unsigned package_id;
+        unsigned die_id; /* L3 cache domain / chiplet */
+        unsigned core_id;
+        bool is_first_thread; /* First hyperthread of a physical core */
+} CPUTopology;
+
+/* Die (L3 cache domain) information for spread algorithm */
+typedef struct DieInfo {
+        unsigned die_id;
+        unsigned *cpus; /* CPUs in this die (first HT only, sorted by core) */
+        size_t cpu_count;
+        size_t next_idx; /* For round-robin within die */
+} DieInfo;
+
+/* Returns the first thread of a CPU siblings list */
+static int cpu_topology_get_first_thread(sd_device *cpu_node, unsigned *first_thread) {
+        const char *content, *end;
+        int r;
+
+        assert(cpu_node);
+
+        r = sd_device_get_sysattr_value(cpu_node, "topology/thread_siblings_list", &content);
+        if (r < 0)
+                return r;
+
+        end = content + strcspn(content, ",-");
+
+        _cleanup_free_ char *first = strndup(content, end - content);
+        if (!first)
+                return -ENOMEM;
+
+        return safe_atou(first, first_thread);
+}
+
+static int cpu_topology_compare(const CPUTopology *a, const CPUTopology *b) {
+        int r;
+
+        /* Sort by die first (for L3 cache grouping), then core, then CPU number */
+        r = CMP(a->die_id, b->die_id);
+        if (r != 0)
+                return r;
+
+        r = CMP(a->core_id, b->core_id);
+        if (r != 0)
+                return r;
+
+        return CMP(a->cpu, b->cpu);
+}
+
+/* Comparison function for sorting CPUs by CPU number (for die ID assignment) */
+static int cpu_number_compare(const CPUTopology *a, const CPUTopology *b) {
+        return CMP(a->cpu, b->cpu);
+}
+
+/* Assign logical die IDs based on L3 cache sharing topology.
+ *
+ * For IRQ spreading, the goal is to distribute interrupts across CPUs that
+ * don't share cache, minimizing cache line contention when processing packets.
+ * The L3 cache boundary is the key locality domain: CPUs sharing an L3 can
+ * exchange data cheaply, while cross-L3 communication is expensive.
+ *
+ * We use L3 shared_cpu_list rather than the kernel's physical die_id because:
+ * - On AMD EPYC, multiple CCXs on the same physical die have separate L3 caches
+ * - On Intel with Sub-NUMA Clustering, one die may have multiple L3 domains
+ * - L3 sharing reflects actual data locality, not physical packaging */
+static int assign_sequential_die_ids(CPUTopology *cpus, size_t count) {
+        _cleanup_strv_free_ char **l3_groups = NULL;
+        int r;
+
+        /* First, sort CPUs by CPU number for consistent discovery order */
+        typesafe_qsort(cpus, count, cpu_number_compare);
+
+        /* Assign die IDs based on order of L3 shared_cpu_list discovery */
+        FOREACH_ARRAY(cpu, cpus, count) {
+                _cleanup_(sd_device_unrefp) sd_device *cpu_node = NULL;
+                char cpu_path[STRLEN("/sys/devices/system/cpu/cpu") + DECIMAL_STR_MAX(unsigned) + 1];
+                const char *l3_list;
+                unsigned die_id = 0;
+                bool found = false;
+
+                xsprintf(cpu_path, "/sys/devices/system/cpu/cpu%u", cpu->cpu);
+                r = sd_device_new_from_syspath(&cpu_node, cpu_path);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_get_sysattr_value(cpu_node, "cache/index3/shared_cpu_list", &l3_list);
+                if (r < 0) {
+                        /* No L3 info, fall back to package ID */
+                        cpu->die_id = cpu->package_id;
+                        continue;
+                }
+
+                /* Check if we've seen this L3 group before */
+                STRV_FOREACH(g, l3_groups) {
+                        if (streq(*g, l3_list)) {
+                                cpu->die_id = die_id;
+                                found = true;
+                                break;
+                        }
+                        die_id++;
+                }
+
+                if (!found) {
+                        /* New L3 group, assign next sequential die ID */
+                        cpu->die_id = strv_length(l3_groups);
+                        r = strv_extend(&l3_groups, l3_list);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
+static int discover_cpu_topology(CPUTopology **ret, size_t *ret_count) {
+        _cleanup_(sd_device_unrefp) sd_device *parent_node = NULL;
+        _cleanup_free_ CPUTopology *cpus = NULL;
+        const char *name;
+        size_t count = 0;
+        int r;
+
+        r = sd_device_new_from_syspath(&parent_node, "/sys/devices/system/cpu");
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE_CHILD_WITH_SUFFIX(parent_node, cpu_node, name) {
+                char topo_path[STRLEN("/sys/devices/system/cpu/cpu/topology") + DECIMAL_STR_MAX(unsigned) + 1];
+                const char *n;
+                unsigned cpu, online, first_thread;
+
+                n = startswith(name, "cpu");
+                if (!n)
+                        continue;
+
+                r = safe_atou(n, &cpu);
+                if (r < 0)
+                        continue;
+
+                r = device_get_sysattr_unsigned_full(cpu_node, "online", 0, &online);
+                if (r == -ENOENT)
+                        online = 1; /* CPU 0 lacks 'online' file, assume online */
+                else if (r < 0 || !online)
+                        continue;
+
+                /* Check if topology directory exists (filters out cpu0 on some systems) */
+                xsprintf(topo_path, "/sys/devices/system/cpu/cpu%u/topology", cpu);
+                if (access(topo_path, F_OK) < 0)
+                        continue;
+
+                if (!GREEDY_REALLOC(cpus, count + 1))
+                        return -ENOMEM;
+
+                cpus[count].cpu = cpu;
+
+                r = numa_get_node_from_cpu(cpu, &cpus[count].numa_node);
+                if (r < 0)
+                        cpus[count].numa_node = 0;
+
+                r = device_get_sysattr_unsigned(cpu_node, "physical_package_id", &cpus[count].package_id);
+                if (r < 0)
+                        cpus[count].package_id = 0;
+
+                /* die_id will be assigned later by assign_sequential_die_ids() */
+                cpus[count].die_id = 0;
+
+                r = device_get_sysattr_unsigned(cpu_node, "core_id", &cpus[count].core_id);
+                if (r < 0)
+                        cpus[count].core_id = cpu;
+
+                r = cpu_topology_get_first_thread(cpu_node, &first_thread);
+                if (r < 0)
+                        cpus[count].is_first_thread = true;
+                else
+                        cpus[count].is_first_thread = (first_thread == cpu);
+
+                count++;
+        }
+
+        if (count == 0)
+                return -ENOENT;
+
+        /* Assign sequential die IDs based on L3 discovery order */
+        r = assign_sequential_die_ids(cpus, count);
+        if (r < 0)
+                return r;
+
+        /* Sort CPUs by topology for consistent ordering */
+        typesafe_qsort(cpus, count, cpu_topology_compare);
+
+        *ret = TAKE_PTR(cpus);
+        *ret_count = count;
+
+        return 0;
+}
+
+/* Reorder indices so consecutive elements are maximally spread apart.
+ *
+ * Uses recursive divide-and-conquer: split in half, permute each half,
+ * then interleave. This ensures elements originally far apart become adjacent.
+ *
+ * Example trace for [0,1,2,3,4,5,6,7]:
+ *   split into [0,1,2,3] and [4,5,6,7]
+ *   recurse left:  [0,1,2,3] -> [0,2,1,3]
+ *   recurse right: [4,5,6,7] -> [4,6,5,7]
+ *   interleave -> [0,4,2,6,1,5,3,7]
+ *
+ * The first N elements of the output are roughly evenly distributed across the
+ * original range, for any N. This is useful when assigning IRQs to CPUs: if a
+ * NIC has fewer IRQs than CPUs, the assigned CPUs will still be spread across
+ * the CPUs rather than all at the beginning. */
+static void equidist_permute(size_t *indices, size_t count) {
+        _cleanup_free_ size_t *temp = NULL;
+        _cleanup_free_ size_t *left = NULL;
+        _cleanup_free_ size_t *right = NULL;
+        size_t left_count, right_count;
+        size_t li = 0, ri = 0, ti = 0;
+
+        if (count <= 1)
+                return;
+
+        temp = new(size_t, count);
+        if (!temp)
+                return;
+
+        memcpy(temp, indices, count * sizeof(size_t));
+
+        left_count = (count + 1) / 2;
+        right_count = count - left_count;
+
+        /* Recursively permute each half */
+        left = new(size_t, left_count);
+        right = new(size_t, right_count);
+        if (!left || !right)
+                return;
+
+        for (size_t i = 0; i < left_count; i++)
+                left[i] = temp[i];
+        for (size_t i = 0; i < right_count; i++)
+                right[i] = temp[left_count + i];
+
+        equidist_permute(left, left_count);
+        equidist_permute(right, right_count);
+
+        /* Interleave: left[0], right[0], left[1], right[1], ... */
+        for (size_t i = 0; i < count; i++) {
+                if (i % 2 == 0 && li < left_count)
+                        indices[ti++] = left[li++];
+                else if (ri < right_count)
+                        indices[ti++] = right[ri++];
+                else if (li < left_count)
+                        indices[ti++] = left[li++];
+        }
+}
+
+static void die_info_free(DieInfo *dies, size_t count) {
+        if (!dies)
+                return;
+        FOREACH_ARRAY(die, dies, count)
+                free(die->cpus);
+        free(dies);
+}
+
+/* Build die information from topology, grouping CPUs by L3/die and filtering to first HT only */
+static int build_die_info(const CPUTopology *topology, size_t topology_count, DieInfo **ret, size_t *ret_count) {
+        DieInfo *dies = NULL;
+        size_t die_count = 0;
+        int r;
+
+        assert(topology);
+        assert(ret);
+        assert(ret_count);
+
+        CLEANUP_ARRAY(dies, die_count, die_info_free);
+
+        FOREACH_ARRAY(cpu_topology, topology, topology_count) {
+                DieInfo *die = NULL;
+
+                /* Only consider first hyperthreads for initial spread */
+                if (!cpu_topology->is_first_thread)
+                        continue;
+
+                /* Find or create die entry */
+                for (size_t j = 0; j < die_count; j++)
+                        if (dies[j].die_id == cpu_topology->die_id) {
+                                die = &dies[j];
+                                break;
+                        }
+
+                if (!die) {
+                        if (!GREEDY_REALLOC(dies, die_count + 1)) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+                        die = &dies[die_count++];
+                        *die = (DieInfo) { .die_id = cpu_topology->die_id };
+                }
+
+                if (!GREEDY_REALLOC(die->cpus, die->cpu_count + 1)) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+                die->cpus[die->cpu_count++] = cpu_topology->cpu;
+        }
+
+        /* Sort dies by die_id for determinism, then apply equidist to CPUs within each die */
+        FOREACH_ARRAY(die, dies, die_count) {
+                _cleanup_free_ unsigned *reordered = NULL;
+                _cleanup_free_ size_t *indices = new(size_t, die->cpu_count);
+                if (!indices) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                for (size_t j = 0; j < die->cpu_count; j++)
+                        indices[j] = j;
+
+                equidist_permute(indices, die->cpu_count);
+
+                /* Reorder CPUs according to equidist permutation */
+                reordered = new(unsigned, die->cpu_count);
+                if (!reordered) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                for (size_t j = 0; j < die->cpu_count; j++)
+                        reordered[j] = die->cpus[indices[j]];
+
+                memcpy(die->cpus, reordered, die->cpu_count * sizeof(unsigned));
+        }
+
+        *ret = TAKE_PTR(dies);
+        *ret_count = die_count;
+
+        return 0;
+
+fail:
+        return r;
+}
+
+/* Select CPUs for IRQ affinity spreading with optimal topology distribution.
+ *
+ * Algorithm:
+ * 1. Group CPUs by die (L3 cache domain), using only first hyperthreads
+ * 2. Apply equidistant permutation to both die order and CPUs within each die,
+ *    so consecutive selections are maximally spread (e.g., [0,1,2,3] -> [0,2,1,3])
+ * 3. Round-robin across dies, picking one CPU per die per round
+ * 4. If more IRQs than physical cores, wrap around and reuse the same CPUs
+ *
+ * Ensures each IRQ gets a dedicated physical core before any core handles
+ * multiple IRQs. Two IRQs on one physical core time-share but benefit from warm
+ * cache, whereas spreading across SMT siblings causes resource contention with
+ * no cache benefit.
+ * Maximizes physical distance between consecutively assigned IRQs, improving
+ * cache distribution even when only a few IRQs are assigned. */
+static int select_spread_cpus(
+                const CPUTopology *topology,
+                size_t topology_count,
+                size_t n_irqs,
+                unsigned **ret,
+                size_t *ret_count) {
+
+        _cleanup_free_ unsigned *selected = NULL;
+        _cleanup_free_ size_t *die_order = NULL;
+        DieInfo *dies = NULL;
+        size_t die_count = 0, selected_count = 0;
+        int r;
+
+        assert(topology);
+        assert(ret);
+        assert(ret_count);
+
+        CLEANUP_ARRAY(dies, die_count, die_info_free);
+
+        selected = new(unsigned, n_irqs);
+        if (!selected)
+                return -ENOMEM;
+
+        /* Build die information with first HT CPUs only */
+        r = build_die_info(topology, topology_count, &dies, &die_count);
+        if (r < 0)
+                return r;
+
+        if (die_count == 0)
+                return -ENOENT;
+
+        /* Create equidistant die ordering */
+        die_order = new(size_t, die_count);
+        if (!die_order)
+                return -ENOMEM;
+
+        for (size_t i = 0; i < die_count; i++)
+                die_order[i] = i;
+
+        equidist_permute(die_order, die_count);
+
+        /* Round-robin across dies, picking one CPU from each die at a time */
+        size_t dies_exhausted = 0;
+        while (selected_count < n_irqs) {
+                bool made_progress = false;
+
+                for (size_t i = 0; i < die_count && selected_count < n_irqs; i++) {
+                        DieInfo *die = &dies[die_order[i]];
+
+                        if (die->next_idx >= die->cpu_count)
+                                continue;
+
+                        selected[selected_count++] = die->cpus[die->next_idx++];
+                        made_progress = true;
+
+                        if (die->next_idx >= die->cpu_count)
+                                dies_exhausted++;
+                }
+
+                if (made_progress)
+                        continue;
+
+                /* All first HTs exhausted, wrap around for remaining IRQs */
+                if (dies_exhausted >= die_count) {
+                        /* Reset all dies for round-robin wrap */
+                        for (size_t i = 0; i < die_count; i++)
+                                dies[i].next_idx = 0;
+                        dies_exhausted = 0;
+                } else
+                        break;
+        }
+
+        *ret = TAKE_PTR(selected);
+        *ret_count = selected_count;
+
+        return 0;
+}
+
+static int set_irq_affinity(Link *link, const char *irq, unsigned cpu) {
+        _cleanup_free_ char *affinity_path = NULL, *mask_str = NULL;
+        unsigned n_groups = cpu / 32;
+        int r;
+
+        affinity_path = path_join("/proc/irq/", irq, "smp_affinity");
+        if (!affinity_path)
+                return log_oom();
+
+        /* Convert CPU number to hex bitmask.
+         * For CPU N, set bit N (1 << N). CPUs are split by comma-separated
+         * 32-bits groups. To assign CPU 32, we should write 1,00000000 */
+
+        mask_str = new0(char, (n_groups + 1) * 8 + n_groups + 1); /* 8 hex digits + comma per group  + nul terminator */
+        if (!mask_str)
+                return log_oom();
+
+        r = strextendf(&mask_str, "%x", 1U << (cpu % 32));
+        if (r < 0)
+                return log_oom();
+
+        for (unsigned i = 0; i < n_groups; i++) {
+                r = strextendf(&mask_str, ",00000000");
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = write_string_file(affinity_path, mask_str, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to set IRQ %s affinity to CPU %u: %m", irq, cpu);
+
+        log_link_debug(link, "Set IRQ %s affinity to CPU %u.", irq, cpu);
+
+        return 0;
+}
+
+static int link_apply_irq_affinity_spread(Link *link, const char *msi_irqs_path, const CPUSet *allowed_cpus) {
+        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_free_ CPUTopology *topology = NULL, *filtered_topology = NULL;
+        _cleanup_free_ char **irqs = NULL;
+        _cleanup_free_ unsigned *spread_cpus = NULL;
+        size_t topology_count = 0, filtered_count = 0, irq_count = 0, spread_count = 0;
+        int r;
+
+        dir = opendir(msi_irqs_path);
+        if (!dir && errno == ENOENT) {
+                log_link_debug(link, "No MSI IRQs found at %s, skipping IRQ affinity configuration.", msi_irqs_path);
+                return 0;
+        }
+        if (!dir)
+                return log_link_error_errno(link, errno, "Failed to open %s: %m", msi_irqs_path);
+
+        FOREACH_DIRENT(de, dir, return log_link_error_errno(link, errno, "Failed to read directory %s: %m", msi_irqs_path)) {
+                r = strv_extend(&irqs, de->d_name);
+                if (r < 0)
+                        return log_oom();
+                irq_count++;
+        }
+
+        if (irq_count == 0) {
+                log_link_debug(link, "No IRQs found, skipping spread.");
+                return 0;
+        }
+
+        strv_sort(irqs);
+
+        r = discover_cpu_topology(&topology, &topology_count);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to discover CPU topology: %m");
+
+        /* Filter topology by allowed CPUs if specified */
+        if (allowed_cpus && allowed_cpus->set) {
+                filtered_topology = new(CPUTopology, topology_count);
+                if (!filtered_topology)
+                        return log_oom();
+
+                for (size_t i = 0; i < topology_count; i++)
+                        if (CPU_ISSET_S(topology[i].cpu, allowed_cpus->allocated, allowed_cpus->set))
+                                filtered_topology[filtered_count++] = topology[i];
+
+                if (filtered_count == 0) {
+                        log_link_warning(link, "IRQAffinity= filter excludes all CPUs, skipping spread.");
+                        return 0;
+                }
+
+                log_link_debug(link, "Filtered to %zu CPUs (from %zu) based on IRQAffinity=.", filtered_count, topology_count);
+        } else {
+                filtered_topology = TAKE_PTR(topology);
+                filtered_count = topology_count;
+        }
+
+        log_link_debug(link, "Spreading %zu IRQs across %zu CPUs.", irq_count, filtered_count);
+
+        /* Select CPUs using maximum distance algorithm */
+        r = select_spread_cpus(filtered_topology, filtered_count, irq_count, &spread_cpus, &spread_count);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to select spread CPUs: %m");
+
+        for (size_t i = 0; i < irq_count; i++) {
+                r = set_irq_affinity(link, irqs[i], spread_cpus[i]);
+                if (r < 0)
+                        continue; /* Non-fatal, try next IRQ */
+        }
+
+        log_link_info(link, "Applied IRQ affinity policy 'spread' across %zu CPUs for %zu IRQs.",
+                      MIN(filtered_count, irq_count), irq_count);
+
+        return 0;
+}
+
+static int link_apply_irq_affinity_single(Link *link, const char *msi_irqs_path, const CPUSet *allowed_cpus) {
+        _cleanup_closedir_ DIR *dir = NULL;
+        unsigned target_cpu = 0;
+        int r;
+
+        /* If IRQAffinity= is specified, use the first allowed CPU instead of CPU 0 */
+        if (allowed_cpus && allowed_cpus->set) {
+                bool found = false;
+
+                for (unsigned cpu = 0; cpu < allowed_cpus->allocated * 8; cpu++)
+                        if (CPU_ISSET_S(cpu, allowed_cpus->allocated, allowed_cpus->set)) {
+                                target_cpu = cpu;
+                                found = true;
+                                break;
+                        }
+
+                if (!found) {
+                        log_link_warning(link, "IRQAffinity= filter excludes all CPUs, skipping single.");
+                        return 0;
+                }
+        }
+
+        r = device_opendir(link->event->dev, "device/msi_irqs", &dir);
+        if (r < 0 && errno == ENOENT) {
+                log_link_debug(link, "No MSI IRQs found at %s, skipping IRQ affinity configuration.", msi_irqs_path);
+                return 0;
+        }
+        if (r < 0)
+                return log_link_error_errno(link, errno, "Failed to open %s: %m", msi_irqs_path);
+
+        FOREACH_DIRENT(de, dir, return log_link_error_errno(link, errno, "Failed to read directory %s: %m", msi_irqs_path)) {
+                r = set_irq_affinity(link, de->d_name, target_cpu);
+                if (r < 0)
+                        continue; /* Non-fatal, try next IRQ */
+        }
+
+        log_link_info(link, "Applied IRQ affinity policy 'single' (pinning to CPU %u).", target_cpu);
+        return 0;
+}
+
+static int link_apply_irq_affinity(Link *link) {
+        _cleanup_free_ char *msi_irqs_path = NULL;
+        _cleanup_(cpu_set_done) CPUSet effective_cpus = {};
+        const char *syspath;
+        int numa_node = -1;
+        int r;
+
+        assert(link);
+        assert(link->config);
+        assert(ASSERT_PTR(link->event)->dev);
+
+        if (link->event->event_mode != EVENT_UDEV_WORKER) {
+                log_link_debug(link, "Running in test mode, skipping application of IRQ affinity settings.");
+                return 0;
+        }
+
+        if (link->config->irq_affinity_policy < 0)
+                return 0;
+
+        r = sd_device_get_syspath(link->event->dev, &syspath);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get syspath: %m");
+
+        msi_irqs_path = path_join(syspath, "device/msi_irqs");
+        if (!msi_irqs_path)
+                return log_oom();
+
+        /* Compute effective CPU set from IRQAffinity= and IRQAffinityNUMA= */
+        if (link->config->irq_affinity_numa != IRQ_AFFINITY_NUMA_UNSET) {
+                _cleanup_(cpu_set_done) CPUSet numa_cpus = {};
+
+                /* Resolve "local" to the actual NUMA node */
+                if (link->config->irq_affinity_numa == IRQ_AFFINITY_NUMA_LOCAL) {
+                        r = link_get_device_numa_node(link, &numa_node);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r,
+                                        "Failed to determine local NUMA node for device, skipping IRQ affinity configuration.");
+                                return 0;
+                        }
+                        log_link_debug(link, "Device is on NUMA node %d.", numa_node);
+                } else
+                        numa_node = link->config->irq_affinity_numa;
+
+                /* Get CPUs for the NUMA node */
+                r = numa_node_get_cpus(numa_node, &numa_cpus);
+                if (r < 0) {
+                        log_link_warning_errno(link, r,
+                                "Failed to get CPUs for NUMA node %d, skipping IRQ affinity configuration.", numa_node);
+                        return 0;
+                }
+
+                /* If IRQAffinity= is also specified, compute intersection */
+                if (link->config->irq_affinity_cpus.set) {
+                        /* Compute intersection of IRQAffinity= and NUMA CPUs */
+                        size_t max_allocated = MAX(numa_cpus.allocated, link->config->irq_affinity_cpus.allocated);
+
+                        r = cpu_set_realloc(&effective_cpus, max_allocated * 8);
+                        if (r < 0)
+                                return log_oom();
+
+                        for (size_t i = 0; i < max_allocated * 8; i++) {
+                                bool in_numa = i < numa_cpus.allocated * 8 &&
+                                               CPU_ISSET_S(i, numa_cpus.allocated, numa_cpus.set);
+                                bool in_affinity = i < link->config->irq_affinity_cpus.allocated * 8 &&
+                                                   CPU_ISSET_S(i, link->config->irq_affinity_cpus.allocated, link->config->irq_affinity_cpus.set);
+
+                                if (in_numa && in_affinity) {
+                                        r = cpu_set_add(&effective_cpus, i);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
+                        }
+
+                        /* Check if intersection is empty */
+                        if (!effective_cpus.set || CPU_COUNT_S(effective_cpus.allocated, effective_cpus.set) == 0) {
+                                log_link_error(link,
+                                        "IRQAffinity= and IRQAffinityNUMA= intersection is empty, skipping IRQ affinity configuration.");
+                                return 0;
+                        }
+
+                        log_link_debug(link, "Using intersection of IRQAffinity= and NUMA node %d CPUs.", numa_node);
+                } else {
+                        /* Only NUMA filtering, use NUMA CPUs directly */
+                        effective_cpus = TAKE_STRUCT(numa_cpus);
+                        log_link_debug(link, "Using CPUs from NUMA node %d.", numa_node);
+                }
+        } else if (link->config->irq_affinity_cpus.set) {
+                /* Only IRQAffinity= specified, copy it */
+                r = cpu_set_add_set(&effective_cpus, &link->config->irq_affinity_cpus);
+                if (r < 0)
+                        return log_oom();
+        }
+        /* else: no filtering, effective_cpus remains empty (meaning use all CPUs) */
+
+        switch (link->config->irq_affinity_policy) {
+        case IRQ_AFFINITY_POLICY_SINGLE:
+                return link_apply_irq_affinity_single(link, msi_irqs_path,
+                        effective_cpus.set ? &effective_cpus : NULL);
+        case IRQ_AFFINITY_POLICY_SPREAD:
+                return link_apply_irq_affinity_spread(link, msi_irqs_path,
+                        effective_cpus.set ? &effective_cpus : NULL);
+        default:
+                assert_not_reached();
+        }
+
+        return 0;
+}
+
 static int link_apply_rps_cpu_mask(Link *link) {
         _cleanup_free_ char *mask_str = NULL;
         LinkConfig *config;
@@ -1065,6 +1821,10 @@ int link_apply_config(LinkConfigContext *ctx, Link *link) {
                 return r;
 
         r = link_apply_rps_cpu_mask(link);
+        if (r < 0)
+                return r;
+
+        r = link_apply_irq_affinity(link);
         if (r < 0)
                 return r;
 
@@ -1417,3 +2177,63 @@ DEFINE_CONFIG_PARSE_ENUMV(config_parse_name_policy, name_policy, NamePolicy,
 
 DEFINE_CONFIG_PARSE_ENUMV(config_parse_alternative_names_policy, alternative_names_policy, NamePolicy,
                           _NAMEPOLICY_INVALID);
+
+int config_parse_irq_affinity_numa(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *numa = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *numa = IRQ_AFFINITY_NUMA_UNSET;
+                return 0;
+        }
+
+        if (streq(rvalue, "local")) {
+                *numa = IRQ_AFFINITY_NUMA_LOCAL;
+                return 0;
+        }
+
+        /* Parse as NUMA node number */
+        r = safe_atoi(rvalue, numa);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                *numa = IRQ_AFFINITY_NUMA_UNSET;
+                return 0;
+        }
+
+        if (*numa < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid NUMA node number %d, ignoring assignment: %s", *numa, rvalue);
+                *numa = IRQ_AFFINITY_NUMA_UNSET;
+                return 0;
+        }
+
+        return 0;
+}
+
+static const char* const irq_affinity_policy_table[_IRQ_AFFINITY_POLICY_MAX] = {
+        [IRQ_AFFINITY_POLICY_SINGLE] = "single",
+        [IRQ_AFFINITY_POLICY_SPREAD] = "spread",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(irq_affinity_policy, IRQAffinityPolicy);
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(
+        config_parse_irq_affinity_policy,
+        irq_affinity_policy,
+        IRQAffinityPolicy,
+        _IRQ_AFFINITY_POLICY_INVALID);
