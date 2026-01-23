@@ -78,6 +78,7 @@ UserNamespaceInfo *userns_info_free(UserNamespaceInfo *userns) {
 
         free(userns->cgroups);
         free(userns->name);
+        free(userns->delegates);
 
         strv_free(userns->netifs);
 
@@ -128,6 +129,63 @@ static int dispatch_cgroups_array(const char *name, sd_json_variant *variant, sd
         return 0;
 }
 
+static int dispatch_delegates_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        UserNamespaceInfo *info = ASSERT_PTR(userdata);
+        _cleanup_free_ DelegatedUserNamespaceInfo *delegates = NULL;
+        size_t n = 0;
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                info->delegates = mfree(info->delegates);
+                info->n_delegates = 0;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        size_t elements = sd_json_variant_elements(variant);
+        if (elements > USER_NAMESPACE_DELEGATIONS_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(E2BIG), "Too many delegations.");
+
+        delegates = new(DelegatedUserNamespaceInfo, elements);
+        if (!delegates)
+                return json_log_oom(variant, flags);
+
+        sd_json_variant *e;
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
+                static const sd_json_dispatch_field delegate_dispatch_table[] = {
+                        { "userns",   SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64,  offsetof(DelegatedUserNamespaceInfo, userns_inode), 0                 },
+                        { "start",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(DelegatedUserNamespaceInfo, start_uid),    SD_JSON_MANDATORY },
+                        { "startGid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(DelegatedUserNamespaceInfo, start_gid),    SD_JSON_MANDATORY },
+                        { "size",     SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32,  offsetof(DelegatedUserNamespaceInfo, size),         SD_JSON_MANDATORY },
+                        {}
+                };
+
+                delegates[n] = (DelegatedUserNamespaceInfo) {
+                        .start_uid = UID_INVALID,
+                        .start_gid = GID_INVALID,
+                };
+
+                r = sd_json_dispatch(e, delegate_dispatch_table, flags, &delegates[n]);
+                if (r < 0)
+                        return r;
+
+                if (!uid_is_valid(delegates[n].start_uid) || !gid_is_valid(delegates[n].start_gid))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid delegate UID/GID.");
+
+                if (delegates[n].size == 0)
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid delegate size.");
+
+                n++;
+        }
+
+        free_and_replace(info->delegates, delegates);
+        info->n_delegates = n;
+
+        return 0;
+}
+
 static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **ret) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
@@ -141,6 +199,7 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
                 { "targetGid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid,  offsetof(UserNamespaceInfo, target_gid),   0                 },
                 { "cgroups",   SD_JSON_VARIANT_ARRAY,    dispatch_cgroups_array,    0,                                         0                 },
                 { "netifs",    SD_JSON_VARIANT_ARRAY,    sd_json_dispatch_strv,     offsetof(UserNamespaceInfo, netifs),       0                 },
+                { "delegates", SD_JSON_VARIANT_ARRAY,    dispatch_delegates_array,  0,                                         0                 },
                 {}
         };
 
@@ -443,6 +502,18 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                         return r;
         }
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *delegates_array = NULL;
+        for (size_t i = 0; i < info->n_delegates; i++) {
+                r = sd_json_variant_append_arraybo(
+                                &delegates_array,
+                                SD_JSON_BUILD_PAIR_UNSIGNED("userns", info->delegates[i].userns_inode),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("start", info->delegates[i].start_uid),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("startGid", info->delegates[i].start_gid),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("size", info->delegates[i].size));
+                if (r < 0)
+                        return r;
+        }
+
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *def = NULL;
         r = sd_json_buildo(
                         &def,
@@ -455,7 +526,8 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                         SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(info->start_gid), "startGid", SD_JSON_BUILD_UNSIGNED(info->start_gid)),
                         SD_JSON_BUILD_PAIR_CONDITION(gid_is_valid(info->target_gid), "targetGid", SD_JSON_BUILD_UNSIGNED(info->target_gid)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!cgroup_array, "cgroups", SD_JSON_BUILD_VARIANT(cgroup_array)),
-                        JSON_BUILD_PAIR_STRV_NON_EMPTY("netifs", info->netifs));
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("netifs", info->netifs),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!delegates_array, "delegates", SD_JSON_BUILD_VARIANT(delegates_array)));
         if (r < 0)
                 return r;
 
@@ -531,6 +603,50 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                 goto fail;
         }
 
+        /* Store delegation files */
+        for (size_t i = 0; i < info->n_delegates; i++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *delegate_def = NULL;
+                _cleanup_free_ char *delegate_buf = NULL, *delegate_uid_fn = NULL, *delegate_gid_fn = NULL;
+
+                r = sd_json_buildo(
+                                &delegate_def,
+                                SD_JSON_BUILD_PAIR_UNSIGNED("userns", info->delegates[i].userns_inode),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("start", info->delegates[i].start_uid),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("startGid", info->delegates[i].start_gid),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("size", info->delegates[i].size));
+                if (r < 0)
+                        goto fail;
+
+                r = sd_json_variant_format(delegate_def, /* flags= */ 0, &delegate_buf);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to format delegation JSON object: %m");
+                        goto fail;
+                }
+
+                if (asprintf(&delegate_uid_fn, "u" UID_FMT ".delegate", info->delegates[i].start_uid) < 0) {
+                        r = log_oom_debug();
+                        goto fail;
+                }
+
+                r = write_string_file_at(dir_fd, delegate_uid_fn, delegate_buf, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to write delegation data to '%s' in registry: %m", delegate_uid_fn);
+                        goto fail;
+                }
+
+                /* Create GID symlink pointing to the UID file */
+                if (asprintf(&delegate_gid_fn, "g" GID_FMT ".delegate", info->delegates[i].start_gid) < 0) {
+                        r = log_oom_debug();
+                        goto fail;
+                }
+
+                r = linkat_replace(dir_fd, delegate_uid_fn, dir_fd, delegate_gid_fn);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to link delegation data to '%s' in registry: %m", delegate_gid_fn);
+                        goto fail;
+                }
+        }
+
         return 0;
 
 fail:
@@ -546,6 +662,17 @@ fail:
                 (void) unlinkat(dir_fd, owner_fn, /* flags= */ 0);
         if (uid_fn)
                 (void) unlinkat(dir_fd, uid_fn, AT_REMOVEDIR);
+
+        /* Clean up any delegation files we created */
+        for (size_t i = 0; i < info->n_delegates; i++) {
+                _cleanup_free_ char *delegate_uid_fn = NULL, *delegate_gid_fn = NULL;
+
+                if (asprintf(&delegate_uid_fn, "u" UID_FMT ".delegate", info->delegates[i].start_uid) >= 0)
+                        (void) unlinkat(dir_fd, delegate_uid_fn, /* flags= */ 0);
+
+                if (asprintf(&delegate_gid_fn, "g" GID_FMT ".delegate", info->delegates[i].start_gid) >= 0)
+                        (void) unlinkat(dir_fd, delegate_gid_fn, /* flags= */ 0);
+        }
 
         return r;
 }
@@ -608,6 +735,21 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
         r = RET_NERRNO(unlinkat(dir_fd, uid_fn, AT_REMOVEDIR));
         if (r != -ENOTEMPTY)
                 RET_GATHER(ret, r);
+
+        /* Remove delegation files */
+        for (size_t i = 0; i < info->n_delegates; i++) {
+                _cleanup_free_ char *delegate_uid_fn = NULL, *delegate_gid_fn = NULL;
+
+                if (asprintf(&delegate_uid_fn, "u" UID_FMT ".delegate", info->delegates[i].start_uid) < 0)
+                        return log_oom_debug();
+
+                RET_GATHER(ret, RET_NERRNO(unlinkat(dir_fd, delegate_uid_fn, 0)));
+
+                if (asprintf(&delegate_gid_fn, "g" GID_FMT ".delegate", info->delegates[i].start_gid) < 0)
+                        return log_oom_debug();
+
+                RET_GATHER(ret, RET_NERRNO(unlinkat(dir_fd, delegate_gid_fn, 0)));
+        }
 
         return ret;
 }
@@ -821,4 +963,99 @@ int userns_registry_per_uid(int dir_fd, uid_t owner) {
         }
 
         return n;
+}
+
+int userns_registry_delegation_uid_exists(int dir_fd, uid_t start) {
+        _cleanup_free_ char *fn = NULL;
+
+        assert(dir_fd >= 0);
+
+        if (!uid_is_valid(start))
+                return -ENOENT;
+
+        if (start == 0)
+                return true;
+
+        if (asprintf(&fn, "u" UID_FMT ".delegate", start) < 0)
+                return -ENOMEM;
+
+        if (faccessat(dir_fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0)
+                return errno == ENOENT ? false : -errno;
+
+        return true;
+}
+
+int userns_registry_delegation_gid_exists(int dir_fd, gid_t start) {
+        _cleanup_free_ char *fn = NULL;
+
+        assert(dir_fd >= 0);
+
+        if (!gid_is_valid(start))
+                return -ENOENT;
+
+        if (start == 0)
+                return true;
+
+        if (asprintf(&fn, "g" GID_FMT ".delegate", start) < 0)
+                return -ENOMEM;
+
+        if (faccessat(dir_fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0)
+                return errno == ENOENT ? false : -errno;
+
+        return true;
+}
+
+int userns_registry_load_delegation_by_uid(int dir_fd, uid_t start, DelegatedUserNamespaceInfo *ret) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "userns",   SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64,  offsetof(DelegatedUserNamespaceInfo, userns_inode), SD_JSON_MANDATORY },
+                { "start",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(DelegatedUserNamespaceInfo, start_uid),    SD_JSON_MANDATORY },
+                { "startGid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(DelegatedUserNamespaceInfo, start_gid),    0                 },
+                { "size",     SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32,  offsetof(DelegatedUserNamespaceInfo, size),         SD_JSON_MANDATORY },
+                {}
+        };
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_close_ int registry_fd = -EBADF;
+        _cleanup_free_ char *fn = NULL;
+        int r;
+
+        if (!uid_is_valid(start))
+                return -ENOENT;
+
+        if (dir_fd < 0) {
+                registry_fd = userns_registry_open_fd();
+                if (registry_fd < 0)
+                        return registry_fd;
+
+                dir_fd = registry_fd;
+        }
+
+        if (asprintf(&fn, "u" UID_FMT ".delegate", start) < 0)
+                return -ENOMEM;
+
+        r = sd_json_parse_file_at(/* f= */ NULL, dir_fd, fn, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        if (r < 0)
+                return r;
+
+        DelegatedUserNamespaceInfo data = {
+                .start_uid = UID_INVALID,
+                .start_gid = GID_INVALID,
+        };
+
+        r = sd_json_dispatch(v, dispatch_table, /* flags= */ 0, &data);
+        if (r < 0)
+                return r;
+
+        if (data.userns_inode == 0)
+                return -EBADMSG;
+        if (data.start_uid != start)
+                return -EBADMSG;
+        if (data.size == 0)
+                return -EBADMSG;
+
+        if (ret)
+                *ret = data;
+
+        return 0;
 }
