@@ -76,6 +76,13 @@ static int validate_inode_on_mount(struct inode *inode, struct vfsmount *v) {
         struct mount *m;
         int mnt_id;
 
+        /* If the inode's UID/GID are outside the transient userns ranges, say yes immediately. */
+        if ((inode->i_uid.val < CONTAINER_UID_BASE_MIN || inode->i_uid.val > CONTAINER_UID_BASE_MAX) &&
+                (inode->i_gid.val < CONTAINER_UID_BASE_MIN || inode->i_gid.val > CONTAINER_UID_BASE_MAX) &&
+                (inode->i_uid.val < DYNAMIC_UID_MIN || inode->i_uid.val > DYNAMIC_UID_MAX) &&
+                (inode->i_gid.val < DYNAMIC_UID_MIN || inode->i_gid.val > DYNAMIC_UID_MAX))
+                return 0;
+
         /* Get user namespace from vfsmount */
         m = bpf_rdonly_cast(real_mount(v), bpf_core_type_id_kernel(struct mount));
         mount_userns = m->mnt_ns->user_ns;
