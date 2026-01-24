@@ -62,6 +62,13 @@
     namespace, each of size 65536. The ranges are allocated from the container UID ranges as per
     <ulink url="https://systemd.io/UIDS-GIDS">Users, Groups, UIDs and GIDs on systemd Systems</ulink>.</para>
 
+    <para>The allocation API also supports <emphasis>identity mappings</emphasis>: instead of allocating a
+    transient UID/GID range, the user namespace can be configured to map the caller's UID/GID to root (UID
+    0) inside the namespace, or to itself. Identity mappings can be combined with delegated ranges to enter
+    a privileged user namespace from which the container can be set up after which the container can run in
+    one of the delegated ranges. Identity mapped users are not subject to BPF-LSM write restrictions unlike
+    the transient ranges.</para>
+
     <para>The service provides API calls to allowlist mounts (referenced via their mount file descriptors as
     per Linux <function>fsmount()</function> API), to pass ownership of a cgroup subtree to the user
     namespace and to delegate a virtual Ethernet device pair to the user namespace. When used in combination
