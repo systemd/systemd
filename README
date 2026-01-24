@@ -58,7 +58,8 @@ REQUIREMENTS:
         ⛔ Kernel versions below 5.10 ("minimum baseline") are not supported at all,
            and are missing required functionality as listed above.
 
-        Linux kernel ≥ 5.12 for idmapped mount
+        Linux kernel ≥ 5.11 for epoll_pwait2()
+                     ≥ 5.12 for idmapped mount (mount_setattr())
                      ≥ 5.14 for cgroup.kill and quotactl_fd()
 
         ⚠️ Kernel versions below 5.14 ("recommended baseline") have significant gaps
