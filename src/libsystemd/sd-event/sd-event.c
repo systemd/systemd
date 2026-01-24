@@ -4570,6 +4570,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
                         return r;
 
                 m = (size_t) r;
+                msan_unpoison(e->event_queue, m * sizeof(struct epoll_event));
 
                 if (m < n_event_max)
                         break;
