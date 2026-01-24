@@ -69,6 +69,7 @@
 #include "sync-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
+#include "uid-classification.h"
 #include "unit-name.h"
 #include "user-record.h"
 #include "user-util.h"
@@ -1478,7 +1479,25 @@ static int start_virtiofsd(
         if (!argv)
                 return log_oom();
 
-        if (source_uid != UID_INVALID && target_uid != UID_INVALID && uid_range != UID_INVALID) {
+        _cleanup_close_ int userns_fd = -EBADF, mapped_fd = -EBADF;
+
+        if (source_uid == FOREIGN_UID_MIN) {
+                assert(target_uid == 0);
+                assert(uid_range == 0x10000);
+
+                userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K);
+                if (userns_fd < 0)
+                        return log_error_errno(userns_fd, "Failed to allocate user namespace for virtiofsd: %m");
+
+                _cleanup_close_ int directory_fd = open(directory, O_DIRECTORY|O_CLOEXEC|O_PATH);
+                if (directory_fd < 0)
+                        return log_error_errno(directory_fd, "Failed to open '%s': %m", directory);
+
+                r = mountfsd_mount_directory_fd(directory_fd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &mapped_fd);
+                if (r < 0)
+                        return r;
+
+        } else if (!IN_SET(source_uid, FOREIGN_UID_MIN, UID_INVALID) && target_uid != UID_INVALID && uid_range != UID_INVALID) {
                 r = strv_extend(&argv, "--translate-uid");
                 if (r < 0)
                         return log_oom();

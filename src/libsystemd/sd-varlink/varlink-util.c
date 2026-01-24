@@ -5,7 +5,9 @@
 #include "log.h"
 #include "pidref.h"
 #include "set.h"
+#include "socket-util.h"
 #include "string-util.h"
+#include "varlink-internal.h"
 #include "varlink-util.h"
 #include "version.h"
 
@@ -202,6 +204,15 @@ int varlink_check_privileged_peer(sd_varlink *vl) {
                 return sd_varlink_error(vl, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
 
         return 0;
+}
+
+int varlink_get_peer_cred_in_userns(sd_varlink *v, int userns_fd, struct ucred *ret) {
+        /* If we are connected asymmetrically, let's refuse, since it's not clear if caller wants to know
+         * peer on read or write fd */
+        if (v->input_fd != v->output_fd)
+                return -EBADF;
+
+        return getpeercred_in_userns(v->input_fd, userns_fd, ret);
 }
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(

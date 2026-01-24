@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sched.h>
 #include <string.h>
 
 #include "alloc-util.h"
@@ -295,6 +296,9 @@ int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange
         assert(mode < _UID_RANGE_USERNS_MODE_MAX);
         assert(ret);
 
+        if (is_our_namespace(userns_fd, NAMESPACE_USER))
+                return uid_range_load_userns(/* path= */ NULL, mode, ret);
+
         r = userns_enter_and_pin(userns_fd, &pidref);
         if (r < 0)
                 return r;
@@ -324,6 +328,170 @@ bool uid_range_overlaps(const UIDRange *range, uid_t start, uid_t nr) {
                         return true;
 
         return false;
+}
+
+int uid_range_intersect(UIDRange *range, uid_t min, uid_t max) {
+        assert(range);
+
+        if (min > max)
+                return -EINVAL;
+
+        size_t t = 0;
+        for (size_t i = 0; i < range->n_entries; i++) {
+                UIDRangeEntry *e = range->entries + i;
+
+                uid_t entry_end = e->start + e->nr; /* one past the last UID in entry */
+
+                /* Skip entries completely outside [min, max] */
+                if (entry_end <= min || e->start > max)
+                        continue;
+
+                /* Trim the entry to fit within [min, max] */
+                uid_t new_start = MAX(e->start, min);
+                uid_t new_end = MIN(entry_end, max + 1); /* +1 because entry_end is exclusive */
+
+                range->entries[t++] = (UIDRangeEntry) {
+                        .start = new_start,
+                        .nr = new_end - new_start,
+                };
+        }
+
+        range->n_entries = t;
+
+        return 0;
+}
+
+int uid_range_partition(UIDRange *range, uid_t size) {
+        assert(range);
+        assert(size > 0);
+
+        /* Count how many entries we'll need after partitioning */
+        size_t n_new_entries = 0;
+        FOREACH_ARRAY(e, range->entries, range->n_entries)
+                n_new_entries += e->nr / size;
+
+        if (n_new_entries == 0) {
+                range->n_entries = 0;
+                return 0;
+        }
+
+        if (n_new_entries > range->n_entries && !GREEDY_REALLOC(range->entries, n_new_entries))
+                return -ENOMEM;
+
+        /* Work backwards to avoid overwriting entries we still need to read */
+        size_t t = n_new_entries;
+        for (size_t i = range->n_entries; i > 0; i--) {
+                UIDRangeEntry *e = range->entries + i - 1;
+                unsigned n_parts = e->nr / size;
+
+                for (unsigned j = n_parts; j > 0; j--) {
+                        range->entries[--t] = (UIDRangeEntry) {
+                                .start = e->start + (j - 1) * size,
+                                .nr = size,
+                        };
+                }
+        }
+
+        range->n_entries = n_new_entries;
+
+        return 0;
+}
+
+int uid_range_copy(const UIDRange *range, UIDRange **ret) {
+        assert(ret);
+
+        if (!range) {
+                *ret = NULL;
+                return 0;
+        }
+
+        _cleanup_(uid_range_freep) UIDRange *copy = new0(UIDRange, 1);
+        if (!copy)
+                return -ENOMEM;
+
+        if (range->n_entries > 0) {
+                copy->entries = newdup(UIDRangeEntry, range->entries, range->n_entries);
+                if (!copy->entries)
+                        return -ENOMEM;
+
+                copy->n_entries = range->n_entries;
+        }
+
+        *ret = TAKE_PTR(copy);
+        return 0;
+}
+
+int uid_range_remove(UIDRange *range, uid_t start, uid_t size) {
+        assert(range);
+
+        if (size == 0)
+                return 0;
+
+        uid_t end = start + size; /* one past the last UID to remove */
+
+        for (size_t i = 0; i < range->n_entries; i++) {
+                UIDRangeEntry *e = range->entries + i;
+                uid_t entry_end = e->start + e->nr;
+
+                /* No overlap */
+                if (entry_end <= start || e->start >= end)
+                        continue;
+
+                /* Check if this removal splits the entry into two parts */
+                if (e->start < start && entry_end > end) {
+                        /* Need to split: grow the array first */
+                        if (!GREEDY_REALLOC(range->entries, range->n_entries + 1))
+                                return -ENOMEM;
+
+                        /* Re-fetch pointer after potential realloc */
+                        e = range->entries + i;
+                        entry_end = e->start + e->nr;
+
+                        /* Shift everything after this entry to make room */
+                        memmove(range->entries + i + 2, range->entries + i + 1,
+                                (range->n_entries - i - 1) * sizeof(UIDRangeEntry));
+                        range->n_entries++;
+
+                        /* First part: before the removed range */
+                        range->entries[i] = (UIDRangeEntry) {
+                                .start = e->start,
+                                .nr = start - e->start,
+                        };
+
+                        /* Second part: after the removed range */
+                        range->entries[i + 1] = (UIDRangeEntry) {
+                                .start = end,
+                                .nr = entry_end - end,
+                        };
+
+                        /* Skip the newly inserted entry */
+                        i++;
+                        continue;
+                }
+
+                /* Removal covers the entire entry */
+                if (start <= e->start && end >= entry_end) {
+                        memmove(e, e + 1, (range->n_entries - i - 1) * sizeof(UIDRangeEntry));
+                        range->n_entries--;
+                        i--;
+                        continue;
+                }
+
+                /* Removal trims the start of the entry */
+                if (start <= e->start && end > e->start) {
+                        e->nr = entry_end - end;
+                        e->start = end;
+                        continue;
+                }
+
+                /* Removal trims the end of the entry */
+                if (start < entry_end && end >= entry_end) {
+                        e->nr = start - e->start;
+                        continue;
+                }
+        }
+
+        return 0;
 }
 
 bool uid_range_equal(const UIDRange *a, const UIDRange *b) {
