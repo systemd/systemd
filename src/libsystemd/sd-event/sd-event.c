@@ -4599,7 +4599,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
         assert(ret_min_priority);
 
         n_event_queue = MAX(e->n_sources, 1u);
-        if (!GREEDY_REALLOC(e->event_queue, n_event_queue))
+        if (!GREEDY_REALLOC0(e->event_queue, n_event_queue))
                 return -ENOMEM;
 
         n_event_max = MALLOC_ELEMENTSOF(e->event_queue);
@@ -4625,7 +4625,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
                 if (n_event_max >= n_event_queue * 10)
                         break;
 
-                if (!GREEDY_REALLOC(e->event_queue, n_event_max + n_event_queue))
+                if (!GREEDY_REALLOC0(e->event_queue, n_event_max + n_event_queue))
                         return -ENOMEM;
 
                 n_event_max = MALLOC_ELEMENTSOF(e->event_queue);
