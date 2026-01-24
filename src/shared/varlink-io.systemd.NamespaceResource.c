@@ -2,18 +2,27 @@
 
 #include "varlink-io.systemd.NamespaceResource.h"
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                AllocateUserRangeType,
+                SD_VARLINK_FIELD_COMMENT("Allocate a transient UID/GID range from the dynamic range pool. This is the default."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(managed),
+                SD_VARLINK_FIELD_COMMENT("Create a user namespace that maps the peer UID/GID to itself instead of allocating a transient UID range."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(self));
+
 static SD_VARLINK_DEFINE_METHOD(
                 AllocateUserRange,
                 SD_VARLINK_FIELD_COMMENT("The name for the user namespace, a short string that must be fit to be included in a file name and in a user name. This name is included in the user records announced via NSS and is otherwise useful for debugging."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Controls whether to mangle the provided name if needed so that it is suitable for naming a user namespace. If true this will shorten the name as necessary or randomize it if that's not sufficient. If null defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(mangleName, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The number of UIDs to assign. Must be 1 or 65536."),
+                SD_VARLINK_FIELD_COMMENT("The number of UIDs to assign. Must be 1 or 65536. If type is 'self', must be 1."),
                 SD_VARLINK_DEFINE_INPUT(size, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("The target UID inside the user namespace. If not specified defaults to 0."),
+                SD_VARLINK_FIELD_COMMENT("The target UID inside the user namespace. If not specified defaults to 0. If type is 'self', must be 0 or unset in which case the peer UID is mapped to itself."),
                 SD_VARLINK_DEFINE_INPUT(target, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("A file descriptor to an allocated userns with no current UID range assignments"),
                 SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The type of allocation to perform. If 'managed' (the default), a transient UID/GID range is allocated from the dynamic range pool. If 'self', the peer UID/GID is mapped to itself. Defaults to 'managed'."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(type, AllocateUserRangeType, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Number of transient 64K container UID/GID ranges to delegate. These are mapped 1:1 into the user namespace and can be used by nested user namespaces for container workloads. Must be between 0 and 16. Defaults to 0."),
                 SD_VARLINK_DEFINE_INPUT(delegateContainerRanges, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The name assigned to the user namespace. (This is particularly interesting in case mangleName was enabled)."),
@@ -77,6 +86,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_NamespaceResource,
                 "io.systemd.NamespaceResource",
                 SD_VARLINK_INTERFACE_COMMENT("Allocate transient UID ranges for user namespace, and assign mounts, cgroups and networking devices to them"),
+                SD_VARLINK_SYMBOL_COMMENT("The type of user range allocation to perform."),
+                &vl_type_AllocateUserRangeType,
                 SD_VARLINK_SYMBOL_COMMENT("Assigns a UID range to a client-allocated user namespace that has no UID range assigned so far, and registers it for assignment of other resources."),
                 &vl_method_AllocateUserRange,
                 SD_VARLINK_SYMBOL_COMMENT("Registers an already initialized user namespace for assignment of resources."),
