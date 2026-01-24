@@ -43,9 +43,7 @@ units = [
           'file' : 'getty.target',
           'symlinks' : ['multi-user.target.wants/'],
         },
-        {
-          'file' : 'getty@.service.in',
-        },
+        { 'file' : 'getty@.service.in' },
         {
           'file' : 'graphical.target',
           'symlinks' : ['default.target'],
