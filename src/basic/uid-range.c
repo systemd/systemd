@@ -532,6 +532,27 @@ int uid_range_translate(const UIDRange *outside, const UIDRange *inside, uid_t u
         return -ESRCH;
 }
 
+int uid_range_translate_userns_fd(int userns_fd, UIDRangeUsernsMode mode, uid_t uid, uid_t *ret) {
+        int r;
+
+        assert(userns_fd >= 0);
+        assert(IN_SET(mode, UID_RANGE_USERNS_OUTSIDE, GID_RANGE_USERNS_OUTSIDE));
+
+        _cleanup_(uid_range_freep) UIDRange *outside_range = NULL;
+        r = uid_range_load_userns_by_fd_full(userns_fd, mode, /* coalesce= */ false, &outside_range);
+        if (r < 0)
+                return r;
+
+        mode = mode == UID_RANGE_USERNS_OUTSIDE ? UID_RANGE_USERNS_INSIDE : GID_RANGE_USERNS_INSIDE;
+
+        _cleanup_(uid_range_freep) UIDRange *inside_range = NULL;
+        r = uid_range_load_userns_by_fd_full(userns_fd, mode, /* coalesce= */ false, &inside_range);
+        if (r < 0)
+                return r;
+
+        return uid_range_translate(outside_range, inside_range, uid, ret);
+}
+
 bool uid_range_equal(const UIDRange *a, const UIDRange *b) {
         if (a == b)
                 return true;
