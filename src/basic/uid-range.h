@@ -67,6 +67,7 @@ int uid_range_partition(UIDRange *range, uid_t size);
 int uid_range_copy(const UIDRange *range, UIDRange **ret);
 int uid_range_remove(UIDRange *range, uid_t start, uid_t size);
 int uid_range_translate(const UIDRange *outside, const UIDRange *inside, uid_t uid, uid_t *ret);
+int uid_range_translate_userns_fd(int userns_fd, UIDRangeUsernsMode mode, uid_t uid, uid_t *ret);
 
 int uid_map_search_root(pid_t pid, UIDRangeUsernsMode mode, uid_t *ret);
 
