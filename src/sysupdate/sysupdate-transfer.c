@@ -1164,46 +1164,6 @@ static int run_callout(
         return sd_event_loop(event);
 }
 
-/* This is a combination of path_extract_directory() and path_extract_filename() to avoid doing mostly the
- * same work twice. */
-static int path_extract_directory_and_filename(const char *path, char **dir_out, char **filename_out) {
-        _cleanup_free_ char *dir = NULL;
-        _cleanup_free_ char *filename = NULL;
-        const char *c, *next = NULL;
-        int r;
-
-        if (!path_is_valid(path))
-                return -EINVAL;
-
-        r = path_find_last_component(path, false, &next, &c);
-        if (r < 0)
-                return r;
-        if (r == 0) /* empty or root */
-                return isempty(path) ? -EINVAL : -EADDRNOTAVAIL;
-        if (next == path && *path != '/') /* filename only */
-                return -EDESTADDRREQ;
-
-        dir = (next != path) ? strndup(path, next - path) : strdup("/");
-        if (!dir)
-                return -ENOMEM;
-
-        path_simplify(dir);
-
-        if (!path_is_valid(dir))
-                return -EINVAL;
-
-        filename = strndup(c, r);
-        if (!filename)
-                return -ENOMEM;
-
-        if (dir_out)
-                *dir_out = TAKE_PTR(dir);
-        if (filename_out)
-                *filename_out = TAKE_PTR(filename);
-
-        return strlen(c) > (size_t) r ? O_DIRECTORY : 0;
-}
-
 /* Build the filenames and paths which is normally done by transfer_acquire_instance(), but for partial
  * and pending instances which are about to be installed (in which case, transfer_acquire_instance() is
  * skipped). */
