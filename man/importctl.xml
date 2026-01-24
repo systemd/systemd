@@ -39,9 +39,9 @@
     <para><command>importctl</command> may be used to download, import, and export disk images via
     <citerefentry><refentrytitle>systemd-importd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
-    <para><command>importctl</command> operates both on block-level disk images (such as DDIs) as well as
-    file-system-level images (tarballs). It supports disk images in one of the four following
-    classes:</para>
+    <para><command>importctl</command> operates both on block-level disk images (such as DDIs),
+    file-system-level images (tarballs), as well as OCI images. It supports disk images in one of the four
+    following classes:</para>
 
     <itemizedlist>
       <listitem><para>VM images or full OS container images, that may be run via
@@ -169,6 +169,24 @@
         <command>cancel-transfer</command>, described below.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>pull-oci</command> <replaceable>REF</replaceable> [<replaceable>NAME</replaceable>]</term>
+
+        <listitem><para>Downloads the specified OCI container image, and makes it available under the
+        specified local name in the image directory for the selected <option>--class=</option>. The first
+        argument must be an OCI container reference, such as <literal>library/nginx</literal> If the local
+        name is omitted, it is automatically derived from the last component of the URL, with its suffix
+        removed.</para>
+
+        <para>When downloading images of this type no image verification is done beyond the usual
+        authentication of the HTTPS certificates.</para>
+
+        <para>Note that pressing Control-c during execution of this command will not abort the download. Use
+        <command>cancel-transfer</command>, described below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
       <varlistentry>
