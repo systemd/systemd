@@ -50,7 +50,8 @@ mkdir -p /etc/dpkg/dpkg.cfg.d/
 echo 'force-unsafe-io' >/etc/dpkg/dpkg.cfg.d/unsafe_io
 # For some reason, it is necessary to run this manually or the interface won't be configured
 # Note that we avoid networkd, as some of the tests will break it later on
-dhclient
+# Note that sbin is not in the default path in Debian
+/sbin/dhclient
 apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
 apt-get install -y eatmydata
