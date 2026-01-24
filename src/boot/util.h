@@ -96,6 +96,45 @@ static inline Pages xmalloc_pages(
         };
 }
 
+static inline Pages xmalloc_aligned_pages(
+                EFI_ALLOCATE_TYPE type, EFI_MEMORY_TYPE memory_type, size_t n_pages, size_t alignment, EFI_PHYSICAL_ADDRESS addr) {
+        EFI_PHYSICAL_ADDRESS aligned = addr;
+
+        assert(ISPOWEROF2(alignment));
+
+        if (alignment <= EFI_PAGE_SIZE) {
+                assert_se(BS->AllocatePages(type, memory_type, n_pages, &aligned) == EFI_SUCCESS);
+        } else {
+                size_t total_pages = n_pages + EFI_SIZE_TO_PAGES(alignment);
+                assert_se(BS->AllocatePages(type, memory_type, total_pages, &addr) == EFI_SUCCESS);
+
+                aligned = ALIGN_TO(addr, alignment);
+                size_t unaligned_pages = EFI_SIZE_TO_PAGES(aligned - addr);
+                if (unaligned_pages > 0) {
+#ifdef EFI_DEBUG
+                        assert_se(BS->FreePages(addr, unaligned_pages) == EFI_SUCCESS);
+#else
+                        (void) BS->FreePages(addr, unaligned_pages);
+#endif
+                }
+
+                addr = aligned + n_pages * EFI_PAGE_SIZE;
+                unaligned_pages = total_pages - n_pages - unaligned_pages;
+                if (unaligned_pages > 0) {
+#ifdef EFI_DEBUG
+                        assert_se(BS->FreePages(addr, unaligned_pages) == EFI_SUCCESS);
+#else
+                        (void) BS->FreePages(addr, unaligned_pages);
+#endif
+                }
+        }
+
+        return (Pages) {
+                .addr = aligned,
+                .n_pages = n_pages,
+        };
+}
+
 static inline Pages xmalloc_initrd_pages(size_t n_pages) {
         /* The original native x86 boot protocol of the Linux kernel was not 64bit safe, hence we try to
          * allocate memory for the initrds below the 4G boundary on x86, since we don't know early enough
