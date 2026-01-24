@@ -673,6 +673,35 @@ static int context_ensure_entry_token(Context *c) {
         return 0;
 }
 
+static int get_plugin_version(const char *file, char **ret) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "version", SD_JSON_VARIANT_STRING,  sd_json_dispatch_string, 0, 0 },
+                {}
+        };
+        int r;
+
+        LOG_SET_PREFIX(file);
+
+        _cleanup_close_ int fd = open(file, O_RDONLY | O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(fd, "failed to open: %m");
+
+        _cleanup_free_ char *marker = NULL;
+        r = file_get_marker(fd, "install.d", &marker);
+        if (r < 0 && r != -ESRCH)
+                return log_warning_errno(r, "failed to extract install.d metadata: %m");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_parse(marker, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        if (r < 0)
+                return log_warning_errno(r, "failed to parse install.d metadata JSON: %m");
+
+        r = sd_json_dispatch(v, dispatch_table, /* flags= */ 0, ret);
+        if (r < 0)
+                return log_warning_errno(r, "failed to dispatch install.d metadata JSON: %m");
+        return 0;
+}
+
 static int context_load_plugins(Context *c) {
         int r;
 
@@ -1056,8 +1085,13 @@ static int context_execute(Context *c) {
                 return r;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *x = strv_join_full(c->plugins, "", "\n  ", /* escape_separator= */ false);
-                log_debug("Using plugins: %s", strna(x));
+                log_debug("Using plugins:");
+                STRV_FOREACH(plugin, c->plugins) {
+                        _cleanup_free_ char *v = NULL;
+                        (void) get_plugin_version(*plugin, &v);
+
+                        log_debug("%s%s%s", *plugin, v ? " version=" : " (no version info)", strempty(v));
+                }
 
                 _cleanup_free_ char *y = strv_join_full(c->envp, "", "\n  ", /* escape_separator= */ false);
                 log_debug("Plugin environment: %s", strna(y));
