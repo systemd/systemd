@@ -46,6 +46,14 @@ static inline bool gid_is_foreign(gid_t gid) {
         return uid_is_foreign((uid_t) gid);
 }
 
+static inline bool uid_is_transient(uid_t uid) {
+        return uid_is_container(uid) || uid_is_dynamic(uid);
+}
+
+static inline bool gid_is_transient(gid_t gid) {
+        return uid_is_container((uid_t) gid) || uid_is_dynamic((uid_t) gid);
+}
+
 typedef struct UGIDAllocationRange {
         uid_t system_alloc_uid_min;
         uid_t system_uid_max;
