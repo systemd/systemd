@@ -11,8 +11,11 @@
 #include "sd-varlink.h"
 
 #include "argv-util.h"
+#include "btrfs-util.h"
 #include "bus-polkit.h"
 #include "chase.h"
+#include "chown-recursive.h"
+#include "copy.h"
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "env-util.h"
@@ -36,6 +39,9 @@
 #include "os-util.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "process-util.h"
+#include "rm-rf.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -878,6 +884,99 @@ static DirectoryOwnership validate_directory_fd(
         return DIRECTORY_IS_OTHERWISE_OWNED;
 }
 
+static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, const char *directory_path) {
+        int r;
+
+        _cleanup_close_ int mount_fd = open_tree_try_drop_idmap(
+                        directory_fd,
+                        "",
+                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+        if (mount_fd >= 0)
+                return TAKE_FD(mount_fd);
+        if (mount_fd != -EINVAL)
+                return log_debug_errno(mount_fd, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = varlink_get_peer_pidref(link, &pidref);
+        if (r < 0)
+                return r;
+
+        r = pidref_in_same_namespace(/* pid1= */ NULL, &pidref, NAMESPACE_MOUNT);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check if peer is in same mount namespace: %m");
+        if (r > 0)
+                return log_debug_errno(mount_fd, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
+
+        /* The peer is in a different mount namespace. open_tree() will fail with EINVAL on directory fds
+         * from a different mount namespace, so we need to fork off a child process that joins the peer's
+         * mount namespace and calls open_tree() there. */
+
+        _cleanup_close_ int mntns_fd = pidref_namespace_open_by_type(&pidref, NAMESPACE_MOUNT);
+        if (mntns_fd < 0)
+                return log_debug_errno(mntns_fd, "Failed to open mount namespace of peer: %m");
+
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR, mount_fd_socket[2] = EBADF_PAIR;
+
+        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+                return log_debug_errno(errno, "Failed to create pipe: %m");
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, mount_fd_socket) < 0)
+                return log_debug_errno(errno, "Failed to create socket pair: %m");
+
+        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        r = namespace_fork(
+                        "(sd-opentreens)",
+                        "(sd-opentree)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                        /* pidns_fd= */ -EBADF,
+                        mntns_fd,
+                        /* netns_fd= */ -EBADF,
+                        /* userns_fd= */ -EBADF,
+                        /* root_fd= */ -EBADF,
+                        &child);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork into peer's mount namespace: %m");
+        if (r == 0) {
+                /* Child */
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+                mount_fd_socket[0] = safe_close(mount_fd_socket[0]);
+
+                mount_fd = open_tree_try_drop_idmap(
+                                directory_fd,
+                                "",
+                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+                if (mount_fd < 0) {
+                        log_debug_errno(mount_fd, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
+                        report_errno_and_exit(errno_pipe_fd[1], mount_fd);
+                }
+
+                r = send_one_fd(mount_fd_socket[1], mount_fd, /* flags= */ 0);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to send mount fd: %m");
+                        report_errno_and_exit(errno_pipe_fd[1], r);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+        mount_fd_socket[1] = safe_close(mount_fd_socket[1]);
+
+        r = pidref_wait_for_terminate_and_check("(sd-opentreens)", &child, /* flags= */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to wait for child: %m");
+
+        r = read_errno(errno_pipe_fd[0]);
+        if (r < 0)
+                return r;
+
+        mount_fd = receive_one_fd(mount_fd_socket[0], MSG_DONTWAIT);
+        if (mount_fd < 0)
+                return log_debug_errno(mount_fd, "Failed to receive mount fd from child: %m");
+
+        return TAKE_FD(mount_fd);
+}
+
 static int vl_method_mount_directory(
                 sd_varlink *link,
                 sd_json_variant *parameters,
@@ -992,12 +1091,9 @@ static int vl_method_mount_directory(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int mount_fd = open_tree_try_drop_idmap(
-                        directory_fd,
-                        "",
-                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+        _cleanup_close_ int mount_fd = open_tree_try_drop_idmap_harder(link, directory_fd, directory_path);
         if (mount_fd < 0)
-                return log_debug_errno(errno, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
+                return mount_fd;
 
         /* MOUNT_ATTR_IDMAP has possibly been cleared. Let's verify that the underlying data matches our expectations. */
         struct stat unmapped_st;
@@ -1231,6 +1327,464 @@ fail:
         return r;
 }
 
+typedef struct ChownDirectoryParameters {
+        unsigned directory_fd_idx;
+} ChownDirectoryParameters;
+
+static int vl_method_chown_directory(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "directoryFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, offsetof(ChownDirectoryParameters, directory_fd_idx), SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        ChownDirectoryParameters p = {
+                .directory_fd_idx = UINT_MAX,
+        };
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.directory_fd_idx == UINT_MAX)
+                return sd_varlink_error_invalid_parameter_name(link, "directoryFileDescriptor");
+
+        _cleanup_close_ int directory_fd = sd_varlink_peek_dup_fd(link, p.directory_fd_idx);
+        if (directory_fd < 0)
+                return log_debug_errno(directory_fd, "Failed to peek directory fd from client: %m");
+
+        uid_t peer_uid;
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get client UID: %m");
+
+        gid_t peer_gid;
+        r = sd_varlink_get_peer_gid(link, &peer_gid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get client GID: %m");
+
+        struct stat st;
+        if (fstat(directory_fd, &st) < 0)
+                return -errno;
+
+        r = stat_verify_directory(&st);
+        if (r < 0)
+                return r;
+
+        r = fd_verify_safe_flags_full(directory_fd, O_DIRECTORY);
+        if (r < 0)
+                return log_debug_errno(r, "Directory file descriptor has unsafe flags set: %m");
+
+        _cleanup_free_ char *directory_path = NULL;
+        (void) fd_get_path(directory_fd, &directory_path);
+
+        log_debug("Asked to chown directory: %s", strna(directory_path));
+
+        const char *polkit_details[] = {
+                "directory", strna(directory_path),
+                NULL,
+        };
+
+        const char *polkit_action;
+        PolkitFlags polkit_flags;
+        if (st.st_uid != peer_uid || st.st_gid != peer_gid) {
+                polkit_action = "io.systemd.mount-file-system.chown-directory-untrusted";
+                polkit_flags = 0;
+                /* When privileged, we don't do any source UID/GID checks when recursively chowning. */
+                peer_uid = UID_INVALID;
+                peer_gid = GID_INVALID;
+        } else {
+                polkit_action = "io.systemd.mount-file-system.chown-directory";
+                polkit_flags = POLKIT_DEFAULT_ALLOW;
+        }
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL,
+                        polkit_action,
+                        polkit_details,
+                        /* good_user= */ UID_INVALID,
+                        polkit_flags,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = fd_chown_recursive_full(directory_fd, FOREIGN_UID_MIN, FOREIGN_UID_MIN, /* mask= */ 07777, peer_uid, peer_gid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to recursively chown directory '%s': %m", strna(directory_path));
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+typedef struct RemoveDirectoryParameters {
+        unsigned parent_fd_idx;
+        const char *name;
+} RemoveDirectoryParameters;
+
+static int vl_method_remove_directory(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "parentFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,        offsetof(RemoveDirectoryParameters, parent_fd_idx), SD_JSON_MANDATORY },
+                { "name",                 SD_JSON_VARIANT_STRING,        json_dispatch_const_filename, offsetof(RemoveDirectoryParameters, name),          SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        RemoveDirectoryParameters p = {
+                .parent_fd_idx = UINT_MAX,
+        };
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.parent_fd_idx == UINT_MAX)
+                return sd_varlink_error_invalid_parameter_name(link, "parentFileDescriptor");
+
+        _cleanup_close_ int parent_fd = sd_varlink_peek_dup_fd(link, p.parent_fd_idx);
+        if (parent_fd < 0)
+                return log_debug_errno(parent_fd, "Failed to peek parent directory fd from client: %m");
+
+        uid_t peer_uid;
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get client UID: %m");
+
+        struct stat parent_stat;
+        if (fstat(parent_fd, &parent_stat) < 0)
+                return -errno;
+
+        r = stat_verify_directory(&parent_stat);
+        if (r < 0)
+                return r;
+
+        r = fd_verify_safe_flags_full(parent_fd, O_DIRECTORY);
+        if (r < 0)
+                return log_debug_errno(r, "Directory file descriptor has unsafe flags set: %m");
+
+        _cleanup_free_ char *parent_path = NULL;
+        (void) fd_get_path(parent_fd, &parent_path);
+
+        _cleanup_free_ char *remove_path = parent_path ? path_join(parent_path, p.name) : NULL;
+        log_debug("Asked to remove directory: %s", strna(remove_path));
+
+        const char *polkit_details[] = {
+                "directory", strna(remove_path),
+                NULL,
+        };
+
+        const char *polkit_action;
+        PolkitFlags polkit_flags;
+        if (parent_stat.st_uid != peer_uid) {
+                polkit_action = "io.systemd.mount-file-system.remove-directory-untrusted";
+                polkit_flags = 0;
+        } else {
+                polkit_action = "io.systemd.mount-file-system.remove-directory";
+                polkit_flags = POLKIT_DEFAULT_ALLOW;
+        }
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL,
+                        polkit_action,
+                        polkit_details,
+                        /* good_user= */ UID_INVALID,
+                        polkit_flags,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = rm_rf_child_full(parent_fd, p.name, REMOVE_PHYSICAL|REMOVE_SUBVOLUME, FOREIGN_UID_MIN, FOREIGN_UID_MAX);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to recursively remove directory '%s': %m", strna(remove_path));
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+typedef struct CopyDirectoryParameters {
+        unsigned source_fd_idx;
+        unsigned destination_parent_fd_idx;
+        const char *name;
+} CopyDirectoryParameters;
+
+static int vl_method_copy_directory(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "sourceFileDescriptor",            _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,        offsetof(CopyDirectoryParameters, source_fd_idx),             SD_JSON_MANDATORY },
+                { "destinationParentFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,        offsetof(CopyDirectoryParameters, destination_parent_fd_idx), SD_JSON_MANDATORY },
+                { "name",                            SD_JSON_VARIANT_STRING,        json_dispatch_const_filename, offsetof(CopyDirectoryParameters, name),                      SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        CopyDirectoryParameters p = {
+                .source_fd_idx = UINT_MAX,
+                .destination_parent_fd_idx = UINT_MAX,
+        };
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.source_fd_idx == UINT_MAX)
+                return sd_varlink_error_invalid_parameter_name(link, "sourceFileDescriptor");
+
+        if (p.destination_parent_fd_idx == UINT_MAX)
+                return sd_varlink_error_invalid_parameter_name(link, "destinationParentFileDescriptor");
+
+        _cleanup_close_ int source_fd = sd_varlink_peek_dup_fd(link, p.source_fd_idx);
+        if (source_fd < 0)
+                return log_debug_errno(source_fd, "Failed to peek source directory fd from client: %m");
+
+        _cleanup_close_ int parent_fd = sd_varlink_peek_dup_fd(link, p.destination_parent_fd_idx);
+        if (parent_fd < 0)
+                return log_debug_errno(parent_fd, "Failed to peek destination parent directory fd from client: %m");
+
+        uid_t peer_uid;
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get client UID: %m");
+
+        struct stat st;
+        if (fstat(source_fd, &st) < 0)
+                return -errno;
+
+        r = stat_verify_directory(&st);
+        if (r < 0)
+                return r;
+
+        if (st.st_uid != FOREIGN_UID_MIN || st.st_gid != FOREIGN_UID_MIN)
+                return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Source directory is not owned by foreign uid root user, refusing.");
+
+        if (fstat(parent_fd, &st) < 0)
+                return -errno;
+
+        r = stat_verify_directory(&st);
+        if (r < 0)
+                return r;
+
+        r = fd_verify_safe_flags_full(source_fd, O_DIRECTORY);
+        if (r < 0)
+                return log_debug_errno(r, "Source directory file descriptor has unsafe flags set: %m");
+
+        r = fd_verify_safe_flags_full(parent_fd, O_DIRECTORY);
+        if (r < 0)
+                return log_debug_errno(r, "Destination parent directory file descriptor has unsafe flags set: %m");
+
+        _cleanup_free_ char *source_path = NULL;
+        (void) fd_get_path(source_fd, &source_path);
+
+        _cleanup_free_ char *parent_path = NULL;
+        (void) fd_get_path(parent_fd, &parent_path);
+
+        _cleanup_free_ char *destination_path = parent_path ? path_join(parent_path, p.name) : NULL;
+        log_debug("Asked to copy directory: %s -> %s", strna(source_path), strna(destination_path));
+
+        const char *polkit_details[] = {
+                "source", strna(source_path),
+                "destination", strna(destination_path),
+                NULL,
+        };
+
+        const char *polkit_action;
+        PolkitFlags polkit_flags;
+        if (st.st_uid != peer_uid) {
+                polkit_action = "io.systemd.mount-file-system.copy-directory-untrusted";
+                polkit_flags = 0;
+        } else {
+                polkit_action = "io.systemd.mount-file-system.copy-directory";
+                polkit_flags = POLKIT_DEFAULT_ALLOW;
+        }
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL,
+                        polkit_action,
+                        polkit_details,
+                        /* good_user= */ UID_INVALID,
+                        polkit_flags,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        /* This doesn't check whether all files in the directory tree are owned by the foreign UID range, but
+         * btrfs itself will also happily keep all ownership intact when snapshotting a subvolume, so this
+         * should be OK. */
+        r = btrfs_subvol_snapshot_at(source_fd, /* from= */ NULL, parent_fd, p.name, /* flags= */ 0);
+        if (r >= 0)
+                return sd_varlink_reply(link, /* parameters= */ NULL);
+        if (r != -EISDIR)
+                return log_debug_errno(r, "Failed to create btrfs snapshot of directory '%s' to '%s': %m", strna(source_path), strna(destination_path));
+
+        r = copy_tree_at(
+                        source_fd,
+                        /* from= */ NULL,
+                        parent_fd,
+                        p.name,
+                        FOREIGN_UID_MIN,
+                        FOREIGN_UID_MAX,
+                        COPY_REFLINK|COPY_MERGE_EMPTY|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_HOLES|COPY_SOURCE_UID_RANGE|COPY_SAME_MOUNT,
+                        /* denylist= */ NULL,
+                        /* subvolumes= */ NULL);
+        if (r < 0) {
+                (void) rm_rf_child(parent_fd, p.name, REMOVE_PHYSICAL);
+                return log_debug_errno(r, "Failed to recursively copy directory '%s' to '%s': %m", strna(source_path), strna(destination_path));
+        }
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
+typedef struct RenameDirectoryParameters {
+        unsigned source_parent_fd_idx;
+        const char *source_name;
+        unsigned destination_parent_fd_idx;
+        const char *destination_name;
+} RenameDirectoryParameters;
+
+static int vl_method_rename_directory(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "sourceParentFileDescriptor",      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,        offsetof(RenameDirectoryParameters, source_parent_fd_idx),      SD_JSON_MANDATORY },
+                { "sourceName",                      SD_JSON_VARIANT_STRING,        json_dispatch_const_filename, offsetof(RenameDirectoryParameters, source_name),               SD_JSON_MANDATORY },
+                { "destinationParentFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,        offsetof(RenameDirectoryParameters, destination_parent_fd_idx), SD_JSON_MANDATORY },
+                { "destinationName",                 SD_JSON_VARIANT_STRING,        json_dispatch_const_filename, offsetof(RenameDirectoryParameters, destination_name),          SD_JSON_MANDATORY },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        RenameDirectoryParameters p = {
+                .source_parent_fd_idx = UINT_MAX,
+                .destination_parent_fd_idx = UINT_MAX,
+        };
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.source_parent_fd_idx == UINT_MAX)
+                return sd_varlink_error_invalid_parameter_name(link, "sourceParentFileDescriptor");
+
+        if (p.destination_parent_fd_idx == UINT_MAX)
+                return sd_varlink_error_invalid_parameter_name(link, "destinationParentFileDescriptor");
+
+        _cleanup_close_ int source_parent_fd = sd_varlink_peek_dup_fd(link, p.source_parent_fd_idx);
+        if (source_parent_fd < 0)
+                return log_debug_errno(source_parent_fd, "Failed to peek source parent directory fd from client: %m");
+
+        _cleanup_close_ int destination_parent_fd = sd_varlink_peek_dup_fd(link, p.destination_parent_fd_idx);
+        if (destination_parent_fd < 0)
+                return log_debug_errno(destination_parent_fd, "Failed to peek destination parent directory fd from client: %m");
+
+        uid_t peer_uid;
+        r = sd_varlink_get_peer_uid(link, &peer_uid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get client UID: %m");
+
+        struct stat source_parent_stat;
+        if (fstat(source_parent_fd, &source_parent_stat) < 0)
+                return -errno;
+
+        r = stat_verify_directory(&source_parent_stat);
+        if (r < 0)
+                return r;
+
+        struct stat destination_parent_stat;
+        if (fstat(destination_parent_fd, &destination_parent_stat) < 0)
+                return -errno;
+
+        r = stat_verify_directory(&destination_parent_stat);
+        if (r < 0)
+                return r;
+
+        r = fd_verify_safe_flags_full(source_parent_fd, O_DIRECTORY);
+        if (r < 0)
+                return log_debug_errno(r, "Source parent directory file descriptor has unsafe flags set: %m");
+
+        r = fd_verify_safe_flags_full(destination_parent_fd, O_DIRECTORY);
+        if (r < 0)
+                return log_debug_errno(r, "Destination parent directory file descriptor has unsafe flags set: %m");
+
+        _cleanup_close_ int source_fd = openat(source_parent_fd, p.source_name, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (source_fd < 0)
+                return log_debug_errno(errno, "Failed to open source directory '%s': %m", p.source_name);
+
+        struct stat source_stat;
+        if (fstat(source_fd, &source_stat) < 0)
+                return -errno;
+
+        if (source_stat.st_uid != FOREIGN_UID_MIN || source_stat.st_gid != FOREIGN_UID_MIN)
+                return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Source directory is not owned by foreign uid root user, refusing.");
+
+        _cleanup_free_ char *source_parent_path = NULL;
+        (void) fd_get_path(source_parent_fd, &source_parent_path);
+
+        _cleanup_free_ char *source_path = source_parent_path ? path_join(source_parent_path, p.source_name) : NULL;
+
+        _cleanup_free_ char *destination_parent_path = NULL;
+        (void) fd_get_path(destination_parent_fd, &destination_parent_path);
+
+        _cleanup_free_ char *destination_path = destination_parent_path ? path_join(destination_parent_path, p.destination_name) : NULL;
+        log_debug("Asked to rename directory: %s -> %s", strna(source_path), strna(destination_path));
+
+        const char *polkit_details[] = {
+                "source", strna(source_path),
+                "destination", strna(destination_path),
+                NULL,
+        };
+
+        const char *polkit_action;
+        PolkitFlags polkit_flags;
+        if (source_parent_stat.st_uid != peer_uid || destination_parent_stat.st_uid != peer_uid) {
+                polkit_action = "io.systemd.mount-file-system.rename-directory-untrusted";
+                polkit_flags = 0;
+        } else {
+                polkit_action = "io.systemd.mount-file-system.rename-directory";
+                polkit_flags = POLKIT_DEFAULT_ALLOW;
+        }
+
+        r = varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL,
+                        polkit_action,
+                        polkit_details,
+                        /* good_user= */ UID_INVALID,
+                        polkit_flags,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = rename_noreplace(source_parent_fd, p.source_name, destination_parent_fd, p.destination_name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to rename directory '%s' to '%s': %m", strna(source_path), strna(destination_path));
+
+        return sd_varlink_reply(link, /* parameters= */ NULL);
+}
+
 static int process_connection(sd_varlink_server *server, int _fd) {
         _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possession */
         _cleanup_(sd_varlink_close_unrefp) sd_varlink *vl = NULL;
@@ -1302,7 +1856,11 @@ static int run(int argc, char *argv[]) {
                         server,
                         "io.systemd.MountFileSystem.MountImage",     vl_method_mount_image,
                         "io.systemd.MountFileSystem.MountDirectory", vl_method_mount_directory,
-                        "io.systemd.MountFileSystem.MakeDirectory",  vl_method_make_directory);
+                        "io.systemd.MountFileSystem.MakeDirectory",  vl_method_make_directory,
+                        "io.systemd.MountFileSystem.ChownDirectory", vl_method_chown_directory,
+                        "io.systemd.MountFileSystem.RemoveDirectory", vl_method_remove_directory,
+                        "io.systemd.MountFileSystem.CopyDirectory",  vl_method_copy_directory,
+                        "io.systemd.MountFileSystem.RenameDirectory", vl_method_rename_directory);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind methods: %m");
 

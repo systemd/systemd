@@ -8,6 +8,7 @@
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <poll.h>
+#include <sched.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -22,6 +23,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "memory-util.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
@@ -863,6 +865,74 @@ int getpeercred(int fd, struct ucred *ucred) {
          * receiving in "invalid" user/group we get the overflow UID/GID. */
 
         *ucred = u;
+        return 0;
+}
+
+int getpeercred_in_userns(int fd, int userns_fd, struct ucred *ret) {
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        int r;
+
+        assert(fd >= 0);
+        assert(userns_fd >= 0);
+        assert(ret);
+
+        if (is_our_namespace(userns_fd, NAMESPACE_USER))
+                return getpeercred(fd, ret);
+
+        /* Retrieves the peer credentials from a socket, but does so in the specified user namespace. This is
+         * useful when the peer socket is in a different user namespace and we want to get the translated
+         * credentials. */
+
+        if (pipe2(pfd, O_CLOEXEC) < 0)
+                return -errno;
+
+        r = pidref_safe_fork_full(
+                        "(sd-getpeercred)",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { pfd[1], fd, userns_fd }, 3,
+                        FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_DEATHSIG_SIGKILL,
+                        &pidref);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child */
+                struct ucred ucred;
+
+                if (setns(userns_fd, CLONE_NEWUSER) < 0) {
+                        log_debug_errno(errno, "Failed to join user namespace: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = getpeercred(fd, &ucred);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get peer credentials: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = loop_write(pfd[1], &ucred, sizeof(ucred));
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to write peer credentials to pipe: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pfd[1] = safe_close(pfd[1]);
+
+        struct ucred ucred;
+        ssize_t n = read(pfd[0], &ucred, sizeof(ucred));
+        if (n < 0)
+                return log_debug_errno(errno, "Failed to read peer credentials from pipe: %m");
+        if ((size_t) n != sizeof(ucred))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading peer credentials from pipe: %m");;
+
+        r = pidref_wait_for_terminate_and_check("(sd-getpeercred)", &pidref, /* flags= */ 0);
+        if (r < 0)
+                return r;
+
+        *ret = ucred;
         return 0;
 }
 

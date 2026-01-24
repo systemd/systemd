@@ -53,4 +53,9 @@ int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange
 
 bool uid_range_overlaps(const UIDRange *range, uid_t start, uid_t nr);
 
+int uid_range_intersect(UIDRange *range, uid_t min, uid_t max);
+int uid_range_partition(UIDRange *range, uid_t size);
+int uid_range_copy(const UIDRange *range, UIDRange **ret);
+int uid_range_remove(UIDRange *range, uid_t start, uid_t size);
+
 int uid_map_search_root(pid_t pid, UIDRangeUsernsMode mode, uid_t *ret);
