@@ -611,17 +611,21 @@ static int allocate_now(
         if (r == 0)
                 return -EEXIST;
 
-        r = allocate_one(
+        /* If the source UID/GID are already set we're doing an identity user namespace and don't need to
+         * allocate a transient range. */
+        if (!uid_is_valid(info->start_uid) && !uid_is_valid(info->start_gid)) {
+                r = allocate_one(
                         registry_dir_fd,
                         info->name, info->size,
                         parent_userns_inode,
                         candidates,
                         &candidate);
-        if (r < 0)
-                return r;
+                if (r < 0)
+                        return r;
 
-        info->start_uid = candidate;
-        info->start_gid = (gid_t) candidate;
+                info->start_uid = candidate;
+                info->start_gid = (gid_t) candidate;
+        }
 
         /* Now allocate delegated ranges if requested */
         if (info->n_delegates > 0) {
@@ -738,7 +742,7 @@ static int write_userns(int userns_fd, int parent_userns_fd, const UserNamespace
         /* Let's enforce that the transient UID/GID ranges are mapped 1:1 in the parent user namespace, to
          * avoid any weird mapping shenanigans that might happen otherwise. */
 
-        if (start_uid != userns_info->start_uid)
+        if (uid_is_transient(userns_info->start_uid) && start_uid != userns_info->start_uid)
                 return log_debug_errno(
                         SYNTHETIC_ERRNO(ERANGE),
                         "Transient UID range not mapped 1:1 in parent userns ("UID_FMT" -> "UID_FMT")",
@@ -791,7 +795,7 @@ static int write_userns(int userns_fd, int parent_userns_fd, const UserNamespace
         if (r < 0)
                 return log_debug_errno(r, "Failed to translate GID "GID_FMT" to parent userns: %m", userns_info->start_gid);
 
-        if (start_gid != userns_info->start_gid)
+        if (gid_is_transient(userns_info->start_gid) && start_gid != userns_info->start_gid)
                 return log_debug_errno(
                         SYNTHETIC_ERRNO(ERANGE),
                         "Transient GID range not mapped 1:1 in parent userns ("GID_FMT" -> "GID_FMT")",
@@ -1000,14 +1004,23 @@ static int validate_name(sd_varlink *link, const char *name, bool mangle, char *
         return 0;
 }
 
-static int validate_target_and_size(sd_varlink *link, uid_t target, uint32_t size) {
+static int validate_target_and_size(sd_varlink *link, uid_t target, uint32_t size, bool identity) {
         assert(link);
 
-        if (!IN_SET(size, 1U, 0x10000))
-                return sd_varlink_error_invalid_parameter_name(link, "size");
+        if (identity) {
+                /* Identity userns must have size 1 and target must be 0 or the peer UID */
+                if (size != 1)
+                        return sd_varlink_error_invalid_parameter_name(link, "size");
 
-        if (!uid_is_valid(target) || target > UINT32_MAX - size)
-                return sd_varlink_error_invalid_parameter_name(link, "target");
+                if (!IN_SET(target, UID_INVALID, 0))
+                        return sd_varlink_error_invalid_parameter_name(link, "target");
+        } else {
+                if (!IN_SET(size, 1U, 0x10000))
+                        return sd_varlink_error_invalid_parameter_name(link, "size");
+
+                if (!uid_is_valid(target) || target > UINT32_MAX - size)
+                        return sd_varlink_error_invalid_parameter_name(link, "target");
+        }
 
         return 0;
 }
@@ -1097,6 +1110,7 @@ typedef struct AllocateParameters {
         uid_t target;
         unsigned userns_fd_idx;
         bool mangle_name;
+        bool identity;
         uint32_t delegate_amount;
         uint32_t delegate_size;
 } AllocateParameters;
@@ -1109,6 +1123,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
                 { "target",                      _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(AllocateParameters, target),          0                 },
                 { "userNamespaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(AllocateParameters, userns_fd_idx),   SD_JSON_MANDATORY },
                 { "mangleName",                  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(AllocateParameters, mangle_name),     0                 },
+                { "identity",                    SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(AllocateParameters, identity),        0                 },
                 { "delegateAmount",              _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,       offsetof(AllocateParameters, delegate_amount), 0                 },
                 { "delegateSize",                _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,       offsetof(AllocateParameters, delegate_size),   0                 },
                 {}
@@ -1118,9 +1133,11 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         _cleanup_free_ char *userns_name = NULL;
         Context *c = ASSERT_PTR(userdata);
         uid_t peer_uid;
+        gid_t peer_gid;
         struct stat userns_st;
         AllocateParameters p = {
                 .size = UINT32_MAX,
+                .target = UID_INVALID,
                 .userns_fd_idx = UINT_MAX,
         };
         int r;
@@ -1136,11 +1153,14 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         if (r != 0)
                 return r;
 
+        if (!p.identity && p.target == UID_INVALID)
+                p.target = 0;
+
         r = validate_name(link, p.name, p.mangle_name, &userns_name);
         if (r != 0)
                 return r;
 
-        r = validate_target_and_size(link, p.target, p.size);
+        r = validate_target_and_size(link, p.target, p.size, p.identity);
         if (r != 0)
                 return r;
 
@@ -1168,6 +1188,10 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
                 return log_debug_errno(errno, "Failed to get parent user namespace: %m");
 
         r = sd_varlink_get_peer_uid(link, &peer_uid);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_get_peer_gid(link, &peer_gid);
         if (r < 0)
                 return r;
 
@@ -1210,6 +1234,29 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         userns_info->size = p.size;
         userns_info->target_uid = p.target;
         userns_info->target_gid = (gid_t) p.target;
+
+        if (p.identity) {
+                userns_info->start_uid = peer_uid;
+                userns_info->start_gid = peer_gid;
+
+                if (p.target == UID_INVALID) {
+                        r = uid_range_translate_userns_fd(
+                                        parent_userns_fd,
+                                        UID_RANGE_USERNS_OUTSIDE,
+                                        peer_uid,
+                                        &userns_info->target_uid);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to translate UID "UID_FMT" to parent user namespace: %m", peer_uid);
+
+                        r = uid_range_translate_userns_fd(
+                                        parent_userns_fd,
+                                        GID_RANGE_USERNS_OUTSIDE,
+                                        peer_gid,
+                                        &userns_info->target_gid);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to translate GID "GID_FMT" to parent user namespace: %m", peer_gid);
+                }
+        }
 
         /* Set up delegation arrays if requested */
         if (p.delegate_amount > 0) {
