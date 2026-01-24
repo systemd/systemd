@@ -335,7 +335,8 @@ void manager_process_syslog_message(
                  syslog_facility[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
         const char *msg, *syslog_ts, *a;
         _cleanup_free_ char *identifier = NULL, *pid = NULL,
-                *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL;
+                *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL,
+                *identifier_field = NULL, *pid_field = NULL, *timestamp_field = NULL;
         int priority = LOG_USER | LOG_INFO, r;
         ClientContext *context = NULL;
         struct iovec *iovec;
@@ -429,19 +430,37 @@ void manager_process_syslog_message(
         }
 
         if (identifier) {
-                a = strjoina("SYSLOG_IDENTIFIER=", identifier);
+                if (strlen(identifier) + STRLEN("SYSLOG_IDENTIFIER=") < ALLOCA_MAX)
+                        a = strjoina("SYSLOG_IDENTIFIER=", identifier);
+                else {
+                        a = identifier_field = strjoin("SYSLOG_IDENTIFIER=", identifier);
+                        if (!identifier_field)
+                                return (void) log_oom();
+                }
                 iovec[n++] = IOVEC_MAKE_STRING(a);
         }
 
         if (pid) {
-                a = strjoina("SYSLOG_PID=", pid);
+                if (strlen(pid) + STRLEN("SYSLOG_PID=") < ALLOCA_MAX)
+                        a = strjoina("SYSLOG_PID=", pid);
+                else {
+                        a = pid_field = strjoin("SYSLOG_PID=", pid);
+                        if (!pid_field)
+                                return (void) log_oom();
+                }
                 iovec[n++] = IOVEC_MAKE_STRING(a);
         }
 
         if (syslog_ts_len > 0) {
                 const size_t hlen = STRLEN("SYSLOG_TIMESTAMP=");
 
-                t = newa(char, hlen + syslog_ts_len);
+                if (hlen + syslog_ts_len < ALLOCA_MAX)
+                        t = newa(char, hlen + syslog_ts_len);
+                else {
+                        t = timestamp_field = new(char, hlen + syslog_ts_len);
+                        if (!timestamp_field)
+                                return (void) log_oom();
+                }
                 memcpy(t, "SYSLOG_TIMESTAMP=", hlen);
                 memcpy(t + hlen, syslog_ts, syslog_ts_len);
 
