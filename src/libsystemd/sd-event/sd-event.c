@@ -4618,6 +4618,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
                         return r;
 
                 m = (size_t) r;
+                msan_unpoison(e->event_queue, m * sizeof(struct epoll_event));
 
                 if (m < n_event_max)
                         break;
@@ -4636,19 +4637,17 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
         if (threshold == INT64_MAX)
                 triple_timestamp_now(&e->timestamp);
 
-        for (size_t i = 0; i < m; i++) {
+        FOREACH_ARRAY(i, e->event_queue, m) {
 
-                if (e->event_queue[i].data.ptr == INT_TO_PTR(SOURCE_WATCHDOG))
-                        r = flush_timer(e, e->watchdog_fd, e->event_queue[i].events, NULL);
+                if (i->data.ptr == INT_TO_PTR(SOURCE_WATCHDOG))
+                        r = flush_timer(e, e->watchdog_fd, i->events, NULL);
                 else {
-                        WakeupType *t = e->event_queue[i].data.ptr;
+                        WakeupType *t = ASSERT_PTR(i->data.ptr);
 
                         switch (*t) {
 
                         case WAKEUP_EVENT_SOURCE: {
-                                sd_event_source *s = e->event_queue[i].data.ptr;
-
-                                assert(s);
+                                sd_event_source *s = i->data.ptr;
 
                                 if (s->priority > threshold)
                                         continue;
@@ -4658,15 +4657,15 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
                                 switch (s->type) {
 
                                 case SOURCE_IO:
-                                        r = process_io(e, s, e->event_queue[i].events);
+                                        r = process_io(e, s, i->events);
                                         break;
 
                                 case SOURCE_CHILD:
-                                        r = process_pidfd(e, s, e->event_queue[i].events);
+                                        r = process_pidfd(e, s, i->events);
                                         break;
 
                                 case SOURCE_MEMORY_PRESSURE:
-                                        r = process_memory_pressure(s, e->event_queue[i].events);
+                                        r = process_memory_pressure(s, i->events);
                                         break;
 
                                 default:
@@ -4677,20 +4676,18 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
                         }
 
                         case WAKEUP_CLOCK_DATA: {
-                                struct clock_data *d = e->event_queue[i].data.ptr;
+                                struct clock_data *d = i->data.ptr;
 
-                                assert(d);
-
-                                r = flush_timer(e, d->fd, e->event_queue[i].events, &d->next);
+                                r = flush_timer(e, d->fd, i->events, &d->next);
                                 break;
                         }
 
                         case WAKEUP_SIGNAL_DATA:
-                                r = process_signal(e, e->event_queue[i].data.ptr, e->event_queue[i].events, &min_priority);
+                                r = process_signal(e, i->data.ptr, i->events, &min_priority);
                                 break;
 
                         case WAKEUP_INOTIFY_DATA:
-                                r = event_inotify_data_read(e, e->event_queue[i].data.ptr, e->event_queue[i].events, threshold);
+                                r = event_inotify_data_read(e, i->data.ptr, i->events, threshold);
                                 break;
 
                         default:
