@@ -428,12 +428,12 @@ void manager_process_syslog_message(
                 iovec[n++] = IOVEC_MAKE_STRING(syslog_facility);
         }
 
-        if (identifier) {
+        if (identifier && strlen(identifier) + STRLEN("SYSLOG_IDENTIFIER=") < ALLOCA_MAX) {
                 a = strjoina("SYSLOG_IDENTIFIER=", identifier);
                 iovec[n++] = IOVEC_MAKE_STRING(a);
         }
 
-        if (pid) {
+        if (pid && strlen(pid) + STRLEN("SYSLOG_PID=") < ALLOCA_MAX) {
                 a = strjoina("SYSLOG_PID=", pid);
                 iovec[n++] = IOVEC_MAKE_STRING(a);
         }
@@ -441,11 +441,13 @@ void manager_process_syslog_message(
         if (syslog_ts_len > 0) {
                 const size_t hlen = STRLEN("SYSLOG_TIMESTAMP=");
 
-                t = newa(char, hlen + syslog_ts_len);
-                memcpy(t, "SYSLOG_TIMESTAMP=", hlen);
-                memcpy(t + hlen, syslog_ts, syslog_ts_len);
+                if (hlen + syslog_ts_len < ALLOCA_MAX) {
+                        t = newa(char, hlen + syslog_ts_len);
+                        memcpy(t, "SYSLOG_TIMESTAMP=", hlen);
+                        memcpy(t + hlen, syslog_ts, syslog_ts_len);
 
-                iovec[n++] = IOVEC_MAKE(t, hlen + syslog_ts_len);
+                        iovec[n++] = IOVEC_MAKE(t, hlen + syslog_ts_len);
+                }
         }
 
         msg_msg = strjoin("MESSAGE=", msg);
