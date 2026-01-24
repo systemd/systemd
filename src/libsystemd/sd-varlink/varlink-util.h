@@ -28,4 +28,6 @@ int varlink_server_new(
 
 int varlink_check_privileged_peer(sd_varlink *vl);
 
+int varlink_get_peer_cred_in_userns(sd_varlink *vl, int userns_fd, struct ucred *ret);
+
 extern const struct hash_ops varlink_hash_ops;

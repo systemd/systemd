@@ -82,7 +82,7 @@ struct VarlinkJsonQueueItem {
         int fds[];
 };
 
-struct sd_varlink {
+typedef struct sd_varlink {
         unsigned n_ref;
 
         sd_varlink_server *server;
@@ -189,7 +189,7 @@ struct sd_varlink {
         sd_event_source *defer_event_source;
 
         PidRef exec_pidref;
-};
+} sd_varlink;
 
 typedef struct VarlinkServerSocket VarlinkServerSocket;
 
@@ -204,7 +204,7 @@ struct VarlinkServerSocket {
         LIST_FIELDS(VarlinkServerSocket, sockets);
 };
 
-struct sd_varlink_server {
+typedef struct sd_varlink_server {
         unsigned n_ref;
         sd_varlink_server_flags_t flags;
 
@@ -234,7 +234,7 @@ struct sd_varlink_server {
         unsigned connections_per_uid_max;
 
         bool exit_on_idle;
-};
+} sd_varlink_server;
 
 #define varlink_log_errno(v, error, fmt, ...)                           \
         log_debug_errno(error, "%s: " fmt, varlink_description(v), ##__VA_ARGS__)
