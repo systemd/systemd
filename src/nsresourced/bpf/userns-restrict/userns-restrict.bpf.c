@@ -63,6 +63,13 @@ struct {
 } userns_mnt_id_hash SEC(".maps");
 
 struct {
+        __uint(type, BPF_MAP_TYPE_HASH);
+        __uint(max_entries, 1);        /* placeholder, configured otherwise by nsresourced */
+        __type(key, unsigned);         /* userns inode */
+        __type(value, int);            /* dummy value */
+} userns_setgroups_deny SEC(".maps");
+
+struct {
         __uint(type, BPF_MAP_TYPE_RINGBUF);
         __uint(max_entries, 4096);
 } userns_ringbuf SEC(".maps");
@@ -229,20 +236,59 @@ int BPF_PROG(userns_restrict_path_link, struct dentry *old_dentry, const struct 
         return validate_mount(new_dir->mnt, ret);
 }
 
+SEC("lsm/task_fix_setgroups")
+int BPF_PROG(userns_restrict_task_fix_setgroups, struct cred *new_cred, const struct cred *old, int ret) {
+        struct user_namespace *p;
+        unsigned inode;
+
+        if (ret != 0) /* propagate earlier error */
+                return ret;
+
+        /* Walk the task's user namespace and its ancestors to find the first one managed by nsresourced
+         * (i.e. present in either the setgroups deny map or the mount ID hash map). This is necessary
+         * because a task could otherwise trivially bypass the setgroups() restriction by unsharing the user
+         * namespace and mapping the same users and groups. */
+        p = new_cred->user_ns;
+        for (unsigned i = 0; i < USER_NAMESPACE_DEPTH_MAX; i++) {
+                if (!p)
+                        break;
+
+                inode = p->ns.inum;
+
+                if (bpf_map_lookup_elem(&userns_setgroups_deny, &inode))
+                        return -EPERM;
+
+                if (bpf_map_lookup_elem(&userns_mnt_id_hash, &inode))
+                        return 0;
+
+                p = p->parent;
+        }
+
+        /* No nsresourced-managed ancestor found, allow. */
+        return 0;
+}
+
 SEC("kprobe/retire_userns_sysctls")
 int BPF_KPROBE(userns_restrict_retire_userns_sysctls, struct user_namespace *userns) {
         unsigned inode;
-        void *mnt_id_map;
 
         /* Inform userspace that a user namespace just went away. I wish there was a nicer way to hook into
          * user namespaces being deleted than using kprobes, but couldn't find any. */
         userns = bpf_rdonly_cast(userns, bpf_core_type_id_kernel(struct user_namespace));
         inode = userns->ns.inum;
 
-        mnt_id_map = bpf_map_lookup_elem(&userns_mnt_id_hash, &inode);
-        if (!mnt_id_map) /* No rules installed for this userns? Then send no notification. */
-                return 0;
+        /* Check each map separately to avoid the compiler merging the two lookups into a pointer OR
+         * operation, which the BPF verifier rejects. */
+        if (bpf_map_lookup_elem(&userns_mnt_id_hash, &inode))
+                goto notify;
 
+        if (bpf_map_lookup_elem(&userns_setgroups_deny, &inode))
+                goto notify;
+
+        /* No rules installed for this userns? Then send no notification. */
+        return 0;
+
+notify:
         bpf_ringbuf_output(&userns_ringbuf, &inode, sizeof(inode), 0);
         return 0;
 }
