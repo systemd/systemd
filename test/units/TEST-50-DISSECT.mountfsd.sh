@@ -85,6 +85,15 @@ test "$(run0 -u testuser --pipe unshare --user varlinkctl --exec call \
         '{"name":"test-fail2","size":65536,"userNamespaceFileDescriptor":0,"delegateAmount":1,"delegateSize":1234}') |&
             grep "Invalid argument" >/dev/null
 
+# Test identity mapping
+# Verify that identity mapping maps the peer UID to root (uid_map should show "0 <peer_uid> 1")
+test "$(run0 -u testuser --pipe unshare --user varlinkctl --exec call \
+        --push-fd=/proc/self/ns/user \
+        /run/systemd/userdb/io.systemd.NamespaceResource \
+        io.systemd.NamespaceResource.AllocateUserRange \
+        '{"name":"test-id","target":0,"size":1,"userNamespaceFileDescriptor":0,"identity":true}' \
+        -- cat /proc/self/uid_map | awk '{print $1, $3}')" = "0 1"
+
 # This should work without the key
 systemd-dissect --image-policy='root=verity:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null
 systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null
