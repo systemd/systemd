@@ -61,7 +61,7 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
                 return -EOPNOTSUPP; /* Turn into recognizable error */
         }
 
-        log_debug("Loaded shared library '%s' via dlopen().", filename);
+        log_debug("Loaded '%s' via dlopen().", filename);
 
         va_list ap;
         va_start(ap, log_level);

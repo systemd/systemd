@@ -16,6 +16,8 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <https://www.gnu.org/licenses/>.
+#
+# #### install.d: {{ KERNEL_INSTALL_JSON }} ####
 
 # pylint: disable=import-outside-toplevel,consider-using-with,disable=redefined-builtin
 

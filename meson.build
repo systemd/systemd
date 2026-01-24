@@ -1991,6 +1991,8 @@ if shared_lib_tag == ''
         shared_lib_tag = project_major_version
 endif
 
+conf.set('KERNEL_INSTALL_JSON', '{"version":"@0@"}'.format(version_tag))
+
 #####################################################################
 
 subdir('src/coverage')

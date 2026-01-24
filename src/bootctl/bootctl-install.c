@@ -202,13 +202,13 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         assert(fd_to >= 0);
         assert(to);
 
-        r = get_file_version(fd_from, &a);
+        r = file_get_marker(fd_from, "LoaderInfo", &a);
         if (r == -ESRCH)
                 return log_notice_errno(r, "Source file \"%s\" does not carry version information!", from);
         if (r < 0)
                 return r;
 
-        r = get_file_version(fd_to, &b);
+        r = file_get_marker(fd_to, "LoaderInfo", &b);
         if (r == -ESRCH)
                 return log_info_errno(r, "Skipping \"%s\", it's owned by another boot loader (no version info found).", to);
         if (r < 0)
@@ -1160,7 +1160,7 @@ static int remove_boot_efi(const char *esp_path) {
                 if (r == 0)
                         continue;
 
-                r = get_file_version(fd, &v);
+                r = file_get_marker(fd, "LoaderInfo", &v);
                 if (r == -ESRCH)
                         continue;  /* No version information */
                 if (r < 0)
