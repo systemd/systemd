@@ -20,6 +20,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "uid-classification.h"
 #include "user-util.h"
 #include "userns-registry.h"
 
@@ -229,8 +230,6 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
                 return r;
 
         if (userns_info->userns_inode == 0)
-                return -EBADMSG;
-        if (userns_info->start_uid == 0 || userns_info->start_gid == 0)
                 return -EBADMSG;
 
         if (userns_info->size == 0) {
@@ -556,7 +555,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                 goto fail;
         }
 
-        if (uid_is_valid(info->start_uid)) {
+        if (uid_is_transient(info->start_uid)) {
                 if (asprintf(&link2_fn, "u" UID_FMT ".userns", info->start_uid) < 0) {
                         r = log_oom_debug();
                         goto fail;
@@ -569,7 +568,7 @@ int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
                 }
         }
 
-        if (gid_is_valid(info->start_gid)) {
+        if (gid_is_transient(info->start_gid)) {
                 if (asprintf(&link3_fn, "g" GID_FMT ".userns", info->start_gid) < 0) {
                         r = log_oom_debug();
                         goto fail;
@@ -704,7 +703,7 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
 
         RET_GATHER(ret, RET_NERRNO(unlinkat(dir_fd, link1_fn, 0)));
 
-        if (uid_is_valid(info->start_uid)) {
+        if (uid_is_transient(info->start_uid)) {
                 _cleanup_free_ char *link2_fn = NULL;
 
                 if (asprintf(&link2_fn, "u" UID_FMT ".userns", info->start_uid) < 0)
@@ -713,7 +712,7 @@ int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
                 RET_GATHER(ret, RET_NERRNO(unlinkat(dir_fd, link2_fn, 0)));
         }
 
-        if (uid_is_valid(info->start_gid)) {
+        if (gid_is_transient(info->start_gid)) {
                 _cleanup_free_ char *link3_fn = NULL;
 
                 if (asprintf(&link3_fn, "g" GID_FMT ".userns", info->start_gid) < 0)
