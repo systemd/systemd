@@ -115,6 +115,7 @@ static inline bool ifname_valid(const char *p) {
 bool address_label_valid(const char *p) _pure_;
 
 int getpeercred(int fd, struct ucred *ucred);
+int getpeercred_in_userns(int fd, int userns_fd, struct ucred *ret);
 int getpeersec(int fd, char **ret);
 int getpeergroups(int fd, gid_t **ret);
 int getpeerpidfd(int fd);
