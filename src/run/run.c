@@ -335,7 +335,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WAIT,
                 ARG_WORKING_DIRECTORY,
                 ARG_ROOT_DIRECTORY,
-                ARG_SHELL,
                 ARG_JOB_MODE,
                 ARG_IGNORE_FAILURE,
                 ARG_BACKGROUND,
@@ -919,7 +918,6 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
         enum {
                 ARG_NO_ASK_PASSWORD = 0x100,
-                ARG_HOST,
                 ARG_MACHINE,
                 ARG_UNIT,
                 ARG_PROPERTY,
