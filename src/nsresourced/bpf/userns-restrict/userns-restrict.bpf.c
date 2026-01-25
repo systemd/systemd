@@ -31,7 +31,7 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
  * by their inode number in nsfs) that restricts creation of inodes (which would inherit the callers UID/GID)
  * or changing of ownership (similar).
  *
- * This hooks into the various path-based LSM entrypoints that control inode creation as well as chmod(), and
+ * This hooks into the various path-based LSM entrypoints that control inode creation as well as chown(), and
  * then looks up the calling process' user namespace in a global map of namespaces, which points us to
  * another map that is simply a list of allowed mnt_ids. */
 
