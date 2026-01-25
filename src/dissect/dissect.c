@@ -2182,12 +2182,16 @@ static int run(int argc, char *argv[]) {
 
                         /* Don't run things in private userns, if the mount shall be attached to the host */
                         if (!IN_SET(arg_action, ACTION_MOUNT, ACTION_WITH)) {
-                                userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K); /* allocate 64K users by default */
+                                userns_fd = nsresource_allocate_userns(
+                                                /* vl= */ NULL,
+                                                /* name= */ NULL,
+                                                NSRESOURCE_UIDS_64K); /* allocate 64K users by default */
                                 if (userns_fd < 0)
                                         return log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
                         }
 
                         r = mountfsd_mount_image(
+                                        /* vl= */ NULL,
                                         arg_image,
                                         userns_fd,
                                         /* options= */ NULL,

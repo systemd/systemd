@@ -23,13 +23,14 @@ typedef enum ImportFlags {
         IMPORT_PULL_ROOTHASH_SIGNATURE = 1 << 11, /* only for raw: download .roothash.p7s file for verity */
         IMPORT_PULL_VERITY             = 1 << 12, /* only for raw: download .verity file for verity */
 
-        /* The supported flags for the tar and the raw importing */
+        /* The supported flags for the tar and raw importing */
         IMPORT_FLAGS_MASK_TAR          = IMPORT_FORCE|IMPORT_READ_ONLY|IMPORT_BTRFS_SUBVOL|IMPORT_BTRFS_QUOTA|IMPORT_DIRECT|IMPORT_SYNC|IMPORT_FOREIGN_UID,
         IMPORT_FLAGS_MASK_RAW          = IMPORT_FORCE|IMPORT_READ_ONLY|IMPORT_CONVERT_QCOW2|IMPORT_DIRECT|IMPORT_SYNC,
 
-        /* The supported flags for the tar and the raw pulling */
+        /* The supported flags for the tar, raw, oci pulling */
         IMPORT_PULL_FLAGS_MASK_TAR     = IMPORT_FLAGS_MASK_TAR|IMPORT_PULL_KEEP_DOWNLOAD|IMPORT_PULL_SETTINGS,
         IMPORT_PULL_FLAGS_MASK_RAW     = IMPORT_FLAGS_MASK_RAW|IMPORT_PULL_KEEP_DOWNLOAD|IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY,
+        IMPORT_PULL_FLAGS_MASK_OCI     = IMPORT_FORCE|IMPORT_READ_ONLY|IMPORT_BTRFS_SUBVOL|IMPORT_BTRFS_QUOTA|IMPORT_SYNC|IMPORT_FOREIGN_UID|IMPORT_PULL_SETTINGS,
 
         _IMPORT_FLAGS_INVALID = -EINVAL,
 } ImportFlags;

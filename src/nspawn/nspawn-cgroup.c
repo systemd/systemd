@@ -108,7 +108,10 @@ int create_subcgroup(
                 if (r < 0)
                         return log_error_errno(r, "Failed to add process " PID_FMT " to cgroup %s: %m", pid->pid, payload);
 
-                r = nsresource_add_cgroup(userns_fd, cgroup_fd);
+                r = nsresource_add_cgroup(
+                                /* vl= */ NULL,
+                                userns_fd,
+                                cgroup_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add cgroup %s to userns: %m", payload);
         } else {
