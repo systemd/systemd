@@ -2394,7 +2394,14 @@ static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, 
         return 0;
 }
 
-static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
+static int setup_private_users(
+                PrivateUsers private_users,
+                uid_t ouid,
+                gid_t ogid,
+                uid_t uid,
+                gid_t gid,
+                bool allow_setgroups) {
+
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
@@ -2413,63 +2420,80 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
          * For unprivileged users (i.e. without capabilities), the root to root mapping is excluded. As such, it
          * does not need CAP_SETUID to write the single line mapping to itself. */
 
-        if (private_users == PRIVATE_USERS_NO)
-                return 0;
+        switch (private_users) { /* Prepare the UID mappings */
 
-        if (private_users == PRIVATE_USERS_IDENTITY) {
+        case PRIVATE_USERS_NO:
+                return 0; /* Early exit */
+
+        case PRIVATE_USERS_IDENTITY:
                 uid_map = strdup("0 0 65536\n");
                 if (!uid_map)
                         return -ENOMEM;
-        } else if (private_users == PRIVATE_USERS_FULL) {
+                break;
+
+        case PRIVATE_USERS_FULL:
                 /* Map all UID/GID from original to new user namespace.
                  *
                  * Note the kernel defines the UID range between 0 and UINT32_MAX so we map all UIDs even though
                  * the UID range beyond INT32_MAX (e.g. i.e. the range above the signed 32-bit range) is
                  * icky. For example, setfsuid() returns the old UID as signed integer. But units can decide to
                  * use these UIDs/GIDs so we need to map them. */
-                r = asprintf(&uid_map, "0 0 " UID_FMT "\n", (uid_t) UINT32_MAX);
+                if (asprintf(&uid_map, "0 0 " UID_FMT "\n", (uid_t) UINT32_MAX) < 0)
+                        return -ENOMEM;
+
+                break;
+
+        case PRIVATE_USERS_SELF:
+                /* Can only set up multiple mappings with CAP_SETUID. */
+                if (uid_is_valid(uid) && uid != ouid && have_effective_cap(CAP_SETUID) > 0)
+                        r = asprintf(&uid_map,
+                                     UID_FMT " " UID_FMT " 1\n"     /* Map $OUID → $OUID */
+                                     UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
+                                     ouid, ouid, uid, uid);
+                else
+                        r = asprintf(&uid_map,
+                                     UID_FMT " " UID_FMT " 1\n",    /* Map $OUID → $OUID */
+                                     ouid, ouid);
                 if (r < 0)
                         return -ENOMEM;
 
-        /* Can only set up multiple mappings with CAP_SETUID. */
-        } else if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid)) {
-                r = asprintf(&uid_map,
-                             UID_FMT " " UID_FMT " 1\n"     /* Map $OUID → $OUID */
-                             UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
-                             ouid, ouid, uid, uid);
-                if (r < 0)
-                        return -ENOMEM;
-        } else {
-                r = asprintf(&uid_map,
-                             UID_FMT " " UID_FMT " 1\n",    /* Map $OUID → $OUID */
-                             ouid, ouid);
-                if (r < 0)
-                        return -ENOMEM;
+                break;
+
+        default:
+                assert_not_reached();
         }
 
-        if (private_users == PRIVATE_USERS_IDENTITY) {
+        switch (private_users) { /* Prepare the GID mappings */
+
+        case PRIVATE_USERS_IDENTITY:
                 gid_map = strdup("0 0 65536\n");
                 if (!gid_map)
                         return -ENOMEM;
-        } else if (private_users == PRIVATE_USERS_FULL) {
-                r = asprintf(&gid_map, "0 0 " GID_FMT "\n", (gid_t) UINT32_MAX);
-                if (r < 0)
+                break;
+
+        case PRIVATE_USERS_FULL:
+                if (asprintf(&gid_map, "0 0 " GID_FMT "\n", (gid_t) UINT32_MAX) < 0)
                         return -ENOMEM;
 
-        /* Can only set up multiple mappings with CAP_SETGID. */
-        } else if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid)) {
-                r = asprintf(&gid_map,
-                             GID_FMT " " GID_FMT " 1\n"     /* Map $OGID → $OGID */
-                             GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
-                             ogid, ogid, gid, gid);
+                break;
+
+        case PRIVATE_USERS_SELF:
+                /* Can only set up multiple mappings with CAP_SETGID. */
+                if (gid_is_valid(gid) && gid != ogid && have_effective_cap(CAP_SETGID) > 0)
+                        r = asprintf(&gid_map,
+                                     GID_FMT " " GID_FMT " 1\n"     /* Map $OGID → $OGID */
+                                     GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
+                                     ogid, ogid, gid, gid);
+                else
+                        r = asprintf(&gid_map,
+                                     GID_FMT " " GID_FMT " 1\n",    /* Map $OGID -> $OGID */
+                                     ogid, ogid);
                 if (r < 0)
                         return -ENOMEM;
-        } else {
-                r = asprintf(&gid_map,
-                             GID_FMT " " GID_FMT " 1\n",    /* Map $OGID -> $OGID */
-                             ogid, ogid);
-                if (r < 0)
-                        return -ENOMEM;
+                break;
+
+        default:
+                assert_not_reached();
         }
 
         /* Create a communication channel so that the parent can tell the child when it finished creating the user
@@ -3835,12 +3859,11 @@ static int apply_mount_namespace(
                 if (asprintf(&private_namespace_dir, "/run/user/" UID_FMT "/systemd", geteuid()) < 0)
                         return -ENOMEM;
 
-                if (setup_os_release_symlink) {
-                        if (asprintf(&host_os_release_stage,
-                                     "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage",
-                                     geteuid()) < 0)
-                                return -ENOMEM;
-                }
+                if (setup_os_release_symlink &&
+                    asprintf(&host_os_release_stage,
+                             "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage",
+                             geteuid()) < 0)
+                        return -ENOMEM;
         }
 
         if (root_image) {
