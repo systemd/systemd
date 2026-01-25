@@ -5,6 +5,14 @@
 
 #define USER_NAMESPACE_CGROUPS_DELEGATE_MAX 16U
 #define USER_NAMESPACE_NETIFS_DELEGATE_MAX 16U
+#define USER_NAMESPACE_DELEGATIONS_MAX 16U
+
+typedef struct DelegatedUserNamespaceInfo {
+        uint64_t userns_inode;
+        uid_t start_uid;
+        gid_t start_gid;
+        uint32_t size;
+} DelegatedUserNamespaceInfo;
 
 typedef struct UserNamespaceInfo {
         uid_t owner;
@@ -18,6 +26,8 @@ typedef struct UserNamespaceInfo {
         uint64_t *cgroups;
         size_t n_cgroups;
         char **netifs;
+        DelegatedUserNamespaceInfo *delegates;
+        size_t n_delegates;
 } UserNamespaceInfo;
 
 UserNamespaceInfo* userns_info_new(void);
@@ -51,3 +61,7 @@ int userns_registry_uid_exists(int dir_fd, uid_t start);
 int userns_registry_gid_exists(int dir_fd, gid_t start);
 
 int userns_registry_per_uid(int dir_fd, uid_t owner);
+
+int userns_registry_delegation_uid_exists(int dir_fd, uid_t start);
+int userns_registry_delegation_gid_exists(int dir_fd, gid_t start);
+int userns_registry_load_delegation_by_uid(int dir_fd, uid_t start, DelegatedUserNamespaceInfo *ret);
