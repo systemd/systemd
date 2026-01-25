@@ -1125,13 +1125,13 @@ test -f /usr/lib/systemd/system/some_file
 mountpoint /usr/share
 touch /tmp/foo/abc
 test -f /usr/share/abc
-umount /usr/share
+umount -l /usr/share
 test ! -f /usr/share/abc
 mount --bind /tmp/foo /usr/share
 systemd-sysext unmerge
 test ! -f /usr/lib/systemd/system/some_file
 mountpoint /usr/share
-umount /usr/share
+umount -l /usr/share
 rm -f /var/lib/extensions/app0.raw
 
 exit 0
