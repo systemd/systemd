@@ -39,6 +39,13 @@ typedef enum UnitFileFlags {
         _UNIT_FILE_FLAGS_MASK_PUBLIC = UNIT_FILE_RUNTIME|UNIT_FILE_PORTABLE|UNIT_FILE_FORCE,
 } UnitFileFlags;
 
+typedef enum SearchFlags {
+        SEARCH_LOAD                   = 1 << 0,
+        SEARCH_FOLLOW_CONFIG_SYMLINKS = 1 << 1,
+        SEARCH_DROPIN                 = 1 << 2,
+        SEARCH_IGNORE_TEMPLATE        = 1 << 3, /* Don't look up the template if the instance does not exist. */
+} SearchFlags;
+
 /* type can be either one of the INSTALL_CHANGE_SYMLINK, INSTALL_CHANGE_UNLINK, … listed above, or a negative
  * errno value.
  *
@@ -181,9 +188,9 @@ int unit_file_lookup_state(
 
 int unit_file_get_state(RuntimeScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
 
-int unit_file_exists_full(RuntimeScope scope, const LookupPaths *lp, const char *name, char **ret_path);
+int unit_file_exists_full(RuntimeScope scope, const LookupPaths *lp, const char *name, SearchFlags flags, char **ret_path);
 static inline int unit_file_exists(RuntimeScope scope, const LookupPaths *lp, const char *name) {
-        return unit_file_exists_full(scope, lp, name, NULL);
+        return unit_file_exists_full(scope, lp, name, 0, NULL);
 }
 
 int unit_file_get_list(RuntimeScope scope, const char *root_dir, char * const *states, char * const *patterns, Hashmap **ret);
