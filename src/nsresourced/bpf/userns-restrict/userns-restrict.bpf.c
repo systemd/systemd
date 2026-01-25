@@ -31,7 +31,7 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
  * by their inode number in nsfs) that restricts creation of inodes (which would inherit the callers UID/GID)
  * or changing of ownership (similar).
  *
- * This hooks into the various path-based LSM entrypoints that control inode creation as well as chmod(), and
+ * This hooks into the various path-based LSM entrypoints that control inode creation as well as chown(), and
  * then looks up the calling process' user namespace in a global map of namespaces, which points us to
  * another map that is simply a list of allowed mnt_ids. */
 
@@ -75,6 +75,13 @@ static int validate_inode_on_mount(struct inode *inode, struct vfsmount *v) {
         void *mnt_id_map;
         struct mount *m;
         int mnt_id;
+
+        /* If the inode's UID/GID are outside the transient userns ranges, say yes immediately. */
+        if ((inode->i_uid.val < CONTAINER_UID_BASE_MIN || inode->i_uid.val > CONTAINER_UID_BASE_MAX) &&
+                (inode->i_gid.val < CONTAINER_UID_BASE_MIN || inode->i_gid.val > CONTAINER_UID_BASE_MAX) &&
+                (inode->i_uid.val < DYNAMIC_UID_MIN || inode->i_uid.val > DYNAMIC_UID_MAX) &&
+                (inode->i_gid.val < DYNAMIC_UID_MIN || inode->i_gid.val > DYNAMIC_UID_MAX))
+                return 0;
 
         /* Get user namespace from vfsmount */
         m = bpf_rdonly_cast(real_mount(v), bpf_core_type_id_kernel(struct mount));
