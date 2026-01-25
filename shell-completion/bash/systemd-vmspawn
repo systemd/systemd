@@ -37,6 +37,7 @@ _systemd_vmspawn() {
         [SSH_KEY]='--ssh-key'
         [CONSOLE]='--console'
         [ARG]='--cpus --ram --vsock-cid -M --machine --uuid --private-users --background --set-credential --load-credential'
+        [IMAGE_FORMAT]='--image-format'
     )
 
     _init_completion || return
