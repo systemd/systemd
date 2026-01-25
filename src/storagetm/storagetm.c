@@ -923,7 +923,6 @@ static bool device_is_allowed(sd_device *d) {
 }
 
 static int device_added(Context *c, sd_device *device) {
-        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(c);
@@ -967,7 +966,7 @@ static int device_added(Context *c, sd_device *device) {
                 return 0;
         }
 
-        fd = sd_device_open(device, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        int fd = sd_device_open(device, O_RDWR|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0) {
                 log_device_warning_errno(device, fd, "Failed to open newly acquired device '%s', ignoring device: %m", devname);
                 return 0;
