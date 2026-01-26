@@ -8500,7 +8500,7 @@ static bool need_crypttab(Context *context) {
         return false;
 }
 
-static int context_crypttab(Context *context) {
+static int context_crypttab(Context *context, bool late) {
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *path = NULL;
@@ -8543,7 +8543,7 @@ static int context_crypttab(Context *context) {
                         strempty(p->encrypted_volume->options));
         }
 
-        r = flink_tmpfile(f, t, path, 0);
+        r = flink_tmpfile(f, t, path, late ? LINK_TMPFILE_REPLACE : 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to link temporary file to %s: %m", path);
 
@@ -10754,6 +10754,14 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        r = context_fstab(context);
+        if (r < 0)
+                return r;
+
+        r = context_crypttab(context, /* late= */ false);
+        if (r < 0)
+                return r;
+
         r = context_update_verity_size(context);
         if (r < 0)
                 return r;
@@ -10809,11 +10817,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = context_fstab(context);
-        if (r < 0)
-                return r;
-
-        r = context_crypttab(context);
+        r = context_crypttab(context, /* late = */ true);
         if (r < 0)
                 return r;
 
