@@ -884,7 +884,9 @@
         </para>
 
         <para>Note that this setting is only taken into account when <option>--generate-crypttab=</option>
-        is specified on the <command>systemd-repart</command> command line.</para>
+        is specified on the <command>systemd-repart</command> command line. As the crypttab with the expected
+        hashes can only be generated after LUKS volumes are formatted, the crypttab itself cannot be put to
+        the generated volume.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
