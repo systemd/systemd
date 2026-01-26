@@ -1725,10 +1725,12 @@ static int generate_ssh_keypair(const char *key_path, const char *key_type) {
                 log_debug("Executing: %s", joined);
         }
 
-        r = safe_fork(
+        r = safe_fork_full(
                         ssh_keygen,
-                        FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
-                        NULL);
+                        (int[]) { -EBADF, -EBADF, STDERR_FILENO },
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG,
+                        /* ret_pid= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
