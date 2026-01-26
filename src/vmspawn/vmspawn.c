@@ -137,6 +137,7 @@ static char **arg_smbios11 = NULL;
 static uint64_t arg_grow_image = 0;
 static char *arg_tpm_state_path = NULL;
 static TpmStateMode arg_tpm_state_mode = TPM_STATE_AUTO;
+static const char *arg_image_format = "raw";
 static bool arg_ask_password = true;
 static bool arg_notify_ready = true;
 static char **arg_bind_user = NULL;
@@ -205,6 +206,7 @@ static int help(void) {
                "     --secure-boot=BOOL    Enable searching for firmware supporting SecureBoot\n"
                "     --firmware=PATH|list  Select firmware definition file (or list available)\n"
                "     --discard-disk=BOOL   Control processing of discard requests\n"
+               "     --image-format=FORMAT Specify disk image format (raw, qcow2; default: raw)\n"
                "  -G --grow-image=BYTES    Grow image file to specified size in bytes\n"
                "\n%3$sExecution:%4$s\n"
                "  -s --smbios11=STRING     Pass an arbitrary SMBIOS Type #11 string to the VM\n"
@@ -227,7 +229,9 @@ static int help(void) {
                "                           Mount a file or directory from the host into the VM\n"
                "     --bind-ro=SOURCE[:TARGET]\n"
                "                           Mount a file or directory, but read-only\n"
-               "     --extra-drive=PATH    Adds an additional disk to the virtual machine\n"
+               "     --extra-drive=PATH[:FORMAT]\n"
+               "                           Adds an additional disk to the virtual machine\n"
+               "                           (format: raw, qcow2; default: raw)\n"
                "     --bind-user=NAME       Bind user from host to virtual machine\n"
                "     --bind-user-shell=BOOL|PATH\n"
                "                            Configure the shell to use for --bind-user= users\n"
@@ -312,6 +316,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND_USER_GROUP,
                 ARG_SYSTEM,
                 ARG_USER,
+                ARG_IMAGE_FORMAT,
         };
 
         static const struct option options[] = {
@@ -354,6 +359,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "load-credential",   required_argument, NULL, ARG_LOAD_CREDENTIAL   },
                 { "firmware",          required_argument, NULL, ARG_FIRMWARE          },
                 { "discard-disk",      required_argument, NULL, ARG_DISCARD_DISK      },
+                { "image-format",      required_argument, NULL, ARG_IMAGE_FORMAT      },
                 { "background",        required_argument, NULL, ARG_BACKGROUND        },
                 { "smbios11",          required_argument, NULL, 's'                   },
                 { "grow-image",        required_argument, NULL, 'G'                   },
@@ -533,12 +539,32 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_EXTRA_DRIVE: {
                         _cleanup_free_ char *drive_path = NULL;
+                        const char *format = "raw";
 
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &drive_path);
-                        if (r < 0)
-                                return r;
+                        /* Check for optional :FORMAT suffix */
+                        const char *colon = strrchr(optarg, ':');
+                        if (colon && STR_IN_SET(colon + 1, "raw", "qcow2")) {
+                                _cleanup_free_ char *path_only = strndup(optarg, colon - optarg);
+                                if (!path_only)
+                                        return log_oom();
 
-                        r = strv_consume(&arg_extra_drives, TAKE_PTR(drive_path));
+                                r = parse_path_argument(path_only, /* suppress_root= */ false, &drive_path);
+                                if (r < 0)
+                                        return r;
+
+                                format = colon + 1;
+                        } else {
+                                r = parse_path_argument(optarg, /* suppress_root= */ false, &drive_path);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        /* Store as "path:format" */
+                        _cleanup_free_ char *entry = NULL;
+                        if (asprintf(&entry, "%s:%s", drive_path, format) < 0)
+                                return log_oom();
+
+                        r = strv_consume(&arg_extra_drives, TAKE_PTR(entry));
                         if (r < 0)
                                 return log_oom();
                         break;
@@ -621,6 +647,13 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_boolean_argument("--discard-disk=", optarg, &arg_discard_disk);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_IMAGE_FORMAT:
+                        if (!STR_IN_SET(optarg, "raw", "qcow2"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid image format: %s (expected raw or qcow2)", optarg);
+                        arg_image_format = optarg;
                         break;
 
                 case ARG_BACKGROUND:
@@ -2269,6 +2302,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (arg_image) {
                 assert(!arg_directory);
 
+                struct stat st;
+                if (stat(arg_image, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", arg_image);
+
+                if (S_ISBLK(st.st_mode) && !streq(arg_image_format, "raw"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Block device '%s' cannot be used with '%s' format, only raw is supported.",
+                                               arg_image, arg_image_format);
+
                 if (strv_extend(&cmdline, "-drive") < 0)
                         return log_oom();
 
@@ -2276,7 +2318,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!escaped_image)
                         return log_oom();
 
-                if (strv_extendf(&cmdline, "if=none,id=vmspawn,file=%s,format=raw,discard=%s", escaped_image, on_off(arg_discard_disk)) < 0)
+                if (strv_extendf(&cmdline, "if=none,id=vmspawn,file=%s,format=%s,discard=%s", escaped_image, arg_image_format, on_off(arg_discard_disk)) < 0)
                         return log_oom();
 
                 _cleanup_free_ char *image_fn = NULL;
@@ -2365,33 +2407,47 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         size_t i = 0;
-        STRV_FOREACH(drive, arg_extra_drives) {
+        STRV_FOREACH(drive_entry, arg_extra_drives) {
+                /* Entry is stored as "path:format" */
+                const char *colon = strrchr(*drive_entry, ':');
+                assert(colon); /* We always store with format */
+
+                _cleanup_free_ char *drive_path = strndup(*drive_entry, colon - *drive_entry);
+                if (!drive_path)
+                        return log_oom();
+
+                const char *drive_format = colon + 1;
+
                 if (strv_extend(&cmdline, "-blockdev") < 0)
                         return log_oom();
 
-                _cleanup_free_ char *escaped_drive = escape_qemu_value(*drive);
+                _cleanup_free_ char *escaped_drive = escape_qemu_value(drive_path);
                 if (!escaped_drive)
                         return log_oom();
 
                 struct stat st;
-                if (stat(*drive, &st) < 0)
-                        return log_error_errno(errno, "Failed to stat '%s': %m", *drive);
+                if (stat(drive_path, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", drive_path);
 
-                const char *driver = NULL;
+                const char *file_driver = NULL;
                 if (S_ISREG(st.st_mode))
-                        driver = "file";
-                else if (S_ISBLK(st.st_mode))
-                        driver = "host_device";
-                else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s'.", *drive);
+                        file_driver = "file";
+                else if (S_ISBLK(st.st_mode)) {
+                        if (!streq(drive_format, "raw"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Block device '%s' cannot be used with '%s' format, only raw is supported.",
+                                                       drive_path, drive_format);
+                        file_driver = "host_device";
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s'.", drive_path);
 
-                if (strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu", driver, escaped_drive, i) < 0)
+                if (strv_extendf(&cmdline, "driver=%s,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu", drive_format, file_driver, escaped_drive, i) < 0)
                         return log_oom();
 
                 _cleanup_free_ char *drive_fn = NULL;
-                r = path_extract_filename(*drive, &drive_fn);
+                r = path_extract_filename(drive_path, &drive_fn);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", *drive);
+                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", drive_path);
 
                 _cleanup_free_ char *escaped_drive_fn = escape_qemu_value(drive_fn);
                 if (!escaped_drive_fn)
