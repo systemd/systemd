@@ -1997,6 +1997,68 @@ EOF
     losetup -d "$loop"
 }
 
+testcase_fstab_crypttab_in_repart() {
+    local defs imgs root volume
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    root="$(mktemp --directory "/var/test-repart.root.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' '$root'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for including fstab/crypttab into repart created volume ***"
+
+    volume="test-repart-fstab-crypttab-$RANDOM"
+
+    mkdir -p "$root/etc"
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+CopyFiles=/etc
+Encrypt=key-file
+EncryptedVolume=$volume
+MountPoint=/mnt/volume
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline="$OFFLINE" \
+                   --generate-fstab="/etc/fstab" \
+                   --generate-crypttab="/etc/crypttab" \
+                   --root="$root" \
+                   "$imgs/fstabcrypttabrepart.img"
+
+    loop="$(losetup -P --show --find "$imgs/fstabcrypttabrepart.img")"
+    udevadm wait --timeout=60 --settle "${loop:?}p1"
+
+    touch "$imgs/empty-password"
+
+    mkdir -p "$imgs/mount"
+
+    systemd-cryptsetup attach "$volume" "${loop}p1" "$imgs/empty-password"
+
+    mount -t ext4 "/dev/mapper/$volume" "$imgs/mount"
+
+    echo "Testing /etc/fstab presence"
+    test -f "$imgs/mount/etc/fstab"
+    grep -q "/mnt/volume" "$imgs/mount/etc/fstab"
+
+    echo "Testing /etc/crypttab presence"
+    test -f "$imgs/mount/etc/crypttab"
+    grep -q "$volume" "$imgs/mount/etc/crypttab"
+
+    umount "$imgs/mount"
+    systemd-cryptsetup detach "$volume"
+
+    losetup -d "$loop"
+}
+
 OFFLINE="yes"
 run_testcases
 
