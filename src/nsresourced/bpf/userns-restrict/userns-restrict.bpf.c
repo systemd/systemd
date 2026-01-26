@@ -140,6 +140,8 @@ int BPF_PROG(userns_restrict_path_mkdir, struct path *dir, struct dentry *dentry
         return validate_path(dir, ret);
 }
 
+/* The mknod hook covers all file creations, including regular files, in case the reader is looking for a
+ * missing hook for open(). */
 SEC("lsm/path_mknod")
 int BPF_PROG(userns_restrict_path_mknod, const struct path *dir, struct dentry *dentry, umode_t mode, unsigned dev, int ret) {
         return validate_path(dir, ret);
