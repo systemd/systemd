@@ -177,6 +177,7 @@ int bus_message_from_malloc(
                 size_t length,
                 int *fds,
                 size_t n_fds,
+                bool got_ctrunc,
                 const char *label,
                 sd_bus_message **ret);
 
