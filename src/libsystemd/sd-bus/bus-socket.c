@@ -657,7 +657,7 @@ static int bus_socket_read_auth(sd_bus *b) {
                         .msg_controllen = sizeof(control),
                 };
 
-                k = RET_NERRNO(recvmsg(b->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC));
+                k = recvmsg_safe(b->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
                 if (k == -ENOTSOCK) {
                         b->prefer_readv = true;
                         k = readv(b->input_fd, &iov, 1);
