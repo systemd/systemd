@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
-#include <sys/mman.h>
 
 #include "alloc-util.h"
 #include "boot-entry.h"
@@ -62,61 +61,6 @@ const char* get_efi_arch(void) {
 #endif
 
         return EFI_MACHINE_TYPE_NAME;
-}
-
-/* search for "#### LoaderInfo: systemd-boot 218 ####" string inside the binary */
-int get_file_version(int fd, char **ret) {
-        struct stat st;
-        char *buf;
-        const char *s, *e;
-        char *marker = NULL;
-        int r;
-
-        assert(fd >= 0);
-        assert(ret);
-
-        if (fstat(fd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat EFI binary: %m");
-
-        r = stat_verify_regular(&st);
-        if (r < 0) {
-                log_debug_errno(r, "EFI binary is not a regular file, assuming no version information: %m");
-                return -ESRCH;
-        }
-
-        if (st.st_size < 27 || file_offset_beyond_memory_size(st.st_size))
-                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH),
-                                       "EFI binary size too %s: %"PRIi64,
-                                       st.st_size < 27 ? "small" : "large", st.st_size);
-
-        buf = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-        if (buf == MAP_FAILED)
-                return log_error_errno(errno, "Failed to mmap EFI binary: %m");
-
-        s = mempmem_safe(buf, st.st_size - 8, "#### LoaderInfo: ", 17);
-        if (!s) {
-                r = log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "EFI binary has no LoaderInfo marker.");
-                goto finish;
-        }
-
-        e = memmem_safe(s, st.st_size - (s - buf), " ####", 5);
-        if (!e || e - s < 3) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "EFI binary has malformed LoaderInfo marker.");
-                goto finish;
-        }
-
-        marker = strndup(s, e - s);
-        if (!marker) {
-                r = log_oom();
-                goto finish;
-        }
-
-        log_debug("EFI binary LoaderInfo marker: \"%s\"", marker);
-        r = 0;
-        *ret = marker;
-finish:
-        (void) munmap(buf, st.st_size);
-        return r;
 }
 
 int settle_entry_token(void) {

@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <stdio_ext.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -1654,4 +1655,60 @@ int warn_file_is_world_accessible(const char *filename, struct stat *st, const c
                 log_warning("%s has %04o mode that is too permissive, please adjust the ownership and access mode.",
                             filename, st->st_mode & 07777);
         return 0;
+}
+
+/* Search for "#### <prefix>: <ret> ####" string inside the file */
+int file_get_marker(int fd, const char *marker, char **ret) {
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        if (fstat(fd, &st) < 0)
+                return log_debug_errno(errno, "failed to stat: %m");
+
+        r = stat_verify_regular(&st);
+        if (r < 0) {
+                log_debug_errno(r, "not a regular file, not extracting marker: %m");
+                return -ESRCH;
+        }
+
+        const char *needle = strjoina("#### ", marker, ": ");
+        off_t min_size = strlen(needle) + 1;  /* the "payload" must be at least one byte */
+
+        if (st.st_size < min_size || file_offset_beyond_memory_size(st.st_size))
+                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH),
+                                       "too %s: %"PRIi64,
+                                       st.st_size < min_size ? "small" : "large",
+                                       st.st_size);
+
+        char *buf = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (buf == MAP_FAILED)
+                return log_debug_errno(errno, "failed to mmap: %m");
+
+        const char *s = mempmem_safe(buf, st.st_size - strlen(" ####") - 1, needle, strlen(needle));
+        if (!s) {
+                r = log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "no %s marker.", marker);
+                goto finish;
+        }
+
+        const char *e = memmem_safe(s, st.st_size - (s - buf), " ####", 5);
+        if (!e || e - s < 1) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "malformed %s marker.", marker);
+                goto finish;
+        }
+
+        char *value = strndup(s, e - s);
+        if (!value) {
+                r = log_oom_debug();
+                goto finish;
+        }
+
+        log_debug("%s marker: \"%s\"", marker, value);
+        r = 0;
+        *ret = value;
+finish:
+        (void) munmap(buf, st.st_size);
+        return r;
 }

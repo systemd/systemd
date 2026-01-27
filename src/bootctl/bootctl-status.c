@@ -244,7 +244,7 @@ static int enumerate_binaries(
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to open file for reading: %m");
 
-                r = get_file_version(fd, &v);
+                r = file_get_marker(fd, "LoaderInfo", &v);
                 if (r < 0 && r != -ESRCH)
                         return r;
 
