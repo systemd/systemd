@@ -145,6 +145,7 @@ static char **arg_bind_user = NULL;
 static char *arg_bind_user_shell = NULL;
 static bool arg_bind_user_shell_copy = false;
 static char **arg_bind_user_groups = NULL;
+static bool arg_ephemeral = false;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
@@ -190,6 +191,7 @@ static int help(void) {
                "     --system              Interact with system manager\n"
                "\n%3$sImage:%4$s\n"
                "  -D --directory=PATH      Root directory for the VM\n"
+               "  -x --ephemeral           Run VM with snapshot of the disk\n"
                "  -i --image=FILE|DEVICE   Root file system disk image or device for the VM\n"
                "     --image-format=FORMAT Specify disk image format (raw, qcow2; default: raw)\n"
                "\n%3$sHost Configuration:%4$s\n"
@@ -327,6 +329,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
                 { "image",             required_argument, NULL, 'i'                   },
                 { "image-format",      required_argument, NULL, ARG_IMAGE_FORMAT      },
+                { "ephemeral",         no_argument,       NULL, 'x'                   },
                 { "directory",         required_argument, NULL, 'D'                   },
                 { "machine",           required_argument, NULL, 'M'                   },
                 { "slice",             required_argument, NULL, 'S'                   },
@@ -382,7 +385,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hD:i:M:nqs:G:S:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hD:i:xM:nqs:G:S:", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
                         return help();
@@ -427,6 +430,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_oom();
                         }
+                        break;
+
+                case 'x':
+                        arg_ephemeral = true;
                         break;
 
                 case ARG_NO_PAGER:
@@ -794,11 +801,17 @@ static int parse_argv(int argc, char *argv[]) {
         if (!strv_isempty(arg_bind_user_groups) && strv_isempty(arg_bind_user))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --bind-user-group= without --bind-user=");
 
+        if (arg_ephemeral && (arg_extra_drives.n_drives > 0))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --ephemeral= with --extra-drive=");
+
         if (argc > optind) {
                 arg_kernel_cmdline_extra = strv_copy(argv + optind);
                 if (!arg_kernel_cmdline_extra)
                         return log_oom();
         }
+
+        if (arg_ephemeral && arg_directory)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--ephemeral and --directory= is not supported yet.");
 
         return 1;
 }
@@ -2319,7 +2332,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!escaped_image)
                         return log_oom();
 
-                if (strv_extendf(&cmdline, "if=none,id=vmspawn,file=%s,format=%s,discard=%s", escaped_image, image_format_to_string(arg_image_format), on_off(arg_discard_disk)) < 0)
+                if (strv_extendf(&cmdline, "if=none,id=vmspawn,file=%s,format=%s,discard=%s,snapshot=%s", escaped_image, image_format_to_string(arg_image_format), on_off(arg_discard_disk), on_off(arg_ephemeral)) < 0)
                         return log_oom();
 
                 _cleanup_free_ char *image_fn = NULL;
@@ -2366,6 +2379,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!GREEDY_REALLOC(children, n_children + 1))
                         return log_oom();
 
+                // TODO: handle arg_ephemeral here like systemd-nspawn
                 r = start_virtiofsd(
                                 unit,
                                 arg_directory,
@@ -3063,6 +3077,11 @@ static int determine_names(void) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_directory);
                 }
+                /* Add a random suffix when this is an ephemeral machine, so that we can run many
+                 * instances at once without manually having to specify -M each time. */
+                if (arg_ephemeral)
+                        if (strextendf(&arg_machine, "-%016" PRIx64, random_u64()) < 0)
+                                return log_oom();
 
                 hostname_cleanup(arg_machine);
                 if (!hostname_is_valid(arg_machine, 0))
