@@ -410,6 +410,7 @@ typedef struct Network {
         ResolveSupport mdns;
         DnssecMode dnssec_mode;
         DnsOverTlsMode dns_over_tls_mode;
+        DnsServerPolicy dns_server_policy;
         Set *dnssec_negative_trust_anchors;
 
         /* NTP */

@@ -1697,6 +1697,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_dns_stub_listener_mode, dns
 static BUS_DEFINE_PROPERTY_GET(bus_property_get_dnssec_supported, "b", Manager, manager_dnssec_supported);
 static BUS_DEFINE_PROPERTY_GET2(bus_property_get_dnssec_mode, "s", Manager, manager_get_dnssec_mode, dnssec_mode_to_string);
 static BUS_DEFINE_PROPERTY_GET2(bus_property_get_dns_over_tls_mode, "s", Manager, manager_get_dns_over_tls_mode, dns_over_tls_mode_to_string);
+static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_dns_server_policy, dns_server_policy, DnsServerPolicy);
 
 static int bus_property_get_resolv_conf_mode(
                 sd_bus *bus,
@@ -2154,6 +2155,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", bus_property_get_string_set, offsetof(Manager, trust_anchor.negative_by_name), 0),
         SD_BUS_PROPERTY("DNSStubListener", "s", bus_property_get_dns_stub_listener_mode, offsetof(Manager, dns_stub_listener_mode), 0),
         SD_BUS_PROPERTY("ResolvConfMode", "s", bus_property_get_resolv_conf_mode, 0, 0),
+        SD_BUS_PROPERTY("DNSServerPolicy", "s", bus_property_get_dns_server_policy, offsetof(Manager, dns_server_policy), 0),
 
         SD_BUS_METHOD_WITH_ARGS("ResolveHostname",
                                 SD_BUS_ARGS("i", ifindex, "s", name, "i", family, "t", flags),
