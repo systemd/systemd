@@ -16,7 +16,7 @@ if [[ ! -f /usr/lib/systemd/system/systemd-mountfsd.socket ]] ||
    ! find /usr/lib* -name libbpf.so.1 2>/dev/null | grep . ||
    systemd-analyze compare-versions "$(uname -r)" lt 6.5 ||
    systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" lt 124 ||
-   systemctl --version | grep -- "-BTF" >/dev/null; then
+   systemctl --version | grep -- "-BPF_FRAMEWORK" >/dev/null; then
     echo "Skipping mountfsd/nsresourced tests"
     exit 0
 fi
