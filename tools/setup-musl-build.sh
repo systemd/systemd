@@ -36,6 +36,7 @@ LINKS=(
     libcryptsetup.h
     libelf.h
     libkmod.h
+    libucontext
     linux
     lz4.h
     lz4frame.h
