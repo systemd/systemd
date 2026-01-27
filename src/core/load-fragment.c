@@ -4816,6 +4816,55 @@ int config_parse_import_credential(
         return 0;
 }
 
+int config_parse_service_refresh_on_reload(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Service *s = ASSERT_PTR(userdata);
+        int r;
+
+        if (isempty(rvalue)) {
+                s->refresh_on_reload_set = false;
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r >= 0) {
+                s->refresh_on_reload_flags = r > 0 ? _SERVICE_REFRESH_ON_RELOAD_ALL : 0;
+                s->refresh_on_reload_set = true;
+                return 0;
+        }
+
+        ServiceRefreshOnReload f;
+        bool invert = false;
+
+        if (rvalue[0] == '~') {
+                invert = true;
+                rvalue++;
+        }
+
+        r = service_refresh_on_reload_from_string_many(rvalue, &f);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        /* If the first entry is negated, mask off from default; otherwise assign "positive" values directly */
+        if (!s->refresh_on_reload_set)
+                s->refresh_on_reload_flags = invert ? (SERVICE_REFRESH_ON_RELOAD_DEFAULT & ~f) : f;
+        else
+                SET_FLAG(s->refresh_on_reload_flags, f, !invert);
+
+        s->refresh_on_reload_set = true;
+        return 0;
+}
+
 int config_parse_set_status(
                 const char *unit,
                 const char *filename,
