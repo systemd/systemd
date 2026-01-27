@@ -176,6 +176,15 @@ Features:
   possible .v dirs) that are glued together on use via overlayfs. one special
   subdir should be used as writable top layer.
 
+* systemd-sysinstall:
+  - make systemd-sysinstall itself a varlink service
+  - read installation definition from json file
+  - polkit support in sysinstall
+  - sysinstall: permit driving installer via credentials
+
+* repart:
+  - add MatchLabel= which matches against partition label, so that we truly can install different images in parallel
+
 * journald: log pidfid as another field, i.e. _PIDFDID=
 
 * systemd-nspawn: something like --volatile= but that isn't volatile, but
@@ -301,7 +310,6 @@ Features:
   root disks)
 
 * complete varlink introspection comments:
-  - io.systemd.BootControl
   - io.systemd.Hostname
   - io.systemd.ManagedOOM
   - io.systemd.Network
@@ -386,14 +394,6 @@ Features:
 * Turn systemd-networkd-wait-online into a small varlink service that people
   can talk to and specify exactly what to wait for via a method call, and get a
   response back once that level of "online" is reached.
-
-* introduce a small "systemd-installer" tool or so, that glues
-  systemd-repart-as-installer and bootctl-install into one. Would just
-  interactively ask user for target disk (with completion and so on), and then do
-  two varlink calls to the the two tools with the right parameters. To support
-  "offline" operation, optionally invoke the two tools directly as child
-  processes with varlink communication over socketpair(). This all should be
-  useful as blueprint for graphical installers which should do the same.
 
 * Make run0 forward various signals to the forked process so that sending
   signals to a child process works roughly the same regardless of whether the
@@ -483,11 +483,6 @@ Features:
 * fix bug around run0 background color on ls in fresh terminal
 
 * Reset TPM2 DA bit on each successful boot
-
-* systemd-repart: add --installer or so, that will intractively ask for a
-  target disk, maybe ask for confirmation, and install something on disk. Then,
-  hook that into installer.target or so, so that it can be used to
-  install/replicate installs
 
 * systemd-cryptenroll: add --firstboot or so, that will interactively ask user
   whether recovery key shall be enrolled and do so
@@ -929,16 +924,14 @@ Features:
 
 * Varlinkification of the following command line tools, to open them up to
   other programs via IPC:
-  - bootctl
   - journalctl (allowing journal read access via IPC)
-  - coredumpcl
+  - coredumpctl
   - systemd-bless-boot
   - systemd-measure
   - systemd-cryptenroll (to allow UIs to enroll FIDO2 keys and such)
   - systemd-dissect
   - systemd-sysupdate
   - systemd-analyze
-  - kernel-install
   - systemd-mount (with PK so that desktop environments could use it to mount disks)
 
 * enumerate virtiofs devices during boot-up in a generator, and synthesize
@@ -1687,6 +1680,9 @@ Features:
   (i.e. sysext, root verity) from those inherently local (i.e. encryption key),
   which is useful if they shall be signed separately.
 
+
+* pcrlock make use of LoaderTpm2ActivePcrBanks efi var to determine which banks to bind to
+
 * rework recursive read-only remount to use new mount API
 
 * when mounting disk images: if IMAGE_ID/IMAGE_VERSION is set in os-release
@@ -1769,10 +1765,6 @@ Features:
 
 * cryptsetup: reimplement the mkswap/mke2fs in cryptsetup-generator to use
   systemd-makefs.service instead.
-
-* cryptsetup:
-  - cryptsetup-generator: allow specification of passwords in crypttab itself
-  - support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
 
 * systemd-analyze netif that explains predictable interface (or networkctl)
 
