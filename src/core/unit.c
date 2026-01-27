@@ -4331,8 +4331,8 @@ static PrivateTmp unit_get_private_var_tmp(const Unit *u, const ExecContext *c) 
         assert(c->private_tmp >= 0 && c->private_tmp < _PRIVATE_TMP_MAX);
 
         /* Disable disconnected private tmpfs on /var/tmp/ when DefaultDependencies=no and
-         * RootImage=/RootDirectory= are not set, as /var/ may be a separated partition.
-         * See issue #37258. */
+         * RootImage=/RootDirectory= are not set, as /var/ may be a separate partition.
+         * See https://github.com/systemd/systemd/issues/37258. */
 
         /* PrivateTmp=yes/no also enables/disables private tmpfs on /var/tmp/. */
         if (c->private_tmp != PRIVATE_TMP_DISCONNECTED)
@@ -4354,20 +4354,45 @@ static PrivateTmp unit_get_private_var_tmp(const Unit *u, const ExecContext *c) 
                 if (hashmap_contains(u->mounts_for[t], "/var/"))
                         return PRIVATE_TMP_DISCONNECTED;
 
-        /* Check the same but for After= with Requires=/Requisite=/Wants= or friends. */
+        /* Check the same but for After=. */
         Unit *m = manager_get_unit(u->manager, "var.mount");
-        if (!m)
-                return PRIVATE_TMP_NO;
-
-        if (!unit_has_dependency(u, UNIT_ATOM_AFTER, m))
-                return PRIVATE_TMP_NO;
-
-        if (unit_has_dependency(u, UNIT_ATOM_PULL_IN_START, m) ||
-            unit_has_dependency(u, UNIT_ATOM_PULL_IN_VERIFY, m) ||
-            unit_has_dependency(u, UNIT_ATOM_PULL_IN_START_IGNORED, m))
+        if (m && unit_has_dependency(u, UNIT_ATOM_AFTER, m))
                 return PRIVATE_TMP_DISCONNECTED;
 
         return PRIVATE_TMP_NO;
+}
+
+static PrivateTmp unit_get_private_tmp(const Unit *u, const ExecContext *c) {
+        assert(u);
+        assert(c);
+        assert(c->private_tmp >= 0 && c->private_tmp < _PRIVATE_TMP_MAX);
+
+        /* Upgrade "PrivateTmp=yes" to 'disconnected' when DefaultDependencies=no and
+         * RootImage=/RootDirectory= are not set, as /tmp/ may be a separate partition.
+         * See https://github.com/systemd/systemd/issues/28515.
+         *
+         * This is done after the fate of /var/tmp/ has been decided. */
+
+        if (c->private_tmp != PRIVATE_TMP_CONNECTED ||
+            u->default_dependencies ||
+            exec_context_with_rootfs(c))
+                return c->private_tmp;
+
+        /* Even if DefaultDependencies=no, honour tmpfs setting when
+         * RequiresMountsFor=/WantsMountsFor=/tmp/ is explicitly set. */
+        for (UnitMountDependencyType t = 0; t < _UNIT_MOUNT_DEPENDENCY_TYPE_MAX; t++)
+                if (hashmap_contains(u->mounts_for[t], "/tmp/"))
+                        return c->private_tmp;
+
+        /* Check the same but for After=. */
+        Unit *m = manager_get_unit(u->manager, "tmp.mount");
+        if (!m)
+                return c->private_tmp;
+
+        if (unit_has_dependency(u, UNIT_ATOM_AFTER, m))
+                return c->private_tmp;
+
+        return PRIVATE_TMP_DISCONNECTED;
 }
 
 int unit_patch_contexts(Unit *u) {
@@ -4447,6 +4472,7 @@ int unit_patch_contexts(Unit *u) {
                 }
 
                 ec->private_var_tmp = unit_get_private_var_tmp(u, ec);
+                ec->private_tmp = unit_get_private_tmp(u, ec);
 
                 FOREACH_ARRAY(d, ec->directories, _EXEC_DIRECTORY_TYPE_MAX)
                         exec_directory_sort(d);
