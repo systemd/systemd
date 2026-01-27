@@ -21,7 +21,7 @@ test_userns_restrict_sources = files(
         'test-userns-restrict.c'
 )
 
-if conf.get('HAVE_VMLINUX_H') == 1
+if conf.get('BPF_FRAMEWORK') == 1
         systemd_nsresourced_sources += userns_restrict_skel_h
         systemd_nsresourcework_sources += userns_restrict_skel_h
         test_userns_restrict_sources += userns_restrict_skel_h
@@ -42,7 +42,7 @@ executables += [
         },
         test_template + {
                 'sources' : test_userns_restrict_sources,
-                'conditions' : ['HAVE_VMLINUX_H'],
+                'conditions' : ['BPF_FRAMEWORK'],
                 'objects' : ['systemd-nsresourced'],
         },
 ]
