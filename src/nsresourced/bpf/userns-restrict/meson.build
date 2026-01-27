@@ -1,14 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if conf.get('HAVE_VMLINUX_H') != 1
+if conf.get('BPF_FRAMEWORK') != 1
         subdir_done()
 endif
 
 userns_restrict_bpf_o_unstripped = custom_target(
         input : 'userns-restrict.bpf.c',
         output : 'userns-restrict.bpf.unstripped.o',
-        command : bpf_o_unstripped_cmd,
-        depends : vmlinux_h_dependency)
+        command : bpf_o_unstripped_cmd)
 
 userns_restrict_bpf_o = custom_target(
         input : userns_restrict_bpf_o_unstripped,
