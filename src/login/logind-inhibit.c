@@ -61,6 +61,7 @@ int inhibitor_new(Manager *m, const char* id, Inhibitor **ret) {
         r = hashmap_put(m->inhibitors, i->id, i);
         if (r < 0)
                 return r;
+        manager_send_changed(m, "NCurrentInhibitors");
 
         *ret = TAKE_PTR(i);
         return 0;
@@ -78,6 +79,7 @@ Inhibitor* inhibitor_free(Inhibitor *i) {
         safe_close(i->fifo_fd);
 
         hashmap_remove(i->manager->inhibitors, i->id);
+        manager_send_changed(i->manager, "NCurrentInhibitors");
 
         /* Note that we don't remove neither the state file nor the fifo path here, since we want both to
          * survive daemon restarts */
