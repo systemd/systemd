@@ -16,6 +16,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "bootspec.h"
+#include "btrfs-util.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-internal.h"
@@ -45,6 +46,7 @@
 #include "machine-credential.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "netif-util.h"
 #include "nsresource.h"
@@ -191,7 +193,7 @@ static int help(void) {
                "     --system              Interact with system manager\n"
                "\n%3$sImage:%4$s\n"
                "  -D --directory=PATH      Root directory for the VM\n"
-               "  -x --ephemeral           Run VM with snapshot of the disk\n"
+               "  -x --ephemeral           Run VM with snapshot of the disk or directory\n"
                "  -i --image=FILE|DEVICE   Root file system disk image or device for the VM\n"
                "     --image-format=FORMAT Specify disk image format (raw, qcow2; default: raw)\n"
                "\n%3$sHost Configuration:%4$s\n"
@@ -809,9 +811,6 @@ static int parse_argv(int argc, char *argv[]) {
                 if (!arg_kernel_cmdline_extra)
                         return log_oom();
         }
-
-        if (arg_ephemeral && arg_directory)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--ephemeral and --directory= is not supported yet.");
 
         return 1;
 }
@@ -1853,9 +1852,11 @@ static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *erro
 }
 
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
+        bool remove_directory = false;
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *kernel = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *ssh_private_key_path = NULL, *ssh_public_key_path = NULL;
+        _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         _cleanup_close_ int notify_sock_fd = -EBADF;
         _cleanup_strv_free_ char **cmdline = NULL;
         _cleanup_free_ int *pass_fds = NULL;
@@ -2379,7 +2380,54 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!GREEDY_REALLOC(children, n_children + 1))
                         return log_oom();
 
-                // TODO: handle arg_ephemeral here like systemd-nspawn
+                if (arg_ephemeral) {
+                        // This block is very similar to nspawn.c, keep in sync
+                        _cleanup_free_ char *np = NULL;
+
+                        /* If the specified path is a mount point we generate the new snapshot immediately
+                         * inside it under a random name. However if the specified is not a mount point we
+                         * create the new snapshot in the parent directory, just next to it. */
+                        r = path_is_mount_point(arg_directory);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine whether directory %s is mount point: %m", arg_directory);
+                        if (r > 0)
+                                r = tempfn_random_child(arg_directory, "machine.", &np);
+                        else
+                                r = tempfn_random(arg_directory, "machine.", &np);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate name for directory snapshot: %m");
+
+                        /* We take an exclusive lock on this image, since it's our private, ephemeral copy
+                         * only owned by us and no one else. */
+                        r = image_path_lock(
+                                        arg_runtime_scope,
+                                        np,
+                                        LOCK_EX|LOCK_NB,
+                                        arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? &tree_global_lock : NULL,
+                                        &tree_local_lock);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to lock %s: %m", np);
+
+                        {
+                                BLOCK_SIGNALS(SIGINT);
+                                r = btrfs_subvol_snapshot_at(AT_FDCWD, arg_directory, AT_FDCWD, np,
+                                                             BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                                             BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                                             BTRFS_SNAPSHOT_RECURSIVE |
+                                                             BTRFS_SNAPSHOT_QUOTA |
+                                                             BTRFS_SNAPSHOT_SIGINT);
+                        }
+                        if (r == -EINTR)
+                                return log_error_errno(r, "Interrupted while copying file system tree to %s, removed again.", np);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to create snapshot %s from %s: %m", np, arg_directory);
+                                goto finish_and_cleanup_dir;
+                        }
+
+                        free_and_replace(arg_directory, np);
+                        remove_directory = true;
+                }
+
                 r = start_virtiofsd(
                                 unit,
                                 arg_directory,
@@ -3009,6 +3057,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 (void) unregister_machine(system_bus, arg_machine);
         if (registered_runtime)
                 (void) unregister_machine(runtime_bus, arg_machine);
+
+ finish_and_cleanup_dir:
+        if (remove_directory && arg_directory) {
+                int k;
+
+                k = rm_rf(arg_directory, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                if (k < 0)
+                        log_warning_errno(k, "Cannot remove '%s', ignoring: %m", arg_directory);
+        }
+        if (r < 0)
+                return r;
 
         if (use_vsock) {
                 if (exit_status == INT_MAX) {
