@@ -7,8 +7,7 @@ endif
 sysctl_monitor_bpf_o_unstripped = custom_target(
         input : 'sysctl-monitor.bpf.c',
         output : 'sysctl-monitor.bpf.unstripped.o',
-        command : bpf_o_unstripped_cmd,
-        depends : vmlinux_h_dependency)
+        command : bpf_o_unstripped_cmd)
 
 sysctl_monitor_bpf_o = custom_target(
         input : sysctl_monitor_bpf_o_unstripped,
