@@ -36,7 +36,8 @@ _systemd_vmspawn() {
         [BIND]='--bind --bind-ro'
         [SSH_KEY]='--ssh-key'
         [CONSOLE]='--console'
-        [ARG]='--cpus --ram --vsock-cid -M --machine --uuid--private-users --background --set-credential --load-credential'
+        [IMAGE_FORMAT]='--image-format'
+        [ARG]='--cpus --ram --vsock-cid -M --machine --uuid --private-users --background --set-credential --load-credential'
     )
 
     _init_completion || return
@@ -56,6 +57,8 @@ _systemd_vmspawn() {
         comps='dsa ecdsa ecdsa-sk ed25519 ed25519-sk rsa'
     elif __contains_word "$prev" ${OPTS[CONSOLE]}; then
         comps='interactive native gui'
+    elif __contains_word "$prev" ${OPTS[IMAGE_FORMAT]}; then
+        comps='raw qcow2'
     elif __contains_word "$prev" ${OPTS[ARG]}; then
         comps=''
     else
