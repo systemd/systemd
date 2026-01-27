@@ -256,7 +256,7 @@ static int reread_partition_table_full(sd_device *dev, int fd, RereadPartitionTa
         if (FLAGS_SET(flags, REREADPT_BSD_LOCK)) {
                 lock_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (lock_fd < 0)
-                        return log_device_debug_errno(dev, lock_fd, "Failed top open lock fd for block device '%s': %m", p);
+                        return log_device_debug_errno(dev, lock_fd, "Failed to open lock fd for block device '%s': %m", p);
 
                 if (flock(lock_fd, LOCK_EX|LOCK_NB) < 0) {
                         r = log_device_debug_errno(dev, errno, "Failed to take BSD lock on block device '%s': %m", p);
