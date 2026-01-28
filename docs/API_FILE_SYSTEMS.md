@@ -55,9 +55,9 @@ systemctl mask dev-hugepages.mount
 ```
 
 This has the effect that the huge memory page API FS is not mounted by default, starting with the next boot.
-See [Three Levels of Off](http://0pointer.de/blog/projects/three-levels-of-off.html) for more information on masking.
+See [Three Levels of Off](https://0pointer.de/blog/projects/three-levels-of-off.html) for more information on masking.
 
-The systemd service [systemd-remount-fs.service](http://www.freedesktop.org/software/systemd/man/systemd-remount-fs.service.html)
+The systemd service [systemd-remount-fs.service](https://www.freedesktop.org/software/systemd/man/latest/systemd-remount-fs.service.html)
 is responsible for applying mount parameters from `/etc/fstab` to the actual mounts.
 
 ## Why are you telling me all this? I just want to get rid of the tmpfs backed /tmp!

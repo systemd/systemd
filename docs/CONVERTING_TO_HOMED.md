@@ -10,7 +10,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 Traditionally on most Linux distributions, regular (human) users are managed
 via entries in `/etc/passwd`, `/etc/shadow`, `/etc/group` and `/etc/gshadow`.
 With the advent of
-[`systemd-homed`](https://www.freedesktop.org/software/systemd/man/systemd-homed.service.html)
+[`systemd-homed`](https://www.freedesktop.org/software/systemd/man/latest/systemd-homed.service.html)
 it might be desirable to convert an existing, traditional user account to a
 `systemd-homed` managed one.
 Below is a brief guide how to do that.
@@ -100,7 +100,7 @@ Here's the step-by-step guide:
    group as new primary group, but will have it as auxiliary group.
 
    Consider reading through the
-   [homectl(1)](https://www.freedesktop.org/software/systemd/man/homectl.html)
+   [homectl(1)](https://www.freedesktop.org/software/systemd/man/latest/homectl.html)
    manual page at this point, maybe there are a couple of other settings you want to set for your new account.
    In particular, look at `--storage=` and `--disk-size=`, in order to change how your home directory shall be stored
    (the default `luks` storage is recommended).

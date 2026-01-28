@@ -73,9 +73,9 @@ below implements a deny list of what's not allowed and permits everything else.
 Strict user/group name syntax is enforced whenever a systemd component is used
 to register a user or group in the system, for example a system user/group
 using
-[`systemd-sysusers.service`](https://www.freedesktop.org/software/systemd/man/systemd-sysusers.html)
+[`systemd-sysusers.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-sysusers.html)
 or a regular user with
-[`systemd-homed.service`](https://www.freedesktop.org/software/systemd/man/systemd-homed.html).
+[`systemd-homed.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-homed.html).
 
 In strict mode, only uppercase and lowercase characters are allowed, as well as
 digits, underscores and hyphens.
@@ -98,7 +98,7 @@ Written as regular expression the above is: `^[a-zA-Z_][a-zA-Z0-9_-]{0,30}$`
 Relaxed user/group name syntax is enforced whenever a systemd component accepts
 and makes use of user/group names registered by other (non-systemd)
 components of the system, for example in
-[`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.html).
+[`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-logind.service.html).
 
 Relaxed syntax is also enforced by the `User=` setting in service unit files,
 i.e. for system services used for running services.

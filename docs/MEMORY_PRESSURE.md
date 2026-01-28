@@ -165,7 +165,7 @@ The service manager provides two per-service settings that control the memory
 pressure handling:
 
 * The
-  [`MemoryPressureWatch=`](https://www.freedesktop.org/software/systemd/man/systemd.resource-control.html#MemoryPressureWatch=)
+  [`MemoryPressureWatch=`](https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#MemoryPressureWatch=)
   setting controls whether to enable the memory pressure protocol for the
   service in question.
 
@@ -197,12 +197,12 @@ When memory pressure monitoring is enabled for a service via
 ## Memory Pressure Events in `sd-event`
 
 The
-[`sd-event`](https://www.freedesktop.org/software/systemd/man/sd-event.html)
+[`sd-event`](https://www.freedesktop.org/software/systemd/man/latest/sd-event.html)
 event loop library provides two API calls that encapsulate the
 functionality described above:
 
 * The
-  [`sd_event_add_memory_pressure()`](https://www.freedesktop.org/software/systemd/man/sd_event_add_memory_pressure.html)
+  [`sd_event_add_memory_pressure()`](https://www.freedesktop.org/software/systemd/man/latest/sd_event_add_memory_pressure.html)
   call implements the service-side of the memory pressure protocol and
   integrates it with an `sd-event` event loop. It reads the two environment
   variables, connects/opens the specified file, writes the specified data to it,

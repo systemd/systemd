@@ -53,7 +53,7 @@ If you prefer to use leap second steps, please register your own
 vendor pool at ntp.org and make it the built-in default by
 passing `-Dntp-servers=` to meson.
 Registering vendor pools is
-[free](http://www.pool.ntp.org/en/vendors.html).
+[free](https://www.pool.ntp.org/en/vendors.html).
 
 Use `-Dntp-servers=` to direct systemd-timesyncd to different fallback
 NTP servers.
