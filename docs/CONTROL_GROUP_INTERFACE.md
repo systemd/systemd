@@ -179,7 +179,7 @@ Resource limits may be set on services, scopes and slices the same way. All acti
 
 Service and slice units may be configured via unit files on disk, or alternatively be created dynamically at runtime via API calls to PID 1. Scope units may only be created at runtime via API calls to PID 1, but not from unit files on disk. Units that are created dynamically at runtime via API calls are called _transient_ units. Transient units exist only during runtime and are released automatically as soon as they finished/got deactivated or the system is rebooted.
 
-If a service/slice is configured via unit files on disk the resource controls may be configured with the settings documented in [systemd.resource-control(5)](http://www.freedesktop.org/software/systemd/man/systemd.resource-control.html). While the unit are started they may be reconfigured for services/slices/scopes (with changes applying instantly) with the a command line such as:
+If a service/slice is configured via unit files on disk the resource controls may be configured with the settings documented in [systemd.resource-control(5)](http://www.freedesktop.org/software/systemd/man/systemd.resource-control.html). While the unit is started it may be reconfigured for services/slices/scopes (with changes applying instantly) with a command line such as:
 
 ```
 # systemctl set-property httpd.service CPUShares=500 MemoryLimit=500M

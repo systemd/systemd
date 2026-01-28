@@ -166,7 +166,7 @@ variables.
 ## Boot Loader Entry Identifiers
 
 While boot loader entries may be named relatively freely,
-it's highly recommended to follow the following rules when picking identifiers for the entries,
+it's highly recommended to follow these rules when picking identifiers for the entries,
 so that programs (and users) can derive basic context and meaning from the identifiers
 as passed in `LoaderEntries`, `LoaderEntryDefault`, `LoaderEntryOneShot`, `LoaderEntrySelected`,
 and possibly show nicely localized names for them in UIs.

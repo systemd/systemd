@@ -87,7 +87,7 @@ See [systemd's own message catalog](http://cgit.freedesktop.org/systemd/systemd/
 Note that the message catalog is only available for messages generated with the MESSAGE\_ID= journal meta data field, as this is need to find the right entry for a message.
 For more information on the MESSAGE\_ID= journal entry field see [systemd.journal-fields(7)](http://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html).
 
-To add message catalog entries for log messages your application generates, please follow the following guidelines:
+To add message catalog entries for log messages your application generates, please follow these guidelines:
 
 * Use the [native Journal logging APIs](http://0pointer.de/blog/projects/journal-submit.html)
   to generate your messages, and define message IDs for all messages you want to add catalog entries for.

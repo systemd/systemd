@@ -71,7 +71,7 @@ service manager, and typically consumed by the service:
   service's cgroup. In order to make debugging easier, and allow later
   extension it is recommended for applications to also allow this path to refer
   to an `AF_UNIX` stream socket in the file system or a FIFO inode in the file
-  system. Regardless which of the three types of inodes this absolute path
+  system. Regardless of which of the three types of inodes this absolute path
   refers to, all three are `poll()`-able for memory pressure events. The
   variable can also be set to the literal string `/dev/null`. If so the service
   code should take this as indication that memory pressure monitoring is not
