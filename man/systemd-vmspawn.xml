@@ -113,6 +113,18 @@
           <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><option>--image-format=<replaceable>FORMAT</replaceable></option></term>
+
+          <listitem><para>Specifies the format of the disk image passed to <option>--image=</option>.
+          Takes either <literal>raw</literal> or <literal>qcow2</literal>. Defaults to
+          <literal>raw</literal>. Note that <literal>qcow2</literal> is only supported for regular files,
+          not block devices.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        </varlistentry>
+
       </variablelist>
     </refsect2>
 
@@ -464,9 +476,12 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--extra-drive=<replaceable>PATH</replaceable></option></term>
+          <term><option>--extra-drive=<replaceable>PATH</replaceable>[:<replaceable>FORMAT</replaceable>]</option></term>
 
-          <listitem><para>Takes a disk image or block device on the host and supplies it to the virtual machine as another drive.</para>
+          <listitem><para>Takes a disk image or block device on the host and supplies it to the virtual
+          machine as another drive. Optionally, the image format can be specified by appending a colon and
+          the format (<literal>raw</literal> or <literal>qcow2</literal>). Defaults to <literal>raw</literal>.
+          Note that <literal>qcow2</literal> is only supported for regular files, not block devices.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>

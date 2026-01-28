@@ -3,6 +3,25 @@
 
 #include "shared-forward.h"
 
+typedef enum ImageFormat {
+        IMAGE_FORMAT_RAW,
+        IMAGE_FORMAT_QCOW2,
+        _IMAGE_FORMAT_MAX,
+        _IMAGE_FORMAT_INVALID = -EINVAL,
+} ImageFormat;
+
+typedef struct ExtraDrive {
+        char *path;
+        ImageFormat format;
+} ExtraDrive;
+
+typedef struct ExtraDriveContext {
+        ExtraDrive *drives;
+        size_t n_drives;
+} ExtraDriveContext;
+
+void extra_drive_context_done(ExtraDriveContext *ctx);
+
 typedef enum ConsoleMode {
         CONSOLE_INTERACTIVE,    /* ptyfwd */
         CONSOLE_READ_ONLY,      /* ptyfwd, but in read-only mode */
@@ -22,3 +41,4 @@ typedef enum SettingsMask {
 } SettingsMask;
 
 DECLARE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);
+DECLARE_STRING_TABLE_LOOKUP(image_format, ImageFormat);
