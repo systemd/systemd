@@ -38,7 +38,7 @@
 /* The structure to pass to name_to_handle_at() on cgroupfs2 */
 typedef union {
         struct file_handle file_handle;
-        uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
+        uint8_t space[MAX_HANDLE_SZ];
 } cg_file_handle;
 
 #define CG_FILE_HANDLE_INIT                                     \
