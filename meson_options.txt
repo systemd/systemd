@@ -52,6 +52,8 @@ option('initrd', type : 'boolean',
        description : 'install services for use when running systemd in initrd')
 option('compat-mutable-uid-boundaries', type : 'boolean', value : false,
        description : 'look at uid boundaries in /etc/login.defs for compatibility')
+option('compat-sysv-interfaces', type : 'boolean', value : true,
+       description : 'keep legacy SysV interfaces for compatibility')
 
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')
