@@ -71,8 +71,7 @@ Note that the promise of stability applies only after an interface has been part
   `emergency.target`,
   `poweroff.target`,
   `reboot.target`,
-  `halt.target`,
-  `runlevel[1-5].target`.
+  `halt.target`.
 
 We try to always preserve backward compatibility in programmatic interfaces
 and intentional breakage is never introduced.
