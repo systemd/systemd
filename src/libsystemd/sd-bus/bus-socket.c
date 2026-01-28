@@ -1436,7 +1436,9 @@ int bus_socket_read_message(sd_bus *bus) {
                         .msg_controllen = sizeof(control),
                 };
 
-                k = RET_NERRNO(recvmsg(bus->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC));
+                k = recvmsg(bus->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                if (k < 0)
+                        k = -errno;
                 if (k == -ENOTSOCK) {
                         bus->prefer_readv = true;
                         k = readv(bus->input_fd, &iov, 1);
@@ -1453,6 +1455,10 @@ int bus_socket_read_message(sd_bus *bus) {
                 if (handle_cmsg)
                         cmsg_close_all(&mh); /* On EOF we shouldn't have gotten an fd, but let's make sure */
                 return -ECONNRESET;
+        }
+        if (handle_cmsg && FLAGS_SET(mh.msg_flags, MSG_TRUNC)) {
+                cmsg_close_all(&mh);
+                return -EXFULL;
         }
 
         bus->rbuffer_size += k;
