@@ -23,7 +23,7 @@ The concepts described here define an IPC interface.
 Alternatively, user/group records may be dropped in number of drop-in directories as files where they are
 picked up in addition to the users/groups defined by this IPC logic.
 See
-[`nss-systemd(8)`](https://www.freedesktop.org/software/systemd/man/nss-systemd.html)
+[`nss-systemd(8)`](https://www.freedesktop.org/software/systemd/man/latest/nss-systemd.html)
 for details.
 
 This simple API only exposes only three method calls, and requires only a small
@@ -150,7 +150,7 @@ synthesize NSS records for users/groups natively defined via a Varlink API.
 Special care is taken to avoid recursion between these two compatibility mechanisms.
 
 Subsystems that shall provide user/group records to the system may choose
-between offering them via an NSS module or via a this Varlink API, either way
+between offering them via an NSS module or via this Varlink API, either way
 all records are accessible via both APIs, due to the bidirectional forwarding.
 It is also possible to provide the same records via both APIs
 directly, but in that case the compatibility logic must be turned off.

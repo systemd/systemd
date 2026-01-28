@@ -85,7 +85,7 @@ You should consider these recommendations if you are you working on one of the f
   Ignore EEXIST on mkdir.
 - Avoid renaming cgroups or similar fancier file operations.
 - Expect that other programs might readjust the attributes on your cgroups dynamically during runtime.
-- When creating a cgroup pick a nice a descriptive name that is guessable and no surprise to the admin.
+- When creating a cgroup pick a descriptive name that is guessable and no surprise to the admin.
   The admin will thank you for this if he has to read the output of "ps -eo pid,args,cgroups"
 - /sys/fs/cgroup is a tmpfs. If you create your own private named hierarchy then you are welcome to mount it into a subdirectory of this directory.
   This minimizes surprises for the user.

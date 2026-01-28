@@ -101,7 +101,7 @@ auxiliary resources:
 > [!NOTE]
 > Depending on the execution environment the first component (the boot loader)
 > might be dispensable. Specifically, on disk images intended solely for use in
-> VMs, it might be make sense to tell the firmware to directly boot a UKI,
+> VMs, it might make sense to tell the firmware to directly boot a UKI,
 > letting the VMM's image selection functionality play the role of the boot loader.
 
 > [!NOTE]

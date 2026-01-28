@@ -26,7 +26,7 @@ Currently nothing like this is supported or even planned.
 
 ## Pre-defined systemd units
 
-[`systemd.special(7)`](https://www.freedesktop.org/software/systemd/man/systemd.special.html)
+[`systemd.special(7)`](https://www.freedesktop.org/software/systemd/man/latest/systemd.special.html)
 defines the `graphical-session.target` and `graphical-session-pre.target` to
 allow cross-desktop integration. Furthermore, systemd defines the three base
 slices `background`, `app` and `session`.

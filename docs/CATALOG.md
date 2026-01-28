@@ -21,7 +21,7 @@ The message catalog has a number of purposes:
 ## Format
 
 Message catalog source files are simple text files that follow an RFC822 inspired format.
-To get an understanding of the format [here's an example file](http://cgit.freedesktop.org/systemd/systemd/plain/catalog/systemd.catalog), which includes entries for many important messages systemd itself generates.
+To get an understanding of the format [here's an example file](https://github.com/systemd/systemd/blob/main/catalog/systemd.catalog.in), which includes entries for many important messages systemd itself generates.
 On installation of a package that includes message catalogs all installed message catalog source files get compiled into a binary index, which is then used to look up catalog data.
 
 journalctl's `-x` command line parameter may be used to augment on display journal log messages with message catalog data when browsing.
@@ -36,9 +36,8 @@ Here's an example how a single catalog entry looks like in the text source forma
 -- fc2e22bc6ee647b6b90729ab34a250b1
 Subject: Process @COREDUMP_PID@ (@COREDUMP_COMM@) dumped core
 Defined-By: systemd
-Support: http://lists.freedesktop.org/mailman/listinfo/systemd-devel
+Support: https://lists.freedesktop.org/mailman/listinfo/systemd-devel
 Documentation: man:core(5)
-Documentation: http://www.freedesktop.org/wiki/Software/systemd/catalog/@MESSAGE_ID@
 
 Process @COREDUMP_PID@ (@COREDUMP_COMM@) crashed and dumped core.
 
@@ -80,16 +79,16 @@ The text format of the .catalog files is as follows:
 * When a catalog entry is printed on screen for a specific log entry simple variable replacements are applied.
 Journal field names enclosed in @ will be replaced by their values, if such a field is available in an entry.
 If such a field is not defined in an entry the enclosing @ will be dropped but the variable name is kept.
-See [systemd's own message catalog](http://cgit.freedesktop.org/systemd/systemd/plain/catalog/systemd.catalog) for a complete example for a catalog file.
+See [systemd's own message catalog](https://github.com/systemd/systemd/blob/main/catalog/systemd.catalog.in) for a complete example for a catalog file.
 
 ## Adding Message Catalog Support to Your Program
 
 Note that the message catalog is only available for messages generated with the MESSAGE\_ID= journal meta data field, as this is need to find the right entry for a message.
-For more information on the MESSAGE\_ID= journal entry field see [systemd.journal-fields(7)](http://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html).
+For more information on the MESSAGE\_ID= journal entry field see [systemd.journal-fields(7)](https://www.freedesktop.org/software/systemd/man/latest/systemd.journal-fields.html).
 
-To add message catalog entries for log messages your application generates, please follow the following guidelines:
+To add message catalog entries for log messages your application generates, please follow these guidelines:
 
-* Use the [native Journal logging APIs](http://0pointer.de/blog/projects/journal-submit.html)
+* Use the [native Journal logging APIs](https://0pointer.de/blog/projects/journal-submit.html)
   to generate your messages, and define message IDs for all messages you want to add catalog entries for.
   You may use `journalctl --new-id128` to allocate new message IDs.
 * Write a catalog entry file for your messages and ship them in your package and install them to `/usr/lib/systemd/catalog/`

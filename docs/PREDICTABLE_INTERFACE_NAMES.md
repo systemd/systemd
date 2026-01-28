@@ -81,10 +81,10 @@ With this new scheme in place, an administrator now has to check first what the 
 You basically have three options:
 
 1. You disable the assignment of fixed names, so that the unpredictable kernel names are used again. For this, simply mask udev's .link file for the default policy: `ln -s /dev/null /etc/systemd/network/99-default.link`
-1. You create your own manual naming scheme, for example by naming your interfaces `internet0`, `dmz0` or `lan0`. For that create your own `.link` files in `/etc/systemd/network/`, that choose an explicit name or a better naming scheme for one, some, or all of your interfaces. See [systemd.link(5)](https://www.freedesktop.org/software/systemd/man/systemd.link.html) for more information.
+1. You create your own manual naming scheme, for example by naming your interfaces `internet0`, `dmz0` or `lan0`. For that create your own `.link` files in `/etc/systemd/network/`, that choose an explicit name or a better naming scheme for one, some, or all of your interfaces. See [systemd.link(5)](https://www.freedesktop.org/software/systemd/man/latest/systemd.link.html) for more information.
 1. You pass the `net.ifnames=0` on the kernel command line
 
 ## How does the new naming scheme look like, precisely?
 
-That's documented in detail the [systemd.net-naming-scheme(7)](https://www.freedesktop.org/software/systemd/man/systemd.net-naming-scheme.html) man page.
+That's documented in detail the [systemd.net-naming-scheme(7)](https://www.freedesktop.org/software/systemd/man/latest/systemd.net-naming-scheme.html) man page.
 Please refer to this in case you are wondering how to decode the new interface names.
