@@ -61,7 +61,7 @@ int parse_tristate_full(const char *v, const char *third, int *ret) {
         return 0;
 }
 
-int parse_pid(const char *s, pid_t* ret_pid) {
+int parse_pid(const char *s, pid_t *ret) {
         unsigned long ul = 0;
         pid_t pid;
         int r;
@@ -80,8 +80,8 @@ int parse_pid(const char *s, pid_t* ret_pid) {
         if (!pid_is_valid(pid))
                 return -ERANGE;
 
-        if (ret_pid)
-                *ret_pid = pid;
+        if (ret)
+                *ret = pid;
         return 0;
 }
 
