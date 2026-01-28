@@ -1911,6 +1911,11 @@ static int merge_subprocess(
                         if (r < 0)
                                 return r;
 
+                        /* Do not use the image name derived from the backing file of the loop device */
+                        r = free_and_strdup(&m->image_name, img->name);
+                        if (r < 0)
+                                return r;
+
                         r = dissected_image_load_verity_sig_partition(
                                         m,
                                         d->fd,
