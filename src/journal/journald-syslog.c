@@ -338,7 +338,7 @@ void manager_process_syslog_message(
 
         char *t, syslog_priority[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int)],
                  syslog_facility[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
-        const char *msg, *syslog_ts, *a;
+        const char *msg, *syslog_ts;
         _cleanup_free_ char *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL;
         int priority = LOG_USER | LOG_INFO, r;
         ClientContext *context = NULL;
@@ -434,9 +434,17 @@ void manager_process_syslog_message(
                 iovec[n++] = IOVEC_MAKE_STRING(syslog_facility);
         }
 
+        /* The syslog identifier should be short enough in most cases and NAME_MAX should be enough, but we
+         * do not validate the length in syslog_parse_identifier(). Let's use a heap allocation here if it is
+         * too long. Note. NAME_MAX is counted *without* the trailing NUL byte. */
+        char syslog_identifier[STRLEN("SYSLOG_IDENTIFIER=") + NAME_MAX + 1];
+        _cleanup_free_ char *syslog_identifier_alloc = NULL;
         if (identifier) {
-                a = strjoina("SYSLOG_IDENTIFIER=", identifier);
-                iovec[n++] = IOVEC_MAKE_STRING(a);
+                if (strlen(identifier) <= NAME_MAX) {
+                        *stpcpy(stpcpy(syslog_identifier, "SYSLOG_IDENTIFIER="), identifier) = '\0';
+                        iovec[n++] = IOVEC_MAKE_STRING(syslog_identifier);
+                } else
+                        syslog_identifier_alloc = set_iovec_string_field(iovec, &n, "SYSLOG_IDENTIFIER=", identifier);
         }
 
         char syslog_pid[STRLEN("SYSLOG_PID=") + DECIMAL_STR_MAX(pid_t)];
