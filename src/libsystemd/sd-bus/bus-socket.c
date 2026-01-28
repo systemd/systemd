@@ -657,7 +657,7 @@ static int bus_socket_read_auth(sd_bus *b) {
                         .msg_controllen = sizeof(control),
                 };
 
-                k = RET_NERRNO(recvmsg(b->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC));
+                k = recvmsg_safe(b->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
                 if (k == -ENOTSOCK) {
                         b->prefer_readv = true;
                         k = readv(b->input_fd, &iov, 1);
@@ -1397,14 +1397,8 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
 }
 
 int bus_socket_read_message(sd_bus *bus) {
-        struct msghdr mh;
-        struct iovec iov = {};
-        ssize_t k;
         size_t need;
         int r;
-        void *b;
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)) control;
-        bool handle_cmsg = false;
 
         assert(bus);
         assert(IN_SET(bus->state, BUS_RUNNING, BUS_HELLO));
@@ -1416,19 +1410,18 @@ int bus_socket_read_message(sd_bus *bus) {
         if (bus->rbuffer_size >= need)
                 return bus_socket_make_message(bus, need);
 
-        b = realloc(bus->rbuffer, need);
+        void *b = realloc(bus->rbuffer, need);
         if (!b)
                 return -ENOMEM;
-
         bus->rbuffer = b;
 
-        iov = IOVEC_MAKE((uint8_t *)bus->rbuffer + bus->rbuffer_size, need - bus->rbuffer_size);
+        struct iovec iov = IOVEC_MAKE((uint8_t*) bus->rbuffer + bus->rbuffer_size, need - bus->rbuffer_size);
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)) control;
+        struct msghdr mh;
+        bool handle_cmsg = false;
+        ssize_t k;
 
-        if (bus->prefer_readv) {
-                k = readv(bus->input_fd, &iov, 1);
-                if (k < 0)
-                        k = -errno;
-        } else {
+        if (!bus->prefer_readv) {
                 mh = (struct msghdr) {
                         .msg_iov = &iov,
                         .msg_iovlen = 1,
@@ -1436,23 +1429,28 @@ int bus_socket_read_message(sd_bus *bus) {
                         .msg_controllen = sizeof(control),
                 };
 
-                k = RET_NERRNO(recvmsg(bus->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC));
-                if (k == -ENOTSOCK) {
+                k = recvmsg(bus->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                if (k < 0 && errno == ENOTSOCK)
                         bus->prefer_readv = true;
-                        k = readv(bus->input_fd, &iov, 1);
-                        if (k < 0)
-                                k = -errno;
-                } else
+                else
                         handle_cmsg = true;
         }
-        if (ERRNO_IS_NEG_TRANSIENT(k))
-                return 0;
-        if (k < 0)
-                return (int) k;
+        if (bus->prefer_readv)
+                k = readv(bus->input_fd, &iov, 1);
+        if (k < 0) {
+                if (ERRNO_IS_TRANSIENT(errno))
+                        return 0;
+
+                return -errno;
+        }
         if (k == 0) {
                 if (handle_cmsg)
                         cmsg_close_all(&mh); /* On EOF we shouldn't have gotten an fd, but let's make sure */
                 return -ECONNRESET;
+        }
+        if (handle_cmsg && FLAGS_SET(mh.msg_flags, MSG_TRUNC)) {
+                cmsg_close_all(&mh);
+                return -EXFULL;
         }
 
         bus->rbuffer_size += k;
