@@ -848,7 +848,7 @@ static void device_track_back(sd_device *d, sd_device **ret) {
         (void) sd_device_get_devname(d, &devname);
 
         _cleanup_(sd_device_unrefp) sd_device *d_originating = NULL;
-        r = block_device_get_originating(d, &d_originating);
+        r = block_device_get_originating(d, &d_originating, /* recursive= */ true);
         if (r < 0 && r != -ENOENT)
                 log_device_debug_errno(d, r, "Failed to get originating device for '%s', ignoring: %m", strna(devname));
 
