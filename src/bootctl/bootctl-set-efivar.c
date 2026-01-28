@@ -1,18 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <uchar.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "bootctl.h"
 #include "bootctl-set-efivar.h"
+#include "bootctl-util.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "log.h"
 #include "stdio-util.h"
 #include "time-util.h"
 #include "utf8.h"
-#include "virt.h"
 
 static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_timeout_size) {
         char buf[DECIMAL_STR_MAX(usec_t)];
@@ -133,37 +132,9 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
 int verb_set_efivar(int argc, char *argv[], void *userdata) {
         int r;
 
-        /* Note: changing EFI variables is the primary purpose of these verbs, hence unlike in the other
-         * verbs that might touch EFI variables where we skip things gracefully, here we fail loudly if we
-         * are not run on EFI or EFI variable modifications were turned off. */
-
-        if (arg_touch_variables < 0) {
-                if (arg_root)
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Acting on %s, refusing EFI variable setup.",
-                                               arg_image ? "image" : "root directory");
-
-                if (detect_container() > 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "'%s' operation not supported in a container.",
-                                               argv[0]);
-                if (!is_efi_boot())
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Not booted with UEFI.");
-
-                if (access(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderInfo")), F_OK) < 0) {
-                        if (errno == ENOENT) {
-                                log_error_errno(errno, "Not booted with a supported boot loader.");
-                                return -EOPNOTSUPP;
-                        }
-
-                        return log_error_errno(errno, "Failed to detect whether boot loader supports '%s' operation: %m", argv[0]);
-                }
-
-        } else if (!arg_touch_variables)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "'%s' operation cannot be combined with --variables=no.",
-                                       argv[0]);
+        r = verify_touch_variables_allowed(argv[0]);
+        if (r < 0)
+                return r;
 
         const char *variable;
         int (* arg_parser)(const char *, char16_t **, size_t *);

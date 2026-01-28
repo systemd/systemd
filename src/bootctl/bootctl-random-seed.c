@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "bootctl.h"
 #include "bootctl-random-seed.h"
+#include "bootctl-util.h"
 #include "efivars.h"
 #include "env-util.h"
 #include "fd-util.h"
