@@ -138,7 +138,7 @@ to be unique, as mentioned, in which case *all* matching fds are
 closed). Generally it's a good idea to send such messages to the service
 manager during initialization of the service whenever an unrecognized fd is
 received, to make the service robust for code updates: if an old version
-uploaded an fd that the new version doesn't recognize anymore it's good idea to
+uploaded an fd that the new version doesn't recognize anymore it's a good idea to
 close it both in the service and in the fdstore.
 
 Note that storing a duplicate of an fd in the fdstore means the resource pinned

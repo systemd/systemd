@@ -587,7 +587,7 @@ If the hash table fill level is increasing over a certain fill level (Learning
 from Java's Hashtable for example: > 75%), the writer should rotate the file
 and create a new one.
 
-The DATA_HASH_TABLE should be sized taking into account to the maximum size the
+The DATA_HASH_TABLE should be sized taking into account the maximum size the
 file is expected to grow, as configured by the administrator or disk space
 considerations. The FIELD_HASH_TABLE should be sized to a fixed size; the
 number of fields should be pretty static as it depends only on developers'

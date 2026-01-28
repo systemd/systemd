@@ -93,7 +93,7 @@ couple of ideas people came up with so far:
 * And so on and so on.
 
 All these are valid approaches to the question "When is the network up?", but
-none of them would be useful to be good as generic default.
+none of them would be good as a generic default.
 
 Modern networking tends to be highly dynamic: machines are moved between
 networks, network configuration changes, hardware is added and removed, virtual

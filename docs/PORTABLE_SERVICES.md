@@ -132,7 +132,7 @@ And that's already it.
 
 Note that the images need to stay around (and in the same location) as long as the
 portable service is attached.
-If an image is moved, the `RootImage=` line written to the unit drop-in would point to an non-existent path, and break access to the image.
+If an image is moved, the `RootImage=` line written to the unit drop-in would point to a non-existent path, and break access to the image.
 
 The `portablectl detach` command executes the reverse operation:
 it looks for the drop-ins and the unit files associated with the image, and removes them.
