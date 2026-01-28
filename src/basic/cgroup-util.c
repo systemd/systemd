@@ -35,18 +35,6 @@
 #include "user-util.h"
 #include "xattr-util.h"
 
-/* The structure to pass to name_to_handle_at() on cgroupfs2 */
-typedef union {
-        struct file_handle file_handle;
-        uint8_t space[MAX_HANDLE_SZ];
-} cg_file_handle;
-
-#define CG_FILE_HANDLE_INIT                                     \
-        (cg_file_handle) {                                      \
-                .file_handle.handle_bytes = sizeof(uint64_t),   \
-                .file_handle.handle_type = FILEID_KERNFS,       \
-        }
-
 int cg_is_available(void) {
         struct statfs fs;
 
@@ -82,7 +70,14 @@ int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
                 cgroupfs_fd = fsfd;
         }
 
-        cg_file_handle fh = CG_FILE_HANDLE_INIT;
+        union {
+                struct file_handle file_handle;
+                uint8_t space[MAX_HANDLE_SZ];
+        } fh = {
+                .file_handle.handle_bytes = sizeof(uint64_t),
+                .file_handle.handle_type = FILEID_KERNFS,
+        };
+
         unaligned_write_ne64(fh.file_handle.f_handle, id);
 
         return RET_NERRNO(open_by_handle_at(cgroupfs_fd, &fh.file_handle, O_DIRECTORY|O_CLOEXEC));
