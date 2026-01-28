@@ -10,7 +10,7 @@ int parse_tristate_full(const char *v, const char *third, int *ret);
 static inline int parse_tristate(const char *v, int *ret) {
         return parse_tristate_full(v, NULL, ret);
 }
-int parse_pid(const char *s, pid_t* ret_pid);
+int parse_pid(const char *s, pid_t *ret);
 int parse_mode(const char *s, mode_t *ret);
 int parse_ifindex(const char *s);
 int parse_mtu(int family, const char *s, uint32_t *ret);
