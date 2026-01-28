@@ -339,7 +339,7 @@ void manager_process_syslog_message(
         char *t, syslog_priority[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int)],
                  syslog_facility[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)],
                  syslog_pid[STRLEN("SYSLOG_PID=") + DECIMAL_STR_MAX(pid_t)];
-        const char *msg, *syslog_ts, *a;
+        const char *msg, *syslog_ts;
         _cleanup_free_ char *identifier = NULL,
                 *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL;
         int priority = LOG_USER | LOG_INFO, r;
@@ -435,10 +435,11 @@ void manager_process_syslog_message(
                 iovec[n++] = IOVEC_MAKE_STRING(syslog_facility);
         }
 
-        if (identifier) {
-                a = strjoina("SYSLOG_IDENTIFIER=", identifier);
-                iovec[n++] = IOVEC_MAKE_STRING(a);
-        }
+        _cleanup_free_ char *syslog_identifier = NULL;
+        if (identifier)
+                /* The identifier should be short enough in general, but we do not validate the length in
+                 * syslog_parse_identifier(). Let's use a heap allocation here. */
+                syslog_identifier = set_iovec_string_field(iovec, &n, "SYSLOG_IDENTIFIER=", identifier);
 
         if (pid_is_valid(pid)) {
                 xsprintf(syslog_pid, "SYSLOG_PID="PID_FMT, pid);
