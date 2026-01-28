@@ -24,7 +24,7 @@ jobs:
     if: github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable'
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - uses: systemd/mkosi@e3642f81d3a7f8f9310c0c734b2ba9dd41e50e14
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
@@ -128,7 +128,7 @@ jobs:
             --quiet
 
       - name: Archive failed test journals
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
         with:
           name: ci-coverage-${{ github.run_id }}-${{ github.run_attempt }}-arch-rolling-failed-test-journals
