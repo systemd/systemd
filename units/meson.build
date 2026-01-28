@@ -301,6 +301,10 @@ units = [
           'symlinks' : ['initrd.target.wants/'],
         },
         {
+          'file' : 'systemd-confext-sysroot.service',
+          'conditions' : ['ENABLE_INITRD', 'ENABLE_SYSEXT'],
+        },
+        {
           'file' : 'systemd-coredump.socket',
           'conditions' : ['ENABLE_COREDUMP'],
           'symlinks' : ['sockets.target.wants/', 'system-update-pre.target.wants/'],
@@ -711,6 +715,10 @@ units = [
           'file' : 'systemd-sysext-initrd.service',
           'conditions' : ['ENABLE_INITRD', 'ENABLE_SYSEXT'],
           'symlinks' : ['initrd.target.wants/'],
+        },
+        {
+          'file' : 'systemd-sysext-sysroot.service',
+          'conditions' : ['ENABLE_INITRD', 'ENABLE_SYSEXT'],
         },
         {
           'file' : 'systemd-sysext.socket',
