@@ -16,14 +16,14 @@ jobs:
 
     steps:
       - name: Repository checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - id: metadata
         name: Gather Pull Request Metadata
-        uses: redhat-plumbers-in-action/gather-pull-request-metadata@b3dbc3f843e8343dbcb2af5bffba72c974d3a07a
+        uses: redhat-plumbers-in-action/gather-pull-request-metadata@b86d1eaf7038cf88a56b26ba3e504f10e07b0ce5
 
       - name: Upload Pull Request Metadata artifact
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: Pull Request Metadata
           path: ${{ steps.metadata.outputs.metadata-file }}
