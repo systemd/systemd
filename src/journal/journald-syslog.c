@@ -328,8 +328,7 @@ void manager_process_syslog_message(
                 size_t raw_len,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label,
-                size_t label_len) {
+                const char *label) {
 
         char *t, syslog_priority[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int)],
                  syslog_facility[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
@@ -351,7 +350,7 @@ void manager_process_syslog_message(
         assert(buf[raw_len] == '\0');
 
         if (ucred && pid_is_valid(ucred->pid)) {
-                r = client_context_get(m, ucred->pid, ucred, label, label_len, NULL, &context);
+                r = client_context_get(m, ucred->pid, ucred, label, /* unit_id= */ NULL, &context);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m",

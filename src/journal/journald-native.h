@@ -9,15 +9,13 @@ void manager_process_native_message(
                 size_t buffer_size,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label,
-                size_t label_len);
+                const char *label);
 
 int manager_process_native_file(
                 Manager *m,
                 int fd,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label,
-                size_t label_len);
+                const char *label);
 
 int manager_open_native_socket(Manager *m, const char *native_socket);
