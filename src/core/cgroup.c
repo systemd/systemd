@@ -45,6 +45,7 @@
 #include "serialize.h"
 #include "set.h"
 #include "special.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -2070,13 +2071,14 @@ static int unit_update_cgroup(
 
         uint64_t cgroup_id = 0;
         r = cg_get_path(crt->cgroup_path, /* suffix= */ NULL, &cgroup_full_path);
-        if (r == 0) {
-                r = cg_path_get_cgroupid(cgroup_full_path, &cgroup_id);
+        if (r < 0)
+                log_unit_warning_errno(u, r, "Failed to get full cgroup path on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+        else {
+                r = path_get_inode_id(cgroup_full_path, &cgroup_id);
                 if (r < 0)
                         log_unit_full_errno(u, ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                             "Failed to get cgroup ID of cgroup %s, ignoring: %m", cgroup_full_path);
-        } else
-                log_unit_warning_errno(u, r, "Failed to get full cgroup path on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+        }
 
         crt->cgroup_id = cgroup_id;
 
