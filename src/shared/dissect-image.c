@@ -2743,7 +2743,7 @@ int dissected_image_mount(
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to check is '%s' is an OS tree: %m", where);
                         if (r > 0) {
-                                log_debug("Succesfully identified '%s' as an OS tree", where);
+                                log_debug("Successfully identified '%s' as an OS tree", where);
                                 ok = true;
                         }
                 }
