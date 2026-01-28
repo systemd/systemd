@@ -1354,7 +1354,7 @@ static int validate_cgroup(sd_varlink *link, int fd, uint64_t *ret_cgroup_id) {
         if (r == 0)
                 return sd_varlink_error_invalid_parameter_name(link, "controlGroupFileDescriptor");
 
-        r = cg_fd_get_cgroupid(fd, ret_cgroup_id);
+        r = fd_to_handle_u64(fd, ret_cgroup_id);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read cgroup ID from cgroupfs: %m");
 
