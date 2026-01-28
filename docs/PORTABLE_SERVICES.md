@@ -239,7 +239,7 @@ image.
 As mentioned, `mkosi -b` takes care of all of that for you, but any other image generator should work too.
 
 The
-[os-release(5)](https://www.freedesktop.org/software/systemd/man/os-release.html)
+[os-release(5)](https://www.freedesktop.org/software/systemd/man/latest/os-release.html)
 file may optionally be extended with a `PORTABLE_PREFIXES=` field listing all
 supported portable service prefixes for the image (see above).
 This is useful for informational purposes (as it allows recognizing portable service images
@@ -361,7 +361,7 @@ PORTABLE_EXTENSION_NAME_AND_VERSION=app_1
 
 ## Links
 
-[`portablectl(1)`](https://www.freedesktop.org/software/systemd/man/portablectl.html)<br>
-[`systemd-portabled.service(8)`](https://www.freedesktop.org/software/systemd/man/systemd-portabled.service.html)<br>
+[`portablectl(1)`](https://www.freedesktop.org/software/systemd/man/latest/portablectl.html)<br>
+[`systemd-portabled.service(8)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-portabled.service.html)<br>
 [Walkthrough for Portable Services](https://0pointer.net/blog/walkthrough-for-portable-services.html)<br>
 [Repo with examples](https://github.com/systemd/portable-walkthrough)
