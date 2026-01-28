@@ -47,9 +47,6 @@ typedef union {
                 .file_handle.handle_type = FILEID_KERNFS,       \
         }
 
-/* The .f_handle field is not aligned to 64bit on some archs, hence read it via an unaligned accessor */
-#define CG_FILE_HANDLE_CGROUPID(fh) unaligned_read_ne64(fh.file_handle.f_handle)
-
 int cg_is_available(void) {
         struct statfs fs;
 
@@ -109,24 +106,6 @@ int cg_path_from_cgroupid(int cgroupfs_fd, uint64_t id, char **ret) {
 
         if (ret)
                 *ret = TAKE_PTR(path);
-        return 0;
-}
-
-int cg_get_cgroupid_at(int dfd, const char *path, uint64_t *ret) {
-        cg_file_handle fh = CG_FILE_HANDLE_INIT;
-        int mnt_id;
-
-        assert(dfd >= 0 || (dfd == AT_FDCWD && path_is_absolute(path)));
-        assert(ret);
-
-        /* This is cgroupfs so we know the size of the handle, thus no need to loop around like
-         * name_to_handle_at_loop() does in mountpoint-util.c */
-        if (name_to_handle_at(dfd, strempty(path), &fh.file_handle, &mnt_id, isempty(path) ? AT_EMPTY_PATH : 0) < 0) {
-                assert(errno != EOVERFLOW);
-                return -errno;
-        }
-
-        *ret = CG_FILE_HANDLE_CGROUPID(fh);
         return 0;
 }
 
