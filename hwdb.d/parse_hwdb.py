@@ -106,6 +106,7 @@ GENERAL_MATCHES = {'acpi',
                    'vmbus',
                    'OUI',
                    'ieee1394',
+                   'dmi',
                    }
 
 def upperhex_word(length):
@@ -201,6 +202,16 @@ def property_grammar():
              ('ID_INFRARED_CAMERA', Or((Literal('0'), Literal('1')))),
              ('ID_CAMERA_DIRECTION', Or(('front', 'rear'))),
              ('SOUND_FORM_FACTOR', Or(('internal', 'webcam', 'speaker', 'headphone', 'headset', 'handset', 'microphone'))),
+             ('ID_SYS_VENDOR_IS_RUBBISH', Or((Literal('0'), Literal('1')))),
+             ('ID_PRODUCT_NAME_IS_RUBBISH', Or((Literal('0'), Literal('1')))),
+             ('ID_PRODUCT_VERSION_IS_RUBBISH', Or((Literal('0'), Literal('1')))),
+             ('ID_BOARD_VERSION_IS_RUBBISH', Or((Literal('0'), Literal('1')))),
+             ('ID_PRODUCT_SKU_IS_RUBBISH', Or((Literal('0'), Literal('1')))),
+             ('ID_CHASSIS_ASSET_TAG_IS_RUBBISH', Or((Literal('0'), Literal('1')))),
+             ('ID_CHASSIS', name_literal),
+             ('ID_SYSFS_ATTRIBUTE_MODEL', name_literal),
+             ('ID_NET_NAME_FROM_DATABASE', name_literal),
+             ('ID_NET_NAME_INCLUDE_DOMAIN', Or((Literal('0'), Literal('1')))),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
@@ -243,8 +254,10 @@ def check_matches(groups):
 
     # This is a partial check. The other cases could be also done, but those
     # two are most commonly wrong.
-    grammars = { 'usb' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4) + Optional(':')) + '*',
-                 'pci' : 'v' + upperhex_word(8) + Optional('d' + upperhex_word(8) + Optional(':')) + '*',
+    grammars = {
+        'bluetooth' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4) + Optional(':')) + '*',
+        'usb' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4) + Optional(':')) + '*',
+        'pci' : 'v' + upperhex_word(8) + Optional('d' + upperhex_word(8) + Optional(':')) + '*',
     }
 
     for match in matches:
@@ -253,12 +266,12 @@ def check_matches(groups):
         if gr:
             # we check this first to provide an easy error message
             if rest[-1] not in '*:':
-                error('pattern {} does not end with "*" or ":"', match)
+                error('Pattern {} does not end with "*" or ":"', match)
 
             try:
                 gr.parseString(rest)
             except ParseBaseException as e:
-                error('Pattern {!r} is invalid: {}', rest, e)
+                error('Pattern {} is invalid: {}', match, e)
                 continue
 
     matches.sort()
@@ -340,7 +353,12 @@ def print_summary(fname, groups):
         error(f'{fname}: no matches or props')
 
 if __name__ == '__main__':
-    args = sys.argv[1:] or sorted(glob.glob(os.path.dirname(sys.argv[0]) + '/[678][0-9]-*.hwdb'))
+    args = sys.argv[1:] or sorted(
+        [
+            os.path.dirname(sys.argv[0]) + '/20-dmi-id.hwdb',
+            os.path.dirname(sys.argv[0]) + '/20-net-ifname.hwdb',
+        ] + glob.glob(os.path.dirname(sys.argv[0]) + '/[678][0-9]-*.hwdb')
+    )
 
     for fname in args:
         groups = parse(fname)

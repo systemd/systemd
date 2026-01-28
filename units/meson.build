@@ -43,10 +43,7 @@ units = [
           'file' : 'getty.target',
           'symlinks' : ['multi-user.target.wants/'],
         },
-        {
-          'file' : 'getty@.service.in',
-          'symlinks' : ['autovt@.service'],
-        },
+        { 'file' : 'getty@.service.in' },
         {
           'file' : 'graphical.target',
           'symlinks' : ['default.target'],
@@ -173,10 +170,6 @@ units = [
         {
           'file' : 'quotaon-root.service.in',
           'conditions' : ['ENABLE_QUOTACHECK'],
-        },
-        {
-          'file' : 'rc-local.service.in',
-          'conditions' : ['HAVE_SYSV_RC_LOCAL'],
         },
         {
           'file' : 'reboot.target',

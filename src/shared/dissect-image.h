@@ -177,6 +177,7 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
 int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 
 int dissected_image_acquire_metadata(DissectedImage *m, int userns_fd, DissectImageFlags extra_flags);
+int dissected_image_name_from_path(const char *path, char **ret);
 
 Architecture dissected_image_architecture(DissectedImage *m);
 
@@ -268,10 +269,13 @@ static inline const char* dissected_partition_fstype(const DissectedPartition *m
 
 int get_common_dissect_directory(char **ret);
 
-int mountfsd_mount_image_fd(int image_fd, int userns_fd, const ImagePolicy *image_policy, const VeritySettings *verity, DissectImageFlags flags, DissectedImage **ret);
-int mountfsd_mount_image(const char *path, int userns_fd, const ImagePolicy *image_policy, const VeritySettings *verity, DissectImageFlags flags, DissectedImage **ret);
+int mountfsd_mount_image_fd(int image_fd, int userns_fd, const MountOptions *options, const ImagePolicy *image_policy, const VeritySettings *verity, DissectImageFlags flags, DissectedImage **ret);
+int mountfsd_mount_image(const char *path, int userns_fd, const MountOptions *options, const ImagePolicy *image_policy, const VeritySettings *verity, DissectImageFlags flags, DissectedImage **ret);
 int mountfsd_mount_directory_fd(int directory_fd, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
 int mountfsd_mount_directory(const char *path, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
 
 int mountfsd_make_directory_fd(int parent_fd, const char *name, mode_t mode, DissectImageFlags flags, int *ret_directory_fd);
 int mountfsd_make_directory(const char *path, mode_t mode, DissectImageFlags flags, int *ret_directory_fd);
+
+int copy_tree_at_foreign(int source_fd, int target_fd, int userns_fd);
+int remove_tree_foreign(const char *path, int userns_fd);

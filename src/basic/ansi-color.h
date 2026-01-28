@@ -5,10 +5,13 @@
 
 /* Limits the use of ANSI colors to a subset. */
 typedef enum ColorMode {
-        COLOR_OFF,   /* No colors, monochrome output. */
-        COLOR_16,    /* Only the base 16 colors. */
-        COLOR_256,   /* Only 256 colors. */
-        COLOR_24BIT, /* For truecolor or 24bit color support, no restriction. */
+        COLOR_OFF,        /* No colors, monochrome output. */
+        COLOR_16,         /* Only the base 16 colors. */
+        COLOR_256,        /* Only 256 colors. */
+        COLOR_24BIT,      /* For truecolor or 24bit color support, no restriction. */
+        COLOR_AUTO_16,    /* The "AUTO" modes are as the above, but subject to suitable settings for */
+        COLOR_AUTO_256,   /* the environment variables TERM and NO_COLOR. */
+        COLOR_AUTO_24BIT,
         _COLOR_MODE_MAX,
         _COLOR_MODE_INVALID = -EINVAL,
 } ColorMode;
@@ -49,7 +52,7 @@ bool looks_like_ansi_color_code(const char *str);
 #define ANSI_BRIGHT_CYAN    "\x1B[0;96m"
 #define ANSI_BRIGHT_WHITE   "\x1B[0;97m"
 
-#define ANSI_GREY    "\x1B[0;38;5;245m"
+#define ANSI_GREY    "\x1B[0;38:5:245m"
 
 /* Bold/highlighted */
 #define ANSI_HIGHLIGHT_BLACK    "\x1B[0;1;30m"

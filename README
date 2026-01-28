@@ -50,14 +50,16 @@ REQUIREMENTS:
                      ≥ 5.6 for getrandom() GRND_INSECURE
                      ≥ 5.7 for CLONE_INTO_CGROUP, cgroup2fs memory_recursiveprot option,
                                BPF links and the BPF LSM hook
-                     ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
+                     ≥ 5.8 for LOOP_CONFIGURE, STATX_ATTR_MOUNT_ROOT, and procfs
+                               per-instance hidepid=/subset= options
                      ≥ 5.9 for close_range()
-                     ≥ 5.10 for STATX_MNT_ID
+                     ≥ 5.10 for STATX_MNT_ID and MS_NOSYMFOLLOW mount option
 
         ⛔ Kernel versions below 5.10 ("minimum baseline") are not supported at all,
            and are missing required functionality as listed above.
 
-        Linux kernel ≥ 5.12 for idmapped mount
+        Linux kernel ≥ 5.11 for epoll_pwait2()
+                     ≥ 5.12 for idmapped mount (mount_setattr())
                      ≥ 5.14 for cgroup.kill and quotactl_fd()
 
         ⚠️ Kernel versions below 5.14 ("recommended baseline") have significant gaps
@@ -124,7 +126,8 @@ REQUIREMENTS:
           CONFIG_SECCOMP
           CONFIG_SECCOMP_FILTER (required for seccomp support)
           CONFIG_KCMP (for the kcmp() syscall, used to be under
-                       CONFIG_CHECKPOINT_RESTORE before ~5.12)
+                       CONFIG_CHECKPOINT_RESTORE before ~5.12;
+                       not needed after 6.10)
           CONFIG_NET_SCHED
           CONFIG_NET_SCH_FQ_CODEL
 
@@ -192,26 +195,13 @@ REQUIREMENTS:
         This is shipped by default, see modprobe.d/systemd.conf.
 
         Required for systemd-nspawn:
-          CONFIG_DEVPTS_MULTIPLE_INSTANCES or Linux kernel >= 4.7
+          CONFIG_DEVPTS_MULTIPLE_INSTANCES (removed and unneeded since 4.7)
 
         Required for systemd-oomd:
           CONFIG_PSI
           CONFIG_MEMCG
 
-        Note that kernel auditing is broken when used with systemd's container
-        code. When using systemd in conjunction with containers, please make
-        sure to either turn off auditing at runtime using the kernel command
-        line option "audit=0", or turn it off at kernel compile time using:
-          CONFIG_AUDIT=n
-
-        If systemd is compiled with libseccomp support on architectures which do
-        not use socketcall() and where seccomp is supported (this effectively
-        means x86-64 and ARM, but excludes 32-bit x86!), then nspawn will now
-        install a work-around seccomp filter that makes containers boot even
-        with audit being enabled. This works correctly only on kernels 3.14 and
-        newer though. TL;DR: turn audit off, still.
-
-        glibc >= 2.31
+        glibc >= 2.34
         libxcrypt >= 4.4.0 (optional)
         libmount >= 2.30 (from util-linux)
                 (util-linux *must* be built without --enable-libmount-support-mtab)
@@ -433,17 +423,6 @@ GLIBC NSS:
                 shadow: files systemd
                 gshadow: files systemd
                 hosts: mymachines resolve [!UNAVAIL=return] files myhostname dns
-
-SYSV INIT.D SCRIPTS:
-        When calling "systemctl enable/disable/is-enabled" on a unit which is a
-        SysV init.d script, it calls /usr/lib/systemd/systemd-sysv-install;
-        this needs to translate the action into the distribution specific
-        mechanism such as chkconfig or update-rc.d. Packagers need to provide
-        this script if you need this functionality (you don't if you disabled
-        SysV init support).
-
-        Please see src/systemctl/systemd-sysv-install.SKELETON for how this
-        needs to look like, and provide an implementation at the marked places.
 
 WARNINGS and TAINT FLAGS:
         systemd requires that the /run mount point exists. systemd also

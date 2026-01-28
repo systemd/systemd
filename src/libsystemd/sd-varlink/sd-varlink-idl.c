@@ -265,6 +265,12 @@ static int varlink_idl_format_field(
                 fputs(colors[COLOR_RESET], f);
                 break;
 
+        case SD_VARLINK_ANY:
+                fputs(colors[COLOR_FIELD_TYPE], f);
+                fputs("any", f);
+                fputs(colors[COLOR_RESET], f);
+                break;
+
         case SD_VARLINK_NAMED_TYPE:
                 fputs(colors[COLOR_IDENTIFIER], f);
                 fputs(ASSERT_PTR(field->named_type), f);
@@ -867,6 +873,9 @@ static int varlink_idl_subparse_field_type(
         } else if (startswith(*p, "object")) {
                 l = 6;
                 field->field_type = SD_VARLINK_OBJECT;
+        } else if (startswith(*p, "any")) {
+                l = 3;
+                field->field_type = SD_VARLINK_ANY;
         } else if (**p == '(') {
                 _cleanup_(varlink_symbol_freep) sd_varlink_symbol *symbol = NULL;
                 size_t n_fields = 0;
@@ -1426,7 +1435,7 @@ bool varlink_idl_symbol_name_is_valid(const char *name) {
 
         /* We might want to reference VARLINK_STRUCT_TYPE and VARLINK_ENUM_TYPE symbols where we also
          * reference native types, hence make sure the native type names are refused as symbol names. */
-        if (STR_IN_SET(name, "bool", "int", "float", "string", "object"))
+        if (STR_IN_SET(name, "bool", "int", "float", "string", "object", "any"))
                 return false;
 
         /* Symbols must be named with an uppercase letter as first character */
@@ -1695,6 +1704,8 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
 
 static int varlink_idl_validate_field_element_type(const sd_varlink_field *field, sd_json_variant *v) {
         assert(field);
+        assert(v);
+        assert(!sd_json_variant_is_null(v));
 
         switch (field->field_type) {
 
@@ -1752,6 +1763,11 @@ static int varlink_idl_validate_field_element_type(const sd_varlink_field *field
                                         strna(field->name),
                                         strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
+                break;
+
+        case SD_VARLINK_ANY:
+                /* The any type accepts any non-null JSON value, no validation needed. (Note that null is
+                 * already handled by the caller.) */
                 break;
 
         case _SD_VARLINK_FIELD_COMMENT:

@@ -6,7 +6,7 @@
 #include "shared-forward.h"
 
 typedef enum RereadPartitionTableFlags {
-        REREADPT_FORCE_UEVENT = 1 << 0, /* Force a "change" ueven out on partitions we didn't resize/remove/add */
+        REREADPT_FORCE_UEVENT = 1 << 0, /* Force a "change" uevent out on partitions we didn't resize/remove/add */
         REREADPT_BSD_LOCK     = 1 << 1, /* Take a BSD lock on the device around the rescan operation */
 } RereadPartitionTableFlags;
 

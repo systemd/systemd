@@ -17,6 +17,7 @@
 #include "edit-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "log.h"
 #include "mkdir-label.h"
 #include "netlink-util.h"
@@ -106,7 +107,13 @@ static int get_config_files_by_name(
                 if (!dropin_dirname)
                         return -ENOMEM;
 
-                r = conf_files_list_dropins(ret_dropins, dropin_dirname, /* root= */ NULL, NETWORK_DIRS);
+                r = conf_files_list_dropins(
+                                ret_dropins,
+                                dropin_dirname,
+                                /* root= */ NULL,
+                                /* root_fd= */ XAT_FDROOT,
+                                CONF_FILES_WARN,
+                                NETWORK_DIRS);
                 if (r < 0)
                         return r;
         }

@@ -191,9 +191,34 @@
 
           <listitem><para>A pretty operating system name in a format suitable for presentation to the
           user. May or may not contain a release code name or OS version of some kind, as suitable. If not
-          set, a default of <literal>PRETTY_NAME="Linux"</literal> may be used</para>
+          set, a default of <literal>PRETTY_NAME="Linux"</literal> may be used.</para>
 
-          <para>Example: <literal>PRETTY_NAME="Fedora 17 (Beefy Miracle)"</literal>.</para></listitem>
+          <para>Example: <literal>PRETTY_NAME="Fedora 17 (Beefy Miracle)"</literal></para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>FANCY_NAME=</varname></term>
+
+          <listitem><para>Similar to <varname>PRETTY_NAME=</varname>, but may contain ANSI sequences and
+          fancy UTF-8 characters such as emojis. If defined this shall preferably used when displaying the OS
+          name on modern terminal emulators. If the terminal emulator does not support emojis,
+          <varname>PRETTY_NAME=</varname> shall be shown instead, possibly with
+          <varname>ANSI_COLOR=</varname> coloring. Use <literal>\033</literal> to encode the ESC
+          character and <literal>\\</literal> to encode the backslash character.</para>
+
+          <!-- NB: the code actually does a full blown C style unescaping, but we are not going to mention
+               this here: people may add ANSI sequences, but maybe not the full expressivity of ASCII control
+               characters. -->
+
+          <para>Unlike <varname>PRETTY_NAME=</varname> this field must not contain information that is
+          present in other fields, in particular the version (already specified in
+          <varname>VERSION=</varname>) or the codename (already specified in
+          <varname>VERSION_CODENAME=</varname>).</para>
+
+          <para>Example:
+          <literal>FANCY_NAME="🍅 \033[31mTomato\033[0;1mOS\033[0m"</literal></para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -635,6 +660,19 @@
           be attached to a system.</para>
 
           <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>PORTABLE_SCOPE=</varname></term>
+          <listitem><para>Specifies the scope of the portable service. Takes one of <literal>system</literal>,
+          <literal>user</literal>, or <literal>any</literal>. When set to <literal>system</literal>, the
+          portable service can only be attached to the system instance of <command>systemd-portabled</command>.
+          When set to <literal>user</literal>, the portable service can only be attached to the user instance
+          of <command>systemd-portabled</command>. When set to <literal>any</literal>, the portable service
+          can be attached to both the system and user instances of <command>systemd-portabled</command>.
+          If not set, <literal>PORTABLE_SCOPE=system</literal> is implied.</para>
+
+          <xi:include href="version-info.xml" xpointer="v259"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

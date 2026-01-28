@@ -73,6 +73,24 @@ typedef enum ExecKeyringMode {
         _EXEC_KEYRING_MODE_INVALID = -EINVAL,
 } ExecKeyringMode;
 
+typedef enum MemoryTHP {
+        /*
+         * Inherit default from process that starts systemd, i.e. do not make
+         * any PR_SET_THP_DISABLE call.
+         */
+        MEMORY_THP_INHERIT,
+        MEMORY_THP_DISABLE, /* Disable THPs completely for the process */
+        MEMORY_THP_MADVISE, /* Disable THPs for the process except when madvised */
+        /*
+         * Use system default THP setting. this can be used when the process that
+         * starts systemd has already disabled THPs via PR_SET_THP_DISABLE, and we
+         * want to restore the system default THP setting at process invocation time.
+         */
+        MEMORY_THP_SYSTEM,
+        _MEMORY_THP_MAX,
+        _MEMORY_THP_INVALID = -EINVAL,
+} MemoryTHP;
+
 /* Contains start and exit information about an executed command.  */
 typedef struct ExecStatus {
         dual_timestamp start_timestamp;
@@ -600,9 +618,8 @@ bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType typ
 
 DECLARE_STRING_TABLE_LOOKUP_FROM_STRING(exec_clean_mask, ExecCleanMask);
 
-DECLARE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
-
 DECLARE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
+DECLARE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
 
 DECLARE_STRING_TABLE_LOOKUP(exec_utmp_mode, ExecUtmpMode);
 
@@ -611,10 +628,11 @@ DECLARE_STRING_TABLE_LOOKUP(exec_preserve_mode, ExecPreserveMode);
 DECLARE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode);
 
 DECLARE_STRING_TABLE_LOOKUP(exec_directory_type_symlink, ExecDirectoryType);
-
 DECLARE_STRING_TABLE_LOOKUP(exec_directory_type_mode, ExecDirectoryType);
 
 DECLARE_STRING_TABLE_LOOKUP(exec_resource_type, ExecDirectoryType);
+
+DECLARE_STRING_TABLE_LOOKUP(memory_thp, MemoryTHP);
 
 bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecRuntime *runtime);
 bool exec_needs_network_namespace(const ExecContext *context);

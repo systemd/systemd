@@ -12,7 +12,6 @@
 #include "copy.h"
 #include "creds-util.h"
 #include "dissect-image.h"
-#include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -21,6 +20,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "image-policy.h"
+#include "install-file.h"
 #include "label-util.h"
 #include "libaudit-util.h"
 #include "libcrypt-util.h"
@@ -596,18 +596,6 @@ done:
         return 0;
 }
 
-static usec_t epoch_or_now(void) {
-        uint64_t epoch;
-
-        if (secure_getenv_uint64("SOURCE_DATE_EPOCH", &epoch) >= 0) {
-                if (epoch > UINT64_MAX/USEC_PER_SEC) /* Overflow check */
-                        return USEC_INFINITY;
-                return (usec_t) epoch * USEC_PER_SEC;
-        }
-
-        return now(CLOCK_REALTIME);
-}
-
 static int write_temporary_shadow(
                 Context *c,
                 const char *shadow_path,
@@ -635,7 +623,7 @@ static int write_temporary_shadow(
         if (r < 0)
                 return log_debug_errno(r, "Failed to open temporary copy of %s: %m", shadow_path);
 
-        lstchg = (long) (epoch_or_now() / USEC_PER_DAY);
+        lstchg = (long) (source_date_epoch_or_now() / USEC_PER_DAY);
 
         original = fopen(shadow_path, "re");
         if (original) {

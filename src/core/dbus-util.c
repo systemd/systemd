@@ -267,49 +267,50 @@ int bus_read_mount_options(
 
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
         _cleanup_free_ char *format_str = NULL;
-        const char *mount_options, *partition;
         int r;
 
         assert(message);
         assert(ret_options);
-        assert(separator);
+        assert(!in_out_format_str == !separator);
 
         r = sd_bus_message_enter_container(message, 'a', "(ss)");
         if (r < 0)
                 return r;
 
+        const char *partition, *mount_options;
         while ((r = sd_bus_message_read(message, "(ss)", &partition, &mount_options)) > 0) {
-                _cleanup_free_ char *escaped = NULL;
                 PartitionDesignator partition_designator;
 
                 if (chars_intersect(mount_options, WHITESPACE))
                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
-                                                "Invalid mount options string, contains whitespace character(s): %s", mount_options);
+                                                 "Invalid mount options string, contains whitespace character(s): %s", mount_options);
 
                 partition_designator = partition_designator_from_string(partition);
                 if (partition_designator < 0)
                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid partition name %s", partition);
 
-                /* Need to store the options with the escapes, so that they can be parsed again */
-                escaped = shell_escape(mount_options, ":");
-                if (!escaped)
-                        return -ENOMEM;
+                if (!options) {
+                        options = new0(MountOptions, 1);
+                        if (!options)
+                                return -ENOMEM;
+                }
 
-                if (!isempty(escaped)) {
-                        if (!strextend_with_separator(&format_str, separator, partition, ":", escaped))
+                r = free_and_strdup(&options->options[partition_designator], mount_options);
+                if (r < 0)
+                        return r;
+
+                if (in_out_format_str && !isempty(mount_options)) {
+                        /* Need to store the options with the escapes, so that they can be parsed again */
+                        _cleanup_free_ char *escaped = NULL;
+
+                        escaped = shell_escape(mount_options, ":");
+                        if (!escaped)
                                 return -ENOMEM;
 
-                        if (!options) {
-                                options = new0(MountOptions, 1);
-                                if (!options)
-                                        return -ENOMEM;
-                        }
-
-                        r = free_and_strdup(&options->options[partition_designator], mount_options);
+                        r = strextendf_with_separator(&format_str, separator, "%s:%s", partition, escaped);
                         if (r < 0)
                                 return r;
-                } else if (options)
-                        options->options[partition_designator] = mfree(options->options[partition_designator]);
+                }
         }
         if (r < 0)
                 return r;
@@ -318,11 +319,10 @@ int bus_read_mount_options(
         if (r < 0)
                 return r;
 
-        if (options) {
-                if (in_out_format_str && !strextend_with_separator(in_out_format_str, separator, format_str))
-                        return -ENOMEM;
-                *ret_options = TAKE_PTR(options);
-        }
+        if (in_out_format_str && !strextend_with_separator(in_out_format_str, separator, format_str))
+                return -ENOMEM;
+
+        *ret_options = TAKE_PTR(options);
 
         return 0;
 }

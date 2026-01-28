@@ -438,7 +438,7 @@ static EFI_STATUS set_reboot_into_firmware(void) {
 
         err = efivar_set_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndications", osind, EFI_VARIABLE_NON_VOLATILE);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error setting OsIndications, ignoring: %m");
+                return log_warning_status(err, "Error setting OsIndications, ignoring: %m");
 
         return EFI_SUCCESS;
 }
@@ -1065,7 +1065,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
 
                 } else if (streq8(key, "default")) {
                         if (value[0] == '@' && !strcaseeq8(value, "@saved")) {
-                                log_error("Unsupported special entry identifier, ignoring: %s", value);
+                                log_warning("Unsupported special entry identifier, ignoring: %s", value);
                                 continue;
                         }
                         free(config->entry_default_config);
@@ -1073,31 +1073,31 @@ static void config_defaults_load_from_file(Config *config, char *content) {
 
                 } else if (streq8(key, "editor")) {
                         if (!parse_boolean(value, &config->editor))
-                                log_error("Error parsing 'editor' config option, ignoring: %s", value);
+                                log_warning("Error parsing 'editor' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "auto-entries")) {
                         if (!parse_boolean(value, &config->auto_entries))
-                                log_error("Error parsing 'auto-entries' config option, ignoring: %s", value);
+                                log_warning("Error parsing 'auto-entries' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "auto-firmware")) {
                         if (!parse_boolean(value, &config->auto_firmware))
-                                log_error("Error parsing 'auto-firmware' config option, ignoring: %s", value);
+                                log_warning("Error parsing 'auto-firmware' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "auto-poweroff")) {
                         if (!parse_boolean(value, &config->auto_poweroff))
-                                log_error("Error parsing 'auto-poweroff' config option, ignoring: %s", value);
+                                log_warning("Error parsing 'auto-poweroff' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "auto-reboot")) {
                         if (!parse_boolean(value, &config->auto_reboot))
-                                log_error("Error parsing 'auto-reboot' config option, ignoring: %s", value);
+                                log_warning("Error parsing 'auto-reboot' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "beep")) {
                         if (!parse_boolean(value, &config->beep))
-                                log_error("Error parsing 'beep' config option, ignoring: %s", value);
+                                log_warning("Error parsing 'beep' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "reboot-for-bitlocker")) {
                         if (!parse_boolean(value, &config->reboot_for_bitlocker))
-                                log_error("Error parsing 'reboot-for-bitlocker' config option, ignoring: %s",
+                                log_warning("Error parsing 'reboot-for-bitlocker' config option, ignoring: %s",
                                           value);
 
                 } else if (streq8(key, "reboot-on-error")) {
@@ -1106,7 +1106,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else {
                                 bool reboot_yes_no;
                                 if (!parse_boolean(value, &reboot_yes_no))
-                                        log_error("Error parsing 'reboot-on-error' config option, ignoring: %s", value);
+                                        log_warning("Error parsing 'reboot-on-error' config option, ignoring: %s", value);
                                 else
                                         config->reboot_on_error = reboot_yes_no ? REBOOT_YES : REBOOT_NO;
                         }
@@ -1121,7 +1121,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else if (streq8(value, "off"))
                                 config->secure_boot_enroll = ENROLL_OFF;
                         else
-                                log_error("Error parsing 'secure-boot-enroll' config option, ignoring: %s",
+                                log_warning("Error parsing 'secure-boot-enroll' config option, ignoring: %s",
                                           value);
                 } else if (streq8(key, "secure-boot-enroll-action")) {
                         if (streq8(value, "reboot"))
@@ -1129,7 +1129,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else if (streq8(value, "shutdown"))
                                 config->secure_boot_enroll_action = ENROLL_ACTION_SHUTDOWN;
                         else
-                                log_error("Error parsing 'secure-boot-enroll-action' config option, ignoring: %s",
+                                log_warning("Error parsing 'secure-boot-enroll-action' config option, ignoring: %s",
                                           value);
                 } else if (streq8(key, "secure-boot-enroll-timeout-sec")) {
                         if (streq8(value, "hidden"))
@@ -1137,7 +1137,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else {
                                 uint64_t u;
                                 if (!parse_number8(value, &u, NULL) || u > ENROLL_TIMEOUT_MAX) {
-                                        log_error("Error parsing 'secure-boot-enroll-timeout-sec' config option, ignoring: %s",
+                                        log_warning("Error parsing 'secure-boot-enroll-timeout-sec' config option, ignoring: %s",
                                                   value);
                                         continue;
                                 }
@@ -1153,7 +1153,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else {
                                 uint64_t u;
                                 if (!parse_number8(value, &u, NULL) || u > CONSOLE_MODE_RANGE_MAX) {
-                                        log_error("Error parsing 'console-mode' config option, ignoring: %s",
+                                        log_warning("Error parsing 'console-mode' config option, ignoring: %s",
                                                   value);
                                         continue;
                                 }
@@ -1161,7 +1161,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         }
                 } else if (streq8(key, "log-level")) {
                         if (log_set_max_level_from_string(value) < 0)
-                                log_error("Error parsing 'log-level' config option, ignoring: %s", value);
+                                log_warning("Error parsing 'log-level' config option, ignoring: %s", value);
                 }
 }
 

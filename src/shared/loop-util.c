@@ -431,10 +431,25 @@ static int loop_device_make_internal(
         int r, f_flags;
         struct stat st;
 
+        assert(fd >= 0);
+        assert(open_flags < 0 || IN_SET(open_flags, O_RDWR, O_RDONLY));
         assert(ret);
-        assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
 
-        if (fstat(ASSERT_FD(fd), &st) < 0)
+        f_flags = fcntl(fd, F_GETFL);
+        if (f_flags < 0)
+                return -errno;
+
+        if (open_flags < 0) {
+                /* If open_flags is unset, initialize it from the open fd */
+                if (FLAGS_SET(f_flags, O_PATH))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADFD), "Access mode of image file indicates O_PATH, cannot determine read/write flags.");
+
+                open_flags = f_flags & O_ACCMODE_STRICT;
+                if (!IN_SET(open_flags, O_RDWR, O_RDONLY))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADFD), "Access mode of image file is write only (?)");
+        }
+
+        if (fstat(fd, &st) < 0)
                 return -errno;
 
         if (S_ISBLK(st.st_mode)) {
@@ -460,10 +475,6 @@ static int loop_device_make_internal(
                 if (r < 0)
                         return r;
         }
-
-        f_flags = fcntl(fd, F_GETFL);
-        if (f_flags < 0)
-                return -errno;
 
         if (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) != FLAGS_SET(f_flags, O_DIRECT)) {
                 /* If LO_FLAGS_DIRECT_IO is requested, then make sure we have the fd open with O_DIRECT, as
@@ -690,7 +701,6 @@ int loop_device_make_by_path_at(
         bool direct = false;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
         assert(ret);
         assert(open_flags < 0 || IN_SET(open_flags, O_RDWR, O_RDONLY));
 
@@ -730,8 +740,8 @@ int loop_device_make_by_path_at(
         } else if (open_flags < 0)
                 open_flags = O_RDWR;
 
-        log_debug("Opened '%s' in %s access mode%s, with O_DIRECT %s%s.",
-                  path,
+        log_debug("Opened %s in %s access mode%s, with O_DIRECT %s%s.",
+                  path ?: "loop device",
                   open_flags == O_RDWR ? "O_RDWR" : "O_RDONLY",
                   open_flags != rdwr_flags ? " (O_RDWR was requested but not allowed)" : "",
                   direct ? "enabled" : "disabled",

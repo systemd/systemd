@@ -43,22 +43,29 @@ typedef struct PickResult {
 
 void pick_result_done(PickResult *p);
 
-int path_pick(
-                const char *toplevel_path,
-                int toplevel_fd,
-                const char *path,
-                const PickFilter *filter,
-                PickFlags flags,
-                PickResult *ret);
+int pick_result_compare(const PickResult *a, const PickResult *b, PickFlags flags);
+
+int path_pick(const char *toplevel_path,
+              int toplevel_fd,
+              const char *path,
+              const PickFilter filters[],
+              size_t n_filters,
+              PickFlags flags,
+              PickResult *ret);
 
 int path_pick_update_warn(
                 char **path,
-                const PickFilter *filter,
+                const PickFilter filters[],
+                size_t n_filters,
                 PickFlags flags,
                 PickResult *ret_result);
 
 int path_uses_vpick(const char *path);
 
-extern const PickFilter pick_filter_image_raw;
-extern const PickFilter pick_filter_image_dir;
-extern const PickFilter pick_filter_image_any;
+extern const PickFilter pick_filter_image_raw[1];
+extern const PickFilter pick_filter_image_dir[1];
+
+#define pick_filter_image_any (const PickFilter[]) {    \
+        pick_filter_image_raw[0],                       \
+        pick_filter_image_dir[0],                       \
+}

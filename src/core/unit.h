@@ -1092,6 +1092,8 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
 
 DECLARE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);
 
+int unit_queue_job_check_and_mangle_type(Unit *u, JobType *type, bool reload_if_possible);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full_errno_zerook(unit, level, error, ...)             \

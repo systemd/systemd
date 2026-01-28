@@ -102,6 +102,7 @@
 #include "umask-util.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "utf8.h"
 #include "version.h"
 #include "virt.h"
 #include "watchdog.h"
@@ -841,11 +842,10 @@ static int parse_config_file(void) {
                                 (const char* const*) files,
                                 (const char* const*) dirs,
                                 "user.conf.d",
-                                /* root= */ NULL,
                                 "Manager\0",
                                 config_item_table_lookup, items,
                                 CONFIG_PARSE_WARN,
-                                NULL, NULL, NULL);
+                                /* userdata= */ NULL);
         }
 
         /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we use
@@ -1389,37 +1389,79 @@ static int enforce_syscall_archs(Set *archs) {
 }
 
 static int os_release_status(void) {
-        _cleanup_free_ char *pretty_name = NULL, *name = NULL, *version = NULL,
-                            *ansi_color = NULL, *support_end = NULL;
+        _cleanup_free_ char *pretty_name = NULL, *fancy_name = NULL,
+                *name = NULL, *version = NULL, *ansi_color = NULL, *support_end = NULL, *codename = NULL;
         int r;
 
         r = parse_os_release(NULL,
-                             "PRETTY_NAME", &pretty_name,
-                             "NAME",        &name,
-                             "VERSION",     &version,
-                             "ANSI_COLOR",  &ansi_color,
-                             "SUPPORT_END", &support_end);
+                             "PRETTY_NAME",      &pretty_name,
+                             "FANCY_NAME",       &fancy_name,
+                             "NAME",             &name,
+                             "VERSION",          &version,
+                             "VERSION_CODENAME", &codename,
+                             "ANSI_COLOR",       &ansi_color,
+                             "SUPPORT_END",      &support_end);
         if (r < 0)
                 return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                       "Failed to read os-release file, ignoring: %m");
 
         const char *label = os_release_pretty_name(pretty_name, name);
-        const char *color = empty_to_null(ansi_color) ?: "1";
 
         if (show_status_on(arg_show_status)) {
+                const char *color = empty_to_null(ansi_color) ?: "1";
+
+                /* The fancy name may contain emoji characters and ANSI sequences. Don't use it if our locale
+                 * doesn't allow that, or ANSI sequences are off, or if it is empty. */
+
+                if (!isempty(fancy_name)) {
+                        _cleanup_free_ char *unescaped = NULL;
+
+                        /* Undo one level of C-style unescaping for this one */
+                        ssize_t l = cunescape(fancy_name, /* flags= */ 0, &unescaped);
+                        if (l < 0) {
+                                log_debug_errno(l, "Failed to unescape FANCY_NAME=, ignoring: %m");
+                                fancy_name = mfree(fancy_name);
+                        } else if (!utf8_is_valid(fancy_name)) {
+                                log_debug("Unescaped FANCY_NAME= contains invalid UTF-8, ignoring.");
+                                fancy_name = mfree(fancy_name);
+                        } else {
+                                free_and_replace(fancy_name, unescaped);
+
+                                /* FANCY_NAME= does not contain version/codename info (unlike PRETTY_NAME=),
+                                 * but in this context it makes sense to show them if defined, hence append
+                                 * them here. */
+                                if (version && !strextend(&fancy_name, " ", version))
+                                        return log_oom();
+
+                                if (codename && !strextend(&fancy_name, " (", codename, ")"))
+                                        return log_oom();
+                        }
+                }
+
+                if (isempty(fancy_name) ||
+                    (!emoji_enabled() && !ascii_is_valid(fancy_name)) ||
+                    !log_get_show_color())
+                        fancy_name = mfree(fancy_name);
+
+                if (!fancy_name && log_get_show_color()) {
+                        fancy_name = strjoin("\x1B[", color, "m", label);
+                        if (!fancy_name)
+                                return log_oom();
+                }
+
                 if (in_initrd()) {
                         if (log_get_show_color())
                                 status_printf(NULL, 0,
-                                              ANSI_HIGHLIGHT "Booting initrd of " ANSI_NORMAL "\x1B[%sm%s" ANSI_NORMAL ANSI_HIGHLIGHT "." ANSI_NORMAL,
-                                              color, label);
+                                              ANSI_HIGHLIGHT "Booting initrd of " ANSI_NORMAL "%s" ANSI_NORMAL ANSI_HIGHLIGHT "." ANSI_NORMAL,
+                                              fancy_name);
                         else
                                 status_printf(NULL, 0,
                                               "Booting initrd of %s...", label);
                 } else {
                         if (log_get_show_color())
                                 status_printf(NULL, 0,
-                                              "\n" ANSI_HIGHLIGHT "Welcome to " ANSI_NORMAL "\x1B[%sm%s" ANSI_NORMAL ANSI_HIGHLIGHT "!" ANSI_NORMAL "\n",
-                                              color, label);
+                                              "\n" ANSI_HIGHLIGHT "Welcome to " ANSI_NORMAL "%s" ANSI_NORMAL ANSI_HIGHLIGHT "!" ANSI_NORMAL "\n",
+                                              fancy_name);
                         else
                                 status_printf(NULL, 0,
                                               "\nWelcome to %s!\n",
@@ -2808,7 +2850,7 @@ static void determine_default_oom_score_adjust(void) {
                 return (void) log_warning_errno(r, "Failed to determine current OOM score adjustment value, ignoring: %m");
 
         assert_cc(100 <= OOM_SCORE_ADJ_MAX);
-        b = a >= OOM_SCORE_ADJ_MAX - 100 ? OOM_SCORE_ADJ_MAX : a + 100;
+        b = saturate_add(a, 100, OOM_SCORE_ADJ_MAX);
 
         if (a == b)
                 return;

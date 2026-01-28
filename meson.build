@@ -90,8 +90,6 @@ conf.set10('HAVE_SPLIT_BIN', split_bin,
 
 have_standalone_binaries = get_option('standalone-binaries')
 
-sysvrclocal_path = get_option('rc-local')
-conf.set10('HAVE_SYSV_RC_LOCAL', sysvrclocal_path != '')
 conf.set10('CREATE_LOG_DIRS', get_option('create-log-dirs'))
 
 if get_option('hibernate') and not get_option('initrd')
@@ -146,41 +144,42 @@ modprobedir = prefixdir / 'lib/modprobe.d'
 pkgdatadir = datadir / 'systemd'
 environmentdir = prefixdir / 'lib/environment.d'
 pkgsysconfdir = sysconfdir / 'systemd'
-userunitdir = prefixdir / 'lib/systemd/user'
-userpresetdir = prefixdir / 'lib/systemd/user-preset'
+userunitdir = libexecdir / 'user'
+userpresetdir = libexecdir / 'user-preset'
 tmpfilesdir = prefixdir / 'lib/tmpfiles.d'
 usertmpfilesdir = prefixdir / 'share/user-tmpfiles.d'
 sysusersdir = prefixdir / 'lib/sysusers.d'
 sysctldir = prefixdir / 'lib/sysctl.d'
 binfmtdir = prefixdir / 'lib/binfmt.d'
 modulesloaddir = prefixdir / 'lib/modules-load.d'
-networkdir = prefixdir / 'lib/systemd/network'
+networkdir = libexecdir / 'network'
 systemgeneratordir = libexecdir / 'system-generators'
-usergeneratordir = prefixdir / 'lib/systemd/user-generators'
-systemenvgeneratordir = prefixdir / 'lib/systemd/system-environment-generators'
-userenvgeneratordir = prefixdir / 'lib/systemd/user-environment-generators'
+usergeneratordir = libexecdir / 'user-generators'
+systemenvgeneratordir = libexecdir / 'system-environment-generators'
+userenvgeneratordir = libexecdir / 'user-environment-generators'
 systemshutdowndir = libexecdir / 'system-shutdown'
 systemsleepdir = libexecdir / 'system-sleep'
-systemunitdir = prefixdir / 'lib/systemd/system'
-systempresetdir = prefixdir / 'lib/systemd/system-preset'
-initrdpresetdir = prefixdir / 'lib/systemd/initrd-preset'
+systemunitdir = libexecdir / 'system'
+systempresetdir = libexecdir / 'system-preset'
+initrdpresetdir = libexecdir / 'initrd-preset'
 udevlibexecdir = prefixdir / 'lib/udev'
 udevrulesdir = udevlibexecdir / 'rules.d'
 udevhwdbdir = udevlibexecdir / 'hwdb.d'
-catalogdir = prefixdir / 'lib/systemd/catalog'
+catalogdir = libexecdir / 'catalog'
 kerneldir = prefixdir / 'lib/kernel'
 kernelinstalldir = kerneldir / 'install.d'
 factorydir = datadir / 'factory'
-bootlibdir = prefixdir / 'lib/systemd/boot/efi'
-testsdir = prefixdir / 'lib/systemd/tests'
+bootlibdir = libexecdir / 'boot/efi'
+testsdir = libexecdir / 'tests'
 unittestsdir = testsdir / 'unit-tests'
 testdata_dir = testsdir / 'testdata'
 systemdstatedir = localstatedir / 'lib/systemd'
 catalogstatedir = systemdstatedir / 'catalog'
 randomseeddir = localstatedir / 'lib/systemd'
-profiledir = libexecdir / 'portable' / 'profile'
+systemprofiledir = libexecdir / 'portable' / 'profile'
+userprofiledir = libexecdir / 'user' / 'portable' / 'profile'
 repartdefinitionsdir = libexecdir / 'repart/definitions'
-ntpservicelistdir = prefixdir / 'lib/systemd/ntp-units.d'
+ntpservicelistdir = libexecdir / 'ntp-units.d'
 credstoredir = prefixdir / 'lib/credstore'
 pcrlockdir = prefixdir / 'lib/pcrlock.d'
 mimepackagesdir = prefixdir / 'share/mime/packages'
@@ -299,7 +298,6 @@ conf.set_quoted('SYSTEM_GENERATOR_DIR',                       systemgeneratordir
 conf.set_quoted('SYSTEM_PRESET_DIR',                          systempresetdir)
 conf.set_quoted('SYSTEM_SHUTDOWN_PATH',                       systemshutdowndir)
 conf.set_quoted('SYSTEM_SLEEP_PATH',                          systemsleepdir)
-conf.set_quoted('SYSTEM_SYSVRCLOCAL_PATH',                    sysvrclocal_path)
 conf.set_quoted('SYSUSERS_DIR',                               sysusersdir)
 conf.set_quoted('TMPFILES_DIR',                               tmpfilesdir)
 conf.set_quoted('USER_TMPFILES_DIR',                          usertmpfilesdir)
@@ -567,10 +565,6 @@ foreach ident : [
         ['renameat2',         '''#include <stdio.h>'''],        # since musl-1.2.6
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
-        ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
-        ['mallinfo2',         '''#include <malloc.h>'''],       # since glibc-2.33
-        ['execveat',          '''#include <unistd.h>'''],       # since glibc-2.34
-        ['close_range',       '''#include <unistd.h>'''],       # since glibc-2.34
         ['epoll_pwait2',      '''#include <sys/epoll.h>'''],    # since glibc-2.35
         ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
@@ -2401,7 +2395,6 @@ subdir('src/pstore')
 subdir('src/ptyfwd')
 subdir('src/quotacheck')
 subdir('src/random-seed')
-subdir('src/rc-local-generator')
 subdir('src/remount-fs')
 subdir('src/repart')
 subdir('src/reply-password')
@@ -2914,7 +2907,7 @@ endif
 alias_target('gensources', generated_sources)
 
 clang_tidy = find_program('clang-tidy', required : false)
-if meson.version().version_compare('>=1.10.0')
+if meson.version().version_compare('>=1.4.0')
         uniq = {}
 
         foreach source : sources
@@ -2924,7 +2917,11 @@ if meson.version().version_compare('>=1.10.0')
                 uniq += {source.full_path(): source}
         endforeach
 
-        sources = uniq.values()
+        # TODO: Use uniq.values() when we can rely on meson 1.10.0.
+        sources = []
+        foreach path, file : uniq
+                sources += [file]
+        endforeach
 
         foreach source : sources
                 if systemd_headers.contains(source)
@@ -3022,7 +3019,6 @@ summary({
         'sysconf directory'                         : sysconfdir,
         'include directory'                         : includedir,
         'lib directory'                             : libdir,
-        'SysV rc.local script'                      : sysvrclocal_path,
         'PAM modules directory'                     : pamlibdir,
         'PAM configuration directory'               : pamconfdir,
         'ssh server configuration directory'        : sshdconfdir,
@@ -3188,7 +3184,6 @@ foreach tuple : [
         ['man pages',              want_man],
         ['html pages',             want_html],
         ['man page indices',       want_man and have_lxml],
-        ['SysV compat'],
         ['compat-mutable-uid-boundaries'],
         ['utmp'],
         ['ldconfig'],

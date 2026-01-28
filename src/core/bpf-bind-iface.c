@@ -65,7 +65,7 @@ static int bind_network_interface_install_impl(Unit *u, CGroupRuntime *crt) {
         if (isempty(cc->bind_network_interface))
                 return 0;
 
-        r = cg_get_path(crt->cgroup_path, /* suffix = */ NULL, &cgroup_path);
+        r = cg_get_path(crt->cgroup_path, /* suffix= */ NULL, &cgroup_path);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bind-interface: Failed to get cgroup path: %m");
 

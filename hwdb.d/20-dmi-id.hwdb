@@ -9,7 +9,7 @@ dmi:*:svnSystemmanufacturer:*
 dmi:*:svnSystemManufacturer:*
 dmi:*:svnTobefilledbyO.E.M.:*
 dmi:*:svnToBeFilledByO.E.M.:*
-    ID_SYS_VENDOR_IS_RUBBISH=1
+ ID_SYS_VENDOR_IS_RUBBISH=1
 
 dmi:*:pnDefaultstring:*
 dmi:*:pnN/A:*
@@ -21,7 +21,7 @@ dmi:*:pnSystemname:*
 dmi:*:pnSystemName:*
 dmi:*:pnTobefilledbyO.E.M.:*
 dmi:*:pnToBeFilledByO.E.M.:*
-    ID_PRODUCT_NAME_IS_RUBBISH=1
+ ID_PRODUCT_NAME_IS_RUBBISH=1
 
 dmi:*:pvrDefaultstring:*
 dmi:*:pvrDefault string:*
@@ -31,7 +31,7 @@ dmi:*:pvrOEM:*
 dmi:*:pvrTobefilledbyO.E.M.:*
 dmi:*:pvrToBeFilledByO.E.M.:*
 dmi:*:pvrTo Be Filled By O.E.M.:*
-    ID_PRODUCT_VERSION_IS_RUBBISH=1
+ ID_PRODUCT_VERSION_IS_RUBBISH=1
 
 dmi:*:rvrDefaultstring:*
 dmi:*:rvrDefault string:*
@@ -41,7 +41,7 @@ dmi:*:rvrOEM:*
 dmi:*:rvrTobefilledbyO.E.M.:*
 dmi:*:rvrToBeFilledByO.E.M.:*
 dmi:*:rvrTo Be Filled By O.E.M.:*
-    ID_BOARD_VERSION_IS_RUBBISH=1
+ ID_BOARD_VERSION_IS_RUBBISH=1
 
 dmi:*:skuDefaultstring:*
 dmi:*:skuDefault string:*
@@ -51,7 +51,7 @@ dmi:*:skuOEM:*
 dmi:*:skuTobefilledbyO.E.M.:*
 dmi:*:skuToBeFilledByO.E.M.:*
 dmi:*:skuTo Be Filled By O.E.M.:*
-    ID_PRODUCT_SKU_IS_RUBBISH=1
+ ID_PRODUCT_SKU_IS_RUBBISH=1
 
 dmi:*:catDefaultstring:*
 dmi:*:catDefault string:*
@@ -61,13 +61,17 @@ dmi:*:catOEM:*
 dmi:*:catTobefilledbyO.E.M.:*
 dmi:*:catToBeFilledByO.E.M.:*
 dmi:*:catTo Be Filled By O.E.M.:*
-    ID_CHASSIS_ASSET_TAG_IS_RUBBISH=1
+ ID_CHASSIS_ASSET_TAG_IS_RUBBISH=1
 
 # Fix "Lenovo" capitalization in /sys/class/dmi/id/sys_vendor
 dmi:bvnLENOVO*
-    ID_SYSFS_ATTRIBUTE_MODEL=product_version
-    ID_VENDOR_FROM_DATABASE=Lenovo
+ ID_SYSFS_ATTRIBUTE_MODEL=product_version
+ ID_VENDOR_FROM_DATABASE=Lenovo
 
 # Microsoft Surface 1's chassis type
 dmi:bvnMicrosoft Corporation*:pvrSurface with Windows 8 Pro*
-    ID_CHASSIS=tablet
+ ID_CHASSIS=tablet
+
+# GPD Pocket 4 chassis type
+dmi:bvnAmericanMegatrendsInternational*:rvnGPD:rnG1628-04*
+ ID_CHASSIS=convertible

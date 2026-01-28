@@ -40,6 +40,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fsck-util.h"
+#include "fstab-util.h"
 #include "gpt.h"
 #include "hash-funcs.h"
 #include "hexdecoct.h"
@@ -63,6 +64,7 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "resize-fs.h"
+#include "rm-rf.h"
 #include "runtime-scope.h"
 #include "siphash24.h"
 #include "stat-util.h"
@@ -471,7 +473,7 @@ static int partition_is_luks2_integrity(int part_fd, uint64_t offset, uint64_t s
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read LUKS JSON header.");
         json[sz] = '\0';
 
-        r = sd_json_parse(json, /* flags = */ 0, &v, /* reterr_line = */ NULL, /* reterr_column = */ NULL);
+        r = sd_json_parse(json, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse LUKS JSON header.");
 
@@ -567,7 +569,7 @@ static int dissected_image_probe_filesystems(
                         m->encrypted = true;
 
                         if (p->mount_node_fd >= 0)
-                                r = partition_is_luks2_integrity(p->mount_node_fd, /* offset = */ 0, /* size = */ UINT64_MAX);
+                                r = partition_is_luks2_integrity(p->mount_node_fd, /* offset= */ 0, /* size= */ UINT64_MAX);
                         else
                                 r = partition_is_luks2_integrity(fd, p->offset, p->size);
                         if (r < 0)
@@ -632,7 +634,7 @@ static void check_partition_flags(
 }
 #endif
 
-static int make_image_name(const char *path, char **ret) {
+int dissected_image_name_from_path(const char *path, char **ret) {
         int r;
 
         assert(path);
@@ -667,7 +669,7 @@ static int dissected_image_new(const char *path, DissectedImage **ret) {
         assert(ret);
 
         if (path) {
-                r = make_image_name(path, &name);
+                r = dissected_image_name_from_path(path, &name);
                 if (r < 0)
                         return r;
         }
@@ -1168,7 +1170,7 @@ static int dissect_image(
                         if (verity_settings_data_covers(verity, PARTITION_ROOT))
                                 found_flags = iovec_is_set(&verity->root_hash_sig) ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY;
                         else if (encrypted) {
-                                r = partition_is_luks2_integrity(fd, /* offset = */ 0, /* size = */ UINT64_MAX);
+                                r = partition_is_luks2_integrity(fd, /* offset= */ 0, /* size= */ UINT64_MAX);
                                 if (r < 0)
                                         return r;
 
@@ -2383,7 +2385,7 @@ int partition_pick_mount_options(
 
         case PARTITION_ESP:
         case PARTITION_XBOOTLDR:
-                flags |= MS_NOSUID|MS_NOEXEC|ms_nosymfollow_supported();
+                flags |= MS_NOSUID|MS_NOEXEC|MS_NOSYMFOLLOW;
 
                 /* The ESP might contain a pre-boot random seed. Let's make this unaccessible to regular
                  * userspace. ESP/XBOOTLDR is almost certainly VFAT, hence if we don't know assume it is. */
@@ -2735,24 +2737,35 @@ int dissected_image_mount(
                 assert(where);
 
                 if (FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS)) {
+                        log_debug("Checking if '%s' is an OS tree", where);
+
                         r = path_is_os_tree(where);
                         if (r < 0)
-                                return r;
-                        if (r > 0)
+                                return log_debug_errno(r, "Failed to check is '%s' is an OS tree: %m", where);
+                        if (r > 0) {
+                                log_debug("Successfully identified '%s' as an OS tree", where);
                                 ok = true;
+                        }
                 }
                 if (!ok && FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS_EXT) && m->image_name) {
+                        log_debug("Checking if '%s' is an extension tree", where);
+
                         r = extension_has_forbidden_content(where);
                         if (r < 0)
-                                return r;
+                                return log_debug_errno(r, "Failed to check if '%s' contains content forbidden for an extension image: %m", where);
                         if (r == 0) {
-                                r = path_is_extension_tree(IMAGE_SYSEXT, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_EXTENSION_CHECK));
-                                if (r == 0)
-                                        r = path_is_extension_tree(IMAGE_CONFEXT, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_EXTENSION_CHECK));
+                                ImageClass class = IMAGE_SYSEXT;
+                                r = path_is_extension_tree(class, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_EXTENSION_CHECK));
+                                if (r == 0) {
+                                        class = IMAGE_CONFEXT;
+                                        r = path_is_extension_tree(class, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_EXTENSION_CHECK));
+                                }
                                 if (r < 0)
-                                        return r;
-                                if (r > 0)
+                                        return log_debug_errno(r, "Failed to check if '%s' is an extension tree: %m", where);
+                                if (r > 0) {
+                                        log_debug("Successfully identified '%s' as a %s extension tree", where, image_class_to_string(class));
                                         ok = true;
+                                }
                         }
                 }
 
@@ -4499,7 +4512,7 @@ Architecture dissected_image_architecture(DissectedImage *m) {
 }
 
 bool dissected_image_is_portable(DissectedImage *m) {
-        return m && strv_env_pairs_get(m->os_release, "PORTABLE_PREFIXES");
+        return m && (strv_env_pairs_get(m->os_release, "PORTABLE_PREFIXES") || strv_env_pairs_get(m->os_release, "PORTABLE_SCOPE"));
 }
 
 bool dissected_image_is_initrd(DissectedImage *m) {
@@ -4631,9 +4644,7 @@ int mount_options_set_and_consume(MountOptions **options, PartitionDesignator d,
                 }
         }
 
-        free_and_replace((*options)->options[d], s);
-
-        return 0;
+        return free_and_replace((*options)->options[d], s);
 }
 
 int mount_options_dup(const MountOptions *source, MountOptions **ret) {
@@ -4644,7 +4655,7 @@ int mount_options_dup(const MountOptions *source, MountOptions **ret) {
 
         options = new0(MountOptions, 1);
         if (!options)
-                return log_oom();
+                return log_oom_debug();
 
         for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++)
                 if (source->options[d]) {
@@ -4934,6 +4945,7 @@ int verity_dissect_and_mount(
                         r = mountfsd_mount_image(
                                         src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
                                         userns_fd,
+                                        options,
                                         image_policy,
                                         verity,
                                         dissect_image_flags,
@@ -5082,6 +5094,7 @@ static void partition_fields_done(PartitionFields *f) {
 
 typedef struct MountImageReplyParameters {
         sd_json_variant *partitions;
+        bool single_file_system;
         char *image_policy;
         uint64_t image_size;
         uint32_t sector_size;
@@ -5100,6 +5113,7 @@ static void mount_image_reply_parameters_done(MountImageReplyParameters *p) {
 int mountfsd_mount_image_fd(
                 int image_fd,
                 int userns_fd,
+                const MountOptions *options,
                 const ImagePolicy *image_policy,
                 const VeritySettings *verity,
                 DissectImageFlags flags,
@@ -5109,11 +5123,12 @@ int mountfsd_mount_image_fd(
         _cleanup_(mount_image_reply_parameters_done) MountImageReplyParameters p = {};
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "partitions",  SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(struct MountImageReplyParameters, partitions),   SD_JSON_MANDATORY },
-                { "imagePolicy", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(struct MountImageReplyParameters, image_policy), 0              },
-                { "imageSize",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,  offsetof(struct MountImageReplyParameters, image_size),   SD_JSON_MANDATORY },
-                { "sectorSize",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,  offsetof(struct MountImageReplyParameters, sector_size),  SD_JSON_MANDATORY },
-                { "imageUuid",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(struct MountImageReplyParameters, image_uuid),   0              },
+                { "partitions",         SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(struct MountImageReplyParameters, partitions),         SD_JSON_MANDATORY },
+                { "singleFileSystem",   SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(struct MountImageReplyParameters, single_file_system), 0                 },
+                { "imagePolicy",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(struct MountImageReplyParameters, image_policy),       0                 },
+                { "imageSize",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,  offsetof(struct MountImageReplyParameters, image_size),         SD_JSON_MANDATORY },
+                { "sectorSize",         _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,  offsetof(struct MountImageReplyParameters, sector_size),        SD_JSON_MANDATORY },
+                { "imageUuid",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(struct MountImageReplyParameters, image_uuid),         0                 },
                 {}
         };
 
@@ -5171,6 +5186,38 @@ int mountfsd_mount_image_fd(
                         return log_error_errno(r, "Failed to push verity data fd into varlink connection: %m");
         }
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *mount_options = NULL;
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                _cleanup_free_ char *filtered = NULL;
+
+                const char *o = mount_options_from_designator(options, i);
+                if (!o)
+                        continue;
+
+                /* We communicate relaxExtensionReleaseCheck separately via the varlink API, so filter it out
+                 * from the mount options we pass to mountfsd. */
+                if (IN_SET(i, PARTITION_ROOT, PARTITION_USR)) {
+                        r = fstab_filter_options(
+                                        o,
+                                        "x-systemd.relax-extension-release-check\0",
+                                        /* ret_namefound= */ NULL,
+                                        /* ret_value= */ NULL,
+                                        /* ret_values= */ NULL,
+                                        &filtered);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to filter mount options: %m");
+
+                        if (isempty(filtered))
+                                continue;
+                }
+
+                r = sd_json_variant_merge_objectbo(
+                                &mount_options,
+                                SD_JSON_BUILD_PAIR_STRING(partition_designator_to_string(i), filtered ?: o));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build mount options array: %m");
+        }
+
         sd_json_variant *reply = NULL;
         r = varlink_callbo_and_log(
                         vl,
@@ -5182,6 +5229,8 @@ int mountfsd_mount_image_fd(
                         SD_JSON_BUILD_PAIR_BOOLEAN("readOnly", FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("growFileSystems", FLAGS_SET(flags, DISSECT_IMAGE_GROWFS)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!ps, "imagePolicy", SD_JSON_BUILD_STRING(ps)),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("mountOptions", mount_options),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("relaxExtensionReleaseChecks", mount_options_relax_extension_release_checks(options)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("veritySharing", FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)),
                         SD_JSON_BUILD_PAIR_CONDITION(verity_data_fd >= 0, "verityDataFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd >= 0 ? 2 : 1)),
                         SD_JSON_BUILD_PAIR_CONDITION(verity && iovec_is_set(&verity->root_hash), "verityRootHash", JSON_BUILD_IOVEC_HEX(&verity->root_hash)),
@@ -5260,6 +5309,7 @@ int mountfsd_mount_image_fd(
                 };
         }
 
+        di->single_file_system = p.single_file_system;
         di->image_size = p.image_size;
         di->sector_size = p.sector_size;
         di->image_uuid = p.image_uuid;
@@ -5274,6 +5324,7 @@ int mountfsd_mount_image_fd(
 int mountfsd_mount_image(
                 const char *path,
                 int userns_fd,
+                const MountOptions *options,
                 const ImagePolicy *image_policy,
                 const VeritySettings *verity,
                 DissectImageFlags flags,
@@ -5289,12 +5340,12 @@ int mountfsd_mount_image(
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
 
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
-        r = mountfsd_mount_image_fd(image_fd, userns_fd, image_policy, verity, flags, &di);
+        r = mountfsd_mount_image_fd(image_fd, userns_fd, options, image_policy, verity, flags, &di);
         if (r < 0)
                 return r;
 
         if (!di->image_name) {
-                r = make_image_name(path, &di->image_name);
+                r = dissected_image_name_from_path(path, &di->image_name);
                 if (r < 0)
                         return r;
         }
@@ -5475,4 +5526,106 @@ int mountfsd_make_directory(
                 return log_error_errno(r, "Failed to open '%s': %m", parent);
 
         return mountfsd_make_directory_fd(fd, dirname, mode, flags, ret_directory_fd);
+}
+
+int copy_tree_at_foreign(int source_fd, int target_fd, int userns_fd) {
+        int r;
+
+        assert(source_fd >= 0);
+        assert(target_fd >= 0);
+        assert(userns_fd >= 0);
+
+        /* Copies dir referenced by source_fd into dir referenced by source_fd, moves to the specified userns
+         * for that, which should be foreign UID range */
+
+        r = pidref_safe_fork_full(
+                        "copy-tree",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { userns_fd, source_fd, target_fd }, 3,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_REOPEN_LOG,
+                        /* ret= */ NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                r = namespace_enter(
+                                /* pidns_fd= */ -EBADF,
+                                /* mntns_fd= */ -EBADF,
+                                /* netns_fd= */ -EBADF,
+                                userns_fd,
+                                /* root_fd= */ -EBADF);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to join user namespace: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = copy_tree_at(
+                                source_fd, /* from= */ NULL,
+                                target_fd, /* to= */ NULL,
+                                /* override_uid= */ UID_INVALID,
+                                /* override_gid= */ GID_INVALID,
+                                COPY_REFLINK|COPY_HARDLINKS|COPY_MERGE_EMPTY|COPY_MERGE_APPLY_STAT|COPY_SAME_MOUNT|COPY_ALL_XATTRS,
+                                /* denylist= */ NULL,
+                                /* subvolumes= */ NULL);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to copy tree: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        return 0;
+}
+
+int remove_tree_foreign(const char *path, int userns_fd) {
+        int r;
+
+        assert(path);
+        assert(userns_fd >= 0);
+
+        _cleanup_close_ int tree_fd = -EBADF;
+        r = mountfsd_mount_directory(
+                        path,
+                        userns_fd,
+                        DISSECT_IMAGE_FOREIGN_UID,
+                        &tree_fd);
+        if (r < 0)
+                return r;
+
+        r = pidref_safe_fork_full(
+                        "rm-tree",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { userns_fd, tree_fd }, 2,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT,
+                        /* ret= */ NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* child */
+
+                r = namespace_enter(
+                                /* pidns_fd= */ -EBADF,
+                                /* mntns_fd= */ -EBADF,
+                                /* netns_fd= */ -EBADF,
+                                userns_fd,
+                                /* root_fd= */ -EBADF);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to join user namespace: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
+                if (dfd < 0) {
+                        log_error_errno(r, "Failed to reopen tree fd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = rm_rf_children(dfd, REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD, /* root_dev= */ NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to empty '%s' directory in foreign UID mode, ignoring: %m", path);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        return 0;
 }

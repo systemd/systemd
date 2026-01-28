@@ -401,9 +401,9 @@ int main(int argc, char *argv[]) {
 
         init_watchdog();
 
-        /* Lock us into memory */
-        (void) mlockall(MCL_FUTURE|MCL_ONFAULT);
-        (void) mlockall(MCL_CURRENT);
+        /* Lock us into memory. If the first mlockall call fails, don't attempt it again. */
+        if (safe_mlockall(MCL_FUTURE|MCL_ONFAULT) >= 0)
+                (void) mlockall(MCL_CURRENT);
 
         /* We need to make mounts private so that we can MS_MOVE in unmount_all(). Kernel does not allow
          * MS_MOVE when parent mountpoints have shared propagation. */

@@ -22,6 +22,7 @@
 #include "device-private.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -70,6 +71,7 @@ typedef enum {
 
         /* Read from /etc/os-release (or /usr/lib/os-release) */
         PROP_OS_PRETTY_NAME,
+        PROP_OS_FANCY_NAME,
         PROP_OS_CPE_NAME,
         PROP_OS_HOME_URL,
         PROP_OS_SUPPORT_END,
@@ -108,6 +110,9 @@ static void context_reset(Context *c, uint64_t mask) {
         }
 }
 
+#define context_reset_many(c, ...)      \
+        context_reset((c), INDEXES_TO_MASK(uint64_t, __VA_ARGS__))
+
 static void context_destroy(Context *c) {
         assert(c);
 
@@ -131,9 +136,8 @@ static void context_read_etc_hostname(Context *c) {
             stat_inode_unmodified(&c->etc_hostname_stat, &current_stat))
                 return;
 
-        context_reset(c,
-                      (UINT64_C(1) << PROP_STATIC_HOSTNAME) |
-                      (UINT64_C(1) << PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS));
+        context_reset_many(c, PROP_STATIC_HOSTNAME,
+                              PROP_STATIC_HOSTNAME_SUBSTITUTED_WILDCARDS);
 
         r = read_etc_hostname(/* path= */ NULL, /* substitute_wildcards= */ false, &c->data[PROP_STATIC_HOSTNAME]);
         if (r < 0) {
@@ -164,16 +168,15 @@ static void context_read_machine_info(Context *c) {
             stat_inode_unmodified(&c->etc_machine_info_stat, &current_stat))
                 return;
 
-        context_reset(c,
-                      (UINT64_C(1) << PROP_PRETTY_HOSTNAME) |
-                      (UINT64_C(1) << PROP_ICON_NAME) |
-                      (UINT64_C(1) << PROP_CHASSIS) |
-                      (UINT64_C(1) << PROP_DEPLOYMENT) |
-                      (UINT64_C(1) << PROP_LOCATION) |
-                      (UINT64_C(1) << PROP_HARDWARE_VENDOR) |
-                      (UINT64_C(1) << PROP_HARDWARE_MODEL) |
-                      (UINT64_C(1) << PROP_HARDWARE_SKU) |
-                      (UINT64_C(1) << PROP_HARDWARE_VERSION));
+        context_reset_many(c, PROP_PRETTY_HOSTNAME,
+                              PROP_ICON_NAME,
+                              PROP_CHASSIS,
+                              PROP_DEPLOYMENT,
+                              PROP_LOCATION,
+                              PROP_HARDWARE_VENDOR,
+                              PROP_HARDWARE_MODEL,
+                              PROP_HARDWARE_SKU,
+                              PROP_HARDWARE_VERSION);
 
         r = parse_env_file(NULL, etc_machine_info(),
                            "PRETTY_HOSTNAME", &c->data[PROP_PRETTY_HOSTNAME],
@@ -192,7 +195,7 @@ static void context_read_machine_info(Context *c) {
 }
 
 static void context_read_os_release(Context *c) {
-        _cleanup_free_ char *os_name = NULL, *os_pretty_name = NULL;
+        _cleanup_free_ char *os_name = NULL, *os_pretty_name = NULL, *os_fancy_name = NULL, *os_ansi_color = NULL;
         struct stat current_stat = {};
         int r;
 
@@ -203,16 +206,18 @@ static void context_read_os_release(Context *c) {
             stat_inode_unmodified(&c->etc_os_release_stat, &current_stat))
                 return;
 
-        context_reset(c,
-                      (UINT64_C(1) << PROP_OS_PRETTY_NAME) |
-                      (UINT64_C(1) << PROP_OS_CPE_NAME) |
-                      (UINT64_C(1) << PROP_OS_HOME_URL) |
-                      (UINT64_C(1) << PROP_OS_SUPPORT_END) |
-                      (UINT64_C(1) << PROP_OS_IMAGE_ID) |
-                      (UINT64_C(1) << PROP_OS_IMAGE_VERSION));
+        context_reset_many(c, PROP_OS_PRETTY_NAME,
+                              PROP_OS_FANCY_NAME,
+                              PROP_OS_CPE_NAME,
+                              PROP_OS_HOME_URL,
+                              PROP_OS_SUPPORT_END,
+                              PROP_OS_IMAGE_ID,
+                              PROP_OS_IMAGE_VERSION);
 
         r = parse_os_release(NULL,
                              "PRETTY_NAME",   &os_pretty_name,
+                             "FANCY_NAME",    &os_fancy_name,
+                             "ANSI_COLOR",    &os_ansi_color,
                              "NAME",          &os_name,
                              "CPE_NAME",      &c->data[PROP_OS_CPE_NAME],
                              "HOME_URL",      &c->data[PROP_OS_HOME_URL],
@@ -224,6 +229,34 @@ static void context_read_os_release(Context *c) {
 
         if (free_and_strdup(&c->data[PROP_OS_PRETTY_NAME], os_release_pretty_name(os_pretty_name, os_name)) < 0)
                 log_oom();
+
+        if (!isempty(os_fancy_name)) {
+                _cleanup_free_ char *unescaped = NULL;
+
+                /* We undo one level of C escapes on this */
+                ssize_t l = cunescape(os_fancy_name, /* flags= */ 0, &unescaped);
+                if (l < 0) {
+                        log_warning_errno(l, "Failed to unescape fancy OS name, ignoring: %m");
+                        os_fancy_name = mfree(os_fancy_name);
+                } else if (!utf8_is_valid(unescaped)) {
+                        log_warning("Unescaped fancy OS name contains invalid UTF-8, ignoring.");
+                        os_fancy_name = mfree(os_fancy_name);
+                } else
+                        free_and_replace(os_fancy_name, unescaped);
+        }
+
+        if (isempty(os_fancy_name)) {
+                free(os_fancy_name); /* free if empty string */
+
+                if (isempty(os_ansi_color))
+                        os_fancy_name = strdup(c->data[PROP_OS_PRETTY_NAME]);
+                else
+                        os_fancy_name = strjoin("\x1B[", os_ansi_color, "m", c->data[PROP_OS_PRETTY_NAME]);
+                if (!os_fancy_name)
+                        log_oom();
+        }
+
+        free_and_replace(c->data[PROP_OS_FANCY_NAME], os_fancy_name);
 
         c->etc_os_release_stat = current_stat;
 }
@@ -1705,6 +1738,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
                         SD_JSON_BUILD_PAIR_STRING("KernelRelease", u.release),
                         SD_JSON_BUILD_PAIR_STRING("KernelVersion", u.version),
                         SD_JSON_BUILD_PAIR_STRING("OperatingSystemPrettyName", c->data[PROP_OS_PRETTY_NAME]),
+                        SD_JSON_BUILD_PAIR_STRING("OperatingSystemFancyName", c->data[PROP_OS_FANCY_NAME]),
                         SD_JSON_BUILD_PAIR_STRING("OperatingSystemCPEName", c->data[PROP_OS_CPE_NAME]),
                         SD_JSON_BUILD_PAIR_STRING("OperatingSystemHomeURL", c->data[PROP_OS_HOME_URL]),
                         JSON_BUILD_PAIR_FINITE_USEC("OperatingSystemSupportEnd", eol),
@@ -1781,6 +1815,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("KernelRelease", "s", property_get_uname_field, offsetof(struct utsname, release), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KernelVersion", "s", property_get_uname_field, offsetof(struct utsname, version), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_PRETTY_NAME]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemFancyName", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_FANCY_NAME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemCPEName", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_CPE_NAME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemSupportEnd", "t", property_get_os_support_end, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HomeURL", "s", property_get_os_release_field, offsetof(Context, data[PROP_OS_HOME_URL]), SD_BUS_VTABLE_PROPERTY_CONST),

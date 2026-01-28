@@ -45,8 +45,9 @@ option('sysvinit-path', type : 'string', value : '/etc/init.d', deprecated : tru
        description : 'This option is deprecated and will be removed in a future release')
 option('sysvrcnd-path', type : 'string', value : '/etc/rc.d', deprecated : true,
        description : 'This option is deprecated and will be removed in a future release')
-option('rc-local', type : 'string', value : '/etc/rc.local',
-       description : 'path to SysV rc.local script')
+option('rc-local', type : 'string', value : '/etc/rc.local', deprecated : true,
+       description : 'This option is deprecated and will be removed in a future release')
+
 option('initrd', type : 'boolean',
        description : 'install services for use when running systemd in initrd')
 option('compat-mutable-uid-boundaries', type : 'boolean', value : false,
@@ -439,9 +440,9 @@ option('idn', type : 'boolean',
 option('libidn2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libidn2 support')
 option('libidn', type : 'feature', deprecated : true,
-       description : 'libidn support')
+       description : 'This option is deprecated and will be removed in a future release')
 option('libiptc', type : 'feature', deprecated : true,
-       description : 'libiptc support')
+       description : 'This option is deprecated and will be removed in a future release')
 option('qrencode', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libqrencode support')
 option('gcrypt', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },

@@ -55,7 +55,7 @@ static ColorMode get_color_mode_impl(void) {
 
         /* First, we check $SYSTEMD_COLORS, which is the explicit way to change the mode. */
         ColorMode m = parse_systemd_colors();
-        if (m >= 0)
+        if (IN_SET(m, COLOR_OFF, COLOR_16, COLOR_256, COLOR_24BIT))
                 return m;
 
         /* Next, check for the presence of $NO_COLOR; value is ignored. */
@@ -70,6 +70,13 @@ static ColorMode get_color_mode_impl(void) {
                 return COLOR_OFF;
 
         /* We failed to figure out any reason to *disable* colors. Let's see how many colors we shall use. */
+        if (m == COLOR_AUTO_16)
+                return COLOR_16;
+        if (m == COLOR_AUTO_256)
+                return COLOR_256;
+        if (m == COLOR_AUTO_24BIT)
+                return COLOR_24BIT;
+
         if (STRPTR_IN_SET(getenv("COLORTERM"),
                           "truecolor",
                           "24bit"))
@@ -93,10 +100,13 @@ ColorMode get_color_mode(void) {
 
 
 static const char* const color_mode_table[_COLOR_MODE_MAX] = {
-        [COLOR_OFF]   = "off",
-        [COLOR_16]    = "16",
-        [COLOR_256]   = "256",
-        [COLOR_24BIT] = "24bit",
+        [COLOR_OFF]        = "off",
+        [COLOR_16]         = "16",
+        [COLOR_256]        = "256",
+        [COLOR_24BIT]      = "24bit",
+        [COLOR_AUTO_16]    = "auto-16",
+        [COLOR_AUTO_256]   = "auto-256",
+        [COLOR_AUTO_24BIT] = "auto-24bit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(color_mode, ColorMode, COLOR_24BIT);

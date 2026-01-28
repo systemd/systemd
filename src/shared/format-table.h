@@ -10,6 +10,7 @@
 typedef enum TableDataType {
         TABLE_EMPTY,
         TABLE_STRING,
+        TABLE_STRING_WITH_ANSI,    /* like the above, but contains ANSI sequences/TABs. They will be stripped when outputting to JSON */
         TABLE_HEADER,              /* in regular mode: the cells in the first row, that carry the column names */
         TABLE_FIELD,               /* in vertical mode: the cells in the first column, that carry the field names */
         TABLE_STRV,

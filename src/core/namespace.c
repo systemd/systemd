@@ -566,7 +566,8 @@ static int append_extensions(
                 r = path_pick(/* toplevel_path= */ NULL,
                               /* toplevel_fd= */ AT_FDCWD,
                               m->source,
-                              &pick_filter_image_raw,
+                              pick_filter_image_raw,
+                              ELEMENTSOF(pick_filter_image_raw),
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
                 if (r == -ENOENT && m->ignore_enoent)
@@ -637,7 +638,8 @@ static int append_extensions(
                 r = path_pick(/* toplevel_path= */ NULL,
                               /* toplevel_fd= */ AT_FDCWD,
                               e,
-                              &pick_filter_image_dir,
+                              pick_filter_image_dir,
+                              ELEMENTSOF(pick_filter_image_dir),
                               PICK_ARCHITECTURE|PICK_TRIES,
                               &result);
                 if (r == -ENOENT && ignore_enoent)
@@ -1513,6 +1515,7 @@ static int mount_private_cgroup2fs(const MountEntry *m, const NamespaceParameter
 
 static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
         _cleanup_free_ char *opts = NULL;
+        int r;
 
         assert(m);
         assert(p);
@@ -1520,32 +1523,16 @@ static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
         if (p->protect_proc != PROTECT_PROC_DEFAULT ||
             p->proc_subset != PROC_SUBSET_ALL) {
 
-                /* Starting with kernel 5.8 procfs' hidepid= logic is truly per-instance (previously it
-                 * pretended to be per-instance but actually was per-namespace), hence let's make use of it
-                 * if requested. To make sure this logic succeeds only on kernels where hidepid= is
-                 * per-instance, we'll exclusively use the textual value for hidepid=, since support was
-                 * added in the same commit: if it's supported it is thus also per-instance. */
+                opts = strjoin("hidepid=",
+                               p->protect_proc == PROTECT_PROC_DEFAULT ? "off" : protect_proc_to_string(p->protect_proc));
+                if (!opts)
+                        return -ENOMEM;
 
-                const char *hpv = p->protect_proc == PROTECT_PROC_DEFAULT ?
-                                  "off" :
-                                  protect_proc_to_string(p->protect_proc);
-
-                /* hidepid= support was added in 5.8, so we can use fsconfig()/fsopen() (which were added in
-                 * 5.2) to check if hidepid= is supported. This avoids a noisy dmesg log by the kernel when
-                 * trying to use hidepid= on systems where it isn't supported. The same applies for subset=.
-                 * fsopen()/fsconfig() was also backported on some distros which allows us to detect
-                 * hidepid=/subset= support in even more scenarios. */
-
-                if (mount_option_supported("proc", "hidepid", hpv) > 0) {
-                        opts = strjoin("hidepid=", hpv);
-                        if (!opts)
-                                return -ENOMEM;
+                if (p->proc_subset != PROC_SUBSET_ALL) {
+                        r = strextendf_with_separator(&opts, ",", "subset=%s", proc_subset_to_string(p->proc_subset));
+                        if (r < 0)
+                                return r;
                 }
-
-                if (p->proc_subset == PROC_SUBSET_PID &&
-                    mount_option_supported("proc", "subset", "pid") > 0)
-                        if (!strextend_with_separator(&opts, ",", "subset=pid"))
-                                return -ENOMEM;
         }
 
         /* Mount a new instance, so that we get the one that matches our user namespace, if we are running in
@@ -2619,6 +2606,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                 r = mountfsd_mount_image(
                                                 p->root_image,
                                                 userns_fd,
+                                                p->root_image_options,
                                                 p->root_image_policy,
                                                 p->verity,
                                                 dissect_image_flags,
@@ -3110,19 +3098,16 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
         return 0;
 }
 
-MountImage* mount_image_free_many(MountImage *m, size_t *n) {
-        assert(n);
-        assert(m || *n == 0);
+void mount_image_free_many(MountImage *m, size_t n) {
+        assert(m || n == 0);
 
-        for (size_t i = 0; i < *n; i++) {
-                free(m[i].source);
-                free(m[i].destination);
-                mount_options_free_all(m[i].mount_options);
+        FOREACH_ARRAY(i, m, n) {
+                free(i->source);
+                free(i->destination);
+                mount_options_free_all(i->mount_options);
         }
 
         free(m);
-        *n = 0;
-        return NULL;
 }
 
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
@@ -4035,15 +4020,6 @@ DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_cmd, uint64_t);
 DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_map_type, uint64_t);
 DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_prog_type, uint64_t);
 DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_attach_type, uint64_t);
-
-static const char* const memory_thp_table[_MEMORY_THP_MAX] = {
-        [MEMORY_THP_INHERIT] = "inherit",
-        [MEMORY_THP_DISABLE] = "disable",
-        [MEMORY_THP_MADVISE] = "madvise",
-        [MEMORY_THP_SYSTEM]  = "system",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(memory_thp, MemoryTHP);
 
 char* bpf_delegate_to_string(uint64_t u, const char * (*parser)(uint64_t) _const_ ) {
         assert(parser);

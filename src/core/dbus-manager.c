@@ -2125,6 +2125,8 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
         char *k;
         int ret = 0;
         HASHMAP_FOREACH_KEY(u, k, m->units) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
                 /* ignore aliases */
                 if (u->id != k)
                         continue;
@@ -2137,18 +2139,16 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
                 else
                         continue;
 
-                r = mac_selinux_unit_access_check(u, message, "start", reterr_error);
+                r = mac_selinux_unit_access_check(u, message, "start", &error);
                 if (r >= 0)
                         r = bus_unit_queue_job_one(message, u,
                                                    JOB_TRY_RESTART, JOB_FAIL, flags,
-                                                   reply, reterr_error);
+                                                   reply, &error);
                 if (ERRNO_IS_NEG_RESOURCE(r))
                         return r;
-                if (r < 0) {
-                        if (ret >= 0)
-                                ret = r;
-                        sd_bus_error_free(reterr_error);
-                }
+                if (r < 0)
+                        RET_GATHER(ret, log_unit_warning_errno(u, r, "Failed to enqueue marked job: %s",
+                                                               bus_error_message(&error, r)));
         }
 
         if (ret < 0)

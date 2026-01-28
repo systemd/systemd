@@ -684,8 +684,6 @@ void exec_context_done(ExecContext *c) {
         iovec_done(&c->root_hash_sig);
         c->root_hash_sig_path = mfree(c->root_hash_sig_path);
         c->root_verity = mfree(c->root_verity);
-        c->extension_images = mount_image_free_many(c->extension_images, &c->n_extension_images);
-        c->extension_directories = strv_free(c->extension_directories);
         c->tty_path = mfree(c->tty_path);
         c->syslog_identifier = mfree(c->syslog_identifier);
         c->user = mfree(c->user);
@@ -705,10 +703,16 @@ void exec_context_done(ExecContext *c) {
         bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
         c->bind_mounts = NULL;
         c->n_bind_mounts = 0;
+        mount_image_free_many(c->mount_images, c->n_mount_images);
+        c->mount_images = NULL;
+        c->n_mount_images = 0;
+        mount_image_free_many(c->extension_images, c->n_extension_images);
+        c->extension_images = NULL;
+        c->n_extension_images = 0;
+        c->extension_directories = strv_free(c->extension_directories);
         temporary_filesystem_free_many(c->temporary_filesystems, c->n_temporary_filesystems);
         c->temporary_filesystems = NULL;
         c->n_temporary_filesystems = 0;
-        c->mount_images = mount_image_free_many(c->mount_images, &c->n_mount_images);
 
         cpu_set_done(&c->cpu_set);
         numa_policy_reset(&c->numa_policy);
@@ -1117,8 +1121,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectHostname: %s%s%s\n"
                 "%sProtectProc: %s\n"
                 "%sProcSubset: %s\n"
-                "%sPrivateBPF: %s\n"
-                "%sMemoryTHP: %s\n",
+                "%sMemoryTHP: %s\n"
+                "%sPrivateBPF: %s\n",
                 prefix, c->umask,
                 prefix, empty_to_root(c->working_directory),
                 prefix, empty_to_root(c->root_directory),
@@ -1146,8 +1150,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, protect_hostname_to_string(c->protect_hostname), c->private_hostname ? ":" : "", strempty(c->private_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
                 prefix, proc_subset_to_string(c->proc_subset),
-                prefix, private_bpf_to_string(c->private_bpf),
-                prefix, memory_thp_to_string(c->memory_thp));
+                prefix, memory_thp_to_string(c->memory_thp),
+                prefix, private_bpf_to_string(c->private_bpf));
 
         if (c->private_bpf == PRIVATE_BPF_YES) {
                 _cleanup_free_ char
@@ -3128,3 +3132,12 @@ static const char* const exec_keyring_mode_table[_EXEC_KEYRING_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode);
+
+static const char* const memory_thp_table[_MEMORY_THP_MAX] = {
+        [MEMORY_THP_INHERIT] = "inherit",
+        [MEMORY_THP_DISABLE] = "disable",
+        [MEMORY_THP_MADVISE] = "madvise",
+        [MEMORY_THP_SYSTEM]  = "system",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(memory_thp, MemoryTHP);
