@@ -239,7 +239,7 @@ int pidfd_get_inode_id_impl(int fd, uint64_t *ret) {
         if (file_handle_supported) {
                 union {
                         struct file_handle file_handle;
-                        uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
+                        uint8_t space[MAX_HANDLE_SZ];
                 } fh = {
                         .file_handle.handle_bytes = sizeof(uint64_t),
                         .file_handle.handle_type = FILEID_KERNFS,
