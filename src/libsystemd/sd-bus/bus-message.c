@@ -4210,14 +4210,18 @@ static int message_parse_fields(sd_bus_message *m, bool got_ctrunc) {
                                        "Received a bus message with too many fds: %" PRIu32 " received vs. %" PRIu32 " declared",
                                        m->n_fds, n_unix_fds_declared);
 
-        if (m->n_fds < n_unix_fds_declared && !got_ctrunc)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Received a bus message with too few fds: %" PRIu32 " received vs. %" PRIu32 " declared",
-                                       m->n_fds, n_unix_fds_declared);
+        if (m->n_fds < n_unix_fds_declared) {
+                if (!got_ctrunc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Received a bus message with too few fds: %" PRIu32 " received vs. %" PRIu32 " declared",
+                                               m->n_fds, n_unix_fds_declared);
 
-        if (got_ctrunc)
                 log_error("Received a bus message with MSG_CTRUNC set with %" PRIu32 " fds received vs %" PRIu32 " declared",
                           m->n_fds, n_unix_fds_declared);
+
+        } else if (got_ctrunc)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Received a bus message with truncated control data, refusing.");
 
         switch (m->header->type) {
 
