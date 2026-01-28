@@ -1,0 +1,82 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <fcntl.h>
+
+#include "alloc-util.h"
+#include "btrfs-util.h"
+#include "cleanup-util.h"
+#include "discover-image.h"
+#include "log.h"
+#include "mountpoint-util.h"
+#include "rm-rf.h"
+#include "snapshot-util.h"
+#include "signal-util.h"
+#include "tmpfile-util.h"
+
+int create_ephemeral_snapshot(const char *directory, RuntimeScope scope, bool read_only, LockFile *tree_global_lock, LockFile *tree_local_lock, char **ret_new_path) {
+        _cleanup_free_ char *np = NULL;
+        int r;
+
+        /* If the specified path is a mount point we generate the new snapshot immediately
+         * inside it under a random name. However if the specified is not a mount point we
+         * create the new snapshot in the parent directory, just next to it. */
+        r = path_is_mount_point(directory);
+        if (r < 0) {
+                log_error_errno(r, "Failed to determine whether directory %s is mount point: %m", directory);
+                goto fail;
+        }
+        if (r > 0)
+                r = tempfn_random_child(directory, "machine.", &np);
+        else
+                r = tempfn_random(directory, "machine.", &np);
+        if (r < 0) {
+                log_error_errno(r, "Failed to generate name for directory snapshot: %m");
+                goto fail;
+        }
+
+        /* We take an exclusive lock on this image, since it's our private, ephemeral copy
+         * only owned by us and no one else. */
+        r = image_path_lock(
+                        scope,
+                        np,
+                        LOCK_EX|LOCK_NB,
+                        scope == RUNTIME_SCOPE_SYSTEM ? tree_global_lock : NULL,
+                        tree_local_lock);
+        if (r < 0) {
+                log_error_errno(r, "Failed to lock %s: %m", np);
+                goto fail;
+        }
+
+        {
+                BLOCK_SIGNALS(SIGINT);
+                r = btrfs_subvol_snapshot_at(AT_FDCWD, directory, AT_FDCWD, np,
+                                             (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                             BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                             BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                             BTRFS_SNAPSHOT_RECURSIVE |
+                                             BTRFS_SNAPSHOT_QUOTA |
+                                             BTRFS_SNAPSHOT_SIGINT);
+        }
+        if (r == -EINTR) {
+                log_error_errno(r, "Interrupted while copying file system tree to %s, removed again.", np);
+                goto fail;
+        }
+        if (r < 0) {
+                log_error_errno(r, "Failed to create snapshot %s from %s: %m", np, directory);
+                goto fail;
+        }
+        *ret_new_path = TAKE_PTR(np);
+
+        return 0;
+
+ fail:
+        if (np != NULL) {
+                int k;
+
+                k = rm_rf(np, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                if (k < 0)
+                        log_warning_errno(k, "Cannot remove '%s', ignoring: %m", np);
+        }
+
+        return r;
+}
