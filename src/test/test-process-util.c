@@ -34,6 +34,7 @@
 #include "procfs-util.h"
 #include "rlimit-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -1084,11 +1085,19 @@ TEST(pidfd_get_inode_id_self_cached) {
         uint64_t id;
         r = pidfd_get_inode_id_self_cached(&id);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                log_info("pidfdid not supported");
-        else {
-                assert(r >= 0);
-                log_info("pidfdid=%" PRIu64, id);
-        }
+                return (void) log_tests_skipped_errno(r, "pidfdid not supported");
+
+        ASSERT_OK(r);
+        log_info("pidfdid=%" PRIu64, id);
+
+        _cleanup_close_ int pidfd = ASSERT_OK_ERRNO(pidfd_open(getpid_cached(), /* flags= */ 0));
+
+        uint64_t id2;
+        ASSERT_OK(pidfd_get_inode_id(pidfd, &id2));
+        ASSERT_EQ(id, id2);
+
+        ASSERT_OK(fd_get_inode_id(pidfd, &id2));
+        ASSERT_EQ(id, id2);
 }
 
 TEST(getenv_for_pid) {
