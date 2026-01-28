@@ -24,6 +24,7 @@
 #include "process-util.h"
 #include "runtime-scope.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "unit-def.h"
@@ -150,7 +151,7 @@ static int show_cgroup_name(
         delegate = r > 0;
 
         if (FLAGS_SET(flags, OUTPUT_CGROUP_ID)) {
-                r = cg_fd_get_cgroupid(fd, &cgroupid);
+                r = fd_get_inode_id(fd, &cgroupid);
                 if (r < 0)
                         log_debug_errno(r, "Failed to determine cgroup ID of %s, ignoring: %m", path);
         }

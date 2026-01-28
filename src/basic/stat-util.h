@@ -93,6 +93,14 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret);
 usec_t statx_timestamp_load(const struct statx_timestamp *ts) _pure_;
 nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts) _pure_;
 
+int get_inode_id_at(int fd, const char *path, uint64_t *ret);
+static inline int fd_get_inode_id(int fd, uint64_t *ret) {
+        return get_inode_id_at(fd, NULL, ret);
+}
+static inline int path_get_inode_id(const char *path, uint64_t *ret) {
+        return get_inode_id_at(AT_FDCWD, path, ret);
+}
+
 void inode_hash_func(const struct stat *q, struct siphash *state);
 int inode_compare_func(const struct stat *a, const struct stat *b);
 extern const struct hash_ops inode_hash_ops;
