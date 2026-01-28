@@ -23,7 +23,7 @@ The concepts described here define an IPC interface.
 Alternatively, user/group records may be dropped in number of drop-in directories as files where they are
 picked up in addition to the users/groups defined by this IPC logic.
 See
-[`nss-systemd(8)`](https://www.freedesktop.org/software/systemd/man/nss-systemd.html)
+[`nss-systemd(8)`](https://www.freedesktop.org/software/systemd/man/latest/nss-systemd.html)
 for details.
 
 This simple API only exposes only three method calls, and requires only a small

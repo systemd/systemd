@@ -15,11 +15,11 @@ This provides a number of new features, but also requires updating of the Deskto
 This document should be read together with [Writing Display Managers](/WRITING_DISPLAY_MANAGERS) which focuses on the porting work necessary for display managers.
 
 If required it is possible to implement ConsoleKit and systemd-logind support in the same desktop environment code, detecting at runtime which interface is needed.
-The [sd_booted()](http://www.freedesktop.org/software/systemd/man/sd_booted.html) call may be used to determine at runtime whether systemd is used.
+The [sd_booted()](https://www.freedesktop.org/software/systemd/man/latest/sd_booted.html) call may be used to determine at runtime whether systemd is used.
 
 To a certain level ConsoleKit and systemd-logind may be used side-by-side, but a number of features are not available if ConsoleKit is used.
 
-Please have a look at the [Bus API of logind](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html) and the C API as documented in [sd-login(7)](http://www.freedesktop.org/software/systemd/man/sd-login.html). (Also see below)
+Please have a look at the [Bus API of logind](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html) and the C API as documented in [sd-login(7)](https://www.freedesktop.org/software/systemd/man/latest/sd-login.html). (Also see below)
 
 Here are the suggested changes:
 
@@ -44,6 +44,6 @@ Here are the suggested changes:
   Use logind's ListInhibitors() call to get a list of these inhibitors. See [Inhibitor Locks](/INHIBITOR_LOCKS) for further details on this.
 - If your DE contains a process viewer of some kind ("system monitor") it's a good idea to show session, service and seat information for each process.
   Use sd_pid_get_session(), sd_pid_get_unit(), sd_session_get_seat() to determine these.
-  For details see [sd-login(7)](http://www.freedesktop.org/software/systemd/man/sd-login.html).
+  For details see [sd-login(7)](https://www.freedesktop.org/software/systemd/man/latest/sd-login.html).
 
 And that's all! Thank you!

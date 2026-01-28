@@ -7,7 +7,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Home Directories
 
-[`systemd-homed.service(8)`](https://www.freedesktop.org/software/systemd/man/systemd-homed.service.html)
+[`systemd-homed.service(8)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-homed.service.html)
 manages home directories of regular ("human") users.
 Each directory it manages encapsulates both the data store and the user record of the user,
 so that it comprehensively describes the user account, and is thus naturally portable
@@ -34,7 +34,7 @@ the signature section itself.
 If the plain directory or `btrfs` subvolume storage mechanism of
 `systemd-homed` is used (i.e. `--storage=directory` or `--storage=subvolume` on
 the
-[`homectl(1)`](https://www.freedesktop.org/software/systemd/man/homectl.html)
+[`homectl(1)`](https://www.freedesktop.org/software/systemd/man/latest/homectl.html)
 command line) the home directory requires no special setup besides including
 the user record in the `~/.identity` file.
 

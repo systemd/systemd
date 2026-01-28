@@ -96,7 +96,7 @@ This requires introduction of a new kernel interface to get notifications for cg
 
 19. Make use of EXT4_IOC_MOVE_EXT in systemd's readahead implementation.
 This allows reordering/defragmentation of the files needed for boot.
-According to the data from [http://e4rat.sourceforge.net/](http://e4rat.sourceforge.net/) this might shorten the boot time to 40%.
+According to the data from [https://e4rat.sourceforge.net/](https://e4rat.sourceforge.net/) this might shorten the boot time to 40%.
 Implementation is not trivial, but given that we already support btrfs defragmentation and example code for this exists (e4rat as linked) should be fairly straightforward.
 
 20. Compress readahead pack files with XZ or so.Since boot these days tends to be clearly IO bound (and not CPU bound) it might make sense to reduce the IO load for the pack file by compressing it. Since we already have a dependency on XZ we'd recommend using XZ for this.

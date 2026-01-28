@@ -21,10 +21,10 @@ The stable interfaces are:
   Example: the output of `systemctl status` is not stable, but that of `systemctl show` is, because the former is intended to be human-readable and the latter computer readable, and this is documented in the man page.
 
 * **The protocol spoken on the socket referred to by `$NOTIFY_SOCKET`**, as documented in
-  [sd_notify(3)](https://www.freedesktop.org/software/systemd/man/sd_notify.html). Note that, although using
+  [sd_notify(3)](https://www.freedesktop.org/software/systemd/man/latest/sd_notify.html). Note that, although using
   libsystemd is a good choice, this protocol can also be reimplemented without external dependencies, as
   demonstrated in the example listed in
-  [sd_notify(3)](https://www.freedesktop.org/software/systemd/man/devel/sd_notify.html#Notes)
+  [sd_notify(3)](https://www.freedesktop.org/software/systemd/man/latest/sd_notify.html#Notes)
 
 * Some of the **"special" unit names** and their semantics.
   To be precise the ones that are necessary for normal services, and not those required only for early boot and late shutdown, with very few exceptions.
@@ -116,55 +116,54 @@ And now, here's the list of (hopefully) all APIs that we have introduced with sy
 
 | API  | Type | Covered by Interface Stability Promise | Fully documented | Known External Consumers | Reimplementable Independently | Known Other Implementations | systemd Implementation portable to other OSes or non-systemd distributions |
 | ---  | ---- | ----------------------------------------------------------------------------------------- | ---------------- | ------------------------ | ----------------------------- | --------------------------- | -------------------------------------------------------------------------- |
-| [hostnamed](https://www.freedesktop.org/software/systemd/man/org.freedesktop.hostname1.html) | D-Bus | yes | yes | GNOME | yes | [Ubuntu](https://launchpad.net/ubuntu/+source/ubuntu-system-service), [Gentoo](http://www.gentoo.org/proj/en/desktop/gnome/openrc-settingsd.xml), [BSD](http://uglyman.kremlin.cc/gitweb/gitweb.cgi?p=systembsd.git;a=summary) | partially |
-| [localed](https://www.freedesktop.org/software/systemd/man/org.freedesktop.locale1.html) | D-Bus | yes | yes | GNOME | yes | [Ubuntu](https://launchpad.net/ubuntu/+source/ubuntu-system-service), [Gentoo](http://www.gentoo.org/proj/en/desktop/gnome/openrc-settingsd.xml), [BSD](http://uglyman.kremlin.cc/gitweb/gitweb.cgi?p=systembsd.git;a=summary) | partially |
-| [timedated](https://www.freedesktop.org/software/systemd/man/org.freedesktop.timedate1.html) | D-Bus | yes | yes | GNOME | yes | [Gentoo](http://www.gentoo.org/proj/en/desktop/gnome/openrc-settingsd.xml), [BSD](http://uglyman.kremlin.cc/gitweb/gitweb.cgi?p=systembsd.git;a=summary) | partially |
+| [hostnamed](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.hostname1.html) | D-Bus | yes | yes | GNOME | yes | [Ubuntu](https://launchpad.net/ubuntu/+source/ubuntu-system-service), [Gentoo](https://www.gentoo.org/proj/en/desktop/gnome/openrc-settingsd.xml), [BSD](http://uglyman.kremlin.cc/gitweb/gitweb.cgi?p=systembsd.git;a=summary) | partially |
+| [localed](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.locale1.html) | D-Bus | yes | yes | GNOME | yes | [Ubuntu](https://launchpad.net/ubuntu/+source/ubuntu-system-service), [Gentoo](https://www.gentoo.org/proj/en/desktop/gnome/openrc-settingsd.xml), [BSD](http://uglyman.kremlin.cc/gitweb/gitweb.cgi?p=systembsd.git;a=summary) | partially |
+| [timedated](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.timedate1.html) | D-Bus | yes | yes | GNOME | yes | [Gentoo](https://www.gentoo.org/proj/en/desktop/gnome/openrc-settingsd.xml), [BSD](http://uglyman.kremlin.cc/gitweb/gitweb.cgi?p=systembsd.git;a=summary) | partially |
 | [initrd interface](/INITRD_INTERFACE) | Environment, flag files | yes | yes | mkosi, dracut, ArchLinux | yes | ArchLinux | no |
 | [Container interface](/CONTAINER_INTERFACE) | Environment, Mounts | yes | yes | libvirt/LXC | yes | - | no |
 | [Boot Loader interface](/BOOT_LOADER_INTERFACE) | EFI variables | yes | yes | gummiboot | yes | - | no |
-| [Service bus API](https://www.freedesktop.org/software/systemd/man/org.freedesktop.systemd1.html) | D-Bus | yes | yes | system-config-services | no | - | no |
-| [logind](https://www.freedesktop.org/software/systemd/man/org.freedesktop.login1.html) | D-Bus | yes | yes | GNOME | no | - | no |
-| [sd-bus.h API](https://www.freedesktop.org/software/systemd/man/sd-bus.html) | C Library | yes | yes | - | maybe | - | maybe |
-| [sd-daemon.h API](https://www.freedesktop.org/software/systemd/man/sd-daemon.html) | C Library or Drop-in | yes | yes | numerous | yes | - | yes |
-| [sd-device.h API](https://www.freedesktop.org/software/systemd/man/sd-device.html) | C Library | yes | no | numerous | yes | - | yes |
-| [sd-event.h API](https://www.freedesktop.org/software/systemd/man/sd-event.html) | C Library | yes | yes | - | maybe | - | maybe |
-| [sd-gpt.h API](https://www.freedesktop.org/software/systemd/man/sd-gpt.html) | Header Library | yes | no | - | yes | - | yes |
-| [sd-hwdb.h API](https://www.freedesktop.org/software/systemd/man/sd-hwdb.html) | C Library | yes | yes | - | maybe | - | yes |
-| [sd-id128.h API](https://www.freedesktop.org/software/systemd/man/sd-id128.html) | C Library | yes | yes | - | yes | - | yes |
-| [sd-journal.h API](https://www.freedesktop.org/software/systemd/man/sd-journal.html) | C Library | yes | yes | - | maybe | - | no |
-| [sd-login.h API](https://www.freedesktop.org/software/systemd/man/sd-login.html) | C Library | yes | yes | GNOME, polkit, ... | no | - | no |
-| [sd-messages.h API](https://www.freedesktop.org/software/systemd/man/sd-messages.html) | Header Library | yes | yes | - | yes | python-systemd | yes |
-| [sd-path.h API](https://www.freedesktop.org/software/systemd/man/sd-path.html) | C Library | yes | no | - | maybe | - | maybe |
+| [Service bus API](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.systemd1.html) | D-Bus | yes | yes | system-config-services | no | - | no |
+| [logind](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html) | D-Bus | yes | yes | GNOME | no | - | no |
+| [sd-bus.h API](https://www.freedesktop.org/software/systemd/man/latest/sd-bus.html) | C Library | yes | yes | - | maybe | - | maybe |
+| [sd-daemon.h API](https://www.freedesktop.org/software/systemd/man/latest/sd-daemon.html) | C Library or Drop-in | yes | yes | numerous | yes | - | yes |
+| [sd-device.h API](https://www.freedesktop.org/software/systemd/man/latest/sd-device.html) | C Library | yes | no | numerous | yes | - | yes |
+| [sd-event.h API](https://www.freedesktop.org/software/systemd/man/latest/sd-event.html) | C Library | yes | yes | - | maybe | - | maybe |
+| [sd-gpt.h API](https://www.freedesktop.org/software/systemd/man/latest/libsystemd.html) | Header Library | yes | no | - | yes | - | yes |
+| [sd-hwdb.h API](https://www.freedesktop.org/software/systemd/man/latest/sd-hwdb.html) | C Library | yes | yes | - | maybe | - | yes |
+| [sd-id128.h API](https://www.freedesktop.org/software/systemd/man/latest/sd-id128.html) | C Library | yes | yes | - | yes | - | yes |
+| [sd-journal.h API](https://www.freedesktop.org/software/systemd/man/latest/sd-journal.html) | C Library | yes | yes | - | maybe | - | no |
+| [sd-login.h API](https://www.freedesktop.org/software/systemd/man/latest/sd-login.html) | C Library | yes | yes | GNOME, polkit, ... | no | - | no |
+| [sd-messages.h API](https://www.freedesktop.org/software/systemd/man/latest/libsystemd.html) | Header Library | yes | yes | - | yes | python-systemd | yes |
+| [sd-path.h API](https://www.freedesktop.org/software/systemd/man/latest/sd-path.html) | C Library | yes | no | - | maybe | - | maybe |
 | [$XDG_RUNTIME_DIR](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html) | Environment | yes | yes | glib, GNOME | yes | - | no |
-| [$LISTEN_FDS $LISTEN_PID FD Passing](https://www.freedesktop.org/software/systemd/man/sd_listen_fds.html) | Environment | yes | yes | numerous (via sd-daemon.h) | yes | - | no |
-| [$NOTIFY_SOCKET Daemon Notifications](https://www.freedesktop.org/software/systemd/man/sd_notify.html) | Environment | yes | yes | a few, including udev | yes | - | no |
+| [$LISTEN_FDS $LISTEN_PID FD Passing](https://www.freedesktop.org/software/systemd/man/latest/sd_listen_fds.html) | Environment | yes | yes | numerous (via sd-daemon.h) | yes | - | no |
+| [$NOTIFY_SOCKET Daemon Notifications](https://www.freedesktop.org/software/systemd/man/latest/sd_notify.html) | Environment | yes | yes | a few, including udev | yes | - | no |
 | [argv&#91;0&#93;&#91;0&#93;='@' Logic](/ROOT_STORAGE_DAEMONS) | `/proc` marking | yes | yes | mdadm | yes | - | no |
-| [Unit file format](https://www.freedesktop.org/software/systemd/man/systemd.unit.html) | File format | yes | yes | numerous | no | - | no |
-| [Network](https://www.freedesktop.org/software/systemd/man/systemd.network.html) & [Netdev file format](https://www.freedesktop.org/software/systemd/man/systemd.netdev.html) | File format | yes | yes | no | no | - | no |
-| [Link file format](https://www.freedesktop.org/software/systemd/man/systemd.link.html) | File format | yes | yes | no | no | - | no |
+| [Unit file format](https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html) | File format | yes | yes | numerous | no | - | no |
+| [Network](https://www.freedesktop.org/software/systemd/man/latest/systemd.network.html) & [Netdev file format](https://www.freedesktop.org/software/systemd/man/latest/systemd.netdev.html) | File format | yes | yes | no | no | - | no |
+| [Link file format](https://www.freedesktop.org/software/systemd/man/latest/systemd.link.html) | File format | yes | yes | no | no | - | no |
 | [Journal File Format](/JOURNAL_FILE_FORMAT) | File format | yes | yes | - | maybe | - | no |
 | [Journal Export Format](JOURNAL_EXPORT_FORMATS#journal-export-format) | File format | yes | yes | - | yes | - | no |
 | [Journal JSON Format](JOURNAL_EXPORT_FORMATS#journal-json-format) | File format | yes | yes | - | yes | - | no |
 | [Password Agents](/PASSWORD_AGENTS) | Socket+Files | yes | yes | - | yes | - | no |
-| [udev multi-seat properties](https://www.freedesktop.org/software/systemd/man/sd-login.html) | udev Property | yes | yes | X11, gdm | no | - | no |
+| [udev multi-seat properties](https://www.freedesktop.org/software/systemd/man/latest/sd-login.html) | udev Property | yes | yes | X11, gdm | no | - | no |
 | udev session switch ACL properties | udev Property | no | no | - | no | - | no |
-| [CLI of systemctl,...](https://www.freedesktop.org/software/systemd/man/systemctl.html) | CLI | yes | yes | numerous | no | - | no |
-| [tmpfiles.d](https://www.freedesktop.org/software/systemd/man/tmpfiles.d.html) | File format | yes | yes | numerous | yes | ArchLinux | partially |
-| [sysusers.d](https://www.freedesktop.org/software/systemd/man/sysusers.d.html) | File format | yes | yes | unknown | yes | | partially |
-| [/etc/machine-id](https://www.freedesktop.org/software/systemd/man/machine-id.html) | File format | yes | yes | D-Bus | yes | - | no |
-| [binfmt.d](https://www.freedesktop.org/software/systemd/man/binfmt.d.html) | File format | yes | yes | numerous | yes | - | partially |
-| [/etc/hostname](https://www.freedesktop.org/software/systemd/man/hostname.html) | File format | yes | yes | numerous (it's a Debian thing) | yes | Debian, ArchLinux | no |
-| [/etc/locale.conf](https://www.freedesktop.org/software/systemd/man/locale.conf.html) | File format | yes | yes | - | yes | ArchLinux | partially |
-| [/etc/machine-info](https://www.freedesktop.org/software/systemd/man/machine-info.html) | File format | yes | yes | - | yes | - | partially |
-| [modules-load.d](https://www.freedesktop.org/software/systemd/man/modules-load.d.html) | File format | yes | yes | numerous | yes | - | partially |
-| [/usr/lib/os-release](https://www.freedesktop.org/software/systemd/man/os-release.html) | File format | yes | yes | some | yes | Fedora, OpenSUSE, ArchLinux, Angstrom, Frugalware, others... | no |
-| [sysctl.d](https://www.freedesktop.org/software/systemd/man/sysctl.d.html) | File format | yes | yes | some (it's a Debian thing) | yes | procps/Debian, ArchLinux | partially |
-| [/etc/timezone](https://www.freedesktop.org/software/systemd/man/timezone.html) | File format | yes | yes | numerous (it's a Debian thing) | yes | Debian | partially |
-| [/etc/vconsole.conf](https://www.freedesktop.org/software/systemd/man/vconsole.conf.html) | File format | yes | yes | - | yes | ArchLinux | partially |
+| [CLI of systemctl,...](https://www.freedesktop.org/software/systemd/man/latest/systemctl.html) | CLI | yes | yes | numerous | no | - | no |
+| [tmpfiles.d](https://www.freedesktop.org/software/systemd/man/latest/tmpfiles.d.html) | File format | yes | yes | numerous | yes | ArchLinux | partially |
+| [sysusers.d](https://www.freedesktop.org/software/systemd/man/latest/sysusers.d.html) | File format | yes | yes | unknown | yes | | partially |
+| [/etc/machine-id](https://www.freedesktop.org/software/systemd/man/latest/machine-id.html) | File format | yes | yes | D-Bus | yes | - | no |
+| [binfmt.d](https://www.freedesktop.org/software/systemd/man/latest/binfmt.d.html) | File format | yes | yes | numerous | yes | - | partially |
+| [/etc/hostname](https://www.freedesktop.org/software/systemd/man/latest/hostname.html) | File format | yes | yes | numerous (it's a Debian thing) | yes | Debian, ArchLinux | no |
+| [/etc/locale.conf](https://www.freedesktop.org/software/systemd/man/latest/locale.conf.html) | File format | yes | yes | - | yes | ArchLinux | partially |
+| [/etc/machine-info](https://www.freedesktop.org/software/systemd/man/latest/machine-info.html) | File format | yes | yes | - | yes | - | partially |
+| [modules-load.d](https://www.freedesktop.org/software/systemd/man/latest/modules-load.d.html) | File format | yes | yes | numerous | yes | - | partially |
+| [/usr/lib/os-release](https://www.freedesktop.org/software/systemd/man/latest/os-release.html) | File format | yes | yes | some | yes | Fedora, OpenSUSE, ArchLinux, Angstrom, Frugalware, others... | no |
+| [sysctl.d](https://www.freedesktop.org/software/systemd/man/latest/sysctl.d.html) | File format | yes | yes | some (it's a Debian thing) | yes | procps/Debian, ArchLinux | partially |
+| [/etc/vconsole.conf](https://www.freedesktop.org/software/systemd/man/latest/vconsole.conf.html) | File format | yes | yes | - | yes | ArchLinux | partially |
 | `/run` | File hierarchy change | yes | yes | numerous | yes | OpenSUSE, Debian, ArchLinux | no |
-| [Generators](https://www.freedesktop.org/software/systemd/man/systemd.generator.html) | Subprocess | yes | yes | - | no | - | no |
-| [System Updates](https://www.freedesktop.org/software/systemd/man/systemd.offline-updates.html) | System Mode | yes | yes | - | no | - | no |
-| [Presets](https://www.freedesktop.org/software/systemd/man/systemd.preset.html) | File format | yes | yes | - | no | - | no |
+| [Generators](https://www.freedesktop.org/software/systemd/man/latest/systemd.generator.html) | Subprocess | yes | yes | - | no | - | no |
+| [System Updates](https://www.freedesktop.org/software/systemd/man/latest/systemd.offline-updates.html) | System Mode | yes | yes | - | no | - | no |
+| [Presets](https://www.freedesktop.org/software/systemd/man/latest/systemd.preset.html) | File format | yes | yes | - | no | - | no |
 | Udev rules | File format | yes | yes | numerous | no | no | partially |
 
 

@@ -96,7 +96,7 @@ for inclusion in a filename) in the unit file, under which the invoked service
 code can then retrieve it. Each name should only be specified once.
 
 For details about these settings [see the man
-page](https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Credentials).
+page](https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Credentials).
 
 It is a good idea to also enable mount namespacing for services that process
 credentials configured this way. If so, the runtime credential directory of the
@@ -159,7 +159,7 @@ activation, so that service code only receives plaintext credentials.
 
 ## Programming Interface from Generator Code
 
-[Generators](https://www.freedesktop.org/software/systemd/man/systemd.generator.html)
+[Generators](https://www.freedesktop.org/software/systemd/man/latest/systemd.generator.html)
 may generate native unit files from external configuration or system
 parameters, such as system credentials. Note that they run outside of service
 context, and hence will not receive encrypted credentials in plaintext
@@ -169,7 +169,7 @@ be placed as they are in a directory referenced by the
 plaintext form will be placed in `$CREDENTIALS_DIRECTORY`. Use a command such
 as `systemd-creds --system cat …` to access both forms of credentials, and
 decrypt them if needed (see
-[systemd-creds(1)](https://www.freedesktop.org/software/systemd/man/systemd-creds.html)
+[systemd-creds(1)](https://www.freedesktop.org/software/systemd/man/latest/systemd-creds.html)
 for details.
 
 Note that generators typically run very early during boot (similar to initrd
@@ -184,7 +184,7 @@ For further details about encrypted credentials, see below.
 ## Tools
 
 The
-[`systemd-creds`](https://www.freedesktop.org/software/systemd/man/systemd-creds.html)
+[`systemd-creds`](https://www.freedesktop.org/software/systemd/man/latest/systemd-creds.html)
 tool is provided to work with system and service credentials. It may be used to
 access and enumerate system and service credentials, or to encrypt/decrypt credentials
 (for details about the latter, see below).
@@ -286,7 +286,7 @@ services where they are ultimately consumed.
 1. A container manager may set the `$CREDENTIALS_DIRECTORY` environment
    variable for systemd running as PID 1 in the container, the same way as
    systemd would set it for a service it invokes.
-   [`systemd-nspawn(1)`](https://www.freedesktop.org/software/systemd/man/systemd-nspawn.html#Credentials)'s
+   [`systemd-nspawn(1)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-nspawn.html#Credentials)'s
    `--set-credential=` and `--load-credential=` switches implement this, in
    order to pass arbitrary credentials from host to container payload. Also see
    the [Container Interface](/CONTAINER_INTERFACE) documentation.
@@ -311,7 +311,7 @@ services where they are ultimately consumed.
 
 4. Credentials may also be passed from the UEFI environment to userspace, if
    the
-   [`systemd-stub`](https://www.freedesktop.org/software/systemd/man/systemd-stub.html)
+   [`systemd-stub`](https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html)
    UEFI kernel stub is used.
    This allows placing encrypted credentials in the EFI System Partition, which are then picked up by `systemd-stub` and passed to the kernel and ultimately userspace where systemd receives them.
    This is useful to implement secure parameterization of vendor-built and signed
@@ -370,7 +370,7 @@ systemd-run -p ImportCredential=mycred -P --wait systemd-creds cat mycred
 
 Various services shipped with `systemd` consume credentials for tweaking behaviour:
 
-* [`systemd(1)`](https://www.freedesktop.org/software/systemd/man/systemd.html)
+* [`systemd(1)`](https://www.freedesktop.org/software/systemd/man/latest/systemd.html)
   (I.E.: PID1, the system manager) will look for the credential `vmm.notify_socket`
   and will use it to send a `READY=1` datagram when the system has finished
   booting.
@@ -380,24 +380,24 @@ Various services shipped with `systemd` consume credentials for tweaking behavio
   The credential payload should be in the form: `vsock:<CID>:<PORT>`.
   Also note that this requires support for VSOCK to be built in both the guest and the host kernels, and the kernel modules to be loaded.
 
-* [`systemd-sysusers(8)`](https://www.freedesktop.org/software/systemd/man/systemd-sysusers.html)
+* [`systemd-sysusers(8)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-sysusers.html)
   will look for the credentials `passwd.hashed-password.<username>`,
   `passwd.plaintext-password.<username>` and `passwd.shell.<username>` to
   configure the password (either in UNIX hashed form, or plaintext) or shell of
   system users created.
   Replace `<username>` with the system user of your choice, for example, `root`.
 
-* [`systemd-firstboot(1)`](https://www.freedesktop.org/software/systemd/man/systemd-firstboot.html)
+* [`systemd-firstboot(1)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-firstboot.html)
   will look for the credentials `firstboot.locale`, `firstboot.locale-messages`,
   `firstboot.keymap`, `firstboot.timezone`, that configure locale, keymap or
   timezone settings in case the data is not yet set in `/etc/`.
 
-* [`tmpfiles.d(5)`](https://www.freedesktop.org/software/systemd/man/tmpfiles.d.html)
+* [`tmpfiles.d(5)`](https://www.freedesktop.org/software/systemd/man/latest/tmpfiles.d.html)
   will look for the credentials `tmpfiles.extra` with arbitrary tmpfiles.d lines.
   Can be encoded in base64 to allow easily passing it on the command line.
 
 * Further well-known credentials are documented in
-  [`systemd.system-credentials(7)`](https://www.freedesktop.org/software/systemd/man/systemd.system-credentials.html).
+  [`systemd.system-credentials(7)`](https://www.freedesktop.org/software/systemd/man/latest/systemd.system-credentials.html).
 
 In future more services are likely to gain support for consuming credentials.
 

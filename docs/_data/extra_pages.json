@@ -42,22 +42,22 @@
   {
     "category": "Manual Pages",
     "title": "Index",
-    "url": "https://www.freedesktop.org/software/systemd/man/"
+    "url": "https://www.freedesktop.org/software/systemd/man/latest/"
   },
   {
     "category": "Manual Pages",
     "title": "Directives",
-    "url": "https://www.freedesktop.org/software/systemd/man/systemd.directives.html"
+    "url": "https://www.freedesktop.org/software/systemd/man/latest/systemd.directives.html"
   },
   {
     "category": "Publications",
     "title": "Article in The H",
-    "url": "http://www.h-online.com/open/features/Control-Centre-The-systemd-Linux-init-system-1565543.html"
+    "url": "https://www.h-online.com/open/features/Control-Centre-The-systemd-Linux-init-system-1565543.html"
   },
   {
     "category": "Publications",
     "title": "Article in The H, Part 2",
-    "url": "http://www.h-online.com/open/features/Booting-up-Tools-and-tips-for-systemd-1570630.html"
+    "url": "https://www.h-online.com/open/features/Booting-up-Tools-and-tips-for-systemd-1570630.html"
   },
   {
     "category": "Publications",
@@ -157,7 +157,7 @@
   {
     "category": "Videos for Users and Administrators",
     "title": "Presentation about systemd at linux.conf.au 2011",
-    "url": "http://linuxconfau.blip.tv/file/4696791/"
+    "url": "https://www.youtube.com/watch?v=9XRj8ii91D0"
   },
   {
     "category": "Videos for Users and Administrators",
@@ -290,11 +290,6 @@
     "url": "http://www2.kangran.su/~nnz/pub/s4a/s4a_latest.pdf"
   },
   {
-    "category": "The systemd for Administrators Blog Series",
-    "title": "A Vietnamese translation",
-    "url": "https://archlinuxvn.org/doc/systemd/#lp"
-  },
-  {
     "category": "The systemd for Developers Series",
     "title": "#1: Socket Activation",
     "url": "https://0pointer.de/blog/projects/socket-activation.html"
@@ -407,12 +402,12 @@
   {
     "category": "Documentation for Developers - external links",
     "title": "The 30 Biggest Myths about systemd",
-    "url": "http://0pointer.de/blog/projects/the-biggest-myths.html"
+    "url": "https://0pointer.de/blog/projects/the-biggest-myths.html"
   },
   {
     "category": "Documentation for Developers - external links",
     "title": "Introduction to systemd in French",
-    "url": "http://lea-linux.org/documentations/Systemd"
+    "url": "https://lea-linux.org/documentations/Systemd"
   },
   {
     "category": "The various distributions",
@@ -437,12 +432,12 @@
   {
     "category": "The various distributions",
     "title": "openSUSE instructions",
-    "url": "http://en.opensuse.org/SDB:Systemd"
+    "url": "https://en.opensuse.org/SDB:Systemd"
   },
   {
     "category": "The various distributions",
     "title": "openSUSE bugtracker",
-    "url": "https://bugzilla.novell.com/buglist.cgi?short_desc=systemd&field0-0-0=product&type0-0-1=substring&field0-0-1=component&classification=openSUSE&value0-0-2=systemd&query_based_on=systemd&query_format=advanced&type0-0-3=substring&field0-0-3=status_whiteboard&value0-0-3=systemd&bug_status=UNCONFIRMED&bug_status=NEW&bug_status=ASSIGNED&bug_status=NEEDINFO&bug_status=REOPENED&short_desc_type=allwordssubstr&field0-0-2=short_desc&value0-0-1=systemd&type0-0-0=substring&value0-0-0=systemd&type0-0-2=substring&known_name=systemd"
+    "url": "https://bugzilla.opensuse.org/buglist.cgi?bug_status=UNCONFIRMED&bug_status=NEW&bug_status=ASSIGNED&bug_status=NEEDINFO&bug_status=REOPENED&classification=openSUSE&field0-0-0=product&field0-0-1=component&field0-0-2=short_desc&field0-0-3=status_whiteboard&known_name=systemd&query_based_on=systemd&query_format=advanced&short_desc=systemd&short_desc_type=allwordssubstr&type0-0-0=substring&type0-0-1=substring&type0-0-2=substring&type0-0-3=substring&value0-0-0=systemd&value0-0-1=systemd&value0-0-2=systemd&value0-0-3=systemd"
   },
   {
     "category": "The various distributions",
@@ -462,17 +457,17 @@
   {
     "category": "The various distributions",
     "title": "Debian packages",
-    "url": "http://packages.debian.org/systemd"
+    "url": "https://packages.debian.org/systemd"
   },
   {
     "category": "The various distributions",
     "title": "Debian wiki",
-    "url": "http://wiki.debian.org/systemd"
+    "url": "https://wiki.debian.org/systemd"
   },
   {
     "category": "The various distributions",
     "title": "Debian bugtracker",
-    "url": "http://bugs.debian.org/cgi-bin/pkgreport.cgi?ordering=normal;archive=0;src=systemd"
+    "url": "https://bugs.debian.org/cgi-bin/pkgreport.cgi?ordering=normal;archive=0;src=systemd"
   },
   {
     "category": "The various distributions",
@@ -486,8 +481,8 @@
   },
   {
     "category": "The various distributions",
-    "title": "Mageia packages",
-    "url": "http://svnweb.mageia.org/packages/cauldron/systemd/current/"
+    "title": "Mageia wiki",
+    "url": "https://wiki.mageia.org/en/Features/Systemd"
   },
   {
     "category": "The various distributions",
@@ -497,12 +492,12 @@
   {
     "category": "The various distributions",
     "title": "Gentoo packages",
-    "url": "http://packages.gentoo.org/package/sys-apps/systemd"
+    "url": "https://packages.gentoo.org/package/sys-apps/systemd"
   },
   {
     "category": "The various distributions",
     "title": "Gentoo wiki",
-    "url": "http://wiki.gentoo.org/wiki/Systemd"
+    "url": "https://wiki.gentoo.org/wiki/Systemd"
   },
   {
     "category": "The various distributions",

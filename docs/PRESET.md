@@ -40,11 +40,11 @@ Preset files allow clean separation of enablement mechanism (inside the package 
 
 ## Documentation
 
-Documentation for the preset policy file format is available here: [http://www.freedesktop.org/software/systemd/man/systemd.preset.html](http://www.freedesktop.org/software/systemd/man/systemd.preset.html)
+Documentation for the preset policy file format is available here: [https://www.freedesktop.org/software/systemd/man/latest/systemd.preset.html](https://www.freedesktop.org/software/systemd/man/latest/systemd.preset.html)
 
-Documentation for "systemctl preset" you find here: [http://www.freedesktop.org/software/systemd/man/systemctl.html](http://www.freedesktop.org/software/systemd/man/systemctl.html)
+Documentation for "systemctl preset" you find here: [https://www.freedesktop.org/software/systemd/man/latest/systemctl.html](https://www.freedesktop.org/software/systemd/man/latest/systemctl.html)
 
-Documentation for the recommended package scriptlets you find here: [http://www.freedesktop.org/software/systemd/man/daemon.html](http://www.freedesktop.org/software/systemd/man/daemon.html)
+Documentation for the recommended package scriptlets you find here: [https://www.freedesktop.org/software/systemd/man/latest/daemon.html](https://www.freedesktop.org/software/systemd/man/latest/daemon.html)
 
 ## How To
 
