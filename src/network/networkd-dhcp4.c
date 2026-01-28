@@ -29,6 +29,7 @@
 #include "networkd-route.h"
 #include "networkd-setlink.h"
 #include "networkd-state-file.h"
+#include "networkd-wwan.h"
 #include "parse-util.h"
 #include "set.h"
 #include "socket-util.h"
@@ -1768,6 +1769,9 @@ int dhcp4_start_full(Link *link, bool set_ipv6_connectivity) {
                 return 0;
 
         if (!link->dhcp_client)
+                return 0;
+
+        if (link_dhcp_enabled_by_bearer(link, AF_INET) == 0)
                 return 0;
 
         if (!link_has_carrier(link))
