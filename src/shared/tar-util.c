@@ -739,13 +739,15 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                 ar = sym_archive_read_next_header(a, &entry);
                 if (ar == ARCHIVE_EOF)
                         break;
-                if (ar != ARCHIVE_OK)
+                if (!IN_SET(ar, ARCHIVE_OK, ARCHIVE_WARN))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse archive: %s", sym_archive_error_string(a));
 
                 const char *p = NULL;
                 r = archive_entry_pathname_safe(entry, &p);
                 if (r < 0)
                         return log_error_errno(r, "Invalid path name in entry, refusing.");
+                if (ar == ARCHIVE_WARN)
+                        log_warning("Non-critical error found while parsing '%s' from the archive, ignoring: %s", p ?: ".", sym_archive_error_string(a));
 
                 if (!p) {
                         /* This is the root inode */
