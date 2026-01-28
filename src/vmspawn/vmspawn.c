@@ -62,6 +62,7 @@
 #include "random-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
+#include "snapshot-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -1850,10 +1851,10 @@ static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *erro
 }
 
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
-        bool remove_directory = false;
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *kernel = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *ssh_private_key_path = NULL, *ssh_public_key_path = NULL;
+        _cleanup_(rm_rf_subvolume_and_freep) char *snapshot_directory = NULL;
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         _cleanup_close_ int notify_sock_fd = -EBADF;
         _cleanup_strv_free_ char **cmdline = NULL;
@@ -2379,51 +2380,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 if (arg_ephemeral) {
-                        // This block is very similar to nspawn.c, keep in sync
-                        _cleanup_free_ char *np = NULL;
-
-                        /* If the specified path is a mount point we generate the new snapshot immediately
-                         * inside it under a random name. However if the specified is not a mount point we
-                         * create the new snapshot in the parent directory, just next to it. */
-                        r = path_is_mount_point(arg_directory);
+                        r = create_ephemeral_snapshot(arg_directory,
+                                                      arg_runtime_scope,
+                                                      /* read-only */ false,
+                                                      &tree_global_lock,
+                                                      &tree_local_lock,
+                                                      &snapshot_directory);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to determine whether directory %s is mount point: %m", arg_directory);
-                        if (r > 0)
-                                r = tempfn_random_child(arg_directory, "machine.", &np);
-                        else
-                                r = tempfn_random(arg_directory, "machine.", &np);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to generate name for directory snapshot: %m");
+                                return r;
 
-                        /* We take an exclusive lock on this image, since it's our private, ephemeral copy
-                         * only owned by us and no one else. */
-                        r = image_path_lock(
-                                        arg_runtime_scope,
-                                        np,
-                                        LOCK_EX|LOCK_NB,
-                                        arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? &tree_global_lock : NULL,
-                                        &tree_local_lock);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to lock %s: %m", np);
-
-                        {
-                                BLOCK_SIGNALS(SIGINT);
-                                r = btrfs_subvol_snapshot_at(AT_FDCWD, arg_directory, AT_FDCWD, np,
-                                                             BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                                             BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                                             BTRFS_SNAPSHOT_RECURSIVE |
-                                                             BTRFS_SNAPSHOT_QUOTA |
-                                                             BTRFS_SNAPSHOT_SIGINT);
-                        }
-                        if (r == -EINTR)
-                                return log_error_errno(r, "Interrupted while copying file system tree to %s, removed again.", np);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to create snapshot %s from %s: %m", np, arg_directory);
-                                goto finish_and_cleanup_dir;
-                        }
-
-                        free_and_replace(arg_directory, np);
-                        remove_directory = true;
+                        arg_directory = strdup(snapshot_directory);
+                        if (!arg_directory)
+                                return log_oom();
                 }
 
                 r = start_virtiofsd(
@@ -3055,17 +3023,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 (void) unregister_machine(system_bus, arg_machine);
         if (registered_runtime)
                 (void) unregister_machine(runtime_bus, arg_machine);
-
- finish_and_cleanup_dir:
-        if (remove_directory && arg_directory) {
-                int k;
-
-                k = rm_rf(arg_directory, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
-                if (k < 0)
-                        log_warning_errno(k, "Cannot remove '%s', ignoring: %m", arg_directory);
-        }
-        if (r < 0)
-                return r;
 
         if (use_vsock) {
                 if (exit_status == INT_MAX) {
