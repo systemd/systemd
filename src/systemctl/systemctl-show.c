@@ -344,6 +344,23 @@ static void format_enable_state(const char *enable_state, const char **enable_on
                 *enable_on = *enable_off = "";
 }
 
+static void format_preset_state(const char *preset_state, const char **preset_on, const char **preset_off) {
+        assert(preset_on);
+        assert(preset_off);
+
+        if (streq_ptr(preset_state, "masked")) {
+                *preset_on = ansi_highlight_red();
+                *preset_off = ansi_normal();
+        } else if (streq_ptr(preset_state, "disabled")) {
+                *preset_on = ansi_highlight_yellow();
+                *preset_off = ansi_normal();
+        } else if (streq_ptr(preset_state, "enabled")) {
+                *preset_on = ansi_highlight_green();
+                *preset_off = ansi_normal();
+        } else
+                *preset_on = *preset_off = "";
+}
+
 static void print_exec_directory_quota(UnitStatusInfo *i, ExecDirectoryType dt) {
         assert(i);
 
@@ -379,7 +396,7 @@ static void print_status_info(
 
         format_active_state(i->active_state, &active_on, &active_off);
         format_enable_state(i->unit_file_state, &enable_on, &enable_off);
-        format_enable_state(i->unit_file_preset, &preset_on, &preset_off);
+        format_preset_state(i->unit_file_preset, &preset_on, &preset_off);
 
         const Glyph icon = unit_active_state_to_glyph(unit_active_state_from_string(i->active_state));
 
