@@ -41,6 +41,24 @@ static inline int null_or_empty_path(const char *fn) {
         return null_or_empty_path_with_root(fn, NULL);
 }
 
+int xstatx_full(int fd,
+                const char *path,
+                int flags,
+                unsigned mandatory_mask,
+                unsigned optional_mask,
+                uint64_t mandatory_attributes,
+                struct statx *ret);
+
+static inline int xstatx(
+                int fd,
+                const char *path,
+                int flags,
+                unsigned mandatory_mask,
+                struct statx *ret) {
+
+        return xstatx(fd, path, flags, mandatory_mask, 0, 0, ret);
+}
+
 int fd_is_read_only_fs(int fd);
 int path_is_read_only_fs(const char *path);
 
