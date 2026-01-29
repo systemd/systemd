@@ -287,7 +287,7 @@ static int verify_fsroot_dir(
 
         if (statx(dir_fd, strempty(f),
                   AT_SYMLINK_NOFOLLOW|(isempty(f) ? AT_EMPTY_PATH : 0),
-                  STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx) < 0)
+                  STATX_TYPE|STATX_INO, &sx) < 0)
                 return log_full_errno((searching && errno == ENOENT) ||
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(errno)) ? LOG_DEBUG : LOG_ERR, errno,
                                       "Failed to determine block device node of \"%s\": %m", path);

@@ -181,6 +181,8 @@ static inline int dir_fd_is_root_or_cwd(int dir_fd) {
 
 int fds_are_same_mount(int fd1, int fd2);
 
+int resolve_xat_fdroot(int *fd, const char **path, char **ret_buffer);
+
 /* The maximum length a buffer for a /proc/self/fd/<fd> path needs */
 #define PROC_FD_PATH_MAX \
         (STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int))
