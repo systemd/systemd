@@ -163,6 +163,9 @@
         <para>When an empty string ("") is specified as the ID, then the corresponding EFI variable will be
         unset.</para>
 
+        <para>When the ID is preceded by "^", then the boot loader will not boot matching entries that have been
+        marked as bad by boot assessment.</para>
+
         <para>Hint: use <command>systemctl reboot --boot-loader-entry=<replaceable>ID</replaceable></command>
         to reboot into a specific boot entry and
         <command>systemctl reboot --boot-loader-menu=<replaceable>timeout</replaceable></command>
