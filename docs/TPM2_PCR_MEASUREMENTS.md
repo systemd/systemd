@@ -25,10 +25,10 @@ systemd will measure to PCRs 5 (`boot-loader-config`), 11 (`kernel-boot`),
 
 Currently, four components will issue TPM2 PCR measurements:
 
-* The [`systemd-boot`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html) boot menu (UEFI)
-* The [`systemd-stub`](https://www.freedesktop.org/software/systemd/man/systemd-stub.html) boot stub (UEFI)
-* The [`systemd-pcrextend`](https://www.freedesktop.org/software/systemd/man/systemd-pcrphase.service.html) measurement tool (userspace)
-* The [`systemd-cryptsetup`](https://www.freedesktop.org/software/systemd/man/systemd-cryptsetup@.service.html) disk encryption tool (userspace)
+* The [`systemd-boot`](https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html) boot menu (UEFI)
+* The [`systemd-stub`](https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html) boot stub (UEFI)
+* The [`systemd-pcrextend`](https://www.freedesktop.org/software/systemd/man/latest/systemd-pcrphase.service.html) measurement tool (userspace)
+* The [`systemd-cryptsetup`](https://www.freedesktop.org/software/systemd/man/latest/systemd-cryptsetup@.service.html) disk encryption tool (userspace)
 
 A userspace measurement event log in a format close to TCG CEL-JSON is
 maintained in `/run/log/systemd/tpm2-measure.log`.

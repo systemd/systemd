@@ -14,7 +14,7 @@ interfaces.
 
 For a verbose explanation of `systemd-resolved.service`'s domain routing logic,
 see its [man
-page](https://www.freedesktop.org/software/systemd/man/systemd-resolved.service.html). This
+page](https://www.freedesktop.org/software/systemd/man/latest/systemd-resolved.service.html). This
 document is supposed to provide examples to use the concepts for the specific
 purpose of managing VPN DNS configuration.
 
@@ -184,14 +184,14 @@ the configuration to `systemd-resolved.service`? There are three relevant
 interfaces:
 
 1. Ideally, you use D-Bus and talk to [`systemd-resolved.service`'s D-Bus
-   API](https://www.freedesktop.org/software/systemd/man/org.freedesktop.resolve1.html)
+   API](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.resolve1.html)
    directly. Use `SetLinkDomains()` to set the per-interface search and routing
    domains on the interfaces you manage, and `SetLinkDefaultRoute()` to manage
    the `default-route` boolean, all on the `org.freedesktop.resolve1.Manager`
    interface of the `/org/freedesktop/resolve1` object.
 
 2. If that's not in the cards, you may shell out to
-   [`resolvectl`](https://www.freedesktop.org/software/systemd/man/resolvectl.html),
+   [`resolvectl`](https://www.freedesktop.org/software/systemd/man/latest/resolvectl.html),
    which is a thin wrapper around the D-Bus interface mentioned above. Use
    `resolvectl domain <iface> …` to set the search/routing domains and
    `resolvectl default-route <iface> …` to set the `default-route` boolean.

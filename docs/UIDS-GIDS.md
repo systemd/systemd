@@ -93,7 +93,7 @@ possible.
 `systemd` defines a number of special UID ranges:
 
 1. 60001…60513 → UIDs for home directories managed by
-   [`systemd-homed.service(8)`](https://www.freedesktop.org/software/systemd/man/systemd-homed.service.html).
+   [`systemd-homed.service(8)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-homed.service.html).
    UIDs from this range are automatically assigned to any home directory discovered,
    and persisted locally on first login.
    On different systems the same user might get different UIDs assigned in case of conflict, though it is
@@ -113,7 +113,7 @@ possible.
 
 3. 61184…65519 → UIDs for dynamic users are allocated from this range (see the
    `DynamicUser=` documentation in
-   [`systemd.exec(5)`](https://www.freedesktop.org/software/systemd/man/systemd.exec.html)).
+   [`systemd.exec(5)`](https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html)).
    This range has been chosen so that it is below the 16-bit boundary
    (i.e. below 65535), in order to provide compatibility with container environments that
    assign a 64K range of UIDs to containers using user namespacing.

@@ -18,7 +18,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 The latter is what this document is about: if you are developing a program and
 want to pass structured log data to `journald`, it's the Journal's native
 protocol that you want to use. The systemd project provides the
-[`sd_journal_print(3)`](https://www.freedesktop.org/software/systemd/man/sd_journal_print.html)
+[`sd_journal_print(3)`](https://www.freedesktop.org/software/systemd/man/latest/sd_journal_print.html)
 API that implements the client side of this protocol. This document explains
 what this interface does behind the scenes, in case you'd like to implement a
 client for it yourself, without linking to `libsystemd` — for example because
@@ -96,7 +96,7 @@ actual log message text. Other relevant keys a client should send in most cases
 are `PRIORITY=`, `CODE_FILE=`, `CODE_LINE=`, `CODE_FUNC=`, `ERRNO=`. It's
 recommended to generate these fields implicitly on the client side. For further
 information see the [relevant documentation of these
-fields](https://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html).
+fields](https://www.freedesktop.org/software/systemd/man/latest/systemd.journal-fields.html).
 
 The order in which the fields are serialized within one datagram is undefined
 and may be freely chosen by the client. The server side might or might not

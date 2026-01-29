@@ -88,7 +88,7 @@ during normal operation, i.e. while file systems on it are mounted for
 application use.
 
 The [`udevadm
-lock`](https://www.freedesktop.org/software/systemd/man/udevadm.html) command
+lock`](https://www.freedesktop.org/software/systemd/man/latest/udevadm.html) command
 is provided to lock block devices following this scheme from the command line,
 for the use in scripts and similar. (Note though that it's typically preferable
 to use native support for block device locking in tools where that's
