@@ -20,6 +20,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(delegateAmount, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Size of each delegated range. Must be 1 or 65536."),
                 SD_VARLINK_DEFINE_INPUT(delegateSize, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, map the foreign UID range into the user namespace."),
+                SD_VARLINK_DEFINE_INPUT(mapForeign, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The name assigned to the user namespace. (This is particularly interesting in case mangleName was enabled)."),
                 SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
