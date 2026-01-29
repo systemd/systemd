@@ -7,6 +7,7 @@
 #if SD_BOOT
 
 #include "proto/file-io.h"
+#include "proto/block-io.h"
 
 /* This is provided by the linker. */
 extern uint8_t __executable_start[];
@@ -94,6 +95,19 @@ static inline Pages xmalloc_pages(
                 .addr = addr,
                 .n_pages = n_pages,
         };
+}
+
+Pages xmalloc_aligned_pages(
+                EFI_ALLOCATE_TYPE type, EFI_MEMORY_TYPE memory_type, size_t n_pages, size_t alignment, EFI_PHYSICAL_ADDRESS addr);
+
+static inline Pages xmalloc_block_io_pages(EFI_BLOCK_IO_PROTOCOL *block_io, size_t n_pages) {
+        assert(block_io);
+
+        uint32_t alignment = block_io->Media->IoAlign;
+        if (alignment <= 1)
+                return xmalloc_pages(AllocateMaxAddress, EfiLoaderData, n_pages, UINT32_MAX);
+        else
+                return xmalloc_aligned_pages(AllocateMaxAddress, EfiLoaderData, n_pages, alignment, UINT32_MAX);
 }
 
 static inline Pages xmalloc_initrd_pages(size_t n_pages) {
