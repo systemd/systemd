@@ -192,7 +192,7 @@ InstallChangeType install_changes_add(InstallChange **changes, size_t *n_changes
 void install_changes_free(InstallChange *changes, size_t n_changes);
 
 int install_change_dump_error(const InstallChange *change, char **ret_errmsg, const char **ret_bus_error);
-void install_changes_dump(
+int install_changes_dump(
                 int error,
                 const char *verb,
                 const InstallChange *changes,
