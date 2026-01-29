@@ -539,11 +539,13 @@ static int portable_extract_by_path(
                         if (r < 0)
                                 return r;
                         if (r != EXIT_SUCCESS) {
-                                if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
+                                r = read_errno(errno_pipe_fd[0]);
+                                if (r < 0)
                                         return log_debug_errno(r, "Failed to extract portable metadata from '%s': %m", path);
-
-                                return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Child failed.");
+                                return -EPROTO;
                         }
+
+                        pidref_done(&child);
                 } else {
                         r = extract_now(scope,
                                         rfd,
@@ -739,15 +741,14 @@ static int portable_extract_by_path(
                 r = pidref_wait_for_terminate_and_check("(sd-dissect)", &child, 0);
                 if (r < 0)
                         return r;
+                if (r != EXIT_SUCCESS) {
+                        r = read_errno(errno_pipe_fd[0]);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract portable metadata from '%s': %m", path);
+                        return -EPROTO;
+                }
 
                 pidref_done(&child);
-
-                if (r != EXIT_SUCCESS) {
-                        if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
-                                return log_debug_errno(r, "Failed to extract portable metadata from '%s': %m", path);
-
-                        return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Child failed.");
-                }
         }
 
         if (!os_release)
