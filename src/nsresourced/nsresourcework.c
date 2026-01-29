@@ -714,7 +714,12 @@ static int write_userns_mappings(PidRef *pidref, const char *uidmap, const char 
         return 0;
 }
 
-static int write_userns(int userns_fd, int parent_userns_fd, const UserNamespaceInfo *userns_info) {
+static int write_userns(
+                int userns_fd,
+                int parent_userns_fd,
+                const UserNamespaceInfo *userns_info,
+                bool map_foreign) {
+
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         _cleanup_close_ int efd = -EBADF;
         uint64_t u;
@@ -818,6 +823,22 @@ static int write_userns(int userns_fd, int parent_userns_fd, const UserNamespace
                           delegate->start_uid, start_uid, delegate->size);
         }
 
+        if (map_foreign) {
+                r = uid_range_translate(outside_range, inside_range, FOREIGN_UID_MIN, &start_uid);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to translate UID "UID_FMT" to parent userns: %m", FOREIGN_UID_MIN);
+
+                if (start_uid != FOREIGN_UID_MIN)
+                        return log_debug_errno(
+                                SYNTHETIC_ERRNO(ERANGE),
+                                "Foreign UID range not mapped 1:1 in parent userns ("UID_FMT" -> "UID_FMT")",
+                                FOREIGN_UID_MIN, start_uid);
+
+                if (strextendf(&uidmap, UID_FMT " " UID_FMT " %" PRIu32 "\n",
+                               FOREIGN_UID_MIN, start_uid, NSRESOURCE_UIDS_64K) < 0)
+                        return log_oom();
+        }
+
         outside_range = uid_range_free(outside_range);
         inside_range = uid_range_free(inside_range);
 
@@ -868,6 +889,22 @@ static int write_userns(int userns_fd, int parent_userns_fd, const UserNamespace
 
                 log_debug("GID mapping: " GID_FMT " " GID_FMT " %" PRIu32,
                           delegate->start_gid, start_gid, delegate->size);
+        }
+
+        if (map_foreign) {
+                r = uid_range_translate(outside_range, inside_range, FOREIGN_UID_MIN, &start_gid);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to translate GID "GID_FMT" to parent userns: %m", FOREIGN_UID_MIN);
+
+                if (start_gid != FOREIGN_UID_MIN)
+                        return log_debug_errno(
+                                SYNTHETIC_ERRNO(ERANGE),
+                                "Foreign GID range not mapped 1:1 in parent userns ("GID_FMT" -> "GID_FMT")",
+                                FOREIGN_UID_MIN, start_gid);
+
+                if (strextendf(&gidmap, GID_FMT " " GID_FMT " %" PRIu32 "\n",
+                               FOREIGN_UID_MIN, start_gid, NSRESOURCE_UIDS_64K) < 0)
+                        return log_oom();
         }
 
         r = is_our_namespace(parent_userns_fd, NAMESPACE_USER);
@@ -1139,6 +1176,7 @@ typedef struct AllocateParameters {
         unsigned userns_fd_idx;
         bool mangle_name;
         uint32_t delegate_container_ranges;
+        bool map_foreign;
 } AllocateParameters;
 
 static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -1151,6 +1189,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
                 { "mangleName",                  SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,          offsetof(AllocateParameters, mangle_name),               0                 },
                 { "type",                        SD_JSON_VARIANT_STRING,        dispatch_allocate_user_range_type, offsetof(AllocateParameters, type),                      0                 },
                 { "delegateContainerRanges",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,           offsetof(AllocateParameters, delegate_container_ranges), 0                 },
+                { "mapForeign",                  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_stdbool,          offsetof(AllocateParameters, map_foreign),               0                 },
                 {}
         };
 
@@ -1336,7 +1375,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
                         goto fail;
         }
 
-        r = write_userns(userns_fd, parent_userns_fd, userns_info);
+        r = write_userns(userns_fd, parent_userns_fd, userns_info, p.map_foreign);
         if (r < 0)
                 goto fail;
 
