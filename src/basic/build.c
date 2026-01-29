@@ -214,12 +214,6 @@ const char* const systemd_features =
         " -BPF_FRAMEWORK"
 #endif
 
-#if HAVE_VMLINUX_H
-        " +BTF"
-#else
-        " -BTF"
-#endif
-
 #if HAVE_XKBCOMMON
         " +XKBCOMMON"
 #else

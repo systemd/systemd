@@ -1,16 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "vmlinux.h"
-
 #include <errno.h>
+#include <linux/bpf.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <sys/types.h>
 #include <bpf/bpf_helpers.h>
 
 #include "sysctl-write-event.h"
 
 struct {
         __uint(type, BPF_MAP_TYPE_CGROUP_ARRAY);
-        __type(key, u32);
-        __type(value, u32);
+        __type(key, __u32);
+        __type(value, __u32);
         __uint(max_entries, 1);
 } cgroup_map SEC(".maps");
 
@@ -34,7 +37,7 @@ struct str {
         size_t l;
 };
 
-static long cut_last(u64 i, struct str *str) {
+static long cut_last(__u64 i, struct str *str) {
         char *s;
 
         /* Sanity check for the preverifier */
