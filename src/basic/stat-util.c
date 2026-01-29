@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "errno-util.h"
@@ -233,6 +234,97 @@ int null_or_empty_path_with_root(const char *fn, const char *root) {
                 return r;
 
         return null_or_empty(&st);
+}
+
+static const char* statx_mask_one_to_name(unsigned mask);
+static const char* statx_attribute_to_name(uint64_t attr);
+
+#include "statx-attribute-to-name.inc"
+#include "statx-mask-to-name.inc"
+
+#define DEFINE_STATX_BITS_TO_STRING(prefix, type, func, format_str)             \
+        static char* prefix##_to_string(type v) {                               \
+                if (v == 0)                                                     \
+                        return strdup("");                                      \
+                                                                                \
+                _cleanup_free_ char *s = NULL;                                  \
+                                                                                \
+                BIT_FOREACH(i, v) {                                             \
+                        type f = 1 << i;                                        \
+                                                                                \
+                        const char *n = func(f);                                \
+                        if (!n)                                                 \
+                                continue;                                       \
+                                                                                \
+                        if (!strextend_with_separator(&s, "|", n))              \
+                                return NULL;                                    \
+                        v &= ~f;                                                \
+                }                                                               \
+                                                                                \
+                if (v != 0 && strextendf_with_separator(&s, "|", format_str, v) < 0) \
+                        return NULL;                                            \
+                                                                                \
+                return TAKE_PTR(s);                                             \
+        }
+
+DEFINE_STATX_BITS_TO_STRING(statx_mask,       unsigned, statx_mask_one_to_name,  "0x%x");
+DEFINE_STATX_BITS_TO_STRING(statx_attributes, uint64_t, statx_attribute_to_name, "0x%" PRIx64);
+
+int xstatx_full(int fd,
+                const char *path,
+                int flags,
+                unsigned mandatory_mask,
+                unsigned optional_mask,
+                uint64_t mandatory_attributes,
+                struct statx *ret) {
+
+        struct statx sx = {}; /* explicitly initialize the struct to make msan silent. */
+        int r;
+
+        /* Wrapper around statx(), with additional bells and whistles:
+         *
+         * 1. AT_EMPTY_PATH is implied on empty path
+         * 2. Supports XAT_FDROOT
+         * 3. Takes separate mandatory and optional mask params, plus mandatory attributes.
+         *    Returns -EUNATCH if statx() does not return all masks specified as mandatory,
+         *    > 0 if all optional masks are supported, 0 otherwise.
+         */
+
+        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
+        assert((mandatory_mask & optional_mask) == 0);
+        assert(ret);
+
+        _cleanup_free_ char *p = NULL;
+        r = resolve_xat_fdroot(&fd, &path, &p);
+        if (r < 0)
+                return r;
+
+        if (statx(fd, strempty(path),
+                  flags|(isempty(path) ? AT_EMPTY_PATH : 0),
+                  mandatory_mask|optional_mask,
+                  &sx) < 0)
+                return negative_errno();
+
+        if (!FLAGS_SET(sx.stx_mask, mandatory_mask)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *mask_str = statx_mask_to_string(mandatory_mask & ~sx.stx_mask);
+                        log_debug("statx() does not support '%s' mask (running on an old kernel?)", strnull(mask_str));
+                }
+
+                return -EUNATCH;
+        }
+
+        if (!FLAGS_SET(sx.stx_attributes_mask, mandatory_attributes)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *attr_str = statx_attributes_to_string(mandatory_attributes & ~sx.stx_attributes_mask);
+                        log_debug("statx() does not support '%s' attribute (running on an old kernel?)", strnull(attr_str));
+                }
+
+                return -EUNATCH;
+        }
+
+        *ret = sx;
+        return FLAGS_SET(sx.stx_mask, optional_mask);
 }
 
 static int xfstatfs(int fd, struct statfs *ret) {
