@@ -20,6 +20,7 @@
 #include "architecture.h"
 #include "audit-fd.h"
 #include "boot-timestamps.h"
+#include "bpf-notify-ratelimit.h"
 #include "bpf-restrict-fs.h"
 #include "build-path.h"
 #include "bus-common-errors.h"
@@ -1762,6 +1763,7 @@ Manager* manager_free(Manager *m) {
 
 #if BPF_FRAMEWORK
         bpf_restrict_fs_destroy(m->restrict_fs);
+        bpf_notify_ratelimit_destroy(m->notify_ratelimit);
 #endif
 
         safe_close(m->executor_fd);
