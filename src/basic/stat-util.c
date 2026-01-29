@@ -547,6 +547,33 @@ nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts) {
         return timespec_load_nsec(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
 }
 
+int get_inode_id_at(int fd, const char *path, uint64_t *ret) {
+        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
+
+        _cleanup_free_ char *p = NULL;
+        if (fd == XAT_FDROOT) {
+                fd = AT_FDCWD;
+
+                if (isempty(path))
+                        path = "/";
+                else if (!path_is_absolute(path)) {
+                        p = strjoin("/", path);
+                        if (!p)
+                                return -ENOMEM;
+
+                        path = p;
+                }
+        }
+
+        struct statx sx = {}; /* explicitly initialize the struct to make msan silent. */
+        if (statx(fd, strempty(path), isempty(path) ? AT_EMPTY_PATH : 0, STATX_INO, &sx) < 0)
+                return -errno;
+
+        if (ret)
+                *ret = sx.stx_ino;
+        return 0;
+}
+
 void inode_hash_func(const struct stat *q, struct siphash *state) {
         siphash24_compress_typesafe(q->st_dev, state);
         siphash24_compress_typesafe(q->st_ino, state);
