@@ -667,6 +667,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[tT][aA][bB][lL][eE][tT]*:*
  KEYBOARD_KEY_86=pageup
  KEYBOARD_KEY_87=pagedown
 
+# OmniBook Ultra Flip Laptop 14-fh0xxx
+evdev:atkbd:dmi:*:svnHP:pnHPOmniBookUltraFlipLaptop14-fh0xxx:*
+ KEYBOARD_KEY_82=unknown                                # Mic mute, handled by hp-wmi
+ KEYBOARD_KEY_ab=!unknown                               # Brightness Down and Up keys, handled by acpi-video
+
 # Pavilion
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*:*
