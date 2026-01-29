@@ -1077,30 +1077,25 @@ int path_is_root_at(int dir_fd, const char *path) {
 }
 
 int fds_are_same_mount(int fd1, int fd2) {
-        struct statx sx1 = {}, sx2 = {}; /* explicitly initialize the struct to make msan silent. */
+        struct statx sx1, sx2;
+        int r;
 
         assert(fd1 >= 0 || IN_SET(fd1, AT_FDCWD, XAT_FDROOT));
         assert(fd2 >= 0 || IN_SET(fd2, AT_FDCWD, XAT_FDROOT));
 
-        const char *fn1;
-        if (fd1 == XAT_FDROOT) {
-                fd1 = AT_FDCWD;
-                fn1 = "/";
-        } else
-                fn1 = "";
+        r = xstatx(fd1, /* path = */ NULL, AT_EMPTY_PATH,
+                   STATX_TYPE|STATX_INO|STATX_MNT_ID,
+                   /* optional_mask = */ 0,
+                   &sx1);
+        if (r < 0)
+                return r;
 
-        if (statx(fd1, fn1, AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx1) < 0)
-                return -errno;
-
-        const char *fn2;
-        if (fd2 == XAT_FDROOT) {
-                fd2 = AT_FDCWD;
-                fn2 = "/";
-        } else
-                fn2 = "";
-
-        if (statx(fd2, fn2, AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx2) < 0)
-                return -errno;
+        r = xstatx(fd2, /* path = */ NULL, AT_EMPTY_PATH,
+                   STATX_TYPE|STATX_INO|STATX_MNT_ID,
+                   /* optional_mask = */ 0,
+                   &sx2);
+        if (r < 0)
+                return r;
 
         return statx_inode_same(&sx1, &sx2) && statx_mount_same(&sx1, &sx2);
 }
