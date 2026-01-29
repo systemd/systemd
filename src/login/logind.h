@@ -90,6 +90,8 @@ typedef struct Manager {
 
         HandleActionSleepMask handle_action_sleep_mask;
 
+        usec_t long_press_duration_usec;
+
         HandleAction handle_power_key;
         HandleAction handle_power_key_long_press;
         HandleAction handle_reboot_key;

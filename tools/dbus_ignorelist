@@ -162,6 +162,7 @@ org.freedesktop.login1.Manager.ListSessions()
 org.freedesktop.login1.Manager.ListUsers()
 org.freedesktop.login1.Manager.LockSession()
 org.freedesktop.login1.Manager.LockSessions()
+org.freedesktop.login1.Manager.LongPressDurationUSec
 org.freedesktop.login1.Manager.NAutoVTs
 org.freedesktop.login1.Manager.NCurrentInhibitors
 org.freedesktop.login1.Manager.NCurrentSessions
