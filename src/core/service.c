@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "async.h"
+#include "bpf-notify-ratelimit.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -1455,6 +1456,12 @@ static int service_coldplug(Unit *u) {
                 }
         }
 
+        if (IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD)) {
+                r = bpf_notify_ratelimit_install(UNIT(s));
+                if (r < 0)
+                        log_unit_debug(UNIT(s), "Failed to setup eBPF based rate-limiter for notify socket messages, ignoring: %m");
+        }
+
         service_set_state(s, s->deserialized_state);
         return 0;
 }
@@ -1734,6 +1741,13 @@ static int service_spawn_internal(
         r = unit_prepare_exec(UNIT(s)); /* This realizes the cgroup, among other things */
         if (r < 0)
                 return r;
+
+        /* Install eBPF based rate-limiter for notify messages. */
+        if (IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD)) {
+                r = bpf_notify_ratelimit_install(UNIT(s));
+                if (r < 0)
+                        log_unit_debug(UNIT(s), "Failed to setup eBPF based rate-limiter for notify socket messages, ignoring: %m");
+        }
 
         assert(!s->exec_fd_event_source);
 
@@ -2189,6 +2203,8 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         /* Reset notify states */
         s->notify_access_override = _NOTIFY_ACCESS_INVALID;
         s->notify_state = _NOTIFY_STATE_INVALID;
+        if (IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD))
+                (void) bpf_notify_ratelimit_cleanup(UNIT(s));
 
         /* We want fresh tmpdirs and ephemeral snapshots in case the service is started again immediately. */
         s->exec_runtime = exec_runtime_destroy(s->exec_runtime);
