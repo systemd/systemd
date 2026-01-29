@@ -5,18 +5,24 @@
 #include "syslog-util.h"
 #include "tests.h"
 
-static void test_syslog_parse_identifier_one(const char *str,
-                                         const char *ident, const char *pid, const char *rest, int ret) {
+static void test_syslog_parse_identifier_one(
+                const char *str,
+                const char *ident,
+                pid_t pid,
+                const char *rest,
+                int ret) {
+
         const char *buf = str;
-        _cleanup_free_ char *ident2 = NULL, *pid2 = NULL;
+        _cleanup_free_ char *ident2 = NULL;
+        pid_t pid2;
         int ret2;
 
         ret2 = syslog_parse_identifier(&buf, &ident2, &pid2);
 
-        assert_se(ret == ret2);
-        assert_se(ident == ident2 || streq_ptr(ident, ident2));
-        assert_se(pid == pid2 || streq_ptr(pid, pid2));
-        assert_se(streq(buf, rest));
+        ASSERT_EQ(ret, ret2);
+        ASSERT_STREQ(ident, ident2);
+        ASSERT_EQ(pid, pid2);
+        ASSERT_STREQ(buf, rest);
 }
 
 static void test_syslog_parse_priority_one(const char *str, bool with_facility, int priority, int ret) {
@@ -30,20 +36,20 @@ static void test_syslog_parse_priority_one(const char *str, bool with_facility, 
 }
 
 TEST(syslog_parse_identifier) {
-        test_syslog_parse_identifier_one("pidu[111]: xxx", "pidu", "111", "xxx", 11);
-        test_syslog_parse_identifier_one("pidu: xxx", "pidu", NULL, "xxx", 6);
-        test_syslog_parse_identifier_one("pidu:  xxx", "pidu", NULL, " xxx", 6);
-        test_syslog_parse_identifier_one("pidu xxx", NULL, NULL, "pidu xxx", 0);
-        test_syslog_parse_identifier_one("   pidu xxx", NULL, NULL, "   pidu xxx", 0);
-        test_syslog_parse_identifier_one("", NULL, NULL, "", 0);
-        test_syslog_parse_identifier_one("  ", NULL, NULL, "  ", 0);
-        test_syslog_parse_identifier_one(":", "", NULL, "", 1);
-        test_syslog_parse_identifier_one(":  ", "", NULL, " ", 2);
-        test_syslog_parse_identifier_one(" :", "", NULL, "", 2);
-        test_syslog_parse_identifier_one("   pidu:", "pidu", NULL, "", 8);
-        test_syslog_parse_identifier_one("pidu:", "pidu", NULL, "", 5);
-        test_syslog_parse_identifier_one("pidu: ", "pidu", NULL, "", 6);
-        test_syslog_parse_identifier_one("pidu : ", NULL, NULL, "pidu : ", 0);
+        test_syslog_parse_identifier_one("pidu[111]: xxx", "pidu", 111, "xxx", 11);
+        test_syslog_parse_identifier_one("pidu: xxx", "pidu", 0, "xxx", 6);
+        test_syslog_parse_identifier_one("pidu:  xxx", "pidu", 0, " xxx", 6);
+        test_syslog_parse_identifier_one("pidu xxx", NULL, 0, "pidu xxx", 0);
+        test_syslog_parse_identifier_one("   pidu xxx", NULL, 0, "   pidu xxx", 0);
+        test_syslog_parse_identifier_one("", NULL, 0, "", 0);
+        test_syslog_parse_identifier_one("  ", NULL, 0, "  ", 0);
+        test_syslog_parse_identifier_one(":", "", 0, "", 1);
+        test_syslog_parse_identifier_one(":  ", "", 0, " ", 2);
+        test_syslog_parse_identifier_one(" :", "", 0, "", 2);
+        test_syslog_parse_identifier_one("   pidu:", "pidu", 0, "", 8);
+        test_syslog_parse_identifier_one("pidu:", "pidu", 0, "", 5);
+        test_syslog_parse_identifier_one("pidu: ", "pidu", 0, "", 6);
+        test_syslog_parse_identifier_one("pidu : ", NULL, 0, "pidu : ", 0);
 }
 
 TEST(syslog_parse_priority) {

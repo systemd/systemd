@@ -39,7 +39,6 @@ typedef struct ClientContext {
         sd_id128_t invocation_id;
 
         char *label;
-        size_t label_size;
 
         int log_level_max;
 
@@ -61,7 +60,7 @@ int client_context_get(
                 Manager *m,
                 pid_t pid,
                 const struct ucred *ucred,
-                const char *label, size_t label_len,
+                const char *label,
                 const char *unit_id,
                 ClientContext **ret);
 
@@ -69,7 +68,7 @@ int client_context_acquire(
                 Manager *m,
                 pid_t pid,
                 const struct ucred *ucred,
-                const char *label, size_t label_len,
+                const char *label,
                 const char *unit_id,
                 ClientContext **ret);
 
@@ -79,7 +78,7 @@ void client_context_maybe_refresh(
                 Manager *m,
                 ClientContext *c,
                 const struct ucred *ucred,
-                const char *label, size_t label_size,
+                const char *label,
                 const char *unit_id,
                 usec_t timestamp);
 
