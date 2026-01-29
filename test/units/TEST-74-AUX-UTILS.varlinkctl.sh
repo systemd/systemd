@@ -192,6 +192,11 @@ varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reexecute '{}
 varlinkctl info /run/systemd/netif/io.systemd.Network
 varlinkctl introspect /run/systemd/netif/io.systemd.Network io.systemd.Network
 varlinkctl call /run/systemd/netif/io.systemd.Network io.systemd.Network.Describe '{}'
+varlinkctl call /run/systemd/netif/io.systemd.Network io.systemd.Network.GetDHCPServerLeases '{}'
+varlinkctl call /run/systemd/netif/io.systemd.Network io.systemd.Network.GetBitRates '{}'
+# Test with specific interface index (loopback typically has index 1)
+varlinkctl call /run/systemd/netif/io.systemd.Network io.systemd.Network.GetBitRates '{"InterfaceIndex": 1}'
+varlinkctl call /run/systemd/netif/io.systemd.Network io.systemd.Network.GetDHCPServerLeases '{"InterfaceIndex": 1}'
 
 # test io.systemd.Unit
 varlinkctl info /run/systemd/io.systemd.Manager
