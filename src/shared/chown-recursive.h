@@ -5,4 +5,8 @@
 
 int path_chown_recursive(const char *path, uid_t uid, gid_t gid, mode_t mask, int flags);
 
-int fd_chown_recursive(int fd, uid_t uid, gid_t gid, mode_t mask);
+int fd_chown_recursive_full(int fd, uid_t uid, gid_t gid, mode_t mask, uid_t source_uid, gid_t source_gid);
+
+static inline int fd_chown_recursive(int fd, uid_t uid, gid_t gid, mode_t mask) {
+        return fd_chown_recursive_full(fd, uid, gid, mask, UID_INVALID, GID_INVALID);
+}

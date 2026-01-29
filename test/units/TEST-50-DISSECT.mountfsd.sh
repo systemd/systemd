@@ -182,3 +182,140 @@ echo thisisatest | cmp /tmp/unpriv.out3 -
 assert_eq "$(run0 -u testuser varlinkctl --exec call  /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MakeDirectory --push-fd=./ '{ "parentFileDescriptor" : 0, "name" : "foreignuidowned" }' -- stat -Lc "%u" /proc/self/fd/3)" 2147352576
 assert_eq "$(stat -c "%u" ~testuser/foreignuidowned)" 2147352576
 rmdir ~testuser/foreignuidowned
+
+# make sure ChownDirectory() works correctly
+TESTHOME=~testuser
+mkdir -p "$TESTHOME/chowntest/subdir"
+touch "$TESTHOME/chowntest/subdir/file"
+chown -R testuser:testuser "$TESTHOME/chowntest"
+
+# Run ChownDirectory as testuser - should chown to FOREIGN_UID_MIN (2147352576)
+run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.ChownDirectory --push-fd="$TESTHOME/chowntest" '{ "directoryFileDescriptor" : 0 }'
+
+# Verify everything is now owned by FOREIGN_UID_MIN
+assert_eq "$(stat -c "%u" "$TESTHOME/chowntest")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/chowntest/subdir")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/chowntest/subdir/file")" 2147352576
+
+rm -rf "$TESTHOME/chowntest"
+
+# Test that ChownDirectory only changes inodes owned by peer
+mkdir "$TESTHOME/chowntest2"
+chown testuser:testuser "$TESTHOME/chowntest2"
+mkdir "$TESTHOME/chowntest2/mine"
+chown testuser:testuser "$TESTHOME/chowntest2/mine"
+mkdir "$TESTHOME/chowntest2/notmine"
+
+# ChownDirectory should only chown things owned by testuser, not root's directory
+run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.ChownDirectory --push-fd="$TESTHOME/chowntest2" '{ "directoryFileDescriptor" : 0 }'
+
+# testuser's directories should be chowned
+assert_eq "$(stat -c "%u" "$TESTHOME/chowntest2")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/chowntest2/mine")" 2147352576
+# root's directory should remain unchanged
+assert_eq "$(stat -c "%u" "$TESTHOME/chowntest2/notmine")" 0
+
+rm -rf "$TESTHOME/chowntest2"
+
+# make sure RemoveDirectory() works correctly
+# First create a directory tree owned by the foreign UID range
+run0 -u testuser varlinkctl --exec call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MakeDirectory --push-fd="$TESTHOME" '{ "parentFileDescriptor" : 0, "name" : "removeme" }' -- true
+assert_eq "$(stat -c "%u" "$TESTHOME/removeme")" 2147352576
+
+# Create some content inside it, also owned by foreign UID range
+mkdir "$TESTHOME/removeme/subdir"
+touch "$TESTHOME/removeme/subdir/file"
+chown -R 2147352576:2147352576 "$TESTHOME/removeme"
+
+# Remove it using RemoveDirectory
+run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.RemoveDirectory --push-fd="$TESTHOME" '{ "parentFileDescriptor" : 0, "name" : "removeme" }'
+
+# Verify it's gone
+test ! -e "$TESTHOME/removeme"
+
+# Test that RemoveDirectory only removes inodes owned by foreign UID range
+mkdir "$TESTHOME/removeme2"
+chown 2147352576:2147352576 "$TESTHOME/removeme2"
+mkdir "$TESTHOME/removeme2/foreign"
+chown 2147352576:2147352576 "$TESTHOME/removeme2/foreign"
+mkdir "$TESTHOME/removeme2/notforeign"
+chown root:root "$TESTHOME/removeme2/notforeign"
+
+# RemoveDirectory should fail because there's content not owned by foreign UID range
+(! run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.RemoveDirectory --push-fd="$TESTHOME" '{ "parentFileDescriptor" : 0, "name" : "removeme2" }')
+
+# The directory should still exist with the root-owned content
+test -d "$TESTHOME/removeme2"
+test -d "$TESTHOME/removeme2/notforeign"
+
+rm -rf "$TESTHOME/removeme2"
+
+# Make sure CopyDirectory() works correctly
+mkdir -p "$TESTHOME/copysource/subdir"
+echo "hello" > "$TESTHOME/copysource/file.txt"
+echo "world" > "$TESTHOME/copysource/subdir/nested.txt"
+chown -R 2147352576:2147352576 "$TESTHOME/copysource"
+
+# Copy it using CopyDirectory - destination should preserve foreign UID range ownership
+run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.CopyDirectory --push-fd="$TESTHOME/copysource" --push-fd="$TESTHOME" '{ "sourceFileDescriptor" : 0, "destinationParentFileDescriptor" : 1, "name" : "copydest" }'
+
+# Verify the copy exists and is owned by the foreign UID root user
+test -d "$TESTHOME/copydest"
+assert_eq "$(stat -c "%u" "$TESTHOME/copydest")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/copydest/subdir")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/copydest/file.txt")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/copydest/subdir/nested.txt")" 2147352576
+
+# Verify content was actually copied
+assert_eq "$(cat "$TESTHOME/copydest/file.txt")" "hello"
+assert_eq "$(cat "$TESTHOME/copydest/subdir/nested.txt")" "world"
+
+rm -rf "$TESTHOME/copysource" "$TESTHOME/copydest"
+
+# Test that CopyDirectory fails if source inodes are outside the foreign UID range
+mkdir -p "$TESTHOME/copysource2/foreign"
+mkdir "$TESTHOME/copysource2/notforeign"
+echo "foreign" > "$TESTHOME/copysource2/foreign/file.txt"
+echo "notforeign" > "$TESTHOME/copysource2/notforeign/file.txt"
+chown -R 2147352576:2147352576 "$TESTHOME/copysource2"
+chown -R root:root "$TESTHOME/copysource2/notforeign"
+
+(! run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.CopyDirectory --push-fd="$TESTHOME/copysource2" --push-fd="$TESTHOME" '{ "sourceFileDescriptor" : 0, "destinationParentFileDescriptor" : 1, "name" : "copydest2" }')
+
+test ! -d "$TESTHOME/copydest2"
+rm -rf "$TESTHOME/copysource2"
+
+# Make sure RenameDirectory() works correctly
+mkdir -p "$TESTHOME/renamesource/subdir"
+echo "hello" > "$TESTHOME/renamesource/file.txt"
+echo "world" > "$TESTHOME/renamesource/subdir/nested.txt"
+chown -R 2147352576:2147352576 "$TESTHOME/renamesource"
+
+# Rename it using RenameDirectory
+run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.RenameDirectory --push-fd="$TESTHOME" --push-fd="$TESTHOME" '{ "sourceParentFileDescriptor" : 0, "sourceName" : "renamesource", "destinationParentFileDescriptor" : 1, "destinationName" : "renamedest" }'
+
+# Verify the rename worked
+test ! -d "$TESTHOME/renamesource"
+test -d "$TESTHOME/renamedest"
+assert_eq "$(stat -c "%u" "$TESTHOME/renamedest")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/renamedest/subdir")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/renamedest/file.txt")" 2147352576
+assert_eq "$(stat -c "%u" "$TESTHOME/renamedest/subdir/nested.txt")" 2147352576
+
+# Verify content is still there
+assert_eq "$(cat "$TESTHOME/renamedest/file.txt")" "hello"
+assert_eq "$(cat "$TESTHOME/renamedest/subdir/nested.txt")" "world"
+
+rm -rf "$TESTHOME/renamedest"
+
+# Test that RenameDirectory fails if source directory is not owned by the foreign UID range
+mkdir "$TESTHOME/renamesource2"
+chown root:root "$TESTHOME/renamesource2"
+
+(! run0 -u testuser varlinkctl call /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.RenameDirectory --push-fd="$TESTHOME" --push-fd="$TESTHOME" '{ "sourceParentFileDescriptor" : 0, "sourceName" : "renamesource2", "destinationParentFileDescriptor" : 1, "destinationName" : "renamedest2" }')
+
+# The directory should still exist in the original location
+test -d "$TESTHOME/renamesource2"
+test ! -d "$TESTHOME/renamedest2"
+
+rm -rf "$TESTHOME/renamesource2"

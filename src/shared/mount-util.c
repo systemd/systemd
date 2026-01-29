@@ -1654,7 +1654,7 @@ int open_tree_try_drop_idmap(int dir_fd, const char *path, unsigned flags) {
 
                 fd = RET_NERRNO(open_tree(dir_fd, path, flags));
                 if (fd < 0)
-                        return log_debug_errno(fd, "Both open_tree() and open_tree_attr() failed, giving up: %m");
+                        return log_debug_errno(errno, "Both open_tree() and open_tree_attr() failed, giving up: %m");
 
                 log_debug("open_tree() without clearing idmap worked.");
                 return TAKE_FD(fd);
