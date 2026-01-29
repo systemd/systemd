@@ -69,6 +69,10 @@
     one of the delegated ranges. Identity mapped users are not subject to BPF-LSM write restrictions unlike
     the transient ranges.</para>
 
+    <para>Additionally, the allocation API supports mapping the <emphasis>foreign UID range</emphasis> into
+    the user namespace. When this option is enabled, the foreign UID range is mapped 1:1 into the user
+    namespace, allowing processes inside to access and manipulate files owned by the foreign UID range.</para>
+
     <para>The service provides API calls to allowlist mounts (referenced via their mount file descriptors as
     per Linux <function>fsmount()</function> API), to pass ownership of a cgroup subtree to the user
     namespace and to delegate a virtual Ethernet device pair to the user namespace. When used in combination
