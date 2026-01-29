@@ -480,7 +480,7 @@ int install_change_dump_error(const InstallChange *change, char **ret_errmsg, co
         return 0;
 }
 
-void install_changes_dump(
+int install_changes_dump(
                 int error,
                 const char *verb,
                 const InstallChange *changes,
@@ -494,6 +494,8 @@ void install_changes_dump(
         assert(verb || error >= 0);
         assert(changes || n_changes == 0);
 
+        /* An error is returned if 'error' contains an error or if any of the changes failed. */
+
         FOREACH_ARRAY(i, changes, n_changes)
                 if (i->type >= 0) {
                         if (!quiet)
@@ -505,17 +507,21 @@ void install_changes_dump(
 
                         r = install_change_dump_error(i, &err_message, /* ret_bus_error= */ NULL);
                         if (r == -ENOMEM)
-                                return (void) log_oom();
+                                return log_oom();
                         if (r < 0)
-                                log_error_errno(r, "Failed to %s unit %s: %m", verb, i->path);
+                                RET_GATHER(error,
+                                           log_error_errno(r, "Failed to %s unit %s: %m", verb, i->path));
                         else
-                                log_error_errno(i->type, "Failed to %s unit: %s", verb, err_message);
+                                RET_GATHER(error,
+                                           log_error_errno(i->type, "Failed to %s unit: %s", verb, err_message));
 
                         err_logged = true;
                 }
 
         if (error < 0 && !err_logged)
-                log_error_errno(error, "Failed to %s unit: %m.", verb);
+                log_error_errno(error, "Failed to %s units: %m.", verb);
+
+        return error;
 }
 
 /**
@@ -3692,7 +3698,7 @@ int unit_file_preset(
 
         STRV_FOREACH(name, names) {
                 r = preset_prepare_one(scope, &plus, &minus, &lp, *name, &presets, changes, n_changes);
-                if (r < 0)
+                if (r < 0 && !ERRNO_IS_NEG_UNIT_ISSUE(r))
                         return r;
         }
 

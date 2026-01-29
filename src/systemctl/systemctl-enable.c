@@ -258,7 +258,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 else
                         assert_not_reached();
 
-                install_changes_dump(r, verb, changes, n_changes, arg_quiet);
+                r = install_changes_dump(r, verb, changes, n_changes, arg_quiet);
                 if (r < 0)
                         return r;
         }
