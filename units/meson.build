@@ -46,7 +46,7 @@ units = [
         { 'file' : 'getty@.service.in' },
         {
           'file' : 'graphical.target',
-          'symlinks' : ['default.target'],
+          'symlinks' : ['default.target', 'runlevel5.target'],
         },
         { 'file' : 'halt.target' },
         {
@@ -139,7 +139,10 @@ units = [
           'conditions' : ['ENABLE_MACHINED'],
         },
         { 'file' : 'modprobe@.service' },
-        { 'file' : 'multi-user.target' },
+        {
+          'file' : 'multi-user.target',
+          'symlinks' : ['runlevel2.target', 'runlevel3.target', 'runlevel4.target'],
+        },
         {
           'file' : 'systemd-mute-console.socket',
           'symlinks' : ['sockets.target.wants/']
@@ -152,7 +155,10 @@ units = [
         { 'file' : 'nss-lookup.target' },
         { 'file' : 'nss-user-lookup.target' },
         { 'file' : 'paths.target' },
-        { 'file' : 'poweroff.target' },
+        {
+          'file' : 'poweroff.target',
+          'symlinks' : ['runlevel0.target'],
+        },
         { 'file' : 'printer.target' },
         {
           'file' : 'proc-sys-fs-binfmt_misc.automount',
@@ -173,7 +179,7 @@ units = [
         },
         {
           'file' : 'reboot.target',
-          'symlinks' : ['ctrl-alt-del.target'],
+          'symlinks' : ['ctrl-alt-del.target', 'runlevel6.target'],
         },
         {
           'file' : 'remote-cryptsetup.target',
@@ -193,7 +199,10 @@ units = [
           'symlinks' : ['initrd-root-device.target.wants/'],
         },
         { 'file' : 'rescue.service.in' },
-        { 'file' : 'rescue.target' },
+        {
+          'file' : 'rescue.target'
+          'symlinks' : ['runlevel1.target'],
+        },
         { 'file' : 'rpcbind.target' },
         { 'file' : 'serial-getty@.service.in' },
         { 'file' : 'shutdown.target' },
