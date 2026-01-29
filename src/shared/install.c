@@ -370,6 +370,24 @@ static void install_change_dump_success(const InstallChange *change) {
         }
 }
 
+/* Generated/transient/missing/invalid units when applying presets.
+ * Coordinate with install_change_dump_error() below. */
+static bool ERRNO_IS_NEG_UNIT_ISSUE(intmax_t r) {
+        return IN_SET(r,
+                      -EEXIST,
+                      -ERFKILL,
+                      -EADDRNOTAVAIL,
+                      -ETXTBSY,
+                      -EBADSLT,
+                      -EIDRM,
+                      -EUCLEAN,
+                      -ELOOP,
+                      -EXDEV,
+                      -ENOENT,
+                      -ENOLINK,
+                      -EUNATCH);
+}
+
 int install_change_dump_error(const InstallChange *change, char **ret_errmsg, const char **ret_bus_error) {
         char *m;
         const char *bus_error;
@@ -3609,6 +3627,7 @@ static int preset_prepare_one(
                                   &info, changes, n_changes);
         if (r < 0)
                 return r;
+
         if (!streq(name, info->name)) {
                 log_debug("Skipping %s because it is an alias for %s.", name, info->name);
                 return 0;
@@ -3710,19 +3729,19 @@ int unit_file_preset_all(
         if (r < 0)
                 return r;
 
-        r = 0;
         STRV_FOREACH(i, lp.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
 
                 d = opendir(*i);
                 if (!d) {
-                        if (errno != ENOENT)
-                                RET_GATHER(r, -errno);
-                        continue;
+                        if (errno == ENOENT)
+                                continue;
+
+                        return log_debug_errno(errno, "Failed to opendir %s: %m", *i);
                 }
 
-                FOREACH_DIRENT(de, d, RET_GATHER(r, -errno)) {
-                        int k;
+                FOREACH_DIRENT(de, d,
+                               return log_debug_errno(errno, "Failed to read directory %s: %m", *i)) {
 
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
@@ -3730,23 +3749,9 @@ int unit_file_preset_all(
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
-                        k = preset_prepare_one(scope, &plus, &minus, &lp, de->d_name, &presets, changes, n_changes);
-                        if (k < 0 &&
-                            !IN_SET(k, -EEXIST,
-                                       -ERFKILL,
-                                       -EADDRNOTAVAIL,
-                                       -ETXTBSY,
-                                       -EBADSLT,
-                                       -EIDRM,
-                                       -EUCLEAN,
-                                       -ELOOP,
-                                       -EXDEV,
-                                       -ENOENT,
-                                       -ENOLINK,
-                                       -EUNATCH))
-                                /* Ignore generated/transient/missing/invalid units when applying preset, propagate other errors.
-                                 * Coordinate with install_change_dump_error() above. */
-                                RET_GATHER(r, k);
+                        r = preset_prepare_one(scope, &plus, &minus, &lp, de->d_name, &presets, changes, n_changes);
+                        if (r < 0 && !ERRNO_IS_NEG_UNIT_ISSUE(r))
+                                return r;
                 }
         }
 
