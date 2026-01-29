@@ -36,19 +36,9 @@ static int verify_stat_at(
         assert(verify_func);
 
         _cleanup_free_ char *p = NULL;
-        if (fd == XAT_FDROOT) {
-                fd = AT_FDCWD;
-
-                if (isempty(path))
-                        path = "/";
-                else if (!path_is_absolute(path)) {
-                        p = strjoin("/", path);
-                        if (!p)
-                                return -ENOMEM;
-
-                        path = p;
-                }
-        }
+        r = resolve_xat_fdroot(&fd, &path, &p);
+        if (r < 0)
+                return r;
 
         if (fstatat(fd, strempty(path), &st,
                     (isempty(path) ? AT_EMPTY_PATH : 0) | (follow ? 0 : AT_SYMLINK_NOFOLLOW)) < 0)
