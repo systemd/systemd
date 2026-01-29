@@ -443,3 +443,6 @@ if [[ ! -v ASAN_OPTIONS ]]; then
    systemd-run --wait --pipe unshare -T true
    (! systemd-run --wait --pipe -p RestrictNamespaces=~time unshare -T true)
 fi
+
+# Test that spamming systemd with notifications fails
+(! systemd-run --wait --pipe -p Type=notify -p NotifyAccess=all /bin/bash -c 'for i in {1..100}; do systemd-notify --ready; done')
