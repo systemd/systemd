@@ -606,6 +606,48 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Whether persistent storage is ready and writable"),
                 SD_VARLINK_DEFINE_INPUT(Ready, SD_VARLINK_BOOL, 0));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DHCPServerLeasesByInterface,
+                SD_VARLINK_FIELD_COMMENT("Network interface index"),
+                SD_VARLINK_DEFINE_FIELD(InterfaceIndex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Primary interface name"),
+                SD_VARLINK_DEFINE_FIELD(InterfaceName, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Alternative interface names"),
+                SD_VARLINK_DEFINE_FIELD(InterfaceAlternativeNames, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Active DHCP leases assigned by the server"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Leases, DHCPServerLease, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_METHOD(
+                GetDHCPServerLeases,
+                SD_VARLINK_FIELD_COMMENT("Filter by interface index (optional)"),
+                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Filter by interface name (optional)"),
+                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("DHCP server leases grouped by interface"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Leases, DHCPServerLeasesByInterface, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                BitRatesByInterface,
+                SD_VARLINK_FIELD_COMMENT("Network interface index"),
+                SD_VARLINK_DEFINE_FIELD(InterfaceIndex, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Primary interface name"),
+                SD_VARLINK_DEFINE_FIELD(InterfaceName, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Alternative interface names"),
+                SD_VARLINK_DEFINE_FIELD(InterfaceAlternativeNames, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Transmit bit rate in bytes per second, or null if unavailable"),
+                SD_VARLINK_DEFINE_FIELD(TxBitRate, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Receive bit rate in bytes per second, or null if unavailable"),
+                SD_VARLINK_DEFINE_FIELD(RxBitRate, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                GetBitRates,
+                SD_VARLINK_FIELD_COMMENT("Filter by interface index (optional)"),
+                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Filter by interface name (optional)"),
+                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Bit rates grouped by interface"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(BitRates, BitRatesByInterface, SD_VARLINK_ARRAY));
+
 static SD_VARLINK_DEFINE_ERROR(StorageReadOnly);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -615,11 +657,15 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_GetStates,
                 &vl_method_GetNamespaceId,
                 &vl_method_GetLLDPNeighbors,
+                &vl_method_GetDHCPServerLeases,
+                &vl_method_GetBitRates,
                 &vl_method_SetPersistentStorage,
                 &vl_type_Address,
+                &vl_type_BitRatesByInterface,
                 &vl_type_DHCPLease,
                 &vl_type_DHCPServer,
                 &vl_type_DHCPServerLease,
+                &vl_type_DHCPServerLeasesByInterface,
                 &vl_type_DHCPv6Client,
                 &vl_type_DHCPv6ClientPD,
                 &vl_type_DHCPv6ClientVendorOption,
