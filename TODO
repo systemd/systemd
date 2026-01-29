@@ -118,6 +118,36 @@ Deprecations and removals:
 
 Features:
 
+* mountfsd: when looking for non-foreign uid owned inodes up the tree, stop at
+  mounts
+
+* downgrade the uid/gid disposition enforcement in udev
+
+* have a signal that reloads every unit that supports reloading
+
+* systemd: add storage API via varlink, where everyone can drop a socket in a
+  dir, similar, do the same thing for networking
+
+* do a console daemon that takes stdio fds for services and allows to reconnect
+  to them later
+
+* report: have something that requests cloud workload identity bearer tokens
+  and includes it in the report
+
+* sysupdate: download multiple arbitrary patterns from same source
+
+* sysupdate: SHA256SUMS format with bearer tokens for each resource to download
+
+* sysupdate: decrypt SHA256SUMS with key from tpm
+
+* sysupdate: clean up stuff on disk that disappears from SHA256SUMS
+
+* sysupdate: turn http backend stuff int plugin via varlink
+
+* add new tool that can be used in debug mode runs in very early boot,
+  generates a random password, passes it as credential to sysusers for the root
+  user, then displays it on screen. people can use this to remotely log in.
+
 * Maybe introducean InodeRef structure inspired by PidRef, which references a
   specific inode, and combines: a path, an O_PATH fd, and possibly a FID into
   one. Why? We often pass around path and fd separately in chaseat() and similar
@@ -528,10 +558,6 @@ Features:
 * foreign uid:
   - add support to export-fs, import-fs
   - systemd-dissect should learn mappings, too, when doing mtree and such
-
-* format-table: introduce new cell type for strings with ansi sequences in
-  them. display them in regular output mode (via strip_tab_ansi()), but
-  suppress them in json mode.
 
 * resolved: report ttl in resolution replies if we know it. This data is useful
   for tools such as wireguard which want to periodically re-resolve DNS names,
