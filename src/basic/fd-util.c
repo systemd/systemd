@@ -1105,6 +1105,32 @@ int fds_are_same_mount(int fd1, int fd2) {
         return statx_inode_same(&sx1, &sx2) && statx_mount_same(&sx1, &sx2);
 }
 
+int resolve_xat_fdroot(int *fd, const char **path, char **ret_buffer) {
+        assert(fd);
+        assert(path);
+        assert(ret_buffer);
+
+        if (*fd != XAT_FDROOT) {
+                *ret_buffer = NULL;
+                return 0;
+        }
+
+        if (isempty(*path)) {
+                *path = "/";
+                *ret_buffer = NULL;
+        } else if (!path_is_absolute(*path)) {
+                char *p = strjoin("/", *path);
+                if (!p)
+                        return -ENOMEM;
+
+                *path = *ret_buffer = p;
+        }
+
+        *fd = AT_FDCWD;
+
+        return 1;
+}
+
 char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
         assert(buf);
         assert(fd >= 0);
