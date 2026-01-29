@@ -4206,9 +4206,8 @@ int dissected_image_acquire_metadata(
         _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         sd_id128_t machine_id = SD_ID128_NULL;
         unsigned n_meta_initialized = 0;
-        int fds[2 * _META_MAX], r, v;
+        int fds[2 * _META_MAX], r;
         int has_init_system = -1;
-        ssize_t n;
 
         assert(m);
 
@@ -4460,24 +4459,12 @@ int dissected_image_acquire_metadata(
         r = pidref_wait_for_terminate_and_check("(sd-dissect)", &child, 0);
         if (r < 0)
                 goto finish;
-
         pidref_done(&child);
-
-        n = read(error_pipe[0], &v, sizeof(v));
-        if (n < 0) {
-                r = -errno;
-                goto finish;
-        }
-        if (n == sizeof(v)) {
-                r = v; /* propagate error sent to us from child */
-                goto finish;
-        }
-        if (n != 0) {
-                r = -EIO;
-                goto finish;
-        }
         if (r != EXIT_SUCCESS) {
-                r = -EPROTO;
+                /* propagate error sent to us from child */
+                r = read_errno(error_pipe[0]);
+                if (r >= 0)
+                        r = -EPROTO;
                 goto finish;
         }
 
