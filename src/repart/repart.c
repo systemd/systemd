@@ -6380,7 +6380,8 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 if (r < 0)
                         return r;
 
-                sfd = chase_and_open(line->source, arg_copy_source, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY, NULL);
+                int source_is_symlink = is_symlink(line->source);
+                sfd = chase_and_open(line->source, arg_copy_source, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY|(source_is_symlink ? O_NOFOLLOW|O_PATH : 0), NULL);
                 if (sfd == -ENOENT) {
                         log_notice_errno(sfd, "Failed to open source file '%s%s', skipping: %m", strempty(arg_copy_source), line->source);
                         continue;
@@ -6389,10 +6390,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_copy_source), line->source);
 
                 r = fd_verify_regular(sfd);
-                if (r < 0) {
-                        if (r != -EISDIR)
-                                return log_error_errno(r, "Failed to check type of source file '%s': %m", line->source);
-
+                if (r == -EISDIR) {
                         /* We are looking at a directory */
                         tfd = chase_and_open(line->target, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                         if (tfd < 0) {
@@ -6431,8 +6429,28 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                                 line->flags,
                                                 denylist, subvolumes_by_source_inode);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
+                                return log_error_errno(r, "Failed to copy directory '%s%s' to '%s%s': %m",
                                                        strempty(arg_copy_source), line->source, strempty(root), line->target);
+                } else if (r == -ELOOP) {
+                        _cleanup_free_ char *fn = NULL;
+
+                        /* We are looking at a symlink */
+
+                        pfd = chase_and_open(line->target, root, CHASE_PARENT|CHASE_PREFIX_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, &fn);
+                        if (pfd < 0)
+                                return log_error_errno(pfd, "Failed to open parent directory of target: %m");
+
+                        r = copy_tree_at(
+                                sfd, NULL,
+                                pfd, fn,
+                                UID_INVALID, GID_INVALID,
+                                COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN|COPY_TRUNCATE|COPY_RESTORE_DIRECTORY_TIMESTAMPS,
+                                denylist, subvolumes_by_source_inode);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy symlink '%s%s' to '%s%s': %m",
+                                                       strempty(arg_copy_source), line->source, strempty(root), line->target);
+                } else if (r < 0) {
+                        return log_error_errno(r, "Failed to check type of source file '%s': %m", line->source);
                 } else {
                         _cleanup_free_ char *dn = NULL, *fn = NULL;
 
@@ -6471,7 +6489,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 
                         r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_SIGINT|COPY_TRUNCATE);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", line->source, strempty(arg_copy_source), line->target);
+                                return log_error_errno(r, "Failed to copy file '%s' to '%s%s': %m", line->source, strempty(arg_copy_source), line->target);
 
                         (void) copy_xattr(sfd, NULL, tfd, NULL, COPY_ALL_XATTRS);
                         (void) copy_access(sfd, tfd);
