@@ -701,14 +701,3 @@ int statx_warn_mount_root(const struct statx *sx, int log_level) {
 
         return 0;
 }
-
-int statx_warn_mount_id(const struct statx *sx, int log_level) {
-        assert(sx);
-
-        /* The STATX_MNT_ID flag is supported since kernel v5.10. */
-        if (!FLAGS_SET(sx->stx_mask, STATX_MNT_ID))
-                return log_full_errno(log_level, SYNTHETIC_ERRNO(ENOSYS),
-                                      "statx() does not support STATX_MNT_ID, running on an old kernel?");
-
-        return 0;
-}
