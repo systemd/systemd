@@ -20,6 +20,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(delegateContainerRanges, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Number of transient dynamic user UIDs to delegate. These are single-UID ranges mapped 1:1 into the user namespace for use by dynamic users in nested user namespaces. Must be between 0 and 16 (combined with delegateContainerRanges)."),
                 SD_VARLINK_DEFINE_INPUT(delegateDynamicUsers, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, map the foreign UID range 1:1 into the user namespace."),
+                SD_VARLINK_DEFINE_INPUT(mapForeign, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The name assigned to the user namespace. (This is particularly interesting in case mangleName was enabled)."),
                 SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
