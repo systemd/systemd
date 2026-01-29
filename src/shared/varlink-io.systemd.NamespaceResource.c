@@ -25,6 +25,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(type, AllocateUserRangeType, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Number of transient 64K container UID/GID ranges to delegate. These are mapped 1:1 into the user namespace and can be used by nested user namespaces for container workloads. Must be between 0 and 16. Defaults to 0."),
                 SD_VARLINK_DEFINE_INPUT(delegateContainerRanges, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true, map the foreign UID range 1:1 into the user namespace."),
+                SD_VARLINK_DEFINE_INPUT(mapForeign, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The name assigned to the user namespace. (This is particularly interesting in case mangleName was enabled)."),
                 SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 

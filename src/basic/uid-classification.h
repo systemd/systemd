@@ -12,7 +12,7 @@ assert_cc((CONTAINER_UID_BASE_MAX & 0xFFFFU) == 0);
 #define CONTAINER_UID_MAX ((uid_t) CONTAINER_UID_BASE_MAX + 0xFFFFU)
 
 assert_cc((FOREIGN_UID_BASE & 0xFFFFU) == 0);
-#define FOREIGN_UID_MIN (FOREIGN_UID_BASE)
+#define FOREIGN_UID_MIN (FOREIGN_UID_BASE + 0U)
 #define FOREIGN_UID_MAX (FOREIGN_UID_BASE + 0xFFFFU)
 
 bool uid_is_system(uid_t uid);

@@ -145,8 +145,13 @@ possible.
    available locally whose UID/GID ownerships do not make sense in the local
    context but only within the OS image itself. This 64K UID range can be used
    to have a clearly defined ownership even on the host, that can be mapped via
-   idmapped mount to a dynamic runtime UID range as needed. (These numbers in
-   hexadecimal are 0x7FFE0000…0x7FFEFFFF.)
+   idmapped mount to a dynamic runtime UID range as needed. These numbers in
+   hexadecimal are 0x7FFE0000…0x7FFEFFFF. Note that all users have full access
+   to the foreign UID range, hence it is recommended to never make foreign UID
+   range owned inodes accessible in directories accessible to other users. In
+   other words, always make sure each foreign UID range owned inode is inside
+   of a directory with mode `0700` (or stricter) owned by the only user that
+   should have access to the foreign UID range owned inode(s).
 
 Note for the `DynamicUser=` and the `systemd-nspawn` allocation ranges: when a
 UID allocation takes place NSS is checked for collisions first, and a different
