@@ -94,6 +94,24 @@ test "$(run0 -u testuser --pipe unshare --user varlinkctl --exec call \
         '{"name":"test-id","target":0,"size":1,"userNamespaceFileDescriptor":0,"identity":true}' \
         -- cat /proc/self/uid_map | awk '{print $1, $3}')" = "0 1"
 
+# Test mapForeign parameter
+# Verify that the foreign UID range is mapped into the user namespace
+# When mapForeign is true, uid_map should have 2 lines: primary range + foreign range
+test "$(run0 -u testuser --pipe unshare --user varlinkctl --exec call \
+        --push-fd=/proc/self/ns/user \
+        /run/systemd/userdb/io.systemd.NamespaceResource \
+        io.systemd.NamespaceResource.AllocateUserRange \
+        '{"name":"test-foreign","size":65536,"userNamespaceFileDescriptor":0,"mapForeign":true}' \
+        -- cat /proc/self/uid_map | wc -l)" -eq 2
+
+# Verify the foreign range is mapped 1:1.
+test "$(run0 -u testuser --pipe unshare --user varlinkctl --exec call \
+        --push-fd=/proc/self/ns/user \
+        /run/systemd/userdb/io.systemd.NamespaceResource \
+        io.systemd.NamespaceResource.AllocateUserRange \
+        '{"name":"test-foreign2","size":65536,"userNamespaceFileDescriptor":0,"mapForeign":true}' \
+        -- cat /proc/self/uid_map | grep -c 2147352576)" -eq 1
+
 # This should work without the key
 systemd-dissect --image-policy='root=verity:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null
 systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null
