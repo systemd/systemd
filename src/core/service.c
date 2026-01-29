@@ -1933,6 +1933,8 @@ static int service_spawn_internal(
         /* System D-Bus needs nss-systemd disabled, so that we don't deadlock */
         SET_FLAG(exec_params.flags, EXEC_NSS_DYNAMIC_BYPASS,
                  MANAGER_IS_SYSTEM(UNIT(s)->manager) && unit_has_name(UNIT(s), SPECIAL_DBUS_SERVICE));
+        SET_FLAG(exec_params.flags, EXEC_NSS_MACHINE_BYPASS,
+                 MANAGER_IS_SYSTEM(UNIT(s)->manager) && unit_has_name(UNIT(s), SPECIAL_DBUS_SERVICE));
 
         strv_free_and_replace(exec_params.environment, final_env);
         exec_params.watchdog_usec = service_get_watchdog_usec(s);

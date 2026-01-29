@@ -2091,6 +2091,13 @@ static int build_environment(
                 if (r < 0)
                         return r;
         }
+        /* Similar to SYSTEMD_NSS_DYNAMIC_BYPASS, is.systemd.machine may also cause deadlock between D-Bus
+         * and systemd-machined. */
+        if (p->flags & EXEC_NSS_MACHINE_BYPASS) {
+                r = strv_extend_with_size(&e, &n, "SYSTEMD_NSS_MACHINE_BYPASS=1");
+                if (r < 0)
+                        return r;
+        }
 
         /* We query "root" if this is a system unit and User= is not specified. $USER is always set. $HOME
          * could cause problem for e.g. getty, since login doesn't override $HOME, and $LOGNAME and $SHELL don't

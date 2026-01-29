@@ -19,6 +19,8 @@ UserDBFlags nss_glue_userdb_flags(void) {
         /* Make sure that we don't go in circles when allocating a dynamic UID by checking our own database */
         if (secure_getenv_bool("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
                 flags |= USERDB_EXCLUDE_DYNAMIC_USER;
+        if (secure_getenv_bool("SYSTEMD_NSS_MACHINE_BYPASS") > 0)
+                flags |= USERDB_EXCLUDE_MACHINE;
 
         return flags;
 }

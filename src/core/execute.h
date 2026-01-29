@@ -408,6 +408,7 @@ typedef enum ExecFlags {
         EXEC_SETENV_RESULT           = 1 << 12,
         EXEC_SET_WATCHDOG            = 1 << 13,
         EXEC_SETENV_MONITOR_RESULT   = 1 << 14, /* Pass exit status to OnFailure= and OnSuccess= dependencies. */
+        EXEC_NSS_MACHINE_BYPASS      = 1 << 15, /* Set the SYSTEMD_NSS_MACHINE_BYPASS environment variable, to disable nss-systemd blocking on PID 1, for use by dbus-daemon */
 } ExecFlags;
 
 /* Parameters for a specific invocation of a command. This structure is put together right before a command is

@@ -548,7 +548,7 @@ static int userdb_start_query(
         }
 
         /* First, let's talk to the multiplexer, if we can */
-        if ((flags & (USERDB_AVOID_MULTIPLEXER|USERDB_EXCLUDE_DYNAMIC_USER|USERDB_EXCLUDE_NSS|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN)) == 0 &&
+        if ((flags & (USERDB_AVOID_MULTIPLEXER|USERDB_EXCLUDE_DYNAMIC_USER|USERDB_EXCLUDE_NSS|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN|USERDB_EXCLUDE_MACHINE)) == 0 &&
             !strv_contains(except, "io.systemd.Multiplexer") &&
             (!only || strv_contains(only, "io.systemd.Multiplexer"))) {
                 r = userdb_connect(iterator, "/run/systemd/userdb/io.systemd.Multiplexer", method, more, query);
@@ -576,6 +576,10 @@ static int userdb_start_query(
 
                 if (FLAGS_SET(flags, USERDB_EXCLUDE_DYNAMIC_USER) &&
                     streq(de->d_name, "io.systemd.DynamicUser"))
+                        continue;
+
+                if (FLAGS_SET(flags, USERDB_EXCLUDE_MACHINE) &&
+                    streq(de->d_name, "io.systemd.Machine"))
                         continue;
 
                 /* Avoid NSS if this is requested. Note that we also skip NSS when we were asked to skip the
