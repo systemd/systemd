@@ -36,19 +36,9 @@ static int verify_stat_at(
         assert(verify_func);
 
         _cleanup_free_ char *p = NULL;
-        if (fd == XAT_FDROOT) {
-                fd = AT_FDCWD;
-
-                if (isempty(path))
-                        path = "/";
-                else if (!path_is_absolute(path)) {
-                        p = strjoin("/", path);
-                        if (!p)
-                                return -ENOMEM;
-
-                        path = p;
-                }
-        }
+        r = resolve_xat_fdroot(&fd, &path, &p);
+        if (r < 0)
+                return r;
 
         if (fstatat(fd, strempty(path), &st,
                     (isempty(path) ? AT_EMPTY_PATH : 0) | (follow ? 0 : AT_SYMLINK_NOFOLLOW)) < 0)
@@ -243,6 +233,94 @@ int null_or_empty_path_with_root(const char *fn, const char *root) {
                 return r;
 
         return null_or_empty(&st);
+}
+
+static char* statx_mask_to_string(unsigned mask) {
+        static const struct {
+                unsigned flag;
+                const char *name;
+        } table[] = {
+                { STATX_TYPE,          "STATX_TYPE"          },
+                { STATX_MODE,          "STATX_MODE"          },
+                { STATX_NLINK,         "STATX_NLINK"         },
+                { STATX_UID,           "STATX_UID"           },
+                { STATX_GID,           "STATX_GID"           },
+                { STATX_ATIME,         "STATX_ATIME"         },
+                { STATX_MTIME,         "STATX_MTIME"         },
+                { STATX_CTIME,         "STATX_CTIME"         },
+                { STATX_INO,           "STATX_INO"           },
+                { STATX_SIZE,          "STATX_SIZE"          },
+                { STATX_BLOCKS,        "STATX_BLOCKS"        },
+                { STATX_BTIME,         "STATX_BTIME"         },
+                { STATX_MNT_ID,        "STATX_MNT_ID"        },
+                { STATX_MNT_ID_UNIQUE, "STATX_MNT_ID_UNIQUE" },
+                { STATX_SUBVOL,        "STATX_SUBVOL"        },
+        };
+
+        _cleanup_free_ char *s = NULL;
+
+        if (mask == 0)
+                return strdup("");
+
+        FOREACH_ELEMENT(i, table)
+                if (FLAGS_SET(mask, i->flag)) {
+                        if (!strextend_with_separator(&s, "|", i->name))
+                                return NULL;
+
+                        mask &= ~i->flag;
+                }
+
+        if (mask != 0)
+                if (strextendf_with_separator(&s, "|", "%u", mask) < 0)
+                        return NULL;
+
+        return TAKE_PTR(s);
+}
+
+int xstatx(int fd,
+           const char *path,
+           int flags,
+           unsigned mandatory_mask,
+           unsigned optional_mask,
+           struct statx *ret) {
+
+        struct statx sx = {}; /* explicitly initialize the struct to make msan silent. */
+        int r;
+
+        /* Wrapper around statx(), with additional bells and whistles:
+         *
+         * 1. AT_EMPTY_PATH is implied on empty path
+         * 2. Supports XAT_FDROOT
+         * 3. Takes separate mandatory and optional mask params. Returns -EUNATCH if statx() does not return
+         *    all masks specified as mandatory, > 0 if all optional masks are supported, 0 otherwise.
+         *
+         */
+
+        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
+        assert(ret);
+
+        _cleanup_free_ char *p = NULL;
+        r = resolve_xat_fdroot(&fd, &path, &p);
+        if (r < 0)
+                return r;
+
+        if (statx(fd, strempty(path),
+                  flags|(isempty(path) ? AT_EMPTY_PATH : 0),
+                  mandatory_mask|optional_mask,
+                  &sx) < 0)
+                return -errno;
+
+        if (_unlikely_(!FLAGS_SET(sx.stx_mask, mandatory_mask))) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *mask_str = statx_mask_to_string(mandatory_mask & ~sx.stx_mask);
+                        log_debug("statx() does not support '%s' mask (running on an old kernel?)", strnull(mask_str));
+                }
+
+                return -EUNATCH;
+        }
+
+        *ret = sx;
+        return FLAGS_SET(sx.stx_mask, optional_mask);
 }
 
 static int xfstatfs(int fd, struct statfs *ret) {
@@ -620,17 +698,6 @@ int statx_warn_mount_root(const struct statx *sx, int log_level) {
         if (!FLAGS_SET(sx->stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
                 return log_full_errno(log_level, SYNTHETIC_ERRNO(ENOSYS),
                                       "statx() did not set STATX_ATTR_MOUNT_ROOT, running on an old kernel?");
-
-        return 0;
-}
-
-int statx_warn_mount_id(const struct statx *sx, int log_level) {
-        assert(sx);
-
-        /* The STATX_MNT_ID flag is supported since kernel v5.10. */
-        if (!FLAGS_SET(sx->stx_mask, STATX_MNT_ID))
-                return log_full_errno(log_level, SYNTHETIC_ERRNO(ENOSYS),
-                                      "statx() does not support STATX_MNT_ID, running on an old kernel?");
 
         return 0;
 }
