@@ -160,7 +160,7 @@ static int bus_append_string(sd_bus_message *m, const char *field, const char *e
         return 1;
 }
 
-static int bus_append_strv_full(sd_bus_message *m, const char *field, const char *eq, ExtractFlags flags) {
+static int bus_append_strv_full(sd_bus_message *m, const char *field, const char *eq, const char *separators, ExtractFlags flags) {
         int r;
 
         assert(m);
@@ -185,7 +185,7 @@ static int bus_append_strv_full(sd_bus_message *m, const char *field, const char
         for (const char *p = eq;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, /* separators= */ NULL, flags);
+                r = extract_first_word(&p, &word, separators, flags);
                 if (r < 0)
                         return parse_log_error(r, field, eq);
                 if (r == 0)
@@ -212,11 +212,16 @@ static int bus_append_strv_full(sd_bus_message *m, const char *field, const char
 }
 
 static int bus_append_strv(sd_bus_message *m, const char *field, const char *eq) {
-        return bus_append_strv_full(m, field, eq, EXTRACT_UNQUOTE);
+        return bus_append_strv_full(m, field, eq, /* separators= */ NULL, EXTRACT_UNQUOTE);
 }
 
 static int bus_append_strv_cunescape(sd_bus_message *m, const char *field, const char *eq) {
-        return bus_append_strv_full(m, field, eq, EXTRACT_UNQUOTE | EXTRACT_CUNESCAPE);
+        return bus_append_strv_full(m, field, eq, /* separators= */ NULL, EXTRACT_UNQUOTE | EXTRACT_CUNESCAPE);
+}
+
+static int bus_append_strv_colon(sd_bus_message *m, const char *field, const char *eq) {
+        /* This also accepts colon as the separator. */
+        return bus_append_strv_full(m, field, eq, ":" WHITESPACE, EXTRACT_UNQUOTE);
 }
 
 static int bus_append_byte_array(sd_bus_message *m, const char *field, const void *buf, size_t n) {
@@ -2465,7 +2470,7 @@ static const BusProperty execute_properties[] = {
         { "InaccessiblePaths",                     bus_append_strv                               },
         { "ExecPaths",                             bus_append_strv                               },
         { "NoExecPaths",                           bus_append_strv                               },
-        { "ExecSearchPath",                        bus_append_strv                               },
+        { "ExecSearchPath",                        bus_append_strv_colon                         },
         { "ExtensionDirectories",                  bus_append_strv                               },
         { "ConfigurationDirectory",                bus_append_strv                               },
         { "SupplementaryGroups",                   bus_append_strv                               },
