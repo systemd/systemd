@@ -1563,25 +1563,6 @@ static int varlink_dump_dns_configuration(sd_json_variant **ret) {
         return 0;
 }
 
-static int status_json(StatusMode mode, char **links) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
-        int r;
-
-        r = varlink_dump_dns_configuration(&configuration);
-        if (r < 0)
-                return r;
-
-        r = status_json_filter_links(&configuration, links);
-        if (r < 0)
-                return log_error_errno(r, "Failed to filter configuration JSON links: %m");
-
-        r = status_json_filter_fields(&configuration, mode);
-        if (r < 0)
-                return log_error_errno(r, "Failed to filter configuration JSON fields: %m");
-
-        return sd_json_variant_dump(configuration, arg_json_format_flags, /* f= */ NULL, /* prefix= */ NULL);
-}
-
 static int format_dns_server_string(DNSServer *s, bool with_ifindex, bool only_global, char **ret) {
         int r;
 
@@ -1931,42 +1912,6 @@ static int status_link(DNSConfiguration *configuration, StatusMode mode, bool *e
         return 0;
 }
 
-static int status_ifindex(int ifindex, StatusMode mode, bool *empty_line) {
-        int r;
-
-        assert(ifindex > 0);
-
-        if (sd_json_format_enabled(arg_json_format_flags)) {
-                char ifname[IF_NAMESIZE];
-                r = format_ifname(ifindex, ifname);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve interface name for %i: %m", ifindex);
-
-                return status_json(mode, STRV_MAKE(ifname));
-        }
-
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        r = varlink_dump_dns_configuration(&v);
-        if (r < 0)
-                return r;
-
-        sd_json_variant *w;
-        JSON_VARIANT_ARRAY_FOREACH(w, v) {
-                int found = sd_json_variant_unsigned(sd_json_variant_by_key(w, "ifindex"));
-                if (found != ifindex)
-                        continue;
-
-                _cleanup_(dns_configuration_freep) DNSConfiguration *c = NULL;
-                r = dns_configuration_from_json(w, &c);
-                if (r < 0)
-                        return r;
-
-                return status_link(c, mode, empty_line);
-        }
-
-        return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "No DNS configuration for interface %d", ifindex);
-}
-
 static int status_global(DNSConfiguration *configuration, StatusMode mode, bool *empty_line) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
@@ -2244,20 +2189,29 @@ static int status_delegate(DNSConfiguration *configuration, StatusMode mode, boo
         return 0;
 }
 
-static int status_all(StatusMode mode) {
+static int status_full(StatusMode mode, char **links) {
         bool empty_line = false;
         int r;
-
-        if (sd_json_format_enabled(arg_json_format_flags))
-                return status_json(mode, /* links= */ NULL);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = varlink_dump_dns_configuration(&v);
         if (r < 0)
                 return r;
 
-        _cleanup_(dns_configuration_freep) DNSConfiguration *global = NULL;
-        _cleanup_ordered_set_free_ OrderedSet *links = NULL, *delegates = NULL;
+        r = status_json_filter_links(&v, links);
+        if (r < 0)
+                return log_error_errno(r, "Failed to filter configuration JSON links: %m");
+
+        if (sd_json_format_enabled(arg_json_format_flags)) {
+                r = status_json_filter_fields(&v, mode);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to filter configuration JSON fields: %m");
+
+                return sd_json_variant_dump(v, arg_json_format_flags, /* f= */ NULL, /* prefix= */ NULL);
+        }
+
+        _cleanup_(dns_configuration_freep) DNSConfiguration *global_config = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *link_configs = NULL, *delegate_configs = NULL;
         sd_json_variant *w;
         JSON_VARIANT_ARRAY_FOREACH(w, v) {
                 _cleanup_(dns_configuration_freep) DNSConfiguration *c = NULL;
@@ -2265,37 +2219,36 @@ static int status_all(StatusMode mode) {
                 if (r < 0)
                         return r;
 
-                if (c->ifindex == LOOPBACK_IFINDEX)
-                        continue;
-
                 if (c->ifindex > 0) {
-                        r = ordered_set_ensure_put(&links, &dns_configuration_hash_ops, c);
+                        r = ordered_set_ensure_put(&link_configs, &dns_configuration_hash_ops, c);
                         if (r < 0)
                                 return r;
                         TAKE_PTR(c);
                 } else if (c->delegate) {
-                        r = ordered_set_ensure_put(&delegates, &dns_configuration_hash_ops, c);
+                        r = ordered_set_ensure_put(&delegate_configs, &dns_configuration_hash_ops, c);
                         if (r < 0)
                                 return r;
                         TAKE_PTR(c);
                 } else {
-                        assert(!global);
-                        global = TAKE_PTR(c);
+                        assert(!global_config);
+                        global_config = TAKE_PTR(c);
                 }
         }
 
-        r = status_global(global, mode, &empty_line);
-        if (r < 0)
-                return r;
+        if (global_config) {
+                r = status_global(global_config, mode, &empty_line);
+                if (r < 0)
+                        return r;
+        }
 
         DNSConfiguration *c;
-        ORDERED_SET_FOREACH(c, links) {
+        ORDERED_SET_FOREACH(c, link_configs) {
                 r = status_link(c, mode, &empty_line);
                 if (r < 0)
                         return r;
         }
 
-        ORDERED_SET_FOREACH(c, delegates) {
+        ORDERED_SET_FOREACH(c, delegate_configs) {
                 r = status_delegate(c, mode, &empty_line);
                 if (r < 0)
                         return r;
@@ -2304,30 +2257,25 @@ static int status_all(StatusMode mode) {
         return 0;
 }
 
+static int status_all(StatusMode mode) {
+        return status_full(mode, /* links = */ NULL);
+}
+
+static int status_ifindex(int ifindex, StatusMode mode) {
+        int r;
+        char ifname[IF_NAMESIZE];
+
+        assert(ifindex > 0);
+
+        r = format_ifname(ifindex, ifname);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve interface name for %i: %m", ifindex);
+
+        return status_full(mode, STRV_MAKE(ifname));
+}
+
 static int verb_status(int argc, char **argv, void *userdata) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        bool empty_line = false;
-        int ret = 0;
-
-        if (sd_json_format_enabled(arg_json_format_flags))
-                return status_json(STATUS_ALL, argc > 1 ? strv_skip(argv, 1) : NULL);
-
-        if (argc <= 1)
-                return status_all(STATUS_ALL);
-
-        STRV_FOREACH(ifname, strv_skip(argv, 1)) {
-                int ifindex;
-
-                ifindex = rtnl_resolve_interface(&rtnl, *ifname);
-                if (ifindex < 0) {
-                        log_warning_errno(ifindex, "Failed to resolve interface \"%s\", ignoring: %m", *ifname);
-                        continue;
-                }
-
-                RET_GATHER(ret, status_ifindex(ifindex, STATUS_ALL, &empty_line));
-        }
-
-        return ret;
+        return status_full(STATUS_ALL, argc > 1 ? strv_skip(argv, 1) : NULL);
 }
 
 static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_error *error, bool extended) {
@@ -2422,7 +2370,7 @@ static int verb_dns(int argc, char **argv, void *userdata) {
                 return status_all(STATUS_DNS);
 
         if (argc < 3)
-                return status_ifindex(arg_ifindex, STATUS_DNS, NULL);
+                return status_ifindex(arg_ifindex, STATUS_DNS);
 
         char **args = strv_skip(argv, 2);
         r = call_dns(bus, args, bus_resolve_mgr, &error, true);
@@ -2507,7 +2455,7 @@ static int verb_domain(int argc, char **argv, void *userdata) {
                 return status_all(STATUS_DOMAIN);
 
         if (argc < 3)
-                return status_ifindex(arg_ifindex, STATUS_DOMAIN, NULL);
+                return status_ifindex(arg_ifindex, STATUS_DOMAIN);
 
         char **args = strv_skip(argv, 2);
         r = call_domain(bus, args, bus_resolve_mgr, &error);
@@ -2546,7 +2494,7 @@ static int verb_default_route(int argc, char **argv, void *userdata) {
                 return status_all(STATUS_DEFAULT_ROUTE);
 
         if (argc < 3)
-                return status_ifindex(arg_ifindex, STATUS_DEFAULT_ROUTE, NULL);
+                return status_ifindex(arg_ifindex, STATUS_DEFAULT_ROUTE);
 
         b = parse_boolean(argv[2]);
         if (b < 0)
@@ -2592,7 +2540,7 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
                 return status_all(STATUS_LLMNR);
 
         if (argc < 3)
-                return status_ifindex(arg_ifindex, STATUS_LLMNR, NULL);
+                return status_ifindex(arg_ifindex, STATUS_LLMNR);
 
         llmnr_support = resolve_support_from_string(argv[2]);
         if (llmnr_support < 0)
@@ -2650,7 +2598,7 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
                 return status_all(STATUS_MDNS);
 
         if (argc < 3)
-                return status_ifindex(arg_ifindex, STATUS_MDNS, NULL);
+                return status_ifindex(arg_ifindex, STATUS_MDNS);
 
         mdns_support = resolve_support_from_string(argv[2]);
         if (mdns_support < 0)
@@ -2712,7 +2660,7 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
                 return status_all(STATUS_DNS_OVER_TLS);
 
         if (argc < 3)
-                return status_ifindex(arg_ifindex, STATUS_DNS_OVER_TLS, NULL);
+                return status_ifindex(arg_ifindex, STATUS_DNS_OVER_TLS);
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
@@ -2758,7 +2706,7 @@ static int verb_dnssec(int argc, char **argv, void *userdata) {
                 return status_all(STATUS_DNSSEC);
 
         if (argc < 3)
-                return status_ifindex(arg_ifindex, STATUS_DNSSEC, NULL);
+                return status_ifindex(arg_ifindex, STATUS_DNSSEC);
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
@@ -2821,7 +2769,7 @@ static int verb_nta(int argc, char **argv, void *userdata) {
                 return status_all(STATUS_NTA);
 
         if (argc < 3)
-                return status_ifindex(arg_ifindex, STATUS_NTA, NULL);
+                return status_ifindex(arg_ifindex, STATUS_NTA);
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
