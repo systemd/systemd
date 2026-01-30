@@ -18,7 +18,6 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "bus-map-properties.h"
 #include "bus-message-util.h"
 #include "bus-util.h"
 #include "dns-configuration.h"
@@ -1386,219 +1385,6 @@ static int reset_server_features(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-typedef enum {
-        READ_DNS_WITH_IFINDEX = 1 << 0, /* read "ifindex" reply that also carries an interface index */
-        READ_DNS_EXTENDED     = 1 << 1, /* read "extended" reply, i.e. with port number and server name */
-        READ_DNS_ONLY_GLOBAL  = 1 << 2, /* suppress entries with an (non-loopback) ifindex set (i.e. which are specific to some interface) */
-} ReadDNSFlag;
-
-static const char *dns_server_property_signature(ReadDNSFlag flags) {
-        switch (flags & (READ_DNS_WITH_IFINDEX|READ_DNS_EXTENDED)) {
-
-        case 0:
-                return "iay";
-
-        case READ_DNS_WITH_IFINDEX:
-                return "iiay";
-
-        case READ_DNS_EXTENDED:
-                return "iayqs";
-
-        case READ_DNS_WITH_IFINDEX|READ_DNS_EXTENDED:
-                return "iiayqs";
-
-        default:
-                assert_not_reached();
-        }
-}
-
-static int read_dns_server_one(sd_bus_message *m, ReadDNSFlag flags, char **ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *pretty = NULL;
-        union in_addr_union a;
-        const char *name = NULL;
-        int32_t ifindex = 0;
-        int family, r;
-        uint16_t port = 0;
-
-        assert(m);
-        assert(ret);
-
-        r = sd_bus_message_enter_container(
-                        m,
-                        'r',
-                        dns_server_property_signature(flags));
-        if (r <= 0)
-                return r;
-
-        if (FLAGS_SET(flags, READ_DNS_WITH_IFINDEX)) {
-                r = sd_bus_message_read(m, "i", &ifindex);
-                if (r < 0)
-                        return r;
-        }
-
-        r = bus_message_read_in_addr_auto(m, &error, &family, &a);
-        if (r < 0) {
-                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS)) {
-                        /* CurrentDNSServer provides AF_UNSPEC when no current server assigned. */
-                        log_debug("Invalid DNS server, ignoring: %s", bus_error_message(&error, r));
-
-                        for (;;) {
-                                r = sd_bus_message_skip(m, NULL);
-                                if (r == -ENXIO) /* End of the container */
-                                        break;
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        r = sd_bus_message_exit_container(m);
-                        if (r < 0)
-                                return r;
-
-                        *ret = NULL;
-                        return 1;
-                }
-
-                return r;
-        }
-
-        if (FLAGS_SET(flags, READ_DNS_EXTENDED)) {
-                r = sd_bus_message_read(m, "qs", &port, &name);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_exit_container(m);
-        if (r < 0)
-                return r;
-
-        if (FLAGS_SET(flags, READ_DNS_ONLY_GLOBAL) && ifindex > 0 && ifindex != LOOPBACK_IFINDEX) {
-                /* This one has an (non-loopback) ifindex set, and we were told to suppress those. Hence do so. */
-                *ret = NULL;
-                return 1;
-        }
-
-        r = in_addr_port_ifindex_name_to_string(family, &a, port, ifindex, name, &pretty);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(pretty);
-        return 1;
-}
-
-static int map_dns_servers_internal(sd_bus *bus, const char *member, sd_bus_message *m, ReadDNSFlag flags, sd_bus_error *error, void *userdata) {
-        char ***l = ASSERT_PTR(userdata);
-        int r;
-
-        assert(bus);
-        assert(member);
-        assert(m);
-
-        const char *sig = strjoina("(", dns_server_property_signature(flags), ")");
-
-        r = sd_bus_message_enter_container(m, 'a', sig);
-        if (r < 0)
-                return r;
-
-        for (;;) {
-                _cleanup_free_ char *pretty = NULL;
-
-                r = read_dns_server_one(m, flags, &pretty);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                if (isempty(pretty))
-                        continue;
-
-                r = strv_consume(l, TAKE_PTR(pretty));
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_exit_container(m);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static int read_domain_one(sd_bus_message *m, bool with_ifindex, char **ret) {
-        _cleanup_free_ char *str = NULL;
-        int ifindex, route_only, r;
-        const char *domain;
-
-        assert(m);
-        assert(ret);
-
-        if (with_ifindex)
-                r = sd_bus_message_read(m, "(isb)", &ifindex, &domain, &route_only);
-        else
-                r = sd_bus_message_read(m, "(sb)", &domain, &route_only);
-        if (r <= 0)
-                return r;
-
-        if (with_ifindex && ifindex != 0) {
-                /* only show the global ones here */
-                *ret = NULL;
-                return 1;
-        }
-
-        if (route_only)
-                str = strjoin("~", domain);
-        else
-                str = strdup(domain);
-        if (!str)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(str);
-        return 1;
-}
-
-static int map_domains_internal(
-                sd_bus *bus,
-                const char *member,
-                sd_bus_message *m,
-                bool with_ifindex,
-                sd_bus_error *error,
-                void *userdata) {
-
-        char ***l = ASSERT_PTR(userdata);
-        int r;
-
-        assert(bus);
-        assert(member);
-        assert(m);
-
-        r = sd_bus_message_enter_container(m, 'a', with_ifindex ? "(isb)" : "(sb)");
-        if (r < 0)
-                return r;
-
-        for (;;) {
-                _cleanup_free_ char *pretty = NULL;
-
-                r = read_domain_one(m, with_ifindex, &pretty);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                if (isempty(pretty))
-                        continue;
-
-                r = strv_consume(l, TAKE_PTR(pretty));
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_exit_container(m);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 static int status_print_strv_full(int ifindex, const char *ifname, const char *delegate_id, char **p) {
         const unsigned indent = strlen("Global: "); /* Use the same indentation everywhere to make things nice */
         int pos1, pos2;
@@ -2330,82 +2116,47 @@ static int status_global(DNSConfiguration *configuration, StatusMode mode, bool 
         return 0;
 }
 
-typedef struct DelegateInfo {
-        char *current_dns;
-        char **dns;
-        char **domains;
-        bool default_route;
-} DelegateInfo;
-
-static void delegate_info_done(DelegateInfo *p) {
-        assert(p);
-
-        free(p->current_dns);
-        strv_free(p->dns);
-        strv_free(p->domains);
-}
-
-static int map_delegate_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_dns_servers_internal(bus, member, m, READ_DNS_WITH_IFINDEX|READ_DNS_EXTENDED, error, userdata);
-}
-
-static int map_delegate_current_dns_server(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return read_dns_server_one(m, READ_DNS_WITH_IFINDEX|READ_DNS_EXTENDED, userdata);
-}
-
-static int map_delegate_domains(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        return map_domains_internal(bus, member, m, /* with_ifindex= */ false, error, userdata);
-}
-
-static int status_delegate_one(sd_bus *bus, const char *id, StatusMode mode, bool *empty_line) {
-
-        static const struct bus_properties_map property_map[] = {
-                { "DNS",              "a(iiayqs)", map_delegate_dns_servers,        offsetof(DelegateInfo, dns)           },
-                { "CurrentDNSServer", "(iiayqs)",  map_delegate_current_dns_server, offsetof(DelegateInfo, current_dns)   },
-                { "Domains",          "a(sb)",     map_delegate_domains,            offsetof(DelegateInfo, domains)       },
-                { "DefaultRoute",     "b",         NULL,                            offsetof(DelegateInfo, default_route) },
-                {}
-        };
-
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(delegate_info_done) DelegateInfo delegate_info = {};
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_free_ char *p = NULL;
+static int status_delegate(DNSConfiguration *configuration, StatusMode mode, bool *empty_line) {
         int r;
 
-        assert(bus);
-        assert(id);
-
-        r = sd_bus_path_encode("/org/freedesktop/resolve1/dns_delegate", id, &p);
-        if (r < 0)
-                return log_oom();
-
-        r = bus_map_all_properties(
-                        bus,
-                        "org.freedesktop.resolve1",
-                        p,
-                        property_map,
-                        BUS_MAP_BOOLEAN_AS_BOOL,
-                        &error,
-                        &m,
-                        &delegate_info);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get delegate data for %s: %s", id, bus_error_message(&error, r));
+        assert(configuration);
+        assert(configuration->delegate);
 
         pager_open(arg_pager_flags);
 
         switch (mode) {
 
-        case STATUS_DNS:
-                return status_print_strv_delegate(id, delegate_info.dns);
+        case STATUS_DNS: {
+                _cleanup_strv_free_ char **dns_servers = NULL;
+                r = format_dns_servers_strv(configuration->dns_servers,
+                                            /* with_ifindex = */ true,
+                                            /* only_global = */ false,
+                                            &dns_servers);
+                if (r < 0)
+                        return r;
 
-        case STATUS_DOMAIN:
-                return status_print_strv_delegate(id, delegate_info.domains);
+                return status_print_strv_delegate(configuration->delegate,
+                                                  dns_servers);
+        }
+
+        case STATUS_DOMAIN: {
+                _cleanup_strv_free_ char **search_domains = NULL;
+                r = format_search_domains_strv(configuration->search_domains,
+                                               /* only_global = */ false,
+                                               &search_domains);
+                if (r < 0)
+                        return r;
+
+                return status_print_strv_delegate(configuration->delegate,
+                                                  search_domains);
+        }
 
         case STATUS_DEFAULT_ROUTE:
                 printf("%sDelegate %s%s: %s\n",
-                       ansi_highlight(), id, ansi_normal(),
-                       yes_no(delegate_info.default_route));
+                       ansi_highlight(),
+                       configuration->delegate,
+                       ansi_normal(),
+                       yes_no(configuration->default_route));
 
                 return 0;
 
@@ -2420,32 +2171,58 @@ static int status_delegate_one(sd_bus *bus, const char *id, StatusMode mode, boo
                 fputc('\n', stdout);
 
         printf("%sDelegate %s%s\n",
-               ansi_highlight(), id, ansi_normal());
+               ansi_highlight(),
+               configuration->delegate,
+               ansi_normal());
 
         _cleanup_(table_unrefp) Table *table = table_new_vertical();
         if (!table)
                 return log_oom();
 
-        if (delegate_info.current_dns) {
-                r = table_add_many(table,
-                                   TABLE_FIELD, "Current DNS Server",
-                                   TABLE_STRING, delegate_info.current_dns);
+        if (configuration->current_dns_server) {
+                _cleanup_free_ char *current_dns = NULL;
+                r = format_dns_server_string(configuration->current_dns_server,
+                                             /* with_ifindex = */ true,
+                                             /* only_global = */ false,
+                                             &current_dns);
                 if (r < 0)
-                        return table_log_add_error(r);
+                        return r;
+                if (r > 0) {
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "Current DNS Server",
+                                           TABLE_STRING, current_dns);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
         }
 
-        r = dump_list(table, "DNS Servers", delegate_info.dns);
+        _cleanup_strv_free_ char **dns_servers = NULL;
+        r = format_dns_servers_strv(configuration->dns_servers,
+                                    /* with_ifindex = */ true,
+                                    /* only_global = */ false,
+                                    &dns_servers);
         if (r < 0)
                 return r;
 
-        r = dump_list(table, "DNS Domain", delegate_info.domains);
+        r = dump_list(table, "DNS Servers", dns_servers);
+        if (r < 0)
+                return r;
+
+        _cleanup_strv_free_ char **search_domains = NULL;
+        r = format_search_domains_strv(configuration->search_domains,
+                                       /* only_global = */ false,
+                                       &search_domains);
+        if (r < 0)
+                return r;
+
+        r = dump_list(table, "DNS Domain", search_domains);
         if (r < 0)
                 return r;
 
         r = table_add_many(table,
                            TABLE_FIELD, "Default Route",
                            TABLE_SET_MINIMUM_WIDTH, 19,
-                           TABLE_BOOLEAN, delegate_info.default_route);
+                           TABLE_BOOLEAN, configuration->default_route);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -2459,57 +2236,9 @@ static int status_delegate_one(sd_bus *bus, const char *id, StatusMode mode, boo
         return 0;
 }
 
-static int status_delegates(sd_bus *bus, StatusMode mode, bool *empty_line) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r, ret = 0;
-
-        assert(bus);
-
-        r = bus_call_method(bus, bus_resolve_mgr, "ListDelegates", &error, &reply, NULL);
-        if (r < 0) {
-                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
-                        log_debug("Delegates not supported, skipping.");
-                        return 0;
-                }
-                return log_error_errno(r, "Failed to list delegates: %s", bus_error_message(&error, r));
-        }
-
-        r = sd_bus_message_enter_container(reply, 'a', "(so)");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        _cleanup_strv_free_ char **l = NULL;
-        for (;;) {
-                const char *id;
-
-                r = sd_bus_message_read(reply, "(so)", &id, NULL);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-                if (r == 0)
-                        break;
-
-                if (strv_extend(&l, id) < 0)
-                        return log_oom();
-        }
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        strv_sort(l);
-
-        STRV_FOREACH(i, l)
-                RET_GATHER(ret, status_delegate_one(bus, *i, mode, empty_line));
-
-        return ret;
-}
-
-static int status_all(sd_bus *bus, StatusMode mode) {
+static int status_all(StatusMode mode) {
         bool empty_line = false;
         int r;
-
-        assert(bus);
 
         if (sd_json_format_enabled(arg_json_format_flags))
                 return status_json(mode, /* links= */ NULL);
@@ -2520,7 +2249,7 @@ static int status_all(sd_bus *bus, StatusMode mode) {
                 return r;
 
         _cleanup_(dns_configuration_freep) DNSConfiguration *global = NULL;
-        _cleanup_ordered_set_free_ OrderedSet *links = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *links = NULL, *delegates = NULL;
         sd_json_variant *w;
         JSON_VARIANT_ARRAY_FOREACH(w, v) {
                 _cleanup_(dns_configuration_freep) DNSConfiguration *c = NULL;
@@ -2536,9 +2265,12 @@ static int status_all(sd_bus *bus, StatusMode mode) {
                         if (r < 0)
                                 return r;
                         TAKE_PTR(c);
-                } else if (c->delegate)
-                        continue;
-                else {
+                } else if (c->delegate) {
+                        r = ordered_set_ensure_put(&delegates, &dns_configuration_hash_ops, c);
+                        if (r < 0)
+                                return r;
+                        TAKE_PTR(c);
+                } else {
                         assert(!global);
                         global = TAKE_PTR(c);
                 }
@@ -2555,28 +2287,25 @@ static int status_all(sd_bus *bus, StatusMode mode) {
                         return r;
         }
 
-        r = status_delegates(bus, mode, &empty_line);
-        if (r < 0)
-                return r;
+        ORDERED_SET_FOREACH(c, delegates) {
+                r = status_delegate(c, mode, &empty_line);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
 
 static int verb_status(int argc, char **argv, void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         bool empty_line = false;
-        int r, ret = 0;
+        int ret = 0;
 
         if (sd_json_format_enabled(arg_json_format_flags))
                 return status_json(STATUS_ALL, argc > 1 ? strv_skip(argv, 1) : NULL);
 
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
-
         if (argc <= 1)
-                return status_all(bus, STATUS_ALL);
+                return status_all(STATUS_ALL);
 
         STRV_FOREACH(ifname, strv_skip(argv, 1)) {
                 int ifindex;
@@ -2682,7 +2411,7 @@ static int verb_dns(int argc, char **argv, void *userdata) {
         }
 
         if (arg_ifindex <= 0)
-                return status_all(bus, STATUS_DNS);
+                return status_all(STATUS_DNS);
 
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_DNS, NULL);
@@ -2767,7 +2496,7 @@ static int verb_domain(int argc, char **argv, void *userdata) {
         }
 
         if (arg_ifindex <= 0)
-                return status_all(bus, STATUS_DOMAIN);
+                return status_all(STATUS_DOMAIN);
 
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_DOMAIN, NULL);
@@ -2806,7 +2535,7 @@ static int verb_default_route(int argc, char **argv, void *userdata) {
         }
 
         if (arg_ifindex <= 0)
-                return status_all(bus, STATUS_DEFAULT_ROUTE);
+                return status_all(STATUS_DEFAULT_ROUTE);
 
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_DEFAULT_ROUTE, NULL);
@@ -2852,7 +2581,7 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
         }
 
         if (arg_ifindex <= 0)
-                return status_all(bus, STATUS_LLMNR);
+                return status_all(STATUS_LLMNR);
 
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_LLMNR, NULL);
@@ -2910,7 +2639,7 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
         }
 
         if (arg_ifindex <= 0)
-                return status_all(bus, STATUS_MDNS);
+                return status_all(STATUS_MDNS);
 
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_MDNS, NULL);
@@ -2972,7 +2701,7 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
         }
 
         if (arg_ifindex <= 0)
-                return status_all(bus, STATUS_DNS_OVER_TLS);
+                return status_all(STATUS_DNS_OVER_TLS);
 
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_DNS_OVER_TLS, NULL);
@@ -3018,7 +2747,7 @@ static int verb_dnssec(int argc, char **argv, void *userdata) {
         }
 
         if (arg_ifindex <= 0)
-                return status_all(bus, STATUS_DNSSEC);
+                return status_all(STATUS_DNSSEC);
 
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_DNSSEC, NULL);
@@ -3081,7 +2810,7 @@ static int verb_nta(int argc, char **argv, void *userdata) {
         }
 
         if (arg_ifindex <= 0)
-                return status_all(bus, STATUS_NTA);
+                return status_all(STATUS_NTA);
 
         if (argc < 3)
                 return status_ifindex(arg_ifindex, STATUS_NTA, NULL);
