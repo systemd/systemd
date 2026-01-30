@@ -45,9 +45,9 @@ typedef struct DNSConfiguration {
         int ifindex;
         bool default_route;
         DNSServer *current_dns_server;
-        Set *dns_servers;
-        Set *search_domains;
-        Set *fallback_dns_servers;
+        OrderedSet *dns_servers;
+        OrderedSet *search_domains;
+        OrderedSet *fallback_dns_servers;
         Set *dns_scopes;
         char *dnssec_mode_str;
         char *dns_over_tls_mode_str;
