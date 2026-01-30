@@ -18,6 +18,8 @@ body:
         If a distro build is used, please just paste the package version, e.g. `systemd-257.3-7.fc42.x86_64`.
         See https://github.com/systemd/systemd-stable/tags for the list of most recent releases.
         For older version please use distribution trackers (see https://systemd.io/CONTRIBUTING#filing-issues).
+        A repository with packages built from latest main for the major distributions and architectures is available from our
+        [OBS project for testing purposes.](https://software.opensuse.org//download.html?project=system%3Asystemd&package=systemd)
       placeholder: '257.x'
     validations:
       required: true
