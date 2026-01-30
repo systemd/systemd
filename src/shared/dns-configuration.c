@@ -58,6 +58,7 @@ static int dispatch_dns_server(const char *name, sd_json_variant *variant, sd_js
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "Dispatched address size (%zu) is incompatible with the family (%s).",
                                 s->addr.iov_len, af_to_ipv4_ipv6(s->family));
+        memcpy_safe(&s->in_addr, s->addr.iov_base, s->addr.iov_len);
 
         *ret = TAKE_PTR(s);
 

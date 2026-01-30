@@ -3,6 +3,7 @@
 
 #include <sys/uio.h>
 
+#include "in-addr-util.h"
 #include "shared-forward.h"
 
 typedef struct DNSServer {
@@ -12,6 +13,7 @@ typedef struct DNSServer {
         int ifindex;
         char *server_name;
         bool accessible;
+        union in_addr_union in_addr;
 } DNSServer;
 
 DNSServer* dns_server_free(DNSServer *s);
