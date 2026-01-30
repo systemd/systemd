@@ -545,11 +545,11 @@ int link_set_ipv6_mtu(Link *link, int log_level) {
         if (mtu == 0)
                 return 0;
 
-        if (mtu > link->mtu) {
+        if (mtu > link->max_mtu) {
                 log_link_full(link, log_level,
                               "Reducing requested IPv6 MTU %"PRIu32" to the interface's maximum MTU %"PRIu32".",
-                              mtu, link->mtu);
-                mtu = link->mtu;
+                              mtu, link->max_mtu);
+                mtu = link->max_mtu;
         }
 
         r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", mtu, manager_get_sysctl_shadow(link->manager));
