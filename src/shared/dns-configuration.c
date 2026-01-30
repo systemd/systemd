@@ -259,6 +259,7 @@ static int dispatch_dns_configuration(const char *name, sd_json_variant *variant
                 { "currentServer",        SD_JSON_VARIANT_OBJECT,   dispatch_dns_server,          offsetof(DNSConfiguration, current_dns_server),     0             },
                 { "servers",              SD_JSON_VARIANT_ARRAY,    dispatch_dns_server_array,    offsetof(DNSConfiguration, dns_servers),            0             },
                 { "searchDomains",        SD_JSON_VARIANT_ARRAY,    dispatch_search_domain_array, offsetof(DNSConfiguration, search_domains),         0             },
+                { "dnssecSupported",      SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,     offsetof(DNSConfiguration, dnssec_supported),       0             },
                 { "dnssec",               SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, dnssec_mode_str),        0             },
                 { "dnsOverTLS",           SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, dns_over_tls_mode_str),  0             },
                 { "llmnr",                SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, llmnr_mode_str),         0             },
