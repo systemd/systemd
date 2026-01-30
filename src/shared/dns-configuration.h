@@ -40,6 +40,7 @@ typedef struct DNSConfiguration {
         char *llmnr_mode_str;
         char *mdns_mode_str;
         char **negative_trust_anchors;
+        char *resolv_conf_mode_str;
 } DNSConfiguration;
 
 DNSConfiguration* dns_configuration_free(DNSConfiguration *c);
