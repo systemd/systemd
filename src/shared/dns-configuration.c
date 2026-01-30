@@ -9,6 +9,7 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "ordered-set.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
@@ -66,8 +67,8 @@ static int dispatch_dns_server(const char *name, sd_json_variant *variant, sd_js
 }
 
 static int dispatch_dns_server_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        Set **ret = ASSERT_PTR(userdata);
-        _cleanup_set_free_ Set *dns_servers = NULL;
+        OrderedSet **ret = ASSERT_PTR(userdata);
+        _cleanup_ordered_set_free_ OrderedSet *dns_servers = NULL;
         sd_json_variant *v;
         int r;
 
@@ -78,12 +79,13 @@ static int dispatch_dns_server_array(const char *name, sd_json_variant *variant,
                 if (r < 0)
                         return json_log(v, flags, r, "JSON array element is not a valid DNSServer.");
 
-                r = set_ensure_consume(&dns_servers, &dns_server_hash_ops, TAKE_PTR(s));
+                r = ordered_set_ensure_put(&dns_servers, &dns_server_hash_ops, s);
                 if (r < 0)
                         return r;
+                TAKE_PTR(s);
         }
 
-        set_free_and_replace(*ret, dns_servers);
+        free_and_replace_full(*ret, dns_servers, ordered_set_free);
 
         return 0;
 }
@@ -130,8 +132,8 @@ static int dispatch_search_domain(const char *name, sd_json_variant *variant, sd
 }
 
 static int dispatch_search_domain_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        Set **ret = ASSERT_PTR(userdata);
-        _cleanup_set_free_ Set *search_domains = NULL;
+        OrderedSet **ret = ASSERT_PTR(userdata);
+        _cleanup_ordered_set_free_ OrderedSet *search_domains = NULL;
         sd_json_variant *v;
         int r;
 
@@ -142,12 +144,13 @@ static int dispatch_search_domain_array(const char *name, sd_json_variant *varia
                 if (r < 0)
                         return json_log(v, flags, r, "JSON array element is not a valid SearchDomain.");
 
-                r = set_ensure_consume(&search_domains, &search_domain_hash_ops, TAKE_PTR(d));
+                r = ordered_set_ensure_put(&search_domains, &search_domain_hash_ops, d);
                 if (r < 0)
                         return r;
+                TAKE_PTR(d);
         }
 
-        set_free_and_replace(*ret, search_domains);
+        free_and_replace_full(*ret, search_domains, ordered_set_free);
 
         return 0;
 }
@@ -226,9 +229,9 @@ DNSConfiguration* dns_configuration_free(DNSConfiguration *c) {
                 return NULL;
 
         dns_server_free(c->current_dns_server);
-        set_free(c->dns_servers);
-        set_free(c->search_domains);
-        set_free(c->fallback_dns_servers);
+        ordered_set_free(c->dns_servers);
+        ordered_set_free(c->search_domains);
+        ordered_set_free(c->fallback_dns_servers);
         set_free(c->dns_scopes);
         free(c->ifname);
         free(c->dnssec_mode_str);
@@ -303,7 +306,7 @@ bool dns_is_accessible(DNSConfiguration *c) {
         if (c->current_dns_server && c->current_dns_server->accessible)
                 return true;
 
-        SET_FOREACH(s, c->dns_servers)
+        ORDERED_SET_FOREACH(s, c->dns_servers)
                 if (s->accessible)
                         return true;
 
@@ -318,7 +321,7 @@ bool dns_configuration_contains_search_domain(DNSConfiguration *c, const char *d
         if (!c)
                 return false;
 
-        SET_FOREACH(d, c->search_domains)
+        ORDERED_SET_FOREACH(d, c->search_domains)
                 if (streq(d->name, domain))
                         return true;
 
