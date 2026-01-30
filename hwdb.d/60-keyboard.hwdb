@@ -1172,12 +1172,25 @@ evdev:input:b0003v04B3p301B*
  KEYBOARD_KEY_90007=mail
  KEYBOARD_KEY_90008=www
 
-# Lenovo Ideapad D330-10IGM
-evdev:name:SIPODEV Lenovo HID Device:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
- KEYBOARD_KEY_70073=touchpad_toggle                     # Fn+Supr (Touchpad toggle)
+# Lenovo Ideapad D330-10IGM and D330-10IGL
+# (Tablet buttons)
+evdev:atkbd:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IG[ML]:*
+ KEYBOARD_LED_NUMLOCK=0                                 # Lacks Num-Lock LED
+ KEYBOARD_LED_CAPSLOCK=0                                # Lacks Caps-Lock LED
 
-evdev:name:SIPODEV Lenovo HID Device Consumer Control:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
- KEYBOARD_KEY_c00ff=fn_esc                              # Fn+Tab (FnLk toggle)
+# Lenovo Ideapad D330-10IGM and D330-10IGL
+# (Dock keyboard) "* Lenovo HID Device"
+evdev:input:b0003v17EFp60C[368]*-e0,1,4,11,14,k*,C2,*ram4,l0,1,2,sfw
+# Touchpad key acts as LEFTCTRL+LEFTMETA+F24 (C2) Windows shortcut for touchpad toggle,
+# with this as LEFTCTRL+LEFTMETA+TOUCHPAD_TOGGLE but just works.
+ KEYBOARD_KEY_70073=touchpad_toggle                     # Fn+Supr (Touchpad toggle).
+ KEYBOARD_LED_NUMLOCK=0                                 # Lacks Num-Lock LED
+ KEYBOARD_LED_CAPSLOCK=0                                # Lacks Caps-Lock LED
+
+# Lenovo Ideapad D330-10IGM and D330-10IGL
+# (Dock keyboard: volume, brightness and FnLk keys) "* Lenovo HID Device Consumer Control"
+evdev:input:b0003v17EFp60C[368]*-e0,1,4,k*,F0,*ram4,lsfw
+ KEYBOARD_KEY_c00ff=fn_esc                              # Fn+Tab (FnLk toggle). Default is UNKNOWN (F0).
 
 # Lenovo Thinkbook 16 G6+ 2024
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn21LG:pvr*
