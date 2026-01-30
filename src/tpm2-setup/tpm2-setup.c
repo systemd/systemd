@@ -501,7 +501,12 @@ static int run(int argc, char *argv[]) {
         umask(0022);
 
         r = setup_srk();
-        RET_GATHER(r, setup_nvpcr());
+
+        if (tpm2_support() & TPM2_SUPPORT_AUTHORIZE_NV) {
+                RET_GATHER(r, setup_nvpcr());
+        } else {
+                log_notice("No TPM2 PolicyAuthorizeNV support detected, skipping NvPCR initialization.");
+        }
 
         return r;
 }
