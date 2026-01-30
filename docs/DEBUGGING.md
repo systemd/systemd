@@ -35,7 +35,7 @@ you will need to do additional steps to get debugging information out of the mac
 
 * Try CTRL+ALT+DEL to reboot.
   * If it does not reboot, mention it in your bugreport. Meanwhile force the reboot with
-  [SysRq](http://fedoraproject.org/wiki/QA/Sysrq)
+  [SysRq](https://fedoraproject.org/wiki/QA/Sysrq)
   or hard reset.
 * When booting the next time, you will have to add some kernel command line arguments depending on which of the debugging strategies you choose from the following options.
 
