@@ -52,7 +52,7 @@ are required to collect and process a coredump successfully.
 ## `systemd-coredump` Handler
 
 The systemd suite provides a coredump handler
-[`systemd-coredump`](https://www.freedesktop.org/software/systemd/man/systemd-coredump.html)
+[`systemd-coredump`](https://www.freedesktop.org/software/systemd/man/latest/systemd-coredump.html)
 which can be enabled at build-time. It is activated during boot via the
 `/usr/lib/sysctl.d/50-coredump.conf` drop-in file for
 `systemd-sysctl.service`. It registers the `systemd-coredump` tool as
@@ -71,13 +71,13 @@ The `systemd-coredump` handler will extract a backtrace and
 [ELF packaging metadata](/PACKAGE_METADATA_FOR_EXECUTABLE_FILES)
 from any coredumps it receives and log both.
 The information about coredumps stored in the journal can be enumerated and queried with the
-[`coredumpctl`](https://www.freedesktop.org/software/systemd/man/coredumpctl.html)
+[`coredumpctl`](https://www.freedesktop.org/software/systemd/man/latest/coredumpctl.html)
 tool, for example for directly invoking a debugger such as `gdb` on a collected
 coredump.
 
 The handler writes coredump files to `/var/lib/systemd/coredump/`.
 Old files are cleaned up periodically by
-[`systemd-tmpfiles(8)`](https://www.freedesktop.org/software/systemd/man/systemd-tmpfiles.html).
+[`systemd-tmpfiles(8)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-tmpfiles.html).
 
 ## User Experience
 

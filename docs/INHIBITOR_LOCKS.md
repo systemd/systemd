@@ -7,7 +7,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Inhibitor Locks
 
-systemd 183 and newer include a logic to inhibit system shutdowns and sleep states. This is implemented as part of [systemd-logind.daemon(8)](http://www.freedesktop.org/software/systemd/man/systemd-logind.service.html) There are a couple of different use cases for this:
+systemd 183 and newer include a logic to inhibit system shutdowns and sleep states. This is implemented as part of [systemd-logind.daemon(8)](https://www.freedesktop.org/software/systemd/man/latest/systemd-logind.service.html) There are a couple of different use cases for this:
 
 - A CD burning application wants to ensure that the system is not turned off or suspended while the burn process is in progress.
 
@@ -39,7 +39,7 @@ Two different modes of locks are supported:
 If such a lock is taken the operation will fail (but still may be overridden if the user possesses the necessary privileges).
 
 2. _delay_ inhibits operations only temporarily, either until the lock is released or up to a certain amount of time.
-The InhibitDelayMaxSec= setting in [logind.conf(5)](http://www.freedesktop.org/software/systemd/man/logind.conf.html) controls the timeout for this. This is intended to be used by applications which need a synchronous way to execute actions before system suspend but shall not be allowed to block suspend indefinitely.
+The InhibitDelayMaxSec= setting in [logind.conf(5)](https://www.freedesktop.org/software/systemd/man/latest/logind.conf.html) controls the timeout for this. This is intended to be used by applications which need a synchronous way to execute actions before system suspend but shall not be allowed to block suspend indefinitely.
 This mode is only available for _sleep_ and _shutdown_ locks.
 
 3. _block-weak_ is identical to _block_, but has no effect on operations
@@ -110,7 +110,7 @@ Note that this will only be sent out for suspend/resume cycles done via logind, 
 
 The **BlockInhibited** and **DelayInhibited** properties encode what types of locks are currently taken. These fields are a colon separated list of `shutdown`, `sleep`, `idle`, `handle-power-key`, `handle-suspend-key`, `handle-hibernate-key`, `handle-lid-switch`. The list is basically the union of the What fields of all currently active locks of the specific mode.
 
-**InhibitDelayMaxUSec** contains the delay timeout value as configured in [logind.conf(5)](http://www.freedesktop.org/software/systemd/man/logind.conf.html).
+**InhibitDelayMaxUSec** contains the delay timeout value as configured in [logind.conf(5)](https://www.freedesktop.org/software/systemd/man/latest/logind.conf.html).
 
 The **PreparingForShutdown** and **PreparingForSleep** boolean properties are true between the two PrepareForShutdown() resp PrepareForSleep() signals that are sent out.
 Note that these properties do not trigger PropertyChanged signals.
@@ -202,9 +202,9 @@ This can be quite detrimental for the battery.
 
 If an application finds a lock denied it should not consider this much of an error and just continue its operation without the protecting lock.
 
-The tool [systemd-inhibit(1)](http://www.freedesktop.org/software/systemd/man/systemd-inhibit.html) may be used to take locks or list active locks from the command line.
+The tool [systemd-inhibit(1)](https://www.freedesktop.org/software/systemd/man/latest/systemd-inhibit.html) may be used to take locks or list active locks from the command line.
 
-Note that gnome-session also provides an [inhibitor API](http://people.gnome.org/~mccann/gnome-session/docs/gnome-session.html#org.gnome.SessionManager.Inhibit), which is very similar to the one of systemd.
+Note that gnome-session also provides an [inhibitor API](https://gnome.pages.gitlab.gnome.org/gnome-session/re06.html), which is very similar to the one of systemd.
 Internally, locks taken on gnome-session's interface will be forwarded to logind, hence both APIs are supported.
 
 While both offer similar functionality they do differ in some regards.

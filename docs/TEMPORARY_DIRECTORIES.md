@@ -22,7 +22,7 @@ If the `$TMPDIR` environment variable is set, use that path, and neither use
 `/tmp/` nor `/var/tmp/` directly.
 
 See
-[file-hierarchy(7)](https://www.freedesktop.org/software/systemd/man/file-hierarchy.html)
+[file-hierarchy(7)](https://www.freedesktop.org/software/systemd/man/latest/file-hierarchy.html)
 for details about these two (and most other) directories of a Linux system.
 
 ## Common Namespace
