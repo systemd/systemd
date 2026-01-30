@@ -10,6 +10,11 @@ executables += [
                 ),
         },
         libexec_template + {
+                'name' : 'systemd-ssh-vsock-generator',
+                'sources' : files('ssh-vsock-generator.c'),
+                'objects' : ['systemd-ssh-generator'],
+        },
+        libexec_template + {
                 'name' : 'systemd-ssh-proxy',
                 'sources' : files('ssh-proxy.c'),
         },
