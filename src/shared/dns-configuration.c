@@ -158,6 +158,7 @@ DNSConfiguration* dns_configuration_free(DNSConfiguration *c) {
         dns_server_free(c->current_dns_server);
         set_free(c->dns_servers);
         set_free(c->search_domains);
+        set_free(c->fallback_dns_servers);
         free(c->ifname);
         free(c->dnssec_mode_str);
         free(c->dns_over_tls_mode_str);
@@ -187,10 +188,10 @@ static int dispatch_dns_configuration(const char *name, sd_json_variant *variant
                 { "dnsOverTLS",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(DNSConfiguration, dns_over_tls_mode_str), 0             },
                 { "llmnr",                SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(DNSConfiguration, llmnr_mode_str),        0             },
                 { "mDNS",                 SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(DNSConfiguration, mdns_mode_str),         0             },
+                { "fallbackServers",      SD_JSON_VARIANT_ARRAY,         dispatch_dns_server_array,    offsetof(DNSConfiguration, fallback_dns_servers),  0             },
 
                 /* The remaining fields are currently unused by wait-online. */
                 { "delegate",             _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
-                { "fallbackServers",      _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
                 { "negativeTrustAnchors", _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
                 { "resolvConfMode",       _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
                 { "scopes",               _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },

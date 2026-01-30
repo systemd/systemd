@@ -34,6 +34,7 @@ typedef struct DNSConfiguration {
         DNSServer *current_dns_server;
         Set *dns_servers;
         Set *search_domains;
+        Set *fallback_dns_servers;
         char *dnssec_mode_str;
         char *dns_over_tls_mode_str;
         char *llmnr_mode_str;
