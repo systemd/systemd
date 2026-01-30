@@ -236,6 +236,7 @@ DNSConfiguration* dns_configuration_free(DNSConfiguration *c) {
         free(c->llmnr_mode_str);
         free(c->mdns_mode_str);
         free(c->resolv_conf_mode_str);
+        free(c->delegate);
         strv_free(c->negative_trust_anchors);
 
         return mfree(c);
@@ -251,23 +252,21 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 
 static int dispatch_dns_configuration(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dns_configuration_dispatch_table[] = {
-                { "ifname",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(DNSConfiguration, ifname),                 0             },
-                { "ifindex",              SD_JSON_VARIANT_UNSIGNED,      json_dispatch_ifindex,        offsetof(DNSConfiguration, ifindex),                SD_JSON_RELAX },
-                { "defaultRoute",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,     offsetof(DNSConfiguration, default_route),          0             },
-                { "currentServer",        SD_JSON_VARIANT_OBJECT,        dispatch_dns_server,          offsetof(DNSConfiguration, current_dns_server),     0             },
-                { "servers",              SD_JSON_VARIANT_ARRAY,         dispatch_dns_server_array,    offsetof(DNSConfiguration, dns_servers),            0             },
-                { "searchDomains",        SD_JSON_VARIANT_ARRAY,         dispatch_search_domain_array, offsetof(DNSConfiguration, search_domains),         0             },
-                { "dnssec",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(DNSConfiguration, dnssec_mode_str),        0             },
-                { "dnsOverTLS",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(DNSConfiguration, dns_over_tls_mode_str),  0             },
-                { "llmnr",                SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(DNSConfiguration, llmnr_mode_str),         0             },
-                { "mDNS",                 SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(DNSConfiguration, mdns_mode_str),          0             },
-                { "fallbackServers",      SD_JSON_VARIANT_ARRAY,         dispatch_dns_server_array,    offsetof(DNSConfiguration, fallback_dns_servers),   0             },
-                { "negativeTrustAnchors", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,        offsetof(DNSConfiguration, negative_trust_anchors), 0             },
-                { "resolvConfMode",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(DNSConfiguration, resolv_conf_mode_str),   0             },
-                { "scopes",               SD_JSON_VARIANT_ARRAY,         dispatch_dns_scope_array,     offsetof(DNSConfiguration, dns_scopes),             0             },
-
-                /* The remaining fields are currently unused by wait-online. */
-                { "delegate",             _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
+                { "ifname",               SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, ifname),                 0             },
+                { "ifindex",              SD_JSON_VARIANT_UNSIGNED, json_dispatch_ifindex,        offsetof(DNSConfiguration, ifindex),                SD_JSON_RELAX },
+                { "defaultRoute",         SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,     offsetof(DNSConfiguration, default_route),          0             },
+                { "currentServer",        SD_JSON_VARIANT_OBJECT,   dispatch_dns_server,          offsetof(DNSConfiguration, current_dns_server),     0             },
+                { "servers",              SD_JSON_VARIANT_ARRAY,    dispatch_dns_server_array,    offsetof(DNSConfiguration, dns_servers),            0             },
+                { "searchDomains",        SD_JSON_VARIANT_ARRAY,    dispatch_search_domain_array, offsetof(DNSConfiguration, search_domains),         0             },
+                { "dnssec",               SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, dnssec_mode_str),        0             },
+                { "dnsOverTLS",           SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, dns_over_tls_mode_str),  0             },
+                { "llmnr",                SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, llmnr_mode_str),         0             },
+                { "mDNS",                 SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, mdns_mode_str),          0             },
+                { "fallbackServers",      SD_JSON_VARIANT_ARRAY,    dispatch_dns_server_array,    offsetof(DNSConfiguration, fallback_dns_servers),   0             },
+                { "negativeTrustAnchors", SD_JSON_VARIANT_ARRAY,    sd_json_dispatch_strv,        offsetof(DNSConfiguration, negative_trust_anchors), 0             },
+                { "resolvConfMode",       SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, resolv_conf_mode_str),   0             },
+                { "scopes",               SD_JSON_VARIANT_ARRAY,    dispatch_dns_scope_array,     offsetof(DNSConfiguration, dns_scopes),             0             },
+                { "delegate",             SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, delegate),               0             },
                 {},
 
         };
