@@ -165,6 +165,7 @@ DNSConfiguration* dns_configuration_free(DNSConfiguration *c) {
         free(c->dns_over_tls_mode_str);
         free(c->llmnr_mode_str);
         free(c->mdns_mode_str);
+        free(c->resolv_conf_mode_str);
         strv_free(c->negative_trust_anchors);
 
         return mfree(c);
@@ -192,10 +193,10 @@ static int dispatch_dns_configuration(const char *name, sd_json_variant *variant
                 { "mDNS",                 SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(DNSConfiguration, mdns_mode_str),          0             },
                 { "fallbackServers",      SD_JSON_VARIANT_ARRAY,         dispatch_dns_server_array,    offsetof(DNSConfiguration, fallback_dns_servers),   0             },
                 { "negativeTrustAnchors", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,        offsetof(DNSConfiguration, negative_trust_anchors), 0             },
+                { "resolvConfMode",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(DNSConfiguration, resolv_conf_mode_str),   0             },
 
                 /* The remaining fields are currently unused by wait-online. */
                 { "delegate",             _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
-                { "resolvConfMode",       _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
                 { "scopes",               _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
                 {},
 
