@@ -54,6 +54,7 @@ typedef struct Manager {
         int inotify_fd;
         sd_event_source *inotify_event;
         Set *synthesize_change_child_event_sources;
+        Set *synthesized_events;
 
         sd_event_source *kill_workers_event;
 

@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "id128-util.h"
 #include "inotify-util.h"
 #include "parse-util.h"
 #include "pidref.h"
@@ -141,9 +142,10 @@ void udev_watch_dump(void) {
         }
 }
 
-static int synthesize_change_one(sd_device *dev) {
+static int synthesize_change_one(Manager *manager, sd_device *dev) {
         int r;
 
+        assert(manager);
         assert(dev);
 
         if (DEBUG_LOGGING) {
@@ -152,11 +154,21 @@ static int synthesize_change_one(sd_device *dev) {
                 log_device_debug(dev, "device is closed, synthesising 'change' on %s", strna(syspath));
         }
 
-        r = sd_device_trigger(dev, SD_DEVICE_CHANGE);
+        sd_id128_t uuid;
+        r = sd_device_trigger_with_uuid(dev, SD_DEVICE_CHANGE, &uuid);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to trigger 'change' uevent: %m");
 
         DEVICE_TRACE_POINT(synthetic_change_event, dev);
+
+        /* Avoid /run/udev/queue file being removed by on_post(). */
+        sd_id128_t *copy = newdup(sd_id128_t, &uuid, 1);
+        if (!copy)
+                return log_oom_debug();
+
+        r = set_ensure_consume(&manager->synthesized_events, &id128_hash_ops_free, copy);
+        if (r < 0)
+                return log_oom_debug();
 
         return 0;
 }
@@ -179,13 +191,13 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
         if (r < 0)
                 return r;
         if (r > 0)
-                return synthesize_change_one(dev);
+                return synthesize_change_one(manager, dev);
 
         r = block_device_is_whole_disk(dev);
         if (r < 0)
                 return r;
         if (r == 0)
-                return synthesize_change_one(dev);
+                return synthesize_change_one(manager, dev);
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(

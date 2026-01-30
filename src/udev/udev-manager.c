@@ -218,6 +218,7 @@ Manager* manager_free(Manager *manager) {
 
         sd_event_source_unref(manager->inotify_event);
         set_free(manager->synthesize_change_child_event_sources);
+        set_free(manager->synthesized_events);
         sd_event_source_unref(manager->kill_workers_event);
         sd_event_unref(manager->event);
 
@@ -895,6 +896,11 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         assert(manager);
         assert(dev);
 
+        /* If the event is the one we triggered, remove the UUID from the list. */
+        sd_id128_t uuid;
+        if (sd_device_get_trigger_uuid(dev, &uuid) >= 0)
+                free(set_remove(manager->synthesized_events, &uuid));
+
         /* We only accepts devices received by device monitor. */
         r = sd_device_get_seqnum(dev, &seqnum);
         if (r < 0)
@@ -1264,6 +1270,9 @@ static int manager_unlink_queue_file(Manager *manager) {
 
         if (!set_isempty(manager->synthesize_change_child_event_sources))
                 return 0; /* There are child processes that should trigger synthetic events. */
+
+        if (!set_isempty(manager->synthesized_events))
+                return 0; /* We have triggered synthesized change events. */
 
         /* There are no queued events. Let's remove /run/udev/queue and clean up the idle processes. */
         if (unlink("/run/udev/queue") < 0) {
