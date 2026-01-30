@@ -969,14 +969,6 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         TAKE_PTR(event);
         log_device_uevent(dev, "Device is queued");
 
-        if (!manager->queue_file_created) {
-                r = touch("/run/udev/queue");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to touch /run/udev/queue, ignoring: %m");
-                else
-                        manager->queue_file_created = true;
-        }
-
         return 0;
 }
 
@@ -1075,6 +1067,9 @@ static int manager_deserialize_events(Manager *manager, int *fd) {
                 n++;
         }
 
+        if (n > 0)
+                (void) manager_create_queue_file(manager);
+
         log_debug("Deserialized %"PRIu64" events.", n);
         return 0;
 }
@@ -1084,6 +1079,8 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
         int r;
 
         DEVICE_TRACE_POINT(kernel_uevent_received, dev);
+
+        (void) manager_create_queue_file(manager);
 
         device_ensure_usec_initialized(dev, NULL);
 
@@ -1261,6 +1258,22 @@ static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void
         manager_reload(manager, /* force= */ true);
 
         return 1;
+}
+
+int manager_create_queue_file(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        if (manager->queue_file_created)
+                return 0;
+
+        r = touch("/run/udev/queue");
+        if (r < 0)
+                return log_warning_errno(r, "Failed to touch /run/udev/queue: %m");
+
+        manager->queue_file_created = true;
+        return 0;
 }
 
 static int manager_unlink_queue_file(Manager *manager) {
