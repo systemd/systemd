@@ -31,6 +31,8 @@ static inline void numa_policy_reset(NUMAPolicy *p) {
 int apply_numa_policy(const NUMAPolicy *policy);
 int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret);
 
+int numa_get_node_from_cpu(unsigned cpu, unsigned *ret);
+
 int numa_mask_add_all(CPUSet *mask);
 
 DECLARE_STRING_TABLE_LOOKUP(mpol, int);
