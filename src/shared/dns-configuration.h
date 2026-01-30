@@ -38,6 +38,7 @@ typedef struct DNSConfiguration {
         char *dns_over_tls_mode_str;
         char *llmnr_mode_str;
         char *mdns_mode_str;
+        char **negative_trust_anchors;
 } DNSConfiguration;
 
 DNSConfiguration* dns_configuration_free(DNSConfiguration *c);
