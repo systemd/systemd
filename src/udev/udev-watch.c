@@ -141,21 +141,20 @@ void udev_watch_dump(void) {
         }
 }
 
-static int synthesize_change_one(sd_device *dev, sd_device *target) {
+static int synthesize_change_one(sd_device *dev) {
         int r;
 
         assert(dev);
-        assert(target);
 
         if (DEBUG_LOGGING) {
                 const char *syspath = NULL;
-                (void) sd_device_get_syspath(target, &syspath);
+                (void) sd_device_get_syspath(dev, &syspath);
                 log_device_debug(dev, "device is closed, synthesising 'change' on %s", strna(syspath));
         }
 
-        r = sd_device_trigger(target, SD_DEVICE_CHANGE);
+        r = sd_device_trigger(dev, SD_DEVICE_CHANGE);
         if (r < 0)
-                return log_device_debug_errno(target, r, "Failed to trigger 'change' uevent: %m");
+                return log_device_debug_errno(dev, r, "Failed to trigger 'change' uevent: %m");
 
         DEVICE_TRACE_POINT(synthetic_change_event, dev);
 
@@ -180,13 +179,13 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
         if (r < 0)
                 return r;
         if (r > 0)
-                return synthesize_change_one(dev, dev);
+                return synthesize_change_one(dev);
 
         r = block_device_is_whole_disk(dev);
         if (r < 0)
                 return r;
         if (r == 0)
-                return synthesize_change_one(dev, dev);
+                return synthesize_change_one(dev);
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
