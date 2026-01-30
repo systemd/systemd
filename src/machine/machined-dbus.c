@@ -1642,6 +1642,12 @@ int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *ret
         assert(manager);
         assert(unit);
 
+        r = sd_bus_is_ready(manager->api_bus);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOTCONN;
+
         path = unit_dbus_path_from_name(unit);
         if (!path)
                 return -ENOMEM;
@@ -1681,6 +1687,12 @@ int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *rete
 
         assert(manager);
         assert(path);
+
+        r = sd_bus_is_ready(manager->api_bus);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOTCONN;
 
         r = sd_bus_get_property(
                         manager->api_bus,
