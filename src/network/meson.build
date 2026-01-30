@@ -116,7 +116,6 @@ systemd_networkd_extract_sources = files(
 )
 
 systemd_networkd_wait_online_sources = files(
-        'wait-online/dns-configuration.c',
         'wait-online/wait-online-link.c',
         'wait-online/wait-online-manager.c',
         'wait-online/wait-online.c',
