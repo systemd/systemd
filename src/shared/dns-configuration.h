@@ -23,6 +23,18 @@ typedef struct SearchDomain {
         int ifindex;
 } SearchDomain;
 
+typedef struct DNSScope {
+        char *ifname;
+        int ifindex;
+        char *protocol;
+        int family;
+        char *dnssec_mode_str;
+        char *dns_over_tls_mode_str;
+} DNSScope;
+
+DNSScope *dns_scope_free(DNSScope *s);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DNSScope*, dns_scope_free);
+
 SearchDomain* search_domain_free(SearchDomain *d);
 DEFINE_TRIVIAL_CLEANUP_FUNC(SearchDomain*, search_domain_free);
 
@@ -34,6 +46,7 @@ typedef struct DNSConfiguration {
         Set *dns_servers;
         Set *search_domains;
         Set *fallback_dns_servers;
+        Set *dns_scopes;
         char *dnssec_mode_str;
         char *dns_over_tls_mode_str;
         char *llmnr_mode_str;
