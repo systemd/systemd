@@ -3,16 +3,18 @@
 
 #include <sys/uio.h>
 
+#include "in-addr-util.h"
 #include "shared-forward.h"
 
 typedef struct DNSServer {
-        struct iovec addr;
+        struct iovec addr_bytes;
         int family;
         uint16_t port;
         int ifindex;
         char *server_name;
         bool accessible;
         char *addr_str;
+        union in_addr_union in_addr;
 } DNSServer;
 
 DNSServer* dns_server_free(DNSServer *s);
