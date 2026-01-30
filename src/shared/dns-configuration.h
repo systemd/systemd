@@ -56,6 +56,7 @@ typedef struct DNSConfiguration {
         char **negative_trust_anchors;
         char *resolv_conf_mode_str;
         char *delegate;
+        bool dnssec_supported;
 } DNSConfiguration;
 
 DNSConfiguration* dns_configuration_free(DNSConfiguration *c);
