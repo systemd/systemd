@@ -1257,7 +1257,8 @@ static int bus_append_standard_input_text(sd_bus_message *m, const char *field, 
         /* Note that we don't expand specifiers here, but that should be OK, as this is a
          * programmatic interface anyway */
 
-        return bus_append_byte_array(m, field, unescaped, l + 1);
+        /* The server side does not have StandardInputText, using StandardInputData instead. */
+        return bus_append_byte_array(m, "StandardInputData", unescaped, l + 1);
 }
 
 static int bus_append_standard_input_data(sd_bus_message *m, const char *field, const char *eq) {
