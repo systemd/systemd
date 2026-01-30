@@ -12,6 +12,7 @@ typedef struct DNSServer {
         int ifindex;
         char *server_name;
         bool accessible;
+        char *addr_str;
 } DNSServer;
 
 DNSServer* dns_server_free(DNSServer *s);
