@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <ctype.h>
 #include <poll.h>
+#include <selinux/selinux.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -1275,6 +1279,157 @@ static int generic_method_get_interface_description(
                         SD_JSON_BUILD_PAIR_STRING("description", text));
 }
 
+static inline char* trim(char *s) {
+        if (!s)
+                return s;
+
+        while (isspace(*s)) {
+                s++;
+        }
+
+        if (*s == 0)
+                return s;
+
+        char *end = s + strlen(s) - 1;
+        while (end > s && isspace(*end)) {
+                end--;
+        }
+
+        end[1] = '\0';
+        return s;
+}
+
+static char* mac_selinux_lookup_varlink_context(const char *endpoint) {
+        _cleanup_free_ char *contexts = NULL, *line = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(endpoint);
+
+        const char *policy_root = selinux_policy_root();
+        if (!policy_root) {
+                log_debug_errno(errno, "Failed to get SELinux policy root: %m");
+                return NULL;
+        }
+
+        r = asprintf(&contexts, "%s/contexts/varlink_contexts", policy_root);
+        if (r < 0)
+                return NULL;
+
+        f = fopen(contexts, "re");
+        if (!f)
+                return NULL;
+
+        size_t n = 0;
+        char *endpoint_ctx = NULL; /* Caller is responsible for freeing. */
+        while (getline(&line, &n, f) > 0) {
+                char *s = trim(line);
+                if (*s == 0 || *s == '#')
+                        continue;
+
+                char *comment = strchr(s, '#');
+                if (comment)
+                        *comment = '\0';
+
+                char *key = s;
+                while (*s && !isspace(*s)) {
+                        s++;
+                }
+                if (*s == 0)
+                        continue;
+                *s++ = '\0';
+
+                char *val = trim(s);
+                if (*val == 0)
+                        continue;
+
+                /* Not sure if it's worth doing this, but there should only be
+                   two columns, so skip over the line if it has 3 because it's
+                   invalid. */
+                char *third = val;
+                while (*third && !isspace(*third)) {
+                        third++;
+                }
+                while (*third && isspace(*third)) {
+                        third++;
+                }
+                if (*third)
+                        continue;
+
+                if (strcmp(key, endpoint) == 0) {
+                        endpoint_ctx = strdup(val);
+                        break;
+                }
+        }
+
+        return endpoint_ctx;
+}
+
+static int mac_selinux_access_check_varlink_endpoints(sd_varlink *v) {
+        _cleanup_free_ char *tcon = NULL;
+        int r;
+
+        assert(v);
+
+        if (is_selinux_enabled() == 0)
+                return 0;
+
+        r = security_getenforce();
+        /* If we can't determine if SELinux is enforcing or not, proceed as if enforcing. */
+        const bool enforce = !r;
+
+        const int fd = sd_varlink_get_fd(v);
+        if (fd < 0) {
+                log_debug_errno(
+                                fd,
+                                "Failed to get varlink peer fd%s: %m",
+                                enforce ? "" : ", ignoring");
+                return enforce ? fd : 0;
+        }
+
+        char *scon; /* Make sure to free this (the freeconp thingy isn't available here) */
+        if (getpeercon_raw(fd, &scon) < 0) {
+                log_debug_errno(
+                                errno,
+                                "Failed to get peer SELinux context%s: %m",
+                                enforce ? "" : ", ignoring");
+                return enforce ? -errno : 0;
+        }
+
+        if (!scon) {
+                log_debug_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                "Peer does not have SELinux context%s, ignoring",
+                                enforce ? "" : ", ignoring");
+                return enforce ? -EOPNOTSUPP : 0;
+        }
+
+        /* This gives us a FQDN back. */
+        const char *method = NULL;
+        r = sd_varlink_get_current_method(v, &method);
+        if (r < 0 || !method) {
+                log_debug_errno(
+                                r,
+                                "Failed to get incoming varlink message's method%s: %m",
+                                enforce ? "" : ", ignoring");
+                return enforce ? r : 0;
+        }
+
+        errno = 0;
+        tcon = mac_selinux_lookup_varlink_context(method);
+        if (!tcon && errno == 0)
+                /* No entry in varlink_contexts: the endpoint is unlabeled. */
+                return 0;
+        if (!tcon)
+                /* TODO: how do we want to handle this case? We want to be compatible
+                   with systems without a varlink_contexts file, so we could just check
+                   if we fail to open varlink_contexts and then return 0, but that might
+                   be a bit over the top. */
+                return 0;
+
+        return selinux_check_access(scon, tcon, "varlink", "call", /* auditdata= */ NULL);
+}
+
 static int varlink_dispatch_method(sd_varlink *v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         sd_varlink_method_flags_t flags = 0;
@@ -1350,6 +1505,12 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                                                   VARLINK_PROCESSING_METHOD);
 
         assert(v->server);
+
+        /* TODO: SELinux access checking, I think this might be the best spot? */
+        if (mac_selinux_access_check_varlink_endpoints(v) != 0)
+                /* No need to log, the AVC is already logged by
+                   mac_selinux_access_check_varlink_endpoints() */
+                   return sd_varlink_error(v, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
         /* First consult user supplied method implementations */
         callback = hashmap_get(v->server->methods, method);
