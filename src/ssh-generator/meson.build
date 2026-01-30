@@ -17,6 +17,11 @@ executables += [
         },
 ]
 
+assert(libexecdir / fs.name(systemgeneratordir) == systemgeneratordir)
+install_symlink('systemd-ssh-generator-vsock',
+                pointing_to : fs.name(systemgeneratordir) / 'systemd-ssh-generator',
+                install_dir : libexecdir)
+
 if conf.get('ENABLE_SSH_PROXY_CONFIG') == 1
         custom_target(
                 input : '20-systemd-ssh-proxy.conf.in',

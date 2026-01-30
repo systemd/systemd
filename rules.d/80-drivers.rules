@@ -2,6 +2,10 @@
 
 ACTION!="add", GOTO="drivers_end"
 
+SUBSYSTEM=="drivers", IMPORT{builtin}="hwdb drivers:$kernel"
+# Reload PID1 to make systemd-ssh-generator reexecuted.
+SUBSYSTEM=="drivers", ENV{ID_VSOCK_TRANSPORT}=="1", RUN+="{{LIBEXECDIR}}/systemd-ssh-generator-vsock"
+
 ENV{MODALIAS}=="?*", RUN{builtin}+="kmod load"
 SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="SD", RUN{builtin}+="kmod load tifm_sd"
 SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="MS", RUN{builtin}+="kmod load tifm_ms"

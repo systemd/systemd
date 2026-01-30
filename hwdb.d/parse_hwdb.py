@@ -107,6 +107,7 @@ GENERAL_MATCHES = {'acpi',
                    'OUI',
                    'ieee1394',
                    'dmi',
+                   'drivers',
                    }
 
 def upperhex_word(length):
@@ -212,6 +213,7 @@ def property_grammar():
              ('ID_SYSFS_ATTRIBUTE_MODEL', name_literal),
              ('ID_NET_NAME_FROM_DATABASE', name_literal),
              ('ID_NET_NAME_INCLUDE_DOMAIN', Or((Literal('0'), Literal('1')))),
+             ('ID_VSOCK_TRANSPORT', Or((Literal('0'), Literal('1')))),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
