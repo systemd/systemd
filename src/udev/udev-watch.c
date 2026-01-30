@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "id128-util.h"
 #include "inotify-util.h"
 #include "parse-util.h"
 #include "pidref.h"
@@ -28,6 +29,7 @@
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "udev-manager.h"
 #include "udev-trace.h"
 #include "udev-util.h"
@@ -141,9 +143,23 @@ void udev_watch_dump(void) {
         }
 }
 
-static int synthesize_change_one(sd_device *dev) {
+static int on_synthesized_events_clear(sd_event_source *s, uint64_t usec, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        for (;;) {
+                _cleanup_free_ sd_id128_t *uuid = set_steal_first(manager->synthesized_events);
+                if (!uuid)
+                        return 0;
+
+                log_warning("Could not receive synthesized event with UUID %s, ignoring.",
+                            SD_ID128_TO_STRING(*uuid));
+        }
+}
+
+static int synthesize_change_one(Manager *manager, sd_device *dev) {
         int r;
 
+        assert(manager);
         assert(dev);
 
         if (DEBUG_LOGGING) {
@@ -152,11 +168,35 @@ static int synthesize_change_one(sd_device *dev) {
                 log_device_debug(dev, "device is closed, synthesising 'change' on %s", strna(syspath));
         }
 
-        r = sd_device_trigger(dev, SD_DEVICE_CHANGE);
+        sd_id128_t uuid;
+        r = sd_device_trigger_with_uuid(dev, SD_DEVICE_CHANGE, &uuid);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to trigger 'change' uevent: %m");
 
         DEVICE_TRACE_POINT(synthetic_change_event, dev);
+
+        /* Avoid /run/udev/queue file being removed by on_post(). */
+        sd_id128_t *copy = newdup(sd_id128_t, &uuid, 1);
+        if (!copy)
+                return log_oom_debug();
+
+        r = set_ensure_consume(&manager->synthesized_events, &id128_hash_ops_free, copy);
+        if (r < 0)
+                return log_oom_debug();
+
+        r = event_reset_time_relative(
+                        manager->event,
+                        &manager->synthesized_events_clear_event_source,
+                        CLOCK_MONOTONIC,
+                        1 * USEC_PER_MINUTE,
+                        USEC_PER_SEC,
+                        on_synthesized_events_clear,
+                        manager,
+                        SD_EVENT_PRIORITY_NORMAL,
+                        "synthesized-events-clear",
+                        /* force_reset= */ true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to reset timer event source for clearling synthesized event UUIDs: %m");
 
         return 0;
 }
@@ -179,13 +219,13 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
         if (r < 0)
                 return r;
         if (r > 0)
-                return synthesize_change_one(dev);
+                return synthesize_change_one(manager, dev);
 
         r = block_device_is_whole_disk(dev);
         if (r < 0)
                 return r;
         if (r == 0)
-                return synthesize_change_one(dev);
+                return synthesize_change_one(manager, dev);
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
