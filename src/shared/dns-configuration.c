@@ -18,7 +18,7 @@ DNSServer* dns_server_free(DNSServer *s) {
                 return NULL;
 
         free(s->server_name);
-        iovec_done(&s->addr);
+        iovec_done(&s->addr_bytes);
         free(s->addr_str);
 
         return mfree(s);
@@ -34,7 +34,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 
 static int dispatch_dns_server(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dns_server_dispatch_table[] = {
-                { "address",       SD_JSON_VARIANT_ARRAY,         json_dispatch_byte_array_iovec, offsetof(DNSServer, addr),        SD_JSON_MANDATORY },
+                { "address",       SD_JSON_VARIANT_ARRAY,         json_dispatch_byte_array_iovec, offsetof(DNSServer, addr_bytes),  SD_JSON_MANDATORY },
                 { "addressString", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,        offsetof(DNSServer, addr_str),    0                 },
                 { "family",        SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint,          offsetof(DNSServer, family),      SD_JSON_MANDATORY },
                 { "port",          SD_JSON_VARIANT_UNSIGNED,      sd_json_dispatch_uint16,        offsetof(DNSServer, port),        0                 },
@@ -55,10 +55,11 @@ static int dispatch_dns_server(const char *name, sd_json_variant *variant, sd_js
         if (r < 0)
                 return r;
 
-        if (s->addr.iov_len != FAMILY_ADDRESS_SIZE_SAFE(s->family))
+        if (s->addr_bytes.iov_len != FAMILY_ADDRESS_SIZE_SAFE(s->family))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "Dispatched address size (%zu) is incompatible with the family (%s).",
-                                s->addr.iov_len, af_to_ipv4_ipv6(s->family));
+                                s->addr_bytes.iov_len, af_to_ipv4_ipv6(s->family));
+        memcpy_safe(&s->in_addr, s->addr_bytes.iov_base, s->addr_bytes.iov_len);
 
         *ret = TAKE_PTR(s);
 
