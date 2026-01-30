@@ -1385,14 +1385,16 @@ static int reset_server_features(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int status_print_strv_full(int ifindex, const char *ifname, const char *delegate_id, char **p) {
+static int status_print_strv(DNSConfiguration *c,  char **p) {
         const unsigned indent = strlen("Global: "); /* Use the same indentation everywhere to make things nice */
         int pos1, pos2;
 
-        if (ifname)
-                printf("%s%nLink %i (%s)%n%s:", ansi_highlight(), &pos1, ifindex, ifname, &pos2, ansi_normal());
-        else if (delegate_id)
-                printf("%s%nDelegate %s%n%s:", ansi_highlight(), &pos1, delegate_id, &pos2, ansi_normal());
+        assert(c);
+
+        if (c->ifname)
+                printf("%s%nLink %i (%s)%n%s:", ansi_highlight(), &pos1, c->ifindex, c->ifname, &pos2, ansi_normal());
+        else if (c->delegate)
+                printf("%s%nDelegate %s%n%s:", ansi_highlight(), &pos1, c->delegate, &pos2, ansi_normal());
         else
                 printf("%s%nGlobal%n%s:", ansi_highlight(), &pos1, &pos2, ansi_normal());
 
@@ -1416,16 +1418,42 @@ static int status_print_strv_full(int ifindex, const char *ifname, const char *d
         return 0;
 }
 
-static int status_print_strv_ifindex(int ifindex, const char *ifname, char **p) {
-        return status_print_strv_full(ifindex, ifname, NULL, p);
+static void status_print_string(DNSConfiguration *c, const char *p) {
+        assert(c);
+
+        if (c->ifname)
+                printf("%sLink %i (%s)%s: %s\n",
+                       ansi_highlight(),
+                       c->ifindex,
+                       c->ifname,
+                       ansi_normal(),
+                       p);
+        else if (c->delegate)
+                printf("%sDelegate %s%s: %s\n",
+                       ansi_highlight(),
+                       c->delegate,
+                       ansi_normal(),
+                       p);
+        else
+                printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(), p);
 }
 
-static int status_print_strv_delegate(const char *delegate_id, char **p) {
-        return status_print_strv_full(0, NULL, delegate_id, p);
-}
+static void status_print_header(DNSConfiguration *c) {
+        assert(c);
 
-static int status_print_strv_global(char **p) {
-        return status_print_strv_full(0, NULL, NULL, p);
+        if (c->ifname)
+                printf("%sLink %i (%s)%s\n",
+                       ansi_highlight(),
+                       c->ifindex,
+                       c->ifname,
+                       ansi_normal());
+        else if (c->delegate)
+                printf("%sDelegate %s%s\n",
+                       ansi_highlight(),
+                       c->delegate,
+                       ansi_normal());
+        else
+                printf("%sGlobal%s\n", ansi_highlight(), ansi_normal());
 }
 
 static int dump_list(Table *table, const char *field, char * const *l) {
@@ -1555,13 +1583,17 @@ static int varlink_dump_dns_configuration(sd_json_variant **ret) {
         return 0;
 }
 
-static int format_dns_server_string(DNSServer *s, bool with_ifindex, bool only_global, char **ret) {
+static int format_dns_server_string(DNSConfiguration *configuration, DNSServer *s, char **ret) {
+        bool global, with_ifindex;
         int r;
 
         assert(s);
         assert(ret);
 
-        if (only_global && s->ifindex > 0 && s->ifindex != LOOPBACK_IFINDEX) {
+        global = !(configuration->ifindex > 0 || configuration->delegate);
+        with_ifindex = configuration->ifindex <= 0;
+
+        if (global && s->ifindex > 0 && s->ifindex != LOOPBACK_IFINDEX) {
                 /* This one has an (non-loopback) ifindex set, and we were told to suppress those. Hence do so. */
                 *ret = NULL;
                 return 0;
@@ -1582,7 +1614,7 @@ static int format_dns_server_string(DNSServer *s, bool with_ifindex, bool only_g
         return 1;
 }
 
-static int format_dns_servers_strv(OrderedSet *servers, bool with_ifindex, bool only_global, char ***ret) {
+static int format_dns_servers_strv(DNSConfiguration *configuration, OrderedSet *servers, char ***ret) {
         int r;
 
         assert(ret);
@@ -1596,7 +1628,7 @@ static int format_dns_servers_strv(OrderedSet *servers, bool with_ifindex, bool 
         DNSServer *s;
         ORDERED_SET_FOREACH(s, servers) {
                 _cleanup_free_ char *str = NULL;
-                r = format_dns_server_string(s, with_ifindex, only_global, &str);
+                r = format_dns_server_string(configuration, s, &str);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -1610,7 +1642,7 @@ static int format_dns_servers_strv(OrderedSet *servers, bool with_ifindex, bool 
         return 0;
 }
 
-static int format_search_domains_strv(OrderedSet *domains, bool only_global, char ***ret) {
+static int format_search_domains_strv(DNSConfiguration *configuration, OrderedSet *domains, char ***ret) {
         int r;
 
         assert(ret);
@@ -1623,7 +1655,7 @@ static int format_search_domains_strv(OrderedSet *domains, bool only_global, cha
         _cleanup_strv_free_ char **l = NULL;
         SearchDomain *d;
         ORDERED_SET_FOREACH(d, domains) {
-                if (only_global && d->ifindex > 0)
+                if (!(configuration->ifindex > 0 || configuration->delegate) && d->ifindex > 0)
                         /* Only show the global ones here */
                         continue;
 
@@ -1679,318 +1711,139 @@ static int format_protocol_status(DNSConfiguration *configuration, char ***ret) 
         return 0;
 }
 
-static int status_link(DNSConfiguration *configuration, StatusMode mode, bool *empty_line) {
+static int format_scopes_string(DNSConfiguration *configuration, char **ret) {
+        assert(configuration);
+        assert(ret);
+
+        if (!configuration->dns_scopes) {
+                *ret = NULL;
+                return 0;
+        }
+
+        uint64_t scopes_mask = 0;
+        DNSScope *scope;
+        SET_FOREACH(scope, configuration->dns_scopes) {
+                if (streq(scope->protocol, "dns"))
+                        scopes_mask |= SD_RESOLVED_DNS;
+                else if (streq(scope->protocol, "llmnr"))
+                        scopes_mask |= scope->family == AF_INET ?
+                                       SD_RESOLVED_LLMNR_IPV4 :
+                                       SD_RESOLVED_LLMNR_IPV6;
+                else if (streq(scope->protocol, "mdns"))
+                        scopes_mask |= scope->family == AF_INET ?
+                                       SD_RESOLVED_MDNS_IPV4 :
+                                       SD_RESOLVED_MDNS_IPV6;
+        }
+
+        _cleanup_free_ char *buf = NULL;
+        if (asprintf(&buf, "%s%s%s%s%s",
+                     scopes_mask & SD_RESOLVED_DNS ? "DNS " : "",
+                     scopes_mask & SD_RESOLVED_LLMNR_IPV4 ? "LLMNR/IPv4 " : "",
+                     scopes_mask & SD_RESOLVED_LLMNR_IPV6 ? "LLMNR/IPv6 " : "",
+                     scopes_mask & SD_RESOLVED_MDNS_IPV4 ? "mDNS/IPv4 " : "",
+                     scopes_mask & SD_RESOLVED_MDNS_IPV6 ? "mDNS/IPv6 " : "") < 0)
+                return log_oom();
+
+        size_t len = strlen(buf);
+        assert(len > 0);
+        buf[len - 1] = '\0';
+
+        *ret = TAKE_PTR(buf);
+        return 0;
+}
+
+static int print_configuration(DNSConfiguration *configuration, StatusMode mode, bool *empty_line) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(configuration);
-        assert(configuration->ifindex > 0);
 
         pager_open(arg_pager_flags);
 
-        switch (mode) {
-
-        case STATUS_DNS: {
-                _cleanup_strv_free_ char **dns_servers = NULL;
-                r = format_dns_servers_strv(configuration->dns_servers,
-                                            /* with_ifindex = */ false,
-                                            /* only_global = */ false,
-                                            &dns_servers);
+        bool global = !(configuration->ifindex > 0 || configuration->delegate);
+        if (mode == STATUS_DNS) {
+                _cleanup_strv_free_ char **l = NULL;
+                r = format_dns_servers_strv(configuration, configuration->dns_servers, &l);
                 if (r < 0)
                         return r;
 
-                return status_print_strv_ifindex(configuration->ifindex,
-                                                 configuration->ifname,
-                                                 dns_servers);
-        }
+                return status_print_strv(configuration, l);
 
-        case STATUS_DOMAIN: {
-                _cleanup_strv_free_ char **search_domains = NULL;
-                r = format_search_domains_strv(configuration->search_domains,
-                                               /* only_global = */ false,
-                                               &search_domains);
+        } else if (mode == STATUS_DOMAIN) {
+                _cleanup_strv_free_ char **l = NULL;
+                r = format_search_domains_strv(configuration, configuration->search_domains, &l);
                 if (r < 0)
                         return r;
 
-                return status_print_strv_ifindex(configuration->ifindex,
-                                                 configuration->ifname,
-                                                 search_domains);
-        }
+                return status_print_strv(configuration, l);
 
-        case STATUS_NTA:
-                return status_print_strv_ifindex(configuration->ifindex,
-                                                 configuration->ifname,
-                                                 configuration->negative_trust_anchors);
+        } else if (mode == STATUS_NTA) {
+                if (configuration->delegate)
+                        return 0;
 
-        case STATUS_DEFAULT_ROUTE:
-                printf("%sLink %i (%s)%s: %s\n",
-                       ansi_highlight(),
-                       configuration->ifindex,
-                       configuration->ifname,
-                       ansi_normal(),
-                       yes_no(configuration->default_route));
+                return status_print_strv(configuration, configuration->negative_trust_anchors);
+
+        } else if (mode == STATUS_DEFAULT_ROUTE) {
+                if (global)
+                        return 0;
+
+                status_print_string(configuration, yes_no(configuration->default_route));
 
                 return 0;
 
-        case STATUS_LLMNR:
-                printf("%sLink %i (%s)%s: %s\n",
-                       ansi_highlight(),
-                       configuration->ifindex,
-                       configuration->ifname,
-                       ansi_normal(),
-                       strna(configuration->llmnr_mode_str));
+        } else if (IN_SET(mode, STATUS_LLMNR, STATUS_MDNS, STATUS_DNS_OVER_TLS, STATUS_DNSSEC)) {
+                if (configuration->delegate)
+                        return 0;
+
+                status_print_string(configuration,
+                                    strna(mode == STATUS_LLMNR ? configuration->llmnr_mode_str :
+                                          mode == STATUS_MDNS ? configuration->mdns_mode_str :
+                                          mode == STATUS_DNS_OVER_TLS ? configuration->dns_over_tls_mode_str :
+                                          configuration->dnssec_mode_str));
 
                 return 0;
 
-        case STATUS_MDNS:
-                printf("%sLink %i (%s)%s: %s\n",
-                       ansi_highlight(),
-                       configuration->ifindex,
-                       configuration->ifname,
-                       ansi_normal(),
-                       strna(configuration->mdns_mode_str));
-
+        } else if (mode != STATUS_ALL)
                 return 0;
-
-        case STATUS_DNS_OVER_TLS:
-                printf("%sLink %i (%s)%s: %s\n",
-                       ansi_highlight(),
-                       configuration->ifindex,
-                       configuration->ifname,
-                       ansi_normal(),
-                       strna(configuration->dns_over_tls_mode_str));
-
-                return 0;
-
-        case STATUS_DNSSEC:
-                printf("%sLink %i (%s)%s: %s\n",
-                       ansi_highlight(),
-                       configuration->ifindex,
-                       configuration->ifname,
-                       ansi_normal(),
-                       strna(configuration->dnssec_mode_str));
-
-                return 0;
-
-        case STATUS_ALL:
-                break;
-
-        default:
-                return 0;
-        }
 
         if (empty_line && *empty_line)
                 fputc('\n', stdout);
 
-        printf("%sLink %i (%s)%s\n",
-               ansi_highlight(),
-               configuration->ifindex,
-               configuration->ifname,
-               ansi_normal());
+        status_print_header(configuration);
 
         table = table_new_vertical();
         if (!table)
                 return log_oom();
 
-        r = table_add_many(table,
-                           TABLE_FIELD, "Current Scopes",
-                           TABLE_SET_MINIMUM_WIDTH, 19);
-        if (r < 0)
-                return table_log_add_error(r);
-
-        if (!configuration->dns_scopes)
-                r = table_add_cell(table, NULL, TABLE_STRING, "none");
-        else {
-                uint64_t scopes_mask = 0;
-                DNSScope *scope;
-                SET_FOREACH(scope, configuration->dns_scopes) {
-                        if (streq(scope->protocol, "dns"))
-                                scopes_mask |= SD_RESOLVED_DNS;
-                        else if (streq(scope->protocol, "llmnr"))
-                                scopes_mask |= scope->family == AF_INET ?
-                                               SD_RESOLVED_LLMNR_IPV4 :
-                                               SD_RESOLVED_LLMNR_IPV6;
-                        else if (streq(scope->protocol, "mdns"))
-                                scopes_mask |= scope->family == AF_INET ?
-                                               SD_RESOLVED_MDNS_IPV4 :
-                                               SD_RESOLVED_MDNS_IPV6;
-                }
-
-                _cleanup_free_ char *buf = NULL;
-                size_t len;
-
-                if (asprintf(&buf, "%s%s%s%s%s",
-                             scopes_mask & SD_RESOLVED_DNS ? "DNS " : "",
-                             scopes_mask & SD_RESOLVED_LLMNR_IPV4 ? "LLMNR/IPv4 " : "",
-                             scopes_mask & SD_RESOLVED_LLMNR_IPV6 ? "LLMNR/IPv6 " : "",
-                             scopes_mask & SD_RESOLVED_MDNS_IPV4 ? "mDNS/IPv4 " : "",
-                             scopes_mask & SD_RESOLVED_MDNS_IPV6 ? "mDNS/IPv6 " : "") < 0)
-                        return log_oom();
-
-                len = strlen(buf);
-                assert(len > 0);
-                buf[len - 1] = '\0';
-
-                r = table_add_cell(table, NULL, TABLE_STRING, buf);
-        }
-        if (r < 0)
-                return table_log_add_error(r);
-
-        _cleanup_strv_free_ char **pstatus = NULL;
-        r = format_protocol_status(configuration, &pstatus);
-        if (r < 0)
-                return r;
-
-        r = table_add_many(table,
-                           TABLE_FIELD,       "Protocols",
-                           TABLE_STRV_WRAPPED, pstatus);
-        if (r < 0)
-                return table_log_add_error(r);
-
-        if (configuration->current_dns_server) {
-                _cleanup_free_ char *current_dns = NULL;
-                r = format_dns_server_string(configuration->current_dns_server,
-                                             /* with_ifindex = */ false,
-                                             /* only_global = */ false,
-                                             &current_dns);
+        if (configuration->ifindex > 0) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Current Scopes",
+                                   TABLE_SET_MINIMUM_WIDTH, 19);
                 if (r < 0)
-                        return r;
-                if (r > 0) {
-                        r = table_add_many(table,
-                                           TABLE_FIELD, "Current DNS Server",
-                                           TABLE_STRING, current_dns);
-                        if (r < 0)
-                                return table_log_add_error(r);
-                }
-        }
+                        return table_log_add_error(r);
 
-        _cleanup_strv_free_ char **dns_servers = NULL;
-        r = format_dns_servers_strv(configuration->dns_servers,
-                                    /* with_ifindex = */ false,
-                                    /* only_global = */ false,
-                                    &dns_servers);
-        if (r < 0)
-                return r;
-
-        r = dump_list(table, "DNS Servers", dns_servers);
-        if (r < 0)
-                return r;
-
-        _cleanup_strv_free_ char **search_domains = NULL;
-        r = format_search_domains_strv(configuration->search_domains,
-                                       /* only_global = */ false,
-                                       &search_domains);
-        if (r < 0)
-                return r;
-
-        r = dump_list(table, "DNS Domain", search_domains);
-        if (r < 0)
-                return r;
-
-        r = table_add_many(table,
-                           TABLE_FIELD, "Default Route",
-                           TABLE_BOOLEAN, configuration->default_route);
-        if (r < 0)
-                return table_log_add_error(r);
-
-        r = table_print(table, NULL);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        if (empty_line)
-                *empty_line = true;
-
-        return 0;
-}
-
-static int status_global(DNSConfiguration *configuration, StatusMode mode, bool *empty_line) {
-        _cleanup_(table_unrefp) Table *table = NULL;
-        int r;
-
-        assert(configuration);
-        assert(configuration->ifindex == 0);
-        assert(!configuration->delegate);
-        assert(empty_line);
-
-        pager_open(arg_pager_flags);
-
-        switch (mode) {
-
-        case STATUS_DNS: {
-                _cleanup_strv_free_ char **dns_servers = NULL;
-                r = format_dns_servers_strv(configuration->dns_servers,
-                                            /* with_ifindex = */ true,
-                                            /* only_global = */ true,
-                                            &dns_servers);
+                _cleanup_free_ char *s = NULL;
+                r = format_scopes_string(configuration, &s);
                 if (r < 0)
                         return r;
 
-                return status_print_strv_global(dns_servers);
+                r = table_add_cell(table, NULL, TABLE_STRING, s ?: "none");
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
-        case STATUS_DOMAIN: {
-                _cleanup_strv_free_ char **search_domains = NULL;
-                r = format_search_domains_strv(configuration->search_domains,
-                                               /* only_global = */ true,
-                                               &search_domains);
+        if (!configuration->delegate) {
+                _cleanup_strv_free_ char **l = NULL;
+                r = format_protocol_status(configuration, &l);
                 if (r < 0)
                         return r;
 
-                return status_print_strv_global(search_domains);
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Protocols",
+                                   TABLE_STRV_WRAPPED, l);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
-
-        case STATUS_NTA:
-                return status_print_strv_global(configuration->negative_trust_anchors);
-
-        case STATUS_LLMNR:
-                printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
-                       strna(configuration->llmnr_mode_str));
-
-                return 0;
-
-        case STATUS_MDNS:
-                printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
-                       strna(configuration->mdns_mode_str));
-
-                return 0;
-
-        case STATUS_DNS_OVER_TLS:
-                printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
-                       strna(configuration->dns_over_tls_mode_str));
-
-                return 0;
-
-        case STATUS_DNSSEC:
-                printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
-                       strna(configuration->dnssec_mode_str));
-
-                return 0;
-
-        case STATUS_ALL:
-                break;
-
-        default:
-                return 0;
-        }
-
-        printf("%sGlobal%s\n", ansi_highlight(), ansi_normal());
-
-        table = table_new_vertical();
-        if (!table)
-                return log_oom();
-
-        _cleanup_strv_free_ char **pstatus = NULL;
-        r = format_protocol_status(configuration, &pstatus);
-        if (r < 0)
-                return r;
-
-        r = table_add_many(table,
-                           TABLE_FIELD,            "Protocols",
-                           TABLE_SET_MINIMUM_WIDTH, 19,
-                           TABLE_STRV_WRAPPED,      pstatus);
-        if (r < 0)
-                return table_log_add_error(r);
 
         if (configuration->resolv_conf_mode_str) {
                 r = table_add_many(table,
@@ -2001,27 +1854,20 @@ static int status_global(DNSConfiguration *configuration, StatusMode mode, bool 
         }
 
         if (configuration->current_dns_server) {
-                _cleanup_free_ char *current_dns = NULL;
-                r = format_dns_server_string(configuration->current_dns_server,
-                                             /* with_ifindex = */ true,
-                                             /* only_global = */ true,
-                                             &current_dns);
+                _cleanup_free_ char *s = NULL;
+                r = format_dns_server_string(configuration, configuration->current_dns_server, &s);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        r = table_add_many(table,
-                                           TABLE_FIELD, "Current DNS Server",
-                                           TABLE_STRING, current_dns);
-                        if (r < 0)
-                                return table_log_add_error(r);
-                }
+
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Current DNS Server",
+                                   TABLE_STRING, s);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
         _cleanup_strv_free_ char **dns_servers = NULL;
-        r = format_dns_servers_strv(configuration->dns_servers,
-                                    /* with_ifindex = */ true,
-                                    /* only_global = */ true,
-                                    &dns_servers);
+        r = format_dns_servers_strv(configuration, configuration->dns_servers, &dns_servers);
         if (r < 0)
                 return r;
 
@@ -2029,22 +1875,19 @@ static int status_global(DNSConfiguration *configuration, StatusMode mode, bool 
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **fallback_dns_servers = NULL;
-        r = format_dns_servers_strv(configuration->fallback_dns_servers,
-                                    /* with_ifindex = */ true,
-                                    /* only_global = */ true,
-                                    &fallback_dns_servers);
-        if (r < 0)
-                return r;
+        if (global) {
+                _cleanup_strv_free_ char **l = NULL;
+                r = format_dns_servers_strv(configuration, configuration->fallback_dns_servers, &l);
+                if (r < 0)
+                        return r;
 
-        r = dump_list(table, "Fallback DNS Servers", fallback_dns_servers);
-        if (r < 0)
-                return r;
+                r = dump_list(table, "Fallback DNS Servers", l);
+                if (r < 0)
+                        return r;
+        }
 
         _cleanup_strv_free_ char **search_domains = NULL;
-        r = format_search_domains_strv(configuration->search_domains,
-                                       /* only_global = */ true,
-                                       &search_domains);
+        r = format_search_domains_strv(configuration, configuration->search_domains, &search_domains);
         if (r < 0)
                 return r;
 
@@ -2052,124 +1895,13 @@ static int status_global(DNSConfiguration *configuration, StatusMode mode, bool 
         if (r < 0)
                 return r;
 
-        r = table_print(table, NULL);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        *empty_line = true;
-
-        return 0;
-}
-
-static int status_delegate(DNSConfiguration *configuration, StatusMode mode, bool *empty_line) {
-        int r;
-
-        assert(configuration);
-        assert(configuration->delegate);
-
-        pager_open(arg_pager_flags);
-
-        switch (mode) {
-
-        case STATUS_DNS: {
-                _cleanup_strv_free_ char **dns_servers = NULL;
-                r = format_dns_servers_strv(configuration->dns_servers,
-                                            /* with_ifindex = */ true,
-                                            /* only_global = */ false,
-                                            &dns_servers);
+        if (!global) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Default Route",
+                                   TABLE_BOOLEAN, configuration->default_route);
                 if (r < 0)
-                        return r;
-
-                return status_print_strv_delegate(configuration->delegate,
-                                                  dns_servers);
+                        return table_log_add_error(r);
         }
-
-        case STATUS_DOMAIN: {
-                _cleanup_strv_free_ char **search_domains = NULL;
-                r = format_search_domains_strv(configuration->search_domains,
-                                               /* only_global = */ false,
-                                               &search_domains);
-                if (r < 0)
-                        return r;
-
-                return status_print_strv_delegate(configuration->delegate,
-                                                  search_domains);
-        }
-
-        case STATUS_DEFAULT_ROUTE:
-                printf("%sDelegate %s%s: %s\n",
-                       ansi_highlight(),
-                       configuration->delegate,
-                       ansi_normal(),
-                       yes_no(configuration->default_route));
-
-                return 0;
-
-        case STATUS_ALL:
-                break;
-
-        default:
-                return 0;
-        }
-
-        if (empty_line && *empty_line)
-                fputc('\n', stdout);
-
-        printf("%sDelegate %s%s\n",
-               ansi_highlight(),
-               configuration->delegate,
-               ansi_normal());
-
-        _cleanup_(table_unrefp) Table *table = table_new_vertical();
-        if (!table)
-                return log_oom();
-
-        if (configuration->current_dns_server) {
-                _cleanup_free_ char *current_dns = NULL;
-                r = format_dns_server_string(configuration->current_dns_server,
-                                             /* with_ifindex = */ true,
-                                             /* only_global = */ false,
-                                             &current_dns);
-                if (r < 0)
-                        return r;
-                if (r > 0) {
-                        r = table_add_many(table,
-                                           TABLE_FIELD, "Current DNS Server",
-                                           TABLE_STRING, current_dns);
-                        if (r < 0)
-                                return table_log_add_error(r);
-                }
-        }
-
-        _cleanup_strv_free_ char **dns_servers = NULL;
-        r = format_dns_servers_strv(configuration->dns_servers,
-                                    /* with_ifindex = */ true,
-                                    /* only_global = */ false,
-                                    &dns_servers);
-        if (r < 0)
-                return r;
-
-        r = dump_list(table, "DNS Servers", dns_servers);
-        if (r < 0)
-                return r;
-
-        _cleanup_strv_free_ char **search_domains = NULL;
-        r = format_search_domains_strv(configuration->search_domains,
-                                       /* only_global = */ false,
-                                       &search_domains);
-        if (r < 0)
-                return r;
-
-        r = dump_list(table, "DNS Domain", search_domains);
-        if (r < 0)
-                return r;
-
-        r = table_add_many(table,
-                           TABLE_FIELD, "Default Route",
-                           TABLE_SET_MINIMUM_WIDTH, 19,
-                           TABLE_BOOLEAN, configuration->default_route);
-        if (r < 0)
-                return table_log_add_error(r);
 
         r = table_print(table, NULL);
         if (r < 0)
@@ -2228,20 +1960,20 @@ static int status_full(StatusMode mode, char **links) {
         }
 
         if (global_config) {
-                r = status_global(global_config, mode, &empty_line);
+                r = print_configuration(global_config, mode, &empty_line);
                 if (r < 0)
                         return r;
         }
 
         DNSConfiguration *c;
         ORDERED_SET_FOREACH(c, link_configs) {
-                r = status_link(c, mode, &empty_line);
+                r = print_configuration(c, mode, &empty_line);
                 if (r < 0)
                         return r;
         }
 
         ORDERED_SET_FOREACH(c, delegate_configs) {
-                r = status_delegate(c, mode, &empty_line);
+                r = print_configuration(c, mode, &empty_line);
                 if (r < 0)
                         return r;
         }
