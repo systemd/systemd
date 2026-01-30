@@ -2,7 +2,14 @@
 
 #include <unistd.h>
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
+#include "argv-util.h"
+#include "bus-error.h"
+#include "bus-locator.h"
+#include "bus-unit-util.h"
+#include "bus-util.h"
 #include "creds-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -34,6 +41,7 @@
  * logic, but without waiting for networking or suchlike. The third allows the same for local clients. */
 
 static bool arg_auto = true;
+static bool arg_vsock_only = false;
 static char **arg_listen_extra = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_listen_extra, strv_freep);
@@ -246,7 +254,7 @@ static int add_vsock_socket(
 
         log_debug("Binding SSH to AF_VSOCK vsock::22.\n"
                   "→ connect via 'ssh vsock/%u' from host", local_cid);
-        return 0;
+        return 1; /* Created */
 }
 
 static int add_local_unix_socket(
@@ -440,14 +448,62 @@ static int parse_credentials(void) {
         return 0;
 }
 
-static int run(const char *dest, const char *dest_early, const char *dest_late) {
+static int do_daemon_reload(void) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
+
+        log_debug("Calling org.freedesktop.systemd1.Manager.Reload()...");
+        r = bus_connect_system_systemd(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get D-Bus connection: %m");
+
+        r = bus_service_manager_reload(bus);
+        if (r < 0)
+                return r;
+
+        log_info("Requesting sshd-vsock.socket/start/replace...");
+        r = bus_call_method(bus, bus_systemd_mgr, "StartUnit", &error, NULL, "ss", "sshd-vsock.socket", "replace");
+        if (r < 0)
+                return log_error_errno(r, "Failed to (re)start sshd-vsock.socket: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int run(int argc, char **argv) {
+        const char *dest = "/run/systemd/generator";
+        int r;
+
+        arg_vsock_only = invoked_as(argv, "systemd-ssh-generator-vsock");
+        if (arg_vsock_only) {
+                /* Invoked as systemd-ssh-generator-vsock, typically invoked by udevd. */
+                log_setup();
+
+                if (strv_length(argv) > 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "This program takes no arguments.");
+
+                if (access("/run/systemd/generator/sshd-vsock.socket", F_OK) >= 0)
+                        return 0;
+        } else {
+                /* Run in generator mode */
+                log_setup_generator();
+
+                if (!IN_SET(strv_length(argv), 2, 4))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "This program takes one or three arguments.");
+
+                dest = ASSERT_PTR(argv[1]);
+        }
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, /* userdata= */ NULL, /* flags= */ 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
         (void) parse_credentials();
+
+        if (arg_vsock_only)
+                arg_listen_extra = strv_free(arg_listen_extra);
 
         strv_sort_uniq(arg_listen_extra);
 
@@ -476,6 +532,15 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return log_error_errno(r, "Unable to detect if sshd@.service exists: %m");
 
         _cleanup_free_ char *generated_sshd_template_unit = NULL;
+
+        if (arg_vsock_only) {
+                r = add_vsock_socket(dest, sshd_binary, found_sshd_template_unit, &generated_sshd_template_unit);
+                if (r <= 0)
+                        return r;
+
+                return do_daemon_reload();
+        }
+
         RET_GATHER(r, add_extra_sockets(dest, sshd_binary, found_sshd_template_unit, &generated_sshd_template_unit));
 
         if (arg_auto) {
@@ -487,4 +552,4 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         return r;
 }
 
-DEFINE_MAIN_GENERATOR_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run);
