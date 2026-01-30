@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "id128-util.h"
 #include "inotify-util.h"
 #include "parse-util.h"
 #include "pidref.h"
@@ -141,23 +142,33 @@ void udev_watch_dump(void) {
         }
 }
 
-static int synthesize_change_one(sd_device *dev, sd_device *target) {
+static int synthesize_change_one(Manager *manager, sd_device *dev) {
         int r;
 
+        assert(manager);
         assert(dev);
-        assert(target);
 
         if (DEBUG_LOGGING) {
                 const char *syspath = NULL;
-                (void) sd_device_get_syspath(target, &syspath);
+                (void) sd_device_get_syspath(dev, &syspath);
                 log_device_debug(dev, "device is closed, synthesising 'change' on %s", strna(syspath));
         }
 
-        r = sd_device_trigger(target, SD_DEVICE_CHANGE);
+        sd_id128_t uuid;
+        r = sd_device_trigger_with_uuid(dev, SD_DEVICE_CHANGE, &uuid);
         if (r < 0)
-                return log_device_debug_errno(target, r, "Failed to trigger 'change' uevent: %m");
+                return log_device_debug_errno(dev, r, "Failed to trigger 'change' uevent: %m");
 
         DEVICE_TRACE_POINT(synthetic_change_event, dev);
+
+        /* Avoid /run/udev/queue file being removed by on_post(). */
+        sd_id128_t *copy = newdup(sd_id128_t, &uuid, 1);
+        if (!copy)
+                return log_oom_debug();
+
+        r = set_ensure_consume(&manager->synthesized_events, &id128_hash_ops_free, copy);
+        if (r < 0)
+                return log_oom_debug();
 
         return 0;
 }
@@ -180,13 +191,13 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
         if (r < 0)
                 return r;
         if (r > 0)
-                return synthesize_change_one(dev, dev);
+                return synthesize_change_one(manager, dev);
 
         r = block_device_is_whole_disk(dev);
         if (r < 0)
                 return r;
         if (r == 0)
-                return synthesize_change_one(dev, dev);
+                return synthesize_change_one(manager, dev);
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
@@ -242,6 +253,7 @@ static int manager_process_inotify(Manager *manager, const struct inotify_event 
 
         log_device_debug(dev, "Received inotify event of watch handle %i.", e->wd);
 
+        (void) manager_create_queue_file(manager);
         (void) manager_requeue_locked_events_by_device(manager, dev);
         (void) synthesize_change(manager, dev);
         return 0;

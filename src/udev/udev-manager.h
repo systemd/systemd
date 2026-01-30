@@ -54,6 +54,7 @@ typedef struct Manager {
         int inotify_fd;
         sd_event_source *inotify_event;
         Set *synthesize_change_child_event_sources;
+        Set *synthesized_events;
 
         sd_event_source *kill_workers_event;
 
@@ -91,3 +92,5 @@ int manager_reset_kill_workers_timer(Manager *manager);
 bool devpath_conflict(const char *a, const char *b);
 
 int manager_requeue_locked_events_by_device(Manager *manager, sd_device *dev);
+
+int manager_create_queue_file(Manager *manager);
