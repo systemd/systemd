@@ -152,6 +152,75 @@ static int dispatch_search_domain_array(const char *name, sd_json_variant *varia
         return 0;
 }
 
+DNSScope* dns_scope_free(DNSScope *s) {
+        if (!s)
+                return NULL;
+
+        free(s->ifname);
+        free(s->protocol);
+        free(s->dnssec_mode_str);
+        free(s->dns_over_tls_mode_str);
+
+        return mfree(s);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        dns_scope_hash_ops,
+        void,
+        trivial_hash_func,
+        trivial_compare_func,
+        DNSScope,
+        dns_scope_free);
+
+static int dispatch_dns_scope(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dns_scope_dispatch_table[] = {
+                { "protocol",   SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(DNSScope, protocol),               SD_JSON_MANDATORY },
+                { "family",     SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,   offsetof(DNSScope, family),                 0                 },
+                { "ifname",     SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(DNSScope, ifname),                 0                 },
+                { "ifindex",    SD_JSON_VARIANT_UNSIGNED, json_dispatch_ifindex,   offsetof(DNSScope, ifindex),                SD_JSON_RELAX     },
+                { "dnssec",     SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(DNSScope, dnssec_mode_str),        0                 },
+                { "dnsOverTLS", SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(DNSScope, dns_over_tls_mode_str),  0                 },
+                {},
+        };
+        DNSScope **ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(dns_scope_freep) DNSScope *s = new0(DNSScope, 1);
+        if (!s)
+                return log_oom();
+
+        r = sd_json_dispatch(variant, dns_scope_dispatch_table, flags, s);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(s);
+
+        return 0;
+}
+
+static int dispatch_dns_scope_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Set **ret = ASSERT_PTR(userdata);
+        _cleanup_set_free_ Set *dns_scopes = NULL;
+        sd_json_variant *v;
+        int r;
+
+        JSON_VARIANT_ARRAY_FOREACH(v, variant) {
+                _cleanup_(dns_scope_freep) DNSScope *s = NULL;
+
+                r = dispatch_dns_scope(name, v, flags, &s);
+                if (r < 0)
+                        return json_log(v, flags, r, "JSON array element is not a valid DNSScope.");
+
+                r = set_ensure_consume(&dns_scopes, &dns_scope_hash_ops, TAKE_PTR(s));
+                if (r < 0)
+                        return r;
+        }
+
+        set_free_and_replace(*ret, dns_scopes);
+
+        return 0;
+}
+
 DNSConfiguration* dns_configuration_free(DNSConfiguration *c) {
         if (!c)
                 return NULL;
@@ -160,6 +229,7 @@ DNSConfiguration* dns_configuration_free(DNSConfiguration *c) {
         set_free(c->dns_servers);
         set_free(c->search_domains);
         set_free(c->fallback_dns_servers);
+        set_free(c->dns_scopes);
         free(c->ifname);
         free(c->dnssec_mode_str);
         free(c->dns_over_tls_mode_str);
@@ -194,10 +264,10 @@ static int dispatch_dns_configuration(const char *name, sd_json_variant *variant
                 { "fallbackServers",      SD_JSON_VARIANT_ARRAY,         dispatch_dns_server_array,    offsetof(DNSConfiguration, fallback_dns_servers),   0             },
                 { "negativeTrustAnchors", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,        offsetof(DNSConfiguration, negative_trust_anchors), 0             },
                 { "resolvConfMode",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(DNSConfiguration, resolv_conf_mode_str),   0             },
+                { "scopes",               SD_JSON_VARIANT_ARRAY,         dispatch_dns_scope_array,     offsetof(DNSConfiguration, dns_scopes),             0             },
 
                 /* The remaining fields are currently unused by wait-online. */
                 { "delegate",             _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
-                { "scopes",               _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
                 {},
 
         };
