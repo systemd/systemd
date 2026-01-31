@@ -6,6 +6,7 @@
 #include "sd-varlink.h"
 
 #include "bus-polkit.h"
+#include "dhcp-server-lease-internal.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "json-util.h"
@@ -199,6 +200,164 @@ static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *para
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(array), "Neighbors", SD_JSON_BUILD_VARIANT(array)));
 }
 
+static int link_append_dhcp_server_leases(Link *link, sd_json_variant *v, sd_json_variant **array) {
+        assert(link);
+        assert(array);
+
+        return sd_json_variant_append_arraybo(
+                        array,
+                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex),
+                        SD_JSON_BUILD_PAIR_STRING("InterfaceName", link->ifname),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("InterfaceAlternativeNames", link->alternative_names),
+                        SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(v), "Leases", SD_JSON_BUILD_EMPTY_ARRAY),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(v), "Leases", SD_JSON_BUILD_VARIANT(v)));
+}
+
+static int vl_method_get_dhcp_server_leases(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, Manager *manager) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+        assert(manager);
+
+        r = dispatch_interface(vlink, parameters, manager, &link);
+        if (r != 0)
+                return r;
+
+        if (link) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                if (link->dhcp_server) {
+                        r = dhcp_server_bound_leases_append_json(link->dhcp_server, &v);
+                        if (r < 0)
+                                return r;
+
+                        v = sd_json_variant_by_key(v, "Leases");
+                }
+
+                r = link_append_dhcp_server_leases(link, v, &array);
+                if (r < 0)
+                        return r;
+        } else
+                HASHMAP_FOREACH(link, manager->links_by_index) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                        if (!link->dhcp_server)
+                                continue;
+
+                        r = dhcp_server_bound_leases_append_json(link->dhcp_server, &v);
+                        if (r < 0)
+                                return r;
+
+                        v = sd_json_variant_by_key(v, "Leases");
+                        if (sd_json_variant_is_blank_array(v))
+                                continue;
+
+                        r = link_append_dhcp_server_leases(link, v, &array);
+                        if (r < 0)
+                                return r;
+                }
+
+        return sd_varlink_replybo(
+                        vlink,
+                        SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(array), "Leases", SD_JSON_BUILD_EMPTY_ARRAY),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(array), "Leases", SD_JSON_BUILD_VARIANT(array)));
+}
+
+static int link_get_bit_rates(Link *link, uint64_t *ret_tx, uint64_t *ret_rx) {
+        Manager *manager;
+        double interval_sec;
+        uint64_t tx, rx;
+
+        assert(link);
+        assert(ret_tx);
+        assert(ret_rx);
+
+        manager = link->manager;
+
+        if (!manager->use_speed_meter ||
+            manager->speed_meter_usec_old == 0 ||
+            !link->stats_updated) {
+                *ret_tx = UINT64_MAX;
+                *ret_rx = UINT64_MAX;
+                return 0;
+        }
+
+        assert(manager->speed_meter_usec_new > manager->speed_meter_usec_old);
+        interval_sec = (double) (manager->speed_meter_usec_new - manager->speed_meter_usec_old) / USEC_PER_SEC;
+
+        if (link->stats_new.tx_bytes > link->stats_old.tx_bytes)
+                tx = (uint64_t) ((link->stats_new.tx_bytes - link->stats_old.tx_bytes) / interval_sec);
+        else
+                tx = (uint64_t) ((UINT64_MAX - (link->stats_old.tx_bytes - link->stats_new.tx_bytes)) / interval_sec);
+
+        if (link->stats_new.rx_bytes > link->stats_old.rx_bytes)
+                rx = (uint64_t) ((link->stats_new.rx_bytes - link->stats_old.rx_bytes) / interval_sec);
+        else
+                rx = (uint64_t) ((UINT64_MAX - (link->stats_old.rx_bytes - link->stats_new.rx_bytes)) / interval_sec);
+
+        *ret_tx = tx;
+        *ret_rx = rx;
+        return 0;
+}
+
+static int link_append_bit_rates(Link *link, uint64_t tx, uint64_t rx, sd_json_variant **array) {
+        assert(link);
+        assert(array);
+
+        return sd_json_variant_append_arraybo(
+                        array,
+                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex),
+                        SD_JSON_BUILD_PAIR_STRING("InterfaceName", link->ifname),
+                        JSON_BUILD_PAIR_STRV_NON_EMPTY("InterfaceAlternativeNames", link->alternative_names),
+                        SD_JSON_BUILD_PAIR_CONDITION(tx == UINT64_MAX, "TxBitRate", SD_JSON_BUILD_NULL),
+                        SD_JSON_BUILD_PAIR_CONDITION(tx != UINT64_MAX, "TxBitRate", SD_JSON_BUILD_UNSIGNED(tx)),
+                        SD_JSON_BUILD_PAIR_CONDITION(rx == UINT64_MAX, "RxBitRate", SD_JSON_BUILD_NULL),
+                        SD_JSON_BUILD_PAIR_CONDITION(rx != UINT64_MAX, "RxBitRate", SD_JSON_BUILD_UNSIGNED(rx)));
+}
+
+static int vl_method_get_bit_rates(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, Manager *manager) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+        assert(manager);
+
+        r = dispatch_interface(vlink, parameters, manager, &link);
+        if (r != 0)
+                return r;
+
+        if (link) {
+                uint64_t tx, rx;
+
+                r = link_get_bit_rates(link, &tx, &rx);
+                if (r < 0)
+                        return r;
+
+                r = link_append_bit_rates(link, tx, rx, &array);
+                if (r < 0)
+                        return r;
+        } else
+                HASHMAP_FOREACH(link, manager->links_by_index) {
+                        uint64_t tx, rx;
+
+                        r = link_get_bit_rates(link, &tx, &rx);
+                        if (r < 0)
+                                return r;
+
+                        r = link_append_bit_rates(link, tx, rx, &array);
+                        if (r < 0)
+                                return r;
+                }
+
+        return sd_varlink_replybo(
+                        vlink,
+                        SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(array), "BitRates", SD_JSON_BUILD_EMPTY_ARRAY),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(array), "BitRates", SD_JSON_BUILD_VARIANT(array)));
+}
+
 static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "Ready", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, 0 },
@@ -312,6 +471,8 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Network.GetStates",            vl_method_get_states,
                         "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
                         "io.systemd.Network.GetLLDPNeighbors",     vl_method_get_lldp_neighbors,
+                        "io.systemd.Network.GetDHCPServerLeases",  vl_method_get_dhcp_server_leases,
+                        "io.systemd.Network.GetBitRates",          vl_method_get_bit_rates,
                         "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,

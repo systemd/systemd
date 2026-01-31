@@ -7,8 +7,8 @@
 
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
-#include "shared-forward.h"
 #include "in-addr-util.h"
+#include "shared-forward.h"
 
 typedef struct VxLanInfo {
         uint32_t vni;
@@ -133,4 +133,4 @@ typedef struct LinkInfo {
 LinkInfo* link_info_array_free(LinkInfo *array);
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkInfo*, link_info_array_free);
 
-int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret);
+int acquire_link_info(sd_varlink *vl, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret);

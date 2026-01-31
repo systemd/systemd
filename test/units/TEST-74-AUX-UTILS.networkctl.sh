@@ -140,3 +140,23 @@ SpeedMeter=yes
 EOF
 
 assert_in '# TEST DROP-IN FILE' "$(networkctl cat)"
+
+# Test networkctl status with JSON output (exercises Varlink methods)
+networkctl status test2
+networkctl status test2 --json=short | jq .
+networkctl status test2 --json=pretty | jq .
+
+# Test networkctl list with JSON output
+networkctl list --json=short | jq .
+
+# Verify the JSON output contains expected fields from Varlink
+json_output="$(networkctl status test2 --json=short)"
+assert_in '"Name":"test2"' "$json_output"
+assert_in '"Index":' "$json_output"
+
+# Give the speed meter time to collect statistics (it runs periodically)
+sleep 2
+systemctl reload systemd-networkd
+
+# Verify that status still works after reload (Varlink reconnection)
+networkctl status test2 --json=short | jq .
