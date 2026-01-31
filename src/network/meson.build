@@ -65,6 +65,7 @@ systemd_networkd_extract_sources = files(
         'networkd-manager.c',
         'networkd-manager-bus.c',
         'networkd-manager-varlink.c',
+        'networkd-varlink-metrics.c',
         'networkd-ndisc.c',
         'networkd-neighbor.c',
         'networkd-netlabel.c',

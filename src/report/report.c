@@ -23,7 +23,6 @@
 #define TIMEOUT_USEC (30 * USEC_PER_SEC) /* 30 seconds */
 
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-static bool arg_sort = false;
 
 typedef struct Context {
         unsigned n_open_connections;
@@ -84,19 +83,10 @@ static int metrics_on_query_reply(
                 goto finish;
         }
 
-        if (arg_sort) {
-                /* Collect metrics for later sorting */
-                if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
-                        return log_oom();
-                context->metrics[context->n_metrics++] = sd_json_variant_ref(parameters);
-        } else {
-                /* Output immediately */
-                sd_json_variant_dump(
-                                parameters,
-                                SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO | SD_JSON_FORMAT_FLUSH,
-                                stdout,
-                                NULL);
-        }
+        /* Collect metrics for later sorting */
+        if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
+                return log_oom();
+        context->metrics[context->n_metrics++] = sd_json_variant_ref(parameters);
 
 finish:
         if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
@@ -242,8 +232,7 @@ static int metrics_query(void) {
                 return log_error_errno(r, "Failed to run event loop: %m");
         }
 
-        if (arg_sort)
-                metrics_output_sorted(&context);
+        metrics_output_sorted(&context);
 
         context_done(&context);
 
@@ -264,7 +253,6 @@ static int help(void) {
                "     --version          Show package version\n"
                "     --user             Connect to user service manager\n"
                "     --system           Connect to system service manager (default)\n"
-               "     --sort             Sort metrics output\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -279,7 +267,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_USER,
                 ARG_SYSTEM,
-                ARG_SORT,
         };
 
         static const struct option options[] = {
@@ -287,7 +274,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version", no_argument, NULL, ARG_VERSION },
                 { "user",    no_argument, NULL, ARG_USER    },
                 { "system",  no_argument, NULL, ARG_SYSTEM  },
-                { "sort",    no_argument, NULL, ARG_SORT    },
                 {}
         };
 
@@ -307,9 +293,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 case ARG_SYSTEM:
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-                        break;
-                case ARG_SORT:
-                        arg_sort = true;
                         break;
                 case '?':
                         return -EINVAL;
