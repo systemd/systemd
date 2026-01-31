@@ -898,6 +898,7 @@ int manager_create_session(
                 bool remote,
                 const char *remote_user,
                 const char *remote_host,
+                bool remote_access,
                 Session **ret_session) {
 
         bool mangle_class = false;
@@ -1004,6 +1005,7 @@ int manager_create_session(
 
         session->original_type = session->type = type;
         session->remote = remote;
+        session->remote_access = remote_access;
         session->vtnr = vtnr;
         session->class = class;
 
@@ -1090,6 +1092,7 @@ static int manager_create_session_by_bus(
                 int remote,
                 const char *remote_user,
                 const char *remote_host,
+                int remote_access,
                 uint64_t flags) {
 
         int r;
@@ -1227,6 +1230,7 @@ static int manager_create_session_by_bus(
                         remote,
                         remote_user,
                         remote_host,
+                        remote_access,
                         &session);
         if (r == -EBUSY)
                 return sd_bus_error_set(error, BUS_ERROR_SESSION_BUSY, "Already running in a session or user slice");
@@ -1272,7 +1276,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
         pid_t leader_pid;
         uint32_t vtnr;
         uid_t uid;
-        int remote, r;
+        int remote, remote_access, r;
 
         assert(message);
 
@@ -1281,7 +1285,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
 
         r = sd_bus_message_read(
                         message,
-                        "uusssssussbss",
+                        "uusssssussbssb",
                         &uid,
                         &leader_pid,
                         &service,
@@ -1294,7 +1298,8 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         &display,
                         &remote,
                         &remote_user,
-                        &remote_host);
+                        &remote_host,
+                        &remote_access);
         if (r < 0)
                 return r;
 
@@ -1316,6 +1321,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         remote,
                         remote_user,
                         remote_host,
+                        remote_access,
                         /* flags= */ 0);
 }
 
@@ -1324,11 +1330,11 @@ static int method_create_session_pidfd(sd_bus_message *message, void *userdata, 
         uint64_t flags;
         uint32_t vtnr;
         uid_t uid;
-        int leader_fd = -EBADF, remote, r;
+        int leader_fd = -EBADF, remote, remote_access, r;
 
         r = sd_bus_message_read(
                         message,
-                        "uhsssssussbsst",
+                        "uhsssssussbssbt",
                         &uid,
                         &leader_fd,
                         &service,
@@ -1342,6 +1348,7 @@ static int method_create_session_pidfd(sd_bus_message *message, void *userdata, 
                         &remote,
                         &remote_user,
                         &remote_host,
+                        &remote_access,
                         &flags);
         if (r < 0)
                 return r;
@@ -1364,6 +1371,7 @@ static int method_create_session_pidfd(sd_bus_message *message, void *userdata, 
                         remote,
                         remote_user,
                         remote_host,
+                        remote_access,
                         flags);
 }
 
@@ -4027,6 +4035,7 @@ static const sd_bus_vtable manager_vtable[] = {
                                             "b", remote,
                                             "s", remote_user,
                                             "s", remote_host,
+                                            "b", remote_access,
                                             "a(sv)", properties),
                                 SD_BUS_RESULT("s", session_id,
                                               "o", object_path,
@@ -4052,6 +4061,7 @@ static const sd_bus_vtable manager_vtable[] = {
                                             "b", remote,
                                             "s", remote_user,
                                             "s", remote_host,
+                                            "b", remote_access,
                                             "t", flags,
                                             "a(sv)", properties),
                                 SD_BUS_RESULT("s", session_id,

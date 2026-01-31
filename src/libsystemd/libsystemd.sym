@@ -1084,4 +1084,5 @@ global:
         sd_event_set_exit_on_idle;
         sd_event_get_exit_on_idle;
         sd_varlink_is_connected;
+        sd_session_has_raccess;
 } LIBSYSTEMD_258;
