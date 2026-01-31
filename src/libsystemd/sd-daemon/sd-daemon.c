@@ -793,7 +793,7 @@ _public_ int sd_pidfd_get_inode_id(int pidfd, uint64_t *ret) {
         if (r == 0)
                 return -EBADF; /* pidfs is definitely around, so it's the fd that's of invalid type */
 
-        return pidfd_get_inode_id_impl(pidfd, ret);
+        return fd_get_inode_id(pidfd, ret);
 }
 
 _public_ int sd_booted(void) {

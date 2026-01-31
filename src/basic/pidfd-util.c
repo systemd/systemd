@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/fs.h>
 #include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <threads.h>
@@ -9,14 +8,12 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "mountpoint-util.h"
 #include "parse-util.h"
 #include "pidfd-util.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "unaligned.h"
 
 static thread_local int have_pidfs = -1;
 
@@ -230,56 +227,6 @@ int pidfd_get_cgroupid(int fd, uint64_t *ret) {
         return 0;
 }
 
-int pidfd_get_inode_id_impl(int fd, uint64_t *ret) {
-        static thread_local bool file_handle_supported = true;
-        int r;
-
-        assert(fd >= 0);
-
-        if (file_handle_supported) {
-                union {
-                        struct file_handle file_handle;
-                        uint8_t space[MAX_HANDLE_SZ];
-                } fh = {
-                        .file_handle.handle_bytes = sizeof(uint64_t),
-                        .file_handle.handle_type = FILEID_KERNFS,
-                };
-                int mnt_id;
-
-                r = RET_NERRNO(name_to_handle_at(fd, "", &fh.file_handle, &mnt_id, AT_EMPTY_PATH));
-                if (r >= 0) {
-                        if (ret)
-                                /* Note, "struct file_handle" is 32bit aligned usually, but we need to read a 64bit value from it */
-                                *ret = unaligned_read_ne64(fh.file_handle.f_handle);
-                        return 0;
-                }
-                assert(r != -EOVERFLOW);
-                if (is_name_to_handle_at_fatal_error(r))
-                        return r;
-
-                file_handle_supported = false;
-        }
-
-#if SIZEOF_INO_T == 8
-        struct stat st;
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (ret)
-                *ret = (uint64_t) st.st_ino;
-        return 0;
-
-#elif SIZEOF_INO_T == 4
-        /* On 32-bit systems (where sizeof(ino_t) == 4), the inode id returned by fstat() cannot be used to
-         * reliably identify the process, nor can we communicate the origin of the id with the clients.
-         * Hence let's just refuse to acquire pidfdid through fstat() here. All clients shall also insist on
-         * the 64-bit id from name_to_handle_at(). */
-        return -EOPNOTSUPP;
-#else
-#  error Unsupported ino_t size
-#endif
-}
-
 int pidfd_get_inode_id(int fd, uint64_t *ret) {
         int r;
 
@@ -291,7 +238,7 @@ int pidfd_get_inode_id(int fd, uint64_t *ret) {
         if (r == 0)
                 return -EOPNOTSUPP;
 
-        return pidfd_get_inode_id_impl(fd, ret);
+        return fd_get_inode_id(fd, ret);
 }
 
 int pidfd_get_inode_id_self_cached(uint64_t *ret) {
