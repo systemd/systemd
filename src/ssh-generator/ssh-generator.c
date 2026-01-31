@@ -37,6 +37,8 @@ static const char *arg_dest = NULL;
 static bool arg_auto = true;
 static char **arg_listen_extra = NULL;
 
+STATIC_DESTRUCTOR_REGISTER(arg_listen_extra, strv_freep);
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
