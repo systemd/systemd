@@ -694,6 +694,7 @@ units = [
           'conditions' : ['ENABLE_RFKILL'],
         },
         { 'file' : 'systemd-soft-reboot.service' },
+        { 'file' : 'systemd-ssh-vsock-generator.service.in' },
         {
           'file' : 'systemd-suspend-then-hibernate.service.in',
           'conditions' : ['ENABLE_HIBERNATE'],
