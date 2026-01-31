@@ -357,9 +357,6 @@ static int add_extra_sockets(
         assert(sshd_binary);
         assert(generated_sshd_template_unit);
 
-        if (strv_isempty(arg_listen_extra))
-                return 0;
-
         STRV_FOREACH(i, arg_listen_extra) {
                 _cleanup_free_ char *service = NULL, *socket = NULL;
 
