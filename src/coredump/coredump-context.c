@@ -8,14 +8,18 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "iovec-wrapper.h"
 #include "log.h"
 #include "memstream-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -568,6 +572,56 @@ int coredump_context_parse_from_argv(CoredumpContext *context, int argc, char **
                 if (r < 0)
                         return r;
         }
+
+        coredump_context_check_pidns(context);
+        return coredump_context_parse_from_procfs(context);
+}
+
+int coredump_context_parse_from_peer(CoredumpContext *context) {
+        int r;
+
+        assert(context);
+        assert(context->input_fd >= 0);
+
+        r = getpeerpidref(context->input_fd, &context->pidref);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get peer pidref: %m");
+
+        if (context->pidref.fd < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOMEDIUM), "We do not have pidfd of the crashed process.");
+
+        context->got_pidfd = true;
+
+        struct pidfd_info info = {
+                .mask = PIDFD_INFO_COREDUMP | PIDFD_INFO_COREDUMP_SIGNAL,
+        };
+
+        r = pidfd_get_info(context->pidref.fd, &info);
+        if (r < 0)
+                return log_error_errno(r, "ioctl(PIDFD_GET_INFO) failed: %m");
+
+        if (!FLAGS_SET(info.coredump_mask, PIDFD_COREDUMPED))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The process ["PID_FMT"] has not crashed.", context->pidref.pid);
+
+        if (FLAGS_SET(info.coredump_mask, PIDFD_COREDUMP_SKIP))
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
+                                       "Coredump generation for process ["PID_FMT"] is skipped.", context->pidref.pid);
+
+        context->uid = info.ruid;
+        context->gid = info.rgid;
+        context->dumpable = FLAGS_SET(info.coredump_mask, PIDFD_COREDUMP_USER) ? SUID_DUMP_USER : SUID_DUMP_SAFE;
+        context->signo = info.coredump_signal;
+
+        struct rlimit rl;
+        r = pid_getrlimit(info.pid, RLIMIT_CORE, &rl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get coredump size limit: %m");
+        context->rlimit = rl.rlim_cur;
+
+        r = pidref_gethostname_full(&context->pidref, GET_HOSTNAME_ALLOW_LOCALHOST | GET_HOSTNAME_FALLBACK_DEFAULT, &context->hostname);
+        if (r < 0)
+                log_warning_errno(r, "Failed to get hostname, ignoring: %m");
 
         coredump_context_check_pidns(context);
         return coredump_context_parse_from_procfs(context);

@@ -1,0 +1,30 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Register Coredump Pattern
+Documentation=man:systemd-coredump(8)
+DefaultDependencies=no
+Before=shutdown.target
+Conflicts=shutdown.target
+ConditionVirtualization=!container
+
+[Service]
+ExecStart={{LIBEXECDIR}}/systemd-coredump --register
+IPAddressDeny=any
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+Nice=9
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictRealtime=yes
+RuntimeMaxSec=5min
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
