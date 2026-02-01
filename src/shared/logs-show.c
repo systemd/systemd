@@ -501,20 +501,16 @@ static void parse_display_timestamp(
         if (source_realtime && safe_atou64(source_realtime, &t) >= 0 && VALID_REALTIME(t))
                 source_ts.realtime = t;
 
-        // FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime.
-        /*
         if (source_monotonic && safe_atou64(source_monotonic, &t) >= 0 && VALID_MONOTONIC(t))
                 source_ts.monotonic = t;
-        */
 
         (void) sd_journal_get_realtime_usec(j, &header_ts.realtime);
         (void) sd_journal_get_monotonic_usec(j, &header_ts.monotonic, &boot_id);
 
         /* Adjust timestamp if possible. */
         if (header_ts.realtime != USEC_INFINITY && header_ts.monotonic != USEC_INFINITY) {
-                if (source_ts.realtime == USEC_INFINITY && source_ts.monotonic != USEC_INFINITY)
-                        source_ts.realtime = map_clock_usec_raw(header_ts.realtime, header_ts.monotonic, source_ts.monotonic);
-                else if (source_ts.realtime != USEC_INFINITY && source_ts.monotonic == USEC_INFINITY)
+                /* FIXME: _SOURCE_MONOTONIC_TIMESTAMP is in CLOCK_BOOTTIME, hence we cannot use it for adjusting realtime. */
+                if (source_ts.realtime != USEC_INFINITY && source_ts.monotonic == USEC_INFINITY)
                         source_ts.monotonic = map_clock_usec_raw(header_ts.monotonic, header_ts.realtime, source_ts.realtime);
         }
 
