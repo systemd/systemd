@@ -592,8 +592,8 @@ static int fd_copy_symlink(
         }
 
         if (fchownat(dt, to,
-                     uid_is_valid(override_uid) ? override_uid : st->st_uid,
-                     gid_is_valid(override_gid) ? override_gid : st->st_gid,
+                     uid_is_valid(override_uid) && !FLAGS_SET(copy_flags, COPY_SOURCE_UID_RANGE) ? override_uid : st->st_uid,
+                     gid_is_valid(override_gid) && !FLAGS_SET(copy_flags, COPY_SOURCE_UID_RANGE) ? override_gid : st->st_gid,
                      AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
 
@@ -947,8 +947,8 @@ static int fd_copy_regular(
                 goto fail;
 
         if (fchown(fdt,
-                   uid_is_valid(override_uid) ? override_uid : st->st_uid,
-                   gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
+                   uid_is_valid(override_uid) && !FLAGS_SET(copy_flags, COPY_SOURCE_UID_RANGE) ? override_uid : st->st_uid,
+                   gid_is_valid(override_gid) && !FLAGS_SET(copy_flags, COPY_SOURCE_UID_RANGE) ? override_gid : st->st_gid) < 0)
                 r = -errno;
 
         if (fchmod(fdt, st->st_mode & 07777) < 0)
@@ -1032,8 +1032,8 @@ static int fd_copy_fifo(
                 return r;
 
         if (fchownat(dt, to,
-                     uid_is_valid(override_uid) ? override_uid : st->st_uid,
-                     gid_is_valid(override_gid) ? override_gid : st->st_gid,
+                     uid_is_valid(override_uid) && !FLAGS_SET(copy_flags, COPY_SOURCE_UID_RANGE) ? override_uid : st->st_uid,
+                     gid_is_valid(override_gid) && !FLAGS_SET(copy_flags, COPY_SOURCE_UID_RANGE) ? override_gid : st->st_gid,
                      AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
 
@@ -1085,8 +1085,8 @@ static int fd_copy_node(
                 return r;
 
         if (fchownat(dt, to,
-                     uid_is_valid(override_uid) ? override_uid : st->st_uid,
-                     gid_is_valid(override_gid) ? override_gid : st->st_gid,
+                     uid_is_valid(override_uid) && !FLAGS_SET(copy_flags, COPY_SOURCE_UID_RANGE) ? override_uid : st->st_uid,
+                     gid_is_valid(override_gid) && !FLAGS_SET(copy_flags, COPY_SOURCE_UID_RANGE) ? override_gid : st->st_gid,
                      AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
 
@@ -1268,8 +1268,8 @@ static int fd_copy_directory(
 finish:
         if (FLAGS_SET(copy_flags, COPY_MERGE_APPLY_STAT) || !exists) {
                 if (fchown(fdt,
-                           uid_is_valid(override_uid) ? override_uid : st->st_uid,
-                           gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
+                           uid_is_valid(override_uid) && !FLAGS_SET(copy_flags, COPY_SOURCE_UID_RANGE) ? override_uid : st->st_uid,
+                           gid_is_valid(override_gid) && !FLAGS_SET(copy_flags, COPY_SOURCE_UID_RANGE) ? override_gid : st->st_gid) < 0)
                         RET_GATHER(ret, -errno);
 
                 if (fchmod(fdt, st->st_mode & 07777) < 0)
@@ -1348,6 +1348,15 @@ static int fd_copy_tree_generic(
         int r;
 
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
+
+        /* If COPY_SOURCE_UID_RANGE is set, error on inodes not owned by UIDs in the specified range.
+         * In this mode, override_uid/override_gid are interpreted as min/max UID range,
+         * and copied files get their original ownership preserved. */
+        if (FLAGS_SET(copy_flags, COPY_SOURCE_UID_RANGE) &&
+            uid_is_valid(override_uid) &&
+            ((st->st_uid < override_uid || st->st_uid > (uid_t) override_gid) ||
+            ((uid_t) st->st_gid < override_uid || st->st_gid > override_gid)))
+                return -ERANGE;
 
         if (S_ISDIR(st->st_mode))
                 return fd_copy_directory(df, from, st, dt, to, original_device, depth_left-1, override_uid,

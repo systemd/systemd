@@ -18,7 +18,7 @@ Before=sysinit.target shutdown.target
 DefaultDependencies=no
 
 [Service]
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE CAP_BPF CAP_PERFMON CAP_SETGID CAP_SETUID CAP_DAC_OVERRIDE CAP_CHOWN CAP_SYS_ADMIN
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE CAP_BPF CAP_PERFMON CAP_SETGID CAP_SETUID CAP_DAC_OVERRIDE CAP_CHOWN CAP_SYS_ADMIN CAP_FOWNER
 ExecStart={{LIBEXECDIR}}/systemd-mountfsd
 IPAddressDeny=any
 LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
@@ -28,7 +28,6 @@ NoNewPrivileges=yes
 ProtectHostname=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 RestrictRealtime=yes
-RestrictSUIDSGID=yes
 
 # FIXME: libseccomp (as of 2.6.0) doesn't know the open_tree_attr() system call
 # yet which we need. Thus, applying any system call filter would block this

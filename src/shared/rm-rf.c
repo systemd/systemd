@@ -16,6 +16,7 @@
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "user-util.h"
 
 /* We treat tmpfs/ramfs + cgroupfs as non-physical file systems. cgroupfs is similar to tmpfs in a way
  * after all: we can create arbitrary directory hierarchies in it, and hence can also use rm_rf() on it
@@ -183,7 +184,9 @@ static int rm_rf_children_impl(
                 int fd,
                 RemoveFlags flags,
                 const struct stat *root_dev,
-                mode_t old_mode);
+                mode_t old_mode,
+                uid_t uid_min,
+                uid_t uid_max);
 
 static int rm_rf_inner_child(
                 int fd,
@@ -191,7 +194,9 @@ static int rm_rf_inner_child(
                 int is_dir,
                 RemoveFlags flags,
                 const struct stat *root_dev,
-                bool allow_recursion) {
+                bool allow_recursion,
+                uid_t uid_min,
+                uid_t uid_max) {
 
         struct stat st;
         int r, q = 0;
@@ -201,6 +206,7 @@ static int rm_rf_inner_child(
 
         if (is_dir < 0 ||
             root_dev ||
+            uid_is_valid(uid_min) ||
             (is_dir > 0 && (root_dev || (flags & REMOVE_SUBVOLUME)))) {
 
                 r = fstatat_harder(fd, fname, &st, AT_SYMLINK_NOFOLLOW, flags);
@@ -209,6 +215,10 @@ static int rm_rf_inner_child(
 
                 is_dir = S_ISDIR(st.st_mode);
         }
+
+        /* If UID filtering is enabled, skip files not owned by UIDs in the allowed range */
+        if (uid_is_valid(uid_min) && (st.st_uid < uid_min || st.st_uid > uid_max))
+                return -ERANGE;
 
         if (is_dir) {
                 /* If root_dev is set, remove subdirectories only if device is same */
@@ -248,7 +258,7 @@ static int rm_rf_inner_child(
 
                 /* We pass REMOVE_PHYSICAL here, to avoid doing the fstatfs() to check the file system type
                  * again for each directory */
-                q = rm_rf_children_impl(subdir_fd, flags | REMOVE_PHYSICAL, root_dev, old_mode);
+                q = rm_rf_children_impl(subdir_fd, flags | REMOVE_PHYSICAL, root_dev, old_mode, uid_min, uid_max);
 
         } else if (flags & REMOVE_ONLY_DIRECTORIES)
                 return 0;
@@ -288,14 +298,16 @@ int rm_rf_children(
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        return rm_rf_children_impl(fd, flags, root_dev, st.st_mode);
+        return rm_rf_children_impl(fd, flags, root_dev, st.st_mode, /* uid_min= */ UID_INVALID, /* uid_max= */ UID_INVALID);
 }
 
 static int rm_rf_children_impl(
                 int fd,
                 RemoveFlags flags,
                 const struct stat *root_dev,
-                mode_t old_mode) {
+                mode_t old_mode,
+                uid_t uid_min,
+                uid_t uid_max) {
 
         _cleanup_(free_todo_entries) TodoEntry *todos = NULL;
         size_t n_todo = 0;
@@ -372,7 +384,7 @@ static int rm_rf_children_impl(
 
                         is_dir = de->d_type == DT_UNKNOWN ? -1 : de->d_type == DT_DIR;
 
-                        r = rm_rf_inner_child(fd, de->d_name, is_dir, flags, root_dev, false);
+                        r = rm_rf_inner_child(fd, de->d_name, is_dir, flags, root_dev, false, uid_min, uid_max);
                         if (r == -EISDIR) {
                                 /* Push the current working state onto the todo list */
 
@@ -464,7 +476,7 @@ int rm_rf_at(int dir_fd, const char *path, RemoveFlags flags) {
         fd = openat_harder(dir_fd, path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME, flags, &old_mode);
         if (fd >= 0) {
                 /* We have a dir */
-                r = rm_rf_children_impl(fd, flags, NULL, old_mode);
+                r = rm_rf_children_impl(fd, flags, NULL, old_mode, /* uid_min= */ UID_INVALID, /* uid_max= */ UID_INVALID);
 
                 if (FLAGS_SET(flags, REMOVE_ROOT))
                         q = RET_NERRNO(unlinkat(dir_fd, path, AT_REMOVEDIR));
@@ -501,10 +513,10 @@ int rm_rf_at(int dir_fd, const char *path, RemoveFlags flags) {
                 return q;
         return 0;
 }
+int rm_rf_child_full(int fd, const char *name, RemoveFlags flags, uid_t uid_min, uid_t uid_max) {
 
-int rm_rf_child(int fd, const char *name, RemoveFlags flags) {
-
-        /* Removes one specific child of the specified directory */
+        /* Removes one specific child of the specified directory. If uid_min is valid, only removes
+         * files/directories owned by UIDs in the range [uid_min, uid_max]. */
 
         if (fd < 0)
                 return -EBADF;
@@ -518,7 +530,7 @@ int rm_rf_child(int fd, const char *name, RemoveFlags flags) {
         if (FLAGS_SET(flags, REMOVE_ONLY_DIRECTORIES|REMOVE_SUBVOLUME))
                 return -EINVAL;
 
-        return rm_rf_inner_child(fd, name, -1, flags, NULL, true);
+        return rm_rf_inner_child(fd, name, -1, flags, NULL, true, uid_min, uid_max);
 }
 
 const char* rm_rf_safe(const char *p) {

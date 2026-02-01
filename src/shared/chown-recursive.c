@@ -18,14 +18,22 @@ static int chown_one(
                 const struct stat *st,
                 uid_t uid,
                 gid_t gid,
-                mode_t mask) {
+                mode_t mask,
+                uid_t source_uid,
+                gid_t source_gid) {
 
         int r;
 
         assert(fd >= 0);
         assert(st);
 
-        /* Drop any ACL if there is one */
+        /* Skip if inode is not owned by source_uid/source_gid. */
+        if (uid_is_valid(source_uid) && st->st_uid != source_uid)
+                return 0;
+        if (gid_is_valid(source_gid) && st->st_gid != source_gid)
+                return 0;
+
+        /* Drop any ACL if there is one. */
         FOREACH_STRING(n, "system.posix_acl_access", "system.posix_acl_default") {
                 r = xremovexattr(fd, /* path= */ NULL, AT_EMPTY_PATH, n);
                 if (r < 0 && !ERRNO_IS_NEG_XATTR_ABSENT(r))
@@ -44,7 +52,9 @@ static int chown_recursive_internal(
                 const struct stat *st,
                 uid_t uid,
                 gid_t gid,
-                mode_t mask) {
+                mode_t mask,
+                uid_t source_uid,
+                gid_t source_gid) {
 
         _cleanup_closedir_ DIR *d = NULL;
         bool changed = false;
@@ -83,13 +93,14 @@ static int chown_recursive_internal(
                         if (subdir_fd < 0)
                                 return subdir_fd;
 
-                        r = chown_recursive_internal(subdir_fd, &fst, uid, gid, mask); /* takes possession of subdir_fd even on failure */
+                        /* Takes possession of subdir_fd even on failure. */
+                        r = chown_recursive_internal(subdir_fd, &fst, uid, gid, mask, source_uid, source_gid);
                         if (r < 0)
                                 return r;
                         if (r > 0)
                                 changed = true;
                 } else {
-                        r = chown_one(path_fd, &fst, uid, gid, mask);
+                        r = chown_one(path_fd, &fst, uid, gid, mask, source_uid, source_gid);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -97,7 +108,7 @@ static int chown_recursive_internal(
                 }
         }
 
-        r = chown_one(dirfd(d), st, uid, gid, mask);
+        r = chown_one(dirfd(d), st, uid, gid, mask, source_uid, source_gid);
         if (r < 0)
                 return r;
 
@@ -133,15 +144,18 @@ int path_chown_recursive(
             ((st.st_mode & ~mask & 07777) == 0))
                 return 0;
 
-        return chown_recursive_internal(TAKE_FD(fd), &st, uid, gid, mask); /* we donate the fd to the call, regardless if it succeeded or failed */
+        /* We donate the fd to the call, regardless if it succeeded or failed. */
+        return chown_recursive_internal(
+                        TAKE_FD(fd),
+                        &st,
+                        uid,
+                        gid,
+                        mask,
+                        /* source_uid= */ UID_INVALID,
+                        /* source_gid= */ GID_INVALID);
 }
 
-int fd_chown_recursive(
-                int fd,
-                uid_t uid,
-                gid_t gid,
-                mode_t mask) {
-
+int fd_chown_recursive_full(int fd, uid_t uid, gid_t gid, mode_t mask, uid_t source_uid, gid_t source_gid) {
         int duplicated_fd = -EBADF;
         struct stat st;
 
@@ -170,5 +184,6 @@ int fd_chown_recursive(
         if (duplicated_fd < 0)
                 return -errno;
 
-        return chown_recursive_internal(duplicated_fd, &st, uid, gid, mask); /* fd donated even on failure */
+        /* The file descriptor is donated even on failure. */
+        return chown_recursive_internal(duplicated_fd, &st, uid, gid, mask, source_uid, source_gid);
 }
