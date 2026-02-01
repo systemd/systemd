@@ -151,7 +151,7 @@ typedef struct {
         bool use_saved_entry;
         bool use_saved_entry_efivar;
         bool beep;
-        bool sysfail_occured;
+        bool sysfail_occurred;
         int64_t console_mode;
         int64_t console_mode_efivar;
 } Config;
@@ -1774,7 +1774,7 @@ static bool sysfail_process(Config *config) {
         if (reason_str)
                 (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderSysFailReason", reason_str, 0);
 
-        config->sysfail_occured = true;
+        config->sysfail_occurred = true;
 
         return true;
 }
@@ -1784,7 +1784,7 @@ static void config_select_default_entry(Config *config) {
 
         assert(config);
 
-        if (config->sysfail_occured) {
+        if (config->sysfail_occurred) {
                 i = config_find_entry(config, config->entry_sysfail);
                 if (i != IDX_INVALID) {
                         config->idx_default = i;
