@@ -1,0 +1,13 @@
+# This file is part of systemd.
+
+# Hyper-V vsock transport
+drivers:hv_sock
+ ID_VSOCK_TRANSPORT=1
+
+# virtio vsock transport
+drivers:vmw_vsock_virtio_transport
+ ID_VSOCK_TRANSPORT=1
+
+# VMware vsock transport
+drivers:vmw_vsock_vmci_transport
+ ID_VSOCK_TRANSPORT=1

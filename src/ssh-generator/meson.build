@@ -4,7 +4,15 @@ executables += [
         generator_template + {
                 'name' : 'systemd-ssh-generator',
                 'sources' : files('ssh-generator.c'),
-                'extract' : files('ssh-util.c'),
+                'extract' : files(
+                        'ssh-generator-util.c',
+                        'ssh-util.c'
+                ),
+        },
+        libexec_template + {
+                'name' : 'systemd-ssh-vsock-generator',
+                'sources' : files('ssh-vsock-generator.c'),
+                'objects' : ['systemd-ssh-generator'],
         },
         libexec_template + {
                 'name' : 'systemd-ssh-proxy',
