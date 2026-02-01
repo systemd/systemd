@@ -274,6 +274,8 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(negativeTrustAnchors, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DNSSEC mode."),
                 SD_VARLINK_DEFINE_FIELD(dnssec, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Indicates if the current DNS server supports DNSSEC. Always false if DNSSEC mode is \"no\"."),
+                SD_VARLINK_DEFINE_FIELD(dnssecSupported, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DNSOverTLS mode."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(dnsOverTLS, DNSOverTLSMode, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("LLMNR support."),
