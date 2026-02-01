@@ -27,9 +27,11 @@ restore_esp() {
     fi
 
     if [ -d /tmp/esp.bak/EFI/ ]; then
+        mkdir -p "$(bootctl --print-esp-path)/EFI/"
         cp -r /tmp/esp.bak/EFI/* "$(bootctl --print-esp-path)/EFI/"
     fi
     if [ -d /tmp/esp.bak/loader/ ]; then
+        mkdir -p "$(bootctl --print-esp-path)/loader/"
         cp -r /tmp/esp.bak/loader/* "$(bootctl --print-esp-path)/loader/"
     fi
     rm -rf /tmp/esp.bak
@@ -40,13 +42,19 @@ backup_esp() {
         return
     fi
 
+    # make a backup of the two key dirs in the ESP, and delete them
+
     if [[ -d "$(bootctl --print-esp-path)/EFI" ]]; then
         mkdir -p /tmp/esp.bak
         cp -r "$(bootctl --print-esp-path)/EFI/" /tmp/esp.bak/
+        rm -rf "$(bootctl --print-esp-path)/EFI"
+        mkdir "$(bootctl --print-esp-path)/EFI"
     fi
     if [[ -d "$(bootctl --print-esp-path)/loader" ]]; then
         mkdir -p /tmp/esp.bak
         cp -r "$(bootctl --print-esp-path)/loader/" /tmp/esp.bak/
+        rm -rf "$(bootctl --print-esp-path)/loader"
+        mkdir "$(bootctl --print-esp-path)/loader"
     fi
 }
 
@@ -362,6 +370,24 @@ testcase_00_secureboot() {
     bootctl status | grep "global-addon: loader/addons/test.addon.efi" >/dev/null
     bootctl status | grep "cmdline" | grep addonfoobar >/dev/null
     grep -q addonfoobar /proc/cmdline
+}
+
+remove_root_dir() {
+    rm -rf "$ROOTDIR"
+}
+
+testcase_install_varlink() {
+
+    varlinkctl introspect "$(type -p bootctl)"
+
+    if [ $# -eq 0 ]; then
+        backup_esp
+        trap restore_esp RETURN ERR
+    fi
+
+    (! bootctl is-installed )
+    SYSTEMD_LOG_TARGET=console varlinkctl call "$(type -p bootctl)" io.systemd.BootControl.Install "{\"operation\":\"new\",\"touchVariables\":false}"
+    bootctl is-installed
 }
 
 run_testcases
