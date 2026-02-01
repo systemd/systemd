@@ -4,12 +4,12 @@
 # Dimitris Spingos <dmtrs32@gmail.com>, 2014.
 # Dimitris Spingos (Δημήτρης Σπίγγος) <dmtrs32@gmail.com>, 2014.
 # Dimitrys Meliates <demetresmeliates+fedora@gmail.com>, 2024.
-# Jim Spentzos <jimspentzos2000@gmail.com>, 2025.
+# Jim Spentzos <jimspentzos2000@gmail.com>, 2025, 2026.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-10-25 17:21+0000\n"
+"PO-Revision-Date: 2026-02-01 15:58+0000\n"
 "Last-Translator: Jim Spentzos <jimspentzos2000@gmail.com>\n"
 "Language-Team: Greek <https://translate.fedoraproject.org/projects/systemd/"
 "main/el/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.13.3\n"
+"X-Generator: Weblate 5.15.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -563,7 +563,6 @@ msgstr ""
 "διαχείριση του πλήκτρου ενεργοποίησης του συστήματος."
 
 #: src/login/org.freedesktop.login1.policy:128
-#, fuzzy
 msgid "Allow non-logged-in user to run programs"
 msgstr "Να επιτρέπεται σε μη συνδεμένους χρήστες να εκτελούν προγράμματα"
 
@@ -668,9 +667,8 @@ msgstr ""
 "ζήτησε να αποτραπεί."
 
 #: src/login/org.freedesktop.login1.policy:235
-#, fuzzy
 msgid "Halt the system"
-msgstr "Αδρανοποίηση του συτήματος"
+msgstr "Αδρανοποίηση του συστήματος"
 
 #: src/login/org.freedesktop.login1.policy:236
 #, fuzzy
