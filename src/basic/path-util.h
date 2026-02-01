@@ -137,6 +137,7 @@ int path_find_last_component(const char *path, bool accept_dot_dot, const char *
 const char* last_path_component(const char *path);
 int path_extract_filename(const char *path, char **ret);
 int path_extract_directory(const char *path, char **ret);
+int path_extract_directory_and_filename(const char *path, char **dir_out, char **filename_out);
 
 bool filename_part_is_valid(const char *p) _pure_;
 bool filename_is_valid(const char *p) _pure_;
