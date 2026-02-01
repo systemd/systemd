@@ -683,27 +683,17 @@ static int dir_cleanup(
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
-                /* If statx() is supported, use it. It's preferable over fstatat() since it tells us
-                 * explicitly where we are looking at a mount point, for free as side information. Determining
-                 * the same information without statx() is hard, see the complexity of path_is_mount_point(),
-                 * and also much slower as it requires a number of syscalls instead of just one. Hence, when
-                 * we have modern statx() we use it instead of fstat() and do proper mount point checks,
-                 * while on older kernels's well do traditional st_dev based detection of mount points.
-                 *
-                 * Using statx() for detecting mount points also has the benefit that we handle weird file
-                 * systems such as overlayfs better where each file is originating from a different
-                 * st_dev. */
-
                 struct statx sx;
-                if (statx(dirfd(d), de->d_name,
-                          AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
-                          STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
-                          &sx) < 0) {
-                        if (errno == ENOENT)
-                                continue;
-
+                r = xstatx(dirfd(d), de->d_name,
+                           AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                           STATX_TYPE|STATX_MODE|STATX_UID,
+                           STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
+                           &sx);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0) {
                         /* FUSE, NFS mounts, SELinux might return EACCES */
-                        log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                        log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
                                        "statx(%s/%s) failed: %m", p, de->d_name);
                         continue;
                 }
