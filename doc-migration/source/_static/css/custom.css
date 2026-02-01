@@ -1,0 +1,62 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+.sidebar-logo {
+  margin-inline: 0;
+}
+
+section {
+  margin-block-end: 2em;
+}
+
+@media (max-width: 63em) {
+  /* Space between mobile header buttons */
+  .mobile-header .header-left, .mobile-header .header-right {
+    gap: 0.75em;
+  }
+}
+
+/* Make Toc section headers bold */
+.toc-tree li a:has(+ ul) {
+  font-weight: 600;
+}
+
+/* Hide Toc captions in HTML */
+.toctree-wrapper .caption span.caption-text {
+  display: none;
+}
+
+.sidebar-tree .reference.internal .reference-name,
+.toctree-wrapper .reference.internal .reference-name {
+  font-weight: 600;
+}
+.sidebar-tree .reference.internal .reference-description,
+.toctree-wrapper .reference.internal .reference-description {
+  color: var(--color-foreground-muted);
+}
+
+.sidebar-tree .reference.internal.current {
+  border-right: 5px solid var(--color-sidebar-link-text--top-level)
+}
+
+.sidebar-logo-container {
+  margin-block: 2.4em 1.6em;
+}
+
+
+.sig-name,
+.sig-prename {
+  color: var(--color-content-foreground);
+}
+
+.std.option {
+  margin-left: 2rem;
+}
+
+/* Fix indent on kbd inside systemd directive */
+
+.sig kbd:not(.compound) {
+  text-indent: 0;
+}
+.sig kbd span.pre {
+  text-indent: unset;
+}
