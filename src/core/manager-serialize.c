@@ -203,6 +203,36 @@ static int manager_deserialize_one_unit(Manager *m, const char *name, FILE *f, F
         if (r < 0)
                 return log_notice_errno(r, "Failed to load unit \"%s\", skipping deserialization: %m", name);
 
+        if (!streq(u->id, name)) {
+                /*
+                 * The unit from the state file (name) resolved to a different canonical unit (u->id). This
+                 * means the unit in the state file is now an alias that wasn't an alias when the state was
+                 * serialised.
+                 *
+                 * It is very important to note that this only affects STALE aliases, that is, units that
+                 * were independent when the state file was written, but are now aliases (either because a
+                 * reload created the symlink, or the symlink existed but this is the first reload). Normal
+                 * aliases that were already aliases during the most recent serialisation are filtered out in
+                 * in manager_serialise_units(), so they never appear in the state file.
+                 *
+                 * The serialised data represents the old, independent unit. Deserialising this stale state
+                 * would corrupt the canonical unit's live state, so we must discard it.
+                 *
+                 * Take as an example, a.service is running. Someone created symlink b.service -> a.service.
+                 * On first reload, the state file still has b.service as an independent dead unit (from
+                 * before the symlink existed), but b.service now resolves to a.service. We must discard
+                 * b.service's stale dead state to preserve a.service's running state.
+                 *
+                 * Note: This log message is checked in TEST-07-PID1.alias-corruption.sh, so the test case
+                 * may need adjustment if the message is changed.
+                 */
+                log_warning("Unit file for '%s' was overridden by a symlink to '%s'. Skipping stale state of old unit. Any processes from the overridden unit are now abandoned!",
+                            name,
+                            u->id);
+
+                return unit_deserialize_state_skip(f);
+        }
+
         r = unit_deserialize_state(u, f, fds);
         if (r == -ENOMEM)
                 return log_oom();
