@@ -6082,8 +6082,8 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        arg_directory = strdup(snapshot_dir);
-                        if (!arg_directory) {
+                        r = free_and_strdup(&arg_directory, snapshot_dir);
+                        if (r < 0) {
                                 log_oom();
                                 goto finish;
                         }

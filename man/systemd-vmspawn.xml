@@ -125,6 +125,17 @@
           <xi:include href="version-info.xml" xpointer="v260"/></listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><option>-x</option></term>
+          <term><option>--ephemeral</option></term>
+
+          <listitem><para>If specified, the VM is run with a temporary snapshot of its file system that is removed
+          immediately when the VM terminates. Only works with <option>--image=</option> currently.
+
+          Note that <option>--ephemeral</option> will not work with <option>--extra-drive=</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
