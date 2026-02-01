@@ -4004,8 +4004,7 @@ static int pcr_prediction_add_result(
                 Tpm2PCRPrediction *context,
                 Tpm2PCRPredictionResult *result,
                 uint32_t pcr,
-                const char *path,
-                size_t offset) {
+                const char *path) {
 
         _cleanup_free_ Tpm2PCRPredictionResult *copy = NULL;
         int r;
@@ -4046,8 +4045,6 @@ static int event_log_component_variant_calculate(
                 EventLogComponentVariant *variant,
                 uint32_t pcr,
                 const char *path) {
-
-        int r;
 
         assert(context);
         assert(result);
@@ -4107,13 +4104,6 @@ static int event_log_component_variant_calculate(
 
                         assert(l == (unsigned) sz);
                 }
-
-                /* This is a valid result once we hit the start location */
-                if (arg_location_start && strcmp(component->id, arg_location_start) >= 0) {
-                        r = pcr_prediction_add_result(context, result, pcr, path, rr - variant->records);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         return 0;
@@ -4137,7 +4127,7 @@ static int event_log_predict_pcrs(
         /* Check if we reached the end of the components, generate a result, and backtrack */
         if (component_index >= el->n_components ||
             (arg_location_end && strcmp(el->components[component_index]->id, arg_location_end) > 0)) {
-                r = pcr_prediction_add_result(context, parent_result, pcr, path, /* offset= */ 0);
+                r = pcr_prediction_add_result(context, parent_result, pcr, path);
                 if (r < 0)
                         return r;
 
@@ -4145,6 +4135,13 @@ static int event_log_predict_pcrs(
         }
 
         component = ASSERT_PTR(el->components[component_index]);
+
+        /* Check if we are just about to process a component after start, if so record a result and continue. */
+        if (arg_location_start && strcmp(component->id, arg_location_start) > 0) {
+                r = pcr_prediction_add_result(context, parent_result, pcr, path);
+                if (r < 0)
+                        return r;
+        }
 
         FOREACH_ARRAY(ii, component->variants, component->n_variants) {
                 _cleanup_free_ Tpm2PCRPredictionResult *result = NULL;
