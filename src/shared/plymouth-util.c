@@ -56,3 +56,14 @@ int plymouth_send_msg(const char *text, bool pause_spinner) {
 
         return 0;
 }
+
+int plymouth_hide_splash(void) {
+        int r;
+
+        r = plymouth_send_raw("H\0", 2, SOCK_NONBLOCK);
+        if (r < 0)
+                return log_full_errno(ERRNO_IS_NO_PLYMOUTH(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to communicate with plymouth: %m");
+
+        return 0;
+}
