@@ -1,0 +1,17 @@
+{
+    "type": "devicetree",
+    "name": "HP 103C_5335M8 HP OmniBook X",
+    "compatible": "hp,omnibook-x14-fe1",
+    "hwids": [
+        "3fdb269e-c359-5004-b4e3-8541ef3580c9",
+        "29a43fda-41e4-5db5-b6d3-012d0674d84f",
+        "9c3e4a5b-8fa2-5045-9c4f-441307fa3b08",
+        "271cca67-bd9e-5dd6-8e5f-b5f6b969da97",
+        "612e268b-1233-5af6-b478-5596d3573d35",
+        "1d8361a7-1b3a-5915-8a35-03a3c1cf9c2e",
+        "6fe7a469-b01a-5530-9a34-2dd089e0e006",
+        "5120f011-8f7e-5ca5-9143-de545e288712",
+        "d4db0558-de1b-562b-bc23-3e0caadd4c94",
+        "38e7030f-993f-5bda-9ce8-ae13a13d7b5a"
+    ]
+}
