@@ -47,6 +47,7 @@
 #include "path-util.h"
 #include "percent-util.h"
 #include "pkcs11-util.h"
+#include "plymouth-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
@@ -2886,6 +2887,9 @@ static int create_interactively(void) {
                 log_debug("Prompting for user creation was not requested.");
                 return 0;
         }
+
+        /* Needs to be called before mute_console or it will garble the screen */
+        (void) plymouth_hide_splash();
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *mute_console_link = NULL;
         (void) mute_console(&mute_console_link);
