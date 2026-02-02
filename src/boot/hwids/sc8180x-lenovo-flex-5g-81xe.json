@@ -1,0 +1,18 @@
+{
+    "type": "devicetree",
+    "name": "LENOVO Yoga 5G 14Q8CX05",
+    "compatible": "lenovo,flex-5g",
+    "hwids": [
+        "ea646c11-3da1-5c8d-9346-8ff156746650",
+        "5100eeed-c5e2-5b74-9c24-a22ca0644826",
+        "ddb3bcda-db7b-579d-9dd9-bcc4f5b052b8",
+        "fb364c09-efc0-5d16-ac97-0a3e6235b16c",
+        "7e7007ac-603c-55ef-bb77-3548784b9578",
+        "566b9ae8-a7fd-5c44-94d6-bac3e4cf38a7",
+        "6f3bdfb7-f832-5c5f-9777-9e3db35e22a6",
+        "c4ea686c-c56c-5e8e-a91e-89056683d417",
+        "a1a13249-2689-5c6d-a43f-98af040284c4",
+        "01439aea-e75c-5fbb-8842-18dcd1a7b8b3",
+        "65ab9f32-bbc8-52d3-87f9-b618fda7c07e"
+    ]
+}

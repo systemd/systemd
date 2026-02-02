@@ -1,0 +1,27 @@
+{
+    "type": "devicetree",
+    "name": "Microsoft Corporation Surface",
+    "compatible": "microsoft,denali-oled",
+    "hwids": [
+        "66f9d954-5c66-5577-b3e4-e3f14f87d2ff",
+        "5a384f15-464d-5da8-9311-a2c021759afc",
+        "14b96570-4bc4-541a-9aef-1b7e2b61d7cd",
+        "aca467c0-5fc2-59ad-8ed5-1b7a0988d11c",
+        "95971fb3-d478-591f-9ea3-eb0af0d1dfb5",
+        "c9c14db9-2b61-597a-a4ba-84397fe75f63",
+        "7cef06f5-e7e6-56d7-b123-a6d640a5d302",
+        "48b86a5e-1955-5799-9577-150f9e1a69e4",
+        "06128fee-87dc-50f6-8a3f-97cd9a6d8bf6",
+        "84b2e1d1-e695-5f41-8c41-cf1f059c616a",
+        "16a47337-1f8b-5bd3-b3bd-8e50b31cb1c9",
+        "01bf1e61-d2e0-518b-bb46-eb4d1f2b1af1",
+        "584a5084-15f2-5d20-917b-57f299e61f7e",
+        "64fbb7cb-3c5b-5fd7-a361-41d1d0ef2ff2",
+        "fa26249f-6748-5ff3-8f78-b9cf9ab4ed2f",
+        "a362faea-8d41-5642-a48e-c0349d96ad60",
+        "fdc060ef-c134-5735-8b51-bfb157640a5c",
+        "d752a22b-1fd8-53c3-89ef-8ca95618134a",
+        "ca2ff828-b404-5253-9e0e-579c93bfb059",
+        "2ea92a70-ac64-51f7-a395-dc86b06f4e0a"
+    ]
+}
