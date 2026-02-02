@@ -1,0 +1,18 @@
+{
+    "type": "devicetree",
+    "name": "LENOVO Yoga Slim 7 14Q8X9",
+    "compatible": "lenovo,yoga-slim7x",
+    "hwids": [
+        "3fb1e5ba-05cd-5153-ad64-1d8bc6dc7a1b",
+        "d99f6cb2-4a96-5e4a-8e29-19d52dfc2870",
+        "6d53c38f-6adb-578b-a418-2abda4d8485d",
+        "8073dbed-501f-5f5e-a619-4cdd9c00e865",
+        "d27cf20e-e185-578e-bd46-f4cc3a718bb2",
+        "8477f828-512b-56cf-af55-c711a6831551",
+        "f7f92b85-ff01-5e93-a453-c7f91029aa55",
+        "0700776d-0de7-5ea7-b9bf-77e0454d35e1",
+        "ee39b629-4187-5ff7-84c0-e354555562cd",
+        "fdb12a4f-1e8b-524e-97b5-feef23a8a8da",
+        "63429d43-c970-570d-aaa7-54300924e0c5"
+    ]
+}
