@@ -37,6 +37,7 @@ jobs:
           VALIDATE_GITHUB_ACTIONS: true
           LINTER_RULES_PATH: .github/linters
           GITHUB_ACTIONS_CONFIG_FILE: actionlint.yml
+          ENABLE_GITHUB_PULL_REQUEST_SUMMARY_COMMENT: false
 
       - uses: systemd/mkosi@9e31235211d975bae25622d6205a8396d104335e
 
