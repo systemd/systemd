@@ -645,6 +645,10 @@ static void varlink_clear(sd_varlink *v) {
         v->pushed_fds = mfree(v->pushed_fds);
         v->n_pushed_fds = 0;
 
+        v->previous = sd_json_variant_unref(v->previous);
+        if (v->sentinel != POINTER_MAX)
+                v->sentinel = mfree(v->sentinel);
+
         LIST_CLEAR(queue, v->output_queue, varlink_json_queue_item_free);
         v->output_queue_tail = NULL;
         v->n_output_queue = 0;
@@ -1410,6 +1414,38 @@ static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
         return 0;
 }
 
+static int varlink_enqueue_reply(sd_varlink *v, sd_json_variant *parameters, bool more) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        int r;
+
+        r = sd_json_buildo(
+                        &m,
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters),
+                        SD_JSON_BUILD_PAIR_CONDITION(more, "continues", SD_JSON_BUILD_BOOLEAN(true)));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        r = varlink_enqueue_json(v, m);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+
+        if (more)
+                return 1;
+
+        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE)) {
+                /* We just replied to a method call that was let hanging for a while (i.e. we were outside of
+                 * the varlink_dispatch_method() stack frame), which means with this reply we are ready to
+                 * process further messages. */
+                varlink_clear_current(v);
+                varlink_set_state(v, VARLINK_IDLE_SERVER);
+        } else
+                /* We replied to a method call from within the varlink_dispatch_method() stack frame), which
+                 * means we should it handle the rest of the state engine. */
+                varlink_set_state(v, VARLINK_PROCESSED_METHOD);
+
+        return 1;
+}
+
 static int varlink_dispatch_method(sd_varlink *v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         sd_varlink_method_flags_t flags = 0;
@@ -1536,13 +1572,28 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 if (!invalid) {
                         r = callback(v, parameters, flags, v->userdata);
-                        if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state)) {
-                                varlink_log_errno(v, r, "Callback for %s returned error: %m", method);
 
-                                /* We got an error back from the callback. Propagate it to the client if the
-                                 * method call remains unanswered. */
-                                r = sd_varlink_error_errno(v, r);
-                                /* If we didn't manage to enqueue an error response, then fail the connection completely. */
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *previous = TAKE_PTR(v->previous);
+                        if (previous)
+                                RET_GATHER(r, varlink_enqueue_reply(v, previous, /* more= */ false));
+
+                        if (VARLINK_STATE_WANTS_REPLY(v->state)) {
+                                if (r < 0) {
+                                        varlink_log_errno(v, r, "Callback for %s returned error: %m", method);
+
+                                        /* We got an error back from the callback. Propagate it to the client
+                                         * if the method call remains unanswered. */
+                                        r = sd_varlink_error_errno(v, r);
+                                } else if (v->sentinel && !previous) {
+                                        /* Propagate the sentinel to the client if one was configured and no
+                                         * replies were enqueued by the callback. */
+                                        if (v->sentinel == POINTER_MAX)
+                                                r = sd_varlink_reply(v, NULL);
+                                        else
+                                                r = sd_varlink_error(v, v->sentinel, NULL);
+                                }
+
+                                /* If we didn't manage to enqueue a response, then fail the connection completely. */
                                 if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
                                         goto fail;
                         }
@@ -2501,49 +2552,48 @@ _public_ int sd_varlink_collectb(
 }
 
 _public_ int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+
         if (!IN_SET(v->state,
                     VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE,
                     VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
-                return -EBUSY;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        bool more = IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE);
 
         /* Validate parameters BEFORE sanitization */
         if (v->current_method) {
                 const char *bad_field = NULL;
 
-                r = varlink_idl_validate_method_reply(v->current_method, parameters, /* flags= */ 0, &bad_field);
-                if (r < 0)
+                r = varlink_idl_validate_method_reply(v->current_method, parameters, more && v->sentinel ? SD_VARLINK_REPLY_CONTINUES : 0, &bad_field);
+                if (r == -EBADE)
+                        varlink_log_errno(v, r, "Method reply for %s() has 'continues' flag set, but IDL structure doesn't allow that, ignoring: %m",
+                                          v->current_method->name);
+                else if (r < 0)
                         /* Please adjust test/units/end.sh when updating the log message. */
                         varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
                                           v->current_method->name, strna(bad_field));
         }
 
-        r = sd_json_buildo(&m, JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to build json message: %m");
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *punref = NULL;
+        if (more && v->sentinel) {
+                /* If we didn't have a previous object, just return. We'll process the object later on. */
+                if (!v->previous) {
+                        v->previous = sd_json_variant_ref(parameters);
+                        return 1;
+                }
 
-        r = varlink_enqueue_json(v, m);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+                punref = TAKE_PTR(v->previous);
+                v->previous = sd_json_variant_ref(parameters);
+                parameters = punref;
+        }
 
-        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE)) {
-                /* We just replied to a method call that was let hanging for a while (i.e. we were outside of
-                 * the varlink_dispatch_method() stack frame), which means with this reply we are ready to
-                 * process further messages. */
-                varlink_clear_current(v);
-                varlink_set_state(v, VARLINK_IDLE_SERVER);
-        } else
-                /* We replied to a method call from within the varlink_dispatch_method() stack frame), which
-                 * means we should it handle the rest of the state engine. */
-                varlink_set_state(v, VARLINK_PROCESSED_METHOD);
-
-        return 1;
+        return varlink_enqueue_reply(v, parameters, more && v->sentinel);
 }
 
 _public_ int sd_varlink_replyb(sd_varlink *v, ...) {
