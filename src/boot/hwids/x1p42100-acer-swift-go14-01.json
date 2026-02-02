@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "Acer Swift Go 14 AI",
+    "compatible": "acer,swift-go14-01",
+    "hwids": [
+        "795d7de3-0e1e-5976-b0d2-2216375df442",
+        "327e7f1e-4a10-5fe1-8b4f-3c235ea128d9",
+        "627edbb7-fbdb-5de7-8382-f7abcbf9928a",
+        "79dd27da-6d6b-57da-8fba-b97b489be61d",
+        "3bd63b6b-dfa3-5314-9846-76363ae49445",
+        "03f8cc3c-5d61-5ea0-aeb1-b3142528bce2",
+        "3f49141c-d8fb-5a6f-8b4a-074a2397874d",
+        "7c107a7f-2d77-51aa-aef8-8d777e26ffbc",
+        "2e71fd01-d5f5-5c67-9abc-c47c10f08626",
+        "6abb9980-4909-5d87-95a4-871129047302",
+        "a07b1705-c904-5a73-b97a-f46bc2dd8400",
+        "e66990c4-b390-59c3-a580-149c73cfe585",
+        "69670c5e-509d-5193-9f0a-882a00180b1a"
+    ]
+}

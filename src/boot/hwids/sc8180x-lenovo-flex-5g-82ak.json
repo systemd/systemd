@@ -1,0 +1,18 @@
+{
+    "type": "devicetree",
+    "name": "LENOVO Flex 5G 14Q8CX05",
+    "compatible": "lenovo,flex-5g",
+    "hwids": [
+        "ad47f2e9-2f8c-5cd1-a44e-82f35a43e44e",
+        "997c1c76-5595-5300-9f58-94d2c6ffc586",
+        "b9bf941f-3a32-57da-b609-5fff7fb382cd",
+        "ea658d2b-f644-555d-9b72-e1642401a795",
+        "fb5c3077-39d5-5a44-97ce-2d3be5f6bfec",
+        "16551bd5-37b0-571d-a94c-da61a9cfccf5",
+        "df3ecc56-b61b-5f8e-896f-801a42b536d6",
+        "06675172-9a6e-5276-a505-d205688a87f0",
+        "23dcfb84-d132-5f60-878e-64fe0b9417d6",
+        "12c0e5b0-8886-5444-b42b-93692fa736df",
+        "39fca706-c9a2-54d4-8c7c-d5e292d0a725"
+    ]
+}
