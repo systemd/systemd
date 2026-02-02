@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <getopt.h>
+#include <sys/socket.h> /* IWYU pragma: keep */
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -46,6 +47,7 @@
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "prompt-util.h"
+#include "plymouth-util.h"
 #include "runtime-scope.h"
 #include "smack-util.h"
 #include "stat-util.h"
@@ -100,6 +102,22 @@ STATIC_DESTRUCTOR_REGISTER(arg_root_password, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+
+static int control_plymouth_splash(void) {
+        _cleanup_free_ char *plymouth_message = NULL;
+        int c, r;
+
+        c = asprintf(&plymouth_message, "%c%c", 'H', '\x00');
+        if (c < 0)
+                return log_oom();
+
+        r = plymouth_send_raw(plymouth_message, c, SOCK_NONBLOCK);
+        if (r < 0)
+                return log_full_errno(ERRNO_IS_NO_PLYMOUTH(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to communicate with plymouth: %m");
+
+        return 0;
+}
 
 static void print_welcome(int rfd, sd_varlink **mute_console_link) {
         _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL;
@@ -283,6 +301,8 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
                         /* Not setting arg_locale_message here, since it defaults to LANG anyway */
                 }
         } else {
+                (void) control_plymouth_splash();
+
                 print_welcome(rfd, mute_console_link);
 
                 r = prompt_loop("Please enter the new system locale name or number",
@@ -440,6 +460,8 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read keymaps: %m");
 
+        (void) control_plymouth_splash();
+
         print_welcome(rfd, mute_console_link);
 
         return prompt_loop(
@@ -552,6 +574,8 @@ static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
         if (r < 0)
                 return log_error_errno(r, "Cannot query timezone list: %m");
 
+        (void) control_plymouth_splash();
+
         print_welcome(rfd, mute_console_link);
 
         return prompt_loop(
@@ -646,6 +670,8 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
                 log_debug("Prompting for hostname was not requested.");
                 return 0;
         }
+
+        (void) control_plymouth_splash();
 
         print_welcome(rfd, mute_console_link);
 
@@ -855,6 +881,8 @@ static int prompt_root_shell(int rfd, sd_varlink **mute_console_link) {
                 log_debug("Prompting for root shell was not requested.");
                 return 0;
         }
+
+        (void) control_plymouth_splash();
 
         print_welcome(rfd, mute_console_link);
 
@@ -1740,6 +1768,8 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
         }
+
+        (void) control_plymouth_splash();
 
         r = process_reset(rfd);
         if (r < 0)
