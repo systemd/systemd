@@ -188,7 +188,7 @@ manager, please consider supporting the following interfaces.
    activation work. The protocol to hand sockets from systemd to services is
    hence the same as from the container manager to the container systemd. For
    further details see the explanations of
-   [sd_listen_fds(1)](https://0pointer.de/public/systemd-man/sd_listen_fds.html)
+   [sd_listen_fds(1)](https://www.freedesktop.org/software/systemd/man/latest/sd_listen_fds.html)
    and the [blog story for service
    developers](https://0pointer.de/blog/projects/socket-activation.html).
 
