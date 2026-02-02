@@ -43,6 +43,7 @@
 #include "parse-util.h"
 #include "password-quality-util.h"
 #include "path-util.h"
+#include "plymouth-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "runtime-scope.h"
@@ -104,6 +105,10 @@ static void print_welcome(int rfd) {
         int r;
 
         assert(rfd >= 0);
+
+        /* Needs to be called before mute_console or it will garble the screen */
+        if (arg_welcome)
+                (void) plymouth_hide_splash();
 
         if (!arg_welcome)
                 return;
