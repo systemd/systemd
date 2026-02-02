@@ -5,6 +5,7 @@
 #include "constants.h"
 #include "errno-util.h"
 #include "manager.h"
+#include "metrics.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "string-util.h"
@@ -18,6 +19,7 @@
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-manager.h"
+#include "varlink-metrics.h"
 #include "varlink-serialize.h"
 #include "varlink-unit.h"
 #include "varlink-util.h"
@@ -423,8 +425,26 @@ int manager_setup_varlink_server(Manager *m) {
         return 1;
 }
 
+static int manager_setup_varlink_metrics_server(Manager *m) {
+        sd_varlink_server_flags_t flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
+        int r;
+
+        assert(m);
+
+        if (MANAGER_IS_SYSTEM(m))
+                flags |= SD_VARLINK_SERVER_ACCOUNT_UID;
+
+        r = metrics_setup_varlink_server(
+                        &m->metrics_varlink_server, flags, m->event, vl_method_list, vl_method_describe, m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int manager_varlink_init_system(Manager *m) {
         int r;
+        _cleanup_free_ char *metrics_address = NULL;
 
         assert(m);
 
@@ -433,16 +453,29 @@ static int manager_varlink_init_system(Manager *m) {
                 return log_error_errno(r, "Failed to set up varlink server: %m");
         bool fresh = r > 0;
 
+        r = manager_setup_varlink_metrics_server(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up metrics varlink server: %m");
+        bool metrics_fresh = r > 0;
+
+        r = runtime_directory_generic(m->runtime_scope, "systemd/report/io.systemd.Manager", &metrics_address);
+        if (r < 0)
+                return r;
+
         if (!MANAGER_IS_TEST_RUN(m)) {
                 FOREACH_STRING(address,
                                "/run/systemd/userdb/io.systemd.DynamicUser",
                                VARLINK_PATH_MANAGED_OOM_SYSTEM,
-                               "/run/systemd/io.systemd.Manager") {
+                               "/run/systemd/io.systemd.Manager",
+                               metrics_address) {
+
+                        sd_varlink_server *server = streq(address, metrics_address) ? m->metrics_varlink_server : m->varlink_server;
+                        fresh = streq(address, metrics_address) ? metrics_fresh : fresh;
                         /* We might have got sockets through deserialization. Do not bind to them twice. */
-                        if (!fresh && varlink_server_contains_socket(m->varlink_server, address))
+                        if (!fresh && varlink_server_contains_socket(server, address))
                                 continue;
 
-                        r = sd_varlink_server_listen_address(m->varlink_server, address, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+                        r = sd_varlink_server_listen_address(server, address, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
                 }
@@ -479,6 +512,10 @@ static int manager_varlink_init_user(Manager *m) {
                         return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
         }
 
+        r = manager_setup_varlink_metrics_server(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up metrics varlink server: %m");
+
         return manager_varlink_managed_oom_connect(m);
 }
 
@@ -497,6 +534,7 @@ void manager_varlink_done(Manager *m) {
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);
+        m->metrics_varlink_server = sd_varlink_server_unref(m->metrics_varlink_server);
 }
 
 void manager_varlink_send_pending_reload_message(Manager *m) {
