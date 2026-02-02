@@ -29,13 +29,12 @@ int portable_profile_dirs(RuntimeScope scope, char ***ret) {
                 _cleanup_free_ char *d = NULL;
 
                 r = xdg_user_config_dir("systemd/portable/profile", &d);
-                if (r < 0 && r != -ENXIO)
+                if (r < 0)
                         return r;
-                if (r >= 0) {
-                        r = strv_consume(&dirs, TAKE_PTR(d));
-                        if (r < 0)
-                                return r;
-                }
+
+                r = strv_consume(&dirs, TAKE_PTR(d));
+                if (r < 0)
+                        return r;
 
                 r = xdg_user_runtime_dir("systemd/portable/profile", &d);
                 if (r < 0 && r != -ENXIO)
