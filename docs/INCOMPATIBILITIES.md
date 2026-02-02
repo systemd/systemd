@@ -7,7 +7,16 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Compatibility with SysV
 
-Since systemd v260, support for SysV functionalities has been removed. The documentation below is preserved for historical references only.
+Since systemd v260, support for SysV functionality has been removed.
+The documentation below is preserved for historical reference only.
+
+A few interfaces are optionally kept for backward compatibility.
+When systemd is compiled with the `-Dcompat-sysv-interfaces=true` setting,
+legacy interfaces are provided,
+e.g. the `runlevelX.target` aliases,
+and lock directories in under `/var` and `/run`.
+This option may be extended to cover other deprecated interfaces in the future.
+
 
 ## Pre v260 state
 
