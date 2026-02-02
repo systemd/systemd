@@ -2169,7 +2169,7 @@ int image_read_metadata(Image *i, const char *root, const ImagePolicy *image_pol
                                 /* userns_fd= */ -EBADF,
                                 flags);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to acquire medata from image '%s': %m", i->path);
+                        return log_debug_errno(r, "Failed to acquire metadata from image '%s': %m", i->path);
 
                 free_and_replace(i->hostname, m->hostname);
                 i->machine_id = m->machine_id;
