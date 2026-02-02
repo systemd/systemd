@@ -2223,9 +2223,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        r = strv_prepend(&arg_kernel_cmdline_extra, "console=hvc0");
-        if (r < 0)
-                return log_oom();
+        if (arg_console_mode != CONSOLE_GUI) {
+                r = strv_prepend(&arg_kernel_cmdline_extra, "console=hvc0");
+                if (r < 0)
+                        return log_oom();
+        }
 
         FOREACH_ARRAY(mount, arg_runtime_mounts.mounts, arg_runtime_mounts.n_mounts) {
                 _cleanup_free_ char *listen_address = NULL;
