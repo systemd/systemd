@@ -1,0 +1,33 @@
+{
+    "type": "devicetree",
+    "name": "LENOVO ThinkPad T14s Gen 6",
+    "compatible": "lenovo,thinkpad-t14s-lcd",
+    "hwids": [
+        "c81fee2f-cf41-5d5a-8c7b-afd6585b1d81",
+        "a9b59fea-e841-508a-a245-3a2d8d2802de",
+        "74593764-b6b9-58e9-bedc-93ebbb1eb057",
+        "e5d83424-0ecb-5632-b7b1-500f04e82725",
+        "76032e78-67a8-5dab-8512-157bfcfb8f75",
+        "dd83478e-e01b-5631-ae74-92ae275a9b4e",
+        "791ecd9d-1547-58e6-b72a-5ce417b729dd",
+        "8c602147-5363-5374-859e-8b7fe2d4d3ce",
+        "498d60ae-9b1d-5b67-8abd-af571babfa94",
+        "acbac5af-aa6a-5690-88f3-e910f04a7ead",
+        "5180bc01-5d18-5870-b955-969da38b2647",
+        "19b622ef-27fe-5c2e-bc53-13a79b862c65",
+        "ac09e50f-9b3b-53c0-9752-377c3a0baaa0",
+        "1d9f3ebb-96de-5dd6-8c88-38308b0c1c44",
+        "578dd7d5-5871-5bd5-92a9-be07f1067b92",
+        "ed647f93-3075-598b-9d89-d0f30ec11707",
+        "f6cd4a9f-9632-516e-b748-65952f7380c5",
+        "a5a4e3c1-5922-5ed6-b78e-9f0ea873a988",
+        "a20ae3ec-49a1-5cb5-acb8-5d31c77b105a",
+        "8cfd85bb-0d77-59df-8546-264239be475e",
+        "513976f8-3f51-5b42-9ae0-931ce23c5f38",
+        "86a0d770-3ca1-57fa-ac05-413481c00a24",
+        "5c20e964-d530-5dd7-9efd-4aed9e73c3cb",
+        "d93b21c0-5ed9-5955-911a-5b15f114d786",
+        "82fa4a02-8c3c-55f9-b0c9-e8feb669fd3a",
+        "34e7fadd-9c7d-5f91-ba7f-cedb04d59b9a"
+    ]
+}
