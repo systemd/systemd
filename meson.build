@@ -2820,8 +2820,6 @@ install_data('LICENSE.GPL2',
 install_subdir('LICENSES',
                install_dir : docdir)
 
-install_emptydir(systemdstatedir)
-
 #####################################################################
 
 # Ensure that changes to the docs/ directory do not break the
