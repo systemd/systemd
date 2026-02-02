@@ -1410,6 +1410,38 @@ static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
         return 0;
 }
 
+static int varlink_enqueue_reply(sd_varlink *v, sd_json_variant *parameters, bool more) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        int r;
+
+        r = sd_json_buildo(
+                        &m,
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters),
+                        SD_JSON_BUILD_PAIR_CONDITION(more, "continues", SD_JSON_BUILD_BOOLEAN(true)));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        r = varlink_enqueue_json(v, m);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+
+        if (more)
+                return 1;
+
+        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE)) {
+                /* We just replied to a method call that was let hanging for a while (i.e. we were outside of
+                 * the varlink_dispatch_method() stack frame), which means with this reply we are ready to
+                 * process further messages. */
+                varlink_clear_current(v);
+                varlink_set_state(v, VARLINK_IDLE_SERVER);
+        } else
+                /* We replied to a method call from within the varlink_dispatch_method() stack frame), which
+                 * means we should it handle the rest of the state engine. */
+                varlink_set_state(v, VARLINK_PROCESSED_METHOD);
+
+        return 1;
+}
+
 static int varlink_dispatch_method(sd_varlink *v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         sd_varlink_method_flags_t flags = 0;
@@ -1543,6 +1575,11 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                  * method call remains unanswered. */
                                 r = sd_varlink_error_errno(v, r);
                                 /* If we didn't manage to enqueue an error response, then fail the connection completely. */
+                                if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
+                                        goto fail;
+                        } else if (v->previous) {
+                                r = varlink_enqueue_reply(v, v->previous, /* more= */ false);
+                                v->previous = sd_json_variant_unref(v->previous);
                                 if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
                                         goto fail;
                         }
@@ -2501,49 +2538,48 @@ _public_ int sd_varlink_collectb(
 }
 
 _public_ int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+
         if (!IN_SET(v->state,
                     VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE,
                     VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
-                return -EBUSY;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        bool more = IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE);
 
         /* Validate parameters BEFORE sanitization */
         if (v->current_method) {
                 const char *bad_field = NULL;
 
-                r = varlink_idl_validate_method_reply(v->current_method, parameters, /* flags= */ 0, &bad_field);
-                if (r < 0)
+                r = varlink_idl_validate_method_reply(v->current_method, parameters, more ? SD_VARLINK_REPLY_CONTINUES : 0, &bad_field);
+                if (r == -EBADE)
+                        varlink_log_errno(v, r, "Method reply for %s() has 'continues' flag set, but IDL structure doesn't allow that, ignoring: %m",
+                                          v->current_method->name);
+                else if (r < 0)
                         /* Please adjust test/units/end.sh when updating the log message. */
                         varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
                                           v->current_method->name, strna(bad_field));
         }
 
-        r = sd_json_buildo(&m, JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to build json message: %m");
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *punref = NULL;
+        if (more) {
+                /* If we didn't have a previous object, just return. We'll process the object later on. */
+                if (!v->previous) {
+                        v->previous = sd_json_variant_ref(parameters);
+                        return 1;
+                }
 
-        r = varlink_enqueue_json(v, m);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+                punref = TAKE_PTR(v->previous);
+                v->previous = sd_json_variant_ref(parameters);
+                parameters = punref;
+        }
 
-        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE)) {
-                /* We just replied to a method call that was let hanging for a while (i.e. we were outside of
-                 * the varlink_dispatch_method() stack frame), which means with this reply we are ready to
-                 * process further messages. */
-                varlink_clear_current(v);
-                varlink_set_state(v, VARLINK_IDLE_SERVER);
-        } else
-                /* We replied to a method call from within the varlink_dispatch_method() stack frame), which
-                 * means we should it handle the rest of the state engine. */
-                varlink_set_state(v, VARLINK_PROCESSED_METHOD);
-
-        return 1;
+        return varlink_enqueue_reply(v, parameters, more);
 }
 
 _public_ int sd_varlink_replyb(sd_varlink *v, ...) {
@@ -2716,49 +2752,7 @@ _public_ int sd_varlink_error_errno(sd_varlink *v, int error) {
 }
 
 _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
-        int r;
-
-        assert_return(v, -EINVAL);
-
-        if (v->state == VARLINK_DISCONNECTED)
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
-
-        /* If we want to reply with a notify connection but the caller didn't set "more", then return an
-         * error indicating that we expected to be called with "more" set */
-        if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PENDING_METHOD))
-                return sd_varlink_error(v, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
-
-        if (!IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE))
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
-
-        /* Validate parameters BEFORE sanitization */
-        if (v->current_method) {
-                const char *bad_field = NULL;
-
-                r = varlink_idl_validate_method_reply(v->current_method, parameters, SD_VARLINK_REPLY_CONTINUES, &bad_field);
-                if (r == -EBADE)
-                        varlink_log_errno(v, r, "Method reply for %s() has 'continues' flag set, but IDL structure doesn't allow that, ignoring: %m",
-                                          v->current_method->name);
-                else if (r < 0)
-                        /* Please adjust test/units/end.sh when updating the log message. */
-                        varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
-                                          v->current_method->name, strna(bad_field));
-        }
-
-        r = sd_json_buildo(
-                        &m,
-                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("continues", true));
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to build json message: %m");
-
-        r = varlink_enqueue_json(v, m);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
-
-        /* No state change, as more is coming */
-        return 1;
+        return sd_varlink_reply(v, parameters);
 }
 
 _public_ int sd_varlink_notifyb(sd_varlink *v, ...) {
@@ -2775,7 +2769,7 @@ _public_ int sd_varlink_notifyb(sd_varlink *v, ...) {
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        return sd_varlink_notify(v, parameters);
+        return sd_varlink_reply(v, parameters);
 }
 
 _public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field dispatch_table[], void *userdata) {
