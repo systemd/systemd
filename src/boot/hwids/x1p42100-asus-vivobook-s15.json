@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "ASUSTeK COMPUTER INC. ASUS Vivobook S 15",
+    "compatible": "asus,vivobook-s15-x1p4",
+    "hwids": [
+        "c4575028-e938-504d-850d-f36fbb6b300d",
+        "920bc3d2-69f0-5705-83d8-3e0019ab5223",
+        "ac5b6293-c2ac-5e82-98f2-0475efbc11fc",
+        "0c926a29-b883-5482-aea7-ddda46084840",
+        "c5fed9eb-6a7b-5378-b093-484d9322150b",
+        "c9cd4052-8d61-5a5b-ad16-b9f12a993822",
+        "be521b64-7759-5835-a0b2-c10300a191fa",
+        "24652d54-00f4-59ae-96fb-f7adbfa4a939",
+        "52499218-2ce9-5d3c-b276-e3cee52f2f7a",
+        "172515ff-feb1-5f61-bc14-116a23ea70da",
+        "f6b44a44-c913-572c-8c9c-0ff0f9c010f0",
+        "2ad07794-e07a-55da-b1a1-b9b56ed4cdcd",
+        "ab36b5d3-4e77-58be-9d55-939c7e6734c6"
+    ]
+}
