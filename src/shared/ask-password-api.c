@@ -1004,8 +1004,10 @@ int ask_password_agent(
                         goto finish;
                 }
 
-                if (req->hup_fd >= 0 && pollfd[hup_fd_idx].revents & POLLHUP)
-                        return -ECONNRESET;
+                if (req->hup_fd >= 0 && pollfd[hup_fd_idx].revents & POLLHUP) {
+                        r = -ECONNRESET;
+                        goto finish;
+                }
 
                 if (inotify_fd >= 0 && pollfd[inotify_idx].revents != 0) {
                         (void) flush_fd(inotify_fd);
