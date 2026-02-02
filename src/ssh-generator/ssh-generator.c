@@ -475,7 +475,10 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return r;
 
         _cleanup_free_ char *found_sshd_template_unit = NULL;
-        r = unit_file_exists_full(RUNTIME_SCOPE_SYSTEM, &lp, "sshd@.service", &found_sshd_template_unit);
+        r = unit_file_exists_full(RUNTIME_SCOPE_SYSTEM, &lp,
+                                  /* follow = */ true,
+                                  "sshd@.service",
+                                  &found_sshd_template_unit);
         if (r < 0)
                 return log_error_errno(r, "Unable to detect if sshd@.service exists: %m");
 
