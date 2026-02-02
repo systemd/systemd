@@ -1,0 +1,18 @@
+{
+    "type": "devicetree",
+    "name": "LENOVO YOGA C630-13Q50",
+    "compatible": "lenovo,yoga-c630",
+    "hwids": [
+        "b8c71349-3669-56f3-99ee-ae473a2edd96",
+        "d17c132e-f06e-5e38-8084-9cd642dd9b34",
+        "8f56cf17-7bdd-5414-832d-97cd26837114",
+        "b323d38a-88c6-5cf6-af0d-0db3f3c2560d",
+        "43b71948-9c47-5372-a5cb-18db47bb873f",
+        "67a23be6-42a6-5900-8325-847a318ce252",
+        "94f73d29-3981-59a8-8f25-214f84d1522a",
+        "5ca3cf2b-d6e9-5b54-93f7-1cebd7b3704f",
+        "81f308c0-db65-50c2-a660-52e06fc0ff9f",
+        "30b031c0-9de7-5d31-a61c-dee772871b7d",
+        "382926c0-ce35-53af-8ff9-ca9cc06cfc7b"
+    ]
+}
