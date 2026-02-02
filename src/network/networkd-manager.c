@@ -752,6 +752,7 @@ Manager* manager_free(Manager *m) {
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->varlink_resolve_hook_server = sd_varlink_server_unref(m->varlink_resolve_hook_server);
+        m->metrics_varlink_server = sd_varlink_server_unref(m->metrics_varlink_server);
         m->query_filter_subscriptions = set_free(m->query_filter_subscriptions);
         hashmap_free(m->polkit_registry);
         sd_bus_flush_close_unref(m->bus);
