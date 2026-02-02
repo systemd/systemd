@@ -1275,6 +1275,141 @@ static int generic_method_get_interface_description(
                         SD_JSON_BUILD_PAIR_STRING("description", text));
 }
 
+static int varlink_format_json(sd_varlink *v, sd_json_variant *m) {
+        _cleanup_(erase_and_freep) char *text = NULL;
+        int sz, r;
+
+        assert(v);
+        assert(m);
+
+        sz = sd_json_variant_format(m, /* flags= */ 0, &text);
+        if (sz < 0)
+                return sz;
+        assert(text[sz] == '\0');
+
+        if (v->output_buffer_size + sz + 1 > VARLINK_BUFFER_MAX)
+                return -ENOBUFS;
+
+        if (DEBUG_LOGGING) {
+                _cleanup_(erase_and_freep) char *censored_text = NULL;
+
+                /* Suppress sensitive fields in the debug output */
+                r = sd_json_variant_format(m, SD_JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
+                if (r < 0)
+                        return r;
+
+                varlink_log(v, "Sending message: %s", censored_text);
+        }
+
+        if (v->output_buffer_size == 0) {
+
+                free_and_replace(v->output_buffer, text);
+
+                v->output_buffer_size = sz + 1;
+                v->output_buffer_index = 0;
+
+        } else if (v->output_buffer_index == 0) {
+
+                if (!GREEDY_REALLOC(v->output_buffer, v->output_buffer_size + sz + 1))
+                        return -ENOMEM;
+
+                memcpy(v->output_buffer + v->output_buffer_size, text, sz + 1);
+                v->output_buffer_size += sz + 1;
+        } else {
+                char *n;
+                const size_t new_size = v->output_buffer_size + sz + 1;
+
+                n = new(char, new_size);
+                if (!n)
+                        return -ENOMEM;
+
+                memcpy(mempcpy(n, v->output_buffer + v->output_buffer_index, v->output_buffer_size), text, sz + 1);
+
+                free_and_replace(v->output_buffer, n);
+                v->output_buffer_size = new_size;
+                v->output_buffer_index = 0;
+        }
+
+        if (sd_json_variant_is_sensitive_recursive(m))
+                v->output_buffer_sensitive = true; /* Propagate sensitive flag */
+        else
+                text = mfree(text); /* No point in the erase_and_free() destructor declared above */
+
+        return 0;
+}
+
+static int varlink_format_queue(sd_varlink *v) {
+        int r;
+
+        assert(v);
+
+        /* Takes entries out of the output queue and formats them into the output buffer. But only if this
+         * would not corrupt our fd message boundaries */
+
+        while (v->output_queue) {
+                _cleanup_free_ int *array = NULL;
+
+                assert(v->n_output_queue > 0);
+
+                VarlinkJsonQueueItem *q = v->output_queue;
+
+                if (v->n_output_fds > 0) /* unwritten fds? if we'd add more we'd corrupt the fd message boundaries, hence wait */
+                        return 0;
+
+                if (q->n_fds > 0) {
+                        array = newdup(int, q->fds, q->n_fds);
+                        if (!array)
+                                return -ENOMEM;
+                }
+
+                r = varlink_format_json(v, q->data);
+                if (r < 0)
+                        return r;
+
+                /* Take possession of the queue element's fds */
+                free(v->output_fds);
+                v->output_fds = TAKE_PTR(array);
+                v->n_output_fds = q->n_fds;
+                q->n_fds = 0;
+
+                LIST_REMOVE(queue, v->output_queue, q);
+                if (!v->output_queue)
+                        v->output_queue_tail = NULL;
+                v->n_output_queue--;
+
+                varlink_json_queue_item_free(q);
+        }
+
+        return 0;
+}
+
+static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
+        VarlinkJsonQueueItem *q;
+
+        assert(v);
+        assert(m);
+
+        /* If there are no file descriptors to be queued and no queue entries yet we can shortcut things and
+         * append this entry directly to the output buffer */
+        if (v->n_pushed_fds == 0 && !v->output_queue)
+                return varlink_format_json(v, m);
+
+        if (v->n_output_queue >= VARLINK_QUEUE_MAX)
+                return -ENOBUFS;
+
+        /* Otherwise add a queue entry for this */
+        q = varlink_json_queue_item_new(m, v->pushed_fds, v->n_pushed_fds);
+        if (!q)
+                return -ENOMEM;
+
+        v->n_pushed_fds = 0; /* fds now belong to the queue entry */
+
+        LIST_INSERT_AFTER(queue, v->output_queue, v->output_queue_tail, q);
+        v->output_queue_tail = q;
+        v->n_output_queue++;
+        return 0;
+}
+
 static int varlink_dispatch_method(sd_varlink *v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         sd_varlink_method_flags_t flags = 0;
@@ -1896,141 +2031,6 @@ _public_ sd_varlink* sd_varlink_flush_close_unref(sd_varlink *v) {
 
         (void) sd_varlink_flush(v);
         return sd_varlink_close_unref(v);
-}
-
-static int varlink_format_json(sd_varlink *v, sd_json_variant *m) {
-        _cleanup_(erase_and_freep) char *text = NULL;
-        int sz, r;
-
-        assert(v);
-        assert(m);
-
-        sz = sd_json_variant_format(m, /* flags= */ 0, &text);
-        if (sz < 0)
-                return sz;
-        assert(text[sz] == '\0');
-
-        if (v->output_buffer_size + sz + 1 > VARLINK_BUFFER_MAX)
-                return -ENOBUFS;
-
-        if (DEBUG_LOGGING) {
-                _cleanup_(erase_and_freep) char *censored_text = NULL;
-
-                /* Suppress sensitive fields in the debug output */
-                r = sd_json_variant_format(m, SD_JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
-                if (r < 0)
-                        return r;
-
-                varlink_log(v, "Sending message: %s", censored_text);
-        }
-
-        if (v->output_buffer_size == 0) {
-
-                free_and_replace(v->output_buffer, text);
-
-                v->output_buffer_size = sz + 1;
-                v->output_buffer_index = 0;
-
-        } else if (v->output_buffer_index == 0) {
-
-                if (!GREEDY_REALLOC(v->output_buffer, v->output_buffer_size + sz + 1))
-                        return -ENOMEM;
-
-                memcpy(v->output_buffer + v->output_buffer_size, text, sz + 1);
-                v->output_buffer_size += sz + 1;
-        } else {
-                char *n;
-                const size_t new_size = v->output_buffer_size + sz + 1;
-
-                n = new(char, new_size);
-                if (!n)
-                        return -ENOMEM;
-
-                memcpy(mempcpy(n, v->output_buffer + v->output_buffer_index, v->output_buffer_size), text, sz + 1);
-
-                free_and_replace(v->output_buffer, n);
-                v->output_buffer_size = new_size;
-                v->output_buffer_index = 0;
-        }
-
-        if (sd_json_variant_is_sensitive_recursive(m))
-                v->output_buffer_sensitive = true; /* Propagate sensitive flag */
-        else
-                text = mfree(text); /* No point in the erase_and_free() destructor declared above */
-
-        return 0;
-}
-
-static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
-        VarlinkJsonQueueItem *q;
-
-        assert(v);
-        assert(m);
-
-        /* If there are no file descriptors to be queued and no queue entries yet we can shortcut things and
-         * append this entry directly to the output buffer */
-        if (v->n_pushed_fds == 0 && !v->output_queue)
-                return varlink_format_json(v, m);
-
-        if (v->n_output_queue >= VARLINK_QUEUE_MAX)
-                return -ENOBUFS;
-
-        /* Otherwise add a queue entry for this */
-        q = varlink_json_queue_item_new(m, v->pushed_fds, v->n_pushed_fds);
-        if (!q)
-                return -ENOMEM;
-
-        v->n_pushed_fds = 0; /* fds now belong to the queue entry */
-
-        LIST_INSERT_AFTER(queue, v->output_queue, v->output_queue_tail, q);
-        v->output_queue_tail = q;
-        v->n_output_queue++;
-        return 0;
-}
-
-static int varlink_format_queue(sd_varlink *v) {
-        int r;
-
-        assert(v);
-
-        /* Takes entries out of the output queue and formats them into the output buffer. But only if this
-         * would not corrupt our fd message boundaries */
-
-        while (v->output_queue) {
-                _cleanup_free_ int *array = NULL;
-
-                assert(v->n_output_queue > 0);
-
-                VarlinkJsonQueueItem *q = v->output_queue;
-
-                if (v->n_output_fds > 0) /* unwritten fds? if we'd add more we'd corrupt the fd message boundaries, hence wait */
-                        return 0;
-
-                if (q->n_fds > 0) {
-                        array = newdup(int, q->fds, q->n_fds);
-                        if (!array)
-                                return -ENOMEM;
-                }
-
-                r = varlink_format_json(v, q->data);
-                if (r < 0)
-                        return r;
-
-                /* Take possession of the queue element's fds */
-                free(v->output_fds);
-                v->output_fds = TAKE_PTR(array);
-                v->n_output_fds = q->n_fds;
-                q->n_fds = 0;
-
-                LIST_REMOVE(queue, v->output_queue, q);
-                if (!v->output_queue)
-                        v->output_queue_tail = NULL;
-                v->n_output_queue--;
-
-                varlink_json_queue_item_free(q);
-        }
-
-        return 0;
 }
 
 _public_ int sd_varlink_send(sd_varlink *v, const char *method, sd_json_variant *parameters) {
