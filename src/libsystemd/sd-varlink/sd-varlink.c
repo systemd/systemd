@@ -1275,6 +1275,173 @@ static int generic_method_get_interface_description(
                         SD_JSON_BUILD_PAIR_STRING("description", text));
 }
 
+static int varlink_format_json(sd_varlink *v, sd_json_variant *m) {
+        _cleanup_(erase_and_freep) char *text = NULL;
+        int sz, r;
+
+        assert(v);
+        assert(m);
+
+        sz = sd_json_variant_format(m, /* flags= */ 0, &text);
+        if (sz < 0)
+                return sz;
+        assert(text[sz] == '\0');
+
+        if (v->output_buffer_size + sz + 1 > VARLINK_BUFFER_MAX)
+                return -ENOBUFS;
+
+        if (DEBUG_LOGGING) {
+                _cleanup_(erase_and_freep) char *censored_text = NULL;
+
+                /* Suppress sensitive fields in the debug output */
+                r = sd_json_variant_format(m, SD_JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
+                if (r < 0)
+                        return r;
+
+                varlink_log(v, "Sending message: %s", censored_text);
+        }
+
+        if (v->output_buffer_size == 0) {
+
+                free_and_replace(v->output_buffer, text);
+
+                v->output_buffer_size = sz + 1;
+                v->output_buffer_index = 0;
+
+        } else if (v->output_buffer_index == 0) {
+
+                if (!GREEDY_REALLOC(v->output_buffer, v->output_buffer_size + sz + 1))
+                        return -ENOMEM;
+
+                memcpy(v->output_buffer + v->output_buffer_size, text, sz + 1);
+                v->output_buffer_size += sz + 1;
+        } else {
+                char *n;
+                const size_t new_size = v->output_buffer_size + sz + 1;
+
+                n = new(char, new_size);
+                if (!n)
+                        return -ENOMEM;
+
+                memcpy(mempcpy(n, v->output_buffer + v->output_buffer_index, v->output_buffer_size), text, sz + 1);
+
+                free_and_replace(v->output_buffer, n);
+                v->output_buffer_size = new_size;
+                v->output_buffer_index = 0;
+        }
+
+        if (sd_json_variant_is_sensitive_recursive(m))
+                v->output_buffer_sensitive = true; /* Propagate sensitive flag */
+        else
+                text = mfree(text); /* No point in the erase_and_free() destructor declared above */
+
+        return 0;
+}
+
+static int varlink_format_queue(sd_varlink *v) {
+        int r;
+
+        assert(v);
+
+        /* Takes entries out of the output queue and formats them into the output buffer. But only if this
+         * would not corrupt our fd message boundaries */
+
+        while (v->output_queue) {
+                _cleanup_free_ int *array = NULL;
+
+                assert(v->n_output_queue > 0);
+
+                VarlinkJsonQueueItem *q = v->output_queue;
+
+                if (v->n_output_fds > 0) /* unwritten fds? if we'd add more we'd corrupt the fd message boundaries, hence wait */
+                        return 0;
+
+                if (q->n_fds > 0) {
+                        array = newdup(int, q->fds, q->n_fds);
+                        if (!array)
+                                return -ENOMEM;
+                }
+
+                r = varlink_format_json(v, q->data);
+                if (r < 0)
+                        return r;
+
+                /* Take possession of the queue element's fds */
+                free(v->output_fds);
+                v->output_fds = TAKE_PTR(array);
+                v->n_output_fds = q->n_fds;
+                q->n_fds = 0;
+
+                LIST_REMOVE(queue, v->output_queue, q);
+                if (!v->output_queue)
+                        v->output_queue_tail = NULL;
+                v->n_output_queue--;
+
+                varlink_json_queue_item_free(q);
+        }
+
+        return 0;
+}
+
+static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
+        VarlinkJsonQueueItem *q;
+
+        assert(v);
+        assert(m);
+
+        /* If there are no file descriptors to be queued and no queue entries yet we can shortcut things and
+         * append this entry directly to the output buffer */
+        if (v->n_pushed_fds == 0 && !v->output_queue)
+                return varlink_format_json(v, m);
+
+        if (v->n_output_queue >= VARLINK_QUEUE_MAX)
+                return -ENOBUFS;
+
+        /* Otherwise add a queue entry for this */
+        q = varlink_json_queue_item_new(m, v->pushed_fds, v->n_pushed_fds);
+        if (!q)
+                return -ENOMEM;
+
+        v->n_pushed_fds = 0; /* fds now belong to the queue entry */
+
+        LIST_INSERT_AFTER(queue, v->output_queue, v->output_queue_tail, q);
+        v->output_queue_tail = q;
+        v->n_output_queue++;
+        return 0;
+}
+
+static int varlink_enqueue_reply(sd_varlink *v, sd_json_variant *parameters, bool more) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        int r;
+
+        r = sd_json_buildo(
+                        &m,
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters),
+                        SD_JSON_BUILD_PAIR_CONDITION(more, "continues", SD_JSON_BUILD_BOOLEAN(true)));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        r = varlink_enqueue_json(v, m);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+
+        if (more)
+                return 1;
+
+        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE)) {
+                /* We just replied to a method call that was let hanging for a while (i.e. we were outside of
+                 * the varlink_dispatch_method() stack frame), which means with this reply we are ready to
+                 * process further messages. */
+                varlink_clear_current(v);
+                varlink_set_state(v, VARLINK_IDLE_SERVER);
+        } else
+                /* We replied to a method call from within the varlink_dispatch_method() stack frame), which
+                 * means we should it handle the rest of the state engine. */
+                varlink_set_state(v, VARLINK_PROCESSED_METHOD);
+
+        return 1;
+}
+
 static int varlink_dispatch_method(sd_varlink *v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         sd_varlink_method_flags_t flags = 0;
@@ -1408,6 +1575,11 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                  * method call remains unanswered. */
                                 r = sd_varlink_error_errno(v, r);
                                 /* If we didn't manage to enqueue an error response, then fail the connection completely. */
+                                if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
+                                        goto fail;
+                        } else if (v->previous) {
+                                r = varlink_enqueue_reply(v, v->previous, /* more= */ false);
+                                v->previous = sd_json_variant_unref(v->previous);
                                 if (r < 0 && VARLINK_STATE_WANTS_REPLY(v->state))
                                         goto fail;
                         }
@@ -1898,141 +2070,6 @@ _public_ sd_varlink* sd_varlink_flush_close_unref(sd_varlink *v) {
         return sd_varlink_close_unref(v);
 }
 
-static int varlink_format_json(sd_varlink *v, sd_json_variant *m) {
-        _cleanup_(erase_and_freep) char *text = NULL;
-        int sz, r;
-
-        assert(v);
-        assert(m);
-
-        sz = sd_json_variant_format(m, /* flags= */ 0, &text);
-        if (sz < 0)
-                return sz;
-        assert(text[sz] == '\0');
-
-        if (v->output_buffer_size + sz + 1 > VARLINK_BUFFER_MAX)
-                return -ENOBUFS;
-
-        if (DEBUG_LOGGING) {
-                _cleanup_(erase_and_freep) char *censored_text = NULL;
-
-                /* Suppress sensitive fields in the debug output */
-                r = sd_json_variant_format(m, SD_JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
-                if (r < 0)
-                        return r;
-
-                varlink_log(v, "Sending message: %s", censored_text);
-        }
-
-        if (v->output_buffer_size == 0) {
-
-                free_and_replace(v->output_buffer, text);
-
-                v->output_buffer_size = sz + 1;
-                v->output_buffer_index = 0;
-
-        } else if (v->output_buffer_index == 0) {
-
-                if (!GREEDY_REALLOC(v->output_buffer, v->output_buffer_size + sz + 1))
-                        return -ENOMEM;
-
-                memcpy(v->output_buffer + v->output_buffer_size, text, sz + 1);
-                v->output_buffer_size += sz + 1;
-        } else {
-                char *n;
-                const size_t new_size = v->output_buffer_size + sz + 1;
-
-                n = new(char, new_size);
-                if (!n)
-                        return -ENOMEM;
-
-                memcpy(mempcpy(n, v->output_buffer + v->output_buffer_index, v->output_buffer_size), text, sz + 1);
-
-                free_and_replace(v->output_buffer, n);
-                v->output_buffer_size = new_size;
-                v->output_buffer_index = 0;
-        }
-
-        if (sd_json_variant_is_sensitive_recursive(m))
-                v->output_buffer_sensitive = true; /* Propagate sensitive flag */
-        else
-                text = mfree(text); /* No point in the erase_and_free() destructor declared above */
-
-        return 0;
-}
-
-static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
-        VarlinkJsonQueueItem *q;
-
-        assert(v);
-        assert(m);
-
-        /* If there are no file descriptors to be queued and no queue entries yet we can shortcut things and
-         * append this entry directly to the output buffer */
-        if (v->n_pushed_fds == 0 && !v->output_queue)
-                return varlink_format_json(v, m);
-
-        if (v->n_output_queue >= VARLINK_QUEUE_MAX)
-                return -ENOBUFS;
-
-        /* Otherwise add a queue entry for this */
-        q = varlink_json_queue_item_new(m, v->pushed_fds, v->n_pushed_fds);
-        if (!q)
-                return -ENOMEM;
-
-        v->n_pushed_fds = 0; /* fds now belong to the queue entry */
-
-        LIST_INSERT_AFTER(queue, v->output_queue, v->output_queue_tail, q);
-        v->output_queue_tail = q;
-        v->n_output_queue++;
-        return 0;
-}
-
-static int varlink_format_queue(sd_varlink *v) {
-        int r;
-
-        assert(v);
-
-        /* Takes entries out of the output queue and formats them into the output buffer. But only if this
-         * would not corrupt our fd message boundaries */
-
-        while (v->output_queue) {
-                _cleanup_free_ int *array = NULL;
-
-                assert(v->n_output_queue > 0);
-
-                VarlinkJsonQueueItem *q = v->output_queue;
-
-                if (v->n_output_fds > 0) /* unwritten fds? if we'd add more we'd corrupt the fd message boundaries, hence wait */
-                        return 0;
-
-                if (q->n_fds > 0) {
-                        array = newdup(int, q->fds, q->n_fds);
-                        if (!array)
-                                return -ENOMEM;
-                }
-
-                r = varlink_format_json(v, q->data);
-                if (r < 0)
-                        return r;
-
-                /* Take possession of the queue element's fds */
-                free(v->output_fds);
-                v->output_fds = TAKE_PTR(array);
-                v->n_output_fds = q->n_fds;
-                q->n_fds = 0;
-
-                LIST_REMOVE(queue, v->output_queue, q);
-                if (!v->output_queue)
-                        v->output_queue_tail = NULL;
-                v->n_output_queue--;
-
-                varlink_json_queue_item_free(q);
-        }
-
-        return 0;
-}
-
 _public_ int sd_varlink_send(sd_varlink *v, const char *method, sd_json_variant *parameters) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
@@ -2501,49 +2538,48 @@ _public_ int sd_varlink_collectb(
 }
 
 _public_ int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+
         if (!IN_SET(v->state,
                     VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE,
                     VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
-                return -EBUSY;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        bool more = IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE);
 
         /* Validate parameters BEFORE sanitization */
         if (v->current_method) {
                 const char *bad_field = NULL;
 
-                r = varlink_idl_validate_method_reply(v->current_method, parameters, /* flags= */ 0, &bad_field);
-                if (r < 0)
+                r = varlink_idl_validate_method_reply(v->current_method, parameters, more ? SD_VARLINK_REPLY_CONTINUES : 0, &bad_field);
+                if (r == -EBADE)
+                        varlink_log_errno(v, r, "Method reply for %s() has 'continues' flag set, but IDL structure doesn't allow that, ignoring: %m",
+                                          v->current_method->name);
+                else if (r < 0)
                         /* Please adjust test/units/end.sh when updating the log message. */
                         varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
                                           v->current_method->name, strna(bad_field));
         }
 
-        r = sd_json_buildo(&m, JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to build json message: %m");
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *punref = NULL;
+        if (more) {
+                /* If we didn't have a previous object, just return. We'll process the object later on. */
+                if (!v->previous) {
+                        v->previous = sd_json_variant_ref(parameters);
+                        return 1;
+                }
 
-        r = varlink_enqueue_json(v, m);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+                punref = TAKE_PTR(v->previous);
+                v->previous = sd_json_variant_ref(parameters);
+                parameters = punref;
+        }
 
-        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE)) {
-                /* We just replied to a method call that was let hanging for a while (i.e. we were outside of
-                 * the varlink_dispatch_method() stack frame), which means with this reply we are ready to
-                 * process further messages. */
-                varlink_clear_current(v);
-                varlink_set_state(v, VARLINK_IDLE_SERVER);
-        } else
-                /* We replied to a method call from within the varlink_dispatch_method() stack frame), which
-                 * means we should it handle the rest of the state engine. */
-                varlink_set_state(v, VARLINK_PROCESSED_METHOD);
-
-        return 1;
+        return varlink_enqueue_reply(v, parameters, more);
 }
 
 _public_ int sd_varlink_replyb(sd_varlink *v, ...) {
@@ -2716,49 +2752,7 @@ _public_ int sd_varlink_error_errno(sd_varlink *v, int error) {
 }
 
 _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
-        int r;
-
-        assert_return(v, -EINVAL);
-
-        if (v->state == VARLINK_DISCONNECTED)
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
-
-        /* If we want to reply with a notify connection but the caller didn't set "more", then return an
-         * error indicating that we expected to be called with "more" set */
-        if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PENDING_METHOD))
-                return sd_varlink_error(v, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
-
-        if (!IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE))
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
-
-        /* Validate parameters BEFORE sanitization */
-        if (v->current_method) {
-                const char *bad_field = NULL;
-
-                r = varlink_idl_validate_method_reply(v->current_method, parameters, SD_VARLINK_REPLY_CONTINUES, &bad_field);
-                if (r == -EBADE)
-                        varlink_log_errno(v, r, "Method reply for %s() has 'continues' flag set, but IDL structure doesn't allow that, ignoring: %m",
-                                          v->current_method->name);
-                else if (r < 0)
-                        /* Please adjust test/units/end.sh when updating the log message. */
-                        varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
-                                          v->current_method->name, strna(bad_field));
-        }
-
-        r = sd_json_buildo(
-                        &m,
-                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("continues", true));
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to build json message: %m");
-
-        r = varlink_enqueue_json(v, m);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
-
-        /* No state change, as more is coming */
-        return 1;
+        return sd_varlink_reply(v, parameters);
 }
 
 _public_ int sd_varlink_notifyb(sd_varlink *v, ...) {
@@ -2775,7 +2769,7 @@ _public_ int sd_varlink_notifyb(sd_varlink *v, ...) {
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        return sd_varlink_notify(v, parameters);
+        return sd_varlink_reply(v, parameters);
 }
 
 _public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, const sd_json_dispatch_field dispatch_table[], void *userdata) {
