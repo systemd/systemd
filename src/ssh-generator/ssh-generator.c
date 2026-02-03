@@ -474,7 +474,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         _cleanup_free_ char *found_sshd_template_unit = NULL;
         r = unit_file_exists_full(RUNTIME_SCOPE_SYSTEM, &lp,
-                                  /* follow = */ true,
+                                  SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                   "sshd@.service",
                                   &found_sshd_template_unit);
         if (r < 0)
