@@ -10,6 +10,7 @@
 #include "uid-classification.h"
 #include "user-util.h"
 #include "varlink-dynamic-user.h"
+#include "varlink-util.h"
 
 typedef struct LookupParameters {
         const char *user_name;
@@ -59,7 +60,6 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
                 {}
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .uid = UID_INVALID,
         };
@@ -77,6 +77,10 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
 
         if (!streq_ptr(p.service, "io.systemd.DynamicUser"))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
+
+        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        if (r < 0)
+                return r;
 
         if (uid_is_valid(p.uid))
                 r = dynamic_user_lookup_uid(m, p.uid, &found_name);
@@ -98,26 +102,20 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
                         if (!user_match_lookup_parameters(&p, d->name, uid))
                                 continue;
 
-                        if (v) {
-                                r = sd_varlink_notify(link, v);
-                                if (r < 0)
-                                        return r;
-
-                                v = sd_json_variant_unref(v);
-                        }
-
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                         r = build_user_json(d->name, uid, &v);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_varlink_reply(link, v);
                         if (r < 0)
                                 return r;
                 }
 
-                if (!v)
-                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-
-                return sd_varlink_reply(link, v);
+                return 0;
         }
         if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return 0;
         if (r < 0)
                 return r;
 
@@ -127,6 +125,7 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
         if (!user_match_lookup_parameters(&p, un, uid))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_user_json(un, uid, &v);
         if (r < 0)
                 return r;
@@ -168,7 +167,6 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
                 {}
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .gid = GID_INVALID,
         };
@@ -182,6 +180,10 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
+                return r;
+
+        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        if (r < 0)
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.DynamicUser"))
@@ -209,26 +211,20 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
                         if (!group_match_lookup_parameters(&p, d->name, (gid_t) uid))
                                 continue;
 
-                        if (v) {
-                                r = sd_varlink_notify(link, v);
-                                if (r < 0)
-                                        return r;
-
-                                v = sd_json_variant_unref(v);
-                        }
-
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                         r = build_group_json(d->name, (gid_t) uid, &v);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_varlink_reply(link, v);
                         if (r < 0)
                                 return r;
                 }
 
-                if (!v)
-                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-
-                return sd_varlink_reply(link, v);
+                return 0;
         }
         if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return 0;
         if (r < 0)
                 return r;
 
@@ -238,6 +234,7 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
         if (!group_match_lookup_parameters(&p, gn, gid))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_group_json(gn, gid, &v);
         if (r < 0)
                 return r;
