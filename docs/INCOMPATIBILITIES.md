@@ -7,7 +7,16 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Compatibility with SysV
 
-Since systemd v260, support for SysV functionalities has been removed. The documentation below is preserved for historical references only.
+Since systemd v260, support for SysV functionality has been removed.
+The documentation below is preserved for historical reference only.
+
+A few interfaces are optionally kept for backward compatibility.
+When systemd is compiled with the `-Dcompat-sysv-interfaces=true` setting,
+legacy interfaces are provided,
+e.g. the `runlevelX.target` aliases,
+and lock directories in under `/var` and `/run`.
+This option may be extended to cover other deprecated interfaces in the future.
+
 
 ## Pre v260 state
 
@@ -21,7 +30,7 @@ Many of the incompatibilities are specific to distribution-specific extensions o
 * LSB header dependency information matters. The SysV implementations on many distributions did not use the dependency information encoded in LSB init script headers, or used them only in very limited ways. Due to that they are often incorrect or incomplete. systemd however fully interprets these headers and follows them closely at runtime (and not at installation time like some implementations).
 * Timeouts apply to all init script operations in systemd. While on SysV systems a hanging init script could freeze the system on systemd all init script operations are subject to a timeout of 5min.
 * Services are executed in completely clean execution contexts, no context of the invoking user session is inherited. Not even $HOME or similar are set. Init scripts depending on these will not work correctly.
-* Services cannot read from stdin, as this will be connected to /dev/null. That means interactive init scripts are not supported (i.e. Debian's X-Interactive in the LSB header is not supported either.) Thankfully most distributions do not support interaction in init scripts anyway. If you need interaction to ask disk or SSL passphrases please consider using the minimal password querying framework systemd supports. ([details](/PASSWORD_AGENTS), [manual page](https://0pointer.de/public/systemd-man/systemd-ask-password.html))
+* Services cannot read from stdin, as this will be connected to /dev/null. That means interactive init scripts are not supported (i.e. Debian's X-Interactive in the LSB header is not supported either.) Thankfully most distributions do not support interaction in init scripts anyway. If you need interaction to ask disk or SSL passphrases please consider using the minimal password querying framework systemd supports. ([details](/PASSWORD_AGENTS), [manual page](https://www.freedesktop.org/software/systemd/man/latest/systemd-ask-password.html))
 * Additional verbs for init scripts are not supported. If your init script traditionally supported additional verbs for your init script simply move them to an auxiliary script.
 * Additional parameters to the standard verbs (i.e. to "start", "stop" and "status") are not supported. This was an extension of SysV that never was standardized officially, and is not supported in systemd.
 * Overriding the "restart" verb is not supported. This verb is always implemented by systemd itself, and consists of a "stop" followed by a "start".
