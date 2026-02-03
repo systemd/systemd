@@ -9,8 +9,10 @@
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "ordered-set.h"
 #include "set.h"
 #include "string-util.h"
+#include "strv.h"
 
 DNSServer* dns_server_free(DNSServer *s) {
         if (!s)
@@ -57,6 +59,7 @@ static int dispatch_dns_server(const char *name, sd_json_variant *variant, sd_js
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "Dispatched address size (%zu) is incompatible with the family (%s).",
                                 s->addr.iov_len, af_to_ipv4_ipv6(s->family));
+        memcpy_safe(&s->in_addr, s->addr.iov_base, s->addr.iov_len);
 
         *ret = TAKE_PTR(s);
 
@@ -64,8 +67,8 @@ static int dispatch_dns_server(const char *name, sd_json_variant *variant, sd_js
 }
 
 static int dispatch_dns_server_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        Set **ret = ASSERT_PTR(userdata);
-        _cleanup_set_free_ Set *dns_servers = NULL;
+        OrderedSet **ret = ASSERT_PTR(userdata);
+        _cleanup_ordered_set_free_ OrderedSet *dns_servers = NULL;
         sd_json_variant *v;
         int r;
 
@@ -76,12 +79,13 @@ static int dispatch_dns_server_array(const char *name, sd_json_variant *variant,
                 if (r < 0)
                         return json_log(v, flags, r, "JSON array element is not a valid DNSServer.");
 
-                r = set_ensure_consume(&dns_servers, &dns_server_hash_ops, TAKE_PTR(s));
+                r = ordered_set_ensure_put(&dns_servers, &dns_server_hash_ops, s);
                 if (r < 0)
                         return r;
+                TAKE_PTR(s);
         }
 
-        set_free_and_replace(*ret, dns_servers);
+        free_and_replace_full(*ret, dns_servers, ordered_set_free);
 
         return 0;
 }
@@ -128,8 +132,8 @@ static int dispatch_search_domain(const char *name, sd_json_variant *variant, sd
 }
 
 static int dispatch_search_domain_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        Set **ret = ASSERT_PTR(userdata);
-        _cleanup_set_free_ Set *search_domains = NULL;
+        OrderedSet **ret = ASSERT_PTR(userdata);
+        _cleanup_ordered_set_free_ OrderedSet *search_domains = NULL;
         sd_json_variant *v;
         int r;
 
@@ -140,12 +144,82 @@ static int dispatch_search_domain_array(const char *name, sd_json_variant *varia
                 if (r < 0)
                         return json_log(v, flags, r, "JSON array element is not a valid SearchDomain.");
 
-                r = set_ensure_consume(&search_domains, &search_domain_hash_ops, TAKE_PTR(d));
+                r = ordered_set_ensure_put(&search_domains, &search_domain_hash_ops, d);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(d);
+        }
+
+        free_and_replace_full(*ret, search_domains, ordered_set_free);
+
+        return 0;
+}
+
+DNSScope* dns_scope_free(DNSScope *s) {
+        if (!s)
+                return NULL;
+
+        free(s->ifname);
+        free(s->protocol);
+        free(s->dnssec_mode_str);
+        free(s->dns_over_tls_mode_str);
+
+        return mfree(s);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        dns_scope_hash_ops,
+        void,
+        trivial_hash_func,
+        trivial_compare_func,
+        DNSScope,
+        dns_scope_free);
+
+static int dispatch_dns_scope(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dns_scope_dispatch_table[] = {
+                { "protocol",   SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(DNSScope, protocol),               SD_JSON_MANDATORY },
+                { "family",     SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,   offsetof(DNSScope, family),                 0                 },
+                { "ifname",     SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(DNSScope, ifname),                 0                 },
+                { "ifindex",    SD_JSON_VARIANT_UNSIGNED, json_dispatch_ifindex,   offsetof(DNSScope, ifindex),                SD_JSON_RELAX     },
+                { "dnssec",     SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(DNSScope, dnssec_mode_str),        0                 },
+                { "dnsOverTLS", SD_JSON_VARIANT_STRING,   sd_json_dispatch_string, offsetof(DNSScope, dns_over_tls_mode_str),  0                 },
+                {},
+        };
+        DNSScope **ret = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(dns_scope_freep) DNSScope *s = new0(DNSScope, 1);
+        if (!s)
+                return log_oom();
+
+        r = sd_json_dispatch(variant, dns_scope_dispatch_table, flags, s);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(s);
+
+        return 0;
+}
+
+static int dispatch_dns_scope_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        Set **ret = ASSERT_PTR(userdata);
+        _cleanup_set_free_ Set *dns_scopes = NULL;
+        sd_json_variant *v;
+        int r;
+
+        JSON_VARIANT_ARRAY_FOREACH(v, variant) {
+                _cleanup_(dns_scope_freep) DNSScope *s = NULL;
+
+                r = dispatch_dns_scope(name, v, flags, &s);
+                if (r < 0)
+                        return json_log(v, flags, r, "JSON array element is not a valid DNSScope.");
+
+                r = set_ensure_consume(&dns_scopes, &dns_scope_hash_ops, TAKE_PTR(s));
                 if (r < 0)
                         return r;
         }
 
-        set_free_and_replace(*ret, search_domains);
+        set_free_and_replace(*ret, dns_scopes);
 
         return 0;
 }
@@ -155,9 +229,18 @@ DNSConfiguration* dns_configuration_free(DNSConfiguration *c) {
                 return NULL;
 
         dns_server_free(c->current_dns_server);
-        set_free(c->dns_servers);
-        set_free(c->search_domains);
+        ordered_set_free(c->dns_servers);
+        ordered_set_free(c->search_domains);
+        ordered_set_free(c->fallback_dns_servers);
+        set_free(c->dns_scopes);
         free(c->ifname);
+        free(c->dnssec_mode_str);
+        free(c->dns_over_tls_mode_str);
+        free(c->llmnr_mode_str);
+        free(c->mdns_mode_str);
+        free(c->resolv_conf_mode_str);
+        free(c->delegate);
+        strv_free(c->negative_trust_anchors);
 
         return mfree(c);
 }
@@ -172,23 +255,22 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 
 static int dispatch_dns_configuration(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dns_configuration_dispatch_table[] = {
-                { "ifname",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(DNSConfiguration, ifname),             0             },
-                { "ifindex",              SD_JSON_VARIANT_UNSIGNED,      json_dispatch_ifindex,        offsetof(DNSConfiguration, ifindex),            SD_JSON_RELAX },
-                { "defaultRoute",         SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,     offsetof(DNSConfiguration, default_route),      0             },
-                { "currentServer",        SD_JSON_VARIANT_OBJECT,        dispatch_dns_server,          offsetof(DNSConfiguration, current_dns_server), 0             },
-                { "servers",              SD_JSON_VARIANT_ARRAY,         dispatch_dns_server_array,    offsetof(DNSConfiguration, dns_servers),        0             },
-                { "searchDomains",        SD_JSON_VARIANT_ARRAY,         dispatch_search_domain_array, offsetof(DNSConfiguration, search_domains),     0             },
-
-                /* The remaining fields are currently unused by wait-online. */
-                { "delegate",             _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
-                { "fallbackServers",      _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
-                { "negativeTrustAnchors", _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
-                { "dnssec",               _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
-                { "dnsOverTLS",           _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
-                { "llmnr",                _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
-                { "mDNS",                 _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
-                { "resolvConfMode",       _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
-                { "scopes",               _SD_JSON_VARIANT_TYPE_INVALID, NULL,                         0,                                              0             },
+                { "ifname",               SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, ifname),                 0             },
+                { "ifindex",              SD_JSON_VARIANT_UNSIGNED, json_dispatch_ifindex,        offsetof(DNSConfiguration, ifindex),                SD_JSON_RELAX },
+                { "defaultRoute",         SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,     offsetof(DNSConfiguration, default_route),          0             },
+                { "currentServer",        SD_JSON_VARIANT_OBJECT,   dispatch_dns_server,          offsetof(DNSConfiguration, current_dns_server),     0             },
+                { "servers",              SD_JSON_VARIANT_ARRAY,    dispatch_dns_server_array,    offsetof(DNSConfiguration, dns_servers),            0             },
+                { "searchDomains",        SD_JSON_VARIANT_ARRAY,    dispatch_search_domain_array, offsetof(DNSConfiguration, search_domains),         0             },
+                { "dnssecSupported",      SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,     offsetof(DNSConfiguration, dnssec_supported),       0             },
+                { "dnssec",               SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, dnssec_mode_str),        0             },
+                { "dnsOverTLS",           SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, dns_over_tls_mode_str),  0             },
+                { "llmnr",                SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, llmnr_mode_str),         0             },
+                { "mDNS",                 SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, mdns_mode_str),          0             },
+                { "fallbackServers",      SD_JSON_VARIANT_ARRAY,    dispatch_dns_server_array,    offsetof(DNSConfiguration, fallback_dns_servers),   0             },
+                { "negativeTrustAnchors", SD_JSON_VARIANT_ARRAY,    sd_json_dispatch_strv,        offsetof(DNSConfiguration, negative_trust_anchors), 0             },
+                { "resolvConfMode",       SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, resolv_conf_mode_str),   0             },
+                { "scopes",               SD_JSON_VARIANT_ARRAY,    dispatch_dns_scope_array,     offsetof(DNSConfiguration, dns_scopes),             0             },
+                { "delegate",             SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, delegate),               0             },
                 {},
 
         };
@@ -203,6 +285,8 @@ static int dispatch_dns_configuration(const char *name, sd_json_variant *variant
         r = sd_json_dispatch(variant, dns_configuration_dispatch_table, flags, c);
         if (r < 0)
                 return r;
+
+        strv_sort(c->negative_trust_anchors);
 
         *ret = TAKE_PTR(c);
 
@@ -222,7 +306,7 @@ bool dns_is_accessible(DNSConfiguration *c) {
         if (c->current_dns_server && c->current_dns_server->accessible)
                 return true;
 
-        SET_FOREACH(s, c->dns_servers)
+        ORDERED_SET_FOREACH(s, c->dns_servers)
                 if (s->accessible)
                         return true;
 
@@ -237,7 +321,7 @@ bool dns_configuration_contains_search_domain(DNSConfiguration *c, const char *d
         if (!c)
                 return false;
 
-        SET_FOREACH(d, c->search_domains)
+        ORDERED_SET_FOREACH(d, c->search_domains)
                 if (streq(d->name, domain))
                         return true;
 
