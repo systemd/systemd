@@ -78,10 +78,6 @@ static bool has_virtio_console(void) {
         return has_virtio_feature("virtio-console", STRV_MAKE("virtio:d00000003v", "virtio:d0000000Bv"));
 }
 
-static bool has_virtio_vsock(void) {
-        return has_virtio_feature("virtio-vsock", STRV_MAKE("virtio:d00000013v"));
-}
-
 static bool has_virtiofs(void) {
         return has_virtio_feature("virtiofs", STRV_MAKE("virtio:d0000001Av"));
 }
@@ -92,6 +88,18 @@ static bool has_virtio_pci(void) {
 
 static bool in_qemu(void) {
         return IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_QEMU);
+}
+
+static bool may_have_virtio_vsock(void) {
+        return detect_vm() > 0;
+}
+
+static bool in_vmware(void) {
+        return detect_vm() == VIRTUALIZATION_VMWARE;
+}
+
+static bool in_hyperv(void) {
+        return detect_vm() == VIRTUALIZATION_MICROSOFT;
 }
 #endif
 
@@ -106,21 +114,23 @@ int kmod_setup(void) {
         } kmod_table[] = {
                 /* This one we need to load explicitly, since auto-loading on use doesn't work
                  * before udev created the ghost device nodes, and we need it earlier than that. */
-                { "autofs4",                    "/sys/class/misc/autofs",    true,  false, NULL               },
+                { "autofs4",                    "/sys/class/misc/autofs",    true,  false, NULL                  },
 
                 /* This one we need to load explicitly, since auto-loading of IPv6 is not done when
                  * we try to configure ::1 on the loopback device. */
-                { "ipv6",                       "/sys/module/ipv6",          false, true,  NULL               },
+                { "ipv6",                       "/sys/module/ipv6",          false, true,  NULL                  },
 
                 /* virtio_rng would be loaded by udev later, but real entropy might be needed very early */
-                { "virtio_rng",                 NULL,                        false, false, has_virtio_rng     },
+                { "virtio_rng",                 NULL,                        false, false, has_virtio_rng        },
 
                 /* we want early logging to hvc consoles if possible, and make sure systemd-getty-generator
                  * can rely on all consoles being probed already. */
-                { "virtio_console",             NULL,                        false, false, has_virtio_console },
+                { "virtio_console",             NULL,                        false, false, has_virtio_console    },
 
                 /* Make sure we can send sd-notify messages over vsock as early as possible. */
-                { "vmw_vsock_virtio_transport", NULL,                        false, false, has_virtio_vsock   },
+                { "vmw_vsock_virtio_transport", NULL,                        false, false, may_have_virtio_vsock },
+                { "vmw_vsock_vmci_transport",   NULL,                        false, false, in_vmware             },
+                { "hv_sock",                    NULL,                        false, false, in_hyperv             },
 
                 /* We can't wait for specific virtiofs tags to show up as device nodes so we have to load the
                  * virtiofs and virtio_pci modules early to make sure the virtiofs tags are found when
@@ -128,18 +138,18 @@ int kmod_setup(void) {
                  *
                  * TODO: Remove these again once https://gitlab.com/virtio-fs/virtiofsd/-/issues/128 is
                  * resolved and the kernel fix is widely available. */
-                { "virtiofs",                   "/sys/module/virtiofs",      false, false, has_virtiofs       },
-                { "virtio_pci",                 "/sys/module/virtio_pci",    false, false, has_virtio_pci     },
+                { "virtiofs",                   "/sys/module/virtiofs",      false, false, has_virtiofs          },
+                { "virtio_pci",                 "/sys/module/virtio_pci",    false, false, has_virtio_pci        },
 
                 /* qemu_fw_cfg would be loaded by udev later, but we want to import credentials from it super early */
-                { "qemu_fw_cfg",                "/sys/firmware/qemu_fw_cfg", false, false, in_qemu            },
+                { "qemu_fw_cfg",                "/sys/firmware/qemu_fw_cfg", false, false, in_qemu               },
 
                 /* dmi-sysfs is needed to import credentials from it super early */
-                { "dmi-sysfs",                  "/sys/firmware/dmi/entries", false, false, NULL               },
+                { "dmi-sysfs",                  "/sys/firmware/dmi/entries", false, false, NULL                  },
 
 #if HAVE_TPM2
                 /* Make sure the tpm subsystem is available which ConditionSecurity=tpm2 depends on. */
-                { "tpm",                        "/sys/class/tpmrm",          false, false, efi_has_tpm2       },
+                { "tpm",                        "/sys/class/tpmrm",          false, false, efi_has_tpm2          },
 #endif
         };
 
