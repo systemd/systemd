@@ -17,6 +17,7 @@
 #include "machined.h"
 #include "operation.h"
 #include "process-util.h"
+#include "varlink-util.h"
 
 typedef struct ImageUpdateParameters {
         const char *name;
@@ -294,7 +295,7 @@ int vl_method_set_pool_limit(sd_varlink *link, sd_json_variant *parameters, sd_v
         return sd_varlink_reply(link, NULL);
 }
 
-static int clean_pool_list_one_image(sd_varlink *link, const char *name, uint64_t usage_exclusive, bool more) {
+static int clean_pool_list_one_image(sd_varlink *link, const char *name, uint64_t usage_exclusive) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
@@ -307,9 +308,6 @@ static int clean_pool_list_one_image(sd_varlink *link, const char *name, uint64_
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("usageExclusive", usage_exclusive, UINT64_MAX));
         if (r < 0)
                 return r;
-
-        if (more)
-                return sd_varlink_notify(link, v);
 
         return sd_varlink_reply(link, v);
 }
@@ -324,10 +322,12 @@ static int clean_pool_done_internal(Operation *operation, FILE *file, int child_
         if (r < 0)
                 return log_debug_errno(r, "Failed to read first entry from tmp file: %m");
 
+        r = varlink_set_sentinel(operation->link, "io.systemd.MachineImage.NoSuchImage");
+        if (r < 0)
+                return r;
+
         /* On success the resulting temporary file will contain a list of image names that were removed followed by
          * their size on disk. Let's read that and turn it into a bus message. */
-        _cleanup_free_ char *previous_name = NULL;
-        uint64_t previous_usage;
         for (;;) {
                 _cleanup_free_ char *name = NULL;
                 uint64_t usage;
@@ -337,22 +337,12 @@ static int clean_pool_done_internal(Operation *operation, FILE *file, int child_
                 if (r == 0)
                         break;
 
-                if (previous_name) {
-                        r = clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more= */ true);
-                        if (r < 0)
-                                return r;
-                        /* freeing memory to avoid memleak at the following assignment */
-                        previous_name = mfree(previous_name);
-                }
-
-                previous_name = TAKE_PTR(name);
-                previous_usage = usage;
+                r = clean_pool_list_one_image(operation->link, name, usage);
+                if (r < 0)
+                        return r;
         }
 
-        if (previous_name)
-                return clean_pool_list_one_image(operation->link, previous_name, previous_usage, /* more= */ false);
-
-        return sd_varlink_error(operation->link, "io.systemd.MachineImage.NoSuchImage", NULL);
+        return 0;
 }
 
 static int clean_pool_done(Operation *operation, int child_error, sd_bus_error *error) {
