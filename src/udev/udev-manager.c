@@ -218,6 +218,8 @@ Manager* manager_free(Manager *manager) {
 
         sd_event_source_unref(manager->inotify_event);
         set_free(manager->synthesize_change_child_event_sources);
+        set_free(manager->synthesized_events);
+        sd_event_source_unref(manager->synthesized_events_clear_event_source);
         sd_event_source_unref(manager->kill_workers_event);
         sd_event_unref(manager->event);
 
@@ -895,6 +897,11 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         assert(manager);
         assert(dev);
 
+        /* If the event is the one we triggered, remove the UUID from the list. */
+        sd_id128_t uuid;
+        if (sd_device_get_trigger_uuid(dev, &uuid) >= 0)
+                free(set_remove(manager->synthesized_events, &uuid));
+
         /* We only accepts devices received by device monitor. */
         r = sd_device_get_seqnum(dev, &seqnum);
         if (r < 0)
@@ -961,14 +968,6 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         event->manager = manager;
         TAKE_PTR(event);
         log_device_uevent(dev, "Device is queued");
-
-        if (!manager->queue_file_created) {
-                r = touch("/run/udev/queue");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to touch /run/udev/queue, ignoring: %m");
-                else
-                        manager->queue_file_created = true;
-        }
 
         return 0;
 }
@@ -1068,6 +1067,9 @@ static int manager_deserialize_events(Manager *manager, int *fd) {
                 n++;
         }
 
+        if (n > 0)
+                (void) manager_create_queue_file(manager);
+
         log_debug("Deserialized %"PRIu64" events.", n);
         return 0;
 }
@@ -1077,6 +1079,8 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
         int r;
 
         DEVICE_TRACE_POINT(kernel_uevent_received, dev);
+
+        (void) manager_create_queue_file(manager);
 
         device_ensure_usec_initialized(dev, NULL);
 
@@ -1256,6 +1260,22 @@ static int on_sighup(sd_event_source *s, const struct signalfd_siginfo *si, void
         return 1;
 }
 
+int manager_create_queue_file(Manager *manager) {
+        int r;
+
+        assert(manager);
+
+        if (manager->queue_file_created)
+                return 0;
+
+        r = touch("/run/udev/queue");
+        if (r < 0)
+                return log_warning_errno(r, "Failed to touch /run/udev/queue: %m");
+
+        manager->queue_file_created = true;
+        return 0;
+}
+
 static int manager_unlink_queue_file(Manager *manager) {
         assert(manager);
 
@@ -1264,6 +1284,9 @@ static int manager_unlink_queue_file(Manager *manager) {
 
         if (!set_isempty(manager->synthesize_change_child_event_sources))
                 return 0; /* There are child processes that should trigger synthetic events. */
+
+        if (!set_isempty(manager->synthesized_events))
+                return 0; /* We have triggered synthesized change events. */
 
         /* There are no queued events. Let's remove /run/udev/queue and clean up the idle processes. */
         if (unlink("/run/udev/queue") < 0) {
