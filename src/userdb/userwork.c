@@ -153,7 +153,6 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 {}
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         _cleanup_(lookup_parameters_done) LookupParameters p = {
                 .uid = UID_INVALID,
@@ -173,13 +172,16 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                      * we are done'; == 0 means 'not processed, caller should process now' */
                 return r;
 
+        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        if (r < 0)
+                return r;
+
         if (uid_is_valid(p.uid))
                 r = userdb_by_uid(p.uid, &p.match, userdb_flags, &hr);
         else if (p.name)
                 r = userdb_by_name(p.name, &p.match, userdb_flags, &hr);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *last = NULL;
 
                 r = userdb_all(&p.match, userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
@@ -189,7 +191,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                          * implementation detail and always return NoRecordFound in this case, since from a
                          * client's perspective it's irrelevant if there was no entry at all or just not on
                          * the service that the query was limited to. */
-                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                        return 0;
                 if (r < 0)
                         return r;
 
@@ -202,26 +204,20 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                         if (r < 0)
                                 return r;
 
-                        if (last) {
-                                r = sd_varlink_notify(link, last);
-                                if (r < 0)
-                                        return r;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        r = build_user_json(link, z, &v);
+                        if (r < 0)
+                                return r;
 
-                                last = sd_json_variant_unref(last);
-                        }
-
-                        r = build_user_json(link, z, &last);
+                        r = sd_varlink_reply(link, v);
                         if (r < 0)
                                 return r;
                 }
 
-                if (!last)
-                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-
-                return sd_varlink_reply(link, last);
+                return 0;
         }
         if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return 0;
         if (r == -ENOEXEC)
                 return sd_varlink_error(link, "io.systemd.UserDatabase.NonMatchingRecordFound", NULL);
         if (r < 0) {
@@ -233,6 +229,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
             (p.name && !user_record_matches_user_name(hr, p.name)))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_user_json(link, hr, &v);
         if (r < 0)
                 return r;
@@ -298,7 +295,6 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 {}
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
         _cleanup_(lookup_parameters_done) LookupParameters p = {
                 .gid = GID_INVALID,
@@ -317,17 +313,20 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         if (r != 0)
                 return r;
 
+        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        if (r < 0)
+                return r;
+
         if (gid_is_valid(p.gid))
                 r = groupdb_by_gid(p.gid, &p.match, userdb_flags, &g);
         else if (p.name)
                 r = groupdb_by_name(p.name, &p.match, userdb_flags, &g);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *last = NULL;
 
                 r = groupdb_all(&p.match, userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
-                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                        return 0;
                 if (r < 0)
                         return r;
 
@@ -340,26 +339,20 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                         if (r < 0)
                                 return r;
 
-                        if (last) {
-                                r = sd_varlink_notify(link, last);
-                                if (r < 0)
-                                        return r;
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        r = build_group_json(link, z, &v);
+                        if (r < 0)
+                                return r;
 
-                                last = sd_json_variant_unref(last);
-                        }
-
-                        r = build_group_json(link, z, &last);
+                        r = sd_varlink_reply(link, v);
                         if (r < 0)
                                 return r;
                 }
 
-                if (!last)
-                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-
-                return sd_varlink_reply(link, last);
+                return 0;
         }
         if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return 0;
         if (r == -ENOEXEC)
                 return sd_varlink_error(link, "io.systemd.UserDatabase.NonMatchingRecordFound", NULL);
         if (r < 0) {
@@ -371,6 +364,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
             (p.name && !group_record_matches_group_name(g, p.name)))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_group_json(link, g, &v);
         if (r < 0)
                 return r;
@@ -392,7 +386,6 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
                 {}
         };
 
-        _cleanup_free_ char *last_user_name = NULL, *last_group_name = NULL;
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         MembershipLookupParameters p = {};
         UserDBFlags userdb_flags;
@@ -408,6 +401,10 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
         if (r != 0)
                 return r;
 
+        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        if (r < 0)
+                return r;
+
         if (p.group_name)
                 r = membershipdb_by_group(p.group_name, userdb_flags, &iterator);
         else if (p.user_name)
@@ -415,7 +412,7 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
         else
                 r = membershipdb_all(userdb_flags, &iterator);
         if (IN_SET(r, -ESRCH, -ENOLINK))
-                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return 0;
         if (r < 0)
                 return r;
 
@@ -432,32 +429,15 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
                 if (p.group_name && p.user_name && !streq(group_name, p.group_name))
                         continue;
 
-                if (last_user_name) {
-                        assert(last_group_name);
-
-                        r = sd_varlink_notifybo(
-                                        link,
-                                        SD_JSON_BUILD_PAIR_STRING("userName", last_user_name),
-                                        SD_JSON_BUILD_PAIR_STRING("groupName", last_group_name));
-                        if (r < 0)
-                                return r;
-                }
-
-                free_and_replace(last_user_name, user_name);
-                free_and_replace(last_group_name, group_name);
+                r = sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_STRING("userName", user_name),
+                                SD_JSON_BUILD_PAIR_STRING("groupName", group_name));
+                if (r < 0)
+                        return r;
         }
 
-        if (!last_user_name) {
-                assert(!last_group_name);
-                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-        }
-
-        assert(last_group_name);
-
-        return sd_varlink_replybo(
-                        link,
-                        SD_JSON_BUILD_PAIR_STRING("userName", last_user_name),
-                        SD_JSON_BUILD_PAIR_STRING("groupName", last_group_name));
+        return 0;
 }
 
 static int process_connection(sd_varlink_server *server, int _fd) {
