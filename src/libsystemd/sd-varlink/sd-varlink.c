@@ -1104,6 +1104,20 @@ static int varlink_sanitize_incoming_parameters(sd_json_variant **v) {
         return 0;
 }
 
+static bool should_skip_reply_callback(sd_varlink *v, sd_json_variant *parameters, const char *error) {
+        /* If we're in streaming mode (VARLINK_AWAITING_REPLY_MORE) and receive a final reply (no
+         * SD_VARLINK_REPLY_CONTINUES) with empty parameters and no error, this is a "end of stream" marker
+         * that should not be passed to the user callback. This allows servers to signal end-of-stream
+         * cleanly without requiring the client to handle an empty final reply. */
+
+        assert(v);
+
+        return v->state == VARLINK_AWAITING_REPLY_MORE &&
+                !FLAGS_SET(v->current_reply_flags, SD_VARLINK_REPLY_CONTINUES) &&
+                !error &&
+                sd_json_variant_is_blank_object(parameters);
+}
+
 static int varlink_dispatch_reply(sd_varlink *v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
         sd_varlink_reply_flags_t flags = 0;
@@ -1173,7 +1187,7 @@ static int varlink_dispatch_reply(sd_varlink *v) {
         if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE)) {
                 varlink_set_state(v, VARLINK_PROCESSING_REPLY);
 
-                if (v->reply_callback) {
+                if (v->reply_callback && !should_skip_reply_callback(v, parameters, error)) {
                         r = v->reply_callback(v, parameters, error, flags, v->userdata);
                         if (r < 0)
                                 varlink_log_errno(v, r, "Reply callback returned error, ignoring: %m");
