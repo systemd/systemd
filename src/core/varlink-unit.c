@@ -311,27 +311,16 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_runtime_build_json, u));
 }
 
-static int list_unit_one(sd_varlink *link, Unit *unit, bool more) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        int r;
-
+static int list_unit_one(sd_varlink *link, Unit *unit) {
         assert(link);
         assert(unit);
 
-        r = sd_json_buildo(
-                &v,
-                SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, unit),
-                SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, unit));
-        if (r < 0)
-                return r;
-
-        if (more)
-                return sd_varlink_notify(link, v);
-
-        return sd_varlink_reply(link, v);
+        return sd_varlink_replybo(link,
+                        SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, unit),
+                        SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, unit));
 }
 
-static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit, bool more) {
+static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit) {
         int r;
 
         assert(link);
@@ -343,7 +332,7 @@ static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit,
                  * it means that SELinux enforce is on. It also does all the logging(). */
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
-        return list_unit_one(link, unit, more);
+        return list_unit_one(link, unit);
 }
 
 static int lookup_unit_by_pidref(sd_varlink *link, Manager *manager, PidRef *pidref, Unit **ret_unit) {
@@ -456,7 +445,7 @@ static int lookup_unit_by_parameters(
         }
 
         *ret = unit;
-        return 0;
+        return !!unit;
 }
 
 int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -472,7 +461,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
          _cleanup_(unit_lookup_parameters_done) UnitLookupParameters p = {
                  .pidref = PIDREF_NULL,
         };
-        Unit *unit, *previous = NULL;
+        Unit *unit;
         const char *k;
         int r;
 
@@ -487,29 +476,26 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (r < 0)
                 return r;
         if (r > 0)
-                return list_unit_one_with_selinux_access_check(link, unit, /* more= */ false);
+                return list_unit_one_with_selinux_access_check(link, unit);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        r = varlink_set_sentinel(link, "io.systemd.Manager.NoSuchUnit");
+        if (r < 0)
+                return r;
 
         HASHMAP_FOREACH_KEY(unit, k, manager->units) {
                 /* ignore aliases */
                 if (k != unit->id)
                         continue;
 
-                if (previous) {
-                        r = list_unit_one(link, previous, /* more= */ true);
-                        if (r < 0)
-                                return r;
-                }
-
-                previous = unit;
+                r = list_unit_one(link, unit);
+                if (r < 0)
+                        return r;
         }
 
-        if (previous)
-                return list_unit_one(link, previous, /* more= */ false);
-
-        return sd_varlink_error(link, "io.systemd.Manager.NoSuchUnit", NULL);
+        return 0;
 }
 
 int varlink_unit_queue_job_one(

@@ -18,7 +18,6 @@ typedef struct MetricFamily MetricFamily;
 typedef struct MetricFamilyContext {
         const MetricFamily* metric_family;
         sd_varlink *link;
-        sd_json_variant *previous;
 } MetricFamilyContext;
 
 typedef int (*metric_family_generate_cb_t) (MetricFamilyContext *mfc, void *userdata);
