@@ -886,6 +886,9 @@ Manager* manager_free(Manager *m) {
         manager_dns_stub_stop(m);
         manager_varlink_done(m);
 
+        set_free(m->varlink_query_results_subscription);
+        set_free(m->varlink_dns_configuration_subscription);
+
         manager_socket_graveyard_clear(m);
 
         ordered_set_free(m->dns_extra_stub_listeners);
