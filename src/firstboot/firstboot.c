@@ -46,6 +46,7 @@
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "prompt-util.h"
+#include "plymouth-util.h"
 #include "runtime-scope.h"
 #include "smack-util.h"
 #include "stat-util.h"
@@ -122,6 +123,8 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
         }
 
         (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
+
+        (void) plymouth_hide_splash();
 
         if (arg_chrome)
                 chrome_show("Initial Setup", /* bottom= */ NULL);
