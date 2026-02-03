@@ -2745,7 +2745,6 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
         int r;
 
@@ -2775,26 +2774,23 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r < 0)
                 return r;
 
+        r = varlink_set_sentinel(link, "io.systemd.sysext.NoImagesFound");
+        if (r < 0)
+                return r;
+
         Image *img;
         HASHMAP_FOREACH(img, images) {
-                if (v) {
-                        /* Send previous item with more=true */
-                        r = sd_varlink_notify(link, v);
-                        if (r < 0)
-                                return r;
-                }
-
-                v = sd_json_variant_unref(v);
-
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 r = image_to_json(img, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_varlink_reply(link, v);
                 if (r < 0)
                         return r;
         }
 
-        if (v)  /* Send final item with more=false */
-                return sd_varlink_reply(link, v);
-
-        return sd_varlink_error(link, "io.systemd.sysext.NoImagesFound", NULL);
+        return 0;
 }
 
 static int verb_help(int argc, char **argv, void *userdata) {
