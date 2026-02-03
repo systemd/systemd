@@ -1801,38 +1801,26 @@ static int vl_method_list_transfers(sd_varlink *link, sd_json_variant *parameter
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        Transfer *previous = NULL, *t;
-        HASHMAP_FOREACH(t, m->transfers) {
+        r = varlink_set_sentinel(link, "io.systemd.Import.NoTransfers");
+        if (r < 0)
+                return r;
 
+        Transfer *t;
+        HASHMAP_FOREACH(t, m->transfers) {
                 if (p.class >= 0 && p.class != t->class)
                         continue;
 
-                if (previous) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
-                        r = make_transfer_json(previous, &v);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_varlink_notify(link, v);
-                        if (r < 0)
-                                return r;
-                }
-
-                previous = t;
-        }
-
-        if (previous) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
-                r = make_transfer_json(previous, &v);
+                r = make_transfer_json(t, &v);
                 if (r < 0)
                         return r;
 
-                return sd_varlink_reply(link, v);
+                r = sd_varlink_reply(link, v);
+                if (r < 0)
+                        return r;
         }
 
-        return sd_varlink_error(link, "io.systemd.Import.NoTransfers", NULL);
+        return 0;
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_import_verify, ImportVerify, import_verify_from_string);
