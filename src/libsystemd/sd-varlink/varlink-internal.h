@@ -157,6 +157,8 @@ struct sd_varlink {
         sd_varlink_reply_flags_t current_reply_flags;
         sd_varlink_symbol *current_method;
 
+        sd_json_variant *previous;
+
         int peer_pidfd;
         struct ucred ucred;
         bool ucred_acquired:1;
