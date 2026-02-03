@@ -48,6 +48,7 @@
 #include "percent-util.h"
 #include "pidref.h"
 #include "pkcs11-util.h"
+#include "plymouth-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
@@ -2896,6 +2897,8 @@ static int create_interactively(void) {
 
         (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
 
+        (void) plymouth_hide_splash();
+
         if (arg_chrome)
                 chrome_show("Create a User Account", /* bottom= */ NULL);
 
@@ -3265,17 +3268,17 @@ static int parse_size_field(sd_json_variant **identity, const char *field, const
 
 static int parse_boolean_field(sd_json_variant **identity, const char *field, const char *arg) {
         int r;
- 
+
         assert(identity);
         assert(field);
 
         if (isempty(arg))
                 return drop_from_identity(field);
- 
+
         r = parse_boolean(arg);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse boolean parameter %s: %s", field, arg);
- 
+
         r = sd_json_variant_set_field_boolean(identity, field, r > 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to set %s field: %m", field);
