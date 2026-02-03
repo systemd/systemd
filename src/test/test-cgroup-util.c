@@ -7,6 +7,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -493,7 +494,7 @@ TEST(cgroupid) {
         ASSERT_OK(fd_get_path(fd, &p));
         ASSERT_TRUE(path_equal(p, "/sys/fs/cgroup"));
 
-        ASSERT_OK(cg_fd_get_cgroupid(fd, &id));
+        ASSERT_OK(fd_to_handle_u64(fd, &id));
 
         fd2 = cg_cgroupid_open(fd, id);
 
@@ -509,7 +510,7 @@ TEST(cgroupid) {
                 ASSERT_OK(fd_get_path(fd2, &p2));
                 ASSERT_TRUE(path_equal(p2, "/sys/fs/cgroup"));
 
-                ASSERT_OK(cg_fd_get_cgroupid(fd2, &id2));
+                ASSERT_OK(fd_to_handle_u64(fd2, &id2));
 
                 ASSERT_EQ(id, id2);
 
