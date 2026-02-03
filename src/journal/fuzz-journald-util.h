@@ -9,8 +9,7 @@ typedef void (*journal_process_t)(
                 size_t raw_len,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label,
-                size_t label_len);
+                const char *label);
 
 void dummy_manager_new(Manager **ret, const uint8_t *buffer, size_t size);
 

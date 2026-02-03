@@ -56,6 +56,7 @@
 #include "process-util.h"
 #include "rm-rf.h"
 #include "set.h"
+#include "selinux-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -1058,14 +1059,6 @@ static void manager_write_to_journal(
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }
 
-#define IOVEC_ADD_SIZED_FIELD(iovec, n, value, value_size, field)               \
-        if (value_size > 0) {                                                   \
-                char *k;                                                        \
-                k = newa(char, STRLEN(field "=") + value_size + 1);             \
-                *mempcpy_typesafe(stpcpy(k, field "="), value, value_size) = 0; \
-                iovec[n++] = IOVEC_MAKE_STRING(k);                              \
-        }
-
 static void manager_dispatch_message_real(
                 Manager *m,
                 struct iovec *iovec, size_t n, size_t mm,
@@ -1101,7 +1094,7 @@ static void manager_dispatch_message_real(
                         cmdline1 = set_iovec_string_field(iovec, &n, "_CMDLINE=", c->cmdline);
 
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->capability_quintet.effective, uint64_t, capability_is_set, "%" PRIx64, "_CAP_EFFECTIVE");
-                IOVEC_ADD_SIZED_FIELD(iovec, n, c->label, c->label_size, "_SELINUX_CONTEXT");
+                IOVEC_ADD_STRING_FIELD(iovec, n, c->label, "_SELINUX_CONTEXT");
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->auditid, uint32_t, audit_session_is_valid, "%" PRIu32, "_AUDIT_SESSION");
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->loginuid, uid_t, uid_is_valid, UID_FMT, "_AUDIT_LOGINUID");
 
@@ -1123,7 +1116,7 @@ static void manager_dispatch_message_real(
 
         assert(n <= mm);
 
-        if (pid_is_valid(object_pid) && client_context_get(m, object_pid, NULL, NULL, 0, NULL, &o) >= 0) {
+        if (pid_is_valid(object_pid) && client_context_get(m, object_pid, /* ucred= */ NULL, /* label= */ NULL, /* unit_id= */ NULL, &o) >= 0) {
 
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->pid, pid_t, pid_is_valid, PID_FMT, "OBJECT_PID");
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->uid, uid_t, uid_is_valid, UID_FMT, "OBJECT_UID");
@@ -1136,7 +1129,7 @@ static void manager_dispatch_message_real(
                         cmdline2 = set_iovec_string_field(iovec, &n, "OBJECT_CMDLINE=", o->cmdline);
 
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->capability_quintet.effective, uint64_t, capability_is_set, "%" PRIx64, "OBJECT_CAP_EFFECTIVE");
-                IOVEC_ADD_SIZED_FIELD(iovec, n, o->label, o->label_size, "OBJECT_SELINUX_CONTEXT");
+                IOVEC_ADD_STRING_FIELD(iovec, n, o->label, "OBJECT_SELINUX_CONTEXT");
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->auditid, uint32_t, audit_session_is_valid, "%" PRIu32, "OBJECT_AUDIT_SESSION");
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->loginuid, uid_t, uid_is_valid, UID_FMT, "OBJECT_AUDIT_LOGINUID");
 
@@ -1482,12 +1475,12 @@ int manager_process_datagram(
                 uint32_t revents,
                 void *userdata) {
 
-        size_t label_len = 0, mm;
+        size_t mm;
         Manager *m = ASSERT_PTR(userdata);
         struct ucred *ucred = NULL;
         struct timeval tv_buf, *tv = NULL;
         struct cmsghdr *cmsg;
-        char *label = NULL;
+        _cleanup_free_ char *label = NULL;
         struct iovec iovec;
         ssize_t n;
         int *fds = NULL, v = 0;
@@ -1561,10 +1554,11 @@ int manager_process_datagram(
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
                         assert(!ucred);
                         ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
-                } else if (cmsg->cmsg_type == SCM_SECURITY) {
+                } else if (cmsg->cmsg_type == SCM_SECURITY && mac_selinux_use()) {
                         assert(!label);
-                        label = CMSG_TYPED_DATA(cmsg, char);
-                        label_len = cmsg->cmsg_len - CMSG_LEN(0);
+                        /* Here, we ignore any errors including OOM, as the field is optional. */
+                        (void) make_cstring(CMSG_TYPED_DATA(cmsg, char), cmsg->cmsg_len - CMSG_LEN(0),
+                                            MAKE_CSTRING_ALLOW_TRAILING_NUL, &label);
                 } else if (cmsg->cmsg_type == SCM_TIMESTAMP &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval))) {
                         assert(!tv);
@@ -1581,7 +1575,7 @@ int manager_process_datagram(
 
         if (fd == m->syslog_fd) {
                 if (n > 0 && n_fds == 0)
-                        manager_process_syslog_message(m, m->buffer, n, ucred, tv, label, label_len);
+                        manager_process_syslog_message(m, m->buffer, n, ucred, tv, label);
                 else if (n_fds > 0)
                         log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                               "Got file descriptors via syslog socket. Ignoring.");
@@ -1591,9 +1585,9 @@ int manager_process_datagram(
 
         } else if (fd == m->native_fd) {
                 if (n > 0 && n_fds == 0)
-                        manager_process_native_message(m, m->buffer, n, ucred, tv, label, label_len);
+                        manager_process_native_message(m, m->buffer, n, ucred, tv, label);
                 else if (n == 0 && n_fds == 1)
-                        (void) manager_process_native_file(m, fds[0], ucred, tv, label, label_len);
+                        (void) manager_process_native_file(m, fds[0], ucred, tv, label);
                 else if (n_fds > 0)
                         log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                               "Got too many file descriptors via native socket. Ignoring.");
