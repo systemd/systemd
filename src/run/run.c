@@ -61,7 +61,6 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
-#include "uid-classification.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -2247,9 +2246,6 @@ static int fchown_to_capsule(int fd, const char *capsule) {
         r = chase_and_stat(p, /* root= */ NULL, CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS, /* ret_path= */ NULL, &st);
         if (r < 0)
                 return r;
-
-        if (uid_is_system(st.st_uid) || gid_is_system(st.st_gid)) /* paranoid safety check */
-                return -EPERM;
 
         return fchmod_and_chown(fd, 0600, st.st_uid, st.st_gid);
 }

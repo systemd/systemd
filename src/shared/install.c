@@ -37,12 +37,6 @@
 
 #define UNIT_FILE_FOLLOW_SYMLINK_MAX 64
 
-typedef enum SearchFlags {
-        SEARCH_LOAD                   = 1 << 0,
-        SEARCH_FOLLOW_CONFIG_SYMLINKS = 1 << 1,
-        SEARCH_DROPIN                 = 1 << 2,
-} SearchFlags;
-
 typedef struct {
         RuntimeScope scope;
         OrderedHashmap *will_process;
@@ -1563,7 +1557,7 @@ static int unit_file_search(
 
         assert(info->name);
 
-        if (unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
+        if (!FLAGS_SET(flags, SEARCH_IGNORE_TEMPLATE) && unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
                 r = unit_name_template(info->name, &template);
                 if (r < 0)
                         return r;
@@ -3242,7 +3236,7 @@ int unit_file_get_state(
 int unit_file_exists_full(
                 RuntimeScope scope,
                 const LookupPaths *lp,
-                bool follow,
+                SearchFlags flags,
                 const char *name,
                 char **ret_path) {
 
@@ -3262,7 +3256,7 @@ int unit_file_exists_full(
                         &c,
                         lp,
                         name,
-                        follow ? SEARCH_FOLLOW_CONFIG_SYMLINKS : 0,
+                        flags,
                         ret_path ? &info : NULL,
                         /* changes= */ NULL,
                         /* n_changes= */ NULL);
