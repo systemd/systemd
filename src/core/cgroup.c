@@ -34,6 +34,7 @@
 #include "ip-protocol-list.h"
 #include "limits-util.h"
 #include "manager.h"
+#include "mountpoint-util.h"
 #include "netlink-internal.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
@@ -2069,13 +2070,14 @@ static int unit_update_cgroup(
 
         uint64_t cgroup_id = 0;
         r = cg_get_path(crt->cgroup_path, /* suffix= */ NULL, &cgroup_full_path);
-        if (r == 0) {
-                r = cg_path_get_cgroupid(cgroup_full_path, &cgroup_id);
+        if (r < 0)
+                log_unit_warning_errno(u, r, "Failed to get full cgroup path on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+        else {
+                r = path_to_handle_u64(cgroup_full_path, &cgroup_id);
                 if (r < 0)
                         log_unit_full_errno(u, ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                             "Failed to get cgroup ID of cgroup %s, ignoring: %m", cgroup_full_path);
-        } else
-                log_unit_warning_errno(u, r, "Failed to get full cgroup path on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+        }
 
         crt->cgroup_id = cgroup_id;
 

@@ -17,6 +17,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unaligned.h"
 
 /* This is the original MAX_HANDLE_SZ definition from the kernel, when the API was introduced. We use that in place of
  * any more currently defined value to future-proof things: if the size is increased in the API headers, and our code
@@ -63,6 +64,11 @@ int name_to_handle_at_loop(
          * This improves on raw name_to_handle_at() also in one other regard: ret_handle and ret_mnt_id can be passed
          * as NULL if there's no interest in either. */
 
+        if (isempty(path)) {
+                flags |= AT_EMPTY_PATH;
+                path = "";
+        }
+
         for (;;) {
                 _cleanup_free_ struct file_handle *h = NULL;
                 int mnt_id = -1;
@@ -73,7 +79,7 @@ int name_to_handle_at_loop(
 
                 h->handle_bytes = n;
 
-                if (name_to_handle_at(fd, strempty(path), h, &mnt_id, flags) >= 0) {
+                if (name_to_handle_at(fd, path, h, &mnt_id, flags) >= 0) {
 
                         if (ret_handle)
                                 *ret_handle = TAKE_PTR(h);
@@ -131,6 +137,27 @@ int name_to_handle_at_try_fid(
                 return r;
 
         return name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, flags & ~AT_HANDLE_FID);
+}
+
+int name_to_handle_at_u64(int fd, const char *path, uint64_t *ret) {
+        _cleanup_free_ struct file_handle *h = NULL;
+        int r;
+
+        assert(fd >= 0 || fd == AT_FDCWD);
+
+        /* This provides the first 64bit of the file handle. */
+
+        r = name_to_handle_at_loop(fd, path, &h, /* ret_mnt_id= */ NULL, /* flags= */ 0);
+        if (r < 0)
+                return r;
+        if (h->handle_bytes < sizeof(uint64_t))
+                return -EBADMSG;
+
+        if (ret)
+                /* Note, "struct file_handle" is 32bit aligned usually, but we need to read a 64bit value from it */
+                *ret = unaligned_read_ne64(h->f_handle);
+
+        return 0;
 }
 
 bool file_handle_equal(const struct file_handle *a, const struct file_handle *b) {
