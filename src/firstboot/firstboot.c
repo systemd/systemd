@@ -43,6 +43,7 @@
 #include "parse-util.h"
 #include "password-quality-util.h"
 #include "path-util.h"
+#include "plymouth-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "prompt-util.h"
@@ -109,6 +110,10 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
 
         assert(rfd >= 0);
         assert(mute_console_link);
+
+        /* Needs to be called before mute_console or it will garble the screen */
+        if (arg_welcome)
+                (void) plymouth_hide_splash();
 
         if (!*mute_console_link && arg_mute_console)
                 (void) mute_console(mute_console_link);
