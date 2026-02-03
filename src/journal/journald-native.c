@@ -98,7 +98,7 @@ static int manager_process_entry(
                 ClientContext *context,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label, size_t label_len) {
+                const char *label) {
 
         /* Process a single entry from a native message. Returns 0 if nothing special happened and the message
          * processing should continue, and a negative or positive value otherwise.
@@ -304,7 +304,7 @@ void manager_process_native_message(
                 const char *buffer, size_t buffer_size,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label, size_t label_len) {
+                const char *label) {
 
         size_t remaining = buffer_size;
         ClientContext *context = NULL;
@@ -314,7 +314,7 @@ void manager_process_native_message(
         assert(buffer || buffer_size == 0);
 
         if (ucred && pid_is_valid(ucred->pid)) {
-                r = client_context_get(m, ucred->pid, ucred, label, label_len, NULL, &context);
+                r = client_context_get(m, ucred->pid, ucred, label, /* unit_id= */ NULL, &context);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m",
@@ -324,7 +324,7 @@ void manager_process_native_message(
         do {
                 r = manager_process_entry(m,
                                          (const uint8_t*) buffer + (buffer_size - remaining), &remaining,
-                                         context, ucred, tv, label, label_len);
+                                         context, ucred, tv, label);
         } while (r == 0);
 }
 
@@ -333,7 +333,7 @@ int manager_process_native_file(
                 int fd,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label, size_t label_len) {
+                const char *label) {
 
         struct stat st;
         bool sealed;
@@ -410,7 +410,7 @@ int manager_process_native_file(
                         return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
                                                          "Failed to map memfd: %m");
 
-                manager_process_native_message(m, p, st.st_size, ucred, tv, label, label_len);
+                manager_process_native_message(m, p, st.st_size, ucred, tv, label);
                 assert_se(munmap(p, ps) >= 0);
 
                 return 0;
@@ -451,7 +451,7 @@ int manager_process_native_file(
                 return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
                                                  "Failed to read file: %m");
         if (n > 0)
-                manager_process_native_message(m, p, n, ucred, tv, label, label_len);
+                manager_process_native_message(m, p, n, ucred, tv, label);
 
         return 0;
 }

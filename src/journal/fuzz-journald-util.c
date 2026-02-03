@@ -33,5 +33,5 @@ void fuzz_journald_processing_function(
 
         _cleanup_(manager_freep) Manager *m = NULL;
         dummy_manager_new(&m, data, size);
-        f(m, m->buffer, size, /* ucred= */ NULL, /* tv= */ NULL, /* label= */ NULL, /* label_len= */ 0);
+        f(m, m->buffer, size, /* ucred= */ NULL, /* tv= */ NULL, /* label= */ NULL);
 }
