@@ -63,6 +63,11 @@ int name_to_handle_at_loop(
          * This improves on raw name_to_handle_at() also in one other regard: ret_handle and ret_mnt_id can be passed
          * as NULL if there's no interest in either. */
 
+        if (isempty(path)) {
+                flags |= AT_EMPTY_PATH;
+                path = "";
+        }
+
         for (;;) {
                 _cleanup_free_ struct file_handle *h = NULL;
                 int mnt_id = -1;
@@ -73,7 +78,7 @@ int name_to_handle_at_loop(
 
                 h->handle_bytes = n;
 
-                if (name_to_handle_at(fd, strempty(path), h, &mnt_id, flags) >= 0) {
+                if (name_to_handle_at(fd, path, h, &mnt_id, flags) >= 0) {
 
                         if (ret_handle)
                                 *ret_handle = TAKE_PTR(h);
