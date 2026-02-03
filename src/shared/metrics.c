@@ -8,12 +8,6 @@
 #include "varlink-io.systemd.Metrics.h"
 #include "varlink-util.h"
 
-static void metric_family_context_done(MetricFamilyContext *ctx) {
-        assert(ctx);
-
-        sd_json_variant_unref(ctx->previous);
-}
-
 int metrics_setup_varlink_server(
                 sd_varlink_server **server, /* in and out param */
                 sd_varlink_server_flags_t flags,
@@ -69,25 +63,14 @@ static const char * const metric_family_type_table[_METRIC_FAMILY_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(metric_family_type, MetricFamilyType);
 
-static int metric_family_build_send(sd_varlink *link, const MetricFamily *mf, bool more) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        int r;
-
-        assert(link);
+static int metric_family_build_json(const MetricFamily *mf, sd_json_variant **ret) {
         assert(mf);
 
-        r = sd_json_buildo(
-                        &v,
+        return sd_json_buildo(
+                        ret,
                         SD_JSON_BUILD_PAIR_STRING("name", mf->name),
                         SD_JSON_BUILD_PAIR_STRING("description", mf->description),
                         SD_JSON_BUILD_PAIR_STRING("type", metric_family_type_to_string(mf->type)));
-        if (r < 0)
-                return r;
-
-        if (more)
-                return sd_varlink_notify(link, v);
-
-        return sd_varlink_reply(link, v);
 }
 
 int metrics_method_describe(
@@ -110,24 +93,21 @@ int metrics_method_describe(
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        const MetricFamily *previous = NULL;
-        for (const MetricFamily *mf = metric_family_table; mf && mf->name; mf++) {
-                if (previous) {
-                        r = metric_family_build_send(link, previous, /* more= */ true);
-                        if (r < 0)
-                                return log_debug_errno(
-                                                r, "Failed to describe metric family '%s': %m", previous->name);
-                }
-
-                previous = mf;
-        }
-
-        if (!previous)
-                return sd_varlink_error(link, "io.systemd.Metrics.NoSuchMetric", NULL);
-
-        r = metric_family_build_send(link, previous, /* more= */ false);
+        r = varlink_set_sentinel(link, "io.systemd.Metrics.NoSuchMetric");
         if (r < 0)
-                return log_debug_errno(r, "Failed to describe metric family '%s': %m", previous->name);
+                return r;
+
+        for (const MetricFamily *mf = metric_family_table; mf && mf->name; mf++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = metric_family_build_json(mf, &v);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to describe metric family '%s': %m", mf->name);
+
+                r = sd_varlink_reply(link, v);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to send varlink reply: %m");
+        }
 
         return 0;
 }
@@ -152,7 +132,11 @@ int metrics_method_list(
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        _cleanup_(metric_family_context_done) MetricFamilyContext ctx = { .link = link };
+        r = varlink_set_sentinel(link, "io.systemd.Metrics.NoSuchMetric");
+        if (r < 0)
+                return r;
+
+        MetricFamilyContext ctx = { .link = link };
         for (const MetricFamily *mf = metric_family_table; mf && mf->name; mf++) {
                 assert(mf->generate_cb);
 
@@ -163,11 +147,7 @@ int metrics_method_list(
                                         r, "Failed to list metrics for metric family '%s': %m", mf->name);
         }
 
-        if (!ctx.previous)
-                return sd_varlink_error(link, "io.systemd.Metrics.NoSuchMetric", NULL);
-
-        /* produce the last metric */
-        return sd_varlink_reply(link, ctx.previous);
+        return 0;
 }
 
 static int metric_set_fields(sd_json_variant **v, char **field_pairs) {
@@ -232,17 +212,7 @@ static int metric_build_send(MetricFamilyContext *context, const char *object, s
                         return r;
         }
 
-        if (context->previous) {
-                r = sd_varlink_notify(context->link, context->previous);
-                if (r < 0)
-                        return r;
-
-                context->previous = sd_json_variant_unref(context->previous);
-        }
-
-        context->previous = TAKE_PTR(v);
-
-        return 0;
+        return sd_varlink_reply(context->link, v);
 }
 
 int metric_build_send_string(MetricFamilyContext *context, const char *object, const char *value, char **field_pairs) {
