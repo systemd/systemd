@@ -10344,19 +10344,12 @@ static int vl_method_list_candidate_devices(
         if (r < 0)
                 return r;
 
-        if (n == 0)
-                return sd_varlink_error(link, "io.systemd.Repart.NoCandidateDevices", NULL);
+        r = varlink_set_sentinel(link, "io.systemd.Repart.NoCandidateDevices");
+        if (r < 0)
+                return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         FOREACH_ARRAY(d, l, n) {
-                if (v) {
-                        r = sd_varlink_notify(link, v);
-                        if (r < 0)
-                                return r;
-
-                        v = sd_json_variant_unref(v);
-                }
-
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 r = sd_json_buildo(
                                 &v,
                                 SD_JSON_BUILD_PAIR_STRING("node", d->node),
@@ -10368,10 +10361,13 @@ static int vl_method_list_candidate_devices(
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("subsystem", d->subsystem));
                 if (r < 0)
                         return r;
+
+                r = sd_varlink_reply(link, v);
+                if (r < 0)
+                        return r;
         }
 
-        assert(v);
-        return sd_varlink_reply(link, v);
+        return 0;
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_empty_mode, EmptyMode, empty_mode_from_string);
