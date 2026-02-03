@@ -228,9 +228,9 @@ static int stdout_stream_log(
         assert(line_break < _LINE_BREAK_MAX);
 
         if (s->context)
-                client_context_maybe_refresh(s->manager, s->context, NULL, NULL, 0, NULL, USEC_INFINITY);
+                client_context_maybe_refresh(s->manager, s->context, /* ucred= */ NULL, /* label= */ NULL, /* unit_id= */ NULL, USEC_INFINITY);
         else if (pid_is_valid(s->ucred.pid)) {
-                r = client_context_acquire(s->manager, s->ucred.pid, &s->ucred, s->label, strlen_ptr(s->label), s->unit_id, &s->context);
+                r = client_context_acquire(s->manager, s->ucred.pid, &s->ucred, s->label, s->unit_id, &s->context);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to acquire client context, ignoring: %m");
