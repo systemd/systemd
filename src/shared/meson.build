@@ -177,6 +177,7 @@ shared_sources = files(
         'sleep-config.c',
         'smack-util.c',
         'smbios11.c',
+        'snapshot-util.c',
         'socket-label.c',
         'socket-netlink.c',
         'specifier.c',
