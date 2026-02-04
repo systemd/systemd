@@ -582,7 +582,6 @@ int pull_verify(ImportVerify verify,
                 return log_error_errno(r, "Failed to determine verification style from URL '%s': %m", verify_job->url);
 
         assert(signature_job);
-        assert(signature_job->state == PULL_JOB_DONE);
 
         if (!iovec_is_set(&signature_job->payload))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
