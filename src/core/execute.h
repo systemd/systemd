@@ -361,6 +361,8 @@ typedef struct ExecContext {
         unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
         unsigned long delegate_namespaces; /* The CLONE_NEWxyz flags delegated to the unit's processes */
 
+        JoinsNamespacesFlags joins_namespaces; /* Which shared namespaces the unit joins */
+
         Set *restrict_filesystems;
         bool restrict_filesystems_allow_list:1;
 
