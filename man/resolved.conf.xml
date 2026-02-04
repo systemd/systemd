@@ -408,6 +408,54 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DNSServerPolicy=</varname></term>
+        <listitem><para>Controls how DNS servers are selected when making queries. Takes one of
+        <literal>adaptive</literal> or <literal>sequential</literal>.</para>
+
+        <para>When set to <literal>adaptive</literal> (the default),
+        <command>systemd-resolved</command> remembers which DNS servers successfully respond and prefers
+        them for subsequent queries. Servers that time out or fail are deprioritized. This optimizes for
+        performance but may cause issues in split-DNS environments where the primary internal DNS server
+        should always be tried first.</para>
+
+        <para>When set to <literal>sequential</literal>, DNS servers are always tried in the order they are
+        configured. Each new query starts with the first server in the list, falling back to subsequent
+        servers only if the previous ones fail or time out. This matches traditional
+        <filename>resolv.conf</filename> behavior and is useful for corporate networks with internal DNS
+        servers that should always be tried first, with public DNS servers as fallback.</para>
+
+        <para><emphasis>Latency trade-off:</emphasis> In <literal>sequential</literal> mode, when the
+        primary server is unavailable or slow, <emphasis>every</emphasis> query must wait for the full
+        timeout (typically several seconds) before trying the next server. This can significantly slow
+        down DNS resolution when the first server is unreachable. In contrast, <literal>adaptive</literal>
+        mode quickly learns to skip unresponsive servers. Choose <literal>sequential</literal> only when
+        consistent server ordering is more important than minimizing lookup latency—for example, when
+        regulatory or policy requirements mandate trying an internal DNS server first.</para>
+
+        <para><emphasis>Important:</emphasis> Fallback only occurs when a server fails to respond (timeout,
+        network error, SERVFAIL). If a server returns an authoritative negative response such as NXDOMAIN
+        (domain does not exist) or NODATA (no records of requested type), no fallback occurs—this is
+        correct DNS behavior. Consequently, <literal>sequential</literal> mode is
+        <emphasis>not</emphasis> suitable for merging responses from DNS servers that are authoritative
+        for different zones. For such split-DNS configurations, use per-link DNS servers with appropriate
+        routing domains (e.g., <varname>Domains=~.</varname> on VPN interfaces) as described in
+        <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        Configuring multiple global DNS servers is intended for failover redundancy, not zone
+        aggregation.</para>
+
+        <para><emphasis>Note:</emphasis> The <literal>sequential</literal> policy controls
+        <emphasis>server ordering</emphasis> only. Per-server feature level probing (automatic fallback
+        from DNS-over-TLS to plain DNS, EDNS0 to basic UDP, etc.) remains active regardless of policy.
+        This probing is orthogonal to server selection and helps avoid repeated failures when a server
+        doesn't support certain features. Unlike traditional <filename>resolv.conf</filename> which only
+        supported plain UDP queries, <command>systemd-resolved</command> will still attempt modern DNS
+        features and gracefully fall back as needed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

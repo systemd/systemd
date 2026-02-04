@@ -218,6 +218,34 @@ void dns_scope_next_dns_server(DnsScope *s, DnsServer *if_current) {
                 manager_next_dns_server(s->manager, if_current);
 }
 
+DnsServer *dns_scope_get_first_dns_server(DnsScope *s) {
+        assert(s);
+
+        if (s->protocol != DNS_PROTOCOL_DNS)
+                return NULL;
+
+        /* Returns the first DNS server in the list, regardless of current server state.
+         * Used for "sequential" policy where we always start with the first configured server. */
+
+        if (s->link) {
+                assert(!s->delegate);
+                return s->link->dns_servers;
+        } else if (s->delegate)
+                return s->delegate->dns_servers;
+        else
+                return s->manager->dns_servers;
+}
+
+DnsServerPolicy dns_scope_get_dns_server_policy(DnsScope *s) {
+        assert(s);
+
+        /* Check for per-link policy first, fall back to manager policy */
+        if (s->link && s->link->dns_server_policy != _DNS_SERVER_POLICY_INVALID)
+                return s->link->dns_server_policy;
+
+        return s->manager->dns_server_policy;
+}
+
 void dns_scope_packet_received(DnsScope *s, usec_t rtt) {
         assert(s);
 

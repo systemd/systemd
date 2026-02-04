@@ -36,3 +36,4 @@ Resolve.DNSStubListenerExtra,      config_parse_dns_stub_listener_extra, 0,     
 Resolve.CacheFromLocalhost,        config_parse_bool,                    0,                   offsetof(Manager, cache_from_localhost)
 Resolve.StaleRetentionSec,         config_parse_sec,                     0,                   offsetof(Manager, stale_retention_usec)
 Resolve.RefuseRecordTypes,         config_parse_record_types,            0,                   offsetof(Manager, refuse_record_types)
+Resolve.DNSServerPolicy,           config_parse_dns_server_policy,       0,                   offsetof(Manager, dns_server_policy)

@@ -1689,6 +1689,7 @@ typedef struct LinkInfo {
         const char *mdns;
         const char *dns_over_tls;
         const char *dnssec;
+        const char *dns_server_policy;
         char *current_dns;
         char *current_dns_ex;
         char **dns;
@@ -1713,6 +1714,7 @@ typedef struct GlobalInfo {
         const char *dns_over_tls;
         const char *dnssec;
         const char *resolv_conf_mode;
+        const char *dns_server_policy;
         bool dnssec_supported;
 } GlobalInfo;
 
@@ -1944,6 +1946,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 { "DNSSEC",                     "s",        NULL,                           offsetof(LinkInfo, dnssec)           },
                 { "DNSSECNegativeTrustAnchors", "as",       bus_map_strv_sort,              offsetof(LinkInfo, ntas)             },
                 { "DNSSECSupported",            "b",        NULL,                           offsetof(LinkInfo, dnssec_supported) },
+                { "DNSServerPolicy",            "s",        NULL,                           offsetof(LinkInfo, dns_server_policy)},
                 {}
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2088,6 +2091,14 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         if (r < 0)
                 return table_log_add_error(r);
 
+        if (link_info.dns_server_policy) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "DNS Server Policy",
+                                   TABLE_STRING, link_info.dns_server_policy);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         if (link_info.current_dns) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Current DNS Server",
@@ -2199,6 +2210,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                 { "DNSSEC",                     "s",         NULL,                             offsetof(GlobalInfo, dnssec)           },
                 { "DNSSECSupported",            "b",         NULL,                             offsetof(GlobalInfo, dnssec_supported) },
                 { "ResolvConfMode",             "s",         NULL,                             offsetof(GlobalInfo, resolv_conf_mode) },
+                { "DNSServerPolicy",            "s",         NULL,                             offsetof(GlobalInfo, dns_server_policy)},
                 {}
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2286,6 +2298,14 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "resolv.conf mode",
                                    TABLE_STRING, global_info.resolv_conf_mode);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (global_info.dns_server_policy) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "DNS Server Policy",
+                                   TABLE_STRING, global_info.dns_server_policy);
                 if (r < 0)
                         return table_log_add_error(r);
         }
