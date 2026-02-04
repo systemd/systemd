@@ -29,7 +29,7 @@ _systemd_vmspawn() {
     local i verb comps
 
     local -A OPTS=(
-        [STANDALONE]='-h --help --version -q --quiet --no-pager -n --network-tap --network-user-mode --user --system'
+        [STANDALONE]='-h --help --version -q --quiet --no-pager -n --network-tap --network-user-mode --user --system -x --ephemeral'
         [PATH]='-D --directory -i --image --linux --initrd --extra-drive --forward-journal'
         [BOOL]='--kvm --vsock --tpm --secure-boot --discard-disk --register --pass-ssh-key'
         [FIRMWARE]='--firmware'
