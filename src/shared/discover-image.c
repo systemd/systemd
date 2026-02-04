@@ -35,6 +35,7 @@
 #include "lock-util.h"
 #include "log.h"
 #include "loop-util.h"
+#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "nulstr-util.h"
@@ -148,6 +149,8 @@ static Image* image_free(Image *i) {
         free(i->name);
         free(i->path);
 
+        free(i->fh);
+
         free(i->hostname);
         strv_free(i->machine_info);
         strv_free(i->os_release);
@@ -249,6 +252,9 @@ static int image_new(
                 bool read_only,
                 usec_t crtime,
                 usec_t mtime,
+                struct file_handle *fh,
+                uint64_t on_mount_id,
+                uint64_t inode,
                 Image **ret) {
 
         _cleanup_(image_unrefp) Image *i = NULL;
@@ -270,11 +276,19 @@ static int image_new(
                 .read_only = read_only,
                 .crtime = crtime,
                 .mtime = mtime,
+                .on_mount_id = on_mount_id,
+                .inode = inode,
                 .usage = UINT64_MAX,
                 .usage_exclusive = UINT64_MAX,
                 .limit = UINT64_MAX,
                 .limit_exclusive = UINT64_MAX,
         };
+
+        if (fh) {
+                i->fh = file_handle_dup(fh);
+                if (!i->fh)
+                        return -ENOMEM;
+        }
 
         i->name = strdup(pretty);
         if (!i->name)
@@ -437,6 +451,28 @@ static int image_make(
                 path_startswith(path, "/usr") ||
                 (faccessat(fd, "", W_OK, AT_EACCESS|AT_EMPTY_PATH) < 0 && errno == EROFS);
 
+        uint64_t on_mount_id = 0;
+        _cleanup_free_ struct file_handle *fh = NULL;
+
+        r = name_to_handle_at_try_unique_mntid_fid(fd, /* path= */ NULL, &fh, &on_mount_id, /* flags= */ 0);
+        if (r < 0) {
+                if (is_name_to_handle_at_fatal_error(r))
+                        return r;
+
+                r = path_get_unique_mnt_id_at(fd, /* path= */ NULL, &on_mount_id);
+                if (r < 0) {
+                        if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                                return r;
+
+                        int on_mount_id_fallback = -1;
+                        r = path_get_mnt_id_at(fd, /* path= */ NULL, &on_mount_id_fallback);
+                        if (r < 0)
+                                return r;
+
+                        on_mount_id = on_mount_id_fallback;
+                }
+        }
+
         if (S_ISDIR(st->st_mode)) {
                 unsigned file_attr = 0;
                 usec_t crtime = 0;
@@ -478,6 +514,9 @@ static int image_make(
                                               info.read_only || read_only,
                                               info.otime,
                                               info.ctime,
+                                              fh,
+                                              on_mount_id,
+                                              (uint64_t) st->st_ino,
                                               ret);
                                 if (r < 0)
                                         return r;
@@ -503,6 +542,9 @@ static int image_make(
                               read_only || (file_attr & FS_IMMUTABLE_FL),
                               crtime,
                               0, /* we don't use mtime of stat() here, since it's not the time of last change of the tree, but only of the top-level dir */
+                              fh,
+                              on_mount_id,
+                              (uint64_t) st->st_ino,
                               ret);
                 if (r < 0)
                         return r;
@@ -540,6 +582,9 @@ static int image_make(
                               !(st->st_mode & 0222) || read_only,
                               crtime,
                               timespec_load(&st->st_mtim),
+                              fh,
+                              on_mount_id,
+                              (uint64_t) st->st_ino,
                               ret);
                 if (r < 0)
                         return r;
@@ -597,6 +642,9 @@ static int image_make(
                               !(st->st_mode & 0222) || read_only,
                               0,
                               0,
+                              fh,
+                              on_mount_id,
+                              (uint64_t) st->st_ino,
                               ret);
                 if (r < 0)
                         return r;
