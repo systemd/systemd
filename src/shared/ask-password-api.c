@@ -831,10 +831,6 @@ int ask_password_agent(
 
         _cleanup_close_ int socket_fd = -EBADF, signal_fd = -EBADF, inotify_fd = -EBADF, dfd = -EBADF;
         _cleanup_(unlink_and_freep) char *socket_name = NULL;
-        _cleanup_free_ char *temp = NULL, *final = NULL;
-        _cleanup_strv_free_erase_ char **l = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        sigset_t mask, oldmask;
         int r;
 
         assert(req);
@@ -850,64 +846,59 @@ int ask_password_agent(
         if (req->flag_file)
                 return -EOPNOTSUPP;
 
+        _cleanup_free_ char *askpwdir = NULL;
+        r = get_ask_password_directory_for_flags(flags, &askpwdir);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENXIO;
+
+        dfd = open_mkdir(askpwdir, O_CLOEXEC, 0755);
+        if (dfd < 0)
+                return log_debug_errno(dfd, "Failed to open directory '%s': %m", askpwdir);
+
+        if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) && req->keyring) {
+                r = ask_password_keyring(req, flags, ret);
+                if (r != -ENOKEY)
+                        return r;
+
+                inotify_fd = inotify_init1(IN_CLOEXEC | IN_NONBLOCK);
+                if (inotify_fd < 0)
+                        return -errno;
+
+                r = inotify_add_watch_fd(inotify_fd, dfd, IN_ONLYDIR|IN_ATTRIB /* for mtime */);
+                if (r < 0)
+                        return r;
+        }
+
+        sigset_t mask, oldmask;
+        _unused_ _cleanup_(block_signals_reset) sigset_t *saved_ssp = NULL;
+
         assert_se(sigemptyset(&mask) >= 0);
         assert_se(sigset_add_many(&mask, SIGINT, SIGTERM) >= 0);
         assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) >= 0);
 
-        _cleanup_free_ char *askpwdir = NULL;
-        r = get_ask_password_directory_for_flags(flags, &askpwdir);
+        saved_ssp = &oldmask;
+
+        _cleanup_free_ char *fname = NULL, *final = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+
+        if (asprintf(&final, "ask.%" PRIu64, random_u64()) < 0)
+                return -ENOMEM;
+
+        r = fopen_temporary_at(dfd, final, &f, &fname);
         if (r < 0)
-                goto finish;
-        if (r == 0) {
-                r = -ENXIO;
-                goto finish;
-        }
+                return r;
 
-        dfd = open_mkdir(askpwdir, O_RDONLY|O_CLOEXEC, 0755);
-        if (dfd < 0) {
-                r = log_debug_errno(dfd, "Failed to open directory '%s': %m", askpwdir);
-                goto finish;
-        }
-
-        if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) && req->keyring) {
-                r = ask_password_keyring(req, flags, ret);
-                if (r >= 0) {
-                        r = 0;
-                        goto finish;
-                } else if (r != -ENOKEY)
-                        goto finish;
-
-                inotify_fd = inotify_init1(IN_CLOEXEC | IN_NONBLOCK);
-                if (inotify_fd < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
-                r = inotify_add_watch_fd(inotify_fd, dfd, IN_ONLYDIR|IN_ATTRIB /* for mtime */);
-                if (r < 0)
-                        goto finish;
-        }
-
-        if (asprintf(&final, "ask.%" PRIu64, random_u64()) < 0) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        r = fopen_temporary_at(dfd, final, &f, &temp);
-        if (r < 0)
-                goto finish;
+        CLEANUP_TMPFILE_AT(dfd, fname);
 
         signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
-        if (signal_fd < 0) {
-                r = -errno;
-                goto finish;
-        }
+        if (signal_fd < 0)
+                return -errno;
 
         socket_fd = create_socket(askpwdir, &socket_name);
-        if (socket_fd < 0) {
-                r = socket_fd;
-                goto finish;
-        }
+        if (socket_fd < 0)
+                return socket_fd;
 
         fprintf(f,
                 "[Ask]\n"
@@ -933,21 +924,19 @@ int ask_password_agent(
         if (req->id)
                 fprintf(f, "Id=%s\n", req->id);
 
-        if (fchmod(fileno(f), 0644) < 0) {
-                r = -errno;
-                goto finish;
-        }
+        if (fchmod(fileno(f), 0644) < 0)
+                return -errno;
 
         r = fflush_and_check(f);
         if (r < 0)
-                goto finish;
+                return r;
 
-        if (renameat(dfd, temp, dfd, final) < 0) {
-                r = -errno;
-                goto finish;
-        }
+        /* Paranoia: never clobber an ongoing request */
+        r = rename_noreplace(dfd, fname, dfd, final);
+        if (r < 0)
+                return r;
 
-        temp = mfree(temp);
+        free_and_replace(fname, final);
 
         enum {
                 POLL_SOCKET,
@@ -969,20 +958,17 @@ int ask_password_agent(
                         .events = POLLIN,
                 };
         if (req->hup_fd >= 0)
-                pollfd[hup_fd_idx = n_pollfd ++] = (struct pollfd) {
+                pollfd[hup_fd_idx = n_pollfd++] = (struct pollfd) {
                         .fd = req->hup_fd,
                         .events = POLLHUP,
                 };
 
         assert(n_pollfd <= _POLL_MAX);
 
+        _cleanup_strv_free_erase_ char **l = NULL;
+
         for (;;) {
-                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
-                char passphrase[LINE_MAX+1];
-                struct iovec iovec;
-                struct ucred *ucred;
                 usec_t timeout;
-                ssize_t n;
 
                 if (req->until > 0)
                         timeout = usec_sub_unsigned(req->until, now(CLOCK_MONOTONIC));
@@ -993,45 +979,34 @@ int ask_password_agent(
                 if (r == -EINTR)
                         continue;
                 if (r < 0)
-                        goto finish;
-                if (r == 0) {
-                        r = -ETIME;
-                        goto finish;
-                }
+                        return r;
+                if (r == 0)
+                        return -ETIME;
 
-                if (pollfd[POLL_SIGNAL].revents & POLLIN) {
-                        r = -EINTR;
-                        goto finish;
-                }
+                if (pollfd[POLL_SIGNAL].revents & POLLIN)
+                        return -EINTR;
 
-                if (req->hup_fd >= 0 && pollfd[hup_fd_idx].revents & POLLHUP) {
-                        r = -ECONNRESET;
-                        goto finish;
-                }
+                if (req->hup_fd >= 0 && pollfd[hup_fd_idx].revents & POLLHUP)
+                        return -ECONNRESET;
 
                 if (inotify_fd >= 0 && pollfd[inotify_idx].revents != 0) {
                         (void) flush_fd(inotify_fd);
 
                         if (req->keyring) {
                                 r = ask_password_keyring(req, flags, ret);
-                                if (r >= 0) {
-                                        r = 0;
-                                        goto finish;
-                                } else if (r != -ENOKEY)
-                                        goto finish;
+                                if (r != -ENOKEY)
+                                        return r;
                         }
                 }
 
                 if (pollfd[POLL_SOCKET].revents == 0)
                         continue;
+                if (pollfd[POLL_SOCKET].revents != POLLIN)
+                        return -EIO;
 
-                if (pollfd[POLL_SOCKET].revents != POLLIN) {
-                        r = -EIO;
-                        goto finish;
-                }
-
-                iovec = IOVEC_MAKE(passphrase, sizeof(passphrase));
-
+                char passphrase[LINE_MAX+1];
+                struct iovec iovec = IOVEC_MAKE(passphrase, sizeof(passphrase));
+                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
                 struct msghdr msghdr = {
                         .msg_iov = &iovec,
                         .msg_iovlen = 1,
@@ -1039,7 +1014,7 @@ int ask_password_agent(
                         .msg_controllen = sizeof(control),
                 };
 
-                n = recvmsg_safe(socket_fd, &msghdr, 0);
+                ssize_t n = recvmsg_safe(socket_fd, &msghdr, 0);
                 if (ERRNO_IS_NEG_TRANSIENT(n))
                         continue;
                 if (n == -ECHRNG) {
@@ -1050,30 +1025,30 @@ int ask_password_agent(
                         log_debug_errno(n, "Got message with truncated payload data, ignoring.");
                         continue;
                 }
-                if (n < 0) {
-                        r = (int) n;
-                        goto finish;
-                }
+                if (n < 0)
+                        return n;
 
                 CLEANUP_ERASE(passphrase);
 
                 cmsg_close_all(&msghdr);
 
                 if (n == 0) {
-                        log_debug("Message too short");
+                        log_debug("Got empty reply from ask-password agent, ignoring.");
                         continue;
                 }
 
-                ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
+                struct ucred *ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
                 if (!ucred) {
-                        log_debug("Received message without credentials. Ignoring.");
+                        log_debug("Received message without credentials, ignoring.");
+                        continue;
+                }
+                if (ucred->uid != getuid() && ucred->uid != 0) {
+                        log_debug("Got password response from bad user, ignoring.");
                         continue;
                 }
 
-                if (ucred->uid != getuid() && ucred->uid != 0) {
-                        log_debug("Got response from bad user. Ignoring.");
-                        continue;
-                }
+                if (passphrase[0] == '-')
+                        return -ECANCELED;
 
                 if (passphrase[0] == '+') {
                         /* An empty message refers to the empty password */
@@ -1081,45 +1056,23 @@ int ask_password_agent(
                                 l = strv_new("");
                         else
                                 l = strv_parse_nulstr(passphrase+1, n-1);
-                        if (!l) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!l)
+                                return -ENOMEM;
 
-                        if (strv_isempty(l)) {
-                                l = strv_free(l);
-                                log_debug("Invalid packet");
-                                continue;
-                        }
+                        if (!strv_isempty(l))
+                                break;
 
-                        break;
+                        l = strv_free(l);
                 }
 
-                if (passphrase[0] == '-') {
-                        r = -ECANCELED;
-                        goto finish;
-                }
-
-                log_debug("Invalid packet");
+                log_debug("Got invalid response from ask-password agent, ignoring.");
         }
 
         if (req->keyring)
                 (void) add_to_keyring_and_log(req->keyring, flags, l);
 
         *ret = TAKE_PTR(l);
-        r = 0;
-
-finish:
-        if (temp) {
-                assert(dfd >= 0);
-                (void) unlinkat(dfd, temp, 0);
-        } else if (final) {
-                assert(dfd >= 0);
-                (void) unlinkat(dfd, final, 0);
-        }
-
-        assert_se(sigprocmask(SIG_SETMASK, &oldmask, NULL) == 0);
-        return r;
+        return 0;
 }
 
 static int ask_password_credential(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret) {
