@@ -146,6 +146,13 @@ typedef struct ExecRuntime {
          * the root directory or root image. The lock prevents tmpfiles from removing the ephemeral snapshot
          * until we're done using it. */
         int ephemeral_storage_socket[2];
+
+        /* Local namespace storage sockets for persistence when NOT sharing with other units.
+         * These are used when a namespace is needed but JoinsNamespaces= flag is not set for that type.
+         * This allows the namespace to persist across ExecReload without sharing with JoinsNamespaceOf= units. */
+        int netns_storage_socket[2];
+        int ipcns_storage_socket[2];
+        int userns_storage_socket[2];
 } ExecRuntime;
 
 static inline bool EXEC_DIRECTORY_TYPE_SHALL_CHOWN(ExecDirectoryType t) {
