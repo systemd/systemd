@@ -3,6 +3,7 @@
 
 #include <sys/uio.h>
 
+#include "in-addr-util.h"
 #include "shared-forward.h"
 
 typedef struct DNSServer {
@@ -12,6 +13,7 @@ typedef struct DNSServer {
         int ifindex;
         char *server_name;
         bool accessible;
+        union in_addr_union in_addr;
 } DNSServer;
 
 DNSServer* dns_server_free(DNSServer *s);
@@ -23,6 +25,18 @@ typedef struct SearchDomain {
         int ifindex;
 } SearchDomain;
 
+typedef struct DNSScope {
+        char *ifname;
+        int ifindex;
+        char *protocol;
+        int family;
+        char *dnssec_mode_str;
+        char *dns_over_tls_mode_str;
+} DNSScope;
+
+DNSScope* dns_scope_free(DNSScope *s);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DNSScope*, dns_scope_free);
+
 SearchDomain* search_domain_free(SearchDomain *d);
 DEFINE_TRIVIAL_CLEANUP_FUNC(SearchDomain*, search_domain_free);
 
@@ -31,8 +45,18 @@ typedef struct DNSConfiguration {
         int ifindex;
         bool default_route;
         DNSServer *current_dns_server;
-        Set *dns_servers;
-        Set *search_domains;
+        OrderedSet *dns_servers;
+        OrderedSet *search_domains;
+        OrderedSet *fallback_dns_servers;
+        Set *dns_scopes;
+        char *dnssec_mode_str;
+        char *dns_over_tls_mode_str;
+        char *llmnr_mode_str;
+        char *mdns_mode_str;
+        char **negative_trust_anchors;
+        char *resolv_conf_mode_str;
+        char *delegate;
+        bool dnssec_supported;
 } DNSConfiguration;
 
 DNSConfiguration* dns_configuration_free(DNSConfiguration *c);
