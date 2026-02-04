@@ -1893,6 +1893,26 @@ static bool unit_verify_deps(Unit *u) {
                 }
         }
 
+        /* Check JoinsNamespaceOf= namespace configuration compatibility. This logs warnings for any
+         * mismatches but does not block unit start - the warnings are diagnostic only.
+         * This is best effort too: If a unit is already loaded and the config is changed, we won't detect
+         * it. This is fine, as it is meant just as a help, we don't need to catch all the cases.
+         * */
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_JOINS_NAMESPACE_OF) {
+                const ExecContext *ec_self, *ec_other;
+
+                ec_self = unit_get_exec_context(u);
+                ec_other = unit_get_exec_context(other);
+
+                /* If either unit doesn't have an exec context, skip */
+                if (!ec_self || !ec_other)
+                        continue;
+
+                /* Warn about mismatches but continue - don't block unit start */
+                exec_context_check_joined_namespace_compat(ec_self, ec_other, u, other);
+        }
+
+
         return true;
 }
 

@@ -641,6 +641,8 @@ bool exec_needs_network_namespace(const ExecContext *context);
 bool exec_needs_ipc_namespace(const ExecContext *context);
 bool exec_needs_pid_namespace(const ExecContext *context, const ExecParameters *params);
 
+void exec_context_check_joined_namespace_compat(const ExecContext *self, const ExecContext *other, const Unit *u, const Unit *other_unit);
+
 ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context);
 bool exec_needs_cgroup_namespace(const ExecContext *context);
 bool exec_needs_cgroup_mount(const ExecContext *context);
