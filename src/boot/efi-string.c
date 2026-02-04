@@ -497,7 +497,8 @@ char* line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, 
                         value++;
 
                 /* unquote */
-                if (value[0] == '"' && line[linelen - 1] == '"') {
+                if ((value[0] == '"' && line[linelen - 1] == '"') ||
+                    (value[0] == '\'' && line[linelen - 1] == '\'')) {
                         value++;
                         line[linelen - 1] = '\0';
                 }
