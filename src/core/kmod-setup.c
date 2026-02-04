@@ -86,6 +86,13 @@ static bool in_qemu(void) {
         return IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_QEMU);
 }
 
+static bool in_vmware(void) {
+        return detect_vm() == VIRTUALIZATION_VMWARE;
+}
+
+static bool in_hyperv(void) {
+        return detect_vm() == VIRTUALIZATION_MICROSOFT;
+}
 #endif
 
 int kmod_setup(void) {
@@ -114,6 +121,8 @@ int kmod_setup(void) {
 
                 /* Make sure we can send sd-notify messages over vsock as early as possible. */
                 { "vmw_vsock_virtio_transport", NULL,                        false, false, may_have_virtio    },
+                { "vmw_vsock_vmci_transport",   NULL,                        false, false, in_vmware          },
+                { "hv_sock",                    NULL,                        false, false, in_hyperv          },
 
                 /* We can't wait for specific virtiofs tags to show up as device nodes so we have to load the
                  * virtiofs and virtio_pci modules early to make sure the virtiofs tags are found when
