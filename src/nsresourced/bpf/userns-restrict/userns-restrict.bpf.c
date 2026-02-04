@@ -23,6 +23,9 @@
 #define CONTAINER_UID_MIN (CONTAINER_UID_BASE_MIN)
 #define CONTAINER_UID_MAX (CONTAINER_UID_BASE_MAX + 0xFFFFU)
 
+#define FOREIGN_UID_MIN (FOREIGN_UID_BASE + 0U)
+#define FOREIGN_UID_MAX (FOREIGN_UID_BASE + 0xFFFFU)
+
 #ifndef bpf_core_cast
 /* bpf_rdonly_cast() was introduced in libbpf commit 688879f together with
  * the definition of a bpf_core_cast macro. So use that one to avoid
@@ -83,6 +86,10 @@ static inline bool uid_is_transient(unsigned uid) {
         return uid_is_dynamic(uid) || uid_is_container(uid);
 }
 
+static inline bool uid_is_foreign(unsigned uid) {
+        return FOREIGN_UID_MIN <= uid && uid <= FOREIGN_UID_MAX;
+}
+
 static int validate_inode_on_mount(
                 struct inode *inode,
                 struct vfsmount *v,
@@ -132,6 +139,17 @@ static int validate_inode_on_mount(
          * userns ranges, refuse immediately. */
         if (uid_is_transient(uid) || uid_is_transient(gid))
                 return -EPERM;
+
+        /* If we're not running as a UID/GID in the transient/foreign range, say yes. This enables doing
+         * identity mappings in nsresourced without having to allowlist various mounts on the system for the
+         * identity mapped user. */
+        if (!uid_is_transient(task->cred->uid.val) && !uid_is_transient(task->cred->gid.val) &&
+                !uid_is_transient(task->cred->suid.val) && !uid_is_transient(task->cred->sgid.val) &&
+                !uid_is_transient(task->cred->euid.val) && !uid_is_transient(task->cred->egid.val) &&
+                !uid_is_foreign(task->cred->uid.val) && !uid_is_foreign(task->cred->gid.val) &&
+                !uid_is_foreign(task->cred->suid.val) && !uid_is_foreign(task->cred->sgid.val) &&
+                !uid_is_foreign(task->cred->euid.val) && !uid_is_foreign(task->cred->egid.val))
+                return 0;
 
         mnt_id = m->mnt_id;
 
