@@ -14,6 +14,7 @@
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
 #include "bpf-foreign.h"
+#include "bpf-notify-ratelimit.h"
 #include "bpf-program.h"
 #include "bpf-restrict-ifaces.h"
 #include "bpf-socket-bind.h"
@@ -4140,6 +4141,8 @@ CGroupRuntime* cgroup_runtime_new(void) {
 
                 .initial_bind_network_interface_link_fd = -EBADF,
 
+                .initial_notify_ratelimit_link_fd = -EBADF,
+
                 .cgroup_invalidated_mask = _CGROUP_MASK_ALL,
 
                 .deserialized_cgroup_realized = -1,
@@ -4175,6 +4178,7 @@ CGroupRuntime* cgroup_runtime_free(CGroupRuntime *crt) {
 
         fdset_free(crt->initial_restrict_ifaces_link_fds);
         safe_close(crt->initial_bind_network_interface_link_fd);
+        safe_close(crt->initial_notify_ratelimit_link_fd);
 
         bpf_firewall_close(crt);
 
@@ -4298,6 +4302,8 @@ int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) bpf_restrict_ifaces_serialize(u, f, fds);
 
         (void) bpf_bind_network_interface_serialize(u, f, fds);
+
+        (void) bpf_notify_ratelimit_serialize(u, f, fds);
 
         return 0;
 }
@@ -4468,6 +4474,21 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
                                 log_oom_debug();
                         else
                                 close_and_replace(crt->initial_bind_network_interface_link_fd, fd);
+                }
+
+                return 1;
+        }
+
+        if (streq(key, "notify-ratelimit-bpf-fd")) {
+                _cleanup_close_ int fd = -EBADF;
+
+                fd = deserialize_fd(fds, value);
+                if (fd >= 0) {
+                        CGroupRuntime *crt = unit_setup_cgroup_runtime(u);
+                        if (!crt)
+                                log_oom_debug();
+                        else
+                                close_and_replace(crt->initial_notify_ratelimit_link_fd, fd);
                 }
 
                 return 1;
