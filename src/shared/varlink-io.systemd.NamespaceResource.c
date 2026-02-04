@@ -8,12 +8,18 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Controls whether to mangle the provided name if needed so that it is suitable for naming a user namespace. If true this will shorten the name as necessary or randomize it if that's not sufficient. If null defaults to false."),
                 SD_VARLINK_DEFINE_INPUT(mangleName, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("The number of UIDs to assign. Must be 1 or 65536."),
+                SD_VARLINK_FIELD_COMMENT("The number of UIDs to assign. Must be 1 or 65536. If identity is true, must be 1."),
                 SD_VARLINK_DEFINE_INPUT(size, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("The target UID inside the user namespace. If not specified defaults to 0."),
+                SD_VARLINK_FIELD_COMMENT("The target UID inside the user namespace. If not specified defaults to 0. If identity is true, must be 0 or the peer UID."),
                 SD_VARLINK_DEFINE_INPUT(target, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("A file descriptor to an allocated userns with no current UID range assignments"),
                 SD_VARLINK_DEFINE_INPUT(userNamespaceFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("If true, create an identity user namespace that maps the peer UID/GID to the target UID/GID instead of using a transient UID. If null defaults to false."),
+                SD_VARLINK_DEFINE_INPUT(identity, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Number of delegated UID/GID ranges to allocate. These are mapped 1:1 into the user namespace and can be used by nested user namespaces. Must be between 0 and 16."),
+                SD_VARLINK_DEFINE_INPUT(delegateAmount, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Size of each delegated range. Must be 1 or 65536."),
+                SD_VARLINK_DEFINE_INPUT(delegateSize, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The name assigned to the user namespace. (This is particularly interesting in case mangleName was enabled)."),
                 SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
@@ -69,6 +75,7 @@ static SD_VARLINK_DEFINE_ERROR(UserNamespaceWithoutUserRange);
 static SD_VARLINK_DEFINE_ERROR(TooManyControlGroups);
 static SD_VARLINK_DEFINE_ERROR(ControlGroupAlreadyAdded);
 static SD_VARLINK_DEFINE_ERROR(TooManyNetworkInterfaces);
+static SD_VARLINK_DEFINE_ERROR(TooManyDelegations);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_NamespaceResource,
@@ -103,4 +110,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("The specified cgroup has already been added to the user namespace."),
                 &vl_error_ControlGroupAlreadyAdded,
                 SD_VARLINK_SYMBOL_COMMENT("The per-user namespace limit of network interfaces has been reached."),
-                &vl_error_TooManyNetworkInterfaces);
+                &vl_error_TooManyNetworkInterfaces,
+                SD_VARLINK_SYMBOL_COMMENT("The specified number of delegations exceeds the maximum allowed."),
+                &vl_error_TooManyDelegations);
