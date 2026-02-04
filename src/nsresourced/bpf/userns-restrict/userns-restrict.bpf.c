@@ -155,25 +155,22 @@ int BPF_PROG(userns_restrict_path_link, struct dentry *old_dentry, const struct 
         return validate_path(new_dir, ret);
 }
 
-SEC("kprobe/free_user_ns")
-void BPF_KPROBE(userns_restrict_free_user_ns, struct work_struct *work) {
-        struct user_namespace *userns;
+SEC("kprobe/retire_userns_sysctls")
+int BPF_KPROBE(userns_restrict_retire_userns_sysctls, struct user_namespace *userns) {
         unsigned inode;
         void *mnt_id_map;
 
         /* Inform userspace that a user namespace just went away. I wish there was a nicer way to hook into
          * user namespaces being deleted than using kprobes, but couldn't find any. */
-
-        userns = bpf_rdonly_cast(container_of(work, struct user_namespace, work),
-                                 bpf_core_type_id_kernel(struct user_namespace));
-
+        userns = bpf_rdonly_cast(userns, bpf_core_type_id_kernel(struct user_namespace));
         inode = userns->ns.inum;
 
         mnt_id_map = bpf_map_lookup_elem(&userns_mnt_id_hash, &inode);
         if (!mnt_id_map) /* No rules installed for this userns? Then send no notification. */
-                return;
+                return 0;
 
         bpf_ringbuf_output(&userns_ringbuf, &inode, sizeof(inode), 0);
+        return 0;
 }
 
 static const char _license[] SEC("license") = "GPL";
