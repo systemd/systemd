@@ -10,6 +10,7 @@ libcore_sources = files(
         'bpf-restrict-ifaces.c',
         'bpf-socket-bind.c',
         'bpf-bind-iface.c',
+        'bpf-notify-ratelimit.c',
         'cgroup.c',
         'dbus-automount.c',
         'dbus-cgroup.c',
@@ -77,13 +78,15 @@ subdir('bpf/socket-bind')
 subdir('bpf/restrict-fs')
 subdir('bpf/restrict-ifaces')
 subdir('bpf/bind-iface')
+subdir('bpf/notify-ratelimit')
 
 if conf.get('BPF_FRAMEWORK') == 1
         libcore_sources += [
                 socket_bind_skel_h,
                 restrict_fs_skel_h,
                 restrict_ifaces_skel_h,
-                bind_network_interface_skel_h]
+                bind_network_interface_skel_h,
+                notify_ratelimit_skel_h]
 endif
 
 sources += libcore_sources
