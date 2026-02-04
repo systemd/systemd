@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "runtime-scope.h"
+#include "shared-forward.h"
 
 /* create_ephemeral_snapshot - create a snapshot of the given directory.
  *

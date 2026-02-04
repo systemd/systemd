@@ -7,6 +7,7 @@
 #include "discover-image.h"
 #include "log.h"
 #include "mountpoint-util.h"
+#include "runtime-scope.h"
 #include "snapshot-util.h"
 #include "signal-util.h"
 #include "tmpfile-util.h"
