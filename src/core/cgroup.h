@@ -324,6 +324,13 @@ typedef struct CGroupRuntime {
 #endif
         int initial_bind_network_interface_link_fd;
 
+#if BPF_FRAMEWORK
+        /* BPF link to BPF programs attached to cgroup/sendmsg_unix hook
+           and responsible for rate limiting messages sent to notify socket. */
+        struct bpf_link *bpf_notify_ratelimit_link;
+#endif
+        int initial_notify_ratelimit_link_fd;
+
         bool cgroup_members_mask_valid:1;
 
         /* Reset cgroup accounting next time we fork something off */
