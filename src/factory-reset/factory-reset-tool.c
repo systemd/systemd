@@ -328,7 +328,10 @@ static int vl_method_can_request_factory_reset(sd_varlink *link, sd_json_variant
         if (r != 0)
                 return r;
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("supported", factory_reset_supported()));
+        FactoryResetSupport support = factory_reset_supported();
+        return sd_varlink_replybo(link,
+                                  SD_JSON_BUILD_PAIR_BOOLEAN("supported", support != FACTORY_RESET_SUPPORT_NONE),
+                                  SD_JSON_BUILD_PAIR_BOOLEAN("secure", support == FACTORY_RESET_SUPPORT_SECURE));
 }
 
 static int varlink_service(void) {

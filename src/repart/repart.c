@@ -7758,14 +7758,19 @@ static int context_factory_reset(Context *context) {
         return 1;
 }
 
-static int context_can_factory_reset(Context *context) {
+static FactoryResetSupport context_can_factory_reset(Context *context) {
+        bool found = false;
+
         assert(context);
 
         LIST_FOREACH(partitions, p, context->partitions)
-                if (p->factory_reset && PARTITION_EXISTS(p))
-                        return true;
+                if (p->factory_reset && PARTITION_EXISTS(p)) {
+                        if (p->encrypt == ENCRYPT_OFF)
+                                return FACTORY_RESET_SUPPORT_INSECURE;
+                        found = true;
+                }
 
-        return false;
+        return found ? FACTORY_RESET_SUPPORT_SECURE : FACTORY_RESET_SUPPORT_NONE;
 }
 
 static int resolve_copy_blocks_auto_candidate(
@@ -10579,11 +10584,10 @@ static int vl_method_can_factory_reset(
         if (r < 0)
                 return r;
 
-        r = context_can_factory_reset(context);
-        if (r < 0)
-                return r;
-
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN ("available", r > 0));
+        FactoryResetSupport support = context_can_factory_reset(context);
+        return sd_varlink_replybo(link,
+                                  SD_JSON_BUILD_PAIR_BOOLEAN("available", support != FACTORY_RESET_SUPPORT_NONE),
+                                  SD_JSON_BUILD_PAIR_BOOLEAN("encrypted", support == FACTORY_RESET_SUPPORT_SECURE));
 }
 
 static int vl_server(void) {
@@ -10763,12 +10767,8 @@ static int run(int argc, char *argv[]) {
         context->from_scratch = r > 0; /* Starting from scratch */
 
         if (arg_can_factory_reset) {
-                r = context_can_factory_reset(context);
-                if (r < 0)
-                        return r;
-                if (r == 0)
+                if (context_can_factory_reset(context) == FACTORY_RESET_SUPPORT_NONE)
                         return EXIT_FAILURE;
-
                 return 0;
         }
 
