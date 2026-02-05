@@ -4196,6 +4196,7 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
         int r;
 
         assert(u);
+        assert(u->manager);
 
         if (u->unit_file_state >= 0 || !u->fragment_path)
                 return u->unit_file_state;
@@ -4205,9 +4206,9 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
         if (u->transient)
                 return (u->unit_file_state = UNIT_FILE_TRANSIENT);
 
-        r = unit_file_get_state(
+        r = unit_file_lookup_state(
                         u->manager->runtime_scope,
-                        /* root_dir= */ NULL,
+                        &u->manager->lookup_paths,
                         u->id,
                         &u->unit_file_state);
         if (r < 0)
