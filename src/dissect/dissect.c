@@ -856,7 +856,14 @@ static int parse_argv(int argc, char *argv[]) {
         if (IN_SET(arg_action, ACTION_MOUNT, ACTION_UMOUNT) && r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to have CAP_SYS_ADMIN to mount/unmount images");
 
-        if (IN_SET(arg_action, ACTION_ATTACH, ACTION_DETACH, ACTION_SHIFT) && geteuid() != 0)
+        r = have_effective_cap(CAP_CHOWN);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if we have CAP_CHOWN: %m");
+
+        if (arg_action == ACTION_SHIFT && r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to have CAP_CHOWN to shift UID ranges");
+
+        if (IN_SET(arg_action, ACTION_ATTACH, ACTION_DETACH) && geteuid() != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be root.");
 
         SET_FLAG(arg_flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH, isatty_safe(STDIN_FILENO));
