@@ -427,12 +427,14 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
 
                 int ntha_flags = at_flags_normalize_follow(flags) & (AT_EMPTY_PATH|AT_SYMLINK_FOLLOW);
                 _cleanup_free_ struct file_handle *ha = NULL, *hb = NULL;
-                int mntida = -1, mntidb = -1;
+                uint64_t mntida, mntidb;
+                int _mntida, _mntidb;
 
                 r = name_to_handle_at_try_fid(
                                 fda,
                                 filea,
                                 &ha,
+                                &_mntida,
                                 &mntida,
                                 ntha_flags);
                 if (r < 0) {
@@ -441,12 +443,15 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
 
                         goto fallback;
                 }
+                if (r == 0)
+                        mntida = _mntida;
 
                 r = name_to_handle_at_try_fid(
                                 fdb,
                                 fileb,
                                 &hb,
-                                &mntidb,
+                                r > 0 ? NULL : &_mntidb, /* if we managed to get unique mnt id for a, insist on that for b */
+                                r > 0 ? &mntidb : NULL,
                                 ntha_flags);
                 if (r < 0) {
                         if (is_name_to_handle_at_fatal_error(r))
@@ -454,6 +459,8 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
 
                         goto fallback;
                 }
+                if (r == 0)
+                        mntidb = _mntidb;
 
                 /* Now compare the two file handles */
                 if (!file_handle_equal(ha, hb))

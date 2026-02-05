@@ -35,8 +35,7 @@
 bool is_name_to_handle_at_fatal_error(int err);
 
 int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, uint64_t *ret_unique_mnt_id, int flags);
-int name_to_handle_at_try_fid(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, int flags);
-int name_to_handle_at_try_unique_mntid_fid(int fd, const char *path, struct file_handle **ret_handle, uint64_t *ret_mnt_id, int flags);
+int name_to_handle_at_try_fid(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, uint64_t *ret_unique_mnt_id, int flags);
 int name_to_handle_at_u64(int fd, const char *path, uint64_t *ret);
 static inline int path_to_handle_u64(const char *path, uint64_t *ret) {
         return name_to_handle_at_u64(AT_FDCWD, path, ret);
