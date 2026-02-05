@@ -12,8 +12,34 @@
 #include "os-util.h"
 #include "proc-cmdline.h"
 #include "string-table.h"
+#include "varlink-util.h"
 
-static bool factory_reset_supported(void) {
+static int repart_factory_reset_supported(void) {
+        int r;
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Repart");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to connect to repart: %m");
+
+        sd_json_variant *reply;
+        r = varlink_call_and_log(vl, "io.systemd.Repart.CanFactoryReset", /* parameters= */ NULL, &reply);
+        if (r < 0)
+                return r;
+
+        bool available;
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "available", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, SD_JSON_MANDATORY },
+                {},
+        };
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &available);
+        if (r < 0)
+                return r;
+
+        return available;
+}
+
+int factory_reset_supported(void) {
         int r;
 
         r = secure_getenv_bool("SYSTEMD_FACTORY_RESET_SUPPORTED");
@@ -22,7 +48,10 @@ static bool factory_reset_supported(void) {
         if (r != -ENXIO)
                 log_debug_errno(r, "Unable to parse $SYSTEMD_FACTORY_RESET_SUPPORTED, ignoring: %m");
 
-        return true;
+        if (!is_efi_boot())
+                return false;
+
+        return repart_factory_reset_supported();
 }
 
 static FactoryResetMode factory_reset_mode_efi_variable(void) {
@@ -98,7 +127,10 @@ static FactoryResetMode factory_reset_mode_efi_variable(void) {
 FactoryResetMode factory_reset_mode(void) {
         int r;
 
-        if (!factory_reset_supported())
+        r = factory_reset_supported();
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return FACTORY_RESET_UNSUPPORTED;
 
         /* First check if we already completed a factory reset in this boot */

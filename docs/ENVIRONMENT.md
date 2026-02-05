@@ -903,3 +903,9 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   notification carries no list of updated resources. This is useful to
   unconditionally trigger follow-up work such as relinking a kernel or
   recomputing a TPM policy.
+
+`systemd-factory-reset`:
+
+* `SYSTEMD_FACTORY_RESET_SUPPORTED` - takes a boolean. If set, it overrides the
+  return value of `io.systemd.FactoryReset.CanRequestFactoryReset` to the value
+  specified in the variable.

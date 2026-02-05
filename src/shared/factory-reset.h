@@ -15,6 +15,7 @@ typedef enum FactoryResetMode {
         _FACTORY_RESET_MODE_ERRNO_MAX = -ERRNO_MAX,
 } FactoryResetMode;
 
+bool factory_reset_supported(void);
 FactoryResetMode factory_reset_mode(void);
 
 DECLARE_STRING_TABLE_LOOKUP(factory_reset_mode, FactoryResetMode);
