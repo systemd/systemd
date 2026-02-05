@@ -43,3 +43,8 @@ keyboard_sources = files(
         'uapi/linux/input.h',
         'uapi/linux/input-event-codes.h',
 )
+
+# Source files that provides STATX_*
+statx_sources = files(
+        'uapi/linux/stat.h',
+)
