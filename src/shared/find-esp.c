@@ -285,19 +285,19 @@ static int verify_fsroot_dir(
         if (r < 0 && r != -EADDRNOTAVAIL)
                 return log_error_errno(r, "Failed to extract filename of \"%s\": %m", path);
 
-        if (statx(dir_fd, strempty(f),
-                  AT_SYMLINK_NOFOLLOW|(isempty(f) ? AT_EMPTY_PATH : 0),
-                  STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx) < 0)
-                return log_full_errno((searching && errno == ENOENT) ||
-                                      (unprivileged_mode && ERRNO_IS_PRIVILEGE(errno)) ? LOG_DEBUG : LOG_ERR, errno,
+        r = xstatx_full(dir_fd, f,
+                        AT_SYMLINK_NOFOLLOW,
+                        STATX_TYPE|STATX_INO,
+                        /* optional_mask = */ 0,
+                        STATX_ATTR_MOUNT_ROOT,
+                        &sx);
+        if (r < 0)
+                return log_full_errno((searching && r == -ENOENT) ||
+                                      (unprivileged_mode && ERRNO_IS_NEG_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to determine block device node of \"%s\": %m", path);
 
         if (!S_ISDIR(sx.stx_mode))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "Path \"%s\" is not a directory", path);
-
-        r = statx_warn_mount_root(&sx, LOG_ERR);
-        if (r < 0)
-                return r;
 
         if (!FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT))
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,

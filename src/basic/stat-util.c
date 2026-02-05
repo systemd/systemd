@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "errno-util.h"
@@ -36,19 +37,9 @@ static int verify_stat_at(
         assert(verify_func);
 
         _cleanup_free_ char *p = NULL;
-        if (fd == XAT_FDROOT) {
-                fd = AT_FDCWD;
-
-                if (isempty(path))
-                        path = "/";
-                else if (!path_is_absolute(path)) {
-                        p = strjoin("/", path);
-                        if (!p)
-                                return -ENOMEM;
-
-                        path = p;
-                }
-        }
+        r = resolve_xat_fdroot(&fd, &path, &p);
+        if (r < 0)
+                return r;
 
         if (fstatat(fd, strempty(path), &st,
                     (isempty(path) ? AT_EMPTY_PATH : 0) | (follow ? 0 : AT_SYMLINK_NOFOLLOW)) < 0)
@@ -245,6 +236,97 @@ int null_or_empty_path_with_root(const char *fn, const char *root) {
         return null_or_empty(&st);
 }
 
+static const char* statx_mask_one_to_name(unsigned mask);
+static const char* statx_attribute_to_name(uint64_t attr);
+
+#include "statx-attribute-to-name.inc"
+#include "statx-mask-to-name.inc"
+
+#define DEFINE_STATX_BITS_TO_STRING(prefix, type, func, format_str)             \
+        static char* prefix##_to_string(type v) {                               \
+                if (v == 0)                                                     \
+                        return strdup("");                                      \
+                                                                                \
+                _cleanup_free_ char *s = NULL;                                  \
+                                                                                \
+                BIT_FOREACH(i, v) {                                             \
+                        type f = 1 << i;                                        \
+                                                                                \
+                        const char *n = func(f);                                \
+                        if (!n)                                                 \
+                                continue;                                       \
+                                                                                \
+                        if (!strextend_with_separator(&s, "|", n))              \
+                                return NULL;                                    \
+                        v &= ~f;                                                \
+                }                                                               \
+                                                                                \
+                if (v != 0 && strextendf_with_separator(&s, "|", format_str, v) < 0) \
+                        return NULL;                                            \
+                                                                                \
+                return TAKE_PTR(s);                                             \
+        }
+
+DEFINE_STATX_BITS_TO_STRING(statx_mask,       unsigned, statx_mask_one_to_name,  "0x%x");
+DEFINE_STATX_BITS_TO_STRING(statx_attributes, uint64_t, statx_attribute_to_name, "0x%" PRIx64);
+
+int xstatx_full(int fd,
+                const char *path,
+                int flags,
+                unsigned mandatory_mask,
+                unsigned optional_mask,
+                uint64_t mandatory_attributes,
+                struct statx *ret) {
+
+        struct statx sx = {}; /* explicitly initialize the struct to make msan silent. */
+        int r;
+
+        /* Wrapper around statx(), with additional bells and whistles:
+         *
+         * 1. AT_EMPTY_PATH is implied on empty path
+         * 2. Supports XAT_FDROOT
+         * 3. Takes separate mandatory and optional mask params, plus mandatory attributes.
+         *    Returns -EUNATCH if statx() does not return all masks specified as mandatory,
+         *    > 0 if all optional masks are supported, 0 otherwise.
+         */
+
+        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
+        assert((mandatory_mask & optional_mask) == 0);
+        assert(ret);
+
+        _cleanup_free_ char *p = NULL;
+        r = resolve_xat_fdroot(&fd, &path, &p);
+        if (r < 0)
+                return r;
+
+        if (statx(fd, strempty(path),
+                  flags|(isempty(path) ? AT_EMPTY_PATH : 0),
+                  mandatory_mask|optional_mask,
+                  &sx) < 0)
+                return negative_errno();
+
+        if (!FLAGS_SET(sx.stx_mask, mandatory_mask)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *mask_str = statx_mask_to_string(mandatory_mask & ~sx.stx_mask);
+                        log_debug("statx() does not support '%s' mask (running on an old kernel?)", strnull(mask_str));
+                }
+
+                return -EUNATCH;
+        }
+
+        if (!FLAGS_SET(sx.stx_attributes_mask, mandatory_attributes)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *attr_str = statx_attributes_to_string(mandatory_attributes & ~sx.stx_attributes_mask);
+                        log_debug("statx() does not support '%s' attribute (running on an old kernel?)", strnull(attr_str));
+                }
+
+                return -EUNATCH;
+        }
+
+        *ret = sx;
+        return FLAGS_SET(sx.stx_mask, optional_mask);
+}
+
 static int xfstatfs(int fd, struct statfs *ret) {
         assert(ret);
 
@@ -349,12 +431,14 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
 
                 int ntha_flags = at_flags_normalize_follow(flags) & (AT_EMPTY_PATH|AT_SYMLINK_FOLLOW);
                 _cleanup_free_ struct file_handle *ha = NULL, *hb = NULL;
-                int mntida = -1, mntidb = -1;
+                uint64_t mntida, mntidb;
+                int _mntida, _mntidb;
 
                 r = name_to_handle_at_try_fid(
                                 fda,
                                 filea,
                                 &ha,
+                                &_mntida,
                                 &mntida,
                                 ntha_flags);
                 if (r < 0) {
@@ -363,12 +447,15 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
 
                         goto fallback;
                 }
+                if (r == 0)
+                        mntida = _mntida;
 
                 r = name_to_handle_at_try_fid(
                                 fdb,
                                 fileb,
                                 &hb,
-                                &mntidb,
+                                r > 0 ? NULL : &_mntidb, /* if we managed to get unique mnt id for a, insist on that for b */
+                                r > 0 ? &mntidb : NULL,
                                 ntha_flags);
                 if (r < 0) {
                         if (is_name_to_handle_at_fatal_error(r))
@@ -376,6 +463,8 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
 
                         goto fallback;
                 }
+                if (r == 0)
+                        mntidb = _mntidb;
 
                 /* Now compare the two file handles */
                 if (!file_handle_equal(ha, hb))
@@ -611,26 +700,4 @@ mode_t inode_type_from_string(const char *s) {
                 return S_IFSOCK;
 
         return MODE_INVALID;
-}
-
-int statx_warn_mount_root(const struct statx *sx, int log_level) {
-        assert(sx);
-
-        /* The STATX_ATTR_MOUNT_ROOT flag is supported since kernel v5.8. */
-        if (!FLAGS_SET(sx->stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
-                return log_full_errno(log_level, SYNTHETIC_ERRNO(ENOSYS),
-                                      "statx() did not set STATX_ATTR_MOUNT_ROOT, running on an old kernel?");
-
-        return 0;
-}
-
-int statx_warn_mount_id(const struct statx *sx, int log_level) {
-        assert(sx);
-
-        /* The STATX_MNT_ID flag is supported since kernel v5.10. */
-        if (!FLAGS_SET(sx->stx_mask, STATX_MNT_ID))
-                return log_full_errno(log_level, SYNTHETIC_ERRNO(ENOSYS),
-                                      "statx() does not support STATX_MNT_ID, running on an old kernel?");
-
-        return 0;
 }

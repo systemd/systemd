@@ -125,10 +125,12 @@ sources += basic_sources
 generated_gperf_headers = []
 foreach item : [
         # name,        source,             prefix,    headers
-        ['af',         af_sources,         '',        ['<sys/socket.h>'],       ],
-        ['arphrd',     arphrd_sources,     'ARPHRD_', ['<linux/if_arp.h>'],     ],
-        ['capability', capability_sources, '',        ['<linux/capability.h>'], ],
-        ['errno',      [],                 '',        ['<errno.h>'],            ],
+        ['af',              af_sources,         '',        ['<sys/socket.h>'],       ],
+        ['arphrd',          arphrd_sources,     'ARPHRD_', ['<linux/if_arp.h>'],     ],
+        ['capability',      capability_sources, '',        ['<linux/capability.h>'], ],
+        ['errno',           [],                 '',        ['<errno.h>'],            ],
+        ['statx-mask',      statx_sources                                            ],
+        ['statx-attribute', statx_sources                                            ],
 ]
 
         generate_list = files('generate-@0@-list.sh'.format(item[0]))
@@ -138,31 +140,35 @@ foreach item : [
                 command : [env, 'bash', generate_list, cpp, system_include_args],
                 capture : true)
 
-        gperf_file = custom_target(
-                input : list_txt,
-                output : '@0@-from-name.gperf'.format(item[0]),
-                command : [generate_gperfs, item[0], item[2], '@INPUT@'] + item[3],
-                capture : true)
-
-        target1 = custom_target(
-                input : gperf_file,
-                output : '@0@-from-name.inc'.format(item[0]),
-                command : [gperf,
-                           '-L', 'ANSI-C', '-t', '--ignore-case',
-                           '-N', 'lookup_@0@'.format(item[0]),
-                           '-H', 'hash_@0@_name'.format(item[0]),
-                           '-p', '-C',
-                           '@INPUT@'],
-                capture : true)
-
         awkscript = '@0@-to-name.awk'.format(item[0])
-        target2 = custom_target(
+        target = custom_target(
                 input : [awkscript, list_txt],
                 output : '@0@-to-name.inc'.format(item[0]),
                 command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
                 capture : true)
 
-        generated_gperf_headers += [target1, target2]
+        generated_gperf_headers += [target]
+
+        if item.length() > 2
+                gperf_file = custom_target(
+                        input : list_txt,
+                        output : '@0@-from-name.gperf'.format(item[0]),
+                        command : [generate_gperfs, item[0], item[2], '@INPUT@'] + item[3],
+                        capture : true)
+
+                target = custom_target(
+                        input : gperf_file,
+                        output : '@0@-from-name.inc'.format(item[0]),
+                        command : [gperf,
+                                '-L', 'ANSI-C', '-t', '--ignore-case',
+                                '-N', 'lookup_@0@'.format(item[0]),
+                                '-H', 'hash_@0@_name'.format(item[0]),
+                                '-p', '-C',
+                                '@INPUT@'],
+                        capture : true)
+
+                generated_gperf_headers += [target]
+        endif
 endforeach
 
 generated_sources += generated_gperf_headers
