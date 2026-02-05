@@ -34,7 +34,10 @@
       <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.raw</filename></member>
       <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.sysext.raw</filename></member>
       <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.confext.raw</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.vendor.d/*.addon.efi</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.vendor.d/*.sysext.raw</filename></member>
       <member><filename><replaceable>ESP</replaceable>/loader/addons/*.addon.efi</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/loader/vendor-addons/*.addon.efi</filename></member>
       <member><filename><replaceable>ESP</replaceable>/loader/credentials/*.cred</filename></member>
       <member><filename><replaceable>ESP</replaceable>/loader/extensions/*.raw</filename></member>
       <member><filename><replaceable>ESP</replaceable>/loader/extensions/*.sysext.raw</filename></member>
@@ -246,12 +249,6 @@
       <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
       details on configuration extension images. The generated <command>cpio</command> archive containing
       these configuration extension images is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
-
-      <listitem><para>Similarly, files
-      <filename><replaceable>foo</replaceable>.efi.extra.vendor.d/*.confext.raw</filename> are packed up in a
-      <command>cpio</command> archive and placed in the <filename>/.extra/confext/</filename> directory in
-      the initrd file heirarchy. This archive is similarly measured into TPM PCR 12 (if a TPM is present).
-      </para></listitem>
 
       <listitem><para>Similarly, files
       <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename>,

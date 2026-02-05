@@ -42,7 +42,6 @@ enum {
         INITRD_VENDOR_SYSEXT,
         INITRD_CONFEXT,
         INITRD_GLOBAL_CONFEXT,
-        INITRD_VENDOR_CONFEXT,
         INITRD_PCRSIG,
         INITRD_PCRPKEY,
         INITRD_OSREL,
@@ -919,7 +918,7 @@ static void generate_sidecar_initrds(
                 combine_measured_flag(sysext_measured, m);
 
         if (pack_cpio(loaded_image,
-                      /* dropin_dir= */ NULL,
+                      dropin_dir,
                       u".confext.raw",
                       /* exclude_suffix= */ NULL,
                       ".extra/confext",
@@ -941,19 +940,6 @@ static void generate_sidecar_initrds(
                       /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Global configuration extension initrd",
                       initrds + INITRD_GLOBAL_CONFEXT,
-                      &m) == EFI_SUCCESS)
-                combine_measured_flag(confext_measured, m);
-
-        if (pack_cpio(loaded_image,
-                      vendor_dropin_dir,
-                      u".confext.raw",
-                      /* exclude_suffix= */ NULL,
-                      ".extra/confext",
-                      /* dir_mode= */ 0555,
-                      /* access_mode= */ 0444,
-                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
-                      u"Vendor configuration extension initrd",
-                      initrds + INITRD_VENDOR_CONFEXT,
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(confext_measured, m);
 }
