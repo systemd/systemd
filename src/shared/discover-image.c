@@ -451,27 +451,15 @@ static int image_make(
                 path_startswith(path, "/usr") ||
                 (faccessat(fd, "", W_OK, AT_EACCESS|AT_EMPTY_PATH) < 0 && errno == EROFS);
 
-        uint64_t on_mount_id = 0;
         _cleanup_free_ struct file_handle *fh = NULL;
+        uint64_t on_mount_id;
+        int _mnt_id;
 
-        r = name_to_handle_at_try_unique_mntid_fid(fd, /* path= */ NULL, &fh, &on_mount_id, /* flags= */ 0);
-        if (r < 0) {
-                if (is_name_to_handle_at_fatal_error(r))
-                        return r;
-
-                r = path_get_unique_mnt_id_at(fd, /* path= */ NULL, &on_mount_id);
-                if (r < 0) {
-                        if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                                return r;
-
-                        int on_mount_id_fallback = -1;
-                        r = path_get_mnt_id_at(fd, /* path= */ NULL, &on_mount_id_fallback);
-                        if (r < 0)
-                                return r;
-
-                        on_mount_id = on_mount_id_fallback;
-                }
-        }
+        r = name_to_handle_at_try_fid(fd, /* path= */ NULL, &fh, &_mnt_id, &on_mount_id, AT_EMPTY_PATH);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                on_mount_id = _mnt_id;
 
         if (S_ISDIR(st->st_mode)) {
                 unsigned file_attr = 0;
