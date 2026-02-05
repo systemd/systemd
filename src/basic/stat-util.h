@@ -41,6 +41,24 @@ static inline int null_or_empty_path(const char *fn) {
         return null_or_empty_path_with_root(fn, NULL);
 }
 
+int xstatx_full(int fd,
+                const char *path,
+                int flags,
+                unsigned mandatory_mask,
+                unsigned optional_mask,
+                uint64_t mandatory_attributes,
+                struct statx *ret);
+
+static inline int xstatx(
+                int fd,
+                const char *path,
+                int flags,
+                unsigned mandatory_mask,
+                struct statx *ret) {
+
+        return xstatx_full(fd, path, flags, mandatory_mask, 0, 0, ret);
+}
+
 int fd_is_read_only_fs(int fd);
 int path_is_read_only_fs(const char *path);
 
@@ -117,6 +135,3 @@ static inline bool inode_type_can_hardlink(mode_t m) {
          * type). */
         return IN_SET(m & S_IFMT, S_IFSOCK, S_IFLNK, S_IFREG, S_IFBLK, S_IFCHR, S_IFIFO);
 }
-
-int statx_warn_mount_root(const struct statx *sx, int log_level);
-int statx_warn_mount_id(const struct statx *sx, int log_level);

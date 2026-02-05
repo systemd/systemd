@@ -586,12 +586,13 @@ static int opendir_and_stat(
                 return 0;
         }
 
-        if (statx(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx) < 0)
-                return log_error_errno(errno, "statx(%s) failed: %m", path);
-
-        r = statx_warn_mount_root(&sx, LOG_ERR);
+        r = xstatx_full(dirfd(d), /* path = */ NULL, AT_EMPTY_PATH,
+                        STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME,
+                        /* optional_mask = */ 0,
+                        STATX_ATTR_MOUNT_ROOT,
+                        &sx);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "statx(%s) failed: %m", path);
 
         *ret_mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         *ret = TAKE_PTR(d);
@@ -683,34 +684,21 @@ static int dir_cleanup(
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
-                /* If statx() is supported, use it. It's preferable over fstatat() since it tells us
-                 * explicitly where we are looking at a mount point, for free as side information. Determining
-                 * the same information without statx() is hard, see the complexity of path_is_mount_point(),
-                 * and also much slower as it requires a number of syscalls instead of just one. Hence, when
-                 * we have modern statx() we use it instead of fstat() and do proper mount point checks,
-                 * while on older kernels's well do traditional st_dev based detection of mount points.
-                 *
-                 * Using statx() for detecting mount points also has the benefit that we handle weird file
-                 * systems such as overlayfs better where each file is originating from a different
-                 * st_dev. */
-
                 struct statx sx;
-                if (statx(dirfd(d), de->d_name,
-                          AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
-                          STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
-                          &sx) < 0) {
-                        if (errno == ENOENT)
-                                continue;
-
+                r = xstatx_full(dirfd(d), de->d_name,
+                                AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                                STATX_TYPE|STATX_MODE|STATX_UID,
+                                STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
+                                STATX_ATTR_MOUNT_ROOT,
+                                &sx);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0) {
                         /* FUSE, NFS mounts, SELinux might return EACCES */
-                        log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                        log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
                                        "statx(%s/%s) failed: %m", p, de->d_name);
                         continue;
                 }
-
-                r = statx_warn_mount_root(&sx, LOG_ERR);
-                if (r < 0)
-                        return r;
 
                 if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
                         log_debug("Ignoring \"%s/%s\": different mount points.", p, de->d_name);
