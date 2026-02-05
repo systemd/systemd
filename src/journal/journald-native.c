@@ -160,12 +160,12 @@ static int manager_process_entry(
                                 size_t l;
 
                                 l = e - p;
-                                if (l > DATA_SIZE_MAX) {
+                                if (l > (ucred && ucred->uid == 0 ? DATA_SIZE_MAX : USER_DATA_SIZE_MAX)) {
                                         log_debug("Received text block of %zu bytes is too large, ignoring entry.", l);
                                         goto finish;
                                 }
 
-                                if (entry_size + l + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
+                                if (entry_size + l + n + 1 > (ucred && ucred->uid == 0 ? ENTRY_SIZE_MAX : USER_ENTRY_SIZE_MAX)) { /* data + separators + trailer */
                                         log_debug("Entry is too big (%zu bytes after processing %zu entries), ignoring entry.",
                                                   entry_size + l, n + 1);
                                         goto finish;
@@ -196,13 +196,13 @@ static int manager_process_entry(
                         }
 
                         l = unaligned_read_le64(e + 1);
-                        if (l > DATA_SIZE_MAX) {
+                        if (l > (ucred && ucred->uid == 0 ? DATA_SIZE_MAX : USER_DATA_SIZE_MAX)) {
                                 log_debug("Received binary data block of %"PRIu64" bytes is too large, ignoring entry.", l);
                                 goto finish;
                         }
 
                         total = (e - p) + 1 + l;
-                        if (entry_size + total + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
+                        if (entry_size + total + n + 1 > (ucred && ucred->uid == 0 ? ENTRY_SIZE_MAX : USER_ENTRY_SIZE_MAX)) { /* data + separators + trailer */
                                 log_debug("Entry is too big (%"PRIu64"bytes after processing %zu fields), ignoring.",
                                           entry_size + total, n + 1);
                                 goto finish;
@@ -392,7 +392,7 @@ int manager_process_native_file(
 
         /* When !sealed, set a lower memory limit. We have to read the file, effectively doubling memory
          * use. */
-        if (st.st_size > ENTRY_SIZE_MAX / (sealed ? 1 : 2))
+        if (st.st_size > (ucred && ucred->uid == 0 ? ENTRY_SIZE_MAX : USER_ENTRY_SIZE_MAX) / (sealed ? 1 : 2))
                 return log_ratelimit_error_errno(SYNTHETIC_ERRNO(EFBIG), JOURNAL_LOG_RATELIMIT,
                                                  "File passed too large (%"PRIu64" bytes), refusing.",
                                                  (uint64_t) st.st_size);
