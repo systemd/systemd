@@ -15,7 +15,7 @@
 #include "string-table.h"
 #include "varlink-util.h"
 
-static int repart_factory_reset_supported(void) {
+static FactoryResetSupport repart_factory_reset_supported(void) {
         int r;
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
@@ -28,29 +28,46 @@ static int repart_factory_reset_supported(void) {
         if (r < 0)
                 return r;
 
-        bool available;
+        struct {
+                bool available;
+                bool encrypted;
+        } support = {};
+
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "available", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, SD_JSON_MANDATORY },
+                { "available", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, voffsetof(support, available), SD_JSON_MANDATORY },
+                { "encrypted", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, voffsetof(support, encrypted), 0 },
                 {},
         };
-        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &available);
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &support);
         if (r < 0)
                 return r;
 
-        return available;
+        if (!support.available)
+                return FACTORY_RESET_SUPPORT_NONE;
+        if (!support.encrypted)
+                return FACTORY_RESET_SUPPORT_INSECURE;
+        return FACTORY_RESET_SUPPORT_SECURE;
 }
 
-int factory_reset_supported(void) {
+FactoryResetSupport factory_reset_supported(void) {
         int r;
 
         r = secure_getenv_bool("SYSTEMD_FACTORY_RESET_SUPPORTED");
-        if (r >= 0)
-                return r;
+        if (r > 0) {
+                r = secure_getenv_bool ("SYSTEMD_FACTORY_RESET_SECURE");
+                if (r > 0)
+                        return FACTORY_RESET_SUPPORT_SECURE;
+                if (r != 0 && r != -ENXIO)
+                        log_debug_errno(r, "Unable to parse $SYSTEMD_FACTORY_RESET_SECURE, ignoring: %m");
+                return FACTORY_RESET_SUPPORT_INSECURE;
+        }
+        if (r == 0)
+                return FACTORY_RESET_SUPPORT_NONE;
         if (r != -ENXIO)
                 log_debug_errno(r, "Unable to parse $SYSTEMD_FACTORY_RESET_SUPPORTED, ignoring: %m");
 
         if (!is_efi_boot())
-                return false;
+                return FACTORY_RESET_SUPPORT_NONE;
 
         return repart_factory_reset_supported();
 }
@@ -129,10 +146,10 @@ FactoryResetMode factory_reset_mode(void) {
         int r;
 
         if (!in_initrd()) {
-                r = factory_reset_supported();
-                if (r < 0)
-                        return r;
-                if (r == 0)
+                FactoryResetSupport support = factory_reset_supported();
+                if (support < 0)
+                        return (int) support;
+                if (support == FACTORY_RESET_SUPPORT_NONE)
                         return FACTORY_RESET_UNSUPPORTED;
         }
 

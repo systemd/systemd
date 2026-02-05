@@ -106,6 +106,16 @@ service doesn't know about this and will report that factory reset is unsupporte
 You can correct this by setting the `SYSTEMD_FACTORY_RESET_SUPPORTED` environment
 variable on `systemd-factory-reset@.service`.
 
+Please consider the end-user's expectations for factory reset. For instance,
+people will use this feature before selling their device. To that end, the factory
+reset must do as much as it can to irrevocably destroy the user's data. Deleting
+files or partitions isn't actually enough because the data is still there and
+easily recoverable by various data recovery tools. Overwriting isn't enough for
+modern SSDs, which will keep around chunks of the deleted data as part of their
+wear-leveling. After you've carefully considered the capabilities of your factory
+reset implementation, set the `SYSTEMD_FACTORY_RESET_SECURE` environment variable
+on `systemd-factory-reset@.service`.
+
 ## Exposure in the UI
 
 If a graphical UI shall expose a factory reset operation, it should first check
@@ -116,6 +126,10 @@ the process by asking systemd to activate the `factory-reset.target` unit.
 Alternatively, `systemd-logind.service`'s hotkey support may be used. For
 example, it can be configured to request factory reset if the reboot button is
 pressed for a long time.
+
+The GUI should communicate the security properties of the factory reset that it
+is offering to the user. Alternatively, it's perfectly appropriate to hide the
+factory reset function entirely if only an insecure reset is available.
 
 ## Support for Resetting other Resources than Partitions + TPM
 
