@@ -618,7 +618,7 @@ int userns_enter_and_pin(int userns_fd, PidRef *ret) {
                         "(sd-pinuserns)",
                         /* stdio_fds= */ NULL,
                         (int[]) { pfd[1], userns_fd }, 2,
-                        FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
+                        FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_DEATHSIG_SIGKILL,
                         &pidref);
         if (r < 0)
                 return r;
