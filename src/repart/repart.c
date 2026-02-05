@@ -10538,6 +10538,54 @@ static int vl_method_run(
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_can_factory_reset(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        _cleanup_(context_freep) Context* context = NULL;
+        context = context_new(
+                        /* definitions= */ NULL,
+                        EMPTY_ALLOW,
+                        /* dry_run= */ true,
+                        /* seed= */ SD_ID128_NULL);
+        if (!context)
+                return log_oom();
+
+        r = context_read_definitions(context);
+        if (r < 0)
+                return r;
+
+        r = find_root (context);
+        if (r == -ENODEV)
+                /* No disk -> no factory reset */
+                return sd_varlink_replybo (link, SD_JSON_BUILD_PAIR_BOOLEAN ("available", false));
+        if (r < 0)
+                return r;
+
+        r = context_load_partition_table (context);
+        if (r == -EHWPOISON)
+                /* Not GPT -> no factory reset */
+                return sd_varlink_replybo (link, SD_JSON_BUILD_PAIR_BOOLEAN ("available", false));
+        if (r < 0)
+                return r;
+
+        r = context_can_factory_reset (context);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_replybo (link, SD_JSON_BUILD_PAIR_BOOLEAN ("available", r > 0));
+}
+
 static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
         int r;
@@ -10558,7 +10606,8 @@ static int vl_server(void) {
         r = sd_varlink_server_bind_method_many(
                         varlink_server,
                         "io.systemd.Repart.ListCandidateDevices", vl_method_list_candidate_devices,
-                        "io.systemd.Repart.Run",                  vl_method_run);
+                        "io.systemd.Repart.Run",                  vl_method_run,
+                        "io.systemd.Repart.CanFactoryReset",      vl_method_can_factory_reset);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
