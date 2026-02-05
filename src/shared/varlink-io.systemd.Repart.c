@@ -101,7 +101,9 @@ static SD_VARLINK_DEFINE_ERROR(
 static SD_VARLINK_DEFINE_METHOD(
                 CanFactoryReset,
                 SD_VARLINK_FIELD_COMMENT("Whether factory reset is defined"),
-                SD_VARLINK_DEFINE_OUTPUT(enabled, SD_VARLINK_BOOL, 0));
+                SD_VARLINK_DEFINE_OUTPUT(enabled, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether all partitions wiped during a factory reset are encrypted"),
+                SD_VARLINK_DEFINE_OUTPUT(encrypted, SD_VARLINK_BOOL, 0));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Repart,
