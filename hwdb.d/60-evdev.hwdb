@@ -132,6 +132,13 @@ evdev:input:b0003v05ACp025B*
  EVDEV_ABS_35=::94
  EVDEV_ABS_36=::92
 
+# MacbookPro12,1 (unibody, Early 2015)
+evdev:input:b0003v05ACp0273*
+ EVDEV_ABS_00=::97
+ EVDEV_ABS_01=::92
+ EVDEV_ABS_35=::97
+ EVDEV_ABS_36=::92
+
 # MacBook8,1 (2015), MacBook9,1 (2016), MacBook10,1 (2017)
 evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBook8,1:*
 evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBook9,1:*
@@ -697,6 +704,13 @@ evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoideapadY700-14ISK:*
  EVDEV_ABS_35=::27
  EVDEV_ABS_36=::29
 
+#Lenovo Y50-70
+evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoY50-70**
+ EVDEV_ABS_00=164:3918:37
+ EVDEV_ABS_01=120:1935:26
+ EVDEV_ABS_35=164:3918:37
+ EVDEV_ABS_36=120:1935:26
+
 # Lenovo Ideapad 310S-14ISK
 evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoideapad310S-14ISK:*
  EVDEV_ABS_00=113:3960:37
@@ -746,12 +760,15 @@ evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoU41-70:*
  EVDEV_ABS_35=117:3958:36
  EVDEV_ABS_36=104:1960:26
 
-# Lenovo Thinkpad T490 and T14/P14s Gen1/2
+# Lenovo Thinkpad T490/T495 and T14/P14s Gen1/2 (identical chassis)
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadT490:*
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadT495:*
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadT14Gen1:*
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadT14Gen2a:*
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadT14Gen2i:*
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadP14sGen1:*
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadP14sGen2a:*
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadP14sGen2i:*
  EVDEV_ABS_00=::44
  EVDEV_ABS_01=::52
  EVDEV_ABS_35=::44
