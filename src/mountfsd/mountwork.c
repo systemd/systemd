@@ -36,6 +36,8 @@
 #include "os-util.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "process-util.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -878,6 +880,99 @@ static DirectoryOwnership validate_directory_fd(
         return DIRECTORY_IS_OTHERWISE_OWNED;
 }
 
+static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, const char *directory_path) {
+        int r;
+
+        _cleanup_close_ int mount_fd = open_tree_try_drop_idmap(
+                        directory_fd,
+                        "",
+                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+        if (mount_fd >= 0)
+                return TAKE_FD(mount_fd);
+        if (mount_fd != -EINVAL)
+                return log_debug_errno(mount_fd, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = varlink_get_peer_pidref(link, &pidref);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int mntns_fd = pidref_namespace_open_by_type(&pidref, NAMESPACE_MOUNT);
+        if (mntns_fd < 0)
+                return log_debug_errno(mntns_fd, "Failed to open mount namespace of peer: %m");
+
+        r = is_our_namespace(mntns_fd, NAMESPACE_MOUNT);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check if peer is in same mount namespace: %m");
+        if (r > 0)
+                return log_debug_errno(mount_fd, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
+
+        /* The peer is in a different mount namespace. open_tree() will fail with EINVAL on directory fds
+         * from a different mount namespace, so we need to fork off a child process that joins the peer's
+         * mount namespace and calls open_tree() there. */
+
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR, mount_fd_socket[2] = EBADF_PAIR;
+
+        if (pipe2(errno_pipe_fd, O_CLOEXEC) < 0)
+                return log_debug_errno(errno, "Failed to create pipe: %m");
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, mount_fd_socket) < 0)
+                return log_debug_errno(errno, "Failed to create socket pair: %m");
+
+        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        r = namespace_fork(
+                        "(sd-opentreens)",
+                        "(sd-opentree)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                        /* pidns_fd= */ -EBADF,
+                        mntns_fd,
+                        /* netns_fd= */ -EBADF,
+                        /* userns_fd= */ -EBADF,
+                        /* root_fd= */ -EBADF,
+                        &child);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork into peer's mount namespace: %m");
+        if (r == 0) {
+                /* Child */
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+                mount_fd_socket[0] = safe_close(mount_fd_socket[0]);
+
+                mount_fd = open_tree_try_drop_idmap(
+                                directory_fd,
+                                "",
+                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+                if (mount_fd < 0) {
+                        log_debug_errno(mount_fd, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
+                        report_errno_and_exit(errno_pipe_fd[1], mount_fd);
+                }
+
+                r = send_one_fd(mount_fd_socket[1], mount_fd, /* flags= */ 0);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to send mount fd: %m");
+                        report_errno_and_exit(errno_pipe_fd[1], r);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+        mount_fd_socket[1] = safe_close(mount_fd_socket[1]);
+
+        r = pidref_wait_for_terminate_and_check("(sd-opentreens)", &child, /* flags= */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to wait for child: %m");
+
+        r = read_errno(errno_pipe_fd[0]);
+        if (r < 0)
+                return r;
+
+        mount_fd = receive_one_fd(mount_fd_socket[0], MSG_DONTWAIT);
+        if (mount_fd < 0)
+                return log_debug_errno(mount_fd, "Failed to receive mount fd from child: %m");
+
+        return TAKE_FD(mount_fd);
+}
+
 static int vl_method_mount_directory(
                 sd_varlink *link,
                 sd_json_variant *parameters,
@@ -992,12 +1087,9 @@ static int vl_method_mount_directory(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int mount_fd = open_tree_try_drop_idmap(
-                        directory_fd,
-                        "",
-                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+        _cleanup_close_ int mount_fd = open_tree_try_drop_idmap_harder(link, directory_fd, directory_path);
         if (mount_fd < 0)
-                return log_debug_errno(errno, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
+                return mount_fd;
 
         /* MOUNT_ATTR_IDMAP has possibly been cleared. Let's verify that the underlying data matches our expectations. */
         struct stat unmapped_st;
