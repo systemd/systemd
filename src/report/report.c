@@ -79,16 +79,13 @@ static int metrics_on_query_reply(
                         log_info("Varlink timed out");
                 else
                         log_error("Varlink error: %s", error_id);
-
-                goto finish;
+        } else {
+                /* Collect metrics for later sorting */
+                if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
+                        return log_oom();
+                context->metrics[context->n_metrics++] = sd_json_variant_ref(parameters);
         }
 
-        /* Collect metrics for later sorting */
-        if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
-                return log_oom();
-        context->metrics[context->n_metrics++] = sd_json_variant_ref(parameters);
-
-finish:
         if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
                 assert(context->n_open_connections > 0);
                 context->n_open_connections--;
@@ -111,7 +108,7 @@ static int metrics_call(const char *path, sd_event *event, sd_varlink **ret, Con
 
         r = sd_varlink_connect_address(&vl, path);
         if (r < 0)
-                return log_debug_errno(r, "Unable to connect to %s: %m", path);
+                return log_error_errno(r, "Unable to connect to %s: %m", path);
 
         (void) sd_varlink_set_userdata(vl, context);
 
@@ -121,15 +118,15 @@ static int metrics_call(const char *path, sd_event *event, sd_varlink **ret, Con
 
         r = sd_varlink_attach_event(vl, event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
-                return log_debug_errno(r, "Failed to attach varlink connection to event loop: %m");
+                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
         r = sd_varlink_bind_reply(vl, metrics_on_query_reply);
         if (r < 0)
-                return log_debug_errno(r, "Failed to bind reply callback: %m");
+                return log_error_errno(r, "Failed to bind reply callback: %m");
 
         r = sd_varlink_observe(vl, "io.systemd.Metrics.List", /* parameters= */ NULL);
         if (r < 0)
-                return log_debug_errno(r, "Failed to issue io.systemd.Metrics.List call: %m");
+                return log_error_errno(r, "Failed to issue io.systemd.Metrics.List call: %m");
 
         *ret = TAKE_PTR(vl);
 
@@ -156,9 +153,6 @@ static void context_done(Context *context) {
 static void metrics_output_sorted(Context *context) {
         assert(context);
 
-        if (context->n_metrics == 0)
-                return;
-
         typesafe_qsort(context->metrics, context->n_metrics, metric_compare);
 
         FOREACH_ARRAY(m, context->metrics, context->n_metrics)
@@ -167,26 +161,27 @@ static void metrics_output_sorted(Context *context) {
                                 SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO | SD_JSON_FORMAT_FLUSH,
                                 stdout,
                                 NULL);
+
+        if (context->n_metrics == 0)
+                log_warning("No reporting sockets found.");
 }
 
 static int metrics_query(void) {
-        _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_free_ char *metrics_path = NULL;
         int r;
 
+        _cleanup_free_ char *metrics_path = NULL;
         r = runtime_directory_generic(arg_runtime_scope, "systemd/report", &metrics_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine metrics directory path: %m");
 
-        d = opendir(metrics_path);
-        if (!d) {
-                if (errno == ENOENT)
-                        return 0;
+        log_debug("Looking for reports in %s/", metrics_path);
 
-                return log_error_errno(errno, "Failed to open directory %s: %m", metrics_path);
-        }
+        _cleanup_closedir_ DIR *d = opendir(metrics_path);
+        if (!d)
+                return log_full_errno(errno == ENOENT ? LOG_WARNING : LOG_ERR, errno,
+                                      "Failed to open metrics directory %s: %m", metrics_path);
 
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         r = sd_event_default(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
@@ -198,27 +193,25 @@ static int metrics_query(void) {
         size_t n_varlinks = MAX_CONCURRENT_METRICS_SOCKETS;
         sd_varlink **varlinks = new0(sd_varlink *, n_varlinks);
         if (!varlinks)
-                return log_error_errno(ENOMEM, "Failed to allocate varlinks array: %m");
+                return log_oom();
 
         CLEANUP_ARRAY(varlinks, n_varlinks, sd_varlink_unref_many);
 
-        Context context = {};
+        _cleanup_(context_done) Context context = {};
 
-        FOREACH_DIRENT(de, d, return -errno) {
-                _cleanup_free_ char *p = NULL;
+        FOREACH_DIRENT(de, d,
+                       return log_warning_errno(errno, "Failed to read %s: %m", metrics_path)) {
 
                 if (!IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN))
                         continue;
 
-                p = path_join(metrics_path, de->d_name);
+                _cleanup_free_ char *p = path_join(metrics_path, de->d_name);
                 if (!p)
                         return log_oom();
 
                 r = metrics_call(p, event, &varlinks[context.n_open_connections], &context);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to connect to %s: %m", p);
+                if (r < 0)
                         continue;
-                }
 
                 if (++context.n_open_connections >= MAX_CONCURRENT_METRICS_SOCKETS) {
                         log_warning("Too many concurrent metrics sockets, stop iterating");
@@ -226,15 +219,13 @@ static int metrics_query(void) {
                 }
         }
 
-        r = sd_event_loop(event);
-        if (r < 0) {
-                context_done(&context);
-                return log_error_errno(r, "Failed to run event loop: %m");
+        if (context.n_open_connections > 0) {
+                r = sd_event_loop(event);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run event loop: %m");
         }
 
         metrics_output_sorted(&context);
-
-        context_done(&context);
 
         return 0;
 }
@@ -318,11 +309,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = metrics_query();
-        if (r < 0)
-                return r;
-
-        return 0;
+        return metrics_query();
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
