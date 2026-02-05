@@ -118,9 +118,6 @@ Deprecations and removals:
 
 Features:
 
-* mountfsd: when looking for non-foreign uid owned inodes up the tree, stop at
-  mounts
-
 * downgrade the uid/gid disposition enforcement in udev
 
 * have a signal that reloads every unit that supports reloading
