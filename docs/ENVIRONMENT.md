@@ -850,5 +850,11 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 `systemd-factory-reset`:
 
 * `SYSTEMD_FACTORY_RESET_SUPPORTED` - takes a boolean. If set, it overrides the
-  return value of `io.systemd.FactoryReset.CanRequestFactoryReset` to the value
-  specified in the variable.
+  `supported` field in the return value of `io.systemd.FactoryReset.CanRequestFactoryReset`
+  to the value specified in the variable.
+
+* `SYSTEMD_FACTORY_RESET_SECURE` - takes a boolean. If set, it overrides the
+  `secure` field in the return value of `io.systemd.FactoryReset.CanRequestFactoryReset`
+  to the value specified in the variable. Set this to true ONLY if your factory
+  reset implementation is capable of securely and irrevocably destroying the
+  user's data.
