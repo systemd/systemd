@@ -9,13 +9,17 @@
 #include "time-util.h"
 
 /* Make sure not to make this smaller than the maximum coredump size.
- * See JOURNAL_SIZE_MAX in coredump.c */
+ * See JOURNAL_SIZE_MAX in coredump.c. Set a much lower limit for unprivileged senders. */
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 #define ENTRY_SIZE_MAX (1024*1024*770u)
 #define DATA_SIZE_MAX (1024*1024*768u)
+#define USER_ENTRY_SIZE_MAX (1024*1024*32u)
+#define USER_DATA_SIZE_MAX (1024*1024*30u)
 #else
 #define ENTRY_SIZE_MAX (1024*1024*13u)
 #define DATA_SIZE_MAX (1024*1024*11u)
+#define USER_ENTRY_SIZE_MAX ENTRY_SIZE_MAX
+#define USER_DATA_SIZE_MAX DATA_SIZE_MAX
 #endif
 #define LINE_CHUNK 8*1024u
 
