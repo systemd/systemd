@@ -98,6 +98,11 @@ static SD_VARLINK_DEFINE_ERROR(
                 SD_VARLINK_FIELD_COMMENT("Actual size of the selected block device."),
                 SD_VARLINK_DEFINE_FIELD(currentSizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(
+                CanFactoryReset,
+                SD_VARLINK_FIELD_COMMENT("Whether factory reset is defined"),
+                SD_VARLINK_DEFINE_OUTPUT(enabled, SD_VARLINK_BOOL, 0));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Repart,
                 "io.systemd.Repart",
