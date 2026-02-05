@@ -43,8 +43,8 @@ DIGEST_EXPECTED="$(echo "$DIGEST_BASE$DIGEST_MEASURED" | xxd -r -p | openssl dgs
 DIGEST_ACTUAL="$(systemd-analyze nvpcrs test --json=pretty | jq -r '.[] | select(.name=="test") | .value')"
 test "$DIGEST_ACTUAL" = "$DIGEST_EXPECTED"
 
-# Now "destroy" the value via another measurement
-/usr/lib/systemd/systemd-pcrextend --nvpcr=test schnurz
+# Now "destroy" the value via another measurement (this time we use Varlink, to test the API)
+varlinkctl call /usr/lib/systemd/systemd-pcrextend io.systemd.PCRExtend.Extend '{"nvpcr":"test","text":"schnurz"}'
 DIGEST_ACTUAL2="$(systemd-analyze nvpcrs test --json=pretty | jq -r '.[] | select(.name=="test") | .value')"
 test "$DIGEST_ACTUAL2" != "$DIGEST_EXPECTED"
 
