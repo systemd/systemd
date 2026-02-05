@@ -685,7 +685,7 @@ int json_variant_new_fd_info(sd_json_variant **ret, int fd) {
         if (r < 0)
                 return r;
 
-        r = name_to_handle_at_try_fid(fd, "", &fid, &mntid, AT_EMPTY_PATH);
+        r = name_to_handle_at_try_fid(fd, "", &fid, &mntid, /* ret_unique_mnt_id = */ NULL, AT_EMPTY_PATH);
         if (r < 0 && is_name_to_handle_at_fatal_error(r))
                 return r;
 
