@@ -35,6 +35,7 @@
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "user-record.h"
+#include "user-util.h"
 
 int seat_new(Manager *m, const char *id, Seat **ret) {
         _cleanup_(seat_freep) Seat *s = NULL;
@@ -377,9 +378,15 @@ static int static_node_acl(Seat *s) {
                 if (!ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(r))
                         log_debug_errno(r, "Failed to check if '/run/udev/static_node-tags/uaccess/%s' points to a static device node, ignoring: %m", de->d_name);
 
-                r = devnode_acl(fd, uid);
-                if (r >= 0 || r == -ENOENT)
-                        continue;
+                _cleanup_set_free_ Set *uids = NULL;
+                r = set_ensure_put(&uids, &trivial_hash_ops, UID_TO_PTR(uid));
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to construct UID set: %m");
+                } else {
+                        r = devnode_acl(fd, uids);
+                        if (r >= 0 || r == -ENOENT)
+                                continue;
+                }
 
                 /* de->d_name is escaped, like "snd\x2ftimer", hence let's use the path to node, if possible. */
                 _cleanup_free_ char *node = NULL;
@@ -389,7 +396,7 @@ static int static_node_acl(Seat *s) {
                         RET_GATHER(ret, log_debug_errno(r, "Failed to apply ACL on '%s': %m", node ?: de->d_name));
 
                         /* Better be safe than sorry and reset ACL */
-                        r = devnode_acl(fd, /* uid= */ 0);
+                        r = devnode_acl(fd, /* uids= */ NULL);
                         if (r >= 0 || r == -ENOENT)
                                 continue;
                 }
