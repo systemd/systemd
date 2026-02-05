@@ -422,6 +422,7 @@ typedef struct Partition {
 
         bool dropped;
         bool factory_reset;
+        bool discarded;
         int32_t priority;
 
         uint32_t weight, padding_weight;
@@ -2748,7 +2749,7 @@ static bool partition_needs_populate(const Partition *p) {
 static MakeFileSystemFlags partition_mkfs_flags(const Partition *p) {
         MakeFileSystemFlags flags = 0;
 
-        if (arg_discard)
+        if (arg_discard && !p->discarded)
                 flags |= MKFS_DISCARD;
 
         if (streq(p->format, "erofs") && !DEBUG_LOGGING && !isatty_safe(STDERR_FILENO))
@@ -4668,6 +4669,7 @@ static int context_discard_partition(Context *context, Partition *p) {
                 return log_error_errno(r, "Failed to discard data for future partition %" PRIu64 ".", p->partno);
 
         log_info("Successfully discarded data from future partition %" PRIu64 ".", p->partno);
+        p->discarded = true;
         return 1;
 }
 
