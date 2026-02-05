@@ -330,6 +330,10 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
         if (r <= 0)
                 return r;
 
+        r = varlink_set_sentinel(link, NULL);
+        if (r < 0)
+                return r;
+
         log_info("Queuing reload/restart jobs for marked units%s", glyph(GLYPH_ELLIPSIS));
 
         Unit *u;
@@ -373,20 +377,17 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
 
                         const char *error_msg = bus_error.message ?: error_id ? NULL : STRERROR(r);
 
-                        r = sd_varlink_notifybo(link,
-                                                SD_JSON_BUILD_PAIR_STRING("unitID", u->id),
-                                                JSON_BUILD_PAIR_STRING_NON_EMPTY("error", error_id),
-                                                JSON_BUILD_PAIR_STRING_NON_EMPTY("errorMessage", error_msg));
+                        r = sd_varlink_replybo(link,
+                                               SD_JSON_BUILD_PAIR_STRING("unitID", u->id),
+                                               JSON_BUILD_PAIR_STRING_NON_EMPTY("error", error_id),
+                                               JSON_BUILD_PAIR_STRING_NON_EMPTY("errorMessage", error_msg));
                 } else
-                        r = sd_varlink_notifybo(link,
-                                                SD_JSON_BUILD_PAIR_STRING("unitID", u->id),
-                                                SD_JSON_BUILD_PAIR_INTEGER("jobID", job_id));
+                        r = sd_varlink_replybo(link,
+                                               SD_JSON_BUILD_PAIR_STRING("unitID", u->id),
+                                               SD_JSON_BUILD_PAIR_INTEGER("jobID", job_id));
                 if (r < 0)
                         return r;
         }
 
-        if (ret < 0)
-                return ret;
-
-        return sd_varlink_reply(link, NULL);
+        return ret;
 }
