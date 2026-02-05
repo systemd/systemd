@@ -1015,8 +1015,10 @@ static int make_tmpfs(void) {
 struct make_archive_data {
         struct archive *archive;
         TarFlags flags;
+
         int hardlink_db_fd;
         char *hardlink_db_path;
+        int have_unique_mount_id;
 };
 
 static int hardlink_lookup(
@@ -1042,16 +1044,29 @@ static int hardlink_lookup(
         if (FLAGS_SET(sx->stx_mask, STATX_TYPE) && !inode_type_can_hardlink(sx->stx_mode))
                 goto bypass;
 
+        uint64_t unique_mnt_id;
         int mnt_id;
-        r = name_to_handle_at_try_fid(inode_fd, /* path= */ NULL, &handle, &mnt_id, /* flags= */ AT_EMPTY_PATH);
+        r = name_to_handle_at_try_fid(inode_fd, /* path= */ NULL,
+                                      &handle,
+                                      d->have_unique_mount_id <= 0 ? &mnt_id : NULL,
+                                      d->have_unique_mount_id != 0 ? &unique_mnt_id : NULL,
+                                      /* flags= */ AT_EMPTY_PATH);
         if (r < 0)
                 return log_error_errno(r, "Failed to get file handle of file: %m");
+        if (d->have_unique_mount_id < 0)
+                d->have_unique_mount_id = r > 0;
+        else
+                assert(d->have_unique_mount_id == (r > 0));
 
         m = hexmem(SHA256_DIRECT(handle->f_handle, handle->handle_bytes), SHA256_DIGEST_SIZE);
         if (!m)
                 return log_oom();
 
-        if (asprintf(&n, "%i:%i:%s", mnt_id, handle->handle_type, m) < 0)
+        if (d->have_unique_mount_id)
+                r = asprintf(&n, "%" PRIu64 ":%i:%s", unique_mnt_id, handle->handle_type, m);
+        else
+                r = asprintf(&n, "%i:%i:%s", mnt_id, handle->handle_type, m);
+        if (r < 0)
                 return log_oom();
 
         if (d->hardlink_db_fd < 0) {
@@ -1467,6 +1482,7 @@ int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
                 .archive = a,
                 .flags = flags,
                 .hardlink_db_fd = -EBADF,
+                .have_unique_mount_id = -1,
         };
 
         r = recurse_dir(tree_fd,
