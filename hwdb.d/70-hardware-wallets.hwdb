@@ -21,6 +21,65 @@
 #   ID_HARDWARE_WALLET=0|1
 
 ################
+# Blockstream Jade Hardware Wallets
+################
+
+# Jade UART (Silicon Labs)
+usb:v10C4pEA60*
+ ID_HARDWARE_WALLET=1
+
+# Jade UART (WCH)
+usb:v1A86p55D4*
+ ID_HARDWARE_WALLET=1
+
+################
+# Coinkite Hardware Wallets
+################
+
+# Coldcard
+usb:vD13EpCC10*
+ ID_HARDWARE_WALLET=1
+
+################
+# Digital Bitbox Hardware Wallets
+################
+
+# Digital Bitbox (dbb)
+usb:v03EBp2402*
+ ID_HARDWARE_WALLET=1
+
+# BitBox02
+usb:v03EBp2403*
+ ID_HARDWARE_WALLET=1
+
+################
+# KeepKey Hardware Wallets
+################
+
+# KeepKey HID Firmware/Bootloader
+usb:v2B24p0001*
+ ID_HARDWARE_WALLET=1
+
+# KeepKey WebUSB Firmware/Bootloader
+usb:v2B24p0002*
+ ID_HARDWARE_WALLET=1
+
+################
+# Ledger Hardware Wallets
+################
+
+# Ledger HW.1 / Nano series
+usb:v2581p1B7C*
+usb:v2581p2B7C*
+usb:v2581p3B7C*
+usb:v2581p4B7C*
+ ID_HARDWARE_WALLET=1
+
+# Ledger Nano S/X/Blue/Stax and related devices
+usb:v2C97*
+ ID_HARDWARE_WALLET=1
+
+################
 # Trezor Hardware Wallets
 ################
 
@@ -30,7 +89,5 @@ usb:v534Cp0001*
 
 # Trezor v2
 usb:v1209p53C0*
- ID_HARDWARE_WALLET=1
-
 usb:v1209p53C1*
  ID_HARDWARE_WALLET=1

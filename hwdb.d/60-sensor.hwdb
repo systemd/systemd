@@ -41,7 +41,9 @@
 #    PROXIMITY_NEAR_LEVEL=<value>
 #
 # where <matrix> is a mount-matrix in the format specified in the IIO
-# subsystem[1]. The default, when unset, is equivalent to:
+# subsystem[1]. The default, when unset, is the one defined by the ACPI
+# found in /sys/bus/iio/devices/iio\:deviceXXX/in_mount_matrix or, in
+# absence of it, is equivalent to:
 #   ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, 1
 # eg. the identity matrix,
 # and <value> is an integer value above or equal to which an object is
@@ -157,10 +159,6 @@ sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAM:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAS:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT200TA:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-# Asus Transformer Mini T103HAF
-sensor:modalias:platform:HID-SENSOR-200073*:dmi:*svn*ASUSTeK*:pnT103HAF:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, -1
 
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnTP201SA:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pn*E205SA:*
@@ -755,6 +753,14 @@ sensor:modalias:acpi:BMA250E*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-1030:*
 # Miix3-830
 sensor:modalias:acpi:SMO8500*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-830:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+# IdeaPad D330-10IGM (81H3) and (81MD) product names
+#   Panel mounted at -90º. ACPI in_mount_matrix 0, -1, 0; 1, 0, 0; 0, 0, 1
+# IdeaPad Duet 3 10IGL5 (82AT) and 10IGL5-LTE (82HK)
+#   Panel mounted at -90º. ACPI in_mount_matrix unknown, if someone knows please report it
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
+sensor:modalias:acpi:SMO8B30*:dmi:*:svnLENOVO:*:pvrIdeaPadDuet310IGL5*:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
 # IdeaPad Miix 300
 sensor:modalias:acpi:SMO8500*:dmi:bvnLENOVO:*:pvrMIIX300-*:*
