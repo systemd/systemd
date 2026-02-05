@@ -15,7 +15,6 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
-#include "unaligned.h"
 
 static thread_local int have_pidfs = -1;
 
