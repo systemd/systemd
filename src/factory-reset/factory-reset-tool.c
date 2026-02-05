@@ -10,6 +10,7 @@
 #include "build.h"
 #include "device-util.h"
 #include "efivars.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "factory-reset.h"
 #include "fs-util.h"
@@ -327,7 +328,7 @@ static int vl_method_can_request_factory_reset(sd_varlink *link, sd_json_variant
         if (r != 0)
                 return r;
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("supported", is_efi_boot()));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("supported", factory_reset_supported()));
 }
 
 static int varlink_service(void) {

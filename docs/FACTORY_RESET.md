@@ -101,6 +101,11 @@ somehow stores the request should be plugged into `factory-reset.target`. At
 boot, the request should then be fed back into the booted kernel via the
 `systemd.factory_reset=1` kernel command line option.
 
+If your distribution provides a custom factory reset implementation, the Varlink
+service doesn't know about this and will report that factory reset is unsupported.
+You can correct this by setting the `SYSTEMD_FACTORY_RESET_SUPPORTED` environment
+variable on `systemd-factory-reset@.service`.
+
 ## Exposure in the UI
 
 If a graphical UI shall expose a factory reset operation, it should first check
