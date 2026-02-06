@@ -2921,6 +2921,7 @@ static int method_can_shutdown_or_sleep(
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         bool multiple_sessions, challenge, blocked, check_unit_state = true;
         const HandleActionData *a;
+        const char *normal_result = NULL;
         const char *result = NULL;
         uid_t uid;
         int r;
@@ -2984,6 +2985,23 @@ static int method_can_shutdown_or_sleep(
                 }
         }
 
+        r = bus_test_polkit(
+                        message,
+                        a->polkit_action,
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        &challenge,
+                        error);
+        if (r < 0)
+                return r;
+
+        if (r > 0)
+                normal_result = "yes";
+        else if (challenge)
+                normal_result = "challenge";
+        else
+                normal_result = "no";
+
         if (multiple_sessions) {
                 r = bus_test_polkit(
                                 message,
@@ -3019,32 +3037,15 @@ static int method_can_shutdown_or_sleep(
                                 result = "yes";
                 } else if (challenge) {
                         if (!result || streq(result, "yes"))
-                                result = "challenge";
+                                result = streq(normal_result, "yes") ? "inhibited" : "challenge";
                 } else
                         result = "no";
         }
 
-        if (!multiple_sessions && !blocked) {
-                /* If neither inhibit nor multiple sessions
-                 * apply then just check the normal policy */
-
-                r = bus_test_polkit(
-                                message,
-                                a->polkit_action,
-                                /* details= */ NULL,
-                                /* good_user= */ UID_INVALID,
-                                &challenge,
-                                error);
-                if (r < 0)
-                        return r;
-
-                if (r > 0)
-                        result = "yes";
-                else if (challenge)
-                        result = "challenge";
-                else
-                        result = "no";
-        }
+        /* If neither inhibit nor multiple sessions
+         * apply then just check the normal policy */
+        if (!multiple_sessions && !blocked)
+                result = normal_result;
 
  finish:
         return sd_bus_reply_method_return(message, "s", result);
@@ -3957,7 +3958,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("RuntimeDirectorySize", "t", NULL, offsetof(Manager, runtime_dir_size), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryInodesMax", "t", NULL, offsetof(Manager, runtime_dir_inodes), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("InhibitorsMax", "t", NULL, offsetof(Manager, inhibitors_max), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("NCurrentInhibitors", "t", property_get_hashmap_size, offsetof(Manager, inhibitors), 0),
+        SD_BUS_PROPERTY("NCurrentInhibitors", "t", property_get_hashmap_size, offsetof(Manager, inhibitors), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("SessionsMax", "t", NULL, offsetof(Manager, sessions_max), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NCurrentSessions", "t", property_get_hashmap_size, offsetof(Manager, sessions), 0),
         SD_BUS_PROPERTY("UserTasksMax", "t", property_get_compat_user_tasks_max, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
