@@ -36,6 +36,7 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "version.h"
+#include "web-util.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-upload.pem"
 #define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-upload.pem"
@@ -449,10 +450,8 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
 
 static int setup_uploader(Uploader *u, const char *url, const char *state_file) {
         int r;
-        const char *host, *proto = "";
-
+        _cleanup_free_ char *t = NULL;
         assert(u);
-        assert(url);
 
         *u = (Uploader) {
                 .input = -1,
@@ -461,28 +460,13 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
         if (arg_force_compression)
                 u->compression = ordered_hashmap_first(arg_compression);
 
-        host = STARTSWITH_SET(url, "http://", "https://");
-        if (!host) {
-                host = url;
-                proto = "https://";
-        }
-
-        if (strchr(host, ':'))
-                u->url = strjoin(proto, url, "/upload");
-        else {
-                char *t;
-                size_t x;
-
-                t = strdupa_safe(url);
-                x = strlen(t);
-                while (x > 0 && t[x - 1] == '/')
-                        t[x - 1] = '\0';
-
-                u->url = strjoin(proto, t, ":" STRINGIFY(DEFAULT_PORT), "/upload");
-        }
-        if (!u->url)
+        t = http_url_add_port(url, STRINGIFY(DEFAULT_PORT));
+        if (!t)
                 return log_oom();
 
+        u->url = strjoin(t, "/upload");
+        if(!u->url)
+                return log_oom();
         u->state_file = state_file;
 
         r = sd_event_default(&u->event);
