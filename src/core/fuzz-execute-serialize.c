@@ -38,6 +38,7 @@ static void exec_fuzz_one(FILE *f, FDSet *fdset) {
                 .userns_storage_socket = EBADF_PAIR,
                 .netns_storage_socket = EBADF_PAIR,
                 .ipcns_storage_socket = EBADF_PAIR,
+                .mountns_storage_socket = EBADF_PAIR,
         };
         ExecRuntime runtime = {
                 .ephemeral_storage_socket = EBADF_PAIR,
