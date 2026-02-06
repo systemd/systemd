@@ -2,6 +2,7 @@
 
 #include <linux/capability.h>
 #include <linux/netlink.h>
+#include <linux/vm_sockets.h>
 #include <sys/socket.h>
 
 #include "log.h"
@@ -235,6 +236,36 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **sy
                 r = sym_seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
                         return log_error_errno(r, "Failed to install seccomp audit filter: %m");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m",
+                                        seccomp_arch_to_string(arch));
+        }
+
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+
+                log_debug("Applying AF_VSOCK mask on architecture: %s", seccomp_arch_to_string(arch));
+
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate seccomp object: %m");
+
+                /* AF_VSOCK is not namespaced so we want to restrict access to it in containers. */
+
+                r = sym_seccomp_rule_add_exact(
+                                seccomp,
+                                SCMP_ACT_ERRNO(EPERM),
+                                SCMP_SYS(socket),
+                                1,
+                                SCMP_A0(SCMP_CMP_EQ, AF_VSOCK));
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to add AF_VSOCK seccomp rule, ignoring: %m");
+                        continue;
+                }
+
+                r = sym_seccomp_load(seccomp);
+                if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
+                        return log_error_errno(r, "Failed to install seccomp AF_VSOCK filter: %m");
                 if (r < 0)
                         log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m",
                                         seccomp_arch_to_string(arch));
