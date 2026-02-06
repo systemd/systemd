@@ -133,7 +133,6 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         int r;
 
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
-        assert(!FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY|CHASE_MUST_BE_REGULAR));
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
         assert(!FLAGS_SET(flags, CHASE_NO_AUTOFS|CHASE_TRIGGER_AUTOFS));
         assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
@@ -327,6 +326,10 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
 
         if (FLAGS_SET(flags, CHASE_PARENT))
                 flags |= CHASE_MUST_BE_DIRECTORY;
+
+        /* If multiple flags are set now, fail immediately */
+        if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY) + FLAGS_SET(flags, CHASE_MUST_BE_REGULAR) + FLAGS_SET(flags, CHASE_MUST_BE_SOCKET) > 1)
+                return -EBADF;
 
         for (todo = buffer;;) {
                 _cleanup_free_ char *first = NULL;
@@ -563,6 +566,12 @@ success:
 
                 if (FLAGS_SET(flags, CHASE_MUST_BE_REGULAR)) {
                         r = stat_verify_regular(&st);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (FLAGS_SET(flags, CHASE_MUST_BE_SOCKET)) {
+                        r = stat_verify_socket(&st);
                         if (r < 0)
                                 return r;
                 }
@@ -872,7 +881,7 @@ int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags
         DIR *d;
         int r;
 
-        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_MUST_BE_REGULAR)));
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_MUST_BE_REGULAR|CHASE_MUST_BE_SOCKET)));
         assert(ret_dir);
 
         if (empty_or_root(root) && !ret_path && (chase_flags & CHASE_NO_SHORTCUT_MASK) == 0) {
@@ -970,7 +979,7 @@ int chase_and_fopen_unlocked(
         int mode_flags, r;
 
         assert(path);
-        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT|CHASE_MUST_BE_DIRECTORY)));
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT|CHASE_MUST_BE_DIRECTORY|CHASE_MUST_BE_SOCKET)));
         assert(open_flags);
         assert(ret_file);
 
@@ -1041,6 +1050,7 @@ int chase_and_openat(
         int r;
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+        assert(!FLAGS_SET(chase_flags, CHASE_MUST_BE_SOCKET));
 
         XOpenFlags xopen_flags = 0;
         if (FLAGS_SET(chase_flags, CHASE_MUST_BE_DIRECTORY))
@@ -1086,7 +1096,7 @@ int chase_and_opendirat(int dir_fd, const char *path, ChaseFlags chase_flags, ch
         DIR *d;
         int r;
 
-        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_MUST_BE_REGULAR)));
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_MUST_BE_REGULAR|CHASE_MUST_BE_SOCKET)));
         assert(ret_dir);
 
         if (dir_fd == AT_FDCWD && !ret_path && (chase_flags & CHASE_NO_SHORTCUT_MASK) == 0) {
