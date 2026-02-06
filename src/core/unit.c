@@ -1266,6 +1266,12 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
+        if (c->root_mstack) {
+                r = unit_add_mounts_for(u, c->root_mstack, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
+                if (r < 0)
+                        return r;
+        }
+
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 if (!u->manager->prefix[dt])
                         continue;
@@ -1322,9 +1328,9 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
-        if (c->root_image) {
+        if (c->root_image || c->root_mstack) {
                 /* We need to wait for /dev/loopX to appear when doing RootImage=, hence let's add an
-                 * implicit dependency on udev */
+                 * implicit dependency on udev. (And for RootMStack= we might need it) */
 
                 r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_UDEVD_SERVICE, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
@@ -4461,9 +4467,10 @@ int unit_patch_contexts(Unit *u) {
 
                 /* Only add these if needed, as they imply that everything else is blocked. */
                 if (cgroup_context_has_device_policy(cc)) {
-                        if (ec->root_image || ec->mount_images) {
+                        if (ec->root_image || ec->mount_images || ec->root_mstack) {
 
-                                /* When RootImage= or MountImages= is specified, the following devices are touched. */
+                                /* When RootImage= or MountImages= is specified, the following devices are
+                                 * touched. For RootMStack= there's the possibility the are touched. */
                                 FOREACH_STRING(p, "/dev/loop-control", "/dev/mapper/control") {
                                         r = cgroup_context_add_device_allow(cc, p, CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
                                         if (r < 0)
