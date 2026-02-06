@@ -677,6 +677,25 @@ _public_ int sd_session_is_remote(const char *session) {
         return parse_boolean(s);
 }
 
+_public_ int sd_session_has_extra_device_access(const char *session) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
+        int r;
+
+        r = file_of_session(session, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_env_file(/* f= */ NULL, p, "EXTRA_DEVICE_ACCESS", &s);
+        if (r == -ENOENT)
+                return -ENXIO;
+        if (r < 0)
+                return r;
+        if (isempty(s))
+                return -ENODATA;
+
+        return parse_boolean(s);
+}
+
 _public_ int sd_session_get_state(const char *session, char **ret_state) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
