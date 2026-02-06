@@ -26,7 +26,7 @@ if systemd-detect-virt --vm --quiet; then
     if [[ "$(findmnt -n -o FSTYPE /)" == btrfs ]]; then
         btrfs filesystem mkswapfile -s 64M /swapfile
     else
-        dd if=/dev/zero of=/swapfile bs=1M count=64
+        fallocate -l 64M /swapfile
         chmod 0600 /swapfile
         mkswap /swapfile
     fi

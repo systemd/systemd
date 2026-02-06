@@ -1013,7 +1013,7 @@ testcase_iscsi_lvm() {
     udevadm wait --settle --timeout=30 "${devices[0]}"
     mount "${devices[0]}" "$mpoint"
     for i in {1..4}; do
-        dd if=/dev/zero of="$mpoint/lun$i.img" bs=1M count=32
+        truncate -s 32M "$mpoint/lun$i.img"
     done
     # Initialize a new iSCSI target <$target_name> consisting of 4 LUNs, each
     # backed by a file
