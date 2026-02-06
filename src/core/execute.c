@@ -61,6 +61,7 @@
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
+#include "unit.h"
 #include "utmp-wtmp.h"
 #include "vpick.h"
 
@@ -195,6 +196,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *pa
 bool exec_needs_network_namespace(const ExecContext *context) {
         assert(context);
 
+        // Keep in sync with check_network_namespace_compat()
         return context->private_network || context->network_namespace_path;
 }
 
@@ -205,6 +207,7 @@ static bool exec_needs_ephemeral(const ExecContext *context) {
 bool exec_needs_ipc_namespace(const ExecContext *context) {
         assert(context);
 
+        // Keep in sync with check_ipc_namespace_compat()
         return context->private_ipc || context->ipc_namespace_path;
 }
 
@@ -344,6 +347,117 @@ bool exec_needs_mount_namespace(
                                 return true;
 
         return false;
+}
+
+static void log_namespace_mismatch(
+                const Unit *u,
+                const Unit *other,
+                const char *ns_name,
+                const char *setting_name,
+                const char *value_self,
+                const char *value_other) {
+
+        log_unit_warning(u, "JoinsNamespaceOf=%s: %s namespace config mismatch between units: %s is '%s' vs '%s'.",
+                         other->id, ns_name, setting_name, value_self, value_other);
+}
+
+static void check_user_namespace_compat(
+                const ExecContext *self,
+                const ExecContext *other,
+                const Unit *u,
+                const Unit *other_unit) {
+
+        assert(self);
+        assert(other);
+
+        if (self->private_users != PRIVATE_USERS_NO)
+                log_unit_warning(u, "PrivateUsers=%s does not work fine with JoinsNamespaces", private_users_to_string(self->private_users));
+        if (other->private_users != PRIVATE_USERS_NO)
+                log_unit_warning(u, "PrivateUsers=%s does not work fine with JoinsNamespaces", private_users_to_string(other->private_users));
+
+        if (!streq_ptr(self->user_namespace_path, other->user_namespace_path))
+                log_namespace_mismatch(u, other_unit, "user", "UserNamespacePath",
+                                       strempty(self->user_namespace_path),
+                                       strempty(other->user_namespace_path));
+}
+
+static void check_net_namespace_compat(
+                const ExecContext *self,
+                const ExecContext *other,
+                const Unit *u,
+                const Unit *other_unit) {
+
+        assert(self);
+        assert(other);
+
+        if (self->private_network != other->private_network)
+                log_namespace_mismatch(u, other_unit, "network", "PrivateNetwork",
+                                       yes_no(self->private_network), yes_no(other->private_network));
+
+        if (!streq_ptr(self->network_namespace_path, other->network_namespace_path))
+                log_namespace_mismatch(u, other_unit, "network", "NetworkNamespacePath",
+                                       strempty(self->network_namespace_path),
+                                       strempty(other->network_namespace_path));
+}
+
+static void check_ipc_namespace_compat(
+                const ExecContext *self,
+                const ExecContext *other,
+                const Unit *u,
+                const Unit *other_unit) {
+
+        assert(self);
+        assert(other);
+
+        if (self->private_ipc != other->private_ipc)
+                log_namespace_mismatch(u, other_unit, "IPC", "PrivateIPC",
+                                       yes_no(self->private_ipc), yes_no(other->private_ipc));
+
+        if (!streq_ptr(self->ipc_namespace_path, other->ipc_namespace_path))
+                log_namespace_mismatch(u, other_unit, "IPC", "IPCNamespacePath",
+                                       strempty(self->ipc_namespace_path),
+                                       strempty(other->ipc_namespace_path));
+}
+
+static void check_tmp_namespace_compat(
+                const ExecContext *self,
+                const ExecContext *other,
+                const Unit *u,
+                const Unit *other_unit) {
+
+        assert(self);
+        assert(other);
+
+        if (self->private_tmp != other->private_tmp)
+                log_namespace_mismatch(u, other_unit, "tmp", "PrivateTmp",
+                                       private_tmp_to_string(self->private_tmp),
+                                       private_tmp_to_string(other->private_tmp));
+}
+
+void exec_context_check_joined_namespace_compat(
+                const ExecContext *self,
+                const ExecContext *other,
+                const Unit *u,
+                const Unit *other_unit) {
+
+        assert(self);
+        assert(other);
+        assert(u);
+        assert(other_unit);
+
+        JoinsNamespacesFlags flags = self->joins_namespaces;
+
+        if (FLAGS_SET(flags, JOINS_NAMESPACES_USER))
+                check_user_namespace_compat(self, other, u, other_unit);
+
+        if (FLAGS_SET(flags, JOINS_NAMESPACES_NET))
+                check_net_namespace_compat(self, other, u, other_unit);
+
+        if (FLAGS_SET(flags, JOINS_NAMESPACES_IPC))
+                check_ipc_namespace_compat(self, other, u, other_unit);
+
+        if (FLAGS_SET(flags, JOINS_NAMESPACES_TMP))
+                check_tmp_namespace_compat(self, other, u, other_unit);
 }
 
 const char* exec_get_private_notify_socket_path(const ExecContext *context, const ExecParameters *params, bool needs_sandboxing) {
