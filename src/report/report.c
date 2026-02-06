@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "path-lookup.h"
 #include "pretty-print.h"
 #include "runtime-scope.h"
@@ -23,6 +24,7 @@
 #define TIMEOUT_USEC (30 * USEC_PER_SEC) /* 30 seconds */
 
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 
 typedef struct Context {
         unsigned n_open_connections;
@@ -150,20 +152,27 @@ static void context_done(Context *context) {
         free(context->metrics);
 }
 
-static void metrics_output_sorted(Context *context) {
+static int metrics_output_sorted(Context *context) {
+        int r;
+
         assert(context);
 
         typesafe_qsort(context->metrics, context->n_metrics, metric_compare);
 
-        FOREACH_ARRAY(m, context->metrics, context->n_metrics)
-                sd_json_variant_dump(
+        FOREACH_ARRAY(m, context->metrics, context->n_metrics) {
+                r = sd_json_variant_dump(
                                 *m,
-                                SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO | SD_JSON_FORMAT_FLUSH,
+                                arg_json_format_flags | SD_JSON_FORMAT_FLUSH,
                                 stdout,
-                                NULL);
+                                /* prefix= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write JSON: %m");
+        }
 
         if (context->n_metrics == 0)
-                log_warning("No reporting sockets found.");
+                log_info("No reporting sockets found.");
+
+        return 0;
 }
 
 static int metrics_query(void) {
@@ -225,9 +234,7 @@ static int metrics_query(void) {
                         return log_error_errno(r, "Failed to run event loop: %m");
         }
 
-        metrics_output_sorted(&context);
-
-        return 0;
+        return metrics_output_sorted(&context);
 }
 
 static int help(void) {
@@ -244,6 +251,8 @@ static int help(void) {
                "     --version          Show package version\n"
                "     --user             Connect to user service manager\n"
                "     --system           Connect to system service manager (default)\n"
+               "     --json=pretty|short\n"
+               "                        Configure JSON output\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -258,17 +267,19 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_USER,
                 ARG_SYSTEM,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
-                { "help",    no_argument, NULL, 'h'         },
-                { "version", no_argument, NULL, ARG_VERSION },
-                { "user",    no_argument, NULL, ARG_USER    },
-                { "system",  no_argument, NULL, ARG_SYSTEM  },
+                { "help",    no_argument,       NULL, 'h'         },
+                { "version", no_argument,       NULL, ARG_VERSION },
+                { "user",    no_argument,       NULL, ARG_USER    },
+                { "system",  no_argument,       NULL, ARG_SYSTEM  },
+                { "json",    required_argument, NULL, ARG_JSON    },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -277,16 +288,28 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
                 case 'h':
                         return help();
+
                 case ARG_VERSION:
                         return version();
+
                 case ARG_USER:
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
+
                 case ARG_SYSTEM:
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
+
                 default:
                         assert_not_reached();
                 }
