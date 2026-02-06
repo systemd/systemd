@@ -118,6 +118,11 @@ Deprecations and removals:
 
 Features:
 
+* implement a varlink registry service, similar to the one of the reference
+  implementation, backed by /run/varlink/registry/. Then, also implement
+  connect-via-registry-resolution in sd-varlink and varlinkctl. Care needs to
+  be taken to do the resolution asynchronousy.
+
 * mountfsd: when looking for non-foreign uid owned inodes up the tree, stop at
   mounts
 
