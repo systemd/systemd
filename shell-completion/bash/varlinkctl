@@ -63,7 +63,7 @@ _varlinkctl() {
     fi
 
     local -A VERBS=(
-        [STANDALONE]='help'
+        [STANDALONE]='help list-registry'
         [CALL]='call'
         [FILE]='info list-interfaces validate-idl'
         [ADDRESS_INTERFACES]='list-methods introspect'
