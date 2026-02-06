@@ -26,14 +26,15 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 17. Check that announcement to systemd-devel, with a copy&paste from NEWS, was sent. This should happen automatically.
 18. Update IRC topic (`/msg chanserv TOPIC #systemd Version NNN released | Online resources https://systemd.io/`)
 19. [FINAL] Create an empty -stable branch: `git push systemd origin/main:refs/heads/v${version}-stable`.
-20. [FINAL] Build and upload the documentation (on the -stable branch): `ninja -C build doc-sync`
-21. [FINAL] Create a new `ci/v${version}-stable` branch for deb package builds on https://salsa.debian.org/systemd-team/systemd
-22. [FINAL] Switch `.semaphore/semaphore-runner.sh` and `mkosi/mkosi.pkgenv/mkosi.conf.d/debian-ubuntu.conf`
+20. [FINAL] Edit in the new -stable branch `.obs/workflows.yml`, changing `project` from `system:systemd` to `system:systemd:stable` and the branch from `main` to `v${version}-stable`. This should be backported to older active stable branches too.
+21. [FINAL] Build and upload the documentation (on the -stable branch): `ninja -C build doc-sync`
+22. [FINAL] Create a new `ci/v${version}-stable` branch for deb package builds on https://salsa.debian.org/systemd-team/systemd
+23. [FINAL] Switch `.semaphore/semaphore-runner.sh` and `mkosi/mkosi.pkgenv/mkosi.conf.d/debian-ubuntu.conf`
     to the new `ci/v${version}-stable` branch on the -stable branch
-23. [FINAL] Switch `versionrewrite-pattern` and `versionrewrite-replacement` to release mode in https://build.opensuse.org/projects/system:systemd/packages/systemd/files/_service?expand=1
-24. [FINAL] Change the Github Pages branch to the newly created branch (https://github.com/systemd/systemd/settings/pages) and set the 'Custom domain' to 'systemd.io'
-25. [FINAL] Update version number in `meson.version` to the devel version of the next release (e.g. from `256` to `257~devel`)
-26. [FINAL] Build and upload the documentation (on the main branch): `ninja -C build doc-sync`
+24. [FINAL] Switch `versionrewrite-pattern` and `versionrewrite-replacement` to release mode in https://build.opensuse.org/projects/system:systemd/packages/systemd/files/_service?expand=1
+25. [FINAL] Change the Github Pages branch to the newly created branch (https://github.com/systemd/systemd/settings/pages) and set the 'Custom domain' to 'systemd.io'
+26. [FINAL] Update version number in `meson.version` to the devel version of the next release (e.g. from `256` to `257~devel`)
+27. [FINAL] Build and upload the documentation (on the main branch): `ninja -C build doc-sync`
 
 # Steps to a Successful Stable Release
 
