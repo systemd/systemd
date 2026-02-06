@@ -40,6 +40,7 @@ typedef enum MountPointFlags {
         MOUNT_GROWFS     = 1 << 1,
         MOUNT_MEASURE    = 1 << 2,
         MOUNT_VALIDATEFS = 1 << 3,
+        MOUNT_CLONE      = 1 << 4,
 } MountPointFlags;
 
 static const char *arg_dest = NULL;
@@ -402,6 +403,12 @@ static int add_mount(
                         return r;
         }
 
+        //if (FLAGS_SET(flags, MOUNT_CLONE)) {
+        //        r = generator_hook_up_dmclone(arg_dest_late, where, post);
+        //        if (r < 0)
+        //                return r;
+        //}
+
         if (post) {
                 r = generator_add_symlink(arg_dest_late, post, "requires", unit);
                 if (r < 0)
@@ -476,6 +483,7 @@ static int add_partition_mount(
                         (p->rw ? MOUNT_RW : 0) |
                         MOUNT_VALIDATEFS |
                         (p->growfs ? MOUNT_GROWFS : 0) |
+                        MOUNT_CLONE |
                         (STR_IN_SET(id, "root", "var") ? MOUNT_MEASURE : 0), /* by default measure rootfs and /var, since they contain the "identity" of the system */
                         options,
                         description,

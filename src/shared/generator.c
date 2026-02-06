@@ -696,6 +696,161 @@ int generator_hook_up_mkfs(
         return generator_add_symlink(dir, where_unit, "requires", unit);
 }
 
+int generator_hook_up_clone(
+                const char *dir,
+                const char *what,
+                const char *where,
+                const char *opts) {
+
+        _cleanup_free_ char *clone_spec = NULL, *source_dev = NULL, *cache_dev = NULL, *metadata_dev = NULL;
+        _cleanup_free_ char *device_name = NULL, *unit = NULL, *where_unit = NULL;
+        _cleanup_free_ char *source_unit = NULL, *cache_unit = NULL, *metadata_unit = NULL;
+        _cleanup_free_ char *escaped_source = NULL, *escaped_cache = NULL, *escaped_metadata = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        const char *colon, *colon2;
+        int r;
+
+        assert(dir);
+        assert(what);
+        assert(where);
+        assert(opts);
+
+        /* Parse x-systemd.mount-clone=source:cache:metadata option */
+        r = fstab_filter_options(opts, "x-systemd.mount-clone\0", NULL, &clone_spec, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse clone option from '%s': %m", opts);
+
+        if (!clone_spec)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                      "x-systemd.mount-clone specified but no source:cache:metadata value found");
+
+        /* Split source:cache:metadata */
+        colon = strchr(clone_spec, ':');
+        if (!colon)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                      "x-systemd.mount-clone must be in format source:cache:metadata, got: %s",
+                                      clone_spec);
+
+        source_dev = strndup(clone_spec, colon - clone_spec);
+        if (!source_dev)
+                return log_oom();
+
+        colon2 = strchr(colon + 1, ':');
+        if (!colon2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                      "x-systemd.mount-clone must be in format source:cache:metadata, got: %s",
+                                      clone_spec);
+
+        cache_dev = strndup(colon + 1, colon2 - (colon + 1));
+        if (!cache_dev)
+                return log_oom();
+
+        metadata_dev = strdup(colon2 + 1);
+        if (!metadata_dev)
+                return log_oom();
+
+        if (isempty(source_dev) || isempty(cache_dev) || isempty(metadata_dev))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                      "All three devices (source, cache, metadata) must be specified in x-systemd.mount-clone");
+
+        /* Extract device name from /dev/mapper/name */
+        if (startswith(what, "/dev/mapper/")) {
+                device_name = strdup(what + STRLEN("/dev/mapper/"));
+                if (!device_name)
+                        return log_oom();
+        } else if (startswith(what, "/dev/dm-")) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                      "dm-clone target device must be specified as /dev/mapper/name, not %s", what);
+        } else {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                      "dm-clone target must be in /dev/mapper/, got: %s", what);
+        }
+
+        /* Generate unit name for the clone service */
+        r = unit_name_build("systemd-clone", device_name, ".service", &unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build unit name: %m");
+
+        /* Generate unit names for dependencies */
+        r = unit_name_from_path(source_dev, ".device", &source_unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate source device unit name: %m");
+
+        r = unit_name_from_path(cache_dev, ".device", &cache_unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate cache device unit name: %m");
+
+        r = unit_name_from_path(metadata_dev, ".device", &metadata_unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate metadata device unit name: %m");
+
+        r = unit_name_from_path(where, ".mount", &where_unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make unit name from path \"%s\": %m", where);
+
+        /* Escape device paths for ExecStart command */
+        escaped_source = cescape(source_dev);
+        if (!escaped_source)
+                return log_oom();
+
+        escaped_cache = cescape(cache_dev);
+        if (!escaped_cache)
+                return log_oom();
+
+        escaped_metadata = cescape(metadata_dev);
+        if (!escaped_metadata)
+                return log_oom();
+
+        r = generator_open_unit_file(dir, /* source = */ NULL, unit, &f);
+        if (r < 0)
+                return r;
+
+        /* Check if we're using loop devices and add setup if needed */
+        bool setup_loop = startswith(source_dev, "/dev/loop") && startswith(cache_dev, "/dev/loop") && startswith(metadata_dev, "/dev/loop");
+
+        fprintf(f,
+                "[Unit]\n"
+                "Description=Create dm-clone device %s for %s\n"
+                "Documentation=man:dmsetup(8) man:fstab(5) man:systemd-fstab-generator(8)\n"
+                "DefaultDependencies=no\n",
+                device_name, where);
+
+        if (!setup_loop) {
+                fprintf(f,
+                        "BindsTo=%s %s %s\n"
+                        "Requires=%s %s %s\n"
+                        "After=%s %s %s\n",
+                        source_unit, cache_unit, metadata_unit,
+                        source_unit, cache_unit, metadata_unit,
+                        source_unit, cache_unit, metadata_unit);
+        }
+
+        fprintf(f,
+                "Before=%s\n"
+                "Conflicts=shutdown.target\n"
+                "\n"
+                "[Service]\n"
+                "Type=oneshot\n"
+                "RemainAfterExit=yes\n",
+                where_unit);
+
+        if (setup_loop)
+                fprintf(f, "ExecStartPre=/usr/share/script.sh\n");
+
+        fprintf(f,
+                "ExecStart=" SYSTEMD_CLONE_PATH " add '%s' '%s' '%s' '%s' '%s'\n"
+                "ExecStop=" SYSTEMD_CLONE_PATH " remove %s\n"
+                "TimeoutSec=0\n",
+                device_name, escaped_source, escaped_cache, escaped_metadata, "",
+                device_name);
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write unit %s: %m", unit);
+
+        return generator_add_symlink(dir, where_unit, "requires", unit);
+}
+
 int generator_hook_up_growfs(
                 const char *dir,
                 const char *where,
