@@ -190,7 +190,7 @@ test ! -d /var/lib/machines/.hidden1
 
 # Prepare a simple raw container
 mkdir -p /tmp/mnt
-truncate -s 256M /var/tmp/container.raw
+truncate -s 384M /var/tmp/container.raw
 mkfs.ext4 /var/tmp/container.raw
 mount -o loop /var/tmp/container.raw /tmp/mnt
 cp -r /var/lib/machines/container1/* /tmp/mnt
