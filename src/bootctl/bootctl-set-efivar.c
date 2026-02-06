@@ -171,6 +171,9 @@ int verb_set_efivar(int argc, char *argv[], void *userdata) {
         if (streq(argv[0], "set-default")) {
                 variable = EFI_LOADER_VARIABLE_STR("LoaderEntryDefault");
                 arg_parser = parse_loader_entry_target_arg;
+        } else if (streq(argv[0], "set-preferred")) {
+                variable = EFI_LOADER_VARIABLE_STR("LoaderEntryPreferred");
+                arg_parser = parse_loader_entry_target_arg;
         } else if (streq(argv[0], "set-sysfail")) {
                 variable = EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail");
                 arg_parser = parse_loader_entry_target_arg;

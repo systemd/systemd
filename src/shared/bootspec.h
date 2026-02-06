@@ -75,6 +75,7 @@ typedef struct BootConfig {
         char *default_pattern;
 
         char *entry_oneshot;
+        char *entry_preferred;
         char *entry_default;
         char *entry_selected;
         char *entry_sysfail;
