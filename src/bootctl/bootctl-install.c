@@ -490,6 +490,8 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         assert(fd_to >= 0);
         assert(to);
 
+        /* Does not reposition file offset */
+
         r = get_file_version(fd_from, &a);
         if (r == -ESRCH)
                 return log_notice_errno(r, "Source file \"%s\" does not carry version information!", from);
