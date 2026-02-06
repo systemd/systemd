@@ -147,9 +147,7 @@ static void sd_varlink_unref_many(sd_varlink **array, size_t n) {
 static void context_done(Context *context) {
         assert(context);
 
-        for (size_t i = 0; i < context->n_metrics; i++)
-                sd_json_variant_unref(context->metrics[i]);
-        free(context->metrics);
+        sd_json_variant_unref_many(context->metrics, context->n_metrics);
 }
 
 static int metrics_output_sorted(Context *context) {
