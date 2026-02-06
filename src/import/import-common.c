@@ -375,7 +375,10 @@ int import_make_foreign_userns(int *userns_fd) {
         if (*userns_fd >= 0)
                 return 0;
 
-        *userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K); /* allocate 64K users */
+        *userns_fd = nsresource_allocate_userns(
+                        /* vl= */ NULL,
+                        /* name= */ NULL,
+                        NSRESOURCE_UIDS_64K); /* allocate 64K users */
         if (*userns_fd < 0)
                 return log_error_errno(*userns_fd, "Failed to allocate transient user namespace: %m");
 
