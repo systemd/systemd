@@ -4100,3 +4100,46 @@ static const char* const private_pids_table[_PRIVATE_PIDS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_pids, PrivatePIDs, PRIVATE_PIDS_YES);
+
+static const struct {
+        // Name is, whenever possible, a namespace as shown in /proc/self/ns.
+        const char *name;
+        JoinsNamespacesFlags flag;
+} joins_namespaces_flag_table[] = {
+        // XXX: rata. Do we want to use "user-path" maybe? Shares only when user_namespace_path is set.
+        { "user", JOINS_NAMESPACES_USER },
+        { "ipc",  JOINS_NAMESPACES_IPC  },
+        { "net",  JOINS_NAMESPACES_NET  },
+        // "tmp" is not a real Linux namespace, but refers to sharing the /tmp resources.
+        { "tmp",  JOINS_NAMESPACES_TMP  },
+};
+
+JoinsNamespacesFlags joins_namespaces_flag_from_string(const char *s) {
+        for (size_t i = 0; i < ELEMENTSOF(joins_namespaces_flag_table); i++)
+                if (streq(s, joins_namespaces_flag_table[i].name))
+                        return joins_namespaces_flag_table[i].flag;
+
+        return 0;
+}
+
+int joins_namespaces_flags_to_string(JoinsNamespacesFlags flags, char **ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(ret);
+
+        for (size_t i = 0; i < ELEMENTSOF(joins_namespaces_flag_table); i++) {
+                if (!FLAGS_SET(flags, joins_namespaces_flag_table[i].flag))
+                        continue;
+
+                r = strv_extend(&l, joins_namespaces_flag_table[i].name);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = strv_join(l, NULL);
+        if (!*ret)
+                return -ENOMEM;
+
+        return 0;
+}

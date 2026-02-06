@@ -3598,6 +3598,62 @@ int config_parse_namespace_flags(
         return 0;
 }
 
+int config_parse_joins_namespaces(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        JoinsNamespacesFlags *flags = ASSERT_PTR(data);
+        JoinsNamespacesFlags f = 0;
+        bool valid_flags = false;
+        int r;
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets to the default. */
+                *flags = JOINS_NAMESPACES_FLAGS_DEFAULT;
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+                JoinsNamespacesFlags flag;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Trailing garbage in %s, ignoring: %s", lvalue, rvalue);
+                        break;
+                }
+
+                flag = joins_namespaces_flag_from_string(word);
+                if (flag == 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Unknown namespace type, ignoring: %s", word);
+                        continue;
+                }
+
+                f |= flag;
+                valid_flags = true;
+        }
+
+        /* Only update if at least one valid flag was recognized */
+        if (valid_flags)
+                *flags = f;
+
+        return 0;
+}
+
 int config_parse_restrict_filesystems(
                 const char *unit,
                 const char *filename,

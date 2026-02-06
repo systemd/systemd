@@ -638,6 +638,7 @@ void exec_context_init(ExecContext *c) {
                 .capability_bounding_set = CAP_MASK_ALL,
                 .restrict_namespaces = NAMESPACE_FLAGS_INITIAL,
                 .delegate_namespaces = NAMESPACE_FLAGS_INITIAL,
+                .joins_namespaces = JOINS_NAMESPACES_FLAGS_DEFAULT,
                 .log_level_max = -1,
 #if HAVE_SECCOMP
                 .syscall_errno = SECCOMP_ERROR_NUMBER_KILL,
