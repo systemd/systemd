@@ -4,12 +4,13 @@
 
 #include "alloc-util.h"
 #include "daemon-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "string-util.h"
 #include "time-util.h"
 
-static int notify_remove_fd_full(int log_level, const char *name) {
+int notify_remove_fd_warn(const char *name) {
         int r;
 
         assert(name);
@@ -19,19 +20,11 @@ static int notify_remove_fd_full(int log_level, const char *name) {
                        "FDNAME=%s", name);
         if (r < 0)
                 return log_full_errno(
-                                log_level, r,
+                                ERRNO_IS_NEG_DISCONNECT(r) ? LOG_DEBUG : LOG_WARNING, r,
                                 "Failed to remove file descriptor \"%s\" from the store, ignoring: %m",
                                 name);
 
         return 0;
-}
-
-int notify_remove_fd(const char *name) {
-        return notify_remove_fd_full(LOG_DEBUG, name);
-}
-
-int notify_remove_fd_warn(const char *name) {
-        return notify_remove_fd_full(LOG_WARNING, name);
 }
 
 int notify_remove_fd_warnf(const char *format, ...) {
