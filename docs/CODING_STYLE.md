@@ -1033,3 +1033,38 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - Never use `grep -q` in a pipeline, use `grep >/dev/null` instead. The former
   will generate `SIGPIPE` for the previous command in the pipeline when it finds
   a match which will cause the test to fail unexpectedly.
+
+## Kernel Version Dependencies
+
+- For entirely new functionality it's fine to rely on features of very recent
+  (released!) kernel versions. If a feature is added to the upstream kernel,
+  and a stable release is made, then it's immediately OK to merge *new*
+  functionality into systemd relying on it, as long as that functionality is
+  optional. (In some cases, it might be OK to merge a feature into systemd
+  slightly before the final kernel release that it is based on, as long as the
+  kernel development cycle has already progressed far enough that the feature
+  is unlikely to be still reverted – for example once RC2 of the kernel release
+  has been released.)
+
+- For components that already have been released in a stable version
+  compatibility with older kernels must be retained, down to the "minimum
+  baseline" version as listed in the README, or the version current when the
+  component was added to our tree, whichever is newer.
+
+- When adding a fallback path, please avoid checking for kernel versions, as
+  downstream distributions tend to backport features, and version checks are
+  not great replacements for feature checks hence.
+
+- When adding a compatibility code path for an older kernel version, please add
+  a comment in the following style to the relevant codepath:
+
+```c
+        // FIXME: This compatibility code path shall be removed once kernel X.Y
+        //        becomes the new minimal baseline
+```
+
+  When this syntax is followed we'll have an easier time tracking down these
+  codepaths and removing them when bumping baselines.
+
+- Whenever support for a new kernel API feature is added, please update the
+  kernel feature/version list in README as well (as part of the same PR).
