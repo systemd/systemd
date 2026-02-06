@@ -494,7 +494,7 @@ static int acquire_pid_mount_tree_fd(const CoredumpConfig *config, CoredumpConte
 
         r = namespace_fork("(sd-mount-tree-ns)",
                            "(sd-mount-tree)",
-                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT,
+                           FORK_RESET_SIGNALS|FORK_LOG|FORK_WAIT,
                            /* pidns_fd= */ -EBADF,
                            mntns_fd,
                            /* netns_fd= */ -EBADF,
