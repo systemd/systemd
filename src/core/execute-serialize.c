@@ -898,6 +898,12 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
                 }
+
+                if (rt->shared->mountns_storage_socket[0] >= 0 && rt->shared->mountns_storage_socket[1] >= 0) {
+                        r = serialize_fd_many(f, fds, "exec-runtime-mountns-storage-socket", rt->shared->mountns_storage_socket, 2);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (rt->dynamic_creds) {
@@ -996,6 +1002,12 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                 } else if ((val = startswith(l, "exec-runtime-ipcns-storage-socket="))) {
 
                         r = deserialize_fd_many(fds, val, 2, rt->shared->ipcns_storage_socket);
+                        if (r < 0)
+                                continue;
+
+                } else if ((val = startswith(l, "exec-runtime-mountns-storage-socket="))) {
+
+                        r = deserialize_fd_many(fds, val, 2, rt->shared->mountns_storage_socket);
                         if (r < 0)
                                 continue;
 

@@ -4017,6 +4017,12 @@ static int apply_mount_namespace(
                 .bpffs_pidref = bpffs_pidref,
                 .bpffs_socket_fd = bpffs_socket_fd,
                 .bpffs_errno_pipe = bpffs_errno_pipe,
+
+                /* Only use mount namespace socket when sharing via JoinsNamespaceOf= */
+                .mountns_storage_socket = (FLAGS_SET(context->joins_namespaces, JOINS_NAMESPACES_MNT) &&
+                                           runtime->shared &&
+                                           runtime->shared->mountns_storage_socket[0] >= 0)
+                                          ? runtime->shared->mountns_storage_socket : NULL,
         };
 
         r = setup_namespace(&parameters, reterr_path);
@@ -4244,8 +4250,7 @@ static int close_remaining_fds(
                 size_t n_fds) {
 
         size_t n_dont_close = 0;
-        // XXX: rata. I forgot to add one for the shared runtime mntns fd!
-        int dont_close[n_fds + 23];
+        int dont_close[n_fds + 25];
 
         assert(params);
         assert(runtime);
@@ -4270,6 +4275,7 @@ static int close_remaining_fds(
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->userns_storage_socket);
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->netns_storage_socket);
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->ipcns_storage_socket);
+                append_socket_pair(dont_close, &n_dont_close, runtime->shared->mountns_storage_socket);
         }
 
         /* Also preserve local namespace sockets (used when not sharing with JoinsNamespaceOf= units) */
@@ -4951,6 +4957,7 @@ static void exec_shared_runtime_close(ExecSharedRuntime *shared) {
         safe_close_pair(shared->userns_storage_socket);
         safe_close_pair(shared->netns_storage_socket);
         safe_close_pair(shared->ipcns_storage_socket);
+        safe_close_pair(shared->mountns_storage_socket);
 }
 
 static void exec_runtime_close(ExecRuntime *rt) {

@@ -2462,6 +2462,7 @@ static int exec_shared_runtime_allocate(ExecSharedRuntime **ret, const char *id)
                 .userns_storage_socket = EBADF_PAIR,
                 .netns_storage_socket = EBADF_PAIR,
                 .ipcns_storage_socket = EBADF_PAIR,
+                .mountns_storage_socket = EBADF_PAIR,
         };
 
         *ret = n;
@@ -2476,6 +2477,7 @@ static int exec_shared_runtime_add(
                 int userns_storage_socket[2],
                 int netns_storage_socket[2],
                 int ipcns_storage_socket[2],
+                int mountns_storage_socket[2],
                 ExecSharedRuntime **ret) {
 
         _cleanup_(exec_shared_runtime_freep) ExecSharedRuntime *rt = NULL;
@@ -2513,6 +2515,11 @@ static int exec_shared_runtime_add(
                 rt->ipcns_storage_socket[1] = TAKE_FD(ipcns_storage_socket[1]);
         }
 
+        if (mountns_storage_socket) {
+                rt->mountns_storage_socket[0] = TAKE_FD(mountns_storage_socket[0]);
+                rt->mountns_storage_socket[1] = TAKE_FD(mountns_storage_socket[1]);
+        }
+
         rt->manager = m;
 
         if (ret)
@@ -2529,7 +2536,7 @@ static int exec_shared_runtime_make(
                 ExecSharedRuntime **ret) {
 
         _cleanup_(namespace_cleanup_tmpdirp) char *tmp_dir = NULL, *var_tmp_dir = NULL;
-        _cleanup_close_pair_ int userns_storage_socket[2] = EBADF_PAIR, netns_storage_socket[2] = EBADF_PAIR, ipcns_storage_socket[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int userns_storage_socket[2] = EBADF_PAIR, netns_storage_socket[2] = EBADF_PAIR, ipcns_storage_socket[2] = EBADF_PAIR, mountns_storage_socket[2] = EBADF_PAIR;
         int r;
 
         assert(m);
@@ -2540,9 +2547,11 @@ static int exec_shared_runtime_make(
         bool needs_ipc_namespace = exec_needs_ipc_namespace(c) && FLAGS_SET(c->joins_namespaces, JOINS_NAMESPACES_IPC);
         bool needs_tmp_namespace = c->private_tmp == PRIVATE_TMP_CONNECTED && FLAGS_SET(c->joins_namespaces, JOINS_NAMESPACES_TMP);
         bool needs_user_namespace = c->user_namespace_path && FLAGS_SET(c->joins_namespaces, JOINS_NAMESPACES_USER);
+        bool needs_mount_namespace = exec_needs_mount_namespace(c, NULL, NULL) && FLAGS_SET(c->joins_namespaces, JOINS_NAMESPACES_MNT);
 
         /* It is not necessary to create ExecSharedRuntime object. */
-        if (!needs_network_namespace && !needs_ipc_namespace && !needs_tmp_namespace && !needs_user_namespace) {
+        if (!needs_network_namespace && !needs_ipc_namespace && !needs_tmp_namespace &&
+            !needs_user_namespace && !needs_mount_namespace) {
                 *ret = NULL;
                 return 0;
         }
@@ -2568,7 +2577,11 @@ static int exec_shared_runtime_make(
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ipcns_storage_socket) < 0)
                         return -errno;
 
-        r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, userns_storage_socket, netns_storage_socket, ipcns_storage_socket, ret);
+        if (needs_mount_namespace)
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, mountns_storage_socket) < 0)
+                        return -errno;
+
+        r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, userns_storage_socket, netns_storage_socket, ipcns_storage_socket, mountns_storage_socket, ret);
         if (r < 0)
                 return r;
 
@@ -2686,6 +2699,26 @@ int exec_shared_runtime_serialize(const Manager *m, FILE *f, FDSet *fds) {
                         fprintf(f, " ipcns-socket-1=%i", copy);
                 }
 
+                if (rt->mountns_storage_socket[0] >= 0) {
+                        int copy;
+
+                        copy = fdset_put_dup(fds, rt->mountns_storage_socket[0]);
+                        if (copy < 0)
+                                return copy;
+
+                        fprintf(f, " mountns-socket-0=%i", copy);
+                }
+
+                if (rt->mountns_storage_socket[1] >= 0) {
+                        int copy;
+
+                        copy = fdset_put_dup(fds, rt->mountns_storage_socket[1]);
+                        if (copy < 0)
+                                return copy;
+
+                        fprintf(f, " mountns-socket-1=%i", copy);
+                }
+
                 fputc('\n', f);
         }
 
@@ -2770,7 +2803,7 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
 int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
         _cleanup_free_ char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char *id = NULL;
-        int r, userns_fdpair[] = {-1, -1}, netns_fdpair[] = {-1, -1}, ipcns_fdpair[] = {-1, -1};
+        int r, mountns_fdpair[] = {-1, -1}, userns_fdpair[] = {-1, -1}, netns_fdpair[] = {-1, -1}, ipcns_fdpair[] = {-1, -1};
         const char *p, *v = ASSERT_PTR(value);
         size_t n;
 
@@ -2892,8 +2925,39 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                         return ipcns_fdpair[1];
         }
 
+        v = startswith(p, "mountns-socket-0=");
+        if (v) {
+                char *buf;
+
+                n = strcspn(v, " ");
+                buf = strndupa_safe(v, n);
+
+                mountns_fdpair[0] = deserialize_fd(fds, buf);
+                if (mountns_fdpair[0] < 0)
+                        return mountns_fdpair[0];
+                if (v[n] != ' ')
+                        goto finalize;
+                p = v + n + 1;
+        }
+
+        v = startswith(p, "mountns-socket-1=");
+        if (v) {
+                char *buf;
+
+                n = strcspn(v, " ");
+                buf = strndupa_safe(v, n);
+
+                mountns_fdpair[1] = deserialize_fd(fds, buf);
+                if (mountns_fdpair[1] < 0)
+                        return mountns_fdpair[1];
+                if (v[n] != ' ')
+                        goto finalize;
+                p = v + n + 1;
+        }
+
+
 finalize:
-        r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, userns_fdpair, netns_fdpair, ipcns_fdpair, NULL);
+        r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, userns_fdpair, netns_fdpair, ipcns_fdpair, mountns_fdpair, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add exec-runtime: %m");
         return 0;
