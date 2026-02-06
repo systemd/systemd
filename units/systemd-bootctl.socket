@@ -16,6 +16,7 @@ Before=sockets.target
 
 [Socket]
 ListenStream=/run/systemd/io.systemd.BootControl
+Symlinks=/run/varlink/registry/io.systemd.BootControl
 FileDescriptorName=varlink
 SocketMode=0600
 Accept=yes
