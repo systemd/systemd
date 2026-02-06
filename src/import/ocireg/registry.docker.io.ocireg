@@ -1,0 +1,4 @@
+{
+    "shortImagePrefix" : "library/",
+    "overrideRegistry" : "registry-1.docker.io"
+}

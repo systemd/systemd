@@ -1708,7 +1708,7 @@ testcase_btrfs_compression() {
     # Must not be in tmpfs due to exclusions. It also must be large and
     # compressible so that the compression check succeeds later.
     src=/etc/test-source-file
-    dd if=/dev/zero of="$src" bs=1M count=1 2>/dev/null
+    fallocate -l 1M "$src"
 
     tee "$defs/btrfs-compressed.conf" <<EOF
 [Partition]
