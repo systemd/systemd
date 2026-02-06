@@ -183,6 +183,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term>Tag <literal>uaccess</literal></term>
+
+        <listitem><para>When set, access to this device is tied to an active seat.
+        As the session on the seat becomes active or inactive, access to the device
+        is updated accordingly.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>Tag <literal>xaccess</literal></term>
+
+        <listitem><para>When set, access to this device is granted to sessions
+        created with <literal>ExtraDeviceAccess</literal>. This is typically useful
+        for graphical, remote sessions. As the <literal>ExtraDeviceAccess</literal>
+        sessions open and close, access to the device is updated accordingly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>Property <varname>ID_SEAT</varname></term>
 
         <listitem><para>This property specifies the name of the seat a specific device is
