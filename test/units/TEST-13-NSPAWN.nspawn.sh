@@ -77,7 +77,7 @@ testcase_sanity() {
     create_dummy_container "$template"
     # Create a simple image from the just created container template
     image="$(mktemp /var/lib/machines/TEST-13-NSPAWN.image-XXX.img)"
-    dd if=/dev/zero of="$image" bs=1M count=256
+    truncate -s 256M "$image"
     mkfs.ext4 "$image"
     mkdir -p /mnt
     mount -o loop "$image" /mnt
@@ -810,7 +810,7 @@ testcase_rootidmap() {
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.rootidmap-path.XXX)"
     # Create ext4 image, as ext4 supports idmapped-mounts.
     mkdir -p /tmp/rootidmap/bind
-    dd if=/dev/zero of=/tmp/rootidmap/ext4.img bs=4k count=2048
+    truncate -s $((4096*2048)) /tmp/rootidmap/ext4.img
     mkfs.ext4 /tmp/rootidmap/ext4.img
     mount /tmp/rootidmap/ext4.img /tmp/rootidmap/bind
     trap "rootidmap_cleanup /tmp/rootidmap/" RETURN
@@ -854,7 +854,7 @@ testcase_owneridmap() {
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.owneridmap-path.XXX)"
     # Create ext4 image, as ext4 supports idmapped-mounts.
     mkdir -p /tmp/owneridmap/bind
-    dd if=/dev/zero of=/tmp/owneridmap/ext4.img bs=4k count=2048
+    truncate -s $((4096*2048)) /tmp/owneridmap/ext4.img
     mkfs.ext4 /tmp/owneridmap/ext4.img
     mount /tmp/owneridmap/ext4.img /tmp/owneridmap/bind
     trap "owneridmap_cleanup /tmp/owneridmap/" RETURN
