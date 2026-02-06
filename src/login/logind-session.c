@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-device.h"
 #include "sd-event.h"
 #include "sd-messages.h"
 #include "sd-varlink.h"
@@ -18,6 +19,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "daemon-util.h"
+#include "device-util.h"
 #include "devnum-util.h"
 #include "env-file.h"
 #include "errno-util.h"
@@ -276,6 +278,46 @@ static void session_save_devices(Session *s, FILE *f) {
         }
 }
 
+static int trigger_xaccess(void) {
+        int r;
+
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_tag(e, "xaccess");
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, d) {
+                /* Verify that the tag is still in place. */
+                r = sd_device_has_current_tag(d, "xaccess");
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                /* In case people mistag devices without nodes, we need to ignore this. */
+                r = sd_device_get_devname(d, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                sd_id128_t uuid;
+                r = sd_device_trigger_with_uuid(d, SD_DEVICE_CHANGE, &uuid);
+                if (r < 0) {
+                        log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m");
+                        continue;
+                }
+
+                log_device_debug(d, "Triggered synthetic event (ACTION=change, UUID=%s).", SD_ID128_TO_UUID_STRING(uuid));
+        }
+
+        return 0;
+}
+
 int session_save(Session *s) {
         int r;
 
@@ -307,12 +349,14 @@ int session_save(Session *s) {
                 "IS_DISPLAY=%s\n"
                 "STATE=%s\n"
                 "REMOTE=%s\n"
+                "EXTRA_DEVICE_ACCESS=%s\n"
                 "LEADER_FD_SAVED=%s\n",
                 s->user->user_record->uid,
                 one_zero(session_is_active(s)),
                 one_zero(s->user->display == s),
                 session_state_to_string(session_get_state(s)),
                 one_zero(s->remote),
+                one_zero(s->extra_device_access),
                 one_zero(s->leader_fd_saved));
 
         env_file_fputs_assignment(f, "USER=", s->user->user_record->user_name);
@@ -453,6 +497,7 @@ static int session_load_leader(Session *s, uint64_t pidfdid) {
 
 int session_load(Session *s) {
         _cleanup_free_ char *remote = NULL,
+                *extra_device_access = NULL,
                 *seat = NULL,
                 *tty_validity = NULL,
                 *vtnr = NULL,
@@ -478,34 +523,35 @@ int session_load(Session *s) {
         assert(s);
 
         r = parse_env_file(NULL, s->state_file,
-                           "REMOTE",          &remote,
-                           "SCOPE",           &s->scope,
-                           "SCOPE_JOB",       &s->scope_job,
-                           "FIFO",            &fifo_path,
-                           "SEAT",            &seat,
-                           "TTY",             &s->tty,
-                           "TTY_VALIDITY",    &tty_validity,
-                           "DISPLAY",         &s->display,
-                           "REMOTE_HOST",     &s->remote_host,
-                           "REMOTE_USER",     &s->remote_user,
-                           "SERVICE",         &s->service,
-                           "DESKTOP",         &s->desktop,
-                           "VTNR",            &vtnr,
-                           "STATE",           &state,
-                           "POSITION",        &position,
-                           "LEADER",          &leader_pid,
-                           "LEADER_FD_SAVED", &leader_fd_saved,
-                           "LEADER_PIDFDID",  &leader_pidfdid,
-                           "TYPE",            &type,
-                           "ORIGINAL_TYPE",   &original_type,
-                           "CLASS",           &class,
-                           "UID",             &uid,
-                           "REALTIME",        &realtime,
-                           "MONOTONIC",       &monotonic,
-                           "CONTROLLER",      &controller,
-                           "ACTIVE",          &active,
-                           "DEVICES",         &devices,
-                           "IS_DISPLAY",      &is_display);
+                           "REMOTE",              &remote,
+                           "EXTRA_DEVICE_ACCESS", &extra_device_access,
+                           "SCOPE",               &s->scope,
+                           "SCOPE_JOB",           &s->scope_job,
+                           "FIFO",                &fifo_path,
+                           "SEAT",                &seat,
+                           "TTY",                 &s->tty,
+                           "TTY_VALIDITY",        &tty_validity,
+                           "DISPLAY",             &s->display,
+                           "REMOTE_HOST",         &s->remote_host,
+                           "REMOTE_USER",         &s->remote_user,
+                           "SERVICE",             &s->service,
+                           "DESKTOP",             &s->desktop,
+                           "VTNR",                &vtnr,
+                           "STATE",               &state,
+                           "POSITION",            &position,
+                           "LEADER",              &leader_pid,
+                           "LEADER_FD_SAVED",     &leader_fd_saved,
+                           "LEADER_PIDFDID",      &leader_pidfdid,
+                           "TYPE",                &type,
+                           "ORIGINAL_TYPE",       &original_type,
+                           "CLASS",               &class,
+                           "UID",                 &uid,
+                           "REALTIME",            &realtime,
+                           "MONOTONIC",           &monotonic,
+                           "CONTROLLER",          &controller,
+                           "ACTIVE",              &active,
+                           "DEVICES",             &devices,
+                           "IS_DISPLAY",          &is_display);
         if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", s->state_file);
 
@@ -537,6 +583,12 @@ int session_load(Session *s) {
                 k = parse_boolean(remote);
                 if (k >= 0)
                         s->remote = k;
+        }
+
+        if (extra_device_access) {
+                k = parse_boolean(extra_device_access);
+                if (k >= 0)
+                        s->extra_device_access = k;
         }
 
         if (vtnr)
@@ -863,6 +915,9 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         if (s->seat)
                 (void) seat_save(s->seat);
 
+        if (s->extra_device_access)
+                (void) trigger_xaccess();
+
         /* Send signals */
         (void) session_send_signal(s, true);
         (void) user_send_changed(s->user, "Display");
@@ -952,6 +1007,9 @@ int session_stop(Session *s, bool force) {
 
         (void) session_save(s);
         (void) user_save(s->user);
+
+        if (s->extra_device_access)
+                (void) trigger_xaccess();
 
         return r;
 }
