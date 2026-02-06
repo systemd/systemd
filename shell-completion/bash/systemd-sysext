@@ -60,7 +60,7 @@ _systemd-sysext() {
             --json)
                 comps='pretty short off'
                 ;;
-            --noexec)
+            --noexec|--always-refresh)
                 comps='no yes'
                 ;;
             --image-policy)
