@@ -92,6 +92,40 @@ int pidfd_get_info(int fd, struct pidfd_info *info) {
         return 0;
 }
 
+int pidfd_info_mask_is_supported(uint64_t mask) {
+        static thread_local uint64_t cached_mask = 0;
+        static thread_local int cached = 0; /* 0 when not cached, 1 when cached, negative errno on failure. */
+        int r;
+
+        if (cached < 0)
+                return cached;
+
+        if (cached == 0) {
+                _cleanup_close_ int pidfd = r = RET_NERRNO(pidfd_open(getpid_cached(), /* flags= */ 0));
+                if (r < 0)
+                        return (cached = r);
+
+                struct pidfd_info info = {
+                        .mask = PIDFD_INFO_SUPPORTED_MASK, /* Since dfd78546c95330db2252e0d7e937a15ab5eddb4e (v6.19). */
+                };
+
+                r = pidfd_get_info(pidfd, &info);
+                if (r < 0)
+                        return (cached = r);
+
+                if (FLAGS_SET(info.supported_mask, PIDFD_INFO_SUPPORTED_MASK))
+                        cached_mask = info.supported_mask;
+                else
+                        /* These three flags are supported since the beginning. Note, there are no reliable
+                         * way to determine if PIDFD_INFO_EXIT and PIDFD_INFO_COREDUMP are supported. */
+                        cached_mask = PIDFD_INFO_PID | PIDFD_INFO_CREDS | PIDFD_INFO_CGROUPID;
+
+                cached = true;
+        }
+
+        return FLAGS_SET(cached_mask, mask);
+}
+
 static int pidfd_get_pid_fdinfo(int fd, pid_t *ret) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *p = NULL;

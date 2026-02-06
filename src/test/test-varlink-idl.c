@@ -19,6 +19,8 @@
 #include "varlink-io.systemd.h"
 #include "varlink-io.systemd.AskPassword.h"
 #include "varlink-io.systemd.BootControl.h"
+#include "varlink-io.systemd.Coredump.Container.h"
+#include "varlink-io.systemd.Coredump.Register.h"
 #include "varlink-io.systemd.Credentials.h"
 #include "varlink-io.systemd.FactoryReset.h"
 #include "varlink-io.systemd.Hostname.h"
@@ -182,6 +184,8 @@ TEST(parse_format) {
                 &vl_interface_io_systemd,
                 &vl_interface_io_systemd_AskPassword,
                 &vl_interface_io_systemd_BootControl,
+                &vl_interface_io_systemd_CoredumpContainer,
+                &vl_interface_io_systemd_CoredumpRegister,
                 &vl_interface_io_systemd_Credentials,
                 &vl_interface_io_systemd_FactoryReset,
                 &vl_interface_io_systemd_Hostname,
