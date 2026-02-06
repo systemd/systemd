@@ -205,7 +205,7 @@ static int synthesize_change_one(Manager *manager, sd_device *dev) {
                         "synthesized-events-clear",
                         /* force_reset= */ true);
         if (r < 0)
-                log_debug_errno(r, "Failed to reset timer event source for clearling synthesized event UUIDs: %m");
+                log_debug_errno(r, "Failed to reset timer event source for clearing synthesized event UUIDs: %m");
 
         return 0;
 }
