@@ -56,6 +56,7 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
+#include "namespace.h"
 #include "nsflags.h"
 #include "open-file.h"
 #include "osc-context.h"
@@ -94,6 +95,62 @@
 #define PROJ_ID_MIN UINT32_C(2147483648)
 #define PROJ_ID_MAX UINT32_C(4294967294)
 #define PROJ_ID_CLAMP_INTO_QUOTA_RANGE(id) ((uint32_t) ((id) % (PROJ_ID_MAX - PROJ_ID_MIN + 1)) + PROJ_ID_MIN)
+
+static int *get_namespace_socket(
+                const ExecContext *context,
+                ExecRuntime *runtime,
+                unsigned long nsflag,
+                JoinsNamespacesFlags join_flag) {
+
+        assert(context);
+        assert(runtime);
+
+        /* If JoinsNamespaces= flag is set for this namespace type, use the shared socket.
+         * Otherwise, use the local socket for persistence without sharing. */
+
+        if (FLAGS_SET(context->joins_namespaces, join_flag) &&
+            runtime->shared) {
+                /* Use shared socket - enables sharing with JoinsNamespaceOf= units */
+                switch (nsflag) {
+                case CLONE_NEWNET:
+                        // XXX: rata. Do we want the if?
+                        if (runtime->shared->netns_storage_socket[0] >= 0)
+                                return runtime->shared->netns_storage_socket;
+                        break;
+                case CLONE_NEWIPC:
+                        if (runtime->shared->ipcns_storage_socket[0] >= 0)
+                                return runtime->shared->ipcns_storage_socket;
+                        break;
+                case CLONE_NEWUSER:
+                        if (runtime->shared->userns_storage_socket[0] >= 0)
+                                return runtime->shared->userns_storage_socket;
+                        break;
+                case CLONE_NEWNS:
+                        if (runtime->shared->mountns_storage_socket[0] >= 0)
+                                return runtime->shared->mountns_storage_socket;
+                        break;
+                }
+                // XXX: rata. Shall we return EBADF here?
+        }
+
+        /* Use local socket - persistence without sharing */
+        switch (nsflag) {
+        case CLONE_NEWNET:
+                if (runtime->netns_storage_socket[0] >= 0)
+                        return runtime->netns_storage_socket;
+                break;
+        case CLONE_NEWIPC:
+                if (runtime->ipcns_storage_socket[0] >= 0)
+                        return runtime->ipcns_storage_socket;
+                break;
+        case CLONE_NEWUSER:
+                if (runtime->userns_storage_socket[0] >= 0)
+                        return runtime->userns_storage_socket;
+                break;
+        }
+
+        return NULL;
+}
 
 static int flag_fds(
                 const int fds[],
@@ -4187,7 +4244,8 @@ static int close_remaining_fds(
                 size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 17];
+        // XXX: rata. I forgot to add one for the shared runtime mntns fd!
+        int dont_close[n_fds + 23];
 
         assert(params);
         assert(runtime);
@@ -4213,6 +4271,11 @@ static int close_remaining_fds(
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->netns_storage_socket);
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->ipcns_storage_socket);
         }
+
+        /* Also preserve local namespace sockets (used when not sharing with JoinsNamespaceOf= units) */
+        append_socket_pair(dont_close, &n_dont_close, runtime->netns_storage_socket);
+        append_socket_pair(dont_close, &n_dont_close, runtime->ipcns_storage_socket);
+        append_socket_pair(dont_close, &n_dont_close, runtime->userns_storage_socket);
 
         if (runtime->dynamic_creds) {
                 if (runtime->dynamic_creds->user)
@@ -4602,6 +4665,27 @@ static bool exec_namespace_is_delegated(
         return false;
 }
 
+static int setup_namespace_with_socket(
+                int *storage_socket,
+                unsigned long nsflag,
+                const char *ns_name) {
+
+        int r;
+
+        assert(storage_socket);
+        assert(storage_socket[0] >= 0);
+
+        r = setup_shareable_ns(storage_socket, nsflag);
+        if (r < 0)
+                return r;
+
+        log_debug("Set up %s namespace using %s socket",
+                  ns_name,
+                  r == 0 ? "existing" : "new");
+
+        return 0;
+}
+
 static int setup_delegated_namespaces(
                 const ExecContext *context,
                 ExecParameters *params,
@@ -4633,48 +4717,53 @@ static int setup_delegated_namespaces(
         assert(reterr_exit_status);
 
         if (exec_needs_network_namespace(context) &&
-            exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWNET) == delegate &&
-            runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
+            exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWNET) == delegate) {
 
-                /* Try to enable network namespacing if network namespacing is available and we have
-                 * CAP_NET_ADMIN in the current user namespace (either the system manager one or the unit's
-                 * own user namespace). We need CAP_NET_ADMIN to be able to configure the loopback device in
-                 * the new network namespace. And if we don't have that, then we could only create a network
-                 * namespace without the ability to set up "lo". Hence gracefully skip things then. */
-                if (namespace_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
-                        r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
-                        if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                log_notice_errno(r, "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
-                        else if (r < 0) {
+                int *netns_socket = get_namespace_socket(context, runtime, CLONE_NEWNET, JOINS_NAMESPACES_NET);
+
+                // TODO: remove the identation of the if.
+                if (netns_socket) {
+                        /* Try to enable network namespacing if network namespacing is available and we have
+                         * CAP_NET_ADMIN in the current user namespace (either the system manager one or the unit's
+                         * own user namespace). We need CAP_NET_ADMIN to be able to configure the loopback device in
+                         * the new network namespace. And if we don't have that, then we could only create a network
+                         * namespace without the ability to set up "lo". Hence gracefully skip things then. */
+                        if (namespace_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
+                                r = setup_namespace_with_socket(netns_socket, CLONE_NEWNET, delegate ? "delegated network" : "network");
+                                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                        log_notice_errno(r, "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
+                                else if (r < 0) {
+                                        *reterr_exit_status = EXIT_NETWORK;
+                                        return log_error_errno(r, "Failed to set up network namespacing: %m");
+                                }
+                        } else if (context->network_namespace_path) {
                                 *reterr_exit_status = EXIT_NETWORK;
-                                return log_error_errno(r, "Failed to set up network namespacing: %m");
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "NetworkNamespacePath= is not supported, refusing.");
                         } else
-                                log_debug("Set up %snetwork namespace", delegate ? "delegated " : "");
-                } else if (context->network_namespace_path) {
-                        *reterr_exit_status = EXIT_NETWORK;
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "NetworkNamespacePath= is not supported, refusing.");
-                } else
-                        log_notice("PrivateNetwork=yes is configured, but the kernel does not support or we lack privileges for network namespace, proceeding without.");
+                                log_notice("PrivateNetwork=yes is configured, but the kernel does not support or we lack privileges for network namespace, proceeding without.");
+                }
         }
 
         if (exec_needs_ipc_namespace(context) &&
-            exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWIPC) == delegate &&
-            runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
+            exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWIPC) == delegate) {
 
-                if (namespace_type_supported(NAMESPACE_IPC)) {
-                        r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
-                        if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                log_warning_errno(r, "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
-                        else if (r < 0) {
+                int *ipcns_socket = get_namespace_socket(context, runtime, CLONE_NEWIPC, JOINS_NAMESPACES_IPC);
+
+                if (ipcns_socket) {
+                        if (namespace_type_supported(NAMESPACE_IPC)) {
+                                r = setup_namespace_with_socket(ipcns_socket, CLONE_NEWIPC, delegate ? "delegated IPC" : "IPC");
+                                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                        log_warning_errno(r, "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
+                                else if (r < 0) {
+                                        *reterr_exit_status = EXIT_NAMESPACE;
+                                        return log_error_errno(r, "Failed to set up IPC namespacing: %m");
+                                }
+                        } else if (context->ipc_namespace_path) {
                                 *reterr_exit_status = EXIT_NAMESPACE;
-                                return log_error_errno(r, "Failed to set up IPC namespacing: %m");
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "IPCNamespacePath= is not supported, refusing.");
                         } else
-                                log_debug("Set up %sIPC namespace", delegate ? "delegated " : "");
-                } else if (context->ipc_namespace_path) {
-                        *reterr_exit_status = EXIT_NAMESPACE;
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "IPCNamespacePath= is not supported, refusing.");
-                } else
-                        log_warning("PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
+                                log_warning("PrivateIPC=yes is configured, but the kernel does not support IPC namespaces, ignoring.");
+                }
         }
 
         if (needs_sandboxing && exec_needs_cgroup_namespace(context) &&
@@ -5418,27 +5507,36 @@ int exec_invoke(
                 }
         }
 
-        if (context->user_namespace_path && runtime->shared && runtime->shared->userns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(runtime->shared->userns_storage_socket, context->user_namespace_path, CLONE_NEWUSER);
-                if (r < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_error_errno(r, "Failed to open user namespace path %s: %m", context->user_namespace_path);
+        if (context->user_namespace_path) {
+                int *userns_socket = get_namespace_socket(context, runtime, CLONE_NEWUSER, JOINS_NAMESPACES_USER);
+                if (userns_socket) {
+                        r = open_shareable_ns_path(userns_socket, context->user_namespace_path, CLONE_NEWUSER);
+                        if (r < 0) {
+                                *exit_status = EXIT_NAMESPACE;
+                                return log_error_errno(r, "Failed to open user namespace path %s: %m", context->user_namespace_path);
+                        }
                 }
         }
 
-        if (context->network_namespace_path && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(runtime->shared->netns_storage_socket, context->network_namespace_path, CLONE_NEWNET);
-                if (r < 0) {
-                        *exit_status = EXIT_NETWORK;
-                        return log_error_errno(r, "Failed to open network namespace path %s: %m", context->network_namespace_path);
+        if (context->network_namespace_path) {
+                int *netns_socket = get_namespace_socket(context, runtime, CLONE_NEWNET, JOINS_NAMESPACES_NET);
+                if (netns_socket) {
+                        r = open_shareable_ns_path(netns_socket, context->network_namespace_path, CLONE_NEWNET);
+                        if (r < 0) {
+                                *exit_status = EXIT_NETWORK;
+                                return log_error_errno(r, "Failed to open network namespace path %s: %m", context->network_namespace_path);
+                        }
                 }
         }
 
-        if (context->ipc_namespace_path && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(runtime->shared->ipcns_storage_socket, context->ipc_namespace_path, CLONE_NEWIPC);
-                if (r < 0) {
-                        *exit_status = EXIT_NAMESPACE;
-                        return log_error_errno(r, "Failed to open IPC namespace path %s: %m", context->ipc_namespace_path);
+        if (context->ipc_namespace_path) {
+                int *ipcns_socket = get_namespace_socket(context, runtime, CLONE_NEWIPC, JOINS_NAMESPACES_IPC);
+                if (ipcns_socket) {
+                        r = open_shareable_ns_path(ipcns_socket, context->ipc_namespace_path, CLONE_NEWIPC);
+                        if (r < 0) {
+                                *exit_status = EXIT_NAMESPACE;
+                                return log_error_errno(r, "Failed to open IPC namespace path %s: %m", context->ipc_namespace_path);
+                        }
                 }
         }
 
@@ -5955,19 +6053,22 @@ int exec_invoke(
          * restricted by rules pertaining to combining user namespaces with other namespaces (e.g. in the
          * case of mount namespaces being less privileged when the mount point list is copied from a
          * different user namespace). */
-        if (needs_sandboxing && context->user_namespace_path && runtime->shared && runtime->shared->userns_storage_socket[0] >= 0) {
-                if (!namespace_type_supported(NAMESPACE_USER))
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "UserNamespacePath= is not supported, refusing.");
+        if (needs_sandboxing && context->user_namespace_path) {
+                int *userns_socket = get_namespace_socket(context, runtime, CLONE_NEWUSER, JOINS_NAMESPACES_USER);
+                if (userns_socket) {
+                        if (!namespace_type_supported(NAMESPACE_USER))
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "UserNamespacePath= is not supported, refusing.");
 
-                r = setup_shareable_ns(runtime->shared->userns_storage_socket, CLONE_NEWUSER);
-                if (ERRNO_IS_NEG_PRIVILEGE(r))
-                        return log_notice_errno(r, "PrivateUsers= is configured, but user namespace setup not permitted, refusing.");
-                if (r < 0) {
-                        *exit_status = EXIT_USER;
-                        return log_error_errno(r, "Failed to set up user namespacing: %m");
+                        r = setup_shareable_ns(userns_socket, CLONE_NEWUSER);
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                return log_notice_errno(r, "PrivateUsers= is configured, but user namespace setup not permitted, refusing.");
+                        if (r < 0) {
+                                *exit_status = EXIT_USER;
+                                return log_error_errno(r, "Failed to set up user namespacing: %m");
+                        }
+
+                        log_debug("Set up existing user namespace");
                 }
-
-                log_debug("Set up existing user namespace");
         } else if (needs_sandboxing && !userns_set_up) {
                 PrivateUsers pu = exec_context_get_effective_private_users(context, params);
 

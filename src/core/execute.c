@@ -2536,13 +2536,18 @@ static int exec_shared_runtime_make(
         assert(c);
         assert(id);
 
+        bool needs_network_namespace = exec_needs_network_namespace(c) && FLAGS_SET(c->joins_namespaces, JOINS_NAMESPACES_NET);
+        bool needs_ipc_namespace = exec_needs_ipc_namespace(c) && FLAGS_SET(c->joins_namespaces, JOINS_NAMESPACES_IPC);
+        bool needs_tmp_namespace = c->private_tmp == PRIVATE_TMP_CONNECTED && FLAGS_SET(c->joins_namespaces, JOINS_NAMESPACES_TMP);
+        bool needs_user_namespace = c->user_namespace_path && FLAGS_SET(c->joins_namespaces, JOINS_NAMESPACES_USER);
+
         /* It is not necessary to create ExecSharedRuntime object. */
-        if (!exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) && c->private_tmp != PRIVATE_TMP_CONNECTED && !c->user_namespace_path) {
+        if (!needs_network_namespace && !needs_ipc_namespace && !needs_tmp_namespace && !needs_user_namespace) {
                 *ret = NULL;
                 return 0;
         }
 
-        if (c->private_tmp == PRIVATE_TMP_CONNECTED &&
+        if (needs_tmp_namespace &&
             !(prefixed_path_strv_contains(c->inaccessible_paths, "/tmp") &&
               (prefixed_path_strv_contains(c->inaccessible_paths, "/var/tmp") ||
                prefixed_path_strv_contains(c->inaccessible_paths, "/var")))) {
@@ -2551,15 +2556,15 @@ static int exec_shared_runtime_make(
                         return r;
         }
 
-        if (c->user_namespace_path)
+        if (needs_user_namespace)
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, userns_storage_socket) < 0)
                         return -errno;
 
-        if (exec_needs_network_namespace(c))
+        if (needs_network_namespace)
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, netns_storage_socket) < 0)
                         return -errno;
 
-        if (exec_needs_ipc_namespace(c))
+        if (needs_ipc_namespace)
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ipcns_storage_socket) < 0)
                         return -errno;
 
@@ -2915,16 +2920,30 @@ int exec_runtime_make(
                 ExecSharedRuntime *shared,
                 DynamicCreds *creds,
                 ExecRuntime **ret) {
-        _cleanup_close_pair_ int ephemeral_storage_socket[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int ephemeral_storage_socket[2] = EBADF_PAIR,
+                                 netns_storage_socket[2] = EBADF_PAIR,
+                                 ipcns_storage_socket[2] = EBADF_PAIR,
+                                 userns_storage_socket[2] = EBADF_PAIR;
         _cleanup_free_ char *ephemeral = NULL;
         _cleanup_(exec_runtime_freep) ExecRuntime *rt = NULL;
+        bool needs_local_netns, needs_local_ipcns, needs_local_userns;
         int r;
 
         assert(unit);
         assert(context);
         assert(ret);
 
-        if (!shared && !creds && !exec_needs_ephemeral(context)) {
+        /* Determine which namespaces need local sockets for persistence.
+         * Local sockets are needed when the namespace is required but not shared via JoinsNamespaces=. */
+        needs_local_netns = exec_needs_network_namespace(context) &&
+                            !FLAGS_SET(context->joins_namespaces, JOINS_NAMESPACES_NET);
+        needs_local_ipcns = exec_needs_ipc_namespace(context) &&
+                            !FLAGS_SET(context->joins_namespaces, JOINS_NAMESPACES_IPC);
+        needs_local_userns = (context->private_users != PRIVATE_USERS_NO || context->user_namespace_path) &&
+                             !FLAGS_SET(context->joins_namespaces, JOINS_NAMESPACES_USER);
+
+        if (!shared && !creds && !exec_needs_ephemeral(context) &&
+            !needs_local_netns && !needs_local_ipcns && !needs_local_userns) {
                 *ret = NULL;
                 return 0;
         }
@@ -2942,6 +2961,19 @@ int exec_runtime_make(
                         return -errno;
         }
 
+        /* Create local namespace sockets for persistence when not sharing */
+        if (needs_local_netns)
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, netns_storage_socket) < 0)
+                        return -errno;
+
+        if (needs_local_ipcns)
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ipcns_storage_socket) < 0)
+                        return -errno;
+
+        if (needs_local_userns)
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, userns_storage_socket) < 0)
+                        return -errno;
+
         rt = new(ExecRuntime, 1);
         if (!rt)
                 return -ENOMEM;
@@ -2952,6 +2984,12 @@ int exec_runtime_make(
                 .ephemeral_copy = TAKE_PTR(ephemeral),
                 .ephemeral_storage_socket[0] = TAKE_FD(ephemeral_storage_socket[0]),
                 .ephemeral_storage_socket[1] = TAKE_FD(ephemeral_storage_socket[1]),
+                .netns_storage_socket[0] = TAKE_FD(netns_storage_socket[0]),
+                .netns_storage_socket[1] = TAKE_FD(netns_storage_socket[1]),
+                .ipcns_storage_socket[0] = TAKE_FD(ipcns_storage_socket[0]),
+                .ipcns_storage_socket[1] = TAKE_FD(ipcns_storage_socket[1]),
+                .userns_storage_socket[0] = TAKE_FD(userns_storage_socket[0]),
+                .userns_storage_socket[1] = TAKE_FD(userns_storage_socket[1]),
         };
 
         *ret = TAKE_PTR(rt);
@@ -2968,6 +3006,9 @@ ExecRuntime* exec_runtime_free(ExecRuntime *rt) {
         rt->ephemeral_copy = destroy_tree(rt->ephemeral_copy);
 
         safe_close_pair(rt->ephemeral_storage_socket);
+        safe_close_pair(rt->netns_storage_socket);
+        safe_close_pair(rt->ipcns_storage_socket);
+        safe_close_pair(rt->userns_storage_socket);
         return mfree(rt);
 }
 
