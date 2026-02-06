@@ -13,6 +13,7 @@ files = [['README'                                  ],
          ['systemd-nspawn.conf',  'ENABLE_MACHINED' ],
          ['systemd-pstore.conf',  'ENABLE_PSTORE'   ],
          ['systemd-resolve.conf', 'ENABLE_RESOLVE'  ],
+         ['20-systemd-varlink.conf'                 ],
          ['systemd-tmp.conf'                        ],
          ['tmp.conf'                                ],
          ['x11.conf'                                ],
@@ -59,3 +60,5 @@ endforeach
 if install_sysconfdir
         install_emptydir(sysconfdir / 'tmpfiles.d')
 endif
+
+subdir('user')

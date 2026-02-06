@@ -16,6 +16,8 @@ Before=sockets.target shutdown.target
 
 [Socket]
 ListenStream=/run/systemd/io.systemd.MountFileSystem
+Symlinks=/run/varlink/registry/io.systemd.MountFileSystem
+FileDescriptorName=varlink
 SocketMode=0666
 
 [Install]

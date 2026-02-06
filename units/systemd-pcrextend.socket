@@ -17,6 +17,7 @@ ConditionSecurity=measured-uki
 
 [Socket]
 ListenStream=/run/systemd/io.systemd.PCRExtend
+Symlinks=/run/varlink/registry/io.systemd.PCRExtend
 FileDescriptorName=varlink
 SocketMode=0600
 Accept=yes
