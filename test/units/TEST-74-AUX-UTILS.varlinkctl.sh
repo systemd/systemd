@@ -37,6 +37,10 @@ varlinkctl introspect -j /run/systemd/journal/io.systemd.journal | jq --seq .
 varlinkctl introspect /run/systemd/journal/io.systemd.journal io.systemd.Journal
 varlinkctl introspect -j /run/systemd/journal/io.systemd.journal io.systemd.Journal | jq .
 
+varlinkctl list-registry
+varlinkctl list-registry -j | jq .
+varlinkctl list-registry | grep io.systemd.Manager
+
 if command -v userdbctl >/dev/null; then
     systemctl start systemd-userdbd
     varlinkctl call /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetUserRecord '{ "userName" : "testuser", "service" : "io.systemd.Multiplexer" }'
