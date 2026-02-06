@@ -898,6 +898,12 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
                 }
+
+                if (rt->shared->mountns_storage_socket[0] >= 0 && rt->shared->mountns_storage_socket[1] >= 0) {
+                        r = serialize_fd_many(f, fds, "exec-runtime-mountns-storage-socket", rt->shared->mountns_storage_socket, 2);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (rt->dynamic_creds) {
@@ -922,6 +928,25 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
 
         if (rt->ephemeral_storage_socket[0] >= 0 && rt->ephemeral_storage_socket[1] >= 0) {
                 r = serialize_fd_many(f, fds, "exec-runtime-ephemeral-storage-socket", rt->ephemeral_storage_socket, 2);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Serialize local namespace sockets (used when not sharing with JoinsNamespaceOf= units) */
+        if (rt->netns_storage_socket[0] >= 0 && rt->netns_storage_socket[1] >= 0) {
+                r = serialize_fd_many(f, fds, "exec-runtime-local-netns-storage-socket", rt->netns_storage_socket, 2);
+                if (r < 0)
+                        return r;
+        }
+
+        if (rt->ipcns_storage_socket[0] >= 0 && rt->ipcns_storage_socket[1] >= 0) {
+                r = serialize_fd_many(f, fds, "exec-runtime-local-ipcns-storage-socket", rt->ipcns_storage_socket, 2);
+                if (r < 0)
+                        return r;
+        }
+
+        if (rt->userns_storage_socket[0] >= 0 && rt->userns_storage_socket[1] >= 0) {
+                r = serialize_fd_many(f, fds, "exec-runtime-local-userns-storage-socket", rt->userns_storage_socket, 2);
                 if (r < 0)
                         return r;
         }
@@ -980,6 +1005,12 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 continue;
 
+                } else if ((val = startswith(l, "exec-runtime-mountns-storage-socket="))) {
+
+                        r = deserialize_fd_many(fds, val, 2, rt->shared->mountns_storage_socket);
+                        if (r < 0)
+                                continue;
+
                 } else if ((val = startswith(l, "exec-runtime-dynamic-creds-user=")))
                         dynamic_user_deserialize_one(/* m= */ NULL, val, fds, &rt->dynamic_creds->user);
                 else if ((val = startswith(l, "exec-runtime-dynamic-creds-group=")))
@@ -1004,6 +1035,26 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                         r = deserialize_fd_many(fds, val, 2, rt->ephemeral_storage_socket);
                         if (r < 0)
                                 continue;
+
+                /* Deserialize local namespace sockets (used when not sharing with JoinsNamespaceOf= units) */
+                } else if ((val = startswith(l, "exec-runtime-local-netns-storage-socket="))) {
+
+                        r = deserialize_fd_many(fds, val, 2, rt->netns_storage_socket);
+                        if (r < 0)
+                                continue;
+
+                } else if ((val = startswith(l, "exec-runtime-local-ipcns-storage-socket="))) {
+
+                        r = deserialize_fd_many(fds, val, 2, rt->ipcns_storage_socket);
+                        if (r < 0)
+                                continue;
+
+                } else if ((val = startswith(l, "exec-runtime-local-userns-storage-socket="))) {
+
+                        r = deserialize_fd_many(fds, val, 2, rt->userns_storage_socket);
+                        if (r < 0)
+                                continue;
+
                 } else
                         log_warning("Failed to parse serialized line, ignoring: %s", l);
         }
@@ -1706,6 +1757,18 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         r = serialize_bool_elide(f, "exec-context-private-ipc", c->private_ipc);
         if (r < 0)
                 return r;
+
+        if (c->joins_namespaces != 0) {
+                _cleanup_free_ char *s = NULL;
+
+                r = joins_namespaces_flags_to_string(c->joins_namespaces, &s);
+                if (r < 0)
+                        return r;
+
+                r = serialize_item(f, "exec-context-joins-namespaces", s);
+                if (r < 0)
+                        return r;
+        }
 
         r = serialize_item(f, "exec-context-private-pids", private_pids_to_string(c->private_pids));
         if (r < 0)
@@ -2649,6 +2712,21 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->private_ipc = r;
+                } else if ((val = startswith(l, "exec-context-joins-namespaces="))) {
+                        JoinsNamespacesFlags flags = 0;
+
+                        for (const char *p = val;;) {
+                                _cleanup_free_ char *word = NULL;
+
+                                r = extract_first_word(&p, &word, NULL, 0);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
+
+                                flags |= joins_namespaces_flag_from_string(word);
+                        }
+                        c->joins_namespaces = flags;
                 } else if ((val = startswith(l, "exec-context-private-pids="))) {
                         c->private_pids = private_pids_from_string(val);
                         if (c->private_pids < 0)

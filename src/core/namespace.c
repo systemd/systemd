@@ -2938,18 +2938,36 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         /* All above is just preparation, figuring out what to do. Let's now actually start doing something. */
 
-        if (unshare(CLONE_NEWNS) < 0) {
-                r = log_debug_errno(errno, "Failed to unshare the mount namespace: %m");
+        /* Check if we should share the mount namespace via JoinNamespacesOf= */
+        if (p->mountns_storage_socket && p->mountns_storage_socket[0] >= 0) {
+                r = setup_shareable_ns(p->mountns_storage_socket, CLONE_NEWNS);
+                if (r < 0) {
+                        if (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))
+                                return -ENOANO;
+                        return log_debug_errno(r, "Failed to set up shareable mount namespace: %m");
+                }
+                if (r == 0) {
+                        /* Successfully joined an existing mount namespace. All mounts are already
+                         * set up by the first unit that created the namespace, so we're done. */
+                        log_debug("Joined existing shared mount namespace.");
+                        return 0;
+                }
+                /* r == 1: Created a new mount namespace, continue with mount setup below */
+                log_debug("Created new shared mount namespace.");
+        } else {
+                if (unshare(CLONE_NEWNS) < 0) {
+                        r = log_debug_errno(errno, "Failed to unshare the mount namespace: %m");
 
-                if (ERRNO_IS_PRIVILEGE(r) ||
-                    ERRNO_IS_NOT_SUPPORTED(r))
-                        /* If the kernel doesn't support namespaces, or when there's a MAC or seccomp filter
-                         * in place that doesn't allow us to create namespaces (or a missing cap), then
-                         * propagate a recognizable error back, which the caller can use to detect this case
-                         * (and only this) and optionally continue without namespacing applied. */
-                        return -ENOANO;
+                        if (ERRNO_IS_PRIVILEGE(r) ||
+                            ERRNO_IS_NOT_SUPPORTED(r))
+                                /* If the kernel doesn't support namespaces, or when there's a MAC or seccomp filter
+                                 * in place that doesn't allow us to create namespaces (or a missing cap), then
+                                 * propagate a recognizable error back, which the caller can use to detect this case
+                                 * (and only this) and optionally continue without namespacing applied. */
+                                return -ENOANO;
 
-                return r;
+                        return r;
+                }
         }
 
         /* Create the source directory to allow runtime propagation of mounts */
@@ -4105,3 +4123,47 @@ static const char* const private_pids_table[_PRIVATE_PIDS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_pids, PrivatePIDs, PRIVATE_PIDS_YES);
+
+static const struct {
+        // Name is, whenever possible, a namespace as shown in /proc/self/ns.
+        const char *name;
+        JoinsNamespacesFlags flag;
+} joins_namespaces_flag_table[] = {
+        // XXX: rata. Do we want to use "user-path" maybe? Shares only when user_namespace_path is set.
+        { "user", JOINS_NAMESPACES_USER },
+        { "ipc",  JOINS_NAMESPACES_IPC  },
+        { "net",  JOINS_NAMESPACES_NET  },
+        // "tmp" is not a real Linux namespace, but refers to sharing the /tmp resources.
+        { "tmp",  JOINS_NAMESPACES_TMP  },
+        { "mnt", JOINS_NAMESPACES_MNT   },
+};
+
+JoinsNamespacesFlags joins_namespaces_flag_from_string(const char *s) {
+        for (size_t i = 0; i < ELEMENTSOF(joins_namespaces_flag_table); i++)
+                if (streq(s, joins_namespaces_flag_table[i].name))
+                        return joins_namespaces_flag_table[i].flag;
+
+        return 0;
+}
+
+int joins_namespaces_flags_to_string(JoinsNamespacesFlags flags, char **ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(ret);
+
+        for (size_t i = 0; i < ELEMENTSOF(joins_namespaces_flag_table); i++) {
+                if (!FLAGS_SET(flags, joins_namespaces_flag_table[i].flag))
+                        continue;
+
+                r = strv_extend(&l, joins_namespaces_flag_table[i].name);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = strv_join(l, NULL);
+        if (!*ret)
+                return -ENOMEM;
+
+        return 0;
+}
