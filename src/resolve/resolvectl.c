@@ -1584,14 +1584,13 @@ static int varlink_dump_dns_configuration(sd_json_variant **ret) {
 }
 
 static int format_dns_server_one(DNSConfiguration *configuration, DNSServer *s, char **ret) {
-        bool global, with_ifindex;
+        bool global;
         int r;
 
         assert(s);
         assert(ret);
 
         global = !(configuration->ifindex > 0 || configuration->delegate);
-        with_ifindex = configuration->ifindex <= 0;
 
         if (global && s->ifindex > 0 && s->ifindex != LOOPBACK_IFINDEX) {
                 /* This one has an (non-loopback) ifindex set, and we were told to suppress those. Hence do so. */
@@ -1603,7 +1602,7 @@ static int format_dns_server_one(DNSConfiguration *configuration, DNSServer *s, 
                         s->family,
                         &s->in_addr,
                         s->port != 53 ? s->port : 0,
-                        with_ifindex ? s->ifindex : 0,
+                        s->ifindex,
                         s->server_name,
                         ret);
         if (r < 0)
