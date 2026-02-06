@@ -77,7 +77,7 @@ testcase_sanity() {
     create_dummy_container "$template"
     # Create a simple image from the just created container template
     image="$(mktemp /var/lib/machines/TEST-13-NSPAWN.image-XXX.img)"
-    truncate -s 256M "$image"
+    truncate -s 384M "$image"
     mkfs.ext4 "$image"
     mkdir -p /mnt
     mount -o loop "$image" /mnt
