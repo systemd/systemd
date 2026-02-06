@@ -183,11 +183,6 @@ static int metrics_query(void) {
 
         log_debug("Looking for reports in %s/", metrics_path);
 
-        _cleanup_closedir_ DIR *d = opendir(metrics_path);
-        if (!d)
-                return log_full_errno(errno == ENOENT ? LOG_WARNING : LOG_ERR, errno,
-                                      "Failed to open metrics directory %s: %m", metrics_path);
-
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         r = sd_event_default(&event);
         if (r < 0)
@@ -197,32 +192,38 @@ static int metrics_query(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
 
-        size_t n_varlinks = MAX_CONCURRENT_METRICS_SOCKETS;
-        sd_varlink **varlinks = new0(sd_varlink *, n_varlinks);
-        if (!varlinks)
-                return log_oom();
-
-        CLEANUP_ARRAY(varlinks, n_varlinks, sd_varlink_unref_many);
-
         _cleanup_(context_done) Context context = {};
 
-        FOREACH_DIRENT(de, d,
-                       return log_warning_errno(errno, "Failed to read %s: %m", metrics_path)) {
-
-                if (!IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN))
-                        continue;
-
-                _cleanup_free_ char *p = path_join(metrics_path, de->d_name);
-                if (!p)
+        _cleanup_closedir_ DIR *d = opendir(metrics_path);
+        if (!d) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open metrics directory %s: %m", metrics_path);
+        } else {
+                size_t n_varlinks = MAX_CONCURRENT_METRICS_SOCKETS;
+                sd_varlink **varlinks = new0(sd_varlink *, n_varlinks);
+                if (!varlinks)
                         return log_oom();
 
-                r = metrics_call(p, event, &varlinks[context.n_open_connections], &context);
-                if (r < 0)
-                        continue;
+                CLEANUP_ARRAY(varlinks, n_varlinks, sd_varlink_unref_many);
 
-                if (++context.n_open_connections >= MAX_CONCURRENT_METRICS_SOCKETS) {
-                        log_warning("Too many concurrent metrics sockets, stop iterating");
-                        break;
+                FOREACH_DIRENT(de, d,
+                               return log_warning_errno(errno, "Failed to read %s: %m", metrics_path)) {
+
+                        if (!IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN))
+                                continue;
+
+                        _cleanup_free_ char *p = path_join(metrics_path, de->d_name);
+                        if (!p)
+                                return log_oom();
+
+                        r = metrics_call(p, event, &varlinks[context.n_open_connections], &context);
+                        if (r < 0)
+                                continue;
+
+                        if (++context.n_open_connections >= MAX_CONCURRENT_METRICS_SOCKETS) {
+                                log_warning("Too many concurrent metrics sockets, stop iterating");
+                                break;
+                        }
                 }
         }
 
