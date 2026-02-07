@@ -74,24 +74,25 @@ static bool has_virtio_rng(void) {
         return has_virtio_feature("virtio-rng", STRV_MAKE("pci:v00001AF4d00001005", "pci:v00001AF4d00001044"));
 }
 
-static bool has_virtio_console(void) {
-        return has_virtio_feature("virtio-console", STRV_MAKE("virtio:d00000003v", "virtio:d0000000Bv"));
-}
-
-static bool has_virtio_vsock(void) {
-        return has_virtio_feature("virtio-vsock", STRV_MAKE("virtio:d00000013v"));
-}
-
-static bool has_virtiofs(void) {
-        return has_virtio_feature("virtiofs", STRV_MAKE("virtio:d0000001Av"));
-}
-
 static bool has_virtio_pci(void) {
         return has_virtio_feature("virtio-pci", STRV_MAKE("pci:v00001AF4d"));
 }
 
+static bool may_have_virtio(void) {
+        /* FIXME: strictly speaking, other virtio features, e.g. vsock, are independent of the virtio PCI device. */
+        return has_virtio_pci();
+}
+
 static bool in_qemu(void) {
         return IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_QEMU);
+}
+
+static bool in_vmware(void) {
+        return detect_vm() == VIRTUALIZATION_VMWARE;
+}
+
+static bool in_hyperv(void) {
+        return detect_vm() == VIRTUALIZATION_MICROSOFT;
 }
 #endif
 
@@ -117,10 +118,12 @@ int kmod_setup(void) {
 
                 /* we want early logging to hvc consoles if possible, and make sure systemd-getty-generator
                  * can rely on all consoles being probed already. */
-                { "virtio_console",             NULL,                        false, false, has_virtio_console },
+                { "virtio_console",             NULL,                        false, false, may_have_virtio    },
 
                 /* Make sure we can send sd-notify messages over vsock as early as possible. */
-                { "vmw_vsock_virtio_transport", NULL,                        false, false, has_virtio_vsock   },
+                { "vmw_vsock_virtio_transport", NULL,                        false, false, may_have_virtio    },
+                { "vmw_vsock_vmci_transport",   NULL,                        false, false, in_vmware          },
+                { "hv_sock",                    NULL,                        false, false, in_hyperv          },
 
                 /* We can't wait for specific virtiofs tags to show up as device nodes so we have to load the
                  * virtiofs and virtio_pci modules early to make sure the virtiofs tags are found when
@@ -128,7 +131,7 @@ int kmod_setup(void) {
                  *
                  * TODO: Remove these again once https://gitlab.com/virtio-fs/virtiofsd/-/issues/128 is
                  * resolved and the kernel fix is widely available. */
-                { "virtiofs",                   "/sys/module/virtiofs",      false, false, has_virtiofs       },
+                { "virtiofs",                   "/sys/module/virtiofs",      false, false, may_have_virtio    },
                 { "virtio_pci",                 "/sys/module/virtio_pci",    false, false, has_virtio_pci     },
 
                 /* qemu_fw_cfg would be loaded by udev later, but we want to import credentials from it super early */
