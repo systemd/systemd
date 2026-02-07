@@ -12,22 +12,28 @@
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "path-lookup.h"
 #include "pretty-print.h"
 #include "runtime-scope.h"
+#include "set.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "varlink-util.h"
 
-#define MAX_CONCURRENT_METRICS_SOCKETS 20
+#define METRICS_MAX 1024U
+#define METRICS_LINKS_MAX 128U
 #define TIMEOUT_USEC (30 * USEC_PER_SEC) /* 30 seconds */
 
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 
 typedef struct Context {
-        unsigned n_open_connections;
+        sd_event *event;
+        Set *links;
         sd_json_variant **metrics;  /* Collected metrics for sorting */
-        size_t n_metrics;
+        size_t n_metrics, n_skipped_metrics;
 } Context;
 
 static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) {
@@ -80,6 +86,11 @@ static int metrics_on_query_reply(
                 else
                         log_error("Varlink error: %s", error_id);
         } else {
+                if (context->n_metrics >= METRICS_MAX) {
+                        context->n_skipped_metrics++;
+                        return 0;
+                }
+
                 /* Collect metrics for later sorting */
                 if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
                         return log_oom();
@@ -87,24 +98,22 @@ static int metrics_on_query_reply(
         }
 
         if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
-                assert(context->n_open_connections > 0);
-                context->n_open_connections--;
+                assert_se(set_remove(context->links, link) == link);
+                link = sd_varlink_close_unref(link);
 
-                if (context->n_open_connections == 0)
-                        (void) sd_event_exit(ASSERT_PTR(sd_varlink_get_event(link)), EXIT_SUCCESS);
+                if (set_isempty(context->links))
+                        (void) sd_event_exit(context->event, EXIT_SUCCESS);
         }
 
         return 0;
 }
 
-static int metrics_call(const char *path, sd_event *event, sd_varlink **ret, Context *context) {
+static int metrics_call(Context *context, const char *path) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
-        assert(path);
-        assert(event);
-        assert(ret);
         assert(context);
+        assert(path);
 
         r = sd_varlink_connect_address(&vl, path);
         if (r < 0)
@@ -116,7 +125,7 @@ static int metrics_call(const char *path, sd_event *event, sd_varlink **ret, Con
         if (r < 0)
                 return log_error_errno(r, "Failed to set varlink timeout: %m");
 
-        r = sd_varlink_attach_event(vl, event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_attach_event(vl, context->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
@@ -128,42 +137,42 @@ static int metrics_call(const char *path, sd_event *event, sd_varlink **ret, Con
         if (r < 0)
                 return log_error_errno(r, "Failed to issue io.systemd.Metrics.List call: %m");
 
-        *ret = TAKE_PTR(vl);
+        if (set_ensure_put(&context->links, &varlink_hash_ops, vl) < 0)
+                return log_oom();
 
+        TAKE_PTR(vl);
         return 0;
-}
-
-static void sd_varlink_unref_many(sd_varlink **array, size_t n) {
-        assert(array);
-
-        FOREACH_ARRAY(v, array, n)
-                sd_varlink_unref(*v);
-
-        free(array);
 }
 
 static void context_done(Context *context) {
         assert(context);
 
-        for (size_t i = 0; i < context->n_metrics; i++)
-                sd_json_variant_unref(context->metrics[i]);
-        free(context->metrics);
+        set_free(context->links);
+        sd_json_variant_unref_many(context->metrics, context->n_metrics);
+        sd_event_unref(context->event);
 }
 
-static void metrics_output_sorted(Context *context) {
+static int metrics_output_sorted(Context *context) {
+        int r;
+
         assert(context);
 
         typesafe_qsort(context->metrics, context->n_metrics, metric_compare);
 
-        FOREACH_ARRAY(m, context->metrics, context->n_metrics)
-                sd_json_variant_dump(
+        FOREACH_ARRAY(m, context->metrics, context->n_metrics) {
+                r = sd_json_variant_dump(
                                 *m,
-                                SD_JSON_FORMAT_PRETTY_AUTO | SD_JSON_FORMAT_COLOR_AUTO | SD_JSON_FORMAT_FLUSH,
+                                arg_json_format_flags | SD_JSON_FORMAT_FLUSH,
                                 stdout,
-                                NULL);
+                                /* prefix= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write JSON: %m");
+        }
 
         if (context->n_metrics == 0)
-                log_warning("No reporting sockets found.");
+                log_info("No metrics collected.");
+
+        return 0;
 }
 
 static int metrics_query(void) {
@@ -176,58 +185,63 @@ static int metrics_query(void) {
 
         log_debug("Looking for reports in %s/", metrics_path);
 
-        _cleanup_closedir_ DIR *d = opendir(metrics_path);
-        if (!d)
-                return log_full_errno(errno == ENOENT ? LOG_WARNING : LOG_ERR, errno,
-                                      "Failed to open metrics directory %s: %m", metrics_path);
+        _cleanup_(context_done) Context context = {};
 
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        r = sd_event_default(&event);
+        r = sd_event_default(&context.event);
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
 
-        r = sd_event_set_signal_exit(event, true);
+        r = sd_event_set_signal_exit(context.event, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
 
-        size_t n_varlinks = MAX_CONCURRENT_METRICS_SOCKETS;
-        sd_varlink **varlinks = new0(sd_varlink *, n_varlinks);
-        if (!varlinks)
-                return log_oom();
+        size_t n_skipped_sources = 0;
+        _cleanup_closedir_ DIR *d = opendir(metrics_path);
+        if (!d) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open metrics directory %s: %m", metrics_path);
+        } else {
+                FOREACH_DIRENT(de, d,
+                               return log_warning_errno(errno, "Failed to read %s: %m", metrics_path)) {
 
-        CLEANUP_ARRAY(varlinks, n_varlinks, sd_varlink_unref_many);
+                        if (!IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN))
+                                continue;
 
-        _cleanup_(context_done) Context context = {};
+                        if (set_size(context.links) >= METRICS_LINKS_MAX) {
+                                n_skipped_sources++;
+                                break;
+                        }
 
-        FOREACH_DIRENT(de, d,
-                       return log_warning_errno(errno, "Failed to read %s: %m", metrics_path)) {
+                        _cleanup_free_ char *p = path_join(metrics_path, de->d_name);
+                        if (!p)
+                                return log_oom();
 
-                if (!IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN))
-                        continue;
-
-                _cleanup_free_ char *p = path_join(metrics_path, de->d_name);
-                if (!p)
-                        return log_oom();
-
-                r = metrics_call(p, event, &varlinks[context.n_open_connections], &context);
-                if (r < 0)
-                        continue;
-
-                if (++context.n_open_connections >= MAX_CONCURRENT_METRICS_SOCKETS) {
-                        log_warning("Too many concurrent metrics sockets, stop iterating");
-                        break;
+                        (void) metrics_call(&context, p);
                 }
         }
 
-        if (context.n_open_connections > 0) {
-                r = sd_event_loop(event);
+        if (set_isempty(context.links))
+                log_info("No metrics sources found.");
+        else {
+                r = sd_event_loop(context.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
+
+                r = metrics_output_sorted(&context);
+                if (r < 0)
+                        return r;
+
+                if (n_skipped_sources > 0)
+                        log_warning("Too many metrics sources, only %u sources contacted, %zu sources skipped.", set_size(context.links), n_skipped_sources);
+                if (context.n_skipped_metrics > 0)
+                        log_warning("Too many metrics, only %zu metrics collected, %zu metrics skipped.", context.n_metrics, context.n_skipped_metrics);
+
+                if (n_skipped_sources > 0 ||
+                    context.n_skipped_metrics > 0)
+                        return EXIT_FAILURE;
         }
 
-        metrics_output_sorted(&context);
-
-        return 0;
+        return EXIT_SUCCESS;
 }
 
 static int help(void) {
@@ -244,6 +258,8 @@ static int help(void) {
                "     --version          Show package version\n"
                "     --user             Connect to user service manager\n"
                "     --system           Connect to system service manager (default)\n"
+               "     --json=pretty|short\n"
+               "                        Configure JSON output\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -258,35 +274,49 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_USER,
                 ARG_SYSTEM,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
-                { "help",    no_argument, NULL, 'h'         },
-                { "version", no_argument, NULL, ARG_VERSION },
-                { "user",    no_argument, NULL, ARG_USER    },
-                { "system",  no_argument, NULL, ARG_SYSTEM  },
+                { "help",    no_argument,       NULL, 'h'         },
+                { "version", no_argument,       NULL, ARG_VERSION },
+                { "user",    no_argument,       NULL, ARG_USER    },
+                { "system",  no_argument,       NULL, ARG_SYSTEM  },
+                { "json",    required_argument, NULL, ARG_JSON    },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
                         return help();
+
                 case ARG_VERSION:
                         return version();
+
                 case ARG_USER:
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
+
                 case ARG_SYSTEM:
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
+
                 default:
                         assert_not_reached();
                 }
