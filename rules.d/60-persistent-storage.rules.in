@@ -136,9 +136,11 @@ KERNEL!="sr*|mmcblk[0-9]boot[0-9]", IMPORT{builtin}="blkid"
 LABEL="persistent_storage_blkid_probe_end"
 {% endif %}
 
-# by-label/by-uuid links (filesystem metadata)
+# by-label/by-uuid links (filesystem or driver metadata - can include swap, dm-crypt, etc.)
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_LABEL_ENC}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_ENC}"
+# by-filesystem-label links (only mountable filesystems)
+ENV{ID_FS_USAGE}=="filesystem", ENV{ID_FS_LABEL_ENC}=="?*", SYMLINK+="disk/by-filesystem-label/$env{ID_FS_LABEL_ENC}"
 
 # by-id (World Wide Name)
 ENV{ID_WWN_WITH_EXTENSION}=="?*", SYMLINK+="disk/by-id/wwn-$env{ID_WWN_WITH_EXTENSION}$env{.PART_SUFFIX}"
