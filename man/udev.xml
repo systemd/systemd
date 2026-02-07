@@ -443,8 +443,19 @@
           <varlistentry>
             <term><varname>OWNER</varname>, <varname>GROUP</varname>, <varname>MODE</varname></term>
             <listitem>
-              <para>The permissions for the device node. Every specified value overrides
-              the compiled-in default value.</para>
+              <para>The ownership and permissions for the device node. Every specified value overrides
+              the compiled-in default value.  When used in a rules file loaded from
+              the system rules directory, OWNER and GROUP are converted into
+              SYSOWNER and SYSGROUP. (see next)</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><varname>SYSOWNER</varname>, <varname>SYSGROUP</varname></term>
+            <listitem>
+              <para>The ownership for the device node, restricted to system users.
+              This is intended to avoid accidental conflicts between system/distribution
+              rules and locally configured users, when some new system user is introduced.</para>
             </listitem>
           </varlistentry>
 

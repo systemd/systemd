@@ -137,7 +137,9 @@ typedef enum {
         TK_A_OPTIONS_DEVLINK_PRIORITY,      /* int */
         TK_A_OPTIONS_LOG_LEVEL,             /* string of log level or "reset" */
         TK_A_OWNER,                         /* user name */
+        TK_A_SYSOWNER,                      /* user name, system only */
         TK_A_GROUP,                         /* group name */
+        TK_A_SYSGROUP,                      /* group name, system only */
         TK_A_MODE,                          /* mode string */
         TK_A_OWNER_ID,                      /* uid_t */
         TK_A_GROUP_ID,                      /* gid_t */
@@ -203,6 +205,7 @@ struct UdevRuleLine {
 struct UdevRuleFile {
         char *filename;
         unsigned issues; /* used by "udevadm verify" */
+        bool sys;
 
         UdevRules *rules;
         LIST_HEAD(UdevRuleLine, rule_lines);
@@ -495,7 +498,7 @@ UdevRules* udev_rules_free(UdevRules *rules) {
         return mfree(rules);
 }
 
-static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, uid_t *ret) {
+static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, bool sys, uid_t *ret) {
         Hashmap **known_users = &LINE_GET_RULES(rule_line)->known_users;
         int r;
 
@@ -509,7 +512,7 @@ static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, uid_t *r
         }
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        r = userdb_by_name(name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+        r = userdb_by_name(name, sys ? &USERDB_MATCH_ROOT_AND_SYSTEM : NULL,
                            USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                            &ur);
         if (r < 0)
@@ -530,7 +533,7 @@ static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, uid_t *r
         return 0;
 }
 
-static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, gid_t *ret) {
+static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, bool sys, gid_t *ret) {
         Hashmap **known_groups = &LINE_GET_RULES(rule_line)->known_groups;
         int r;
 
@@ -544,7 +547,7 @@ static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, gid_t *
         }
 
         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-        r = groupdb_by_name(name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+        r = groupdb_by_name(name, sys ? &USERDB_MATCH_ROOT_AND_SYSTEM : NULL,
                             USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                             &gr);
         if (r < 0)
@@ -685,7 +688,7 @@ static int rule_line_add_token(
                 SET_FLAG(rule_line->type, LINE_HAS_NAME, true);
 
         else if (IN_SET(token->type, TK_A_DEVLINK,
-                        TK_A_OWNER, TK_A_GROUP, TK_A_MODE,
+                        TK_A_OWNER, TK_A_SYSOWNER, TK_A_GROUP, TK_A_SYSGROUP, TK_A_MODE,
                         TK_A_OWNER_ID, TK_A_GROUP_ID, TK_A_MODE_ID))
                 SET_FLAG(rule_line->type, LINE_HAS_DEVLINK, true);
 
@@ -730,6 +733,7 @@ static int parse_token(
                 UdevRuleOperatorType op,
                 char *value,
                 bool is_case_insensitive,
+                bool sys_file,
                 const char *token_str) {
 
         ResolveNameTiming resolve_name_timing = LINE_GET_RULES(rule_line)->resolve_name_timing;
@@ -1044,7 +1048,9 @@ static int parse_token(
                         log_line_warning(rule_line, "Invalid value for OPTIONS key, ignoring: '%s'", value);
                         return 0;
                 }
-        } else if (streq(key, "OWNER")) {
+        } else if (streq(key, "OWNER") || streq(key, "SYSOWNER")) {
+                bool sys = streq(key, "SYSOWNER") || sys_file;
+
                 if (attr)
                         return log_line_invalid_attr(rule_line, key);
                 if (is_match || op == OP_REMOVE)
@@ -1059,7 +1065,7 @@ static int parse_token(
                      rule_get_substitution_type(value) == SUBST_TYPE_PLAIN)) {
                         uid_t uid = UID_INVALID;  /* avoid false maybe-uninitialized warning */
 
-                        r = rule_resolve_user(rule_line, value, &uid);
+                        r = rule_resolve_user(rule_line, value, sys, &uid);
                         if (r < 0)
                                 return r;
                         assert(uid_is_valid(uid));
@@ -1067,12 +1073,14 @@ static int parse_token(
                         r = rule_line_add_token(rule_line, TK_A_OWNER_ID, op, NULL, UID_TO_PTR(uid), /* is_case_insensitive= */ false, token_str);
                 } else if (resolve_name_timing != RESOLVE_NAME_NEVER) {
                         check_value_format_and_warn(rule_line, key, value, true);
-                        r = rule_line_add_token(rule_line, TK_A_OWNER, op, value, NULL, /* is_case_insensitive= */ false, token_str);
+                        r = rule_line_add_token(rule_line, sys ? TK_A_SYSOWNER : TK_A_OWNER, op, value, NULL, /* is_case_insensitive= */ false, token_str);
                 } else {
                         log_line_debug(rule_line, "User name resolution is disabled, ignoring %s=\"%s\".", key, value);
                         return 0;
                 }
-        } else if (streq(key, "GROUP")) {
+        } else if (streq(key, "GROUP") || streq(key, "SYSGROUP")) {
+                bool sys = streq(key, "SYSGROUP") || sys_file;
+
                 if (attr)
                         return log_line_invalid_attr(rule_line, key);
                 if (is_match || op == OP_REMOVE)
@@ -1087,7 +1095,7 @@ static int parse_token(
                      rule_get_substitution_type(value) == SUBST_TYPE_PLAIN)) {
                         gid_t gid = GID_INVALID;  /* avoid false maybe-uninitialized warning */
 
-                        r = rule_resolve_group(rule_line, value, &gid);
+                        r = rule_resolve_group(rule_line, value, sys, &gid);
                         if (r < 0)
                                 return r;
                         assert(gid_is_valid(gid));
@@ -1095,7 +1103,7 @@ static int parse_token(
                         r = rule_line_add_token(rule_line, TK_A_GROUP_ID, op, NULL, GID_TO_PTR(gid), /* is_case_insensitive= */ false, token_str);
                 } else if (resolve_name_timing != RESOLVE_NAME_NEVER) {
                         check_value_format_and_warn(rule_line, key, value, true);
-                        r = rule_line_add_token(rule_line, TK_A_GROUP, op, value, NULL, /* is_case_insensitive= */ false, token_str);
+                        r = rule_line_add_token(rule_line, sys ? TK_A_SYSGROUP : TK_A_GROUP, op, value, NULL, /* is_case_insensitive= */ false, token_str);
                 } else {
                         log_line_debug(rule_line, "Resolving group name is disabled, ignoring GROUP=\"%s\".", value);
                         return 0;
@@ -1445,7 +1453,7 @@ static int rule_add_line(UdevRuleFile *rule_file, const char *line, unsigned lin
 
                 char *token_str = rule_line->line_for_logging + (key - rule_line->line);
                 token_str[p - key] = '\0';
-                r = parse_token(rule_line, key, attr, op, value, is_case_insensitive, token_str);
+                r = parse_token(rule_line, key, attr, op, value, is_case_insensitive, rule_file->sys, token_str);
                 if (r < 0)
                         return r;
         }
@@ -1648,6 +1656,7 @@ int udev_rules_parse_file(UdevRules *rules, const ConfFile *c, bool extra_checks
         _cleanup_free_ char *name = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
+        bool sys;
 
         assert(rules);
         assert(c);
@@ -1674,12 +1683,15 @@ int udev_rules_parse_file(UdevRules *rules, const ConfFile *c, bool extra_checks
         if (!name)
                 return log_oom();
 
+        sys = !strncmp(c->original_path, UDEV_RULES_DIR "/", strlen(UDEV_RULES_DIR "/"));
+
         rule_file = new(UdevRuleFile, 1);
         if (!rule_file)
                 return log_oom();
 
         *rule_file = (UdevRuleFile) {
                 .filename = TAKE_PTR(name),
+                .sys = sys,
                 .rules = rules,
         };
 
@@ -2661,6 +2673,7 @@ static int udev_rule_apply_token_to_event(
 
                 return log_event_done(event, token);
         }
+        case TK_A_SYSOWNER:
         case TK_A_OWNER: {
                 char owner[UDEV_NAME_SIZE];
 
@@ -2674,7 +2687,7 @@ static int udev_rule_apply_token_to_event(
                         return true;
 
                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-                r = userdb_by_name(owner, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                r = userdb_by_name(owner, (token->type == TK_A_SYSOWNER) ? &USERDB_MATCH_ROOT_AND_SYSTEM : NULL,
                                    USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                                    &ur);
                 if (r < 0)
@@ -2687,6 +2700,7 @@ static int udev_rule_apply_token_to_event(
                 }
                 return true;
         }
+        case TK_A_SYSGROUP:
         case TK_A_GROUP: {
                 char group[UDEV_NAME_SIZE];
 
@@ -2700,7 +2714,7 @@ static int udev_rule_apply_token_to_event(
                         return true;
 
                 _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-                r = groupdb_by_name(group, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                r = groupdb_by_name(group, (token->type == TK_A_SYSGROUP) ? &USERDB_MATCH_ROOT_AND_SYSTEM : NULL,
                                     USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                                     &gr);
                 if (r < 0)
