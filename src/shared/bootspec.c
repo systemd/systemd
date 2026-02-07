@@ -89,6 +89,8 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->version);
         free(entry->machine_id);
         free(entry->architecture);
+        free(entry->os_id);
+        free(entry->os_image_id);
         strv_free(entry->options);
         boot_entry_addons_done(&entry->local_addons);
         free(entry->kernel);
@@ -791,9 +793,21 @@ static int boot_entry_load_unified(
                         return log_oom();
         }
 
-        if (os_id && os_version_id) {
-                tmp.id_old = strjoin(os_id, "-", os_version_id);
-                if (!tmp.id_old)
+        if (os_id) {
+                if (os_version_id) {
+                        tmp.id_old = strjoin(os_id, "-", os_version_id);
+                        if (!tmp.id_old)
+                                return log_oom();
+                }
+
+                tmp.os_id = strdup(os_id);
+                if (!tmp.os_id)
+                        return log_oom();
+        }
+
+        if (os_image_id) {
+                tmp.os_image_id = strdup(os_image_id);
+                if (!tmp.os_image_id)
                         return log_oom();
         }
 
@@ -1900,6 +1914,10 @@ int show_boot_entry(
                 printf("      version: %s\n", e->version);
         if (e->machine_id)
                 printf("   machine-id: %s\n", e->machine_id);
+        if (e->os_id && e->os_image_id)
+                printf("           os: %s (image: %s)\n", e->os_id, e->os_image_id);
+        else if (e->os_id || e->os_image_id)
+                printf("           os: %s\n", e->os_id ?: e->os_image_id);
         if (e->architecture)
                 printf(" architecture: %s\n", e->architecture);
         if (e->kernel)
