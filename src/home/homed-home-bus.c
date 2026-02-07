@@ -109,6 +109,7 @@ static int home_verify_polkit_async(
                         good_uid,
                         /* flags= */ 0,
                         &h->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
 }
 
@@ -196,6 +197,7 @@ int bus_home_method_activate(
                         h->uid,
                         /* flags= */ 0,
                         &h->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
