@@ -16,9 +16,11 @@
 #include "path-lookup.h"
 #include "pretty-print.h"
 #include "runtime-scope.h"
+#include "set.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "varlink-util.h"
 
 #define MAX_CONCURRENT_METRICS_SOCKETS 20
 #define TIMEOUT_USEC (30 * USEC_PER_SEC) /* 30 seconds */
@@ -28,7 +30,7 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO
 
 typedef struct Context {
         sd_event *event;
-        unsigned n_open_connections;
+        Set *links;
         sd_json_variant **metrics;  /* Collected metrics for sorting */
         size_t n_metrics;
 } Context;
@@ -90,23 +92,22 @@ static int metrics_on_query_reply(
         }
 
         if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
-                assert(context->n_open_connections > 0);
-                context->n_open_connections--;
+                assert_se(set_remove(context->links, link) == link);
+                link = sd_varlink_close_unref(link);
 
-                if (context->n_open_connections == 0)
+                if (set_isempty(context->links))
                         (void) sd_event_exit(context->event, EXIT_SUCCESS);
         }
 
         return 0;
 }
 
-static int metrics_call(Context *context, const char *path, sd_varlink **ret) {
+static int metrics_call(Context *context, const char *path) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
-        assert(path);
-        assert(ret);
         assert(context);
+        assert(path);
 
         r = sd_varlink_connect_address(&vl, path);
         if (r < 0)
@@ -130,23 +131,17 @@ static int metrics_call(Context *context, const char *path, sd_varlink **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to issue io.systemd.Metrics.List call: %m");
 
-        *ret = TAKE_PTR(vl);
+        if (set_ensure_put(&context->links, &varlink_hash_ops, vl) < 0)
+                return log_oom();
 
+        TAKE_PTR(vl);
         return 0;
-}
-
-static void sd_varlink_unref_many(sd_varlink **array, size_t n) {
-        assert(array);
-
-        FOREACH_ARRAY(v, array, n)
-                sd_varlink_unref(*v);
-
-        free(array);
 }
 
 static void context_done(Context *context) {
         assert(context);
 
+        set_free(context->links);
         sd_json_variant_unref_many(context->metrics, context->n_metrics);
         sd_event_unref(context->event);
 }
@@ -199,35 +194,26 @@ static int metrics_query(void) {
                 if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to open metrics directory %s: %m", metrics_path);
         } else {
-                size_t n_varlinks = MAX_CONCURRENT_METRICS_SOCKETS;
-                sd_varlink **varlinks = new0(sd_varlink *, n_varlinks);
-                if (!varlinks)
-                        return log_oom();
-
-                CLEANUP_ARRAY(varlinks, n_varlinks, sd_varlink_unref_many);
-
                 FOREACH_DIRENT(de, d,
                                return log_warning_errno(errno, "Failed to read %s: %m", metrics_path)) {
 
                         if (!IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN))
                                 continue;
 
+                        if (set_size(context.links) >= MAX_CONCURRENT_METRICS_SOCKETS) {
+                                log_warning("Too many concurrent metrics sockets, stopping iterating.");
+                                break;
+                        }
+
                         _cleanup_free_ char *p = path_join(metrics_path, de->d_name);
                         if (!p)
                                 return log_oom();
 
-                        r = metrics_call(&context, p, &varlinks[context.n_open_connections]);
-                        if (r < 0)
-                                continue;
-
-                        if (++context.n_open_connections >= MAX_CONCURRENT_METRICS_SOCKETS) {
-                                log_warning("Too many concurrent metrics sockets, stop iterating");
-                                break;
-                        }
+                        (void) metrics_call(&context, p);
                 }
         }
 
-        if (context.n_open_connections > 0) {
+        if (!set_isempty(context.links)) {
                 r = sd_event_loop(context.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
