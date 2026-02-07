@@ -8,14 +8,14 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Factory Reset Management
-Documentation=man:systemd-factory-reset.service(8)
+Description=Delete non-vendor content from the ESP and XBOOTLDR
+Documentation=man:systemd-factory-reset-esp.service(8)
 DefaultDependencies=no
-Before=sockets.target
+Conflicts=shutdown.target
+Before=factory-reset.target shutdown.target
+ConditionFirmware=uefi
 
-[Socket]
-ListenStream=/run/systemd/io.systemd.FactoryReset
-FileDescriptorName=varlink
-SocketMode=0666
-Accept=yes
-MaxConnectionsPerSource=16
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{LIBEXECDIR}}/systemd-factory-reset-esp

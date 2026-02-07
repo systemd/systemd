@@ -45,6 +45,8 @@ typedef struct BootEntry {
         char *version;
         char *machine_id;
         char *architecture;
+        char *os_id;
+        char *os_image_id;
         char **options;
         BootEntryAddons local_addons;
         const BootEntryAddons *global_addons; /* Backpointer into the BootConfig; we don't own this here */
