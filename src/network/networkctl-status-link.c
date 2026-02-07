@@ -14,6 +14,7 @@
 #include "bridge-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "json-util.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
@@ -39,88 +40,127 @@
 #include "strv.h"
 #include "time-util.h"
 #include "udev-util.h"
+#include "varlink-util.h"
 
-static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const LinkInfo *link) {
+typedef struct DHCPServerLeaseInfo {
+        int ifindex;
+        sd_json_variant *leases;
+} DHCPServerLeaseInfo;
+
+static void dhcp_server_lease_info_done(DHCPServerLeaseInfo *info) {
+        if (!info)
+                return;
+        sd_json_variant_unref(info->leases);
+}
+
+static const sd_json_dispatch_field dhcp_server_lease_info_dispatch_table[] = {
+        { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,    offsetof(DHCPServerLeaseInfo, ifindex), SD_JSON_MANDATORY|SD_JSON_RELAX },
+        { "Leases",         SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant, offsetof(DHCPServerLeaseInfo, leases),  0                               },
+        {},
+};
+
+typedef struct DHCPLeaseInfo {
+        sd_json_variant *client_id;
+        sd_json_variant *address;
+} DHCPLeaseInfo;
+
+static const sd_json_dispatch_field dhcp_lease_dispatch_table[] = {
+        { "ClientId", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_variant, offsetof(DHCPLeaseInfo, client_id), 0 },
+        { "Address",  SD_JSON_VARIANT_ARRAY, sd_json_dispatch_variant, offsetof(DHCPLeaseInfo, address),   0 },
+        {},
+};
+
+static int dump_dhcp_leases(Table *table, const char *prefix, sd_varlink *vl, const LinkInfo *link) {
         _cleanup_strv_free_ char **buf = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_json_variant *reply;
         int r;
 
         assert(table);
         assert(prefix);
-        assert(bus);
+        assert(vl);
         assert(link);
 
-        r = link_get_property(bus, link->ifindex, &error, &reply, "org.freedesktop.network1.DHCPServer", "Leases", "a(uayayayayt)");
-        if (r < 0) {
-                bool quiet = sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY);
-
-                log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING,
-                               r, "Failed to query link DHCP leases: %s", bus_error_message(&error, r));
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Network.GetDHCPServerLeases",
+                        &reply,
+                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex));
+        if (r < 0)
                 return 0;
+
+        sd_json_variant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, sd_json_variant_by_key(reply, "Leases")) {
+                _cleanup_(dhcp_server_lease_info_done) DHCPServerLeaseInfo info = {};
+
+                r = sd_json_dispatch(i, dhcp_server_lease_info_dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &info);
+                if (r < 0)
+                        return r;
+
+                if (info.ifindex != link->ifindex)
+                        continue;
+
+                sd_json_variant *lease;
+                JSON_VARIANT_ARRAY_FOREACH(lease, info.leases) {
+                        _cleanup_free_ char *id = NULL, *ip = NULL;
+                        _cleanup_free_ uint8_t *client_id_bytes = NULL, *address_bytes = NULL;
+                        size_t client_id_len = 0, address_len = 0;
+                        DHCPLeaseInfo lease_info = {};
+
+                        r = sd_json_dispatch(lease, dhcp_lease_dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &lease_info);
+                        if (r < 0)
+                                return r;
+
+                        /* Convert client ID JSON array to bytes */
+                        if (lease_info.client_id && sd_json_variant_is_array(lease_info.client_id)) {
+                                client_id_len = sd_json_variant_elements(lease_info.client_id);
+                                client_id_bytes = new(uint8_t, client_id_len);
+                                if (!client_id_bytes)
+                                        return log_oom();
+
+                                size_t idx = 0;
+                                sd_json_variant *elem;
+                                JSON_VARIANT_ARRAY_FOREACH(elem, lease_info.client_id)
+                                        client_id_bytes[idx++] = (uint8_t) sd_json_variant_unsigned(elem);
+                        }
+
+                        /* Convert address JSON array to bytes */
+                        if (lease_info.address && sd_json_variant_is_array(lease_info.address)) {
+                                address_len = sd_json_variant_elements(lease_info.address);
+                                address_bytes = new(uint8_t, address_len);
+                                if (!address_bytes)
+                                        return log_oom();
+
+                                size_t idx = 0;
+                                sd_json_variant *elem;
+                                JSON_VARIANT_ARRAY_FOREACH(elem, lease_info.address)
+                                        address_bytes[idx++] = (uint8_t) sd_json_variant_unsigned(elem);
+                        }
+
+                        if (client_id_bytes && client_id_len > 0) {
+                                r = sd_dhcp_client_id_to_string_from_raw(client_id_bytes, client_id_len, &id);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to convert client ID to string: %m");
+                                        continue;
+                                }
+                        }
+
+                        if (address_bytes && address_len == 4) {
+                                union in_addr_union addr;
+                                memcpy(&addr.in, address_bytes, 4);
+                                r = in_addr_to_string(AF_INET, &addr, &ip);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to convert address to string: %m");
+                                        continue;
+                                }
+                        }
+
+                        if (ip && id) {
+                                r = strv_extendf(&buf, "%s (to %s)", ip, id);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+                }
         }
-
-        r = sd_bus_message_enter_container(reply, 'a', "(uayayayayt)");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        while ((r = sd_bus_message_enter_container(reply, 'r', "uayayayayt")) > 0) {
-                _cleanup_free_ char *id = NULL, *ip = NULL;
-                const void *client_id, *addr, *gtw, *hwaddr;
-                size_t client_id_sz, sz;
-                uint64_t expiration;
-                uint32_t family;
-
-                r = sd_bus_message_read(reply, "u", &family);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read_array(reply, 'y', &client_id, &client_id_sz);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read_array(reply, 'y', &addr, &sz);
-                if (r < 0 || sz != 4)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read_array(reply, 'y', &gtw, &sz);
-                if (r < 0 || sz != 4)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read_array(reply, 'y', &hwaddr, &sz);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read_basic(reply, 't', &expiration);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_dhcp_client_id_to_string_from_raw(client_id, client_id_sz, &id);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = in_addr_to_string(family, addr, &ip);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = strv_extendf(&buf, "%s (to %s)", ip, id);
-                if (r < 0)
-                        return log_oom();
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-        }
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         if (strv_isempty(buf)) {
                 r = strv_extendf(&buf, "none");
@@ -919,7 +959,7 @@ static int link_status_one(
         if (r < 0)
                 return r;
 
-        r = dump_dhcp_leases(table, "Offered DHCP leases", bus, info);
+        r = dump_dhcp_leases(table, "Offered DHCP leases", vl, info);
         if (r < 0)
                 return r;
 
@@ -970,11 +1010,11 @@ int link_status(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (arg_all)
-                c = acquire_link_info(bus, rtnl, NULL, &links);
+                c = acquire_link_info(vl, rtnl, NULL, &links);
         else if (argc <= 1)
                 return system_status(rtnl, hwdb);
         else
-                c = acquire_link_info(bus, rtnl, argv + 1, &links);
+                c = acquire_link_info(vl, rtnl, argv + 1, &links);
         if (c < 0)
                 return c;
 
