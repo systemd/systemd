@@ -801,11 +801,18 @@ static DirectoryOwnership validate_directory_fd(
          * check if the directory is owned by the peer UID or by the foreign UID range (in the latter case
          * one of the parent directories must be owned by the peer though). */
 
-        struct stat st;
-        if (fstat(fd, &st) < 0)
-                return log_debug_errno(errno, "Failed to stat() directory fd: %m");
+        struct statx stx;
+        r = xstatx_full(fd,
+                        /* path= */ NULL,
+                        AT_EMPTY_PATH,
+                        /* mandatory_mask= */ STATX_TYPE|STATX_UID|STATX_MNT_ID|STATX_INO,
+                        /* optional_mask= */ 0,
+                        /* mandatory_attributes= */ STATX_ATTR_MOUNT_ROOT,
+                        &stx);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to statx() directory fd: %m");
 
-        r = stat_verify_directory(&st);
+        r = statx_verify_directory(&stx);
         if (r < 0)
                 return r;
 
@@ -813,8 +820,8 @@ static DirectoryOwnership validate_directory_fd(
         if (fl < 0)
                 return log_debug_errno(fl, "Directory file descriptor has unsafe flags set: %m");
 
-        if (st.st_uid == 0) {
-                *ret_current_owner_uid = st.st_uid;
+        if (stx.stx_uid == 0) {
+                *ret_current_owner_uid = stx.stx_uid;
                 if (peer_uid == 0) {
                         log_debug("Directory file descriptor points to root owned directory (%s), who is also the peer.", strna(path));
                         return DIRECTORY_IS_ROOT_PEER_OWNED;
@@ -822,9 +829,9 @@ static DirectoryOwnership validate_directory_fd(
                 log_debug("Directory file descriptor points to root owned directory (%s).", strna(path));
                 return DIRECTORY_IS_ROOT_OWNED;
         }
-        if (st.st_uid == peer_uid) {
+        if (stx.stx_uid == peer_uid) {
                 log_debug("Directory file descriptor points to peer owned directory (%s).", strna(path));
-                *ret_current_owner_uid = st.st_uid;
+                *ret_current_owner_uid = stx.stx_uid;
                 return DIRECTORY_IS_PEER_OWNED;
         }
 
@@ -835,17 +842,24 @@ static DirectoryOwnership validate_directory_fd(
         _cleanup_close_ int parent_fd = -EBADF;
         unsigned n_level;
         for (n_level = 0; n_level < 16; n_level++) {
+                /* Do not go above bind mounts */
+                if (FLAGS_SET(stx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
+                        log_debug("Directory is a mount point, not checking for parent's ownership.");
+                        *ret_current_owner_uid = stx.stx_uid;
+                        return DIRECTORY_IS_OTHERWISE_OWNED;
+                }
+
                 /* Stop iteration if we find a directory up the tree that is neither owned by the user, nor is from the foreign UID range */
-                if (!uid_is_foreign(st.st_uid) || !gid_is_foreign(st.st_gid)) {
+                if (!uid_is_foreign(stx.stx_uid) || !gid_is_foreign(stx.stx_gid)) {
                         log_debug("Directory file descriptor points to directory which itself or its parents is neither owned by foreign UID range nor by the user.");
-                        *ret_current_owner_uid = st.st_uid;
+                        *ret_current_owner_uid = stx.stx_uid;
                         return DIRECTORY_IS_OTHERWISE_OWNED;
                 }
 
                 /* If the peer is root, then it doesn't matter if we find a parent owned by root, let's shortcut things. */
                 if (peer_uid == 0) {
                         log_debug("Directory referenced by file descriptor is owned by foreign UID range, and peer is root.");
-                        *ret_current_owner_uid = st.st_uid;
+                        *ret_current_owner_uid = stx.stx_uid;
                         return DIRECTORY_IS_FOREIGN_OWNED;
                 }
 
@@ -854,29 +868,46 @@ static DirectoryOwnership validate_directory_fd(
                 if (new_parent_fd < 0)
                         return log_debug_errno(errno, "Failed to open parent directory of directory file descriptor: %m");
 
-                struct stat new_st;
-                if (fstat(new_parent_fd, &new_st) < 0)
-                        return log_debug_errno(errno, "Failed to stat parent directory of directory file descriptor: %m");
+                struct statx new_stx;
+                r = xstatx_full(new_parent_fd,
+                                /* path= */ NULL,
+                                AT_EMPTY_PATH,
+                                /* mandatory_mask= */ STATX_UID|STATX_MNT_ID|STATX_INO,
+                                /* optional_mask= */ 0,
+                                /* mandatory_attributes= */ STATX_ATTR_MOUNT_ROOT,
+                                &new_stx);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to statx() parent directory of directory file descriptor: %m");
 
                 /* Safety check to see if we hit the root dir */
-                if (stat_inode_same(&st, &new_st)) {
+                if (statx_inode_same(&stx, &new_stx)) {
                         log_debug("Directory file descriptor is owned by foreign UID range, but didn't find parent directory that is owned by peer among ancestors.");
-                        *ret_current_owner_uid = st.st_uid;
+                        *ret_current_owner_uid = stx.stx_uid;
                         return DIRECTORY_IS_OTHERWISE_OWNED;
                 }
 
-                if (new_st.st_uid == peer_uid) { /* Parent inode is owned by the peer. That's good! Everything's fine. */
+                if (stx.stx_mnt_id != new_stx.stx_mnt_id) {
+                        /* NB, this check is probably redundant, given we also check
+                         * STATX_ATTR_MOUNT_ROOT. The only reason we have it here is to provide extra safety
+                         * in case the mount tree is rearranged concurrently with our traversal, so that
+                         * STATX_ATTR_MOUNT_ROOT might be out of date. */
+                        log_debug("Won't cross mount boundaries, not checking for parent's ownership.");
+                        *ret_current_owner_uid = stx.stx_uid;
+                        return DIRECTORY_IS_OTHERWISE_OWNED;
+                }
+
+                if (new_stx.stx_uid == peer_uid) { /* Parent inode is owned by the peer. That's good! Everything's fine. */
                         log_debug("Directory file descriptor is owned by foreign UID range, and ancestor is owned by peer.");
-                        *ret_current_owner_uid = st.st_uid;
+                        *ret_current_owner_uid = stx.stx_uid;
                         return DIRECTORY_IS_FOREIGN_OWNED;
                 }
 
                 close_and_replace(parent_fd, new_parent_fd);
-                st = new_st;
+                stx = new_stx;
         }
 
         log_debug("Failed to find peer owned parent directory after %u levels, refusing.", n_level);
-        *ret_current_owner_uid = st.st_uid;
+        *ret_current_owner_uid = stx.stx_uid;
         return DIRECTORY_IS_OTHERWISE_OWNED;
 }
 
