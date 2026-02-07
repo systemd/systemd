@@ -164,7 +164,7 @@ static int metrics_output_sorted(Context *context) {
         }
 
         if (context->n_metrics == 0)
-                log_info("No reporting sockets found.");
+                log_info("No metrics collected.");
 
         return 0;
 }
@@ -213,7 +213,9 @@ static int metrics_query(void) {
                 }
         }
 
-        if (!set_isempty(context.links)) {
+        if (set_isempty(context.links))
+                log_info("No metrics sources found.");
+        else {
                 r = sd_event_loop(context.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
