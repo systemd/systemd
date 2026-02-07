@@ -45,6 +45,7 @@ int efi_get_variable_path(const char *variable, char **ret);
 int efi_set_variable(const char *variable, const void *value, size_t size) _nonnull_if_nonzero_(2, 3);
 int efi_set_variable_string(const char *variable, const char *value);
 
+bool set_efi_boot(bool b);
 bool is_efi_boot(void);
 bool is_efi_secure_boot(void);
 SecureBootMode efi_get_secure_boot_mode(void);
@@ -69,6 +70,10 @@ static inline int efi_set_variable(const char *variable, const void *value, size
 
 static inline int efi_set_variable_string(const char *variable, const char *p) {
         return -EOPNOTSUPP;
+}
+
+static inline bool set_efi_boot(bool b) {
+        return false;
 }
 
 static inline bool is_efi_boot(void) {
