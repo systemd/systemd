@@ -26,7 +26,9 @@ static SD_VARLINK_DEFINE_METHOD(
 
 static SD_VARLINK_DEFINE_METHOD(
                 CanRequestFactoryReset,
-                SD_VARLINK_DEFINE_OUTPUT(supported, SD_VARLINK_BOOL, 0));
+                SD_VARLINK_DEFINE_OUTPUT(supported, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The factory reset is capable of securely and irrevocably destroying the user's data"),
+                SD_VARLINK_DEFINE_OUTPUT(secure, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_FactoryReset,
