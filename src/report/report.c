@@ -27,6 +27,7 @@ static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 
 typedef struct Context {
+        sd_event *event;
         unsigned n_open_connections;
         sd_json_variant **metrics;  /* Collected metrics for sorting */
         size_t n_metrics;
@@ -93,18 +94,17 @@ static int metrics_on_query_reply(
                 context->n_open_connections--;
 
                 if (context->n_open_connections == 0)
-                        (void) sd_event_exit(ASSERT_PTR(sd_varlink_get_event(link)), EXIT_SUCCESS);
+                        (void) sd_event_exit(context->event, EXIT_SUCCESS);
         }
 
         return 0;
 }
 
-static int metrics_call(Context *context, const char *path, sd_event *event, sd_varlink **ret) {
+static int metrics_call(Context *context, const char *path, sd_varlink **ret) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
         assert(path);
-        assert(event);
         assert(ret);
         assert(context);
 
@@ -118,7 +118,7 @@ static int metrics_call(Context *context, const char *path, sd_event *event, sd_
         if (r < 0)
                 return log_error_errno(r, "Failed to set varlink timeout: %m");
 
-        r = sd_varlink_attach_event(vl, event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_attach_event(vl, context->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
@@ -148,6 +148,7 @@ static void context_done(Context *context) {
         assert(context);
 
         sd_json_variant_unref_many(context->metrics, context->n_metrics);
+        sd_event_unref(context->event);
 }
 
 static int metrics_output_sorted(Context *context) {
@@ -183,16 +184,15 @@ static int metrics_query(void) {
 
         log_debug("Looking for reports in %s/", metrics_path);
 
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        r = sd_event_default(&event);
+        _cleanup_(context_done) Context context = {};
+
+        r = sd_event_default(&context.event);
         if (r < 0)
                 return log_error_errno(r, "Failed to get event loop: %m");
 
-        r = sd_event_set_signal_exit(event, true);
+        r = sd_event_set_signal_exit(context.event, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
-
-        _cleanup_(context_done) Context context = {};
 
         _cleanup_closedir_ DIR *d = opendir(metrics_path);
         if (!d) {
@@ -216,7 +216,7 @@ static int metrics_query(void) {
                         if (!p)
                                 return log_oom();
 
-                        r = metrics_call(&context, p, event, &varlinks[context.n_open_connections]);
+                        r = metrics_call(&context, p, &varlinks[context.n_open_connections]);
                         if (r < 0)
                                 continue;
 
@@ -228,7 +228,7 @@ static int metrics_query(void) {
         }
 
         if (context.n_open_connections > 0) {
-                r = sd_event_loop(event);
+                r = sd_event_loop(context.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
         }
