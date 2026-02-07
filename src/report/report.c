@@ -99,7 +99,7 @@ static int metrics_on_query_reply(
         return 0;
 }
 
-static int metrics_call(const char *path, sd_event *event, sd_varlink **ret, Context *context) {
+static int metrics_call(Context *context, const char *path, sd_event *event, sd_varlink **ret) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
@@ -216,7 +216,7 @@ static int metrics_query(void) {
                         if (!p)
                                 return log_oom();
 
-                        r = metrics_call(p, event, &varlinks[context.n_open_connections], &context);
+                        r = metrics_call(&context, p, event, &varlinks[context.n_open_connections]);
                         if (r < 0)
                                 continue;
 
