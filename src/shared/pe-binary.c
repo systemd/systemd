@@ -12,6 +12,8 @@
 #include "string-table.h"
 #include "string-util.h"
 
+/* Note: none of these function change the file position of the provided fd, as they use pread() */
+
 bool pe_header_is_64bit(const PeHeader *h) {
         assert(h);
 

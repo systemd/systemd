@@ -75,6 +75,8 @@ int get_file_version(int fd, char **ret) {
         assert(fd >= 0);
         assert(ret);
 
+        /* Does not reposition file offset (as it uses mmap()) */
+
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat EFI binary: %m");
 

@@ -34,4 +34,4 @@ int boot_entry_token_ensure_at(
 
 int parse_boot_entry_token_type(const char *s, BootEntryTokenType *type, char **token);
 
-DECLARE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_token_type, BootEntryTokenType);
+DECLARE_STRING_TABLE_LOOKUP(boot_entry_token_type, BootEntryTokenType);
