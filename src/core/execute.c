@@ -61,6 +61,7 @@
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
+#include "unit.h"
 #include "utmp-wtmp.h"
 #include "vpick.h"
 
@@ -195,6 +196,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *pa
 bool exec_needs_network_namespace(const ExecContext *context) {
         assert(context);
 
+        // Keep in sync with check_network_namespace_compat()
         return context->private_network || context->network_namespace_path;
 }
 
@@ -205,6 +207,7 @@ static bool exec_needs_ephemeral(const ExecContext *context) {
 bool exec_needs_ipc_namespace(const ExecContext *context) {
         assert(context);
 
+        // Keep in sync with check_ipc_namespace_compat()
         return context->private_ipc || context->ipc_namespace_path;
 }
 
@@ -344,6 +347,117 @@ bool exec_needs_mount_namespace(
                                 return true;
 
         return false;
+}
+
+static void log_namespace_mismatch(
+                const Unit *u,
+                const Unit *other,
+                const char *ns_name,
+                const char *setting_name,
+                const char *value_self,
+                const char *value_other) {
+
+        log_unit_warning(u, "JoinsNamespaceOf=%s: %s namespace config mismatch between units: %s is '%s' vs '%s'.",
+                         other->id, ns_name, setting_name, value_self, value_other);
+}
+
+static void check_user_namespace_compat(
+                const ExecContext *self,
+                const ExecContext *other,
+                const Unit *u,
+                const Unit *other_unit) {
+
+        assert(self);
+        assert(other);
+
+        if (self->private_users != PRIVATE_USERS_NO)
+                log_unit_warning(u, "PrivateUsers=%s does not work fine with JoinsNamespaces", private_users_to_string(self->private_users));
+        if (other->private_users != PRIVATE_USERS_NO)
+                log_unit_warning(u, "PrivateUsers=%s does not work fine with JoinsNamespaces", private_users_to_string(other->private_users));
+
+        if (!streq_ptr(self->user_namespace_path, other->user_namespace_path))
+                log_namespace_mismatch(u, other_unit, "user", "UserNamespacePath",
+                                       strempty(self->user_namespace_path),
+                                       strempty(other->user_namespace_path));
+}
+
+static void check_net_namespace_compat(
+                const ExecContext *self,
+                const ExecContext *other,
+                const Unit *u,
+                const Unit *other_unit) {
+
+        assert(self);
+        assert(other);
+
+        if (self->private_network != other->private_network)
+                log_namespace_mismatch(u, other_unit, "network", "PrivateNetwork",
+                                       yes_no(self->private_network), yes_no(other->private_network));
+
+        if (!streq_ptr(self->network_namespace_path, other->network_namespace_path))
+                log_namespace_mismatch(u, other_unit, "network", "NetworkNamespacePath",
+                                       strempty(self->network_namespace_path),
+                                       strempty(other->network_namespace_path));
+}
+
+static void check_ipc_namespace_compat(
+                const ExecContext *self,
+                const ExecContext *other,
+                const Unit *u,
+                const Unit *other_unit) {
+
+        assert(self);
+        assert(other);
+
+        if (self->private_ipc != other->private_ipc)
+                log_namespace_mismatch(u, other_unit, "IPC", "PrivateIPC",
+                                       yes_no(self->private_ipc), yes_no(other->private_ipc));
+
+        if (!streq_ptr(self->ipc_namespace_path, other->ipc_namespace_path))
+                log_namespace_mismatch(u, other_unit, "IPC", "IPCNamespacePath",
+                                       strempty(self->ipc_namespace_path),
+                                       strempty(other->ipc_namespace_path));
+}
+
+static void check_tmp_namespace_compat(
+                const ExecContext *self,
+                const ExecContext *other,
+                const Unit *u,
+                const Unit *other_unit) {
+
+        assert(self);
+        assert(other);
+
+        if (self->private_tmp != other->private_tmp)
+                log_namespace_mismatch(u, other_unit, "tmp", "PrivateTmp",
+                                       private_tmp_to_string(self->private_tmp),
+                                       private_tmp_to_string(other->private_tmp));
+}
+
+void exec_context_check_joined_namespace_compat(
+                const ExecContext *self,
+                const ExecContext *other,
+                const Unit *u,
+                const Unit *other_unit) {
+
+        assert(self);
+        assert(other);
+        assert(u);
+        assert(other_unit);
+
+        JoinsNamespacesFlags flags = self->joins_namespaces;
+
+        if (FLAGS_SET(flags, JOINS_NAMESPACES_USER))
+                check_user_namespace_compat(self, other, u, other_unit);
+
+        if (FLAGS_SET(flags, JOINS_NAMESPACES_NET))
+                check_net_namespace_compat(self, other, u, other_unit);
+
+        if (FLAGS_SET(flags, JOINS_NAMESPACES_IPC))
+                check_ipc_namespace_compat(self, other, u, other_unit);
+
+        if (FLAGS_SET(flags, JOINS_NAMESPACES_TMP))
+                check_tmp_namespace_compat(self, other, u, other_unit);
 }
 
 const char* exec_get_private_notify_socket_path(const ExecContext *context, const ExecParameters *params, bool needs_sandboxing) {
@@ -638,6 +752,7 @@ void exec_context_init(ExecContext *c) {
                 .capability_bounding_set = CAP_MASK_ALL,
                 .restrict_namespaces = NAMESPACE_FLAGS_INITIAL,
                 .delegate_namespaces = NAMESPACE_FLAGS_INITIAL,
+                .joins_namespaces = JOINS_NAMESPACES_FLAGS_DEFAULT,
                 .log_level_max = -1,
 #if HAVE_SECCOMP
                 .syscall_errno = SECCOMP_ERROR_NUMBER_KILL,
@@ -2347,6 +2462,7 @@ static int exec_shared_runtime_allocate(ExecSharedRuntime **ret, const char *id)
                 .userns_storage_socket = EBADF_PAIR,
                 .netns_storage_socket = EBADF_PAIR,
                 .ipcns_storage_socket = EBADF_PAIR,
+                .mountns_storage_socket = EBADF_PAIR,
         };
 
         *ret = n;
@@ -2361,6 +2477,7 @@ static int exec_shared_runtime_add(
                 int userns_storage_socket[2],
                 int netns_storage_socket[2],
                 int ipcns_storage_socket[2],
+                int mountns_storage_socket[2],
                 ExecSharedRuntime **ret) {
 
         _cleanup_(exec_shared_runtime_freep) ExecSharedRuntime *rt = NULL;
@@ -2398,6 +2515,11 @@ static int exec_shared_runtime_add(
                 rt->ipcns_storage_socket[1] = TAKE_FD(ipcns_storage_socket[1]);
         }
 
+        if (mountns_storage_socket) {
+                rt->mountns_storage_socket[0] = TAKE_FD(mountns_storage_socket[0]);
+                rt->mountns_storage_socket[1] = TAKE_FD(mountns_storage_socket[1]);
+        }
+
         rt->manager = m;
 
         if (ret)
@@ -2414,20 +2536,27 @@ static int exec_shared_runtime_make(
                 ExecSharedRuntime **ret) {
 
         _cleanup_(namespace_cleanup_tmpdirp) char *tmp_dir = NULL, *var_tmp_dir = NULL;
-        _cleanup_close_pair_ int userns_storage_socket[2] = EBADF_PAIR, netns_storage_socket[2] = EBADF_PAIR, ipcns_storage_socket[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int userns_storage_socket[2] = EBADF_PAIR, netns_storage_socket[2] = EBADF_PAIR, ipcns_storage_socket[2] = EBADF_PAIR, mountns_storage_socket[2] = EBADF_PAIR;
         int r;
 
         assert(m);
         assert(c);
         assert(id);
 
+        bool needs_network_namespace = exec_needs_network_namespace(c) && FLAGS_SET(c->joins_namespaces, JOINS_NAMESPACES_NET);
+        bool needs_ipc_namespace = exec_needs_ipc_namespace(c) && FLAGS_SET(c->joins_namespaces, JOINS_NAMESPACES_IPC);
+        bool needs_tmp_namespace = c->private_tmp == PRIVATE_TMP_CONNECTED && FLAGS_SET(c->joins_namespaces, JOINS_NAMESPACES_TMP);
+        bool needs_user_namespace = c->user_namespace_path && FLAGS_SET(c->joins_namespaces, JOINS_NAMESPACES_USER);
+        bool needs_mount_namespace = exec_needs_mount_namespace(c, NULL, NULL) && FLAGS_SET(c->joins_namespaces, JOINS_NAMESPACES_MNT);
+
         /* It is not necessary to create ExecSharedRuntime object. */
-        if (!exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) && c->private_tmp != PRIVATE_TMP_CONNECTED) {
+        if (!needs_network_namespace && !needs_ipc_namespace && !needs_tmp_namespace &&
+            !needs_user_namespace && !needs_mount_namespace) {
                 *ret = NULL;
                 return 0;
         }
 
-        if (c->private_tmp == PRIVATE_TMP_CONNECTED &&
+        if (needs_tmp_namespace &&
             !(prefixed_path_strv_contains(c->inaccessible_paths, "/tmp") &&
               (prefixed_path_strv_contains(c->inaccessible_paths, "/var/tmp") ||
                prefixed_path_strv_contains(c->inaccessible_paths, "/var")))) {
@@ -2436,19 +2565,23 @@ static int exec_shared_runtime_make(
                         return r;
         }
 
-        if (c->user_namespace_path)
+        if (needs_user_namespace)
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, userns_storage_socket) < 0)
                         return -errno;
 
-        if (exec_needs_network_namespace(c))
+        if (needs_network_namespace)
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, netns_storage_socket) < 0)
                         return -errno;
 
-        if (exec_needs_ipc_namespace(c))
+        if (needs_ipc_namespace)
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ipcns_storage_socket) < 0)
                         return -errno;
 
-        r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, userns_storage_socket, netns_storage_socket, ipcns_storage_socket, ret);
+        if (needs_mount_namespace)
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, mountns_storage_socket) < 0)
+                        return -errno;
+
+        r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, userns_storage_socket, netns_storage_socket, ipcns_storage_socket, mountns_storage_socket, ret);
         if (r < 0)
                 return r;
 
@@ -2566,6 +2699,26 @@ int exec_shared_runtime_serialize(const Manager *m, FILE *f, FDSet *fds) {
                         fprintf(f, " ipcns-socket-1=%i", copy);
                 }
 
+                if (rt->mountns_storage_socket[0] >= 0) {
+                        int copy;
+
+                        copy = fdset_put_dup(fds, rt->mountns_storage_socket[0]);
+                        if (copy < 0)
+                                return copy;
+
+                        fprintf(f, " mountns-socket-0=%i", copy);
+                }
+
+                if (rt->mountns_storage_socket[1] >= 0) {
+                        int copy;
+
+                        copy = fdset_put_dup(fds, rt->mountns_storage_socket[1]);
+                        if (copy < 0)
+                                return copy;
+
+                        fprintf(f, " mountns-socket-1=%i", copy);
+                }
+
                 fputc('\n', f);
         }
 
@@ -2650,7 +2803,7 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
 int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
         _cleanup_free_ char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char *id = NULL;
-        int r, userns_fdpair[] = {-1, -1}, netns_fdpair[] = {-1, -1}, ipcns_fdpair[] = {-1, -1};
+        int r, mountns_fdpair[] = {-1, -1}, userns_fdpair[] = {-1, -1}, netns_fdpair[] = {-1, -1}, ipcns_fdpair[] = {-1, -1};
         const char *p, *v = ASSERT_PTR(value);
         size_t n;
 
@@ -2772,8 +2925,39 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                         return ipcns_fdpair[1];
         }
 
+        v = startswith(p, "mountns-socket-0=");
+        if (v) {
+                char *buf;
+
+                n = strcspn(v, " ");
+                buf = strndupa_safe(v, n);
+
+                mountns_fdpair[0] = deserialize_fd(fds, buf);
+                if (mountns_fdpair[0] < 0)
+                        return mountns_fdpair[0];
+                if (v[n] != ' ')
+                        goto finalize;
+                p = v + n + 1;
+        }
+
+        v = startswith(p, "mountns-socket-1=");
+        if (v) {
+                char *buf;
+
+                n = strcspn(v, " ");
+                buf = strndupa_safe(v, n);
+
+                mountns_fdpair[1] = deserialize_fd(fds, buf);
+                if (mountns_fdpair[1] < 0)
+                        return mountns_fdpair[1];
+                if (v[n] != ' ')
+                        goto finalize;
+                p = v + n + 1;
+        }
+
+
 finalize:
-        r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, userns_fdpair, netns_fdpair, ipcns_fdpair, NULL);
+        r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, userns_fdpair, netns_fdpair, ipcns_fdpair, mountns_fdpair, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add exec-runtime: %m");
         return 0;
@@ -2800,16 +2984,30 @@ int exec_runtime_make(
                 ExecSharedRuntime *shared,
                 DynamicCreds *creds,
                 ExecRuntime **ret) {
-        _cleanup_close_pair_ int ephemeral_storage_socket[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int ephemeral_storage_socket[2] = EBADF_PAIR,
+                                 netns_storage_socket[2] = EBADF_PAIR,
+                                 ipcns_storage_socket[2] = EBADF_PAIR,
+                                 userns_storage_socket[2] = EBADF_PAIR;
         _cleanup_free_ char *ephemeral = NULL;
         _cleanup_(exec_runtime_freep) ExecRuntime *rt = NULL;
+        bool needs_local_netns, needs_local_ipcns, needs_local_userns;
         int r;
 
         assert(unit);
         assert(context);
         assert(ret);
 
-        if (!shared && !creds && !exec_needs_ephemeral(context)) {
+        /* Determine which namespaces need local sockets for persistence.
+         * Local sockets are needed when the namespace is required but not shared via JoinsNamespaces=. */
+        needs_local_netns = exec_needs_network_namespace(context) &&
+                            !FLAGS_SET(context->joins_namespaces, JOINS_NAMESPACES_NET);
+        needs_local_ipcns = exec_needs_ipc_namespace(context) &&
+                            !FLAGS_SET(context->joins_namespaces, JOINS_NAMESPACES_IPC);
+        needs_local_userns = (context->private_users != PRIVATE_USERS_NO || context->user_namespace_path) &&
+                             !FLAGS_SET(context->joins_namespaces, JOINS_NAMESPACES_USER);
+
+        if (!shared && !creds && !exec_needs_ephemeral(context) &&
+            !needs_local_netns && !needs_local_ipcns && !needs_local_userns) {
                 *ret = NULL;
                 return 0;
         }
@@ -2827,6 +3025,19 @@ int exec_runtime_make(
                         return -errno;
         }
 
+        /* Create local namespace sockets for persistence when not sharing */
+        if (needs_local_netns)
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, netns_storage_socket) < 0)
+                        return -errno;
+
+        if (needs_local_ipcns)
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ipcns_storage_socket) < 0)
+                        return -errno;
+
+        if (needs_local_userns)
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, userns_storage_socket) < 0)
+                        return -errno;
+
         rt = new(ExecRuntime, 1);
         if (!rt)
                 return -ENOMEM;
@@ -2837,6 +3048,12 @@ int exec_runtime_make(
                 .ephemeral_copy = TAKE_PTR(ephemeral),
                 .ephemeral_storage_socket[0] = TAKE_FD(ephemeral_storage_socket[0]),
                 .ephemeral_storage_socket[1] = TAKE_FD(ephemeral_storage_socket[1]),
+                .netns_storage_socket[0] = TAKE_FD(netns_storage_socket[0]),
+                .netns_storage_socket[1] = TAKE_FD(netns_storage_socket[1]),
+                .ipcns_storage_socket[0] = TAKE_FD(ipcns_storage_socket[0]),
+                .ipcns_storage_socket[1] = TAKE_FD(ipcns_storage_socket[1]),
+                .userns_storage_socket[0] = TAKE_FD(userns_storage_socket[0]),
+                .userns_storage_socket[1] = TAKE_FD(userns_storage_socket[1]),
         };
 
         *ret = TAKE_PTR(rt);
@@ -2853,6 +3070,9 @@ ExecRuntime* exec_runtime_free(ExecRuntime *rt) {
         rt->ephemeral_copy = destroy_tree(rt->ephemeral_copy);
 
         safe_close_pair(rt->ephemeral_storage_socket);
+        safe_close_pair(rt->netns_storage_socket);
+        safe_close_pair(rt->ipcns_storage_socket);
+        safe_close_pair(rt->userns_storage_socket);
         return mfree(rt);
 }
 

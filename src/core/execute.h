@@ -133,6 +133,9 @@ typedef struct ExecSharedRuntime {
 
         /* Like netns_storage_socket, but the file descriptor is referring to the user namespace. */
         int userns_storage_socket[2];
+
+        /* Like netns_storage_socket, but the file descriptor is referring to the mount namespace. */
+        int mountns_storage_socket[2];
 } ExecSharedRuntime;
 
 typedef struct ExecRuntime {
@@ -146,6 +149,13 @@ typedef struct ExecRuntime {
          * the root directory or root image. The lock prevents tmpfiles from removing the ephemeral snapshot
          * until we're done using it. */
         int ephemeral_storage_socket[2];
+
+        /* Local namespace storage sockets for persistence when NOT sharing with other units.
+         * These are used when a namespace is needed but JoinsNamespaces= flag is not set for that type.
+         * This allows the namespace to persist across ExecReload without sharing with JoinsNamespaceOf= units. */
+        int netns_storage_socket[2];
+        int ipcns_storage_socket[2];
+        int userns_storage_socket[2];
 } ExecRuntime;
 
 static inline bool EXEC_DIRECTORY_TYPE_SHALL_CHOWN(ExecDirectoryType t) {
@@ -360,6 +370,8 @@ typedef struct ExecContext {
 
         unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
         unsigned long delegate_namespaces; /* The CLONE_NEWxyz flags delegated to the unit's processes */
+
+        JoinsNamespacesFlags joins_namespaces; /* Which shared namespaces the unit joins */
 
         Set *restrict_filesystems;
         bool restrict_filesystems_allow_list:1;
@@ -638,6 +650,8 @@ bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters
 bool exec_needs_network_namespace(const ExecContext *context);
 bool exec_needs_ipc_namespace(const ExecContext *context);
 bool exec_needs_pid_namespace(const ExecContext *context, const ExecParameters *params);
+
+void exec_context_check_joined_namespace_compat(const ExecContext *self, const ExecContext *other, const Unit *u, const Unit *other_unit);
 
 ProtectControlGroups exec_get_protect_control_groups(const ExecContext *context);
 bool exec_needs_cgroup_namespace(const ExecContext *context);
