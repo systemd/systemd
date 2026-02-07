@@ -385,7 +385,7 @@ static int shall_clamp(sd_device *device, unsigned *ret) {
                 return r;
         if (r > 0) {
                 property = "ID_BACKLIGHT_CLAMP";
-                default_percent = 5;
+                default_percent = 1;
         } else {
                 property = "ID_LEDS_CLAMP";
                 default_percent = 0;
