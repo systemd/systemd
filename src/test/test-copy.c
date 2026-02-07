@@ -560,7 +560,7 @@ TEST(copy_lock) {
         assert_se(mkdirat(tfd, "abc", 0755) >= 0);
         assert_se(write_string_file_at(tfd, "abc/def", "abc", WRITE_STRING_FILE_CREATE) >= 0);
 
-        assert_se((fd = copy_directory_at(tfd, "abc", tfd, "qed", COPY_LOCK_BSD)) >= 0);
+        assert_se((fd = copy_directory_at(tfd, "abc", tfd, "qed", UID_INVALID, GID_INVALID, COPY_LOCK_BSD)) >= 0);
         assert_se(faccessat(tfd, "qed", F_OK, 0) >= 0);
         assert_se(faccessat(tfd, "qed/def", F_OK, 0) >= 0);
         assert_se(xopenat_lock(tfd, "qed", 0, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
