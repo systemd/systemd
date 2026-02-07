@@ -1734,19 +1734,13 @@ static int mount_bpffs(const MountEntry *m, PidRef *pidref, int socket_fd, int e
         if (r < 0)
                 return log_debug_errno(r, "Failed to send bpffs fd to child: %m");
 
+        r = read_errno(errno_pipe);
+        if (r < 0)
+                return log_debug_errno(r, "bpffs helper exited with error: %m");
+
         r = pidref_wait_for_terminate_and_check("(sd-bpffs)", pidref, /* flags= */ 0);
         if (r < 0)
                 return r;
-
-        /* If something strange happened with the child, let's consider this fatal, too */
-        if (r != EXIT_SUCCESS) {
-                ssize_t ss = read(errno_pipe, &r, sizeof(r));
-                if (ss < 0)
-                        return log_debug_errno(errno, "Failed to read from the bpffs helper errno pipe: %m");
-                if (ss != sizeof(r))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from the bpffs helper errno pipe.");
-                return log_debug_errno(r, "bpffs helper exited with error: %m");
-        }
 
         pidref_done(pidref);
 

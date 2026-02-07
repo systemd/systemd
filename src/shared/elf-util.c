@@ -864,22 +864,14 @@ int parse_elf_object(
                         5,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_WAIT|FORK_REOPEN_LOG,
                         /* ret= */ NULL);
-        if (r < 0) {
-                if (r == -EPROTO) { /* We should have the errno from the child, but don't clobber original error */
-                        ssize_t k;
-                        int e;
-
-                        k = read(error_pipe[0], &e, sizeof(e));
-                        if (k < 0 && errno != EAGAIN) /* Pipe is non-blocking, EAGAIN means there's nothing */
-                                return -errno;
-                        if (k == sizeof(e))
-                                return e; /* propagate error sent to us from child */
-                        if (k != 0)
-                                return -EIO;
-                }
-
-                return r;
+        if (r == -EPROTO) {
+                r = read_errno(error_pipe[0]);
+                if (r < 0)
+                        return r;
+                return -EPROTO;
         }
+        if (r < 0)
+                return r;
         if (r == 0) {
                 /* We want to avoid loops, given this can be called from systemd-coredump */
                 if (fork_disable_dump) {

@@ -35,10 +35,8 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
 
         if (si->si_status == EXIT_SUCCESS)
                 r = 0;
-        else if (read(o->errno_fd, &r, sizeof(r)) != sizeof(r)) { /* Try to acquire error code for failed operation */
-                r = sd_bus_error_set(&error, SD_BUS_ERROR_FAILED, "Child failed.");
-                goto fail;
-        }
+        else
+                r = read_errno(o->errno_fd);
 
         if (o->done) {
                 /* A completion routine is set for this operation, call it. */
