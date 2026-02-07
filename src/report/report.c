@@ -22,7 +22,8 @@
 #include "time-util.h"
 #include "varlink-util.h"
 
-#define MAX_CONCURRENT_METRICS_SOCKETS 20
+#define METRICS_MAX 1024U
+#define METRICS_LINKS_MAX 128U
 #define TIMEOUT_USEC (30 * USEC_PER_SEC) /* 30 seconds */
 
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
@@ -32,7 +33,7 @@ typedef struct Context {
         sd_event *event;
         Set *links;
         sd_json_variant **metrics;  /* Collected metrics for sorting */
-        size_t n_metrics;
+        size_t n_metrics, n_skipped_metrics;
 } Context;
 
 static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) {
@@ -85,6 +86,11 @@ static int metrics_on_query_reply(
                 else
                         log_error("Varlink error: %s", error_id);
         } else {
+                if (context->n_metrics >= METRICS_MAX) {
+                        context->n_skipped_metrics++;
+                        return 0;
+                }
+
                 /* Collect metrics for later sorting */
                 if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
                         return log_oom();
@@ -189,6 +195,7 @@ static int metrics_query(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
 
+        size_t n_skipped_sources = 0;
         _cleanup_closedir_ DIR *d = opendir(metrics_path);
         if (!d) {
                 if (errno != ENOENT)
@@ -200,8 +207,8 @@ static int metrics_query(void) {
                         if (!IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN))
                                 continue;
 
-                        if (set_size(context.links) >= MAX_CONCURRENT_METRICS_SOCKETS) {
-                                log_warning("Too many concurrent metrics sockets, stopping iterating.");
+                        if (set_size(context.links) >= METRICS_LINKS_MAX) {
+                                n_skipped_sources++;
                                 break;
                         }
 
@@ -219,9 +226,22 @@ static int metrics_query(void) {
                 r = sd_event_loop(context.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
+
+                r = metrics_output_sorted(&context);
+                if (r < 0)
+                        return r;
+
+                if (n_skipped_sources > 0)
+                        log_warning("Too many metrics sources, only %u sources contacted, %zu sources skipped.", set_size(context.links), n_skipped_sources);
+                if (context.n_skipped_metrics > 0)
+                        log_warning("Too many metrics, only %zu metrics collected, %zu metrics skipped.", context.n_metrics, context.n_skipped_metrics);
+
+                if (n_skipped_sources > 0 ||
+                    context.n_skipped_metrics > 0)
+                        return EXIT_FAILURE;
         }
 
-        return metrics_output_sorted(&context);
+        return EXIT_SUCCESS;
 }
 
 static int help(void) {
