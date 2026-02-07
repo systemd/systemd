@@ -404,6 +404,17 @@
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>$XDG_SESSION_EXTRA_DEVICE_ACCESS</varname></term>
+
+        <listitem><para>Whether or not the session shall be granted additional hardware device access,
+        typically useful for graphical, remote session. If true, the session is granted access to all
+        devices tagged with <literal>xaccess</literal> in udev. Typically, rendering device nodes of
+        the GPU are tagged like this.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>If not set, <command>pam_systemd</command> will initialize
