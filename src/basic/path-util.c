@@ -1027,8 +1027,7 @@ int path_find_last_component(const char *path, bool accept_dot_dot, const char *
                 q = path + strlen(path) - 1;
 
         q = skip_slash_or_dot_backward(path, q);
-        if (!q || /* the root directory */
-            (q == path && *q == '.')) { /* path is "." or "./" */
+        if (!q) { /* the root directory, "." or "./" */
                 if (next)
                         *next = path;
                 if (ret)
