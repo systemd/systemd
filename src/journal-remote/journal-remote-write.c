@@ -92,6 +92,14 @@ int writer_write(Writer *w,
         assert(w);
         assert(!iovw_isempty(iovw));
 
+        /* Convert dual_timestamp to triple_timestamp. For remotely received entries,
+         * we don't have the original boottime, so set it to 0. */
+        triple_timestamp ts3 = {
+                .realtime = ts ? ts->realtime : 0,
+                .monotonic = ts ? ts->monotonic : 0,
+                .boottime = 0,
+        };
+
         if (journal_file_rotate_suggested(w->journal, 0, LOG_DEBUG)) {
                 log_info("%s: Journal header limits reached or header out-of-date, rotating",
                          w->journal->path);
@@ -105,7 +113,7 @@ int writer_write(Writer *w,
 
         r = journal_file_append_entry(
                         w->journal,
-                        ts,
+                        ts ? &ts3 : NULL,
                         boot_id,
                         iovw->iovec,
                         iovw->count,
@@ -133,7 +141,7 @@ int writer_write(Writer *w,
         log_debug("Retrying write.");
         r = journal_file_append_entry(
                         w->journal,
-                        ts,
+                        ts ? &ts3 : NULL,
                         boot_id,
                         iovw->iovec, iovw->count,
                         &w->seqnum,

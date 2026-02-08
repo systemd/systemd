@@ -27,7 +27,7 @@ static void mkdtemp_chdir_chattr(char *path) {
 
 static void test_non_empty_one(void) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
-        dual_timestamp ts;
+        triple_timestamp ts;
         JournalFile *f;
         struct iovec iovec;
         static const char test[] = "TEST1=1", test2[] = "TEST2=2";
@@ -43,7 +43,7 @@ static void test_non_empty_one(void) {
 
         assert_se(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS|JOURNAL_SEAL, 0666, UINT64_MAX, NULL, m, NULL, &f) == 0);
 
-        assert_se(dual_timestamp_now(&ts));
+        assert_se(triple_timestamp_now(&ts));
         assert_se(sd_id128_randomize(&fake_boot_id) == 0);
 
         iovec = IOVEC_MAKE_STRING(test);
@@ -179,7 +179,7 @@ TEST(empty) {
 #if HAVE_COMPRESSION
 static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
-        dual_timestamp ts;
+        triple_timestamp ts;
         JournalFile *f;
         struct iovec iovec;
         Object *o;
@@ -198,7 +198,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
 
         assert_se(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS|JOURNAL_SEAL, 0666, compress_threshold, NULL, m, NULL, &f) == 0);
 
-        dual_timestamp_now(&ts);
+        triple_timestamp_now(&ts);
 
         iovec = IOVEC_MAKE(data, data_size);
         assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL, NULL) == 0);
