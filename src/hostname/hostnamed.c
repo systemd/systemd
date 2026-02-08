@@ -46,6 +46,7 @@
 #include "utf8.h"
 #include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-log-control-api.h"
 #include "varlink-util.h"
 #include "virt.h"
 
@@ -1987,6 +1988,10 @@ static int connect_varlink(Context *c) {
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method calls: %m");
+
+        r = varlink_log_control_api_register(c->varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register LogControl methods: %m");
 
         r = sd_varlink_server_attach_event(c->varlink_server, c->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)

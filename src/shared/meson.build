@@ -226,6 +226,8 @@ shared_sources = files(
         'varlink-io.systemd.oom.c',
         'varlink-io.systemd.service.c',
         'varlink-io.systemd.sysext.c',
+        'varlink-log-control-api.c',
+        'varlink-org.freedesktop.LogControl.c',
         'varlink-serialize.c',
         'vconsole-util.c',
         'verb-log-control.c',
