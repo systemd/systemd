@@ -28,4 +28,6 @@ int varlink_server_new(
 
 int varlink_check_privileged_peer(sd_varlink *vl);
 
+int varlink_set_sentinel(sd_varlink *v, const char *error_id);
+
 extern const struct hash_ops varlink_hash_ops;
