@@ -46,6 +46,7 @@
 #include "networkd-state-file.h"
 #include "networkd-wifi.h"
 #include "networkd-wiphy.h"
+#include "networkd-wwan-bus.h"
 #include "ordered-set.h"
 #include "qdisc.h"
 #include "set.h"
@@ -96,6 +97,8 @@ static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *r
         if (m->product_uuid_requested)
                 (void) manager_request_product_uuid(m);
 
+        (void) manager_notify_mm_bus_connected(m);
+
         return 0;
 }
 
@@ -144,6 +147,8 @@ static int manager_connect_bus(Manager *m) {
                         match_prepare_for_sleep, NULL, m);
         if (r < 0)
                 log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
+
+        (void) manager_match_mm_signals(m);
 
         return 0;
 }
@@ -732,6 +737,9 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->route_table_numbers_by_name);
 
         set_free(m->rules);
+
+        sd_bus_slot_unref(m->slot_mm);
+        hashmap_free(m->modems_by_path);
 
         sd_netlink_unref(m->rtnl);
         sd_netlink_unref(m->genl);

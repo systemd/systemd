@@ -99,6 +99,10 @@ typedef struct Manager {
         Hashmap *wiphy_by_index;
         Hashmap *wiphy_by_name;
 
+        /* ModemManager support */
+        sd_bus_slot *slot_mm;
+        Hashmap *modems_by_path;
+
         /* For link speed meter */
         bool use_speed_meter;
         sd_event_source *speed_meter_event_source;
