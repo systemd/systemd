@@ -27,6 +27,7 @@
 #include "time-util.h"
 #include "varlink-io.systemd.oom.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-log-control-api.h"
 #include "varlink-util.h"
 
 typedef struct ManagedOOMMessage {
@@ -766,6 +767,10 @@ static int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.service.GetEnvironment",      varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        r = varlink_log_control_api_register(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register LogControl methods: %m");
 
         if (fd < 0)
                 r = sd_varlink_server_listen_address(s, VARLINK_PATH_MANAGED_OOM_USER, 0666);

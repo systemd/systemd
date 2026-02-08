@@ -18,6 +18,7 @@
 #include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-log-control-api.h"
 #include "varlink-manager.h"
 #include "varlink-metrics.h"
 #include "varlink-serialize.h"
@@ -394,6 +395,10 @@ int manager_setup_varlink_server(Manager *m) {
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink methods: %m");
+
+        r = varlink_log_control_api_register(s);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to register LogControl methods: %m");
 
         if (MANAGER_IS_SYSTEM(m)) {
                 r = sd_varlink_server_add_interface_many(

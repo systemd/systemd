@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "udev-manager.h"
 #include "udev-varlink.h"
 #include "varlink-io.systemd.Udev.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-org.freedesktop.LogControl.h"
 #include "varlink-util.h"
 
 #define UDEV_VARLINK_ADDRESS "/run/udev/io.systemd.Udev"
@@ -44,6 +47,104 @@ static int vl_method_set_log_level(sd_varlink *link, sd_json_variant *parameters
         log_debug("Received io.systemd.service.SetLogLevel(%i)", level);
         manager_set_log_level(userdata, level);
         return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_get_log_level(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_free_ char *t = NULL;
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = log_level_to_string_alloc(log_get_max_level(), &t);
+        if (r < 0)
+                return r;
+
+        log_debug("Received org.freedesktop.LogControl.GetLogLevel()");
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("level", t));
+}
+
+static int vl_method_set_log_level_string(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "level", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        const char *level_string = NULL;
+        int r, level;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &level_string);
+        if (r != 0)
+                return r;
+
+        level = log_level_from_string(level_string);
+        if (level < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "level");
+
+        log_info("Setting log level to %s.", level_string);
+        manager_set_log_level(userdata, level);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_get_log_target(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        log_debug("Received org.freedesktop.LogControl.GetLogTarget()");
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("target", log_target_to_string(log_get_target())));
+}
+
+static int vl_method_set_log_target(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "target", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        const char *target_string = NULL;
+        LogTarget target;
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &target_string);
+        if (r != 0)
+                return r;
+
+        target = log_target_from_string(target_string);
+        if (target < 0)
+                return sd_varlink_error_invalid_parameter_name(link, "target");
+
+        log_info("Setting log target to %s.", log_target_to_string(target));
+        log_set_target_and_open(target);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_get_syslog_identifier(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        log_debug("Received org.freedesktop.LogControl.GetSyslogIdentifier()");
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("identifier", program_invocation_short_name));
 }
 
 static int vl_method_set_trace(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -197,23 +298,29 @@ int manager_start_varlink_server(Manager *manager, int fd) {
         r = sd_varlink_server_add_interface_many(
                         v,
                         &vl_interface_io_systemd_service,
-                        &vl_interface_io_systemd_Udev);
+                        &vl_interface_io_systemd_Udev,
+                        &vl_interface_org_freedesktop_LogControl);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Varlink interface: %m");
 
         r = sd_varlink_server_bind_method_many(
                         v,
-                        "io.systemd.service.Ping",           varlink_method_ping,
-                        "io.systemd.service.Reload",         vl_method_reload,
-                        "io.systemd.service.SetLogLevel",    vl_method_set_log_level,
-                        "io.systemd.service.GetEnvironment", varlink_method_get_environment,
-                        "io.systemd.Udev.SetTrace",          vl_method_set_trace,
-                        "io.systemd.Udev.SetChildrenMax",    vl_method_set_children_max,
-                        "io.systemd.Udev.SetEnvironment",    vl_method_set_environment,
-                        "io.systemd.Udev.Revert",            vl_method_revert,
-                        "io.systemd.Udev.StartExecQueue",    vl_method_start_stop_exec_queue,
-                        "io.systemd.Udev.StopExecQueue",     vl_method_start_stop_exec_queue,
-                        "io.systemd.Udev.Exit",              vl_method_exit);
+                        "io.systemd.service.Ping",                        varlink_method_ping,
+                        "io.systemd.service.Reload",                      vl_method_reload,
+                        "io.systemd.service.SetLogLevel",                 vl_method_set_log_level,
+                        "io.systemd.service.GetEnvironment",              varlink_method_get_environment,
+                        "io.systemd.Udev.SetTrace",                       vl_method_set_trace,
+                        "io.systemd.Udev.SetChildrenMax",                 vl_method_set_children_max,
+                        "io.systemd.Udev.SetEnvironment",                 vl_method_set_environment,
+                        "io.systemd.Udev.Revert",                         vl_method_revert,
+                        "io.systemd.Udev.StartExecQueue",                 vl_method_start_stop_exec_queue,
+                        "io.systemd.Udev.StopExecQueue",                  vl_method_start_stop_exec_queue,
+                        "io.systemd.Udev.Exit",                           vl_method_exit,
+                        "org.freedesktop.LogControl.GetLogLevel",         vl_method_get_log_level,
+                        "org.freedesktop.LogControl.SetLogLevel",         vl_method_set_log_level_string,
+                        "org.freedesktop.LogControl.GetLogTarget",        vl_method_get_log_target,
+                        "org.freedesktop.LogControl.SetLogTarget",        vl_method_set_log_target,
+                        "org.freedesktop.LogControl.GetSyslogIdentifier", vl_method_get_syslog_identifier);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 

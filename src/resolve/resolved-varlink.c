@@ -31,6 +31,7 @@
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-log-control-api.h"
 #include "varlink-util.h"
 
 typedef struct LookupParameters {
@@ -1522,6 +1523,10 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.DumpDNSConfiguration", vl_method_dump_dns_configuration);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        r = varlink_log_control_api_register(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register LogControl methods: %m");
 
         r = sd_varlink_server_bind_disconnect(s, vl_on_disconnect);
         if (r < 0)
