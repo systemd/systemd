@@ -959,12 +959,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
                 return r;
 
         /* Register the userns in the BPF map with an empty allowlist */
-        r = userns_restrict_put_by_fd(
-                        c->bpf,
-                        userns_fd,
-                        /* replace= */ true,
-                        /* mount_fds= */ NULL,
-                        /* n_mount_fds= */ 0);
+        r = userns_restrict_put_by_fd(c->bpf, userns_fd);
         if (r < 0)
                 goto fail;
 
@@ -1174,12 +1169,7 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
                 return log_debug_errno(r, "Failed to update userns registry: %m");
 
         /* Register the userns in the BPF map with an empty allowlist */
-        r = userns_restrict_put_by_fd(
-                        c->bpf,
-                        userns_fd,
-                        /* replace= */ true,
-                        /* mount_fds= */ NULL,
-                        /* n_mount_fds= */ 0);
+        r = userns_restrict_put_by_fd(c->bpf, userns_fd);
         if (r < 0)
                 goto fail;
 
@@ -1301,34 +1291,9 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
                         return r;
         }
 
-        /* Pin the mount fd */
-        r = sd_pid_notifyf_with_fds(
-                        /* pid= */ 0,
-                        /* unset_environment= */ false,
-                        &mount_fd, 1,
-                        "FDSTORE=1\n"
-                        "FDNAME=userns-" INO_FMT "\n", userns_st.st_ino);
-        if (r < 0)
-                return r;
-
-        /* Add this mount to the user namespace's BPF map allowlist entry. */
-        r = userns_restrict_put_by_fd(
-                        c->bpf,
-                        userns_fd,
-                        /* replace= */ false,
-                        &mount_fd,
-                        1);
-        if (r < 0)
-                return r;
-
-        if (DEBUG_LOGGING) {
-                if (userns_info->size > 0)
-                        log_debug("Granting access to mount %i to user namespace " INO_FMT " ('%s' @ UID " UID_FMT ")",
-                                  mnt_id, userns_st.st_ino, userns_info->name, userns_info->start_uid);
-                else
-                        log_debug("Granting access to mount %i to user namespace " INO_FMT " ('%s')",
-                                  mnt_id, userns_st.st_ino, userns_info->name);
-        }
+        /* The mount allowlist was dropped from the BPF-LSM so this method doesn't do anything anymore. We
+         * keep the validation code intact to keep backwards compat, even though the method doesn't actually
+         * do anything anymore. */
 
         return sd_varlink_replyb(link, SD_JSON_BUILD_EMPTY_OBJECT);
 }
