@@ -75,6 +75,7 @@ void manager_parse_config_file(Manager *m) {
                 { "OOM", "SwapUsedLimit",                    config_parse_permyriad, 0, &m->swap_used_limit_permyriad          },
                 { "OOM", "DefaultMemoryPressureLimit",       config_parse_loadavg,   0, &m->default_mem_pressure_limit         },
                 { "OOM", "DefaultMemoryPressureDurationSec", config_parse_duration,  0, &m->default_mem_pressure_duration_usec },
+                { "OOM", "PrekillHookTimeoutSec",            config_parse_sec,       0, &m->prekill_timeout                    },
                 {}
         };
 
