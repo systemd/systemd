@@ -11,6 +11,7 @@ typedef enum ImageType {
         IMAGE_SUBVOLUME,
         IMAGE_RAW,
         IMAGE_BLOCK,
+        IMAGE_MSTACK,
         _IMAGE_TYPE_MAX,
         _IMAGE_TYPE_INVALID = -EINVAL,
 } ImageType;

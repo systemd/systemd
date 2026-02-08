@@ -54,6 +54,7 @@ REQUIREMENTS:
                                per-instance hidepid=/subset= options
                      ≥ 5.9 for close_range()
                      ≥ 5.10 for STATX_MNT_ID and MS_NOSYMFOLLOW mount option
+                     ≥ 6.13 for FSCONFIG_SET_FD support for overlayfs layers
 
         ⛔ Kernel versions below 5.10 ("minimum baseline") are not supported at all,
            and are missing required functionality as listed above.

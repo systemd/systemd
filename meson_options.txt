@@ -565,3 +565,6 @@ option('vmlinux-h-path', type : 'string', value : '',
 
 option('default-mountfsd-trusted-directories', type : 'boolean', value: false,
        description : 'controls whether mountfsd should apply a relaxed policy on DDIs in system DDI directories')
+
+option('default-oci-registry', type : 'string', value : 'docker.io',
+       description : 'Default OCI registry name')

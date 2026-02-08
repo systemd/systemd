@@ -18,6 +18,7 @@ executables += [
                 'dbus' : true,
                 'sources' : files(
                         'importd.c',
+                        'oci-util.c',
                 ),
                 'extract' : files(
                         'import-common.c',
@@ -30,12 +31,14 @@ executables += [
                 'name' : 'systemd-pull',
                 'public' : true,
                 'sources' : files(
+                        'curl-util.c',
+                        'oci-util.c',
                         'pull.c',
+                        'pull-common.c',
+                        'pull-job.c',
+                        'pull-oci.c',
                         'pull-raw.c',
                         'pull-tar.c',
-                        'pull-job.c',
-                        'pull-common.c',
-                        'curl-util.c',
                 ),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps + [
@@ -76,7 +79,7 @@ executables += [
         executable_template + {
                 'name' : 'importctl',
                 'public' : true,
-                'sources' : files('importctl.c'),
+                'sources' : files('importctl.c', 'oci-util.c'),
         },
         generator_template + {
                 'name' : 'systemd-import-generator',
@@ -92,7 +95,10 @@ executables += [
                 'dependencies' : common_deps,
                 'type' : 'manual',
         },
-
+        test_template + {
+                'sources' : files('test-oci-util.c', 'oci-util.c'),
+                'dependencies' : common_deps,
+        },
 ]
 
 install_data('org.freedesktop.import1.conf',
@@ -108,3 +114,28 @@ install_data('org.freedesktop.import1.policy',
 install_data('import-pubring.pgp',
              install_dir : libexecdir)
 # TODO: shouldn't this be in pkgdatadir?
+
+ocireg_files = [
+        'registry.docker.io.ocireg',
+        'registry.fedora.ocireg',
+]
+ocireg_symlinks = [
+        [ 'default.ocireg',              'registry.' + get_option('default-oci-registry')  + '.ocireg' ],
+        [ 'image.alpine.ocireg',         'registry.docker.io.ocireg'                                   ],
+        [ 'image.archlinux.ocireg',      'registry.docker.io.ocireg'                                   ],
+        [ 'image.debian.ocireg',         'registry.docker.io.ocireg'                                   ],
+        [ 'image.fedora-minimal.ocireg', 'registry.fedora.ocireg'                                      ],
+        [ 'image.fedora.ocireg',         'registry.fedora.ocireg'                                      ],
+        [ 'image.ubuntu.ocireg',         'registry.docker.io.ocireg'                                   ],
+]
+
+foreach file : ocireg_files
+        install_data('ocireg' / file,
+                     install_dir : libexecdir / 'ocireg')
+endforeach
+
+foreach tuple: ocireg_symlinks
+        install_symlink(tuple[0],
+                        pointing_to : tuple[1],
+                        install_dir : libexecdir / 'ocireg')
+endforeach
