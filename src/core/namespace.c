@@ -2845,7 +2845,6 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .mode = MOUNT_BIND,
                         .read_only = true,
                         .source_const = p->creds_path,
-                        .ignore = true,
                 };
         }
 

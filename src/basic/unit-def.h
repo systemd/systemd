@@ -132,6 +132,7 @@ typedef enum ServiceState {
         SERVICE_RUNNING,
         SERVICE_EXITED,                 /* Nothing is running anymore, but RemainAfterExit is true hence this is OK */
         SERVICE_REFRESH_EXTENSIONS,     /* Refreshing extensions for a reload request */
+        SERVICE_REFRESH_CREDENTIALS,    /* ditto, but for credentials */
         SERVICE_RELOAD,                 /* Reloading via ExecReload= */
         SERVICE_RELOAD_SIGNAL,          /* Reloading via SIGHUP requested */
         SERVICE_RELOAD_NOTIFY,          /* Waiting for READY=1 after RELOADING=1 notify */

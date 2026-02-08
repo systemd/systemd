@@ -1172,6 +1172,56 @@ static int bus_append_import_credential(sd_bus_message *m, const char *field, co
         return 1;
 }
 
+static int bus_append_refresh_on_reload(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        r = sd_bus_message_open_container(m, 'r', "sv");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_basic(m, 's', field);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'v', "a(bs)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "(bs)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        bool invert = *eq == '~';
+
+        for (const char *p = eq + invert;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        return parse_log_error(r, field, eq);
+                if (r == 0)
+                        break;
+
+                r = sd_bus_message_append(m, "(bs)", invert, word);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_log_extra_fields(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
@@ -2665,6 +2715,7 @@ static const BusProperty service_properties[] = {
         { "SuccessExitStatus",                     bus_append_exit_status                        },
         { "OpenFile",                              bus_append_open_file                          },
         { "ReloadSignal",                          bus_append_signal_from_string                 },
+        { "RefreshOnReload",                       bus_append_refresh_on_reload                  },
         {}
 };
 

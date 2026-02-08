@@ -105,6 +105,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_quota);
 CONFIG_PARSER_PROTOTYPE(config_parse_set_credential);
 CONFIG_PARSER_PROTOTYPE(config_parse_load_credential);
 CONFIG_PARSER_PROTOTYPE(config_parse_import_credential);
+CONFIG_PARSER_PROTOTYPE(config_parse_service_refresh_on_reload);
 CONFIG_PARSER_PROTOTYPE(config_parse_set_status);
 CONFIG_PARSER_PROTOTYPE(config_parse_namespace_path_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_temporary_filesystems);
