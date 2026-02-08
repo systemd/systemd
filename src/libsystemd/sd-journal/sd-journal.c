@@ -2756,6 +2756,37 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret_monotoni
         return 0;
 }
 
+_public_ int sd_journal_get_boottime_usec(sd_journal *j, uint64_t *ret) {
+        JournalFile *f;
+        Object *o;
+        int r;
+
+        assert_return(j, -EINVAL);
+        assert_return(!journal_origin_changed(j), -ECHILD);
+
+        f = j->current_file;
+        if (!f)
+                return -EADDRNOTAVAIL;
+        if (f->current_offset <= 0)
+                return -EADDRNOTAVAIL;
+
+        if (!JOURNAL_HEADER_BOOTTIME(f->header))
+                return -ENODATA;
+
+        r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
+        if (r < 0)
+                return r;
+
+        uint64_t t = le64toh(o->entry.boottime);
+        if (!VALID_MONOTONIC(t))
+                return -EBADMSG;
+
+        if (ret)
+                *ret = t;
+
+        return 0;
+}
+
 _public_ int sd_journal_get_seqnum(
                 sd_journal *j,
                 uint64_t *ret_seqnum,

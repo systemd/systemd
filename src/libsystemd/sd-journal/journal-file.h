@@ -10,6 +10,7 @@
 #include "journal-def.h"
 #include "mmap-cache.h"
 #include "sparse-endian.h"
+#include "time-util.h"
 
 typedef struct JournalMetrics {
         /* For all these: UINT64_MAX means "pick automatically", and 0 means "no limit enforced" */
@@ -203,6 +204,9 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_COMPACT(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
 
+#define JOURNAL_HEADER_BOOTTIME(h) \
+        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_BOOTTIME)
+
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 int journal_file_pin_object(JournalFile *f, Object *o);
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
@@ -264,7 +268,7 @@ uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret_object, uint64_t *ret_offset);
 int journal_file_append_entry(
                 JournalFile *f,
-                const dual_timestamp *ts,
+                const triple_timestamp *ts,
                 const sd_id128_t *boot_id,
                 const struct iovec iovec[],
                 size_t n_iovec,

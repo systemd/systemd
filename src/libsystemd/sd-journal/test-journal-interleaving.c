@@ -25,7 +25,7 @@
 /* This program tests skipping around in a multi-file journal. */
 
 static bool arg_keep = false;
-static dual_timestamp previous_ts = {};
+static triple_timestamp previous_ts = {};
 
 static JournalFile* test_open_internal(const char *name, JournalFileFlags flags) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
@@ -66,17 +66,20 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(char*, test_done);
 
 static void append_number(JournalFile *f, unsigned n, const sd_id128_t *boot_id, uint64_t *seqnum, uint64_t *ret_offset) {
         _cleanup_free_ char *p = NULL, *q = NULL, *s = NULL;
-        dual_timestamp ts;
+        triple_timestamp ts;
         struct iovec iovec[3];
         size_t n_iov = 0;
 
-        dual_timestamp_now(&ts);
+        triple_timestamp_now(&ts);
 
         if (ts.monotonic <= previous_ts.monotonic)
                 ts.monotonic = previous_ts.monotonic + 1;
 
         if (ts.realtime <= previous_ts.realtime)
                 ts.realtime = previous_ts.realtime + 1;
+
+        if (ts.boottime <= previous_ts.boottime)
+                ts.boottime = previous_ts.boottime + 1;
 
         previous_ts = ts;
 
@@ -96,13 +99,14 @@ static void append_number(JournalFile *f, unsigned n, const sd_id128_t *boot_id,
 
 static void append_unreferenced_data(JournalFile *f, const sd_id128_t *boot_id) {
         _cleanup_free_ char *q = NULL;
-        dual_timestamp ts;
+        triple_timestamp ts;
         struct iovec iovec;
 
         assert(boot_id);
 
         ts.monotonic = usec_sub_unsigned(previous_ts.monotonic, 10);
         ts.realtime = usec_sub_unsigned(previous_ts.realtime, 10);
+        ts.boottime = usec_sub_unsigned(previous_ts.boottime, 10);
 
         ASSERT_NOT_NULL((q = strjoin("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id))));
         iovec = IOVEC_MAKE_STRING(q);
@@ -883,7 +887,7 @@ typedef struct TestEntry {
         uint64_t seqnum;
         sd_id128_t seqnum_id;
         sd_id128_t boot_id;
-        dual_timestamp ts;
+        triple_timestamp ts;
         unsigned number;
         unsigned data;
 } TestEntry;
@@ -1096,7 +1100,7 @@ static void append_test_entry_full(
                 uint64_t *seqnum,
                 sd_id128_t *seqnum_id,
                 const sd_id128_t *boot_id,
-                const dual_timestamp *ts,
+                const triple_timestamp *ts,
                 unsigned *number,
                 unsigned data,
                 bool expect_rotate) {
@@ -1175,7 +1179,7 @@ static void append_test_entry(
                 uint64_t *seqnum,
                 sd_id128_t *seqnum_id,
                 const sd_id128_t *boot_id,
-                const dual_timestamp *ts,
+                const triple_timestamp *ts,
                 unsigned *number,
                 unsigned data) {
 
@@ -1210,8 +1214,8 @@ TEST(seek_time) {
         ASSERT_OK(sd_id128_randomize(&seqnum_id));
         ASSERT_OK(sd_id128_randomize(&boot_id));
 
-        dual_timestamp base, ts;
-        dual_timestamp_now(&base);
+        triple_timestamp base, ts;
+        triple_timestamp_now(&base);
 
         unsigned n = 0;
 
@@ -1220,60 +1224,73 @@ TEST(seek_time) {
 
         ts.realtime += 10;
         ts.monotonic += 10;
+        ts.boottime += 10;
         append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
 
         ts.realtime += 10;
         ts.monotonic += 10;
+        ts.boottime += 10;
         append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
 
         /* realtime goes to backward */
         ts.realtime -= 100;
         ts.monotonic += 10;
+        ts.boottime += 10;
         append_test_entry_full(&f, m, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200, /* expect_rotate= */ true);
 
         ts.realtime += 10;
         ts.monotonic += 10;
+        ts.boottime += 10;
         append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
 
         ts.realtime += 10;
         ts.monotonic += 10;
+        ts.boottime += 10;
         append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
 
         /* realtime goes to forward */
         ts.realtime += 100;
         ts.monotonic += 10;
+        ts.boottime += 10;
         append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
 
         ts.realtime += 10;
         ts.monotonic += 10;
+        ts.boottime += 10;
         append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
 
         ts.realtime += 10;
         ts.monotonic += 10;
+        ts.boottime += 10;
         append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
 
         /* reboot */
         ASSERT_OK(sd_id128_randomize(&boot_id));
         ts.realtime += 10;
         ts.monotonic -= 1000;
+        ts.boottime += 10;
         append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
 
         ts.realtime += 10;
         ts.monotonic += 10;
+        ts.boottime += 10;
         append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
 
         ts.realtime += 10;
         ts.monotonic += 10;
+        ts.boottime += 10;
         append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
 
         ts.realtime += 10;
         ts.monotonic += 10;
+        ts.boottime += 10;
         append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 200);
 
         /* reboot */
         ASSERT_OK(sd_id128_randomize(&boot_id));
         ts.realtime += 10;
         ts.monotonic -= 2000;
+        ts.boottime += 10;
         append_test_entry(f, &entries, &n_entries, &seqnum, &seqnum_id, &boot_id, &ts, &n, 100);
 
         journal_file_offline_close(f);

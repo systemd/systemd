@@ -356,6 +356,15 @@ finish:
         return written_chars;
 }
 
+static int output_timestamp_boottime(FILE *f, usec_t boottime) {
+        assert(f);
+
+        if (!VALID_MONOTONIC(boottime))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "No valid boottime timestamp available, skipping showing journal entry.");
+
+        return fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC"]", boottime / USEC_PER_SEC, boottime % USEC_PER_SEC);
+}
+
 static int output_timestamp_realtime(
                 FILE *f,
                 OutputMode mode,
@@ -540,7 +549,7 @@ static int output_short(
         _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL,
                 *message = NULL, *priority = NULL, *transport = NULL,
                 *config_file = NULL, *unit = NULL, *user_unit = NULL, *documentation_url = NULL,
-                *realtime = NULL, *monotonic = NULL;
+                *realtime = NULL, *monotonic = NULL, *source_boottime = NULL;
         size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0,
                 priority_len = 0, transport_len = 0, config_file_len = 0,
                 unit_len = 0, user_unit_len = 0, documentation_url_len = 0;
@@ -563,6 +572,7 @@ static int output_short(
                 PARSE_FIELD_VEC_ENTRY("DOCUMENTATION=",               &documentation_url, &documentation_url_len),
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=",  &realtime,          NULL                  ),
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic,         NULL                  ),
+                PARSE_FIELD_VEC_ENTRY("_SOURCE_BOOTTIME_TIMESTAMP=",  &source_boottime,   NULL                  ),
         };
         size_t highlight_shifted[] = {highlight ? highlight[0] : 0, highlight ? highlight[1] : 0};
 
@@ -611,6 +621,25 @@ static int output_short(
         if (IN_SET(mode, OUTPUT_SHORT_MONOTONIC, OUTPUT_SHORT_DELTA)) {
                 parse_display_timestamp(j, realtime, monotonic, &display_ts, &boot_id);
                 r = output_timestamp_monotonic(f, mode, &display_ts, &boot_id, previous_display_ts, previous_boot_id);
+        } else if (mode == OUTPUT_SHORT_BOOTTIME) {
+                usec_t boottime;
+
+                /* First try the native boottime stored in the entry object */
+                r = sd_journal_get_boottime_usec(j, &boottime);
+                if (r == -ENODATA) {
+                        /* Fall back to _SOURCE_BOOTTIME_TIMESTAMP field for older journal files.
+                         * Note: _SOURCE_MONOTONIC_TIMESTAMP actually contains CLOCK_BOOTTIME despite the name. */
+                        if (source_boottime && safe_atou64(source_boottime, &boottime) >= 0 && VALID_MONOTONIC(boottime))
+                                r = 0;
+                        else if (monotonic && safe_atou64(monotonic, &boottime) >= 0 && VALID_MONOTONIC(boottime))
+                                r = 0;
+                        else
+                                r = -ENODATA;
+                }
+                if (r >= 0)
+                        r = output_timestamp_boottime(f, boottime);
+                else
+                        r = log_debug_errno(r, "No boottime timestamp available, skipping showing journal entry.");
         } else {
                 usec_t usec;
                 parse_display_realtime(j, realtime, monotonic, &usec);
