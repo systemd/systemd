@@ -18,3 +18,5 @@ int varlink_unit_queue_job_one(
                 sd_bus_error *reterr_bus_error);
 
 int varlink_error_no_such_unit(sd_varlink *v, const char *name);
+
+int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
