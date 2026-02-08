@@ -1085,3 +1085,8 @@ global:
         sd_event_get_exit_on_idle;
         sd_varlink_is_connected;
 } LIBSYSTEMD_258;
+
+LIBSYSTEMD_261 {
+global:
+        sd_journal_get_boottime_usec;
+} LIBSYSTEMD_259;

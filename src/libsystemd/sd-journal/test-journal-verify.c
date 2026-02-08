@@ -107,9 +107,9 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
         for (size_t n = 0; n < N_ENTRIES; n++) {
                 _cleanup_free_ char *test = NULL;
                 struct iovec iovec;
-                struct dual_timestamp ts;
+                struct triple_timestamp ts;
 
-                dual_timestamp_now(&ts);
+                triple_timestamp_now(&ts);
                 assert_se(asprintf(&test, "RANDOM=%li", random() % RANDOM_RANGE));
                 iovec = IOVEC_MAKE_STRING(test);
                 assert_se(journal_file_append_entry(

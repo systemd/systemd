@@ -939,7 +939,7 @@ static void manager_write_to_journal(
                 uid_t uid,
                 const struct iovec *iovec,
                 size_t n,
-                const dual_timestamp *ts,
+                const triple_timestamp *ts,
                 int priority) {
 
         bool vacuumed = false;
@@ -1185,10 +1185,10 @@ static void manager_dispatch_message_real(
         /* Get the closest, linearized time we have for this log event from the event loop. (Note that we do
          * not use the source time, and not even the time the event was originally seen, but instead simply
          * the time we started processing it, as we want strictly linear ordering in what we write out.) */
-        struct dual_timestamp ts;
-        event_dual_timestamp_now(m->event, &ts);
+        struct triple_timestamp ts;
+        event_triple_timestamp_now(m->event, &ts);
 
-        (void) manager_forward_socket(m, iovec, n, &ts, priority);
+        (void) manager_forward_socket(m, iovec, n, (const dual_timestamp*) &ts, priority);
 
         manager_write_to_journal(m, journal_uid, iovec, n, &ts, priority);
 }

@@ -19,12 +19,12 @@
 
 static int journal_append_message(JournalFile *mj, const char *message) {
         struct iovec iovec;
-        struct dual_timestamp ts;
+        struct triple_timestamp ts;
 
         assert(mj);
         assert(message);
 
-        dual_timestamp_now(&ts);
+        triple_timestamp_now(&ts);
         iovec = IOVEC_MAKE_STRING(message);
         return journal_file_append_entry(
                                 mj,
