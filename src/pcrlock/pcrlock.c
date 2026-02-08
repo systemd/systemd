@@ -5404,6 +5404,7 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
         int r;
 
         assert(link);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
