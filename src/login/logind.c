@@ -1198,7 +1198,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         else
                 log_info("Config file reloaded.");
 
-        (void) sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
+        (void) notify_reload_ready(r);
         return 0;
 }
 

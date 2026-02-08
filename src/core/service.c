@@ -4834,9 +4834,31 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                         log_unit_warning_errno(UNIT(s), r, "Failed to parse MONOTONIC_USEC= field in notification message, ignoring: %s", e);
         }
 
-        /* Interpret READY=/STOPPING=/RELOADING=. STOPPING= wins over the others, and READY= over RELOADING= */
+        /* Interpret READY=/STOPPING=/RELOADING=. STOPPING= wins over the others, and READY= over RELOADING=.
+         * RELOADING=-1 must be sent with either READY=1 or STOPPING=1, otherwise it will be ignored. */
+
+        enum {
+                RELOAD_UNSET     = 0,
+                RELOAD_INITIATED = 1,
+                RELOAD_ERROR     = -1,
+        } reload_status = RELOAD_UNSET;
+
+        const char *reloading = strv_find_startswith(tags, "RELOADING=");
+        if (reloading) {
+                int v;
+
+                r = safe_atoi(reloading, &v);
+                if (r < 0 || !IN_SET(v, RELOAD_INITIATED, RELOAD_ERROR))
+                        log_unit_warning(UNIT(s), "Invalid RELOADING= notification, ignoring: %s", reloading);
+                else
+                        reload_status = v;
+        }
+
         if (strv_contains(tags, "STOPPING=1")) {
                 s->notify_state = NOTIFY_STOPPING;
+
+                if (s->state == SERVICE_RELOAD_NOTIFY && reload_status == RELOAD_ERROR)
+                        s->reload_result = SERVICE_FAILURE_RESOURCES;
 
                 if (IN_SET(s->state, SERVICE_RUNNING, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_REFRESH_EXTENSIONS))
                         service_enter_stop_by_notify(s);
@@ -4850,14 +4872,14 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
 
         if (strv_contains(tags, "READY=1")) {
 
-                if (s->notify_state == NOTIFY_RELOADING)
+                if (s->notify_state == NOTIFY_RELOADING || reload_status == RELOAD_INITIATED)
                         s->notify_state = NOTIFY_RELOAD_READY;
                 else
                         s->notify_state = NOTIFY_READY;
 
                 /* Combined RELOADING=1 and READY=1? Then this is indication that the service started and
                  * immediately finished reloading. */
-                if (strv_contains(tags, "RELOADING=1")) {
+                if (reload_status == RELOAD_INITIATED) {
                         if (s->state == SERVICE_RELOAD_SIGNAL &&
                             monotonic_usec != USEC_INFINITY &&
                             monotonic_usec >= s->reload_begin_usec)
@@ -4882,10 +4904,17 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                         service_enter_start_post(s);
 
                 /* Sending READY=1 while we are reloading informs us that the reloading is complete. */
-                if (s->state == SERVICE_RELOAD_NOTIFY)
-                        service_enter_reload_post(s);
+                if (s->state == SERVICE_RELOAD_NOTIFY) {
+                        if (reload_status == RELOAD_ERROR)
+                                service_reload_finish(s, SERVICE_FAILURE_RESOURCES);
+                        else
+                                service_enter_reload_post(s);
+                }
 
-        } else if (strv_contains(tags, "RELOADING=1")) {
+                return;
+        }
+
+        if (reload_status == RELOAD_INITIATED) {
 
                 s->notify_state = NOTIFY_RELOADING;
 

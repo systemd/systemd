@@ -1586,9 +1586,7 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
 
         assert(!m->pending_reload_message_dbus);
         assert(!m->pending_reload_message_vl);
-        r = sd_bus_message_new_method_return(message, &m->pending_reload_message_dbus);
-        if (r < 0)
-                return r;
+        m->pending_reload_message_dbus = sd_bus_message_ref(message);
 
         m->objective = MANAGER_RELOAD;
 

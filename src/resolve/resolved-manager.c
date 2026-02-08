@@ -647,7 +647,7 @@ static void manager_set_defaults(Manager *m) {
 static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         Link *l;
-        int r;
+        int r, ret = 0;
 
         (void) notify_reloading();
 
@@ -664,22 +664,22 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 
         r = dns_trust_anchor_load(&m->trust_anchor);
         if (r < 0)
-                return sd_event_exit(sd_event_source_get_event(s), r);
+                goto fail_fatal;
 
         r = manager_parse_config_file(m);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse configuration file on reload, ignoring: %m");
+                RET_GATHER(ret, log_warning_errno(r, "Failed to parse configuration file on reload, ignoring: %m"));
         else
                 log_info("Config file reloaded.");
 
-        (void) dnssd_load(m);
-        (void) manager_load_delegates(m);
+        RET_GATHER(ret, dnssd_load(m));
+        RET_GATHER(ret, manager_load_delegates(m));
 
         /* The default scope configuration is influenced by the manager's configuration (modes, etc.), so
          * recreate it on reload. */
         r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
-                return sd_event_exit(sd_event_source_get_event(s), r);
+                goto fail_fatal;
 
         /* A link's unicast scope may also be influenced by the manager's configuration. I.e., DNSSEC= and DNSOverTLS=
          * from the manager will be used if not explicitly configured on the link. Free the scopes here so that
@@ -691,7 +691,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
          * into account any changes (e.g.: enable/disable DNSSEC). */
         r = on_network_event(/* source= */ NULL, -EBADF, /* revents= */ 0, m);
         if (r < 0)
-                log_warning_errno(r, "Failed to update network information on reload, ignoring: %m");
+                RET_GATHER(ret, log_warning_errno(r, "Failed to update network information on reload, ignoring: %m"));
 
         /* We have new configuration, which means potentially new servers, so close all connections and drop
          * all caches, so that we can start fresh. */
@@ -701,10 +701,14 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 
         r = manager_dns_stub_start(m);
         if (r < 0)
-                return sd_event_exit(sd_event_source_get_event(s), r);
+                goto fail_fatal;
 
-        (void) sd_notify(/* unset_environment= */ false, NOTIFY_READY_MESSAGE);
+        (void) notify_reload_ready(ret);
         return 0;
+
+fail_fatal:
+        (void) notify_reload_resultf(r, NOTIFY_STOPPING_MESSAGE);
+        return sd_event_exit(sd_event_source_get_event(s), r);
 }
 
 int manager_new(Manager **ret) {
