@@ -1,0 +1,6 @@
+[Match]
+Kind=port
+NetdevName=eni99np1
+
+[Port]
+SplitCount=2

@@ -1,0 +1,7 @@
+[Match]
+Kind=param
+Handle=netdevsim/netdevsim99
+Name=max_macs
+
+[Param]
+Value=64

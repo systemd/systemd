@@ -1,0 +1,6 @@
+[Match]
+Kind=dev
+Handle=netdevsim/netdevsim99
+
+[Dev]
+EswitchMode=switchdev
