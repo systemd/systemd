@@ -70,7 +70,8 @@ foreach tuple : manpages
         if have
                 file = files(tuple[0] + '.xml')
                 source_xml_files += file
-                if tuple[0].startswith('org.freedesktop.')
+                # LogControl is a varlink interface, not a D-Bus one
+                if tuple[0].startswith('org.freedesktop.') and tuple[0] != 'org.freedesktop.LogControl'
                         dbus_docs += file
                 endif
 
