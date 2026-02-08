@@ -28,6 +28,10 @@
     various daemons that are part of the
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> suite.</para>
 
+    <para>Note that an equivalent Varlink interface,
+    <interfacename>org.freedesktop.LogControl</interfacename>, is also available for services using Varlink
+    instead of D-Bus.</para>
+
     <para>It is assumed that those settings are global for the whole program, so a fixed object path is
     used. The interface should always be available under the path
     <filename>/org/freedesktop/LogControl1</filename>.</para>
@@ -145,6 +149,7 @@ node /org/freedesktop/LogControl1 {
       <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry project="man-pages"><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.LogControl</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 </refentry>
