@@ -20,6 +20,9 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
+#define CONTAINER_UID_MIN (CONTAINER_UID_BASE_MIN)
+#define CONTAINER_UID_MAX (CONTAINER_UID_BASE_MAX + 0xFFFFU)
+
 #ifndef bpf_core_cast
 /* bpf_rdonly_cast() was introduced in libbpf commit 688879f together with
  * the definition of a bpf_core_cast macro. So use that one to avoid
@@ -45,18 +48,11 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
 /* kernel currently enforces a maximum usernamespace nesting depth of 32, see create_user_ns() in the kernel sources */
 #define USER_NAMESPACE_DEPTH_MAX 32U
 
-struct mnt_id_map {
+struct {
         __uint(type, BPF_MAP_TYPE_HASH);
         __uint(max_entries, 1);        /* placeholder, configured otherwise by nsresourced */
-        __type(key, int);
-        __type(value, int);
-};
-
-struct {
-        __uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
-        __uint(max_entries, 1);        /* placeholder, configured otherwise by nsresourced */
         __type(key, unsigned);         /* userns inode */
-        __array(values, struct mnt_id_map);
+        __type(value, unsigned);       /* unused */
 } userns_mnt_id_hash SEC(".maps");
 
 struct {
@@ -68,11 +64,28 @@ static inline struct mount *real_mount(struct vfsmount *mnt) {
         return container_of(mnt, struct mount, mnt);
 }
 
-static int validate_inode_on_mount(struct inode *inode, struct vfsmount *v) {
+static inline bool uid_is_dynamic(uid_t uid) {
+        return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
+}
+
+static inline bool uid_is_container(uid_t uid) {
+        return CONTAINER_UID_MIN <= uid && uid <= CONTAINER_UID_MAX;
+}
+
+static inline bool uid_is_transient(uid_t uid) {
+        return uid_is_dynamic(uid) || uid_is_container(uid);
+}
+
+static int validate_inode_on_mount(
+                struct inode *inode,
+                struct vfsmount *v,
+                uid_t uid,
+                gid_t gid) {
+
         struct user_namespace *mount_userns, *task_userns, *p;
         unsigned task_userns_inode;
         struct task_struct *task;
-        void *mnt_id_map;
+        void *value;
         struct mount *m;
         int mnt_id;
 
@@ -104,17 +117,12 @@ static int validate_inode_on_mount(struct inode *inode, struct vfsmount *v) {
         /* This is a mount foreign to our task's user namespace, let's consult our allow list */
         task_userns_inode = task_userns->ns.inum;
 
-        mnt_id_map = bpf_map_lookup_elem(&userns_mnt_id_hash, &task_userns_inode);
-        if (!mnt_id_map) /* No rules installed for this userns? Then say yes, too! */
+        value = bpf_map_lookup_elem(&userns_mnt_id_hash, &task_userns_inode);
+        if (!value) /* No rules installed for this userns? Then say yes, too! */
                 return 0;
 
-        mnt_id = m->mnt_id;
-
-        /* Otherwise, say yes if the mount ID is allowlisted */
-        if (bpf_map_lookup_elem(mnt_id_map, &mnt_id))
-                return 0;
-
-        return -EPERM;
+        /* Refuse if the UID/GID are within the transient UID ranges, otherwise allow. */
+        return uid_is_transient(uid) || uid_is_transient((uid_t) gid) ? -EPERM : 0;
 }
 
 static int validate_path(const struct path *path, int ret) {
@@ -127,12 +135,21 @@ static int validate_path(const struct path *path, int ret) {
         inode = path->dentry->d_inode;
         v = path->mnt;
 
-        return validate_inode_on_mount(inode, v);
+        return validate_inode_on_mount(inode, v, inode->i_uid.val, inode->i_gid.val);
 }
 
 SEC("lsm/path_chown")
-int BPF_PROG(userns_restrict_path_chown, struct path *path, void* uid, void *gid, int ret) {
-        return validate_path(path, ret);
+int BPF_PROG(userns_restrict_path_chown, struct path *path, unsigned long long uid, unsigned long long gid, int ret) {
+        struct inode *inode;
+        struct vfsmount *v;
+
+        if (ret != 0) /* propagate earlier error */
+                return ret;
+
+        inode = path->dentry->d_inode;
+        v = path->mnt;
+
+        return validate_inode_on_mount(inode, v, (uid_t) uid, (gid_t) gid);
 }
 
 SEC("lsm/path_mkdir")
@@ -160,15 +177,15 @@ int BPF_PROG(userns_restrict_path_link, struct dentry *old_dentry, const struct 
 SEC("kprobe/retire_userns_sysctls")
 int BPF_KPROBE(userns_restrict_retire_userns_sysctls, struct user_namespace *userns) {
         unsigned inode;
-        void *mnt_id_map;
+        void *value;
 
         /* Inform userspace that a user namespace just went away. I wish there was a nicer way to hook into
          * user namespaces being deleted than using kprobes, but couldn't find any. */
         userns = bpf_rdonly_cast(userns, bpf_core_type_id_kernel(struct user_namespace));
         inode = userns->ns.inum;
 
-        mnt_id_map = bpf_map_lookup_elem(&userns_mnt_id_hash, &inode);
-        if (!mnt_id_map) /* No rules installed for this userns? Then send no notification. */
+        value = bpf_map_lookup_elem(&userns_mnt_id_hash, &inode);
+        if (!value) /* No rules installed for this userns? Then send no notification. */
                 return 0;
 
         bpf_ringbuf_output(&userns_ringbuf, &inode, sizeof(inode), 0);
