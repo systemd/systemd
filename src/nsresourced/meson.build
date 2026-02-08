@@ -17,14 +17,10 @@ systemd_nsresourced_extract_sources = files(
 systemd_nsresourcework_sources = files(
         'nsresourcework.c'
 )
-test_userns_restrict_sources = files(
-        'test-userns-restrict.c'
-)
 
 if conf.get('HAVE_VMLINUX_H') == 1
         systemd_nsresourced_sources += userns_restrict_skel_h
         systemd_nsresourcework_sources += userns_restrict_skel_h
-        test_userns_restrict_sources += userns_restrict_skel_h
 endif
 
 executables += [
@@ -38,11 +34,6 @@ executables += [
                 'name' : 'systemd-nsresourcework',
                 'sources' : systemd_nsresourcework_sources,
                 'dependencies' : threads,
-                'objects' : ['systemd-nsresourced'],
-        },
-        test_template + {
-                'sources' : test_userns_restrict_sources,
-                'conditions' : ['HAVE_VMLINUX_H'],
                 'objects' : ['systemd-nsresourced'],
         },
 ]
