@@ -4,6 +4,7 @@
 
 #include "sd-bus.h"
 #include "sd-journal.h"
+#include "sd-varlink.h"
 
 #include "af-list.h"
 #include "bus-error.h"
@@ -33,6 +34,7 @@
 #include "output-mode.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "percent-util.h"
 #include "pretty-print.h"
@@ -52,6 +54,7 @@
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "utf8.h"
+#include "varlink-util.h"
 
 static OutputFlags get_output_flags(void) {
         return
@@ -2544,6 +2547,36 @@ static int show_system_status(sd_bus *bus) {
         return 0;
 }
 
+static int manager_acquire_varlink_address(char **ret) {
+        assert(ret);
+        assert(arg_transport == BUS_TRANSPORT_LOCAL);
+
+        return runtime_directory_generic(arg_runtime_scope, "systemd/io.systemd.Manager", ret);
+}
+
+static int show_manager_varlink_json(void) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        sd_json_variant *reply = NULL;
+        _cleanup_free_ char *address = NULL;
+        int r;
+
+        r = manager_acquire_varlink_address(&address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire manager Varlink address: %m");
+
+        r = sd_varlink_connect_address(&vl, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to manager Varlink at '%s': %m", address);
+
+        r = varlink_call_and_log(vl, "io.systemd.Manager.Describe", NULL, &reply);
+        if (r < 0)
+                return r;
+
+        pager_open(arg_pager_flags);
+
+        return sd_json_variant_dump(reply, output_mode_to_json_format_flags(arg_output), stdout, NULL);
+}
+
 int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         bool new_line = false, ellipsized = false;
         SystemctlShowMode show_mode;
@@ -2560,6 +2593,14 @@ int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "'help' command expects one or more unit names.\n"
                                        "(Alternatively, help for systemctl itself may be shown with --help)");
+
+        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES && argc <= 1 && !arg_states && !arg_types &&
+            OUTPUT_MODE_IS_JSON(arg_output) &&
+            arg_transport == BUS_TRANSPORT_LOCAL &&
+            IN_SET(arg_runtime_scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER) &&
+            strv_isempty(arg_properties) &&
+            !FLAGS_SET(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE))
+                return show_manager_varlink_json();
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
