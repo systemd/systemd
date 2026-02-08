@@ -10,6 +10,7 @@
 #include "journal-def.h"
 #include "mmap-cache.h"
 #include "sparse-endian.h"
+#include "time-util.h"
 
 typedef struct JournalMetrics {
         /* For all these: UINT64_MAX means "pick automatically", and 0 means "no limit enforced" */
@@ -203,6 +204,9 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_COMPACT(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
 
+#define JOURNAL_HEADER_BOOTTIME(h) \
+        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_BOOTTIME)
+
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 int journal_file_pin_object(JournalFile *f, Object *o);
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
@@ -210,17 +214,37 @@ int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t of
 int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset);
 int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset);
 
-static inline uint64_t journal_file_entry_item_object_offset(JournalFile *f, Object *o, size_t i) {
+static inline const uint8_t* journal_file_entry_items_start(JournalFile *f, Object *o) {
         assert(f);
         assert(o);
-        return JOURNAL_HEADER_COMPACT(f->header) ? le32toh(o->entry.items.compact[i].object_offset) :
-                                                   le64toh(o->entry.items.regular[i].object_offset);
+        /* For old files without BOOTTIME, items start where the boottime field is */
+        return JOURNAL_HEADER_BOOTTIME(f->header) ? (const uint8_t*) &o->entry.items :
+                                                    (const uint8_t*) &o->entry.boottime;
+}
+
+static inline uint64_t journal_file_entry_item_object_offset(JournalFile *f, Object *o, size_t i) {
+        const uint8_t *p = journal_file_entry_items_start(f, o);
+        if (JOURNAL_HEADER_COMPACT(f->header)) {
+                le32_t v;
+                memcpy(&v, p + i * sizeof_field(Object, entry.items.compact[0]), sizeof(v));
+                return le32toh(v);
+        } else {
+                le64_t v;
+                memcpy(&v, p + i * sizeof_field(Object, entry.items.regular[0]), sizeof(v));
+                return le64toh(v);
+        }
 }
 
 static inline size_t journal_file_entry_item_size(JournalFile *f) {
         assert(f);
         return JOURNAL_HEADER_COMPACT(f->header) ? sizeof_field(Object, entry.items.compact[0]) :
                                                    sizeof_field(Object, entry.items.regular[0]);
+}
+
+static inline size_t journal_file_entry_header_size(JournalFile *f) {
+        assert(f);
+        return JOURNAL_HEADER_BOOTTIME(f->header) ? offsetof(Object, entry.items) :
+                                                    offsetof(Object, entry.items) - sizeof(le64_t);
 }
 
 uint64_t journal_file_entry_n_items(JournalFile *f, Object *o) _pure_;
@@ -264,7 +288,7 @@ uint64_t journal_file_hash_table_n_items(Object *o) _pure_;
 int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret_object, uint64_t *ret_offset);
 int journal_file_append_entry(
                 JournalFile *f,
-                const dual_timestamp *ts,
+                const triple_timestamp *ts,
                 const sd_id128_t *boot_id,
                 const struct iovec iovec[],
                 size_t n_iovec,
