@@ -84,13 +84,11 @@ int metrics_method_describe(
         assert(metric_family_table);
         assert(link);
         assert(parameters);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
-
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
         r = varlink_set_sentinel(link, "io.systemd.Metrics.NoSuchMetric");
         if (r < 0)
@@ -123,13 +121,11 @@ int metrics_method_list(
         assert(metric_family_table);
         assert(link);
         assert(parameters);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
-
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
         r = varlink_set_sentinel(link, "io.systemd.Metrics.NoSuchMetric");
         if (r < 0)
