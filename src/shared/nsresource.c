@@ -169,58 +169,6 @@ int nsresource_register_userns(const char *name, int userns_fd) {
         return 0;
 }
 
-int nsresource_add_mount(int userns_fd, int mount_fd) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        _cleanup_close_ int _userns_fd = -EBADF;
-        int r, userns_fd_idx, mount_fd_idx;
-        const char *error_id;
-
-        assert(mount_fd >= 0);
-
-        if (userns_fd < 0) {
-                _userns_fd = namespace_open_by_type(NAMESPACE_USER);
-                if (_userns_fd < 0)
-                        return _userns_fd;
-
-                userns_fd = _userns_fd;
-        }
-
-        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to namespace resource manager: %m");
-
-        r = sd_varlink_set_allow_fd_passing_output(vl, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
-
-        userns_fd_idx = sd_varlink_push_dup_fd(vl, userns_fd);
-        if (userns_fd_idx < 0)
-                return log_error_errno(userns_fd_idx, "Failed to push userns fd into varlink connection: %m");
-
-        mount_fd_idx = sd_varlink_push_dup_fd(vl, mount_fd);
-        if (mount_fd_idx < 0)
-                return log_error_errno(mount_fd_idx, "Failed to push mount fd into varlink connection: %m");
-
-        sd_json_variant *reply = NULL;
-        r = sd_varlink_callbo(
-                        vl,
-                        "io.systemd.NamespaceResource.AddMountToUserNamespace",
-                        &reply,
-                        &error_id,
-                        SD_JSON_BUILD_PAIR_UNSIGNED("userNamespaceFileDescriptor", userns_fd_idx),
-                        SD_JSON_BUILD_PAIR_UNSIGNED("mountFileDescriptor", mount_fd_idx));
-        if (r < 0)
-                return log_error_errno(r, "Failed to call AddMountToUserNamespace() varlink call: %m");
-        if (streq_ptr(error_id, "io.systemd.NamespaceResource.UserNamespaceNotRegistered")) {
-                log_notice("User namespace has not been allocated via namespace resource registry, not adding mount to registration.");
-                return 0;
-        }
-        if (error_id)
-                return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to mount image: %s", error_id);
-
-        return 1;
-}
-
 int nsresource_add_cgroup(int userns_fd, int cgroup_fd) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_close_ int _userns_fd = -EBADF;

@@ -31,7 +31,6 @@
 #include "memory-util.h"
 #include "mount-util.h"
 #include "namespace-util.h"
-#include "nsresource.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
@@ -672,12 +671,6 @@ static int vl_method_mount_image(
                 if (pp->fsmount_fd < 0)
                         continue;
 
-                if (userns_fd >= 0) {
-                        r = nsresource_add_mount(userns_fd, pp->fsmount_fd);
-                        if (r < 0)
-                                return r;
-                }
-
                 fd_idx = sd_varlink_push_fd(link, pp->fsmount_fd);
                 if (fd_idx < 0)
                         return fd_idx;
@@ -1172,12 +1165,6 @@ static int vl_method_mount_directory(
                                           .propagation = MS_PRIVATE,
                                   }, MOUNT_ATTR_SIZE_VER0) < 0)
                         return log_debug_errno(errno, "Failed to enable id mapping: %m");
-        }
-
-        if (userns_fd >= 0) {
-                r = nsresource_add_mount(userns_fd, mount_fd);
-                if (r < 0)
-                        return r;
         }
 
         int fd_idx = sd_varlink_push_fd(link, mount_fd);
