@@ -14,6 +14,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "tuntap.h"
+#include "uid-classification.h"
 #include "user-record.h"
 #include "user-util.h"
 #include "userdb.h"
@@ -236,27 +237,39 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
         if (t->user_name) {
                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
-                r = userdb_by_name(t->user_name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                r = userdb_by_name(t->user_name, /* match = */ NULL,
                                    USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC,
                                    &ur);
                 if (r < 0)
                         log_netdev_warning_errno(netdev, r, "Cannot resolve user name '%s', ignoring: %s",
                                                  t->user_name, STRERROR_USER(r));
-                else
+                else {
+                        if (!uid_is_system(ur->uid))
+                                log_netdev_warning(netdev,
+                                                   "User '%s' not a system user, this is not recommended.",
+                                                   t->user_name);
+
                         t->uid = ur->uid;
+                }
         }
 
         if (t->group_name) {
                 _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                r = groupdb_by_name(t->group_name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                r = groupdb_by_name(t->group_name, /* match = */ NULL,
                                     USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC,
                                     &gr);
                 if (r < 0)
                         log_netdev_warning_errno(netdev, r, "Cannot resolve group name '%s', ignoring: %s",
                                                  t->group_name, STRERROR_GROUP(r));
-                else
+                else {
+                        if (!gid_is_system(gr->gid))
+                                log_netdev_warning(netdev,
+                                                   "Group '%s' not a system group, this is not recommended.",
+                                                   t->group_name);
+
                         t->gid = gr->gid;
+                }
         }
 
         return 0;
