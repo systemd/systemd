@@ -87,7 +87,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 ListBootEntries,
                 SD_VARLINK_REQUIRES_MORE,
                 SD_VARLINK_FIELD_COMMENT("A boot menu entry structure"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(entry, BootEntry, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(entry, BootEntry, 0));
 
 static SD_VARLINK_DEFINE_METHOD(
                 SetRebootToFirmware,
