@@ -10,6 +10,7 @@
 #include "bootctl.h"
 #include "bootctl-cleanup.h"
 #include "bootctl-install.h"
+#include "bootctl-link.h"
 #include "bootctl-random-seed.h"
 #include "bootctl-reboot-to-firmware.h"
 #include "bootctl-set-efivar.h"
@@ -31,6 +32,7 @@
 #include "openssl-util.h"
 #include "pager.h"
 #include "parse-argument.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "string-table.h"
@@ -77,6 +79,11 @@ char *arg_certificate_source = NULL;
 char *arg_private_key = NULL;
 KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 char *arg_private_key_source = NULL;
+char *arg_entry_title = NULL;
+char *arg_entry_version = NULL;
+uint64_t arg_entry_commit = 0;
+char **arg_extras = NULL;
+unsigned arg_tries_left = UINT_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -90,6 +97,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_entry_title, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_entry_version, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_extras, strv_freep);
 
 static const char* const install_source_table[_INSTALL_SOURCE_MAX] = {
         [INSTALL_SOURCE_IMAGE] = "image",
@@ -262,6 +272,7 @@ static int help(void) {
                "                       Query or set reboot-to-firmware EFI flag\n"
                "\n%3$sBoot Loader Specification Commands:%4$s\n"
                "  list                 List boot loader entries\n"
+               "  link UKI             Create boot lodaer entry for specified UKI\n"
                "  unlink ID            Remove boot loader entry\n"
                "  cleanup              Remove files in ESP not referenced in any boot entry\n"
                "\n%3$sBoot Loader Interface Commands:%4$s\n"
@@ -344,6 +355,15 @@ static int help(void) {
                "                       Specify how to interpret the certificate from\n"
                "                       --certificate=. Allows the certificate to be loaded\n"
                "                       from an OpenSSL provider\n"
+               "     --entry-title=TITLE\n"
+               "                       Selects the entry title for the new boot menu entry\n"
+               "     --entry-version=VERSION\n"
+               "                       Selects the entry version for the new boot menu entry\n"
+               "     --entry-commit=NR\n"
+               "                       Selects the entry commit version for the new boot menu entry\n"
+               "  -X --extra=PATH      Pass extra resource (confext, sysext, credential) to\n"
+               "                       the the invoked UKI of the boot menu entry\n"
+               "     --tries-left=NR   Set boot menu entries tries-left counter to the specified value\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -387,6 +407,10 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CERTIFICATE_SOURCE,
                 ARG_PRIVATE_KEY,
                 ARG_PRIVATE_KEY_SOURCE,
+                ARG_ENTRY_TITLE,
+                ARG_ENTRY_VERSION,
+                ARG_ENTRY_COMMIT,
+                ARG_TRIES_LEFT,
         };
 
         static const struct option options[] = {
@@ -424,6 +448,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "certificate-source",                      required_argument, NULL, ARG_CERTIFICATE_SOURCE                      },
                 { "private-key",                             required_argument, NULL, ARG_PRIVATE_KEY                             },
                 { "private-key-source",                      required_argument, NULL, ARG_PRIVATE_KEY_SOURCE                      },
+                { "entry-title",                             required_argument, NULL, ARG_ENTRY_TITLE,                            },
+                { "entry-version",                           required_argument, NULL, ARG_ENTRY_VERSION,                          },
+                { "entry-commit",                            required_argument, NULL, ARG_ENTRY_COMMIT,                           },
+                { "extra",                                   required_argument, NULL, 'X'                                         },
+                { "tries-left",                              required_argument, NULL, ARG_TRIES_LEFT                              },
                 {}
         };
 
@@ -432,7 +461,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hpxRq", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hpxRqX:", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -624,6 +653,89 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_ENTRY_TITLE:
+                        if (isempty(optarg)) {
+                                arg_entry_title = mfree(arg_entry_title);
+                                break;
+                        }
+
+                        if (!efi_loader_entry_title_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid boot menu entry title: %s", optarg);
+
+                        r = free_and_strdup_warn(&arg_entry_title, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_ENTRY_VERSION:
+                        if (isempty(optarg)) {
+                                arg_entry_version = mfree(arg_entry_version);
+                                break;
+                        }
+
+                        if (!version_is_valid_versionspec(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid boot menu entry version: %s", optarg);
+
+                        r = free_and_strdup_warn(&arg_entry_version, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_ENTRY_COMMIT: {
+                        if (isempty(optarg)) {
+                                arg_entry_commit = 0;
+                                break;
+                        }
+
+                        uint64_t n;
+                        r = safe_atou64(optarg, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --entry-commit= parameter: %s", optarg);
+                        if (!entry_commit_valid(n))
+                                return log_error_errno(r, "Not a valid entry commit number.");
+
+                        arg_entry_commit = n;
+                        break;
+                }
+
+                case 'X': {
+                        if (isempty(optarg)) {
+                                arg_extras = strv_free(arg_extras);
+                                break;
+                        }
+
+                        _cleanup_free_ char *x = NULL;
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &x);
+                        if (r < 0)
+                                return r;
+
+                        _cleanup_free_ char *fn = NULL;
+                        r = path_extract_filename(x, &fn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract filename from '%s': %m", x);
+                        if (!efi_loader_entry_resource_filename_valid(fn))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Extra filename '%s' is not suitable for reference in a boot menu entry.", fn);
+
+                        r = strv_consume(&arg_extras, TAKE_PTR(x));
+                        if (r < 0)
+                                return log_oom();
+
+                        strv_uniq(arg_extras);
+                        break;
+                }
+
+                case ARG_TRIES_LEFT:
+                        if (isempty(optarg)) {
+                                arg_tries_left = UINT_MAX;
+                                break;
+                        }
+
+                        r = safe_atou(optarg, &arg_tries_left);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse tries left counter: %s", optarg);
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -683,6 +795,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "is-installed",        VERB_ANY, 1,        0,            verb_is_installed        },
                 { "kernel-identify",     2,        2,        0,            verb_kernel_identify     },
                 { "kernel-inspect",      2,        2,        0,            verb_kernel_inspect      },
+                { "link",                2,        2,        0,            verb_link                },
                 { "list",                VERB_ANY, 1,        0,            verb_list                },
                 { "unlink",              2,        2,        0,            verb_unlink              },
                 { "cleanup",             VERB_ANY, 1,        0,            verb_cleanup             },
