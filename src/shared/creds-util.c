@@ -480,14 +480,13 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
                 if (!path_is_absolute(e))
                         return -EINVAL;
 
-                r = path_extract_directory(e, &_dirname);
+                r = path_split_prefix_filename(e, &_dirname, &_filename);
                 if (r < 0)
                         return r;
+                if (r == O_DIRECTORY)
+                        return -EINVAL;
 
-                r = path_extract_filename(e, &_filename);
-                if (r < 0)
-                        return r;
-
+                /* We validate that the path is absolute above, hence dirname must be extractable. */
                 dirname = _dirname;
                 filename = _filename;
         } else {
@@ -498,7 +497,8 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
         assert(dirname);
         assert(filename);
 
-        mkdir_parents(dirname, 0755);
+        (void) mkdir_parents(dirname, 0755);
+
         dfd = open_mkdir(dirname, O_CLOEXEC, 0755);
         if (dfd < 0)
                 return log_debug_errno(dfd, "Failed to create or open directory '%s': %m", dirname);
