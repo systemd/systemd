@@ -378,7 +378,7 @@ systemctl reload-or-restart --marked
 
 # again, but with varlinkctl instead
 systemctl restart "$UNIT_NAME"
-systemctl set-property "$UNIT_NAME" Markers=needs-restart
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-restart\"]}}"
 systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.EnqueueMarkedJobs '{}'
 timeout 30 bash -c "until systemctl list-jobs $UNIT_NAME | grep \"No jobs\" 2>/dev/null; do sleep 1; done"
