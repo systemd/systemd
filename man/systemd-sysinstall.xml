@@ -1,0 +1,301 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-sysinstall" conditional='ENABLE_SYSINSTALL'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-sysinstall</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-sysinstall</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-sysinstall</refname>
+    <refname>systemd-sysinstall.service</refname>
+    <refpurpose>Simple OS installer</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-sysinstall</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt">BLOCKDEVICE</arg>
+    </cmdsynopsis>
+
+    <para><filename>systemd-sysinstall.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-sysinstall</command> is a simple terminal and command line based operating system
+    installer tool. It's primary use-case is to act as an autmatically started interactive interface when
+    booting from an installer medium (e.g. a USB stick), in order to install an OS onto a target
+    disk. However, it may also be invoked directly from a shell. It executes the following steps:</para>
+
+    <orderedlist>
+      <listitem><para>It prompts the user for the target disk to install the OS on. (Unless the block device
+      is already specified on the command line.)</para></listitem>
+
+      <listitem><para>It validates whether the disk is suitable (i.e. large enough, and with enough
+      free/unpartitioned space) for an OS installation. If it is generally suitable the user is prompted if they
+      want to erase the disk before installation, or if the OS shall be added to the existing partitions on
+      the disk (the latter only if enough free/unpartitioned disk space is available).</para></listitem>
+
+      <listitem><para>It prompts the user whether to register the newly installed OS with the firmare boot option menu.</para></listitem>
+
+      <listitem><para>It requests confirmation from the user, after showing a summary of the planned OS installation.</para></listitem>
+
+      <listitem><para>It invokes
+      <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+      <command>encrypt</command> command in order to generate encrypted (TPM locked, if available) system
+      credential files for a few, very basic system settings of the currently booted system (locale, keymap,
+      timezone), which it will install on the target disk, parameterizing the invoked kernel. (Or in other
+      words, it prepares that some settings already in effect on the installer system are propagated securely
+      onto the new installation.)</para></listitem>
+
+      <listitem><para>It invokes
+      <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> with
+      a definitions directory of <filename>/usr/lib/repart.sysinstall.d/</filename>. This is supposed to set
+      up the basic OS partition structure on the target disk and copies in basic OS
+      partitions (most importantly the <filename>/usr/</filename> hierarchy).</para></listitem>
+
+      <listitem><para>It invokes
+      <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry> to
+      install an OS kernel image onto the target disk's ESP/XBOOTLDR, together with the credential
+      files prepared earlier.</para></listitem>
+
+      <listitem><para>It invokes
+      <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+      <command>install</command> command to install the
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> boot
+      loader onto the target disk's ESP.</para></listitem>
+
+      <listitem><para>After confirmation, it reboots the system.</para></listitem>
+    </orderedlist>
+
+    <para>Note that the prompts/confirmation may be disabled via the command line, enabling fully automatic,
+    non-interactive installation. See below.</para>
+
+    <para>Note this tool does not interactively query the user for a user to create or a root password to be
+    set on the target system, under the assumption these questions are better prompted from within the newly
+    installed system's first boot process, for example via the
+    <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry> or
+    <filename>systemd-homed-firstboot.service</filename> components. Note that if required such settings
+    may be propageted explicitly via the <option>--load-credential=</option> switch below.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+
+      <varlistentry>
+        <term><option>--definitions=</option></term>
+
+        <listitem><para>Overrides the directory where <command>systemd-repart</command> shall read its
+        partition definitions from, in place of the default of
+        <filename>/usr/lib/repart.sysinstall.d/</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--welcome=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to show the brief welcome text normally
+        displayed at the beginning of the installation. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--chrome=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to show the colored bars at the top and
+        bottom of the terminal interface. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--erase=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to erase the current contents of the
+        target disk. If this switch is not used the user is prompted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--confirm=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to interactively query the user for
+        confirmation before initiating the OS installation. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--reboot=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to reboot the system after completing the
+        installation. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--variables=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to register the installed boot loader in
+        the firmware's boot options database. If not specified the user will be prompted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--summary=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to show a summary of the choices made
+        before asking for confirmation to proceed with the OS installation. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kernel-version=</option></term>
+
+        <listitem><para>Takes a kernel version string. Selects the kernel version to install on the target
+        disk, if multiple are available under <filename>/usr/lib/modules/</filename>. If unspecified the
+        currently booted kernel image is installed on the target disk.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kernel=</option></term>
+
+        <listitem><para>Takes a path to a kernel image. Explicitly selects the kernel image to install on the
+        target disk. If unspecified the currently booted kernel image is installed on the target disk, or the
+        kernel whose version is specified in <option>--kernel-version=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--set-credential=<replaceable>id</replaceable>:<replaceable>value</replaceable></option></term>
+
+        <listitem><para>Accepts an additional system credential to encrypt and place next to the installed
+        kernel image in the ESP. This may be used to parameterize the installed kernel with arbitrary system
+        credentials. Do not use this switch for sensitive data (such as passwords), use <option>--load-credential=</option>
+        instead, see below. May be used multiple times to configure multiple credentials.</para>
+
+        <para>Note that three system credentials are propagated in similar fashion to the target system:
+        the locale, keymap and timezone. This may be controlled by the relevant
+        <option>--copy-locale=</option>, <option>--copy-keymap=</option> and <option>--copy-timezone=</option>
+        options below.</para>
+
+        <para>See
+        <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for a list of well-known system credentials that may be propagated this way. (Note that you may pass
+        arbitrary additional credentials this way, that can be consumed by any service of your
+        choice, via the usual system credentials logic.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--load-credential=<replaceable>id</replaceable>:<replaceable>path</replaceable></option></term>
+
+        <listitem><para>Similar to <option>--set-credential=</option> but reads the credential value from a
+        file on disk or an <constant>AF_UNIX</constant> socket in the file system. This is generally
+        preferable for sensitive data, such as passwords.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--copy-locale=</option></term>
+        <term><option>--copy-keymap=</option></term>
+        <term><option>--copy-timezone=</option></term>
+
+        <listitem><para>These options take boolean parameters. They control whether the indicated system
+        settings shall be propagated from the currently running system into the new target OS
+        installation. These options default to true.</para>
+
+        <para>Typically, these three settings are the minimal settings that need to be configured during early
+        boot of an installer medium in order to make the installer tool accessible to the user. The
+        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        tool may be used to query the user interactively when the OS install medium is booted for these
+        properties. By propagating these settings to the target installation via system credentials they do
+        not need to be queried again on first boot of the new installation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mute-console=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to disable kernel and service manager log
+        output to the console the installer is invoked on temporarily while running, in order to avoid
+        interleaved output. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, and a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <example>
+      <title>Invoke the tool for a fully automatic non-interactive OS installation</title>
+
+      <programlisting>systemd-sysinstall \
+        /dev/disk/by-id/nvme-Micron_MTFDKBA1T0TFH_214532D0CDA5 \
+        --erase=yes \
+        --confirm=no \
+        --variables=yes \
+        --load-credential=ssh.authorized_keys.root:my-ssh-key
+      </programlisting>
+
+      <para>This installs the OS on the selected disk, erasing any previous contents, without confirmation,
+      registers it in the firmware, and drops in the SSH key for the root user, read from the
+      <filename>my-ssh-key</filename> file in the current directory.</para>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
