@@ -15,6 +15,7 @@
 #include "process-util.h"
 #include "rm-rf.h"
 #include "tmpfile-util.h"
+#include "uid-classification.h"
 #include "userns-restrict.h"
 
 static int make_tmpfs_fsmount(void) {
@@ -83,7 +84,10 @@ static int run(int argc, char *argv[]) {
         host_tmpfs = make_tmpfs_fsmount();
         assert_se(host_tmpfs >= 0);
 
-        userns_fd = userns_acquire("0 0 1", "0 0 1", /* setgroups_deny= */ true);
+        _cleanup_free_ char *idmap = NULL;
+        assert_se(asprintf(&idmap, "0 "UID_FMT" 1", CONTAINER_UID_MIN) >= 0);
+
+        userns_fd = userns_acquire(idmap, idmap, /* setgroups_deny= */ true);
         if (userns_fd < 0)
                 return log_error_errno(userns_fd, "Failed to make user namespace: %m");
 
@@ -106,7 +110,7 @@ static int run(int argc, char *argv[]) {
         if (r == 0) {
                 _cleanup_close_ int private_tmpfs = -EBADF;
 
-                assert_se(setns(userns_fd, CLONE_NEWUSER) >= 0);
+                assert_se(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF) >= 0);
                 assert_se(unshare(CLONE_NEWNS) >= 0);
 
                 /* Allocate tmpfs locally */

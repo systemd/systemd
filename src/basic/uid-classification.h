@@ -8,7 +8,7 @@ assert_cc((CONTAINER_UID_BASE_MIN & 0xFFFFU) == 0);
 assert_cc((CONTAINER_UID_BASE_MAX & 0xFFFFU) == 0);
 
 /* Given we assign 64K UIDs to containers, the last container UID is 0xFFFF larger than the base */
-#define CONTAINER_UID_MIN (CONTAINER_UID_BASE_MIN)
+#define CONTAINER_UID_MIN (CONTAINER_UID_BASE_MIN + 0U)
 #define CONTAINER_UID_MAX (CONTAINER_UID_BASE_MAX + 0xFFFFU)
 
 assert_cc((FOREIGN_UID_BASE & 0xFFFFU) == 0);
