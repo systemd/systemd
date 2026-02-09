@@ -456,9 +456,23 @@ static int image_make(
         int _mnt_id;
 
         r = name_to_handle_at_try_fid(fd, /* path= */ NULL, &fh, &_mnt_id, &on_mount_id, AT_EMPTY_PATH);
-        if (r < 0)
-                return r;
-        if (r == 0)
+        if (r < 0) {
+                if (is_name_to_handle_at_fatal_error(r))
+                        return r;
+
+                r = path_get_unique_mnt_id_at(fd, /* path= */ NULL, &on_mount_id);
+                if (r < 0) {
+                        if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                                return r;
+
+                        int on_mount_id_fallback = -1;
+                        r = path_get_mnt_id_at(fd, /* path= */ NULL, &on_mount_id_fallback);
+                        if (r < 0)
+                                return r;
+
+                        on_mount_id = on_mount_id_fallback;
+                }
+        } else if (r == 0)
                 on_mount_id = _mnt_id;
 
         if (S_ISDIR(st->st_mode)) {
