@@ -1861,6 +1861,7 @@ static int remove_loader_variables(void) {
                        EFI_LOADER_VARIABLE_STR("LoaderConfigConsoleMode"),
                        EFI_LOADER_VARIABLE_STR("LoaderConfigTimeout"),
                        EFI_LOADER_VARIABLE_STR("LoaderConfigTimeoutOneShot"),
+                       EFI_LOADER_VARIABLE_STR("LoaderEntryPreferred"),
                        EFI_LOADER_VARIABLE_STR("LoaderEntryDefault"),
                        EFI_LOADER_VARIABLE_STR("LoaderEntrySysFail"),
                        EFI_LOADER_VARIABLE_STR("LoaderEntryLastBooted"),
