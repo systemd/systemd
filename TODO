@@ -129,6 +129,13 @@ Features:
   - how to plug facts into this? i.e. hostname, ssh keys, and so on
   - switch to daan's suggested hierarchy?
 
+* implement a varlink registry service, similar to the one of the reference
+  implementation, backed by /run/varlink/registry/. Then, also implement
+  connect-via-registry-resolution in sd-varlink and varlinkctl. Care needs to
+  be taken to do the resolution asynchronousy. Also, note that the Varlink
+  reference implementation uses a different address syntax, which needs to be
+  taken into account.
+
 * downgrade the uid/gid disposition enforcement in udev
 
 * have a signal that reloads every unit that supports reloading

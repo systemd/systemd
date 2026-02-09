@@ -14,5 +14,6 @@ Documentation=man:org.freedesktop.import1(5)
 
 [Socket]
 ListenStream=%t/systemd/io.systemd.Import
+Symlinks=%t/varlink/registry/io.systemd.Import
 FileDescriptorName=varlink
 SocketMode=0600

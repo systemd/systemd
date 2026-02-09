@@ -142,6 +142,21 @@ int is_symlink(const char *path) {
         return verify_stat_at(AT_FDCWD, path, false, stat_verify_symlink, false);
 }
 
+int stat_verify_socket(const struct stat *st) {
+        assert(st);
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
+
+        if (S_ISDIR(st->st_mode))
+                return -EISDIR;
+
+        if (!S_ISSOCK(st->st_mode))
+                return -ENOTSOCK;
+
+        return 0;
+}
+
 int stat_verify_linked(const struct stat *st) {
         assert(st);
 

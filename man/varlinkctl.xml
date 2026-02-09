@@ -182,6 +182,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>list-registry</command></term>
+
+        <listitem><para>Shows a list of Varlink services currently registered in the service registry, plus
+        their entrypoint sockets. (Currently, this simply enumerates the sockets and symlinked sockets in
+        <filename>/run/varlink/registry/</filename>, see below.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>validate-idl</command> [<replaceable>FILE</replaceable>]</term>
 
         <listitem><para>Reads a Varlink interface definition file, parses and validates it, then outputs it
@@ -354,10 +364,47 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem>
+          <para>Determines whether to query to the per-system or per-user registry when using the
+          <command>list-registry</command> command. By default, the per-system registry is queried.</para>
+        </listitem>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Files &amp; Directories</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>/run/varlink/registry/</filename></term>
+
+        <listitem>
+          <para>Directory containing <constant>AF_UNIX</constant> entrypoint socket inodes (or symlinks to
+          them) of well-known, public Varlink interfaces on the local system. They are named after the
+          Varlink interface they implement.</para>
+
+          <para>Use <command>varlinkctl list-registry</command> to show the contents of this
+          directory.</para>
+
+          <para>(Inodes that neither qualify as socket inodes nor as symlinks to them shall be ignored. A
+          future extension might introduce regular files and directories to enhance the registry
+          functionality.)</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

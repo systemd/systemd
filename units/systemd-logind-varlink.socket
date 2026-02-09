@@ -13,6 +13,7 @@ Documentation=man:systemd-logind.service(8)
 
 [Socket]
 ListenStream=/run/systemd/io.systemd.Login
+Symlinks=/run/varlink/registry/io.systemd.Login
 FileDescriptorName=varlink
 SocketMode=0666
 Service=systemd-logind.service

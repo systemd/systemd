@@ -572,3 +572,4 @@ loader.conf.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="rebo
 loader.conf.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="reboot-on-error"]/listitem/para/variablelist/varlistentry[term="auto"]
 loader.conf.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="secure-boot-enroll-action"]/listitem/variablelist/varlistentry[term="reboot"]
 loader.conf.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="secure-boot-enroll-action"]/listitem/variablelist/varlistentry[term="shutdown"]
+varlinkctl.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="--system"]
