@@ -42,7 +42,7 @@ Thus code that is used by "higher-level" components (e.g. our binaries which are
 would go to a subdirectory specific to that component if it is only used there.
 If the code is to be shared between components, it'd go to `src/shared/`.
 Shared code that is used by multiple components that do not link to `libsystemd-shared-<nnn>.so` may live either in `src/libsystemd/`, `src/basic/`, or `src/fundamental/`.
-Any code that is used only for EFI goes under `src/boot/efi/`, and in `src/fundamental/` if it is shared with non-EFI components.
+Code used only for EFI goes under `src/boot/`, and under `src/fundamental/` if it is shared with non-EFI components.
 
 To summarize:
 

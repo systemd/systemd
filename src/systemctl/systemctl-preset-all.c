@@ -26,7 +26,7 @@ int verb_preset_all(int argc, char *argv[], void *userdata) {
                 CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
                 r = unit_file_preset_all(arg_runtime_scope, unit_file_flags_from_args(), arg_root, arg_preset_mode, &changes, &n_changes);
-                /* We do not treat propagate failure of individual units here. */
+                /* We do not propagate failure for individual units here. */
                 (void) install_changes_dump(r, "preset all", changes, n_changes, arg_quiet);
                 if (r < 0)
                         return r;

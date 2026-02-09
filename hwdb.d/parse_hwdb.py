@@ -266,12 +266,12 @@ def check_matches(groups):
         if gr:
             # we check this first to provide an easy error message
             if rest[-1] not in '*:':
-                error('Pattern {} does not end with "*" or ":"', match)
+                error('Pattern {!r} does not end with "*" or ":"', match)
 
             try:
                 gr.parseString(rest)
             except ParseBaseException as e:
-                error('Pattern {} is invalid: {}', match, e)
+                error('Pattern {!r} is invalid: {}', match, e)
                 continue
 
     matches.sort()
@@ -353,12 +353,11 @@ def print_summary(fname, groups):
         error(f'{fname}: no matches or props')
 
 if __name__ == '__main__':
-    args = sys.argv[1:] or sorted(
-        [
-            os.path.dirname(sys.argv[0]) + '/20-dmi-id.hwdb',
-            os.path.dirname(sys.argv[0]) + '/20-net-ifname.hwdb',
-        ] + glob.glob(os.path.dirname(sys.argv[0]) + '/[678][0-9]-*.hwdb')
-    )
+    args = sys.argv[1:] or sorted([
+        os.path.dirname(sys.argv[0]) + '/20-dmi-id.hwdb',
+        os.path.dirname(sys.argv[0]) + '/20-net-ifname.hwdb',
+        *glob.glob(os.path.dirname(sys.argv[0]) + '/[678][0-9]-*.hwdb'),
+    ])
 
     for fname in args:
         groups = parse(fname)
