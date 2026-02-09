@@ -3,6 +3,7 @@
 bootctl_sources = files(
         'bootctl.c',
         'bootctl-install.c',
+        'bootctl-link.c',
         'bootctl-random-seed.c',
         'bootctl-reboot-to-firmware.c',
         'bootctl-set-efivar.c',
