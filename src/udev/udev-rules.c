@@ -50,6 +50,7 @@
 #include "udev-trace.h"
 #include "udev-util.h"
 #include "udev-worker.h"
+#include "uid-classification.h"
 #include "user-record.h"
 #include "user-util.h"
 #include "userdb.h"
@@ -509,13 +510,17 @@ static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, uid_t *r
         }
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        r = userdb_by_name(name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+        r = userdb_by_name(name, /* match= */ NULL,
                            USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                            &ur);
         if (r < 0)
                 return log_line_error_errno(rule_line, r,
                                             "Failed to resolve user '%s', ignoring: %s",
                                             name, STRERROR_USER(r));
+        if (!uid_is_system(ur->uid))
+                log_line_warning(rule_line,
+                                 "User '%s' not a system user.\n'uaccess' may be used to give access to users.",
+                                 name);
 
         _cleanup_free_ char *n = strdup(name);
         if (!n)
@@ -544,13 +549,17 @@ static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, gid_t *
         }
 
         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-        r = groupdb_by_name(name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+        r = groupdb_by_name(name, /* match= */ NULL,
                             USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                             &gr);
         if (r < 0)
                 return log_line_error_errno(rule_line, r,
                                             "Failed to resolve group '%s', ignoring: %s",
                                             name, STRERROR_GROUP(r));
+        if (!gid_is_system(gr->gid))
+                log_line_warning(rule_line,
+                                 "Group '%s' not a system group.\n'uaccess' may be used to give access to users.",
+                                 name);
 
         _cleanup_free_ char *n = strdup(name);
         if (!n)
@@ -2674,7 +2683,7 @@ static int udev_rule_apply_token_to_event(
                         return true;
 
                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-                r = userdb_by_name(owner, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                r = userdb_by_name(owner, /* match= */ NULL,
                                    USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                                    &ur);
                 if (r < 0)
@@ -2682,6 +2691,11 @@ static int udev_rule_apply_token_to_event(
                                               "Failed to resolve user \"%s\", ignoring: %s",
                                               owner, STRERROR_USER(r));
                 else {
+                        if (!uid_is_system(ur->uid))
+                                log_event_warning(event, token,
+                                                  "User '%s' not a system user.\n'uaccess' may be used to give access to users.",
+                                                  owner);
+
                         event->uid = ur->uid;
                         log_event_debug(event, token, "Set owner: %s("UID_FMT")", owner, event->uid);
                 }
@@ -2700,7 +2714,7 @@ static int udev_rule_apply_token_to_event(
                         return true;
 
                 _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-                r = groupdb_by_name(group, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                r = groupdb_by_name(group, /* match= */ NULL,
                                     USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                                     &gr);
                 if (r < 0)
@@ -2708,6 +2722,11 @@ static int udev_rule_apply_token_to_event(
                                               "Failed to resolve group \"%s\", ignoring: %s",
                                               group, STRERROR_GROUP(r));
                 else {
+                        if (!gid_is_system(gr->gid))
+                                log_event_warning(event, token,
+                                                  "Group '%s' not a system group.\n'uaccess' may be used to give access to users.",
+                                                  group);
+
                         event->gid = gr->gid;
                         log_event_debug(event, token, "Set group: %s("GID_FMT")", group, event->gid);
                 }
