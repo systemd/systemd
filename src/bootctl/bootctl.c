@@ -9,12 +9,14 @@
 #include "bootctl.h"
 #include "bootctl-cleanup.h"
 #include "bootctl-install.h"
+#include "bootctl-link.h"
 #include "bootctl-random-seed.h"
 #include "bootctl-reboot-to-firmware.h"
 #include "bootctl-set-efivar.h"
 #include "bootctl-status.h"
 #include "bootctl-uki.h"
 #include "bootctl-unlink.h"
+#include "bootspec-util.h"
 #include "build.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
@@ -82,6 +84,11 @@ KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 char *arg_private_key_source = NULL;
 uint64_t arg_keep_free = KEEP_FREE_BYTES_DEFAULT;
 bool arg_oldest = false;
+char *arg_entry_title = NULL;
+char *arg_entry_version = NULL;
+uint64_t arg_entry_commit = 0;
+char **arg_extras = NULL;
+unsigned arg_tries_left = UINT_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -95,6 +102,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_entry_title, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_entry_version, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_extras, strv_freep);
 
 static const char* const install_source_table[_INSTALL_SOURCE_MAX] = {
         [INSTALL_SOURCE_IMAGE] = "image",
@@ -356,6 +366,9 @@ VERB_SCOPE_NOARG(, verb_list, "list",
 
 VERB_SCOPE(, verb_unlink, "unlink", "ID", VERB_ANY, 2, 0,
            "Remove boot loader entry");
+
+VERB_SCOPE(, verb_link, "link", "KERNEL", 2, 2, 0,
+           "Create boot loader entry for specified kernel");
 
 VERB_SCOPE_NOARG(, verb_cleanup, "cleanup",
            "Remove files in ESP not referenced in any boot entry");
@@ -650,6 +663,96 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse --keep-free=: %s", arg);
                         }
+
+                        break;
+
+                OPTION_LONG("entry-title", "TITLE",
+                            "Selects the entry title for the new boot menu entry"):
+
+                        if (isempty(arg)) {
+                                arg_entry_title = mfree(arg_entry_title);
+                                break;
+                        }
+
+                        if (!efi_loader_entry_title_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid boot menu entry title: %s", arg);
+
+                        r = free_and_strdup_warn(&arg_entry_title, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("entry-version", "VERSION",
+                            "Selects the entry version for the new boot menu entry"):
+                        if (isempty(arg)) {
+                                arg_entry_version = mfree(arg_entry_version);
+                                break;
+                        }
+
+                        if (!version_is_valid_versionspec(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid boot menu entry version: %s", arg);
+
+                        r = free_and_strdup_warn(&arg_entry_version, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("entry-commit", "NR",
+                            "Selects the entry commit version for the new boot menu entry"): {
+                        if (isempty(arg)) {
+                                arg_entry_commit = 0;
+                                break;
+                        }
+
+                        uint64_t n;
+                        r = safe_atou64(arg, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --entry-commit= parameter: %s", arg);
+                        if (!entry_commit_valid(n))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid entry commit number.");
+
+                        arg_entry_commit = n;
+                        break;
+                }
+
+                OPTION('X', "extra", "PATH",
+                       "Pass extra resource (confext, sysext, credential) to the invoked UKI of the boot menu entry"): {
+
+                        if (isempty(arg)) {
+                                arg_extras = strv_free(arg_extras);
+                                break;
+                        }
+
+                        _cleanup_free_ char *x = NULL;
+                        r = parse_path_argument(arg, /* suppress_root= */ false, &x);
+                        if (r < 0)
+                                return r;
+
+                        _cleanup_free_ char *fn = NULL;
+                        r = path_extract_filename(x, &fn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract filename from '%s': %m", x);
+                        if (!efi_loader_entry_resource_filename_valid(fn))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Extra filename '%s' is not suitable for reference in a boot menu entry.", fn);
+
+                        r = strv_consume(&arg_extras, TAKE_PTR(x));
+                        if (r < 0)
+                                return log_oom();
+
+                        strv_uniq(arg_extras);
+                        break;
+                }
+
+                OPTION_LONG("tries-left", "NR",
+                            "Set boot menu entries tries-left counter to the specified value"):
+                        if (isempty(arg)) {
+                                arg_tries_left = UINT_MAX;
+                                break;
+                        }
+
+                        r = safe_atou(arg, &arg_tries_left);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse tries left counter: %s", arg);
 
                         break;
                 }
