@@ -4,7 +4,6 @@
 #include "log.h"
 #include "metrics.h"
 #include "string-table.h"
-#include "strv.h"
 #include "varlink-io.systemd.Metrics.h"
 #include "varlink-util.h"
 
@@ -54,7 +53,7 @@ int metrics_setup_varlink_server(
 
         r = sd_varlink_server_attach_event(s, event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
-                return log_debug_errno(r, "Failed to attach varlink metrics connection to event loop: %m");
+                return log_debug_errno(r, "Failed to attach varlink metrics server to event loop: %m");
 
         *server = TAKE_PTR(s);
 
@@ -154,10 +153,10 @@ int metrics_method_list(
 
         _cleanup_(metric_family_context_done) MetricFamilyContext ctx = { .link = link };
         for (const MetricFamily *mf = metric_family_table; mf && mf->name; mf++) {
-                assert(mf->generate_cb);
+                assert(mf->generate);
 
                 ctx.metric_family = mf;
-                r = mf->generate_cb(&ctx, userdata);
+                r = mf->generate(&ctx, userdata);
                 if (r < 0)
                         return log_debug_errno(
                                         r, "Failed to list metrics for metric family '%s': %m", mf->name);
@@ -170,45 +169,7 @@ int metrics_method_list(
         return sd_varlink_reply(link, ctx.previous);
 }
 
-static int metric_set_fields(sd_json_variant **v, char **field_pairs) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
-        size_t n;
-        int r;
-
-        assert(v);
-
-        n = strv_length(field_pairs);
-        if (n == 0)
-                return 0;
-
-        if (n % 2 != 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Odd number of field pairs: %zu", n);
-
-        sd_json_variant **array = new0(sd_json_variant *, n);
-        if (!array)
-                return log_oom();
-
-        CLEANUP_ARRAY(array, n, sd_json_variant_unref_many);
-
-        int i = 0;
-        STRV_FOREACH_PAIR(key, value, field_pairs) {
-                r = sd_json_variant_new_string(&array[i++], *key);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create key variant: %m");
-
-                r = sd_json_variant_new_string(&array[i++], *value);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create value variant: %m");
-        }
-
-        r = sd_json_variant_new_object(&w, array, n);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to allocate JSON object: %m");
-
-        return sd_json_variant_set_field(v, "fields", w);
-}
-
-static int metric_build_send(MetricFamilyContext *context, const char *object, sd_json_variant *value, char **field_pairs) {
+static int metric_build_send(MetricFamilyContext *context, const char *object, sd_json_variant *value, sd_json_variant *fields) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
@@ -217,20 +178,23 @@ static int metric_build_send(MetricFamilyContext *context, const char *object, s
         assert(context->link);
         assert(context->metric_family);
 
+        if (fields) {
+                assert(sd_json_variant_is_object(fields));
+
+                _unused_ const char *k;
+                _unused_ sd_json_variant *e;
+                JSON_VARIANT_OBJECT_FOREACH(k, e, fields)
+                        assert(sd_json_variant_is_string(e));
+        }
+
         r = sd_json_buildo(
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("name", context->metric_family->name),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("object", object),
-                        SD_JSON_BUILD_PAIR("value", SD_JSON_BUILD_VARIANT(value)));
-        /* TODO JSON_BUILD_PAIR_OBJECT_STRV_NOT_NULL */
+                        SD_JSON_BUILD_PAIR("value", SD_JSON_BUILD_VARIANT(value)),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("fields", fields));
         if (r < 0)
                 return r;
-
-        if (field_pairs) { /* NULL => no fields object, empty strv => fields:{} */
-                r = metric_set_fields(&v, field_pairs);
-                if (r < 0)
-                        return r;
-        }
 
         if (context->previous) {
                 r = sd_varlink_notify(context->link, context->previous);
@@ -245,7 +209,7 @@ static int metric_build_send(MetricFamilyContext *context, const char *object, s
         return 0;
 }
 
-int metric_build_send_string(MetricFamilyContext *context, const char *object, const char *value, char **field_pairs) {
+int metric_build_send_string(MetricFamilyContext *context, const char *object, const char *value, sd_json_variant *fields) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
@@ -255,10 +219,10 @@ int metric_build_send_string(MetricFamilyContext *context, const char *object, c
         if (r < 0)
                 return log_debug_errno(r, "Failed to allocate JSON string: %m");
 
-        return metric_build_send(context, object, v, field_pairs);
+        return metric_build_send(context, object, v, fields);
 }
 
-int metric_build_send_unsigned(MetricFamilyContext *context, const char *object, uint64_t value, char **field_pairs) {
+int metric_build_send_unsigned(MetricFamilyContext *context, const char *object, uint64_t value, sd_json_variant *fields) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
@@ -266,5 +230,5 @@ int metric_build_send_unsigned(MetricFamilyContext *context, const char *object,
         if (r < 0)
                 return log_debug_errno(r, "Failed to allocate JSON unsigned: %m");
 
-        return metric_build_send(context, object, v, field_pairs);
+        return metric_build_send(context, object, v, fields);
 }
