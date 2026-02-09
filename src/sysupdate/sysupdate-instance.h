@@ -45,8 +45,11 @@ struct Instance {
         InstanceMetadata metadata;
 
         /* Where we found the instance */
-        char *path;
+        char *path;  /* includes the `.sysupdate.partial.` (etc.) prefix, if applicable */
         PartitionInfo partition_info;
+
+        bool is_partial;
+        bool is_pending;
 };
 
 void instance_metadata_destroy(InstanceMetadata *m);
