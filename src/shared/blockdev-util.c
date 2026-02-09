@@ -922,6 +922,7 @@ int blockdev_get_root(int level, dev_t *ret) {
 }
 
 int partition_node_of(const char *node, unsigned nr, char **ret) {
+        _cleanup_free_ char *fn = NULL, *dn = NULL;
         int r;
 
         assert(node);
@@ -931,17 +932,11 @@ int partition_node_of(const char *node, unsigned nr, char **ret) {
         /* Given a device node path to a block device returns the device node path to the partition block
          * device of the specified partition */
 
-        _cleanup_free_ char *fn = NULL;
-        r = path_extract_filename(node, &fn);
+        r = path_split_prefix_filename(node, &dn, &fn);
         if (r < 0)
                 return r;
         if (r == O_DIRECTORY)
                 return -EISDIR;
-
-        _cleanup_free_ char *dn = NULL;
-        r = path_extract_directory(node, &dn);
-        if (r < 0 && r != -EDESTADDRREQ) /* allow if only filename is specified */
-                return r;
 
         size_t l = strlen(fn);
         assert(l > 0); /* underflow check for the subtraction below */

@@ -69,15 +69,11 @@ int make_lock_file_for(const char *p, int operation, LockFile *ret) {
         assert(p);
         assert(ret);
 
-        r = path_extract_filename(p, &fn);
+        r = path_split_prefix_filename(p, &dn, &fn);
         if (r < 0)
                 return r;
 
-        r = path_extract_directory(p, &dn);
-        if (r < 0)
-                return r;
-
-        t = strjoin(dn, "/.#", fn, ".lck");
+        t = strjoin(dn ?: POINTER_MAX, dn ? "/" : POINTER_MAX, ".#", fn, ".lck");
         if (!t)
                 return -ENOMEM;
 
