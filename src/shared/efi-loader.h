@@ -23,3 +23,5 @@ int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat
 int efi_get_variable_id128(const char *variable, sd_id128_t *ret);
 
 bool efi_loader_entry_name_valid(const char *s);
+bool efi_loader_entry_title_valid(const char *s);
+bool efi_loader_entry_resource_filename_valid(const char *s);
