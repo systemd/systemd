@@ -277,7 +277,7 @@ int boot_entry_unlink(
         STRV_FOREACH(s, e->device_tree_overlay)
                 (void) unref_unlink_file(&known_files, root, root_fd, *s, dry_run);
 
-        if (arg_dry_run)
+        if (dry_run)
                 log_info("Would remove \"%s\"", e->path);
         else {
                 const char *p = path_startswith(e->path, root);
