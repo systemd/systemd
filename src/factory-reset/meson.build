@@ -5,6 +5,10 @@ executables += [
                 'name' : 'systemd-factory-reset',
                 'sources' : files('factory-reset-tool.c'),
         },
+        libexec_template + {
+                'name' : 'systemd-factory-reset-uki',
+                'sources' : files('factory-reset-uki.c'),
+        },
         generator_template + {
                 'name' : 'systemd-factory-reset-generator',
                 'sources' : files('factory-reset-generator.c'),

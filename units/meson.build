@@ -338,6 +338,10 @@ units = [
           'symlinks' : ['factory-reset.target.wants/'],
         },
         {
+          'file' : 'systemd-factory-reset-uki.service.in',
+          'symlinks' : ['factory-reset.target.wants/'],
+        },
+        {
           'file' : 'systemd-firstboot.service',
           'conditions' : ['ENABLE_FIRSTBOOT'],
           'symlinks' : ['sysinit.target.wants/'],
