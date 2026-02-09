@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fnmatch.h>
 #include <unistd.h>
 
 #include "sd-varlink.h"
@@ -10,55 +9,19 @@
 #include "bootctl-status.h"
 #include "bootctl-util.h"
 #include "bootspec.h"
+#include "bootspec-util.h"
 #include "chase.h"
-#include "devnum-util.h"
 #include "dirent-util.h"
 #include "efi-api.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "hashmap.h"
 #include "log.h"
 #include "pager.h"
-#include "path-util.h"
 #include "pretty-print.h"
-#include "recurse-dir.h"
 #include "string-util.h"
-#include "strv.h"
 #include "tpm2-util.h"
-
-static int boot_config_load_and_select(
-                BootConfig *config,
-                const char *esp_path,
-                dev_t esp_devid,
-                const char *xbootldr_path,
-                dev_t xbootldr_devid) {
-
-        int r;
-
-        /* If XBOOTLDR and ESP actually refer to the same block device, suppress XBOOTLDR, since it would
-         * find the same entries twice. */
-        bool same = esp_path && xbootldr_path && devnum_set_and_equal(esp_devid, xbootldr_devid);
-
-        r = boot_config_load(config, esp_path, same ? NULL : xbootldr_path);
-        if (r < 0)
-                return r;
-
-        if (!arg_root) {
-                _cleanup_strv_free_ char **efi_entries = NULL;
-
-                r = efi_loader_get_entries(&efi_entries);
-                if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        log_debug_errno(r, "Boot loader reported no entries.");
-                else if (r < 0)
-                        log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
-                else
-                        (void) boot_config_augment_from_loader(config, efi_entries, /* auto_only= */ false);
-        }
-
-        return boot_config_select_special_entries(config, /* skip_efivars= */ !!arg_root);
-}
 
 static int status_entries(
                 const BootConfig *config,
@@ -637,256 +600,6 @@ int verb_status(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int ref_file(Hashmap **known_files, const char *fn, int increment) {
-        char *k = NULL;
-        int n, r;
-
-        assert(known_files);
-
-        /* just gracefully ignore this. This way the caller doesn't have to verify whether the bootloader
-         * entry is relevant. */
-        if (!fn)
-                return 0;
-
-        n = PTR_TO_INT(hashmap_get2(*known_files, fn, (void**)&k));
-        n += increment;
-
-        assert(n >= 0);
-
-        if (n == 0) {
-                (void) hashmap_remove(*known_files, fn);
-                free(k);
-        } else if (!k) {
-                _cleanup_free_ char *t = NULL;
-
-                t = strdup(fn);
-                if (!t)
-                        return -ENOMEM;
-                r = hashmap_ensure_put(known_files, &path_hash_ops_free, t, INT_TO_PTR(n));
-                if (r < 0)
-                        return r;
-                TAKE_PTR(t);
-        } else {
-                r = hashmap_update(*known_files, fn, INT_TO_PTR(n));
-                if (r < 0)
-                        return r;
-        }
-
-        return n;
-}
-
-static void deref_unlink_file(Hashmap **known_files, const char *fn, const char *root) {
-        _cleanup_free_ char *path = NULL;
-        int r;
-
-        assert(known_files);
-
-        /* just gracefully ignore this. This way the caller doesn't
-           have to verify whether the bootloader entry is relevant */
-        if (!fn || !root)
-                return;
-
-        r = ref_file(known_files, fn, -1);
-        if (r < 0)
-                return (void) log_warning_errno(r, "Failed to deref \"%s\", ignoring: %m", fn);
-        if (r > 0)
-                return;
-
-        if (arg_dry_run) {
-                r = chase_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, F_OK, &path);
-                if (r < 0)
-                        log_info_errno(r, "Unable to determine whether \"%s\" exists, ignoring: %m", fn);
-                else
-                        log_info("Would remove \"%s\"", path);
-                return;
-        }
-
-        r = chase_and_unlink(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, 0, &path);
-        if (r >= 0)
-                log_info("Removed \"%s\"", path);
-        else if (r != -ENOENT)
-                return (void) log_warning_errno(r, "Failed to remove \"%s\", ignoring: %m", fn);
-
-        _cleanup_free_ char *d = NULL;
-        if (path_extract_directory(fn, &d) >= 0 && !path_equal(d, "/")) {
-                r = chase_and_unlink(d, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, AT_REMOVEDIR, NULL);
-                if (r < 0 && !IN_SET(r, -ENOTEMPTY, -ENOENT))
-                        log_warning_errno(r, "Failed to remove directory \"%s\", ignoring: %m", d);
-        }
-}
-
-static int count_known_files(const BootConfig *config, const char* root, Hashmap **ret_known_files) {
-        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
-        int r;
-
-        assert(config);
-        assert(ret_known_files);
-
-        for (size_t i = 0; i < config->n_entries; i++) {
-                const BootEntry *e = config->entries + i;
-
-                if (!path_equal(e->root, root))
-                        continue;
-
-                r = ref_file(&known_files, e->kernel, +1);
-                if (r < 0)
-                        return r;
-                r = ref_file(&known_files, e->efi, +1);
-                if (r < 0)
-                        return r;
-                r = ref_file(&known_files, e->uki, +1);
-                if (r < 0)
-                        return r;
-                STRV_FOREACH(s, e->initrd) {
-                        r = ref_file(&known_files, *s, +1);
-                        if (r < 0)
-                                return r;
-                }
-                r = ref_file(&known_files, e->device_tree, +1);
-                if (r < 0)
-                        return r;
-                STRV_FOREACH(s, e->device_tree_overlay) {
-                        r = ref_file(&known_files, *s, +1);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        *ret_known_files = TAKE_PTR(known_files);
-
-        return 0;
-}
-
-static int boot_config_find_in(const BootConfig *config, const char *root, const char *id) {
-        assert(config);
-
-        if (!root || !id)
-                return -ENOENT;
-
-        for (size_t i = 0; i < config->n_entries; i++)
-                if (path_equal(config->entries[i].root, root) &&
-                    fnmatch(id, config->entries[i].id, FNM_CASEFOLD) == 0)
-                        return i;
-
-        return -ENOENT;
-}
-
-static int unlink_entry(const BootConfig *config, const char *root, const char *id) {
-        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
-        const BootEntry *e = NULL;
-        int r;
-
-        assert(config);
-
-        r = count_known_files(config, root, &known_files);
-        if (r < 0)
-                return log_error_errno(r, "Failed to count files in %s: %m", root);
-
-        r = boot_config_find_in(config, root, id);
-        if (r < 0)
-                return 0; /* There is nothing to remove. */
-
-        if (r == config->default_entry)
-                log_warning("%s is the default boot entry", id);
-        if (r == config->selected_entry)
-                log_warning("%s is the selected boot entry", id);
-
-        e = &config->entries[r];
-
-        deref_unlink_file(&known_files, e->kernel, e->root);
-        deref_unlink_file(&known_files, e->efi, e->root);
-        deref_unlink_file(&known_files, e->uki, e->root);
-        STRV_FOREACH(s, e->initrd)
-                deref_unlink_file(&known_files, *s, e->root);
-        deref_unlink_file(&known_files, e->device_tree, e->root);
-        STRV_FOREACH(s, e->device_tree_overlay)
-                deref_unlink_file(&known_files, *s, e->root);
-
-        if (arg_dry_run)
-                log_info("Would remove \"%s\"", e->path);
-        else {
-                r = chase_and_unlink(e->path, root, CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, 0, NULL);
-                if (r == -ENOENT)
-                        return 0; /* Already removed? */
-                if (r < 0)
-                        return log_error_errno(r, "Failed to remove \"%s\": %m", e->path);
-
-                log_info("Removed %s", e->path);
-        }
-
-        return 0;
-}
-
-static int list_remove_orphaned_file(
-                RecurseDirEvent event,
-                const char *path,
-                int dir_fd,
-                int inode_fd,
-                const struct dirent *de,
-                const struct statx *sx,
-                void *userdata) {
-
-        Hashmap *known_files = userdata;
-
-        assert(path);
-
-        if (event != RECURSE_DIR_ENTRY)
-                return RECURSE_DIR_CONTINUE;
-
-        if (hashmap_get(known_files, path))
-                return RECURSE_DIR_CONTINUE; /* keep! */
-
-        if (arg_dry_run)
-                log_info("Would remove %s", path);
-        else if (unlinkat(dir_fd, de->d_name, 0) < 0)
-                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                               "Failed to remove \"%s\", ignoring: %m", path);
-        else
-                log_info("Removed %s", path);
-
-        return RECURSE_DIR_CONTINUE;
-}
-
-static int cleanup_orphaned_files(
-                const BootConfig *config,
-                const char *root) {
-
-        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
-        _cleanup_free_ char *full = NULL, *p = NULL;
-        _cleanup_close_ int dir_fd = -EBADF;
-        int r;
-
-        assert(config);
-        assert(root);
-
-        log_info("Cleaning %s", root);
-
-        r = settle_entry_token();
-        if (r < 0)
-                return r;
-
-        r = count_known_files(config, root, &known_files);
-        if (r < 0)
-                return log_error_errno(r, "Failed to count files in %s: %m", root);
-
-        dir_fd = chase_and_open(arg_entry_token, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS,
-                        O_DIRECTORY|O_CLOEXEC, &full);
-        if (dir_fd == -ENOENT)
-                return 0;
-        if (dir_fd < 0)
-                return log_error_errno(dir_fd, "Failed to open '%s/%s': %m", root, skip_leading_slash(arg_entry_token));
-
-        p = path_join("/", arg_entry_token);
-        if (!p)
-                return log_oom();
-
-        r = recurse_dir(dir_fd, p, 0, UINT_MAX, RECURSE_DIR_SORT, list_remove_orphaned_file, known_files);
-        if (r < 0)
-                return log_error_errno(r, "Failed to cleanup %s: %m", full);
-
-        return r;
-}
-
 int verb_list(int argc, char *argv[], void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
@@ -918,19 +631,8 @@ int verb_list(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        if (streq(argv[0], "list")) {
-                pager_open(arg_pager_flags);
-                return show_boot_entries(&config, arg_json_format_flags);
-        } else if (streq(argv[0], "cleanup")) {
-                if (arg_xbootldr_path && xbootldr_devid != esp_devid)
-                        cleanup_orphaned_files(&config, arg_xbootldr_path);
-                return cleanup_orphaned_files(&config, arg_esp_path);
-        } else {
-                assert(streq(argv[0], "unlink"));
-                if (arg_xbootldr_path && xbootldr_devid != esp_devid)
-                        r = unlink_entry(&config, arg_xbootldr_path, argv[1]);
-                return RET_GATHER(r, unlink_entry(&config, arg_esp_path, argv[1]));
-        }
+        pager_open(arg_pager_flags);
+        return show_boot_entries(&config, arg_json_format_flags);
 }
 
 int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

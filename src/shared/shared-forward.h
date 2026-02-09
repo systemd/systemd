@@ -46,6 +46,7 @@ typedef enum UserStorage UserStorage;
 
 typedef struct Bitmap Bitmap;
 typedef struct BPFProgram BPFProgram;
+typedef struct BootConfig BootConfig;
 typedef struct BusObjectImplementation BusObjectImplementation;
 typedef struct CalendarSpec CalendarSpec;
 typedef struct Condition Condition;
