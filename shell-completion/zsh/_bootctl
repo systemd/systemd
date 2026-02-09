@@ -24,8 +24,28 @@ _bootctl_set-oneshot() {
     _bootctl_comp_ids
 }
 
+_bootctl_set-sysfail() {
+    _bootctl_comp_ids
+}
+
+_bootctl_set-preferred() {
+    _bootctl_comp_ids
+}
+
 _bootctl_unlink() {
     _bootctl_comp_ids
+}
+
+_bootctl_link() {
+    _files
+}
+
+_bootctl_kernel-identify() {
+    _files
+}
+
+_bootctl_kernel-inspect() {
+    _files
 }
 
 _bootctl_reboot-to-firmware() {
@@ -49,10 +69,15 @@ _bootctl_reboot-to-firmware() {
         "list:List boot loader entries"
         "set-default:Set the default boot loader entry"
         "set-oneshot:Set the default boot loader entry only for the next boot"
+        "set-sysfail:Set boot loader entry used in case of a system failure"
+        "set-preferred:Set the preferred boot loader entry"
         "set-timeout:Set the menu timeout"
         "set-timeout-oneshot:Set the menu timeout for the next boot only"
         "unlink:Remove boot loader entry"
+        "link:Add boot loader entry"
         "cleanup:Remove files in ESP not referenced in any boot entry"
+        "kernel-identify:Identify kernel image type"
+        "kernel-inspect:Print details about the kernel image"
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'bootctl command' _bootctl_cmds || compadd "$@"
