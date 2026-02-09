@@ -87,7 +87,7 @@ _bootctl() {
         [STANDALONE]='help status install update remove is-installed random-seed list set-timeout set-timeout-oneshot cleanup'
         [BOOTENTRY]='set-default set-oneshot set-sysfail unlink'
         [BOOLEAN]='reboot-to-firmware'
-        [FILE]='kernel-identify kernel-inspect'
+        [FILE]='kernel-identify kernel-inspect link'
     )
 
     for ((i=0; i < COMP_CWORD; i++)); do
