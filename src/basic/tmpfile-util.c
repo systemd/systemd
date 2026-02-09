@@ -161,17 +161,12 @@ static int tempfn_build(const char *p, const char *pre, const char *post, bool c
                 if (!d)
                         return -ENOMEM;
         } else {
-                r = path_extract_directory(p, &d);
-                if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → No directory specified, just a filename */
-                        return r;
-
-                r = path_extract_filename(p, &fn);
+                r = path_split_prefix_filename(p, &d, &fn);
                 if (r < 0)
                         return r;
 
-                if (strlen(fn) > NAME_MAX - len_add)
-                        /* We cannot simply prepend and append strings to the filename. Let's truncate the filename. */
-                        fn[NAME_MAX - len_add] = '\0';
+                /* Truncate the filename if it would become too long after mangling. */
+                strshorten(fn, NAME_MAX - len_add);
         }
 
         nf = strjoin(".#", strempty(pre), strempty(fn), strempty(post));
