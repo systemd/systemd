@@ -9,6 +9,7 @@
 #include "ip-protocol-list.h"
 #include "path-util.h"
 #include "set.h"
+#include "strv.h"
 #include "unit.h"
 #include "varlink-cgroup.h"
 #include "varlink-common.h"
@@ -228,6 +229,24 @@ static int controllers_build_json(sd_json_variant **ret, const char *name, void 
         return 0;
 }
 
+static int managed_oom_rules_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        char *oom_rules = userdata;
+        int r;
+
+        assert(ret);
+        assert(name);
+
+        STRV_FOREACH(rule, oom_rules) {
+                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_STRING(rule));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Unit *u = ASSERT_PTR(userdata);
 
@@ -324,6 +343,7 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_STRING("ManagedOOMPreference", managed_oom_preference_to_string(c->moom_preference)),
                         SD_JSON_BUILD_PAIR_STRING("MemoryPressureWatch", cgroup_pressure_watch_to_string(c->memory_pressure_watch)),
                         JSON_BUILD_PAIR_FINITE_USEC("MemoryPressureThresholdUSec", c->memory_pressure_threshold_usec),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("OOMRules", managed_oom_rules_build_json, c->moom_rules),
 
                         /* Others */
                         SD_JSON_BUILD_PAIR_BOOLEAN("CoredumpReceive", c->coredump_receive));

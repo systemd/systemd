@@ -649,6 +649,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets)
                 fprintf(f, "%sNFTSet: %s:%s:%s:%s\n", prefix, nft_set_source_to_string(nft_set->source),
                         nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set);
+
+        STRV_FOREACH(rule, c->moom_rules)
+                fprintf(f, "%sOOMRules: %s\n", prefix, *rule);
 }
 
 void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f) {
