@@ -11,6 +11,7 @@ int verify_regular_at(int fd, const char *path, bool follow);
 int fd_verify_regular(int fd);
 
 int stat_verify_directory(const struct stat *st);
+int statx_verify_directory(const struct statx *stx);
 int fd_verify_directory(int fd);
 int is_dir_at(int fd, const char *path, bool follow);
 int is_dir(const char *path, bool follow);

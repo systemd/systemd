@@ -263,9 +263,14 @@ int is_mount_point_at(int dir_fd, const char *path, int flags) {
         /* When running on chroot environment, the root may not be a mount point, but we unconditionally
          * return true when the input is "/" in the above, but the shortcut may not work e.g. when the path
          * is relative. */
-        struct statx sx2 = {}; /* explicitly initialize the struct to make msan silent. */
-        if (statx(AT_FDCWD, "/", AT_STATX_DONT_SYNC, STATX_TYPE|STATX_INO, &sx2) < 0)
-                return -errno;
+        struct statx sx2;
+        r = xstatx(AT_FDCWD,
+                   "/",
+                   AT_STATX_DONT_SYNC,
+                   STATX_TYPE|STATX_INO,
+                   &sx2);
+        if (r < 0)
+                return r;
 
         return statx_inode_same(&sx, &sx2);
 }

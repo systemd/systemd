@@ -129,9 +129,6 @@ Features:
   - how to plug facts into this? i.e. hostname, ssh keys, and so on
   - switch to daan's suggested hierarchy?
 
-* mountfsd: when looking for non-foreign uid owned inodes up the tree, stop at
-  mounts
-
 * downgrade the uid/gid disposition enforcement in udev
 
 * have a signal that reloads every unit that supports reloading
