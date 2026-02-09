@@ -259,7 +259,7 @@ int boot_entry_unlink(
         STRV_FOREACH(s, e->device_tree_overlay)
                 unref_unlink_file(&known_files, root_fd, *s, dry_run);
 
-        if (arg_dry_run)
+        if (dry_run)
                 log_info("Would remove \"%s\"", e->path);
         else {
                 r = chase_and_unlinkat(root_fd, e->path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS|CHASE_MUST_BE_REGULAR, /* unlink_flags= */ 0, /* ret_path= */ NULL);
